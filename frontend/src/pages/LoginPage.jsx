@@ -1,12 +1,13 @@
 import bgImage from "../assets/images/login-background.jpg";
-import logo from "../assets/icons/logo.png";  // <-- Add this
+import logo from "../assets/icons/logo.png";
+import LoginForm from "../components/LoginForm";   // <-- NEW LOGIN FORM
 
-const Homepage = () => {
+const LoginPage = () => {
     return (
         <>
             <div className="relative flex h-screen w-full overflow-hidden">
                 
-                {/* LEFT SIDE (extended to 70%) */}
+                {/* LEFT SIDE (70%) */}
                 <div className="relative w-[70%] h-full">
 
                     {/* Background */}
@@ -14,42 +15,44 @@ const Homepage = () => {
                         <img
                             src={bgImage}
                             alt="Background"
-                            className="w-full h-full object-cover scale-150 -translate-x-[25%]"
+                            className="w-full h-full object-cover scale-145 -translate-x-[25%]"
                         />
                     </div>
 
                     {/* BLUE Overlay */}
                     <div className="absolute inset-0 bg-[#000060A3]" />
 
-                    {/* ✔ LOGO TOP-LEFT */}
+                    {/* Logo */}
                     <img
                         src={logo}
                         alt="Cureli Logo"
-                        className="absolute top-6 left-6 w-32 z-20"
+                        className="absolute top-10 left-6 w-45 z-20"
                     />
 
-                    {/* Content */}
-                    <div className="relative z-10 text-white p-10 mt-20">
-                        <h1 className="text-4xl font-bold">Welcome to Cureli</h1>
-                        <p className="mt-4 text-lg">
-                            “Smarter stock, billing, and expiry control…”
+                    {/* TEXT CONTENT */}
+                    <div className="absolute z-10 text-white px-12 mt-28 font-poppins">
+                        <h1 className="text-5xl mt-10 mb-10 font-semibold leading-tight tracking-wide">
+                            Welcome to Cureli
+                        </h1>
+
+                        <p className="mt-10 text-2xl font-light leading-relaxed text-white">
+                            “Smarter stock, billing, and expiry control.<br />
+                            Your pharmacy starts here.”
                         </p>
                     </div>
                 </div>
 
-                {/* RIGHT SIDE (reduced to 50%) */}
-                <div className="relative w-[50%] h-full bg-white p-10 flex items-center justify-center">
+                {/* RIGHT SIDE (30%) */}
+                <div className="relative w-[50%] h-full bg-white p-10 flex items-center justify-center font-poppins">
                     
                     {/* Slanted divider */}
                     <div
-                        className="absolute left-[-110px] top-0 h-full w-[220px] bg-white transform -skew-x-[20deg]"
+                        className="absolute left-[-85px] top-0 h-full w-[220px] bg-white transform -skew-x-[12deg]"
                     ></div>
 
-                    {/* Content */}
+                    {/* LOGIN FORM (REPLACED WITH NEW) */}
                     <div className="relative z-10 w-full max-w-sm">
-                        <h2 className="text-3xl font-semibold mb-6 text-center">
-                            login
-                        </h2>
+                        <LoginForm />
                     </div>
 
                 </div>
@@ -58,4 +61,4 @@ const Homepage = () => {
     );
 };
 
-export default Homepage;
+export default LoginPage;
