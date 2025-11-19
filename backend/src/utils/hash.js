@@ -1,11 +1,24 @@
-import bcrypt from "bcrypt";
+import express from "express";
+import dotenv from "dotenv";
+dotenv.config();
 
-const SALT_ROUNDS = 12;
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import helmet from "helmet";
 
-export async function hashPassword(plain) {
-  return bcrypt.hash(plain, SALT_ROUNDS);
-}
+import authRoutes from "./src/modules/auth/auth.routes.js";
 
-export async function comparePassword(plain, hash) {
-  return bcrypt.compare(plain, hash);
-}
+const app = express();
+app.use(helmet());
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || true, credentials: true }));
+app.use(express.json());
+app.use(cookieParser());
+
+// routes
+app.use("/api/auth", authRoutes);
+
+// health
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
