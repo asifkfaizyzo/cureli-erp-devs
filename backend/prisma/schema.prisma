@@ -1,8 +1,8 @@
 generator client {
-  provider = "prisma-client"
-  output = "node_modules/@prisma/client"
-
+  provider = "prisma-client-js"
 }
+
+
 
 datasource db {
   provider = "postgresql"
@@ -11,7 +11,7 @@ datasource db {
 
 model User {
   user_id        String    @id @default(uuid()) @db.Uuid
-  shop_id        String    @db.Uuid
+  shop_id        String?    @db.Uuid
   branch_id      String?   @db.Uuid
   first_name     String
   last_name      String
@@ -29,7 +29,8 @@ model User {
   updated_at     DateTime  @updatedAt @db.Timestamptz(6)
   shops_owned    Shop[]    @relation("OwnerOfShop")
   branch         Branch?   @relation(fields: [branch_id], references: [branch_id])
-  shop           Shop      @relation("UsersInShop", fields: [shop_id], references: [shop_id])
+  shop           Shop?     @relation("UsersInShop", fields: [shop_id], references: [shop_id])
+
 
   @@map("users")
 }
