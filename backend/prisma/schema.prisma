@@ -23,6 +23,7 @@ model User {
   google_id      String?   @unique
   login_provider String
   role           String
+  status         String   @default("pending_setup")
   is_active      Boolean   @default(true)
   last_login_at  DateTime? @db.Timestamptz(6)
   created_at     DateTime  @default(now()) @db.Timestamptz(6)
@@ -41,7 +42,7 @@ model Shop {
   business_name           String
   legal_name              String?
   gst_number              String?  @unique
-  business_type           String
+  business_type           String?
   address_line_1          String
   address_line_2          String?
   city                    String

@@ -7,6 +7,7 @@ import cors from "cors";
 import helmet from "helmet";
 
 import authRoutes from "./src/modules/auth/auth.routes.js";
+import shopRoutes from "./src/modules/shop/shop.routes.js";
 
 const app = express();
 app.use(helmet());
@@ -16,6 +17,7 @@ app.use(cookieParser());
 
 // routes
 app.use("/api/auth", authRoutes);
+app.use("/api/shop", shopRoutes);
 
 // health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

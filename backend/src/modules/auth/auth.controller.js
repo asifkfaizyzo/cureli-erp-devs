@@ -3,7 +3,7 @@ import { success, fail } from "../../utils/response.js";
 
 export async function signupOwner(req, res) {
   try {
-    const { first_name, last_name, email, password } = req.validated || req.body;
+    const { first_name, last_name, email, password } = req.validated ;
 
     const { user, shop, branch, tokens } = await createOwnerAccount({ first_name, last_name, email, password });
 
