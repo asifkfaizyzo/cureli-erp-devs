@@ -1,0 +1,128 @@
+import { useState, useRef, useEffect } from "react";
+
+const EmailOTP = ({ onContinue }) => {
+    const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+    const [timer, setTimer] = useState(30);
+    const [error, setError] = useState("");
+
+    const inputsRef = useRef([]);
+    const DUMMY_OTP = "123456";
+
+    // TIMER LOGIC
+    useEffect(() => {
+        if (timer <= 0) return;
+        const interval = setInterval(() => setTimer((t) => t - 1), 1000);
+        return () => clearInterval(interval);
+    }, [timer]);
+
+    // Handle OTP input
+    const handleChange = (value, index) => {
+        if (!/^[0-9]?$/.test(value)) return;
+
+        const newOtp = [...otp];
+        newOtp[index] = value;
+        setOtp(newOtp);
+
+        if (value && index < 5) {
+            inputsRef.current[index + 1].focus();
+        }
+    };
+
+    // Submit logic
+    const handleSubmit = () => {
+        const fullOtp = otp.join("");
+
+        if (fullOtp.length !== 6) {
+            setError("Please enter a 6-digit code.");
+            return;
+        }
+
+        if (fullOtp !== DUMMY_OTP) {
+            setError("Invalid OTP. Try again.");
+            return;
+        }
+
+        setError("");
+        onContinue();
+    };
+
+    // Reset OTP + Timer
+    const handleResend = () => {
+        setOtp(["", "", "", "", "", ""]);
+        setTimer(30);
+        inputsRef.current[0].focus();
+    };
+
+    return (
+        <div
+            className="w-full max-w-sm font-poppins px-3 mt-10"
+            style={{ marginLeft: "-25%" }}
+        >
+            {/* TITLE */}
+            <h2 className="text-[26px] font-bold text-[#000006]">
+                Verify Your Email
+            </h2>
+
+            {/* SUBTEXT */}
+            <p className="text-gray-500 text-sm leading-relaxed mt-1 mb-4">
+                We require this to verify your identity. Your details remain safe.
+            </p>
+
+            {/* DIVIDER */}
+            <div className="w-full h-[1px] bg-gray-300 mb-5" />
+
+            {/* LABEL */}
+            <p className="text-sm font-medium text-[#000060] mb-2">
+                Verification Code
+            </p>
+
+            {/* OTP BOXES */}
+            <div className="flex gap-3 mb-1">
+                {otp.map((digit, i) => (
+                    <input
+                        key={i}
+                        ref={(el) => (inputsRef.current[i] = el)}
+                        type="text"
+                        maxLength="1"
+                        value={digit}
+                        onChange={(e) => handleChange(e.target.value, i)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Backspace" && !otp[i] && i > 0) {
+                                inputsRef.current[i - 1].focus();
+                            }
+                            if (e.key === "Enter") handleSubmit();
+                        }}
+                        className={`w-11 h-11 border rounded-lg text-center text-xl 
+                            ${error ? "border-red-500" : "border-gray-300"}
+                            focus:ring-2 focus:ring-[#000060]`}
+                    />
+                ))}
+            </div>
+
+            {/* RESEND TIMER */}
+            <p className="text-center text-sm text-[#7A3AFF] mt-3">
+                <span
+                    className="cursor-pointer hover:underline"
+                    onClick={handleResend}
+                >
+                    Resend Code
+                </span>{" "}
+                : {timer}
+            </p>
+
+            {/* ERROR MESSAGE */}
+            {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+
+            {/* CONTINUE BUTTON */}
+            <button
+                onClick={handleSubmit}
+                className="w-full bg-[#000060] text-white py-3 rounded-xl mt-6
+                           hover:bg-[#000060d1] transition"
+            >
+                Continue
+            </button>
+        </div>
+    );
+};
+
+export default EmailOTP;
