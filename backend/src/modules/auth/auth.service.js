@@ -25,70 +25,36 @@ export async function createOwnerAccount({ first_name, last_name, email, passwor
   // hash password
   const password_hash = await hashPassword(password);
 
-  // transaction: create user -> shop -> branch -> update user with shop_id & branch_id
-  const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        first_name,
-        last_name,
-        full_name: `${first_name} ${last_name}`,
-        email,
-        password_hash,
-        login_provider: "password",
-        role: "super_admin",
-        is_active: true,
-      },
-    });
-
-    const shop = await tx.shop.create({
-      data: {
-        owner_user_id: user.user_id,
-        business_name: `${first_name}'s Pharmacy`,
-        verification_status: "pending",
-      },
-    });
-
-    // create main branch for the shop
-    const branch = await tx.branch.create({
-      data: {
-        shop_id: shop.shop_id,
-        branch_name: `${shop.business_name} (Main Branch)`,
-        branch_type: "main",
-        address_line_1: "Not provided",
-        city: "Not provided",
-        state: "Not provided",
-        pincode: "000000",
-        contact_number: "Not provided",
-        branch_seat_limit: 3, // default safe number; owner can change later
-      },
-    });
-
-    // update user with shop_id and branch_id
-    const updatedUser = await tx.user.update({
-      where: { user_id: user.user_id },
-      data: { shop_id: shop.shop_id, branch_id: branch.branch_id },
-    });
-
-    return { user: updatedUser, shop, branch };
+  const user = await prisma.user.create({
+    data: {
+      first_name,
+      last_name,
+      full_name: `${first_name} ${last_name}`,
+      email,
+      password_hash,
+      login_provider: "password",
+      role: "super_admin",
+      status: "pending_setup",
+      is_active: true,
+    },
   });
+
 
   // issue tokens
   const accessToken = jwt.sign(
-    { user_id: result.user.user_id, shop_id: result.shop.shop_id, role: result.user.role, branch_id: result.branch.branch_id },
+    { user_id: user.user_id,  role: user.role, status: user.status },
     ACCESS_SECRET,
     { expiresIn: ACCESS_EXPIRES }
   );
 
   const refreshToken = jwt.sign(
-    { user_id: result.user.user_id, shop_id: result.shop.shop_id },
+    { user_id: user.user_id },
     REFRESH_SECRET,
     { expiresIn: REFRESH_EXPIRES }
   );
 
   return {
-    user: result.user,
-    shop: result.shop,
-    branch: result.branch,
+    user,
     tokens: { accessToken, refreshToken },
   };
 }
