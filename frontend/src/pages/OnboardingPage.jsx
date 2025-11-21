@@ -27,10 +27,10 @@ const OnboardingPage = () => {
 
     const renderStep = () => {
         switch (progressStep) {
-            case 0: return <IdentityForm onContinue={handleContinue} />;
-            case 1: return <EmailOTP onContinue={handleContinue} />;
-            case 2: return <PhoneDetails onContinue={handleContinue} />;
-            case 3: return <PhoneOTP onContinue={handleContinue} />;
+            case 0: return <EmailOTP onContinue={handleContinue} />;
+            case 1: return <PhoneDetails onContinue={handleContinue} />;
+            case 2: return <PhoneOTP onContinue={handleContinue} />;
+            case 3: return <IdentityForm onContinue={handleContinue} />;
             case 4: return <BusinessInfo onContinue={handleContinue} />;
             case 5: return <BusinessTypeAndGST onContinue={handleContinue} />;
             case 6: return <UploadDrugLicense onContinue={handleContinue} />;
