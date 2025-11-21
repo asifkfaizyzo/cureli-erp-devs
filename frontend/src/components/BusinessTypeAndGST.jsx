@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const BusinessTypeAndGST = ({ onContinue }) => {
     const [form, setForm] = useState({
@@ -9,6 +9,9 @@ const BusinessTypeAndGST = ({ onContinue }) => {
     const [errors, setErrors] = useState({});
     const [gstValid, setGstValid] = useState(null);
 
+    const gstRef = useRef(null);
+    const typeRef = useRef(null);
+
     const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
     const businessTypes = [
@@ -18,6 +21,11 @@ const BusinessTypeAndGST = ({ onContinue }) => {
         "LLP",
     ];
 
+    // Auto-focus business type on load
+    useEffect(() => {
+        if (typeRef.current) typeRef.current.focus();
+    }, []);
+
     const handleChange = (field, value) => {
         setForm((prev) => ({ ...prev, [field]: value }));
     };
@@ -26,8 +34,12 @@ const BusinessTypeAndGST = ({ onContinue }) => {
         let newErrors = {};
 
         if (!form.type.trim()) newErrors.type = "Please select a business type";
-        if (!form.gst.trim()) newErrors.gst = "GST number is required";
-        else if (!GST_REGEX.test(form.gst)) newErrors.gst = "Invalid GST format";
+
+        if (!form.gst.trim()) {
+            newErrors.gst = "GST number is required";
+        } else if (!GST_REGEX.test(form.gst)) {
+            newErrors.gst = "Invalid GST format";
+        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -35,7 +47,7 @@ const BusinessTypeAndGST = ({ onContinue }) => {
 
     const handleSubmit = () => {
         if (!validate()) return;
-        onContinue(); // Move to the next step
+        onContinue();
     };
 
     return (
@@ -50,10 +62,18 @@ const BusinessTypeAndGST = ({ onContinue }) => {
             {/* BUSINESS TYPE */}
             <label className="text-xs font-bold text-[#000060]">Business Type *</label>
             <select
+                ref={typeRef}
                 value={form.type}
                 onChange={(e) => handleChange("type", e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        gstRef.current.focus();
+                    }
+                }}
                 className={`w-full mt-1 px-3 py-2 bg-white border rounded-lg 
-                    ${errors.type ? "border-red-500" : "border-gray-300"}`}
+                    ${errors.type ? "border-red-500" : "border-gray-300"}
+                    focus:ring-2 focus:ring-[#000060] transition`}
             >
                 <option value="">Select business type</option>
                 {businessTypes.map((t, idx) => (
@@ -62,11 +82,14 @@ const BusinessTypeAndGST = ({ onContinue }) => {
                     </option>
                 ))}
             </select>
-            {errors.type && <p className="text-red-500 text-xs mt-1 mb-3">{errors.type}</p>}
+            {errors.type && (
+                <p className="text-red-500 text-xs mt-1 mb-3">{errors.type}</p>
+            )}
 
             {/* GST NUMBER */}
             <label className="text-xs font-bold text-[#000060]">GST Number *</label>
             <input
+                ref={gstRef}
                 type="text"
                 maxLength={15}
                 value={form.gst}
@@ -76,6 +99,10 @@ const BusinessTypeAndGST = ({ onContinue }) => {
                     handleChange("gst", value);
                     setGstValid(value === "" ? null : GST_REGEX.test(value));
                 }}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmit();
+                }}
+                onFocus={(e) => e.target.select()}
                 className={`w-full mt-1 px-3 py-2 bg-white border rounded-lg transition
                     ${
                         gstValid === null
@@ -83,7 +110,8 @@ const BusinessTypeAndGST = ({ onContinue }) => {
                             : gstValid
                             ? "border-green-600"
                             : "border-red-500"
-                    }`}
+                    }
+                    focus:ring-2 focus:ring-[#000060]`}
             />
 
             {gstValid === false && (

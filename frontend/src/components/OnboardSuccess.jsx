@@ -3,7 +3,7 @@ import success from "../assets/images/success.jpg";
 
 const OnboardSuccess = ({ onStart }) => {
     return (
-        <div className="w-full flex flex-col items-center mt-10 px-4 font-poppins">
+        <div className="w-full flex flex-col items-center mt-5 px-4 font-poppins">
 
             {/* CARD */}
             <div
@@ -14,7 +14,7 @@ const OnboardSuccess = ({ onStart }) => {
                 <img
                     src={success}
                     alt="success"
-                    className="w-32 h-30 mb-4"
+                    className="w-32 h-30 mb-2"
                 />
 
                 {/* TITLE */}
@@ -32,7 +32,7 @@ const OnboardSuccess = ({ onStart }) => {
             <button
                 onClick={onStart}
                 className="w-full max-w-md bg-[#000060] text-white py-3 rounded-xl 
-                           hover:bg-[#000060d1] transition font-medium mt-6"
+                           hover:bg-[#000060d1] transition font-medium mt-4"
             >
                 Get Started
             </button>
