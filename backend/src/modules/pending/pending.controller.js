@@ -4,9 +4,17 @@ import {
   verifyEmailOtp,
   setUsername,
   sendSmsOtp,
-  verifySmsOtp
+  verifySmsOtp,
 } from "./pending.service.js";
 import { success, fail } from "../../utils/response.js";
+
+import jwt from "jsonwebtoken";
+import {
+  ACCESS_SECRET,
+  REFRESH_SECRET,
+  ACCESS_EXPIRES,
+  REFRESH_EXPIRES,
+} from "../../config/jwt.js";
 
 export async function startPendingSignup(req, res) {
   try {
@@ -131,9 +139,51 @@ export async function chooseUsernameController(req, res) {
     if (err.code === "EMAIL_NOT_VERIFIED" || err.code === "PHONE_NOT_VERIFIED")
       return fail(res, err.message, 400);
     if (err.code === "USERNAME_EXISTS") return fail(res, err.message, 400);
-    if (err.code === "USERNAME_PENDING_EXISTS") return fail(res, err.message, 400);
+    if (err.code === "USERNAME_PENDING_EXISTS")
+      return fail(res, err.message, 400);
 
     console.error(err);
     return fail(res, "Failed to save username", 500);
+  }
+}
+
+
+/* FINALIZE SIGNUP → CREATE SUPERADMIN */
+export async function completePendingSignupController(req, res) {
+  try {
+    const { pending_id } = req.body;
+
+    const user = await finalizePendingSignup(pending_id);
+
+    const accessToken = jwt.sign(
+      { user_id: user.user_id, role: user.role, status: user.status },
+      ACCESS_SECRET,
+      { expiresIn: ACCESS_EXPIRES }
+    );
+
+    const refreshToken = jwt.sign(
+      { user_id: user.user_id },
+      REFRESH_SECRET,
+      { expiresIn: REFRESH_EXPIRES }
+    );
+
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    return success(
+      res,
+      {
+        user,
+        access_token: accessToken
+      },
+      "Signup completed",
+      201
+    );
+  } catch (err) {
+    return fail(res, err.message, 400);
   }
 }

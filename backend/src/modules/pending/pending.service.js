@@ -318,3 +318,53 @@ export async function setUsername(pending_id, username) {
 
   return true;
 }
+
+
+export async function finalizePendingSignup(pending_id) {
+  const pending = await prisma.pendingUser.findUnique({ where: { pending_id }});
+
+  if (!pending) {
+    const err = new Error("Pending user not found");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  if (!pending.email_verified) {
+    const err = new Error("Email not verified");
+    err.code = "EMAIL_NOT_VERIFIED";
+    throw err;
+  }
+
+  if (!pending.sms_verified) {
+    const err = new Error("Phone not verified");
+    err.code = "PHONE_NOT_VERIFIED";
+    throw err;
+  }
+
+  if (!pending.username) {
+    const err = new Error("Username required");
+    err.code = "NO_USERNAME";
+    throw err;
+  }
+
+  // CREATE SUPERADMIN
+  const user = await prisma.user.create({
+    data: {
+      first_name: pending.first_name,
+      last_name: pending.last_name,
+      full_name: pending.first_name + " " + pending.last_name,
+      email: pending.email,
+      username: pending.username,
+      phone_number: pending.phone,
+      password_hash: pending.password_hash,
+      login_provider: "password",
+      role: "super_admin",
+      status: "pending_setup",
+      is_active: true
+    }
+  });
+
+  await prisma.pendingUser.delete({ where: { pending_id }});
+
+  return user;
+}

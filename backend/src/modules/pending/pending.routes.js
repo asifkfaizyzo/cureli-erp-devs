@@ -11,7 +11,8 @@ import {
   verifyEmailOtpController,
   requestSmsOtp,
   verifySmsOtpController,
-  chooseUsernameController
+  chooseUsernameController,
+  completePendingSignupController
 } from "./pending.controller.js";
 
 const router = express.Router();
@@ -28,5 +29,6 @@ router.post("/signup/verify-sms", verifySmsOtpController);
 
 // Username selection — now requires BOTH email && phone verified
 router.post("/signup/username", validateBody(usernameSchema), chooseUsernameController);
+router.post("/signup/complete", completePendingSignupController);
 
 export default router;
