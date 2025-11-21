@@ -21,10 +21,11 @@ model PendingUser {
   email_otp_expires DateTime?
   email_verified    Boolean  @default(false)
 
-  phone_number      String?
-  phone_otp_hash    String?
-  phone_otp_expires DateTime?
-  phone_verified    Boolean  @default(false)
+  phone                 String?   @db.Text
+  sms_verification_id   String?   @db.Text
+  sms_transaction_id    String?   @db.Text
+  sms_otp_expires       DateTime? @db.Timestamptz
+  sms_verified          Boolean   @default(false)
 
   username          String?  // chosen AFTER verification, before finalizing account
 
