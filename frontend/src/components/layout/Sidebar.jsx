@@ -52,11 +52,11 @@ const Sidebar = ({ activeId = "billing", onChange }) => {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={`
-        h-[calc(100vh-64px)] bg-white border-r transition-all duration-300
-        ${expanded ? "w-64" : "w-20"}
+        h-[calc(0vh-64px)] bg-white border-r transition-all duration-300 
+        ${expanded ? "w-44" : "w-20"}
       `}
     >
-      <nav className="mt-3 flex-1 space-y-1">
+      <nav className="mt-20 flex-1 space-y-1">
         {menuItems.map((item) => {
           const active =
             item.id === activeId ||
@@ -70,7 +70,7 @@ const Sidebar = ({ activeId = "billing", onChange }) => {
   return (
     <div
       key={item.id}
-      className="flex items-center px-4 py-3 rounded-lg mb-2"
+      className="flex items-center px-4 py-3 ml-8 mr-8 rounded-lg mb-2"
     >
       <span className={`${expanded ? "mr-3" : "mx-auto"}`}>
         {renderIcon(LayoutGrid, 20, "#05015A")}
@@ -94,7 +94,7 @@ const Sidebar = ({ activeId = "billing", onChange }) => {
                   onChange(item.id);
                 }}
                 className={`
-                  flex items-center w-full px-4 py-2 rounded-lg transition
+                  flex items-center w-full mt-6 ml-5 mr-5 px-4 py-2 rounded-lg transition
                   ${
                     active
                       ? "bg-[#05015A] text-white"
