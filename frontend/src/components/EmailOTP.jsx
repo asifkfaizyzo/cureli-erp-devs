@@ -64,31 +64,30 @@ const EmailOTP = ({ onContinue }) => {
   // VERIFY OTP
   // -----------------------------
   const handleSubmit = async () => {
-    const fullOtp = otp.join("");
+  const fullOtp = otp.join("");
 
-    if (fullOtp.length !== 4) {
-      setError("Please enter a 4-digit code.");
-      return;
-    }
+  if (fullOtp.length !== 4) {
+    setError("Please enter a 4-digit code.");
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      await verifySignupOtp({ pending_id, otp: fullOtp });
-      setError("");
+  try {
+    await verifySignupOtp({ pending_id, otp: fullOtp });
 
-      // Move to next
-      if (onContinue) onContinue();
-      navigate("/phone-verification", {
-        state: { pending_id, email }
-      });
+    setError("");
 
-    } catch (err) {
-      setError(err?.response?.data?.message || "Invalid OTP. Try again.");
-    }
+    // 🔥 Move to next component
+    onContinue();
 
-    setLoading(false);
-  };
+  } catch (err) {
+    setError(err?.response?.data?.message || "Invalid OTP. Try again.");
+  }
+
+  setLoading(false);
+};
+
 
   return (
     <div
