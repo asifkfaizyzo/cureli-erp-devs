@@ -1,3 +1,5 @@
+import bgImage from "../assets/images/login-background.jpg";
+import logo from "../assets/icons/logo.png";
 const Homepage = () => {
     return (
         <>

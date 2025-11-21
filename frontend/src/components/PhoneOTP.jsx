@@ -1,21 +1,26 @@
 import { useState, useRef, useEffect } from "react";
 
-const EmailOTP = ({ onContinue }) => {
-    const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+const PhoneOtp = ({ onContinue }) => {
+    const [otp, setOtp] = useState(["", "", "", ""]);   // <-- 4 boxes
     const [timer, setTimer] = useState(30);
     const [error, setError] = useState("");
 
     const inputsRef = useRef([]);
-    const DUMMY_OTP = "123456";
+    const DUMMY_OTP = "1234"; // <-- Updated dummy OTP
 
-    // TIMER LOGIC
+    // Auto-focus first box
+    useEffect(() => {
+        if (inputsRef.current[0]) inputsRef.current[0].focus();
+    }, []);
+
+    // TIMER
     useEffect(() => {
         if (timer <= 0) return;
-        const interval = setInterval(() => setTimer((t) => t - 1), 1000);
-        return () => clearInterval(interval);
+        const id = setInterval(() => setTimer((t) => t - 1), 1000);
+        return () => clearInterval(id);
     }, [timer]);
 
-    // Handle OTP input
+    // On change input
     const handleChange = (value, index) => {
         if (!/^[0-9]?$/.test(value)) return;
 
@@ -23,17 +28,15 @@ const EmailOTP = ({ onContinue }) => {
         newOtp[index] = value;
         setOtp(newOtp);
 
-        if (value && index < 5) {
-            inputsRef.current[index + 1].focus();
-        }
+        if (value && index < 3) inputsRef.current[index + 1].focus();
     };
 
-    // Submit logic
+    // Submit
     const handleSubmit = () => {
         const fullOtp = otp.join("");
 
-        if (fullOtp.length !== 6) {
-            setError("Please enter a 6-digit code.");
+        if (fullOtp.length !== 4) {
+            setError("Please enter a 4-digit code.");
             return;
         }
 
@@ -46,10 +49,11 @@ const EmailOTP = ({ onContinue }) => {
         onContinue();
     };
 
-    // Reset OTP + Timer
+    // Resend
     const handleResend = () => {
-        setOtp(["", "", "", "", "", ""]);
+        setOtp(["", "", "", ""]);
         setTimer(30);
+        setError("");
         inputsRef.current[0].focus();
     };
 
@@ -60,7 +64,7 @@ const EmailOTP = ({ onContinue }) => {
         >
             {/* TITLE */}
             <h2 className="text-[26px] font-bold text-[#000006]">
-                Verify Your Email
+                Verify Your Phone
             </h2>
 
             {/* SUBTEXT */}
@@ -86,6 +90,7 @@ const EmailOTP = ({ onContinue }) => {
                         maxLength="1"
                         value={digit}
                         onChange={(e) => handleChange(e.target.value, i)}
+                        onFocus={() => inputsRef.current[i].select()}
                         onKeyDown={(e) => {
                             if (e.key === "Backspace" && !otp[i] && i > 0) {
                                 inputsRef.current[i - 1].focus();
@@ -93,27 +98,24 @@ const EmailOTP = ({ onContinue }) => {
                             if (e.key === "Enter") handleSubmit();
                         }}
                         className={`w-11 h-11 border rounded-lg text-center text-xl 
-                            ${error ? "border-red-500" : "border-gray-300"}
-                            focus:ring-2 focus:ring-[#000060]`}
+                            ${error ? "border-red-500" : "border-gray-300"} 
+                            focus:ring-2 focus:ring-[#000060] transition`}
                     />
                 ))}
             </div>
 
-            {/* RESEND TIMER */}
+            {/* TIMER */}
             <p className="text-center text-sm text-[#7A3AFF] mt-3">
-                <span
-                    className="cursor-pointer hover:underline"
-                    onClick={handleResend}
-                >
+                <span className="cursor-pointer hover:underline" onClick={handleResend}>
                     Resend Code
                 </span>{" "}
                 : {timer}
             </p>
 
-            {/* ERROR MESSAGE */}
+            {/* ERROR */}
             {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
 
-            {/* CONTINUE BUTTON */}
+            {/* CONTINUE */}
             <button
                 onClick={handleSubmit}
                 className="w-full bg-[#000060] text-white py-3 rounded-xl mt-6
@@ -125,4 +127,4 @@ const EmailOTP = ({ onContinue }) => {
     );
 };
 
-export default EmailOTP;
+export default PhoneOtp;

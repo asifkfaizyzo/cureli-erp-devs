@@ -1,10 +1,17 @@
 // components/PhoneDetails.jsx
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const PhoneDetails = ({ onContinue }) => {
     const [phone, setPhone] = useState("");
     const [error, setError] = useState("");
+
+    const inputRef = useRef(null);
+
+    // Auto-focus when component loads
+    useEffect(() => {
+        if (inputRef.current) inputRef.current.focus();
+    }, []);
 
     const validatePhone = () => {
         if (!/^[0-9]{10}$/.test(phone)) {
@@ -17,7 +24,7 @@ const PhoneDetails = ({ onContinue }) => {
 
     const handleSubmit = () => {
         if (!validatePhone()) return;
-        onContinue(); // <-- Move to next onboarding step
+        onContinue(); // Move to next onboarding step
     };
 
     return (
@@ -36,15 +43,17 @@ const PhoneDetails = ({ onContinue }) => {
                 Your details remain <br /> safe.
             </p>
 
-            {/* DIVIDER LINE */}
+            {/* DIVIDER */}
             <div className="w-full h-[1px] bg-gray-300 mb-5" />
 
-            {/* PHONE INPUT */}
+            {/* PHONE LABEL */}
             <label className="text-xs font-medium text-[#000060]">
                 Phone Number *
             </label>
 
+            {/* PHONE INPUT */}
             <input
+                ref={inputRef}
                 type="tel"
                 placeholder="Enter your phone number"
                 value={phone}
@@ -52,12 +61,13 @@ const PhoneDetails = ({ onContinue }) => {
                 onKeyDown={(e) => {
                     if (e.key === "Enter") handleSubmit();
                 }}
-                className="w-full mt-2 px-4 py-2 bg-white border border-gray-300 
-                           rounded-lg focus:outline-none focus:ring-2 
-                           focus:ring-[#000060] transition"
+                className={`w-full mt-2 px-4 py-2 bg-white border rounded-lg
+                    focus:outline-none focus:ring-2 focus:ring-[#000060] transition
+                    ${error ? "border-red-500" : "border-gray-300"}
+                `}
             />
 
-            {/* ERROR MESSAGE */}
+            {/* ERROR */}
             {error && (
                 <p className="text-red-500 text-xs mt-1">
                     {error}
@@ -68,7 +78,7 @@ const PhoneDetails = ({ onContinue }) => {
             <button
                 onClick={handleSubmit}
                 className="w-full bg-[#000060] text-white py-2 rounded-xl mt-4
-                           hover:bg-[#000060d1] transition"
+                           hover:bg-[#000060d1] transition font-medium"
             >
                 Continue
             </button>

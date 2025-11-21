@@ -1,102 +1,125 @@
 import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const OnboardStepper = ({ progressStep }) => {
+    // Dot Steps (2 basic + 7 business)
+    const dotSteps = [1, 3, 4, 5, 6, 7, 8, 9, 10];
 
-    // Updated dot steps (NEW 7 business dots)
-    const dotSteps = [
-        1, 3,      // Basic: 2 dots
-        4, 5, 6, 7, 8, 9, 10  // Business: 7 dots
-    ];
-
+    /* ---------------- Small Dot ---------------- */
     const SmallDot = ({ filled }) => (
-        <div
-            className={`
-                w-3 h-3 rounded-full transition-all duration-300
-                ${filled ? "bg-[#000066] scale-110" : "bg-gray-300 scale-100"}
-            `}
+        <motion.div
+            animate={{
+                backgroundColor: filled ? "#000066" : "#d1d5db",
+                opacity: filled ? 1 : 0.4,
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="w-3 h-3 rounded-full"
             style={{ marginLeft: -2, marginRight: -2, marginTop: -20 }}
         />
     );
 
+    /* ---------------- Line ---------------- */
     const Line = ({ active }) => (
-        <div
-            className={`
-                h-[3px] flex-1 transition-all duration-300
-                ${active ? "bg-[#000066]" : "bg-gray-300"}
-            `}
+        <motion.div
+            animate={{
+                backgroundColor: active ? "#000066" : "#d1d5db",
+                opacity: active ? 1 : 0.3,
+            }}
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="h-[3px] flex-1"
             style={{ marginLeft: -35, marginRight: -35, marginTop: -20 }}
         />
     );
 
+    /* ---------------- Big Circle ---------------- */
     const BigCircle = ({ active, completed, pending, label }) => (
         <div className="flex flex-col items-center z-10">
-            <div
-                className={`
-                    w-6 h-6 rounded-full flex items-center justify-center border-[2px]
-                    transition-all duration-300 bg-white
-                    ${
-                        pending
-                            ? "border-orange-500"
-                            : active || completed
-                            ? "border-[#000066]"
-                            : "border-gray-400"
-                    }
-                    ${completed ? "bg-[#000066]" : ""}
-                `}
-                style={{ marginLeft: -3, marginRight: -3 }}
+            <motion.div
+                animate={{
+                    backgroundColor: completed ? "#000066" : "white",
+                    borderColor: pending
+                        ? "#f97316"
+                        : active || completed
+                        ? "#000066"
+                        : "#9ca3af",
+                    scale: active ? 1.05 : 1,
+                    opacity: active || completed ? 1 : 0.6,
+                }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="w-7 h-7 rounded-full flex items-center justify-center border-[3px]"
             >
-                {/* ✓ */}
-                {completed && (
-                    <span className="text-white font-bold text-[10px] leading-none">
-                        ✓
-                    </span>
-                )}
+                {/* ✓ Checkmark */}
+                <AnimatePresence>
+                    {completed && (
+                        <motion.span
+                            initial={{ opacity: 0, scale: 0.6 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.25 }}
+                            className="text-white font-bold text-[12px]"
+                        >
+                            ✓
+                        </motion.span>
+                    )}
+                </AnimatePresence>
 
-                {/* ! */}
+                {/* Pending ! */}
                 {pending && (
-                    <span className="text-orange-500 font-bold text-[10px] leading-none">
+                    <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-orange-500 font-bold text-[12px]"
+                    >
                         !
-                    </span>
+                    </motion.span>
                 )}
 
-                {/* pulsing active dot */}
+                {/* Active pulsing dot */}
                 {active && !completed && !pending && (
-                    <div className="w-2 h-2 rounded-full bg-[#000066] animate-pulse"></div>
+                    <motion.div
+                        className="w-2 h-2 rounded-full bg-[#000066]"
+                        animate={{ opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 1.2, repeat: Infinity }}
+                    />
                 )}
-            </div>
+            </motion.div>
 
-            <p
-                className={`mt-1 text-xs ${
-                    active || completed
-                        ? "text-[#000066] font-semibold"
-                        : "text-gray-500"
-                }`}
+            {/* Label */}
+            <motion.p
+                animate={{
+                    color: active || completed ? "#000066" : "#6b7280",
+                }}
+                transition={{ duration: 0.3 }}
+                className="mt-2 text-xs font-medium"
             >
                 {label}
-            </p>
+            </motion.p>
         </div>
     );
 
     return (
-        <div
-            className="flex flex-col items-center w-full mt-4"
-            style={{ marginLeft: -3, marginRight: -3, marginTop: -10 }}
-        >
-            <h1 className="text-3xl font-semibold text-gray-500 mb-6">
-                Onboarding:{" "}
-                <span className="text-[#000066] font-bold">Cureli</span>
-            </h1>
+        <div className="flex flex-col items-center w-full mt-4" style={{ marginTop: -10 }}>
+            {/* Title */}
+            <motion.h1
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="text-3xl font-semibold text-gray-500 mb-6"
+            >
+                Onboarding: <span className="text-[#000066] font-bold">Cureli</span>
+            </motion.h1>
 
-            <div className="flex items-center w-full max-w-2xl">
+            {/* STEP FLOW */}
+            <div className="flex items-center w-full max-w-3xl">
 
-                {/* BASIC CIRCLE */}
+                {/* BASIC ••• */}
                 <BigCircle
                     active={progressStep >= 0 && progressStep < 4}
                     completed={progressStep >= 4}
                     label="Basic Details"
                 />
 
-                {/* BASIC DOTS (2 dots) */}
+                {/* BASIC DOTS */}
                 {dotSteps.slice(0, 2).map((step, i) => (
                     <React.Fragment key={`basic-${i}`}>
                         <Line active={progressStep >= step} />
@@ -106,14 +129,14 @@ const OnboardStepper = ({ progressStep }) => {
 
                 <Line active={progressStep >= 4} />
 
-                {/* BUSINESS CIRCLE */}
+                {/* BUSINESS ••• */}
                 <BigCircle
                     active={progressStep >= 4 && progressStep < 12}
                     completed={progressStep >= 12}
                     label="Business Details"
                 />
 
-                {/* BUSINESS DOTS (7 dots) */}
+                {/* BUSINESS DOTS */}
                 {dotSteps.slice(2).map((step, i) => (
                     <React.Fragment key={`bus-${i}`}>
                         <Line active={progressStep >= step} />
