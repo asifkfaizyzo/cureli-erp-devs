@@ -23,7 +23,7 @@ export async function createPendingUser({ first_name, last_name, email, password
   // Check if already pending
   const existingPending = await prisma.pendingUser.findUnique({ where: { email } });
   if (existingPending) {
-    const err = new Error("Email already in pending verification. Continue signup.");
+    const err = new Error("Email already Exists. Please Login");
     err.code = "PENDING_EXISTS";
     throw err;
   }

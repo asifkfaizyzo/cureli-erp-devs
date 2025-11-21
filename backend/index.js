@@ -9,17 +9,19 @@ import helmet from "helmet";
 import authRoutes from "./src/modules/auth/auth.routes.js";
 import shopRoutes from "./src/modules/shop/shop.routes.js";
 import pendingRoutes from "./src/modules/pending/pending.routes.js";
-
+import shopFileRoutes from "./src/modules/shop-files/shopFile.routes.js";
 const app = express();
 app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_ORIGIN || true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+app.use("/uploads", express.static("uploads"));
 
 // routes
 app.use("/api/auth", authRoutes);
 app.use("/api/shop", shopRoutes);
 app.use("/api/pending", pendingRoutes);
+app.use("/api/shop-files", shopFileRoutes);
 
 // health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

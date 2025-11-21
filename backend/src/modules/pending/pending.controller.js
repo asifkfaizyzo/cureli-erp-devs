@@ -27,6 +27,8 @@ export async function startPendingSignup(req, res) {
       password,
     });
 
+
+
     return success(res, { pending_id: pending.pending_id }, "Signup started");
   } catch (err) {
     if (err.code === "EMAIL_EXISTS") {
