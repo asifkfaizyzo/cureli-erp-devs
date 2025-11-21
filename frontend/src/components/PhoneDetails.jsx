@@ -1,0 +1,79 @@
+// components/PhoneDetails.jsx
+
+import { useState } from "react";
+
+const PhoneDetails = ({ onContinue }) => {
+    const [phone, setPhone] = useState("");
+    const [error, setError] = useState("");
+
+    const validatePhone = () => {
+        if (!/^[0-9]{10}$/.test(phone)) {
+            setError("Enter a valid 10-digit phone number");
+            return false;
+        }
+        setError("");
+        return true;
+    };
+
+    const handleSubmit = () => {
+        if (!validatePhone()) return;
+        onContinue(); // <-- Move to next onboarding step
+    };
+
+    return (
+        <div
+            className="w-full max-w-sm px-3 mt-10 font-poppins"
+            style={{ marginLeft: "-20%" }}
+        >
+            {/* TITLE */}
+            <h2 className="text-[28px] font-bold text-[#000006]">
+                Add Your Contact Details
+            </h2>
+
+            {/* SUBTEXT */}
+            <p className="text-gray-500 text-sm leading-relaxed mt-1 mb-4">
+                We require this to verify your identity.
+                Your details remain <br /> safe.
+            </p>
+
+            {/* DIVIDER LINE */}
+            <div className="w-full h-[1px] bg-gray-300 mb-5" />
+
+            {/* PHONE INPUT */}
+            <label className="text-xs font-medium text-[#000060]">
+                Phone Number *
+            </label>
+
+            <input
+                type="tel"
+                placeholder="Enter your phone number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmit();
+                }}
+                className="w-full mt-2 px-4 py-2 bg-white border border-gray-300 
+                           rounded-lg focus:outline-none focus:ring-2 
+                           focus:ring-[#000060] transition"
+            />
+
+            {/* ERROR MESSAGE */}
+            {error && (
+                <p className="text-red-500 text-xs mt-1">
+                    {error}
+                </p>
+            )}
+
+            {/* BUTTON */}
+            <button
+                onClick={handleSubmit}
+                className="w-full bg-[#000060] text-white py-2 rounded-xl mt-4
+                           hover:bg-[#000060d1] transition"
+            >
+                Continue
+            </button>
+        </div>
+    );
+};
+
+export default PhoneDetails;

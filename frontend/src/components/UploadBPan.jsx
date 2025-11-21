@@ -1,0 +1,113 @@
+import { useState, useRef } from "react";
+import { IoCloudUploadOutline } from "react-icons/io5";
+
+const UploadBPan = ({ onContinue }) => {
+    const [file, setFile] = useState(null);
+    const [error, setError] = useState("");
+    const fileInputRef = useRef(null);
+
+    const allowedTypes = [
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/eps",
+    ];
+
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+    const handleFileSelect = (selectedFile) => {
+        if (!selectedFile) return;
+
+        if (!allowedTypes.includes(selectedFile.type)) {
+            setError("Invalid file format. Use PDF, JPEG, PNG, EPS.");
+            return;
+        }
+
+        if (selectedFile.size > MAX_SIZE) {
+            setError("File is too large. Maximum size is 5MB.");
+            return;
+        }
+
+        setError("");
+        setFile(selectedFile);
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        handleFileSelect(e.dataTransfer.files[0]);
+    };
+
+    const handleSubmit = () => {
+        if (!file) {
+            setError("Please upload a valid document");
+            return;
+        }
+        onContinue(); // move to next onboarding step
+    };
+
+    return (
+        <div 
+            className="w-full max-w-2xl font-poppins"
+            style={{  marginTop: "30px" }}
+        >
+            {/* TITLE */}
+            <h2 className="text-[30px] font-semibold text-[#000006]">
+                Upload Your Owner's and Business PAN
+            </h2>
+
+            {/* SUBTEXT */}
+            <p className="text-gray-500 text-xs mt-1 mb-4">
+                Eg: <span className="font-bold">PDF, JPEG, EPS, PNG</span> &nbsp; 
+                Max file limit upto <span className="font-bold">5MB</span>
+            </p>
+
+            {/* UPLOAD BOX */}
+            <div
+                className="w-[470px] h-[230px] border border-gray-300 rounded-xl bg-white 
+                           flex flex-col items-center justify-center cursor-pointer shadow-sm"
+                onClick={() => fileInputRef.current.click()}
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+            >
+                <IoCloudUploadOutline className="text-5xl text-gray-500" />
+
+                <p className="text-gray-500 mt-3 text-sm">
+                    {file ? (
+                        <span className="font-semibold text-[#000060]">
+                            {file.name}
+                        </span>
+                    ) : (
+                        "*Upload verified Owner's and Business PAN*"
+                    )}
+                </p>
+
+                <input
+                    type="file"
+                    className="hidden"
+                    ref={fileInputRef}
+                    accept=".pdf,.jpeg,.jpg,.png,.eps"
+                    onChange={(e) => handleFileSelect(e.target.files[0])}
+                />
+            </div>
+
+            {/* ERROR */}
+            {error && (
+                <p className="text-red-600 text-sm mt-2">{error}</p>
+            )}
+
+            {/* BUTTON */}
+            <button
+                onClick={handleSubmit}
+                className={`w-[470px] bg-[#000060] text-white py-3 rounded-xl mt-8
+                           hover:bg-[#000060d1] transition ${
+                               !file ? "opacity-60 cursor-not-allowed" : ""
+                           }`}
+                disabled={!file}
+            >
+                Continue
+            </button>
+        </div>
+    );
+};
+
+export default UploadBPan;
