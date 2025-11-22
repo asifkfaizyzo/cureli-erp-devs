@@ -2,7 +2,6 @@
 import { FiSave } from "react-icons/fi";
 
 const MENU_MAP = {
-  dashboard: ["Dashboard"],
   sales: ["Sales"],
   billing: ["Sales", "Billing"],
   invoices: ["Sales", "Invoices"],
@@ -15,10 +14,12 @@ const MENU_MAP = {
 };
 
 const BillingHeader = ({ activeMenu }) => {
+  console.log("aactive menu",activeMenu);
+  
   const crumbs = MENU_MAP[activeMenu] || ["Dashboard"];
 
   return (
-    <div className="w-full flex flex-col">
+    <div className="w-full flex mt-10 flex-col">
       {/* Breadcrumb */}
       <div className="text-sm flex items-center gap-2 text-gray-500 mb-3">
         {crumbs.map((c, i) => (

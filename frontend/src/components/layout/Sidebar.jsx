@@ -19,13 +19,6 @@ const Sidebar = ({ activeId = "billing", onChange }) => {
 
   const menuItems = [
     {
-      id: "header",
-      type: "header",
-      icon: LayoutGrid,
-      label: "Dashboard",
-    },
-
-    {
       id: "sales",
       label: "Sales",
       icon: Layers,

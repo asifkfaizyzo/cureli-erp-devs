@@ -73,7 +73,7 @@ const CreateAccount = ({ onLoginClick }) => {
       // Because your API returns: res.data.data.pending_id
       const pending_id = res.data.data.pending_id;
 
-      console.log("PENDING ID:", pending_id);
+      // console.log("PENDING ID:", pending_id);
 
       // 🚀 Navigate to OTP page
       navigate("/onboarding", {

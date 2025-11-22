@@ -4,10 +4,12 @@ import TopHeader from "./TopHeader";
 
 const AppLayout = ({ children }) => {
   const [activeMenu, setActiveMenu] = useState("billing");
-
+    // console.log("layout page",activeMenu);
+    
   return (
     <div className="h-screen w-screen overflow-hidden flex bg-gray-50">
       <Sidebar activeId={activeMenu} onChange={setActiveMenu} />
+      
 
       <div className="flex-1 flex flex-col">
         <TopHeader />
