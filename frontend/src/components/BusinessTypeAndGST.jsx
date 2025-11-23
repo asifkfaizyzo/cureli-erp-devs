@@ -24,11 +24,23 @@ const BusinessTypeAndGST = ({ onContinue }) => {
     ];
 
     const navigate = useNavigate();
+    
+    // ✅ ADD THIS LINE
     const shop_id = localStorage.getItem("shop_id");
 
     useEffect(() => {
-        if (!shop_id) navigate("/signup");
-    }, [shop_id]);
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+            navigate("/login");
+            return;
+        }
+        
+        // ✅ Also check shop_id
+        if (!shop_id) {
+            navigate("/signup");
+            return;
+        }
+    }, [shop_id, navigate]);
 
     useEffect(() => {
         typeRef.current?.focus();
@@ -56,14 +68,17 @@ const BusinessTypeAndGST = ({ onContinue }) => {
         setLoading(true);
 
         try {
+            // ✅ ADD shop_id here
             await updateShopGst({
-                shop_id,
+                shop_id,  // ✅ ADDED
                 business_type: form.type,
                 gst_number: form.gst,
             });
 
-            onContinue(); // move to next onboarding step
+            onContinue();
+
         } catch (err) {
+            console.log("GST ERROR:", err.response?.data);
             alert(err?.response?.data?.message || "Failed to save GST information");
         }
 

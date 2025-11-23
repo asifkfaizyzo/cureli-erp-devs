@@ -7,9 +7,37 @@ import { getMCAuthToken } from "../../providers/messageCentral/token.js";
 import { mcSendOtp } from "../../providers/messageCentral/sendOtp.js";
 import { mcValidateOtp } from "../../providers/messageCentral/validateOtp.js";
 
+/**
+ * Delete pending users older than expiry window (in minutes).
+ * Use CASE: remove abandoned pending signups so duplicates don't block future signups.
+ */
+export async function cleanupExpiredPendingUsers(expiryMinutes = 10) {
+  // expiryMinutes default 10 (you said 10min)
+  try {
+    const cutoff = new Date(Date.now() - expiryMinutes * 60 * 1000);
+
+    const deleted = await prisma.pendingUser.deleteMany({
+      where: {
+        created_at: { lt: cutoff },
+      },
+    });
+
+    // deleted.count contains number removed (Prisma response shape)
+    return deleted;
+  } catch (err) {
+    console.error("cleanupExpiredPendingUsers error:", err);
+    // swallow error to not block signup flows
+    return null;
+  }
+}
+
+
+
 /* -------------------------
    Existing email-based functions
    ------------------------- */
+
+
 
 export async function createPendingUser({
   first_name,

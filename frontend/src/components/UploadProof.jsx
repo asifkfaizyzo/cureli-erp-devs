@@ -15,7 +15,7 @@ const UploadProof = ({ onContinue }) => {
         "image/eps",
     ];
 
-    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    const MAX_SIZE = 5 * 1024 * 1024;
 
     const handleFileSelect = (selectedFile) => {
         if (!selectedFile) return;
@@ -55,6 +55,9 @@ const UploadProof = ({ onContinue }) => {
 
             await uploadShopFile(formData);
 
+            // 🔥 Mark onboarding progress (Step 8 → Step 9)
+            localStorage.setItem("onboarding_step", 9);
+
             onContinue();
         } catch (err) {
             setError(err?.response?.data?.message || "Failed to upload file");
@@ -64,7 +67,7 @@ const UploadProof = ({ onContinue }) => {
     };
 
     return (
-        <div 
+        <div
             className="w-full max-w-2xl font-poppins"
             style={{ marginTop: "30px" }}
         >
@@ -105,9 +108,7 @@ const UploadProof = ({ onContinue }) => {
                 />
             </div>
 
-            {error && (
-                <p className="text-red-600 text-sm mt-2">{error}</p>
-            )}
+            {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
 
             <button
                 onClick={handleSubmit}

@@ -8,6 +8,7 @@ import {
   finalizePendingSignup,
   createPendingUserFromGoogle,
   setPasswordForPending,
+  cleanupExpiredPendingUsers
 } from "./pending.service.js";
 import { success, fail } from "../../utils/response.js";
 import { jwtDecode } from "jwt-decode";
@@ -21,6 +22,7 @@ import {
 
 export async function startPendingSignup(req, res) {
   try {
+    await cleanupExpiredPendingUsers();
     const { first_name, last_name, email, password } = req.validated;
 
     const pending = await createPendingUser({
@@ -32,6 +34,7 @@ export async function startPendingSignup(req, res) {
 
     // 🔥 Send OTP automatically
     await sendEmailOtp(pending.pending_id);
+
 
     return success(res, { pending_id: pending.pending_id }, "Signup started");
   } catch (err) {
@@ -199,6 +202,8 @@ export async function completePendingSignupController(req, res) {
 
 export async function googleSignupController(req, res) {
   try {
+    await cleanupExpiredPendingUsers();
+
     const { credential } = req.body;
 
     if (!credential) {

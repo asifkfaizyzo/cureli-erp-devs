@@ -53,6 +53,8 @@ model User {
   role           String
   status         String     @default("pending_setup")
   is_active      Boolean    @default(true)
+onboarding_step Int @default(4) // Default after signup completion
+  first_login_after_verification Boolean @default(false)
   last_login_at  DateTime?  @db.Timestamptz(6)
   created_at     DateTime   @default(now()) @db.Timestamptz(6)
   updated_at     DateTime   @updatedAt @db.Timestamptz(6)

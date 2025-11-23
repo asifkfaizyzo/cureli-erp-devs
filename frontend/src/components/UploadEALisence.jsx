@@ -51,9 +51,14 @@ const UploadEALisence = ({ onContinue }) => {
         try {
             const formData = new FormData();
             formData.append("file", file);
+
+            // 🔥 EA License file type
             formData.append("file_type", "shop_establishment_license");
 
             await uploadShopFile(formData);
+
+            // 🔥 Mark onboarding progress (Step 9 → Step 10)
+            localStorage.setItem("onboarding_step", 10);
 
             onContinue();
         } catch (err) {
@@ -64,7 +69,7 @@ const UploadEALisence = ({ onContinue }) => {
     };
 
     return (
-        <div 
+        <div
             className="w-full max-w-2xl font-poppins"
             style={{ marginTop: "30px" }}
         >
@@ -105,15 +110,15 @@ const UploadEALisence = ({ onContinue }) => {
                 />
             </div>
 
-            {error && (
-                <p className="text-red-600 text-sm mt-2">{error}</p>
-            )}
+            {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
 
             <button
                 onClick={handleSubmit}
                 disabled={!file || loading}
                 className={`w-[470px] bg-[#000060] text-white py-3 rounded-xl mt-8
-                           hover:bg-[#000060d1] transition ${!file ? "opacity-60 cursor-not-allowed" : ""}`}
+                           hover:bg-[#000060d1] transition ${
+                               !file ? "opacity-60 cursor-not-allowed" : ""
+                           }`}
             >
                 {loading ? "Uploading..." : "Continue"}
             </button>

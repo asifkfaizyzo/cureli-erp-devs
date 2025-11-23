@@ -1,5 +1,5 @@
 // pages/OnboardingPage.jsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
@@ -26,7 +26,17 @@ const OnboardingPage = () => {
   const email = location.state?.email;
   const first_name = location.state?.first_name;
   const last_name = location.state?.last_name;
-  const [progressStep, setProgressStep] = useState(0);
+  const [progressStep, setProgressStep] = useState(
+    location.state?.resume_step ?? 0
+  );
+
+  // Skip pending-user steps if logged-in user resumes onboarding
+  useEffect(() => {
+    if (progressStep < 4 && location.state?.resume_step >= 4) {
+      setProgressStep(location.state.resume_step);
+    }
+  }, []);
+
   const provider = location.state?.provider || "password";
 
   const handleContinue = () => {

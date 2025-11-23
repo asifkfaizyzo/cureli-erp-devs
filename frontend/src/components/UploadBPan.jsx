@@ -51,9 +51,14 @@ const UploadBPan = ({ onContinue }) => {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            formData.append("file_type", "pan_card"); // 🔥 IMPORTANT
+
+            // 🔥 If backend expects pan_card or pan — confirm with me
+            formData.append("file_type", "pan_card");
 
             await uploadShopFile(formData);
+
+            // 🔥 Step 10 → Step 11
+            localStorage.setItem("onboarding_step", 11);
 
             onContinue();
         } catch (err) {

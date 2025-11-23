@@ -5,8 +5,9 @@ import OnboardingPage from "./pages/OnboardingPage.jsx";
 import BillingPage from "./pages/BillingPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
 
-
-import './index.css';
+import "./index.css";
+import OnboardSuccess from "./components/OnboardSuccess.jsx";
+import VerificationPending from "./components/VerificationPending.jsx";
 
 const App = () => {
   return (
@@ -17,6 +18,9 @@ const App = () => {
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/billing" element={<BillingPage />} />
         <Route path="/error" element={<ErrorPage />} />
+        <Route path="/verify" element={<VerificationPending />} />
+        <Route path="/onboarding-success" element={<OnboardSuccess />} />
+        <Route path="/dashboard" element={<LoginPage />} />
       </Routes>
     </Router>
   );

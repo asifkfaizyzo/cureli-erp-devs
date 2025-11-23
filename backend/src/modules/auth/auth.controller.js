@@ -1,44 +1,88 @@
-import { createOwnerAccount } from "./auth.service.js";
-import { success, fail } from "../../utils/response.js";
+import prisma from "../../config/prisma.js";
+import { fail, success } from "../../utils/response.js";
+import { comparePassword } from "../../utils/hash.js";
+import jwt from "jsonwebtoken";
+import { ACCESS_SECRET, ACCESS_EXPIRES } from "../../config/jwt.js";
 
-export async function signupOwner(req, res) {
+export async function loginController(req, res) {
   try {
-    const { first_name, last_name, email, password } = req.validated ;
+    const { username, password } = req.validated;
 
-    const { user, shop, branch, tokens } = await createOwnerAccount({ first_name, last_name, email, password });
+    // 1. Check if user exists
+    const user = await prisma.user.findUnique({ where: { username } });
 
-    // set refresh token in secure httpOnly cookie
-    res.cookie("refresh_token", tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days as ms
+    if (!user) {
+      // Maybe user is stuck in pending signup?
+      const pending = await prisma.pendingUser.findUnique({
+        where: { email: username }, // since username login only, check by email fallback
+      });
+
+      if (pending) {
+        return fail(
+          res,
+          "Your signup was not completed. Please restart the signup process.",
+          400
+        );
+      }
+
+      return fail(res, "User not found", 404);
+    }
+
+    // 2. Check if account is active
+    if (!user.is_active) {
+      return fail(res, "Account disabled", 403);
+    }
+
+    // 3. Verify password
+    if (!user.password_hash) {
+      return fail(res, "This account requires Google login", 400);
+    }
+
+    const valid = await comparePassword(password, user.password_hash);
+    if (!valid) return fail(res, "Incorrect password", 400);
+
+    // 4. Update last login
+    await prisma.user.update({
+      where: { user_id: user.user_id },
+      data: { last_login_at: new Date() },
     });
 
-    // remove sensitive fields
-    const safeUser = {
-      user_id: user.user_id,
-      email: user.email,
-      username: user.username,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      full_name: user.full_name,
-      role: user.role,
-      shop_id: user.shop_id,
-      branch_id: user.branch_id,
-      is_active: user.is_active,
-      created_at: user.created_at,
-    };
+    // 5. Fetch shop info (may be used during onboarding)
+    let shop = null;
+    if (user.shop_id) {
+      shop = await prisma.shop.findUnique({
+        where: { shop_id: user.shop_id },
+      });
+    }
 
-    return success(res, { user: safeUser, access_token: tokens.accessToken }, "Signup successful", 201);
+    // 6. Issue access token
+    const token = jwt.sign(
+      {
+        user_id: user.user_id,
+        shop_id: user.shop_id,
+        role: user.role,
+        status: user.status,
+        onboarding_step: user.onboarding_step,
+      },
+      ACCESS_SECRET,
+      { expiresIn: ACCESS_EXPIRES }
+    );
+
+    // 7. Return final response
+    return success(
+      res,
+      {
+        user,
+        shop,
+        access_token: token,
+      },
+      user.status === "pending_setup"
+        ? "Continue onboarding"
+        : "Login successful"
+    );
+
   } catch (err) {
-    if (err.code === "EMAIL_GOOGLE_EXISTS") {
-      return fail(res, err.message, 400);
-    }
-    if (err.code === "EMAIL_EXISTS") {
-      return fail(res, err.message, 400);
-    }
-    console.error("signup error", err);
-    return fail(res, "Failed to create account", 500, { error: err.message });
+    console.error(err);
+    return fail(res, "Login failed", 500);
   }
 }

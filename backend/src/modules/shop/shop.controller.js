@@ -1,8 +1,5 @@
 import { success, fail } from "../../utils/response.js";
-import {
-  updateShopInfo,
-  updateShopGst
-} from "./shop.services.js";
+import { updateShopInfo, updateShopGst } from "./shop.services.js";
 
 export async function updateShopInfoController(req, res) {
   try {

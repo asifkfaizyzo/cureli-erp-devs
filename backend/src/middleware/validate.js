@@ -2,6 +2,8 @@ import { fail } from "../utils/response.js";
 
 export const validateBody = (schema) => (req, res, next) => {
   try {
+    console.log("REQ BODY:", req.body);
+
     const parsed = schema.parse(req.body);
     req.validated = parsed;
     return next();

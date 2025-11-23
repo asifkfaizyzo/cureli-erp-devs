@@ -13,9 +13,17 @@ export async function uploadShopFileController(req, res) {
       return fail(res, "No file uploaded", 400);
     }
 
+    // requireAuth already sets req.user with user_id & shop_id
+    const shop_id = req.user.shop_id;
+    const user_id = req.user.user_id;
+
+    if (!shop_id) {
+      return fail(res, "No shop associated with your account", 400);
+    }
+
     const fileData = {
-      shop_id: req.user.shop_id,
-      user_id: req.user.user_id,
+      shop_id,
+      user_id,
       file_type,
       original_name: req.file.originalname,
       mime_type: req.file.mimetype,
