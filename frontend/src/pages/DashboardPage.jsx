@@ -6,7 +6,11 @@ const DashboardPage = () => {
   
   return (
     
-    <AppLayout/>
+    <div className="w-full h-full flex flex-col">
+      {/* Page Title */}
+      <h1 className="text-2xl font-semibold mb-4">Dashboard</h1>  
+      {/* Dashboard content goes here */}
+    </div>
   );
 };
 

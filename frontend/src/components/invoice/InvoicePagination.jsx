@@ -1,47 +1,101 @@
+import { MdMoreVert } from "react-icons/md";
+
 const InvoicePagination = ({ currentPage, setCurrentPage, totalPages }) => {
-  const goToPage = (page) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
+  const WINDOW = 3;
+  const JUMP = 3;
+
+  const computeWindowStart = (page) => {
+    if (totalPages <= WINDOW) return 1;
+
+    let start = page - 1;
+    if (start < 1) start = 1;
+    if (start > totalPages - WINDOW + 1) start = totalPages - WINDOW + 1;
+
+    return start;
+  };
+
+  const windowStart = computeWindowStart(currentPage);
+  const windowEnd = Math.min(totalPages, windowStart + WINDOW - 1);
+
+  const pages = [];
+  for (let p = windowStart; p <= windowEnd; p++) pages.push(p);
+
+  const goPrev = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
+  const goNext = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+
+  const jumpBackward = () => {
+    const target = Math.max(currentPage - JUMP, 1);
+    setCurrentPage(target);
+  };
+
+  const jumpForward = () => {
+    const target = Math.min(currentPage + JUMP, totalPages);
+    setCurrentPage(target);
   };
 
   return (
-    <div className="flex justify-center mt-2 items-center gap-3">
+    <div className="flex justify-center items-center gap-3 mt-3">
 
-      {/* PREV */}
+      {/* ← PREVIOUS */}
       <button
-        className="p-2 rounded-full hover:bg-gray-200"
-        onClick={() => goToPage(currentPage - 1)}
+        onClick={goPrev}
         disabled={currentPage === 1}
+        className="text-[#05015A] text-lg disabled:opacity-30"
       >
         ←
       </button>
 
+      {/* LEFT ⋮ */}
+      {windowStart > 1 && (
+        <button
+          onClick={jumpBackward}
+          className="text-[#05015A] text-lg hover:scale-105"
+        >
+          <MdMoreVert size={18} />
+        </button>
+      )}
+
       {/* PAGE NUMBERS */}
-      {Array.from({ length: totalPages }).map((_, index) => {
-        const page = index + 1;
-        const active = page === currentPage;
+      <div className="flex items-center gap-3">
+        {pages.map((page) => {
+          const active = page === currentPage;
 
-        return (
-          <button
-            key={page}
-            onClick={() => goToPage(page)}
-            className={`px-3 py-2 text-sm rounded ${
-              active
-                ? "bg-[#05015A] text-white"
-                : "text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            {page}
-          </button>
-        );
-      })}
+          return (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`text-base transition ${
+                active
+                  ? "bg-[#05015A] text-white w-7 h-7 rounded-full flex items-center justify-center"
+                  : "text-[#05015A] hover:text-black px-1"
+              }`}
+            >
+              {page}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* NEXT */}
+      {/* RIGHT ⋮ */}
+      {windowEnd < totalPages && (
+        <button
+          onClick={jumpForward}
+          className="text-[#05015A] text-lg hover:scale-105"
+        >
+          <MdMoreVert size={18} />
+        </button>
+      )}
+
+      {/* → NEXT */}
       <button
-        className="p-2 rounded-full hover:bg-gray-200"
-        onClick={() => goToPage(currentPage + 1)}
+        onClick={goNext}
         disabled={currentPage === totalPages}
+        className="text-[#05015A] text-lg disabled:opacity-30"
       >
         →
       </button>

@@ -3,9 +3,8 @@ import InvoiceFilters from "../components/invoice/InvoiceFilters";
 import InvoiceTable from "../components/invoice/InvoiceTable";
 import InvoicePagination from "../components/invoice/InvoicePagination";
 import { invoiceData } from "../components/data/invoices";
-import Breadcrumb from "../components/common/Breadcrumb";
 
-const ROWS_PER_PAGE = 6;
+const ROWS_PER_PAGE = 10;
 
 const InvoicePage = () => {
   const [filters, setFilters] = useState({
@@ -56,7 +55,6 @@ const InvoicePage = () => {
  return (
   <div className="px-6 pt-4 font-poppins w-full">
 
-    <Breadcrumb />
 
     <InvoiceFilters filters={filters} onChange={handleFilterChange} />
 

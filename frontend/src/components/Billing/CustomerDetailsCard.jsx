@@ -1,7 +1,7 @@
 const CustomerDetailsCard = () => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-xs flex-1">
-      <div className="grid grid-cols-12 gap-3 mb-3">
+      <div className="grid grid-cols-12 gap-3 mb-1">
         <div className="col-span-2">
           <label className="block text-[11px] text-gray-500 mb-1">Cust ID</label>
           <input

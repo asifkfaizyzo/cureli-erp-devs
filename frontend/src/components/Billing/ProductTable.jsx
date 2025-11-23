@@ -13,20 +13,20 @@ const ProductTable = () => {
           {/* TABLE HEADER */}
           <thead className="sticky top-0 z-10 bg-[#000060] text-white">
             <tr className="text-[11px]">
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-left w-10">Sl.No</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-left">Product Name</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-left">Batch</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-right">Rate</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-center">Qty</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-center">Exp</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-center">Type</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-center">Category</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-center">Stock</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-center">Rack</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-right">Tax%</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-right">Tax Amt</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-right">Dis%</th>
-              <th className="px-2 py-2 border-4 border-white rounded-xl text-right">MRP</th>
+              <th className="px-2 py-2  text-left w-10">Sl.No</th>
+              <th className="px-2 py-2  text-left">Product Name</th>
+              <th className="px-2 py-2  text-left">Batch</th>
+              <th className="px-2 py-2  text-right">Rate</th>
+              <th className="px-2 py-2  text-center">Qty</th>
+              <th className="px-2 py-2  text-center">Exp</th>
+              <th className="px-2 py-2  text-center">Type</th>
+              <th className="px-2 py-2  text-center">Category</th>
+              <th className="px-2 py-2  text-center">Stock</th>
+              <th className="px-2 py-2  text-center">Rack</th>
+              <th className="px-2 py-2  text-right">Tax%</th>
+              <th className="px-2 py-2  text-right">Tax Amt</th>
+              <th className="px-2 py-2  text-right">Dis%</th>
+              <th className="px-2 py-2  text-right">MRP</th>
             </tr>
           </thead>
 
