@@ -16,7 +16,7 @@ const BillingSummaryCard = () => {
         </div>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-gray-200">
+      <div className="mt-2 pt-2 border-t border-gray-200">
         <div className="flex justify-between items-center text-base font-semibold">
           <span>Total Amount:</span>
           <span>₹ 127.00</span>

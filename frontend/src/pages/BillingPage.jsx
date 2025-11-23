@@ -1,63 +1,36 @@
 // src/pages/BillingPage.jsx
-import AppLayout from "../components/layout/AppLayout";
-import BillingHeader from "../components/Billing/BillingHeader";
-import ProductTable from "../components/Billing/ProductTable";
-import CustomerDetailsCard from "../components/Billing/CustomerDetailsCard";
-import BillingSummaryCard from "../components/Billing/BillingSummaryCard";
-
-const BillingPageContent = ({ activeMenu }) => {
-  return (
-    <div className="w-full h-full flex flex-col overflow-hidden">
-      <BillingHeader activeMenu={activeMenu} />
-
-      <div className="flex-1 overflow-auto mt-3">
-        <ProductTable />
-
-        <div className="mt-5 flex gap-4 items-start pb-6">
-          <CustomerDetailsCard />
-          <BillingSummaryCard />
-        </div>
-      </div>
-    </div>
-  );
-};
+import BillingHeader from "../components/billing/BillingHeader";
+import ProductTable from "../components/billing/ProductTable";
+import CustomerDetailsCard from "../components/billing/CustomerDetailsCard";
+import BillingSummaryCard from "../components/billing/BillingSummaryCard";
+import Breadcrumb from "../components/common/Breadcrumb";
 
 const BillingPage = () => {
   return (
-    <AppLayout>
-      <BillingPageContent />
-    </AppLayout>
+    <div className="w-full  h-full flex flex-col">
+      {/* Breadcrumb Component */}
+      <Breadcrumb />
+
+  <BillingHeader />
+
+  {/* This section will expand but NOT scroll */}
+  <div className="flex-1 mt-1 flex flex-col">
+
+    {/* TABLE becomes scrollable */}
+    <div className="overflow-auto max-h-[350px]">
+      <ProductTable />
+    </div>
+
+    {/* Bottom section stays fixed */}
+    <div className="mt-3 flex gap-4 items-start pb-6">
+      <CustomerDetailsCard />
+      <BillingSummaryCard />
+    </div>
+
+  </div>
+</div>
+
   );
 };
 
 export default BillingPage;
-
-
-
-// const BillingPage = ({ activeMenu }) => {
-//   return (
-//     <Layout>
-//       <div className="w-full h-full flex flex-col overflow-hidden">
-
-//         <BillingHeader activeId={activeMenu} />
-
-//         <div className="flex-1 overflow-auto mt-3">
-//           <ProductTable />
-
-//           <div className="mt-5 flex gap-4 items-start pb-6">
-//             <CustomerDetailsCard />
-//             <BillingSummaryCard />
-//           </div>
-//         </div>
-//       </div>
-//     </Layout>
-//   );
-// };
-
-// export default BillingPage;
-
-// import Layout from "../components/layout/AppLayout";
-// import BillingHeader from "../components/Billing/BillingHeader";
-// import ProductTable from "../components/Billing/ProductTable";
-// import CustomerDetailsCard from "../components/Billing/CustomerDetailsCard";
-// import BillingSummaryCard from "../components/Billing/BillingSummaryCard";
