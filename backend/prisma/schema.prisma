@@ -13,7 +13,11 @@ model PendingUser {
   first_name    String
   last_name     String
   email         String @unique
-  password_hash String
+  password_hash String?
+
+  google_id      String?    @unique
+  login_provider String     @default("password")
+
 
   email_otp_hash    String?
   email_otp_expires DateTime?

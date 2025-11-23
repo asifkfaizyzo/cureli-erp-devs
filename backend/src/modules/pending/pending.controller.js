@@ -5,9 +5,12 @@ import {
   setUsername,
   sendSmsOtp,
   verifySmsOtp,
+  finalizePendingSignup,
+  createPendingUserFromGoogle,
+  setPasswordForPending,
 } from "./pending.service.js";
 import { success, fail } from "../../utils/response.js";
-
+import { jwtDecode } from "jwt-decode";
 import jwt from "jsonwebtoken";
 import {
   ACCESS_SECRET,
@@ -27,7 +30,8 @@ export async function startPendingSignup(req, res) {
       password,
     });
 
-
+    // 🔥 Send OTP automatically
+    await sendEmailOtp(pending.pending_id);
 
     return success(res, { pending_id: pending.pending_id }, "Signup started");
   } catch (err) {
@@ -149,43 +153,103 @@ export async function chooseUsernameController(req, res) {
   }
 }
 
-
 /* FINALIZE SIGNUP → CREATE SUPERADMIN */
 export async function completePendingSignupController(req, res) {
   try {
     const { pending_id } = req.body;
 
-    const user = await finalizePendingSignup(pending_id);
+    const { user, shop } = await finalizePendingSignup(pending_id);
 
     const accessToken = jwt.sign(
-      { user_id: user.user_id, role: user.role, status: user.status },
+      {
+        user_id: user.user_id,
+        shop_id: shop.shop_id, // 🔥 Add this
+        role: user.role,
+        status: user.status,
+      },
       ACCESS_SECRET,
       { expiresIn: ACCESS_EXPIRES }
     );
 
-    const refreshToken = jwt.sign(
-      { user_id: user.user_id },
-      REFRESH_SECRET,
-      { expiresIn: REFRESH_EXPIRES }
-    );
+    const refreshToken = jwt.sign({ user_id: user.user_id }, REFRESH_SECRET, {
+      expiresIn: REFRESH_EXPIRES,
+    });
 
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return success(
       res,
       {
         user,
-        access_token: accessToken
+        shop,
+        access_token: accessToken,
       },
       "Signup completed",
       201
     );
   } catch (err) {
     return fail(res, err.message, 400);
+  }
+}
+
+export async function googleSignupController(req, res) {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return fail(res, "Missing Google credential", 400);
+    }
+
+    // Decode Google JWT
+    const decoded = jwtDecode(credential);
+
+    const google_id = decoded.sub;
+    const email = decoded.email;
+    const first_name = decoded.given_name || decoded.name?.split(" ")[0] || "";
+    const last_name =
+      decoded.family_name || decoded.name?.split(" ").slice(1).join(" ") || "";
+
+    if (!email) return fail(res, "Google did not return an email", 400);
+
+    const pending = await createPendingUserFromGoogle({
+      google_id,
+      email,
+      first_name,
+      last_name,
+    });
+
+    return success(
+      res,
+      {
+        pending_id: pending.pending_id,
+        email: pending.email,
+        first_name: pending.first_name,
+        last_name: pending.last_name,
+      },
+      "Google signup started"
+    );
+  } catch (err) {
+    console.error(err);
+    return fail(res, "Google signup failed", 500);
+  }
+}
+
+export async function googleSetPasswordController(req, res) {
+  try {
+    const { pending_id, password } = req.body;
+
+    await setPasswordForPending(pending_id, password);
+
+    return success(res, {}, "Password saved");
+  } catch (err) {
+    if (err.code === "NOT_FOUND") return fail(res, err.message, 404);
+    if (err.code === "NOT_GOOGLE") return fail(res, err.message, 400);
+    console.error(err);
+    return fail(res, "Failed to set password", 500);
   }
 }

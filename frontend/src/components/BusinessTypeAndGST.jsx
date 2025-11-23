@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { updateShopGst } from "../api/shop";
+import { useNavigate } from "react-router-dom";
 
 const BusinessTypeAndGST = ({ onContinue }) => {
     const [form, setForm] = useState({
@@ -8,12 +10,12 @@ const BusinessTypeAndGST = ({ onContinue }) => {
 
     const [errors, setErrors] = useState({});
     const [gstValid, setGstValid] = useState(null);
+    const [loading, setLoading] = useState(false);
 
     const gstRef = useRef(null);
     const typeRef = useRef(null);
 
     const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
-
     const businessTypes = [
         "Sole Proprietorship",
         "Partnership",
@@ -21,9 +23,15 @@ const BusinessTypeAndGST = ({ onContinue }) => {
         "LLP",
     ];
 
-    // Auto-focus business type on load
+    const navigate = useNavigate();
+    const shop_id = localStorage.getItem("shop_id");
+
     useEffect(() => {
-        if (typeRef.current) typeRef.current.focus();
+        if (!shop_id) navigate("/signup");
+    }, [shop_id]);
+
+    useEffect(() => {
+        typeRef.current?.focus();
     }, []);
 
     const handleChange = (field, value) => {
@@ -34,20 +42,32 @@ const BusinessTypeAndGST = ({ onContinue }) => {
         let newErrors = {};
 
         if (!form.type.trim()) newErrors.type = "Please select a business type";
-
-        if (!form.gst.trim()) {
-            newErrors.gst = "GST number is required";
-        } else if (!GST_REGEX.test(form.gst)) {
+        if (!form.gst.trim()) newErrors.gst = "GST number is required";
+        else if (!GST_REGEX.test(form.gst))
             newErrors.gst = "Invalid GST format";
-        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!validate()) return;
-        onContinue();
+
+        setLoading(true);
+
+        try {
+            await updateShopGst({
+                shop_id,
+                business_type: form.type,
+                gst_number: form.gst,
+            });
+
+            onContinue(); // move to next onboarding step
+        } catch (err) {
+            alert(err?.response?.data?.message || "Failed to save GST information");
+        }
+
+        setLoading(false);
     };
 
     return (
@@ -65,26 +85,16 @@ const BusinessTypeAndGST = ({ onContinue }) => {
                 ref={typeRef}
                 value={form.type}
                 onChange={(e) => handleChange("type", e.target.value)}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                        e.preventDefault();
-                        gstRef.current.focus();
-                    }
-                }}
                 className={`w-full mt-1 px-3 py-2 bg-white border rounded-lg 
                     ${errors.type ? "border-red-500" : "border-gray-300"}
                     focus:ring-2 focus:ring-[#000060] transition`}
             >
                 <option value="">Select business type</option>
                 {businessTypes.map((t, idx) => (
-                    <option key={idx} value={t}>
-                        {t}
-                    </option>
+                    <option key={idx} value={t}>{t}</option>
                 ))}
             </select>
-            {errors.type && (
-                <p className="text-red-500 text-xs mt-1 mb-3">{errors.type}</p>
-            )}
+            {errors.type && <p className="text-red-500 text-xs mt-1 mb-3">{errors.type}</p>}
 
             {/* GST NUMBER */}
             <label className="text-xs font-bold text-[#000060]">GST Number *</label>
@@ -99,10 +109,6 @@ const BusinessTypeAndGST = ({ onContinue }) => {
                     handleChange("gst", value);
                     setGstValid(value === "" ? null : GST_REGEX.test(value));
                 }}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSubmit();
-                }}
-                onFocus={(e) => e.target.select()}
                 className={`w-full mt-1 px-3 py-2 bg-white border rounded-lg transition
                     ${
                         gstValid === null
@@ -114,20 +120,17 @@ const BusinessTypeAndGST = ({ onContinue }) => {
                     focus:ring-2 focus:ring-[#000060]`}
             />
 
-            {gstValid === false && (
-                <p className="text-red-500 text-xs mt-1">Invalid GST number</p>
-            )}
-            {gstValid === true && (
-                <p className="text-green-600 text-xs mt-1">Valid GST number ✓</p>
-            )}
+            {gstValid === false && <p className="text-red-500 text-xs mt-1">Invalid GST number</p>}
+            {gstValid === true && <p className="text-green-600 text-xs mt-1">Valid GST number ✓</p>}
             {errors.gst && <p className="text-red-500 text-xs mt-1 mb-4">{errors.gst}</p>}
 
             <button
                 onClick={handleSubmit}
+                disabled={loading}
                 className="w-full bg-[#000060] text-white py-2 rounded-xl mt-2
-                           hover:bg-[#000060d1] transition"
+                           hover:bg-[#000060d1] transition disabled:bg-gray-400"
             >
-                Continue
+                {loading ? "Saving..." : "Continue"}
             </button>
         </div>
     );

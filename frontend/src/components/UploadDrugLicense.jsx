@@ -1,9 +1,12 @@
 import { useState, useRef } from "react";
 import { IoCloudUploadOutline } from "react-icons/io5";
+import { uploadShopFile } from "../api/shopFiles"; // <-- new API call
 
 const UploadDrugLicense = ({ onContinue }) => {
     const [file, setFile] = useState(null);
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+
     const fileInputRef = useRef(null);
 
     const allowedTypes = [
@@ -37,18 +40,37 @@ const UploadDrugLicense = ({ onContinue }) => {
         handleFileSelect(e.dataTransfer.files[0]);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!file) {
             setError("Please upload a valid document");
             return;
         }
-        onContinue(); // move to next onboarding step
+
+        setLoading(true);
+        setError("");
+
+        try {
+            // Create multipart form data
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("file_type", "drug_license");
+
+            // Upload to backend
+            await uploadShopFile(formData);
+
+            onContinue(); // Move to next onboarding step
+        } catch (err) {
+            console.error("UPLOAD ERROR:", err);
+            setError(err?.response?.data?.message || "Failed to upload file");
+        }
+
+        setLoading(false);
     };
 
     return (
-        <div 
+        <div
             className="w-full max-w-2xl font-poppins"
-            style={{  marginTop: "30px" }}
+            style={{ marginTop: "30px" }}
         >
             {/* TITLE */}
             <h2 className="text-[30px] font-semibold text-[#000006]">
@@ -98,13 +120,13 @@ const UploadDrugLicense = ({ onContinue }) => {
             {/* BUTTON */}
             <button
                 onClick={handleSubmit}
+                disabled={!file || loading}
                 className={`w-[470px] bg-[#000060] text-white py-3 rounded-xl mt-8
                            hover:bg-[#000060d1] transition ${
                                !file ? "opacity-60 cursor-not-allowed" : ""
                            }`}
-                disabled={!file}
             >
-                Continue
+                {loading ? "Uploading..." : "Continue"}
             </button>
         </div>
     );

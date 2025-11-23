@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { signupUser } from "../api/auth";
 import { useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
+import api from "../api/axios";
 
 const CreateAccount = ({ onLoginClick }) => {
   const navigate = useNavigate();
@@ -54,6 +56,33 @@ const CreateAccount = ({ onLoginClick }) => {
   // ---------------------------
   // SIGNUP API
   // ---------------------------
+
+  const handleGoogleSignup = async (response) => {
+  try {
+    const credential = response.credential;
+
+    const res =  await api.post("/pending/signup/google", { credential });
+
+
+    navigate("/onboarding", {
+  state: {
+    pending_id: res.data.data.pending_id,
+    email: res.data.data.email,
+    first_name: res.data.data.first_name,
+    last_name: res.data.data.last_name,
+    provider: "google"
+  },
+});
+
+
+  } catch (err) {
+    console.error("GOOGLE SIGNUP ERROR:", err);
+    alert("Google sign-up failed");
+  }
+};
+
+
+
   const handleCreateAccount = async () => {
     if (!validate()) return;
 
@@ -231,10 +260,10 @@ const CreateAccount = ({ onLoginClick }) => {
         <div className="flex-grow h-[1px] bg-gray-300"></div>
       </div>
 
-      <button className="w-full flex items-center justify-center gap-2 py-2 border rounded-xl bg-white hover:bg-gray-100 shadow-sm text-sm">
-        <img src="https://cdn-icons-png.flaticon.com/512/300/300221.png" className="w-4" />
-        Sign Up with Google Account
-      </button>
+      <GoogleLogin
+        onSuccess={handleGoogleSignup}
+        onError={() => alert("Google sign-in failed")}
+      />
 
       <p className="text-center mt-4 text-xs text-gray-600">
         Already have an account?{" "}

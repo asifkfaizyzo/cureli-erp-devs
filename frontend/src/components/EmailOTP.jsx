@@ -1,35 +1,23 @@
 import { useState, useRef, useEffect } from "react";
 import { sendSignupOtp, verifySignupOtp } from "../api/otp";
-import { useLocation, useNavigate } from "react-router-dom";
 
-const EmailOTP = ({ onContinue }) => {
+const EmailOTP = ({ pending_id, email, onContinue }) => {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [timer, setTimer] = useState(30);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const inputsRef = useRef([]);
-  const navigate = useNavigate();
-  const location = useLocation();
 
-  // Get email + pending_id passed from CreateAccount.jsx
-  const email = location.state?.email;
-  const pending_id = location.state?.pending_id;
-
-  // Redirect if missing data
-  useEffect(() => {
-    if (!email || !pending_id) {
-      navigate("/signup");
-    }
-  }, [email, pending_id]);
-
+  // Auto-focus
   useEffect(() => {
     inputsRef.current[0]?.focus();
   }, []);
 
+  // Timer
   useEffect(() => {
     if (timer <= 0) return;
-    const id = setInterval(() => setTimer((t) => t - 1), 1000);
+    const id = setInterval(() => setTimer(t => t - 1), 1000);
     return () => clearInterval(id);
   }, [timer]);
 
@@ -40,12 +28,10 @@ const EmailOTP = ({ onContinue }) => {
     newOtp[index] = value;
     setOtp(newOtp);
 
-    if (value && index < 3) inputsRef.current[index + 1].focus();
+    if (value && index < 3) inputsRef.current[index + 1]?.focus();
   };
 
-  // -----------------------------
   // RESEND OTP
-  // -----------------------------
   const handleResend = async () => {
     try {
       setOtp(["", "", "", ""]);
@@ -56,38 +42,31 @@ const EmailOTP = ({ onContinue }) => {
 
       inputsRef.current[0]?.focus();
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to resend OTP. Try again.");
+      setError(err?.response?.data?.message || "Failed to resend OTP.");
     }
   };
 
-  // -----------------------------
   // VERIFY OTP
-  // -----------------------------
   const handleSubmit = async () => {
-  const fullOtp = otp.join("");
+    const fullOtp = otp.join("");
 
-  if (fullOtp.length !== 4) {
-    setError("Please enter a 4-digit code.");
-    return;
-  }
+    if (fullOtp.length !== 4) {
+      setError("Please enter a 4-digit code.");
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    await verifySignupOtp({ pending_id, otp: fullOtp });
+    try {
+      await verifySignupOtp({ pending_id, otp: fullOtp });
+      setError("");
+      onContinue(); // move to next step
+    } catch (err) {
+      setError(err?.response?.data?.message || "Invalid OTP.");
+    }
 
-    setError("");
-
-    // 🔥 Move to next component
-    onContinue();
-
-  } catch (err) {
-    setError(err?.response?.data?.message || "Invalid OTP. Try again.");
-  }
-
-  setLoading(false);
-};
-
+    setLoading(false);
+  };
 
   return (
     <div
@@ -115,11 +94,7 @@ const EmailOTP = ({ onContinue }) => {
             maxLength="1"
             value={digit}
             onChange={(e) => handleChange(e.target.value, i)}
-            onKeyDown={(e) => {
-              if (e.key === "Backspace" && !otp[i] && i > 0)
-                inputsRef.current[i - 1].focus();
-              if (e.key === "Enter") handleSubmit();
-            }}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             className={`w-11 h-11 border rounded-lg text-center text-xl 
               ${error ? "border-red-500" : "border-gray-300"}
               focus:ring-2 focus:ring-[#000060] transition`}
@@ -144,7 +119,8 @@ const EmailOTP = ({ onContinue }) => {
       <button
         onClick={handleSubmit}
         disabled={loading}
-        className="w-full bg-[#000060] text-white py-3 rounded-xl mt-6 hover:bg-[#000060d1] transition disabled:bg-gray-400"
+        className="w-full bg-[#000060] text-white py-3 rounded-xl mt-6 
+          hover:bg-[#000060d1] transition disabled:bg-gray-400"
       >
         {loading ? "Verifying..." : "Continue"}
       </button>
