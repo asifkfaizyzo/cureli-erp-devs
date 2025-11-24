@@ -1,89 +1,80 @@
-// components/PhoneDetails.jsx
-
 import { useState, useRef, useEffect } from "react";
+import { sendSmsOtp } from "../api/otp";
 
-const PhoneDetails = ({ onContinue }) => {
-    const [phone, setPhone] = useState("");
-    const [error, setError] = useState("");
+const PhoneDetails = ({ pending_id, onContinue }) => {
+  const [phone, setPhone] = useState("");
+  const [error, setError] = useState("");
 
-    const inputRef = useRef(null);
+  const inputRef = useRef(null);
 
-    // Auto-focus when component loads
-    useEffect(() => {
-        if (inputRef.current) inputRef.current.focus();
-    }, []);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
-    const validatePhone = () => {
-        if (!/^[0-9]{10}$/.test(phone)) {
-            setError("Enter a valid 10-digit phone number");
-            return false;
-        }
-        setError("");
-        return true;
-    };
+  const validatePhone = () => {
+    if (!/^[0-9]{10}$/.test(phone)) {
+      setError("Enter a valid 10-digit phone number");
+      return false;
+    }
+    setError("");
+    return true;
+  };
 
-    const handleSubmit = () => {
-        if (!validatePhone()) return;
-        onContinue(); // Move to next onboarding step
-    };
+  const handleSubmit = async () => {
+    if (!validatePhone()) return;
 
-    return (
-        <div
-            className="w-full max-w-sm px-3 mt-10 font-poppins"
-            style={{ marginLeft: "-20%" }}
-        >
-            {/* TITLE */}
-            <h2 className="text-[28px] font-bold text-[#000006]">
-                Add Your Contact Details
-            </h2>
+    try {
+      await sendSmsOtp({ pending_id, phone });
 
-            {/* SUBTEXT */}
-            <p className="text-gray-500 text-sm leading-relaxed mt-1 mb-4">
-                We require this to verify your identity.
-                Your details remain <br /> safe.
-            </p>
+      // Move to PhoneOTP page
+      onContinue();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to send SMS OTP.");
+    }
+  };
 
-            {/* DIVIDER */}
-            <div className="w-full h-[1px] bg-gray-300 mb-5" />
+  return (
+    <div
+      className="w-full max-w-sm px-3 mt-10 font-poppins"
+      style={{ marginLeft: "-20%" }}
+    >
+      <h2 className="text-[28px] font-bold text-[#000006]">
+        Add Your Contact Details
+      </h2>
 
-            {/* PHONE LABEL */}
-            <label className="text-xs font-medium text-[#000060]">
-                Phone Number *
-            </label>
+      <p className="text-gray-500 text-sm leading-relaxed mt-1 mb-4">
+        We require this to verify your identity. Your details remain safe.
+      </p>
 
-            {/* PHONE INPUT */}
-            <input
-                ref={inputRef}
-                type="tel"
-                placeholder="Enter your phone number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSubmit();
-                }}
-                className={`w-full mt-2 px-4 py-2 bg-white border rounded-lg
-                    focus:outline-none focus:ring-2 focus:ring-[#000060] transition
-                    ${error ? "border-red-500" : "border-gray-300"}
-                `}
-            />
+      <div className="w-full h-[1px] bg-gray-300 mb-5" />
 
-            {/* ERROR */}
-            {error && (
-                <p className="text-red-500 text-xs mt-1">
-                    {error}
-                </p>
-            )}
+      <label className="text-xs font-medium text-[#000060]">
+        Phone Number *
+      </label>
 
-            {/* BUTTON */}
-            <button
-                onClick={handleSubmit}
-                className="w-full bg-[#000060] text-white py-2 rounded-xl mt-4
-                           hover:bg-[#000060d1] transition font-medium"
-            >
-                Continue
-            </button>
-        </div>
-    );
+      <input
+        ref={inputRef}
+        type="tel"
+        placeholder="Enter your phone number"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+        className={`w-full mt-2 px-4 py-2 bg-white border rounded-lg
+          focus:outline-none focus:ring-2 focus:ring-[#000060] transition
+          ${error ? "border-red-500" : "border-gray-300"}`}
+      />
+
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+
+      <button
+        onClick={handleSubmit}
+        className="w-full bg-[#000060] text-white py-2 rounded-xl mt-4
+                   hover:bg-[#000060d1] transition font-medium"
+      >
+        Continue
+      </button>
+    </div>
+  );
 };
 
 export default PhoneDetails;

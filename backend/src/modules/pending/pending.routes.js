@@ -12,12 +12,16 @@ import {
   requestSmsOtp,
   verifySmsOtpController,
   chooseUsernameController,
-  completePendingSignupController
+  completePendingSignupController,
+  googleSetPasswordController,
+  googleSignupController
 } from "./pending.controller.js";
 
 const router = express.Router();
 
 router.post("/signup/start", validateBody(pendingSignupSchema), startPendingSignup);
+router.post("/signup/google", googleSignupController);
+router.post("/signup/google/set-password", googleSetPasswordController);
 
 // Email OTP endpoints (existing)
 router.post("/signup/email-otp", requestEmailOtp);

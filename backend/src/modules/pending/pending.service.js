@@ -7,27 +7,60 @@ import { getMCAuthToken } from "../../providers/messageCentral/token.js";
 import { mcSendOtp } from "../../providers/messageCentral/sendOtp.js";
 import { mcValidateOtp } from "../../providers/messageCentral/validateOtp.js";
 
-/* -------------------------
-   Existing email-based functions
-   ------------------------- */
+/**
+ * Delete pending users older than expiry window (in minutes).
+ * Use CASE: remove abandoned pending signups so duplicates don't block future signups.
+ */
+export async function cleanupExpiredPendingUsers(expiryMinutes = 10) {
+  // expiryMinutes default 10 (you said 10min)
+  try {
+    const cutoff = new Date(Date.now() - expiryMinutes * 60 * 1000);
 
-export async function createPendingUser({ first_name, last_name, email, password }) {
+    const deleted = await prisma.pendingUser.deleteMany({
+      where: {
+        created_at: { lt: cutoff },
+      },
+    });
+
+    // deleted.count contains number removed (Prisma response shape)
+    return deleted;
+  } catch (err) {
+    console.error("cleanupExpiredPendingUsers error:", err);
+    // swallow error to not block signup flows
+    return null;
+  }
+}
+
+
+
+
+export async function createPendingUser({
+  first_name,
+  last_name,
+  email,
+  password,
+}) {
   // Check if already a REAL user
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    const err = new Error("Email already registered.");
+    const err = new Error("Email already registered. Please login.");
     err.code = "EMAIL_EXISTS";
     throw err;
   }
 
   // Check if already pending
-  const existingPending = await prisma.pendingUser.findUnique({ where: { email } });
+  const existingPending = await prisma.pendingUser.findUnique({
+    where: { email },
+  });
+
   if (existingPending) {
-    const err = new Error("Email already Exists. Please Login");
-    err.code = "PENDING_EXISTS";
-    throw err;
+    // 🔥 Delete old incomplete signup
+    await prisma.pendingUser.delete({
+      where: { pending_id: existingPending.pending_id },
+    });
   }
 
+  // Create new pending user
   const password_hash = await hashPassword(password);
 
   const pending = await prisma.pendingUser.create({
@@ -42,8 +75,77 @@ export async function createPendingUser({ first_name, last_name, email, password
   return pending;
 }
 
+export async function createPendingUserFromGoogle({
+  google_id,
+  email,
+  first_name,
+  last_name,
+}) {
+  // Check actual user
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) {
+    const err = new Error("Email already registered. Please login.");
+    err.code = "EMAIL_EXISTS";
+    throw err;
+  }
+
+  // Check pending
+  const existingPending = await prisma.pendingUser.findUnique({
+    where: { email },
+  });
+
+  if (existingPending) {
+    // 🔥 Delete old incomplete signup
+    await prisma.pendingUser.delete({
+      where: { pending_id: existingPending.pending_id },
+    });
+  }
+
+  // Create pending without password, auto-verify email for Google
+  const pending = await prisma.pendingUser.create({
+    data: {
+      first_name,
+      last_name,
+      email,
+      google_id,
+      login_provider: "google",
+      email_verified: true, // Auto-verified for Google
+    },
+  });
+
+  return pending;
+}
+
+export async function setPasswordForPending(pending_id, password) {
+  const pending = await prisma.pendingUser.findUnique({
+    where: { pending_id },
+  });
+  if (!pending) {
+    const err = new Error("Pending user not found");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  if (pending.login_provider !== "google") {
+    const err = new Error("This account is not a Google signup.");
+    err.code = "NOT_GOOGLE";
+    throw err;
+  }
+
+  const password_hash = await hashPassword(password);
+
+  await prisma.pendingUser.update({
+    where: { pending_id },
+    data: { password_hash },
+  });
+
+  return true;
+}
+
 export async function sendEmailOtp(pending_id) {
-  const pending = await prisma.pendingUser.findUnique({ where: { pending_id } });
+  const pending = await prisma.pendingUser.findUnique({
+    where: { pending_id },
+  });
   if (!pending) {
     const err = new Error("Pending user not found");
     err.code = "NOT_FOUND";
@@ -51,8 +153,13 @@ export async function sendEmailOtp(pending_id) {
   }
 
   // Prevent OTP spam (minimum 60 seconds)
-  if (pending.email_otp_expires && new Date(pending.email_otp_expires) > new Date()) {
-    const err = new Error("OTP already sent. Please wait before requesting again.");
+  if (
+    pending.email_otp_expires &&
+    new Date(pending.email_otp_expires) > new Date()
+  ) {
+    const err = new Error(
+      "OTP already sent. Please wait before requesting again."
+    );
     err.code = "OTP_COOLDOWN";
     throw err;
   }
@@ -81,7 +188,9 @@ export async function sendEmailOtp(pending_id) {
 }
 
 export async function verifyEmailOtp(pending_id, otp) {
-  const pending = await prisma.pendingUser.findUnique({ where: { pending_id } });
+  const pending = await prisma.pendingUser.findUnique({
+    where: { pending_id },
+  });
 
   if (!pending) {
     const err = new Error("Pending user not found");
@@ -123,17 +232,11 @@ export async function verifyEmailOtp(pending_id, otp) {
   return true;
 }
 
-/* -------------------------
-   New SMS (MessageCentral) functions
-   ------------------------- */
 
-/**
- * Send SMS OTP via MessageCentral and persist verificationId
- * - pending_id: uuid
- * - phone: full phone string (E.164 recommended)
- */
 export async function sendSmsOtp(pending_id, phone) {
-  const pending = await prisma.pendingUser.findUnique({ where: { pending_id } });
+  const pending = await prisma.pendingUser.findUnique({
+    where: { pending_id },
+  });
   if (!pending) {
     const err = new Error("Pending user not found");
     err.code = "NOT_FOUND";
@@ -141,14 +244,22 @@ export async function sendSmsOtp(pending_id, phone) {
   }
 
   // Prevent OTP spam (minimum 60 seconds)
-  if (pending.sms_otp_expires && new Date(pending.sms_otp_expires) > new Date()) {
-    const err = new Error("OTP already sent. Please wait before requesting again.");
+  if (
+    pending.sms_otp_expires &&
+    new Date(pending.sms_otp_expires) > new Date()
+  ) {
+    const err = new Error(
+      "OTP already sent. Please wait before requesting again."
+    );
     err.code = "OTP_COOLDOWN";
     throw err;
   }
 
   // Get MessageCentral token
-  const authToken = await getMCAuthToken(process.env.MC_CUSTOMER, process.env.MC_PASSWORD);
+  const authToken = await getMCAuthToken(
+    process.env.MC_CUSTOMER,
+    process.env.MC_PASSWORD
+  );
 
   // Call provider
   const data = await mcSendOtp({
@@ -159,7 +270,8 @@ export async function sendSmsOtp(pending_id, phone) {
     countryCode: process.env.MC_COUNTRY || "91",
   });
 
-  const verificationId = data?.verificationId || data?.verificationID || data?.verification_id;
+  const verificationId =
+    data?.verificationId || data?.verificationID || data?.verification_id;
   const transactionId = data?.transactionId || data?.transaction_id;
   const timeout = Number(data?.timeout || data?.time || 300);
 
@@ -177,13 +289,11 @@ export async function sendSmsOtp(pending_id, phone) {
   return { verificationId, transactionId, timeout };
 }
 
-/**
- * Validate OTP against MessageCentral using stored verificationId
- * - pending_id: uuid
- * - code: OTP provided by user
- */
+
 export async function verifySmsOtp(pending_id, code) {
-  const pending = await prisma.pendingUser.findUnique({ where: { pending_id } });
+  const pending = await prisma.pendingUser.findUnique({
+    where: { pending_id },
+  });
 
   if (!pending) {
     const err = new Error("Pending user not found");
@@ -211,12 +321,15 @@ export async function verifySmsOtp(pending_id, code) {
   }
 
   // Validate OTP with Message Central
-  const authToken = await getMCAuthToken(process.env.MC_CUSTOMER, process.env.MC_PASSWORD);
-  const result = await mcValidateOtp({ 
-    authToken, 
-    verificationId: pending.sms_verification_id, 
+  const authToken = await getMCAuthToken(
+    process.env.MC_CUSTOMER,
+    process.env.MC_PASSWORD
+  );
+  const result = await mcValidateOtp({
+    authToken,
+    verificationId: pending.sms_verification_id,
     code,
-    mobileNumber: pending.phone
+    mobileNumber: pending.phone,
   });
 
   if (!result) {
@@ -266,13 +379,12 @@ export async function verifySmsOtp(pending_id, code) {
   throw err;
 }
 
-/* -------------------------
-   Updated username logic — requires BOTH email + phone verified
-   ------------------------- */
 
 export async function setUsername(pending_id, username) {
   // Check if pending user exists
-  const pending = await prisma.pendingUser.findUnique({ where: { pending_id } });
+  const pending = await prisma.pendingUser.findUnique({
+    where: { pending_id },
+  });
   if (!pending) {
     const err = new Error("Pending user not found");
     err.code = "NOT_FOUND";
@@ -319,9 +431,10 @@ export async function setUsername(pending_id, username) {
   return true;
 }
 
-
 export async function finalizePendingSignup(pending_id) {
-  const pending = await prisma.pendingUser.findUnique({ where: { pending_id }});
+  const pending = await prisma.pendingUser.findUnique({
+    where: { pending_id },
+  });
 
   if (!pending) {
     const err = new Error("Pending user not found");
@@ -356,15 +469,35 @@ export async function finalizePendingSignup(pending_id) {
       email: pending.email,
       username: pending.username,
       phone_number: pending.phone,
-      password_hash: pending.password_hash,
-      login_provider: "password",
+      password_hash: pending.password_hash || null,
+      login_provider: pending.login_provider || "password",
+      google_id: pending.google_id || null,
       role: "super_admin",
       status: "pending_setup",
-      is_active: true
-    }
+      is_active: true,
+    },
   });
 
-  await prisma.pendingUser.delete({ where: { pending_id }});
+  // NOW create the shop row linked to this user
+  const shop = await prisma.shop.create({
+    data: {
+      owner_user_id: user.user_id,
+      business_name: "",
+      address_line_1: "",
+      city: "",
+      state: "",
+      pincode: "",
+    },
+  });
 
-  return user;
+  // Link shop_id to user table
+  await prisma.user.update({
+    where: { user_id: user.user_id },
+    data: { shop_id: shop.shop_id },
+  });
+
+  // Delete pending user
+  await prisma.pendingUser.delete({ where: { pending_id } });
+
+  return { user, shop };
 }

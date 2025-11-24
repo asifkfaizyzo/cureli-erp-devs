@@ -1,0 +1,44 @@
+<<<<<<< HEAD
+=======
+import express from "express";
+import dotenv from "dotenv";
+dotenv.config();
+
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import helmet from "helmet";
+
+import authRoutes from "./src/modules/auth/auth.routes.js";
+import shopRoutes from "./src/modules/shop/shop.routes.js";
+import adminRoutes from "./src/modules/admin/admin.routes.js";
+import pendingRoutes from "./src/modules/pending/pending.routes.js";
+import shopFilesRoutes from "./src/modules/shopFiles/shopFiles.routes.js";
+
+
+import { initializeCronJobs } from "./src/cron/jobs.js";
+
+const app = express();
+app.use(helmet());
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || true, credentials: true }));
+app.use(express.json());
+app.use(cookieParser());
+app.use("/uploads", express.static("uploads"));
+
+// routes
+app.use("/api/auth", authRoutes);
+app.use("/api/shop", shopRoutes);
+app.use("/api/pending", pendingRoutes);
+app.use("/api/shop/files", shopFilesRoutes);
+app.use("/api/admin", adminRoutes);
+
+// health
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on ${PORT}`);
+  
+  // ✅ Initialize cron jobs after server starts
+  initializeCronJobs();
+});
+>>>>>>> 0c95d08cd4b86b0ce7926a2ce35a4c39c8f37756

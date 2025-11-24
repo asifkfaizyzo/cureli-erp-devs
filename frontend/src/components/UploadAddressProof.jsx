@@ -1,9 +1,11 @@
 import { useState, useRef } from "react";
 import { IoCloudUploadOutline } from "react-icons/io5";
+import { uploadShopFile } from "../api/shopFiles";
 
 const UploadAddressProof = ({ onContinue }) => {
     const [file, setFile] = useState(null);
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
     const fileInputRef = useRef(null);
 
     const allowedTypes = [
@@ -37,31 +39,47 @@ const UploadAddressProof = ({ onContinue }) => {
         handleFileSelect(e.dataTransfer.files[0]);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!file) {
             setError("Please upload a valid document");
             return;
         }
-        onContinue(); // move to next onboarding step
+
+        setLoading(true);
+        setError("");
+
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("file_type", "address_proof");
+
+            await uploadShopFile(formData);
+
+            // 🔥 Step 11 → Step 12
+            localStorage.setItem("onboarding_step", 12);
+
+            onContinue();
+        } catch (err) {
+            setError(err?.response?.data?.message || "Failed to upload file");
+        }
+
+        setLoading(false);
     };
 
     return (
         <div 
             className="w-full max-w-2xl font-poppins"
-            style={{  marginTop: "30px" }}
+            style={{ marginTop: "30px" }}
         >
-            {/* TITLE */}
             <h2 className="text-[30px] font-semibold text-[#000006]">
-                Upload Your Adress Proof
+                Upload Your Address Proof
             </h2>
 
-            {/* SUBTEXT */}
             <p className="text-gray-500 text-xs mt-1 mb-4">
                 Eg: <span className="font-bold">PDF, JPEG, EPS, PNG</span> &nbsp; 
                 Max file limit upto <span className="font-bold">5MB</span>
             </p>
 
-            {/* UPLOAD BOX */}
             <div
                 className="w-[470px] h-[230px] border border-gray-300 rounded-xl bg-white 
                            flex flex-col items-center justify-center cursor-pointer shadow-sm"
@@ -90,21 +108,19 @@ const UploadAddressProof = ({ onContinue }) => {
                 />
             </div>
 
-            {/* ERROR */}
             {error && (
                 <p className="text-red-600 text-sm mt-2">{error}</p>
             )}
 
-            {/* BUTTON */}
             <button
                 onClick={handleSubmit}
+                disabled={!file || loading}
                 className={`w-[470px] bg-[#000060] text-white py-3 rounded-xl mt-8
                            hover:bg-[#000060d1] transition ${
                                !file ? "opacity-60 cursor-not-allowed" : ""
                            }`}
-                disabled={!file}
             >
-                Continue
+                {loading ? "Uploading..." : "Continue"}
             </button>
         </div>
     );
