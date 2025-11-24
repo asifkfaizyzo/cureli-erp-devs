@@ -1,47 +1,141 @@
-import ProductRow from "../Billing/ProductRow";
+import { useState, useRef, useEffect } from "react";
+import ProductRow from "./ProductRow";
+import { billProductsMaster } from "../data/bill";
 
-const dummyProducts = Array.from({ length: 8 }).map((_, i) => ({
-  name: "paracetamol",
-  batch: "E7656T",
-  rate: 10,
-  qty: 5,
-  exp: "12/26",
-  type: "Antibiotics",
-  category: "Medicine",
-  stock: 100,
-  rack: "S8",
-  tax: 1.5,
-  taxAmt: 1.5,
+const makeEmptyRow = () => ({
+  name: "",
+  batch: "",
+  qty: "",
+  mrp: 0,
+  amount: 0,
+  exp: "",
+  type: "",
+  category: "",
+  stock: "",
+  rack: "",
+  tax: 0,
+  taxAmt: 0,
   disc: 0,
-  mrp: 11.5,
-}));
+  barcode: "",
+});
 
-const ProductTable = () => {
+const ProductTable = ({ rows, setRows }) => {
+  const batchRefs = useRef([]);
+  const qtyRefs = useRef([]);
+
+  useEffect(() => {
+    batchRefs.current = batchRefs.current.slice(0, rows.length);
+    qtyRefs.current = qtyRefs.current.slice(0, rows.length);
+  }, [rows.length]);
+
+  const removeRow = (index) => {
+    setRows((prev) => {
+      if (prev.length <= 1) return prev;
+      if (index === prev.length - 1) return prev;
+      const copy = [...prev];
+      copy.splice(index, 1);
+      return ensureTrailingBlank(copy);
+    });
+  };
+
+  const ensureTrailingBlank = (arr) => {
+    const last = arr[arr.length - 1];
+    const isEmpty = Object.keys(last).every(
+      (k) => last[k] === "" || last[k] === 0 || last[k] === null
+    );
+    return isEmpty ? arr : [...arr, makeEmptyRow()];
+  };
+
+  const handleRowChange = (index, field, value, opts = {}) => {
+    setRows((prev) => {
+      const updated = [...prev];
+      const row = { ...updated[index] };
+
+      if (field === "__deleteRow") {
+        if (index === prev.length - 1) return prev;
+        const copy = [...prev];
+        copy.splice(index, 1);
+        return ensureTrailingBlank(copy);
+      }
+
+      row[field] = value;
+      updated[index] = row;
+
+      if (field === "batch" && opts.triggerAutoFill) {
+        const match =
+          billProductsMaster.find((p) => p.batch?.toLowerCase() === value.toLowerCase()) ||
+          billProductsMaster.find((p) => String(p.barcode) === String(value));
+
+        if (match) {
+          updated[index] = {
+            ...row,
+            ...match,
+            qty: row.qty || match.qty || 1,
+          };
+        }
+      }
+
+      const r = updated[index];
+      const qty = Number(r.qty) || 0;
+      const mrp = Number(r.mrp) || 0;
+
+      r.amount = +(qty * mrp).toFixed(2);
+
+      return ensureTrailingBlank(updated);
+    });
+
+    if (field === "batch" && opts.triggerAutoFill) {
+      queueMicrotask(() => qtyRefs.current[index]?.focus?.());
+    }
+  };
+
+  const focusNextRowBatch = (i) => {
+    setRows((prev) => {
+      if (i < prev.length - 1) return prev;
+      return [...prev, makeEmptyRow()];
+    });
+
+    queueMicrotask(() => batchRefs.current[i + 1]?.focus?.());
+  };
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="overflow-auto max-h-[340px]">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="max-h-[245px] overflow-y-auto relative">
         <table className="min-w-full border-collapse">
-          <thead>
-            <tr className="bg-[#000060] text-white text-[11px]">
-              <th className="px-2 py-2 text-left w-10">Sl.No</th>
-              <th className="px-2 py-2 text-left">Product Name</th>
-              <th className="px-2 py-2 text-left">Batch</th>
-              <th className="px-2 py-2 text-right">Rate</th>
-              <th className="px-2 py-2 text-center">Qty</th>
-              <th className="px-2 py-2 text-center">Exp</th>
-              <th className="px-2 py-2 text-center">Type</th>
-              <th className="px-2 py-2 text-center">Category</th>
-              <th className="px-2 py-2 text-center">Stock</th>
-              <th className="px-2 py-2 text-center">Rack</th>
-              <th className="px-2 py-2 text-right">Tax%</th>
-              <th className="px-2 py-2 text-right">Tax Amt</th>
-              <th className="px-2 py-2 text-right">Dis%</th>
-              <th className="px-2 py-2 text-right">MRP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dummyProducts.map((p, idx) => (
-              <ProductRow key={idx} index={idx} item={p} />
+         <thead className="sticky top-0 z-10 bg-[#000060] text-white">
+  <tr className="text-[11px]">
+    <th className="px-2 py-2 w-[40px] text-left">Sl.No</th>
+    <th className="px-2 py-2 w-[180px] text-left">Product Name</th>
+    <th className="px-2 py-2 w-[110px] text-left">Batch</th>
+    <th className="px-2 py-2 w-[55px] text-center">Qty</th>
+    <th className="px-2 py-2 w-[55px] text-right">MRP</th>
+    <th className="px-2 py-2 w-[70px] text-center">Exp</th>
+    <th className="px-2 py-2 w-[120px] text-left">Type</th>
+    <th className="px-2 py-2 w-[120px] text-left">Category</th>
+    <th className="px-2 py-2 w-[60px] text-center">Stock</th>
+    <th className="px-2 py-2 w-[60px] text-center">Rack</th>
+    <th className="px-2 py-2 w-[50px] text-right">Amount</th>
+  </tr>
+</thead>
+
+
+
+          <tbody className="border-4 border-white rounded-xl">
+            {rows.map((item, idx) => (
+              <ProductRow
+                key={idx}
+                index={idx}
+                item={item}
+                masterList={billProductsMaster}
+                batchRef={(el) => (batchRefs.current[idx] = el)}
+                qtyRef={(el) => (qtyRefs.current[idx] = el)}
+                onChange={(i, field, value, opts) =>
+                  field === "__deleteRow"
+                    ? removeRow(i)
+                    : handleRowChange(i, field, value, opts)
+                }
+                onRequestNextRowBatch={() => focusNextRowBatch(idx)}
+              />
             ))}
           </tbody>
         </table>

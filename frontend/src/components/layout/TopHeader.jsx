@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { FiBell } from "react-icons/fi";
+import success from "../../assets//icons/cureli.png";
 
 const TopHeader = () => {
   const [time, setTime] = useState("");
@@ -27,10 +28,11 @@ const TopHeader = () => {
       {/* LEFT: Cureli Logo */}
       <div className="flex items-center gap-3">
         <img
-          src="/src/assets/logo-dark.png"
-          alt="Cureli"
-          className="h-8 w-auto"
-        />
+                            src={success}
+                            alt="success"
+                            className="w-12 h-10 mb-2"
+                        />
+        <span className="text-4xl mb-[2%] ml-[-8%] font-bold text-[#000060]">Cureli</span>
       </div>
 
       {/* RIGHT SIDE */}
