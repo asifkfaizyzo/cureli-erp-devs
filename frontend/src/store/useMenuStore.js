@@ -1,4 +1,3 @@
-// src/store/useMenuStore.js
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -9,14 +8,19 @@ export const useMenuStore = create(
       sidebarExpanded: true,
 
       setActiveMenu: (menu) => set({ activeMenu: menu }),
+
       toggleSidebar: () =>
         set((state) => ({ sidebarExpanded: !state.sidebarExpanded })),
+
+      // Add breadcrumbs storage (if needed)
+      breadcrumbs: ["Dashboard"],
+      setBreadcrumbs: (crumbs) => set({ breadcrumbs: crumbs }),
     }),
 
     {
-      name: "menu-storage",         // key in localStorage
+      name: "menu-storage",
       partialize: (state) => ({
-        activeMenu: state.activeMenu,  // Only save this
+        activeMenu: state.activeMenu,
       }),
     }
   )

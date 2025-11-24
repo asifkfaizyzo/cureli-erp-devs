@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { FiSave } from "react-icons/fi";
 
-const BillingHeader = () => {
+const BillingHeader = ({ onSave, onSavePrint }) => {
   const billNo = "123456";
   const billedBy = "Amith";
 
@@ -64,14 +64,21 @@ const BillingHeader = () => {
 
         {/* Right Section: Buttons */}
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 bg-[#000060] text-white text-sm px-4 py-2 rounded-lg shadow-sm hover:bg-[#000060d1] transition">
-            <FiSave size={14} />
-            Save
-          </button>
+          <button
+  onClick={onSave}
+  className="flex items-center gap-2 bg-[#000060] text-white text-sm px-4 py-2 rounded-lg shadow-sm hover:bg-[#000060d1] transition"
+>
+  <FiSave size={14} />
+  Save
+</button>
 
-          <button className="bg-[#000060] text-white text-sm px-5 py-2 rounded-lg shadow-sm hover:bg-[#000060d1] transition">
-            Save & Print (F5)
-          </button>
+<button
+  onClick={onSavePrint}
+  className="bg-[#000060] text-white text-sm px-5 py-2 rounded-lg shadow-sm hover:bg-[#000060d1] transition"
+>
+  Save & Print (F5)
+</button>
+
         </div>
       </div>
 

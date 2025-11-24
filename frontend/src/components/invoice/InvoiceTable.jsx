@@ -1,7 +1,7 @@
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 
-const InvoiceTable = ({ invoices }) => {
+const InvoiceTable = ({ invoices, onEdit, onDelete, onView }) => {
   const sidebarExpanded = useMenuStore((s) => s.sidebarExpanded);
 
   const shrinkClasses = sidebarExpanded
@@ -85,15 +85,32 @@ const InvoiceTable = ({ invoices }) => {
                   ₹ {row.price}
                 </td>
 
-                <td className={`${shrinkClasses} border-4 border-white rounded-xl`}>
+                <td className={`${shrinkClasses} border-4 bg-white border-white rounded-xl`}>
                   <div
-                    className={`flex items-center justify-center gap-2 ${
+                    className={`flex items-center justify-center ${
                       sidebarExpanded ? "gap-2" : "gap-4"
                     }`}
                   >
-                    <Eye size={sidebarExpanded ? 14 : 18} className="cursor-pointer text-[#05015A]" />
-                    <Pencil size={sidebarExpanded ? 14 : 18} className="cursor-pointer text-gray-600" />
-                    <Trash2 size={sidebarExpanded ? 14 : 18} className="cursor-pointer text-red-500" />
+                    {/* VIEW */}
+                    <Eye
+                      size={sidebarExpanded ? 14 : 18}
+                      className="cursor-pointer text-gray-600 hover:text-[#05015A]"
+                      onClick={() => onView?.(row)}
+                    />
+
+                    {/* EDIT */}
+                    <Pencil
+                      size={sidebarExpanded ? 14 : 18}
+                      className="cursor-pointer text-gray-600 hover:text-[#05015A]"
+                      onClick={() => onEdit?.(row)}
+                    />
+
+                    {/* DELETE */}
+                    <Trash2
+                      size={sidebarExpanded ? 14 : 18}
+                      className="cursor-pointer text-gray-600 hover:text-[#05015A]"
+                      onClick={() => onDelete?.(row)}
+                    />
                   </div>
                 </td>
               </tr>
