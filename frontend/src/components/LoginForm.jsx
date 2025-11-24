@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { FaUser, FaLock } from "react-icons/fa";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { loginUser } from "../api/auth";
+import LoginOtpVerification from "./LoginOtpVerification";
 
 const LoginForm = ({ onRegisterClick }) => {
   const [username, setUsername] = useState("");
@@ -11,6 +12,11 @@ const LoginForm = ({ onRegisterClick }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+
+  // ✅ OTP Step
+  const [showOtpScreen, setShowOtpScreen] = useState(false);
+  const [tempToken, setTempToken] = useState("");
+  const [phoneHint, setPhoneHint] = useState("");
 
   const passwordRef = useRef(null);
   const navigate = useNavigate();
@@ -32,43 +38,13 @@ const LoginForm = ({ onRegisterClick }) => {
     setErrors({});
 
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", {
-        username,
-        password,
-      });
+      const res = await loginUser({ username, password });
+      const { temp_token, phone_hint } = res.data.data;
 
-      const { access_token, next_step, show_success, shop_id, user_id } =
-        res.data.data;
-      localStorage.setItem("access_token", access_token);
-      localStorage.setItem("shop_id", shop_id);
-      localStorage.setItem("user_id", user_id);
-
-      // Save token
-
-      /* ---------- REDIRECTION LOGIC ---------- */
-
-      // Case 1 → Fully completed onboarding → Go to dashboard
-      if (next_step === -1) {
-        navigate("/dashboard");
-        return;
-      }
-
-      // Case 2 → Verification Pending (step 12)
-      if (next_step === 12) {
-        navigate("/verify");
-        return;
-      }
-
-      // Case 3 → First login after verification (step 13)
-      if (next_step === 13) {
-        navigate("/onboarding-success");
-        return;
-      }
-
-      // Case 4 → Mid onboarding (steps 4–11)
-      navigate("/onboarding", {
-        state: { resume_step: next_step },
-      });
+      // ✅ Show OTP screen
+      setTempToken(temp_token);
+      setPhoneHint(phone_hint);
+      setShowOtpScreen(true);
     } catch (err) {
       console.error(err);
       setErrors({
@@ -78,6 +54,26 @@ const LoginForm = ({ onRegisterClick }) => {
 
     setLoading(false);
   };
+
+  const handleBackToLogin = () => {
+    setShowOtpScreen(false);
+    setTempToken("");
+    setPhoneHint("");
+    setPassword("");
+  };
+
+  // ✅ Show OTP screen if needed
+  if (showOtpScreen) {
+    return (
+      <AnimatePresence mode="wait">
+        <LoginOtpVerification
+          tempToken={tempToken}
+          phoneHint={phoneHint}
+          onBack={handleBackToLogin}
+        />
+      </AnimatePresence>
+    );
+  }
 
   return (
     <form
@@ -191,18 +187,22 @@ const LoginForm = ({ onRegisterClick }) => {
             Stay logged in
           </label>
 
-          <a href="#" className="text-[#000060] font-medium hover:underline">
+          <span
+            onClick={() => navigate("/forgot-password")}
+            className="text-[#000060] font-medium hover:underline cursor-pointer"
+          >
             Forgot Password?
-          </a>
+          </span>
         </div>
 
         {/* LOGIN BUTTON */}
         <button
           type="submit"
+          disabled={loading}
           className="w-full bg-[#000060] text-white py-3 rounded-xl font-semibold mt-4 
-                    hover:bg-[#000060d1] transition"
+                    hover:bg-[#000060d1] transition disabled:bg-gray-400"
         >
-          Log in
+          {loading ? "Logging in..." : "Log in"}
         </button>
 
         {/* SIGN UP LINK */}
@@ -219,11 +219,17 @@ const LoginForm = ({ onRegisterClick }) => {
         {/* FOOTER */}
         <p className="text-center text-[13px] text-gray-400 mt-8">
           This site is protected by reCAPTCHA and the <br />
-          <span className="text-[#000060] underline cursor-pointer">
+          <span
+            onClick={() => navigate("/privacy")}
+            className="text-[#000060] underline cursor-pointer hover:font-semibold"
+          >
             Google Privacy
           </span>{" "}
           policy and{" "}
-          <span className="text-[#000060] underline cursor-pointer">
+          <span
+            onClick={() => navigate("/terms")}
+            className="text-[#000060] underline cursor-pointer hover:font-semibold"
+          >
             Terms of Service
           </span>{" "}
           apply.

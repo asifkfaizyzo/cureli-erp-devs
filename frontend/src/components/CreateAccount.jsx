@@ -4,10 +4,12 @@ import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { signupUser } from "../api/auth";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3"; // ✅ ADD
 import api from "../api/axios";
 
 const CreateAccount = ({ onLoginClick }) => {
   const navigate = useNavigate();
+  const { executeRecaptcha } = useGoogleReCaptcha(); // ✅ ADD
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -45,7 +47,8 @@ const CreateAccount = ({ onLoginClick }) => {
     else if (!/[A-Z]/.test(pass)) err.password = "Missing uppercase letter";
     else if (!/[a-z]/.test(pass)) err.password = "Missing lowercase letter";
     else if (!/[0-9]/.test(pass)) err.password = "Missing number";
-    else if (!/[!@#$%^&*]/.test(pass)) err.password = "Missing special character";
+    else if (!/[!@#$%^&*]/.test(pass))
+      err.password = "Missing special character";
 
     if (!form.agree) err.agree = "You must agree";
 
@@ -58,53 +61,52 @@ const CreateAccount = ({ onLoginClick }) => {
   // ---------------------------
 
   const handleGoogleSignup = async (response) => {
-  try {
-    const credential = response.credential;
+    try {
+      const credential = response.credential;
 
-    const res =  await api.post("/pending/signup/google", { credential });
+      const res = await api.post("/pending/signup/google", { credential });
 
-
-    navigate("/onboarding", {
-  state: {
-    pending_id: res.data.data.pending_id,
-    email: res.data.data.email,
-    first_name: res.data.data.first_name,
-    last_name: res.data.data.last_name,
-    provider: "google"
-  },
-});
-
-
-  } catch (err) {
-    console.error("GOOGLE SIGNUP ERROR:", err);
-    alert("Google sign-up failed");
-  }
-};
-
-
+      navigate("/onboarding", {
+        state: {
+          pending_id: res.data.data.pending_id,
+          email: res.data.data.email,
+          first_name: res.data.data.first_name,
+          last_name: res.data.data.last_name,
+          provider: "google",
+        },
+      });
+    } catch (err) {
+      console.error("GOOGLE SIGNUP ERROR:", err);
+      alert("Google sign-up failed");
+    }
+  };
 
   const handleCreateAccount = async () => {
     if (!validate()) return;
 
+    // ✅ CHECK IF RECAPTCHA IS READY
+    if (!executeRecaptcha) {
+      alert("reCAPTCHA not ready. Please try again.");
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // ✅ GET RECAPTCHA TOKEN
+      const recaptchaToken = await executeRecaptcha("signup");
+
       const payload = {
         first_name: form.first_name,
         last_name: form.last_name,
         email: form.email,
         password: form.password,
+        recaptchaToken, // ✅ SEND TOKEN TO BACKEND
       };
 
-      // 🚀 API CALL
       const res = await signupUser(payload);
-
-      // Because your API returns: res.data.data.pending_id
       const pending_id = res.data.data.pending_id;
 
-      // console.log("PENDING ID:", pending_id);
-
-      // 🚀 Navigate to OTP page
       navigate("/onboarding", {
         state: {
           pending_id,
@@ -128,8 +130,6 @@ const CreateAccount = ({ onLoginClick }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      {/* 🔥 UI BELOW IS IDENTICAL — NOT TOUCHED */}
-
       <h1 className="text-2xl font-bold text-center text-[#000060] mb-6">
         Create Account
       </h1>
@@ -220,11 +220,26 @@ const CreateAccount = ({ onLoginClick }) => {
         </div>
 
         <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-          <PasswordRuleInline valid={form.password.length >= 8} text="8+ chars" />
-          <PasswordRuleInline valid={/[A-Z]/.test(form.password)} text="uppercase" />
-          <PasswordRuleInline valid={/[a-z]/.test(form.password)} text="lowercase" />
-          <PasswordRuleInline valid={/[0-9]/.test(form.password)} text="number" />
-          <PasswordRuleInline valid={/[!@#$%^&*]/.test(form.password)} text="special" />
+          <PasswordRuleInline
+            valid={form.password.length >= 8}
+            text="8+ chars"
+          />
+          <PasswordRuleInline
+            valid={/[A-Z]/.test(form.password)}
+            text="uppercase"
+          />
+          <PasswordRuleInline
+            valid={/[a-z]/.test(form.password)}
+            text="lowercase"
+          />
+          <PasswordRuleInline
+            valid={/[0-9]/.test(form.password)}
+            text="number"
+          />
+          <PasswordRuleInline
+            valid={/[!@#$%^&*]/.test(form.password)}
+            text="special"
+          />
         </div>
 
         {errors.password && (
@@ -239,11 +254,28 @@ const CreateAccount = ({ onLoginClick }) => {
           checked={form.agree}
           onChange={(e) => setForm({ ...form, agree: e.target.checked })}
         />
-        I agree with Terms and Privacy Policies
+        I agree with{" "}
+        <span
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/terms");
+          }}
+          className="text-[#000060] font-semibold cursor-pointer hover:underline"
+        >
+          Terms
+        </span>{" "}
+        and{" "}
+        <span
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/privacy");
+          }}
+          className="text-[#000060] font-semibold cursor-pointer hover:underline"
+        >
+          Privacy Policies
+        </span>
       </label>
-      {errors.agree && (
-        <p className="text-xs text-red-500">{errors.agree}</p>
-      )}
+      {errors.agree && <p className="text-xs text-red-500">{errors.agree}</p>}
 
       <button
         onClick={handleCreateAccount}
@@ -274,12 +306,24 @@ const CreateAccount = ({ onLoginClick }) => {
           Log in
         </span>
       </p>
-      {/* FOOTER */}
-                <p className="text-center text-[13px] text-gray-400 mt-4">
-                    This site is protected by reCAPTCHA and the <br />
-                    <span className="text-[#000060] underline cursor-pointer">Google Privacy</span> policy and{" "}
-                    <span className="text-[#000060] underline cursor-pointer">Terms of Service</span> apply.
-                </p>
+
+      <p className="text-center text-[13px] text-gray-400 mt-4">
+        This site is protected by reCAPTCHA and the <br />
+        <span
+          onClick={() => navigate("/privacy")}
+          className="text-[#000060] underline cursor-pointer hover:font-semibold"
+        >
+          Google Privacy
+        </span>{" "}
+        policy and{" "}
+        <span
+          onClick={() => navigate("/terms")}
+          className="text-[#000060] underline cursor-pointer hover:font-semibold"
+        >
+          Terms of Service
+        </span>{" "}
+        apply.
+      </p>
     </motion.div>
   );
 };
@@ -289,7 +333,11 @@ export default CreateAccount;
 const PasswordRuleInline = ({ valid, text }) => (
   <span
     className={`px-2 py-[3px] rounded-full border text-[10px] flex items-center gap-1
-      ${valid ? "border-green-500 text-green-600" : "border-gray-400 text-gray-500"}`}
+      ${
+        valid
+          ? "border-green-500 text-green-600"
+          : "border-gray-400 text-gray-500"
+      }`}
   >
     {valid ? "✔" : "•"} {text}
   </span>

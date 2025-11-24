@@ -29,11 +29,11 @@ export async function uploadShopFile(fileData) {
   // Map file_type to onboarding step
   const mapping = {
     drug_license: 7,
-    registration: 8,
-    proof: 9,
-    ea_license: 10,
-    pan: 11,
-    address: 12,
+    pharmacy_registration: 8,                    
+    business_registration_proof: 9,             
+    shop_establishment_license: 10,                             
+    pan_card: 11,                            
+    address_proof: 12,                           
   };
 
   const targetStep = mapping[fileData.file_type];

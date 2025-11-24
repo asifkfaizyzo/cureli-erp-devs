@@ -11,6 +11,7 @@ export const pendingSignupSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
       "Password must include uppercase, lowercase, number, and symbol"
     ),
+  
 });
 
 export const usernameSchema = z.object({

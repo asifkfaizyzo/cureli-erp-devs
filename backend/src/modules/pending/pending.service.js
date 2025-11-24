@@ -33,11 +33,6 @@ export async function cleanupExpiredPendingUsers(expiryMinutes = 10) {
 
 
 
-/* -------------------------
-   Existing email-based functions
-   ------------------------- */
-
-
 
 export async function createPendingUser({
   first_name,
@@ -48,7 +43,7 @@ export async function createPendingUser({
   // Check if already a REAL user
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    const err = new Error("Email already registered.");
+    const err = new Error("Email already registered. Please login.");
     err.code = "EMAIL_EXISTS";
     throw err;
   }
@@ -57,12 +52,15 @@ export async function createPendingUser({
   const existingPending = await prisma.pendingUser.findUnique({
     where: { email },
   });
+
   if (existingPending) {
-    const err = new Error("Email already Exists. Please Login");
-    err.code = "PENDING_EXISTS";
-    throw err;
+    // 🔥 Delete old incomplete signup
+    await prisma.pendingUser.delete({
+      where: { pending_id: existingPending.pending_id },
+    });
   }
 
+  // Create new pending user
   const password_hash = await hashPassword(password);
 
   const pending = await prisma.pendingUser.create({
@@ -86,7 +84,7 @@ export async function createPendingUserFromGoogle({
   // Check actual user
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    const err = new Error("Email already registered.");
+    const err = new Error("Email already registered. Please login.");
     err.code = "EMAIL_EXISTS";
     throw err;
   }
@@ -95,13 +93,15 @@ export async function createPendingUserFromGoogle({
   const existingPending = await prisma.pendingUser.findUnique({
     where: { email },
   });
+
   if (existingPending) {
-    const err = new Error("Email already exists. Please login.");
-    err.code = "PENDING_EXISTS";
-    throw err;
+    // 🔥 Delete old incomplete signup
+    await prisma.pendingUser.delete({
+      where: { pending_id: existingPending.pending_id },
+    });
   }
 
-  // Create pending without password, and auto-verify email
+  // Create pending without password, auto-verify email for Google
   const pending = await prisma.pendingUser.create({
     data: {
       first_name,
@@ -109,7 +109,7 @@ export async function createPendingUserFromGoogle({
       email,
       google_id,
       login_provider: "google",
-      email_verified: true,
+      email_verified: true, // Auto-verified for Google
     },
   });
 
@@ -232,15 +232,7 @@ export async function verifyEmailOtp(pending_id, otp) {
   return true;
 }
 
-/* -------------------------
-   New SMS (MessageCentral) functions
-   ------------------------- */
 
-/**
- * Send SMS OTP via MessageCentral and persist verificationId
- * - pending_id: uuid
- * - phone: full phone string (E.164 recommended)
- */
 export async function sendSmsOtp(pending_id, phone) {
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
@@ -297,11 +289,7 @@ export async function sendSmsOtp(pending_id, phone) {
   return { verificationId, transactionId, timeout };
 }
 
-/**
- * Validate OTP against MessageCentral using stored verificationId
- * - pending_id: uuid
- * - code: OTP provided by user
- */
+
 export async function verifySmsOtp(pending_id, code) {
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
@@ -391,9 +379,6 @@ export async function verifySmsOtp(pending_id, code) {
   throw err;
 }
 
-/* -------------------------
-   Updated username logic — requires BOTH email + phone verified
-   ------------------------- */
 
 export async function setUsername(pending_id, username) {
   // Check if pending user exists

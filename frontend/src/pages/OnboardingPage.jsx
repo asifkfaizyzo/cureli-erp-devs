@@ -24,8 +24,6 @@ const OnboardingPage = () => {
   const location = useLocation();
   const pending_id = location.state?.pending_id;
   const email = location.state?.email;
-  const first_name = location.state?.first_name;
-  const last_name = location.state?.last_name;
   const [progressStep, setProgressStep] = useState(
     location.state?.resume_step ?? 0
   );
@@ -91,7 +89,7 @@ const OnboardingPage = () => {
       case 12:
         return <VerificationPending onContinue={handleContinue} />;
       case 13:
-        return <OnboardSuccess onStart={handleContinue} />;
+        return <OnboardSuccess />;
       default:
         return null;
     }
