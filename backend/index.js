@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 import express from "express";
 import dotenv from "dotenv";
 dotenv.config();
@@ -41,4 +39,3 @@ app.listen(PORT, () => {
   // ✅ Initialize cron jobs after server starts
   initializeCronJobs();
 });
->>>>>>> 0c95d08cd4b86b0ce7926a2ce35a4c39c8f37756

@@ -9,6 +9,8 @@ import TermsPage from "./pages/TermsPage.jsx";
 import PrivacyPage from "./pages/PrivacyPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import PlanSelectionPage from "./pages/PlanSelectionPage.jsx";
+import PendingUsersPage from "./pages/PendingUsersPage.jsx";
 
 // Protected Pages (ERP)
 import AppLayout from "./components/layout/AppLayout.jsx";
@@ -34,8 +36,10 @@ const App = () => {
         {/* PROTECTED ERP ROUTES (with layout) */}
         <Route path="/" element={<AppLayout />}>
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="billing" element={<BillingPage />} />
-          <Route path="invoice" element={<InvoicePage />} />
+          <Route path="Salesbilling" element={<BillingPage />} />
+          <Route path="Salesinvoice" element={<InvoicePage />} />
+          <Route path="plan-selection" element={<PlanSelectionPage />} />
+          <Route path="pending-users" element={<PendingUsersPage />} />
         </Route>
 
         {/* ERROR PAGE */}
