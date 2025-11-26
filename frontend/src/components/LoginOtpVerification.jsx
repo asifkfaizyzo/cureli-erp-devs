@@ -54,7 +54,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   const handlePaste = (e) => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData("text").trim();
-    
+
     if (/^\d{4}$/.test(pastedData)) {
       const digits = pastedData.split("");
       setOtp(digits);
@@ -87,16 +87,20 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       localStorage.setItem("user_id", user_id);
 
       // Redirect based on next_step
+      // ✅ NEW (CORRECT):
       if (next_step === -1) {
         navigate("/dashboard");
-      } else if (next_step === 13) {
-        navigate("/onboarding-success");
-      } else {
-        navigate("/onboarding", { state: { resume_step: next_step } });
+        return;
       }
+
+      // All other steps (4-13) go to onboarding with stepper
+      navigate("/onboarding", {
+        state: { resume_step: next_step },
+      });
     } catch (err) {
       console.error(err);
-      const message = err?.response?.data?.message || "Invalid OTP. Please try again.";
+      const message =
+        err?.response?.data?.message || "Invalid OTP. Please try again.";
       setError(message);
       setOtp(["", "", "", ""]);
       inputsRef.current[0]?.focus();
@@ -108,7 +112,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   const handleResend = () => {
     // For now, just show message (implement backend later if needed)
     if (timer > 0) return;
-    
+
     alert("Please go back and login again to receive a new OTP");
     // TODO: Add resend API endpoint if needed
   };
@@ -129,11 +133,15 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         <span className="text-lg font-medium">Back</span>
       </div>
 
-      <h1 className="text-3xl font-semibold text-[#000060] mt-10">Verify Your Identity</h1>
+      <h1 className="text-3xl font-semibold text-[#000060] mt-10">
+        Verify Your Identity
+      </h1>
 
       <p className="mt-4 text-gray-600 text-center">
         Enter 4 digit code sent to <br />
-        <span className="font-medium text-gray-700">{phoneHint || "+91 ******0000"}</span>
+        <span className="font-medium text-gray-700">
+          {phoneHint || "+91 ******0000"}
+        </span>
       </p>
 
       <div className="flex gap-4 mt-10" onPaste={handlePaste}>
@@ -174,7 +182,9 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         {timer > 0 ? (
           <>
             Re-send code in{" "}
-            <span className="font-medium">00:{timer < 10 ? `0${timer}` : timer}</span>
+            <span className="font-medium">
+              00:{timer < 10 ? `0${timer}` : timer}
+            </span>
           </>
         ) : (
           <span
