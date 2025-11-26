@@ -3,25 +3,44 @@ import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import success from "../assets/images/success.jpg";
 import { completeOnboarding } from "../api/auth";
+import { getMySubscription } from "../api/subscription";
 
 const OnboardSuccess = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  const handleGetStarted = async () => {
-    setLoading(true);
+const handleGetStarted = async () => {
+  setLoading(true);
 
-    try {
-      // 🔥 Mark onboarding as complete
-      await completeOnboarding();
-      navigate("/dashboard");
-    } catch (err) {
-      console.error("Failed to complete onboarding:", err);
-      alert("Something went wrong. Please try again.");
+  try {
+    // Mark onboarding as complete
+    await completeOnboarding();
+
+    // 🔥 Check subscription
+    const subRes = await getMySubscription();
+    const payload = subRes.data?.data;
+
+    const hasActive =
+      payload?.has_active_subscription ||
+      payload?.current_plan ||
+      false;
+
+    if (!hasActive) {
+      navigate("/plan-selection");
+      return;
     }
 
-    setLoading(false);
-  };
+    navigate("/dashboard");
+    return;
+
+  } catch (err) {
+    console.error("Failed to complete onboarding:", err);
+    alert("Something went wrong. Please try again.");
+  }
+
+  setLoading(false);
+};
+
 
   return (
     <div className="w-full flex flex-col items-center mt-5 px-4 font-poppins">

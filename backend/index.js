@@ -34,7 +34,7 @@ app.use("/api/shop", shopRoutes);
 app.use("/api/pending", pendingRoutes);
 app.use("/api/shop/files", shopFilesRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/plans", plansRoutes);
 
 // health
