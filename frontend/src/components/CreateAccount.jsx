@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
-import { signupUser } from "../api/auth";
+import { googleSignup, signupUser } from "../api/auth";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import { useGoogleReCaptcha } from "react-google-recaptcha-v3"; // ✅ ADD
@@ -64,7 +64,7 @@ const CreateAccount = ({ onLoginClick }) => {
     try {
       const credential = response.credential;
 
-      const res = await api.post("/pending/signup/google", { credential });
+      const res = await googleSignup({ credential });
 
       navigate("/onboarding", {
         state: {

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import success from "../assets/images/success.jpg";
+import { completeOnboarding } from "../api/auth";
 
 const OnboardSuccess = () => {
   const navigate = useNavigate();
@@ -9,19 +10,16 @@ const OnboardSuccess = () => {
 
   const handleGetStarted = async () => {
     setLoading(true);
-    
+
     try {
       // 🔥 Mark onboarding as complete
-      await api.post("/auth/complete-onboarding");
-      
-      // Navigate to dashboard
+      await completeOnboarding();
       navigate("/dashboard");
-      
     } catch (err) {
       console.error("Failed to complete onboarding:", err);
       alert("Something went wrong. Please try again.");
     }
-    
+
     setLoading(false);
   };
 
@@ -33,11 +31,7 @@ const OnboardSuccess = () => {
         style={{ boxShadow: "0px 4px 35px rgba(0,0,0,0.08)" }}
       >
         {/* SUCCESS ICON */}
-        <img
-          src={success}
-          alt="success"
-          className="w-32 h-30 mb-2"
-        />
+        <img src={success} alt="success" className="w-32 h-30 mb-2" />
 
         {/* TITLE */}
         <h2 className="text-[28px] font-semibold text-[#000060] text-center">

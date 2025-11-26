@@ -12,12 +12,11 @@ model PendingUser {
 
   first_name    String
   last_name     String
-  email         String @unique
+  email         String  @unique
   password_hash String?
 
-  google_id      String?    @unique
-  login_provider String     @default("password")
-
+  google_id      String? @unique
+  login_provider String  @default("password")
 
   email_otp_hash    String?
   email_otp_expires DateTime?
@@ -29,7 +28,7 @@ model PendingUser {
   sms_otp_expires     DateTime? @db.Timestamptz
   sms_verified        Boolean   @default(false)
 
-  username String? // chosen AFTER verification, before finalizing account
+  username String?
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
@@ -38,93 +37,103 @@ model PendingUser {
 }
 
 model User {
-  user_id        String     @id @default(uuid()) @db.Uuid
-  shop_id        String?    @db.Uuid
-  branch_id      String?    @db.Uuid
-  first_name     String
-  last_name      String
-  full_name      String
-  username       String?    @unique
-  email          String?    @unique
-  phone_number   String?
-  password_hash  String?
-  google_id      String?    @unique
-  login_provider String
-  role           String
-  status         String     @default("pending_setup")
-  is_active      Boolean    @default(true)
-  onboarding_step Int       @default(4)
+  user_id                        String  @id @default(uuid()) @db.Uuid
+  shop_id                        String? @db.Uuid
+  branch_id                      String? @db.Uuid
+  first_name                     String
+  last_name                      String
+  full_name                      String
+  username                       String? @unique
+  email                          String? @unique
+  phone_number                   String?
+  password_hash                  String?
+  google_id                      String? @unique
+  login_provider                 String
+  role                           String
+  status                         String  @default("pending_setup")
+  is_active                      Boolean @default(true)
+  onboarding_step                Int     @default(4)
   first_login_after_verification Boolean @default(false)
-  
+
   reset_token         String?   @db.VarChar(500)
   reset_token_expires DateTime? @db.Timestamptz(6)
-  
+
   login_verification_id String?   @db.Text
   login_otp_expires     DateTime? @db.Timestamptz(6)
   login_otp_attempts    Int       @default(0)
 
+  last_login_at DateTime? @db.Timestamptz(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @updatedAt @db.Timestamptz(6)
 
-  last_login_at  DateTime?  @db.Timestamptz(6)
-  created_at     DateTime   @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime   @updatedAt @db.Timestamptz(6)
-  shops_owned    Shop[]     @relation("OwnerOfShop")
-  branch         Branch?    @relation(fields: [branch_id], references: [branch_id])
-  shop           Shop?      @relation("UsersInShop", fields: [shop_id], references: [shop_id])
-  shopFiles      ShopFile[]
+  shops_owned Shop[]     @relation("OwnerOfShop")
+  branch      Branch?    @relation(fields: [branch_id], references: [branch_id])
+  shop        Shop?      @relation("UsersInShop", fields: [shop_id], references: [shop_id])
+  shopFiles   ShopFile[]
 
   @@map("users")
 }
 
 model Shop {
-  shop_id                 String     @id @default(uuid()) @db.Uuid
-  owner_user_id           String     @db.Uuid
-  business_name           String
-  legal_name              String?
-  gst_number              String?    @unique
-  business_type           String?
-  address_line_1          String
-  address_line_2          String?
-  city                    String
-  state                   String
-  pincode                 String
-  verification_status     String     @default("pending")
-  verification_notes      String?
-  current_subscription_id String?    @db.Uuid
-  created_at              DateTime   @default(now()) @db.Timestamptz(6)
-  updated_at              DateTime   @updatedAt @db.Timestamptz(6)
-  branches                Branch[]
-  owner                   User       @relation("OwnerOfShop", fields: [owner_user_id], references: [user_id])
-  users                   User[]     @relation("UsersInShop")
-  shopFiles               ShopFile[]
+  shop_id       String @id @default(uuid()) @db.Uuid
+  owner_user_id String @db.Uuid
+
+  business_name       String
+  legal_name          String?
+  gst_number          String? @unique
+  business_type       String?
+  address_line_1      String
+  address_line_2      String?
+  city                String
+  state               String
+  pincode             String
+  verification_status String  @default("pending")
+  verification_notes  String?
+
+  current_subscription_id String? @unique @db.Uuid
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  branches  Branch[]
+  owner     User       @relation("OwnerOfShop", fields: [owner_user_id], references: [user_id])
+  users     User[]     @relation("UsersInShop")
+  shopFiles ShopFile[]
+
+  paymentTransactions PaymentTransaction[] @relation("ShopPayments")
+
+  subscriptions       ShopSubscription[] @relation("ShopSubscriptions")
+  currentSubscription ShopSubscription?  @relation("CurrentSubscription", fields: [current_subscription_id], references: [subscription_id])
 
   @@map("shops")
 }
 
 model Branch {
-  branch_id         String   @id @default(uuid()) @db.Uuid
-  shop_id           String   @db.Uuid
-  branch_name       String
-  branch_type       String   @default("main")
-  address_line_1    String
-  address_line_2    String?
-  city              String
-  state             String
-  pincode           String
-  contact_number    String
-  alternate_number  String?
-  branch_seat_limit Int
-  is_active         Boolean  @default(true)
-  created_at        DateTime @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime @updatedAt @db.Timestamptz(6)
-  shop              Shop     @relation(fields: [shop_id], references: [shop_id])
-  users             User[]
+  branch_id        String  @id @default(uuid()) @db.Uuid
+  shop_id          String  @db.Uuid
+  branch_name      String
+  branch_type      String  @default("main")
+  address_line_1   String
+  address_line_2   String?
+  city             String
+  state            String
+  pincode          String
+  contact_number   String
+  alternate_number String?
+
+  is_active Boolean @default(true)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  shop  Shop   @relation(fields: [shop_id], references: [shop_id])
+  users User[]
 
   @@map("branches")
 }
 
 model ShopFile {
-  file_id String @id @default(uuid()) @db.Uuid
-
+  file_id       String @id @default(uuid()) @db.Uuid
   shop_id       String @db.Uuid
   file_type     String @db.Text
   storage_key   String @db.Text
@@ -145,6 +154,57 @@ model ShopFile {
   @@map("shop_files")
 }
 
+model Plan {
+  plan_id         String  @id @default(uuid()) @db.Uuid
+  plan_name       String  @unique
+  max_branches    Int
+  max_users       Int
+  price_monthly   BigInt
+  price_yearly    BigInt?
+  is_customizable Boolean @default(false)
+  is_visible      Boolean @default(true)
+  features_json   Json?
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  subscriptions ShopSubscription[]
+
+  @@map("plans")
+}
+
+model ShopSubscription {
+  subscription_id String @id @default(uuid()) @db.Uuid
+
+  shop_id String @db.Uuid
+  plan_id String @db.Uuid
+
+  status         String
+  billing_cycle  String
+  payment_status String
+
+  start_date   DateTime @db.Timestamptz(6)
+  end_date     DateTime @db.Timestamptz(6)
+  renewal_date DateTime @db.Timestamptz(6)
+
+  branch_limit_snapshot Int
+  user_limit_snapshot   Int
+
+  is_active Boolean @default(true)
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  plan Plan @relation(fields: [plan_id], references: [plan_id])
+
+  shop Shop @relation("ShopSubscriptions", fields: [shop_id], references: [shop_id])
+
+  paymentTransactions PaymentTransaction[] @relation("SubscriptionPayments")
+
+  currentForShop Shop? @relation("CurrentSubscription")
+
+  @@map("shop_subscriptions")
+}
 
 model DeletionLog {
   id              String   @id @default(uuid()) @db.Uuid
@@ -158,4 +218,26 @@ model DeletionLog {
   deleted_at      DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("deletion_logs")
+}
+
+model PaymentTransaction {
+  transaction_id  String  @id @default(uuid()) @db.Uuid
+  shop_id         String  @db.Uuid
+  subscription_id String? @db.Uuid
+
+  provider            String
+  provider_order_id   String? @unique
+  provider_payment_id String? @unique
+  amount              BigInt
+  currency            String  @default("INR")
+  status              String
+  meta                Json?
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  shop         Shop              @relation("ShopPayments", fields: [shop_id], references: [shop_id])
+  subscription ShopSubscription? @relation("SubscriptionPayments", fields: [subscription_id], references: [subscription_id])
+
+  @@map("payment_transactions")
 }

@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import api from "../api/axios";
+import { googleSetPassword } from "../api/auth";
 
 const CreatePassword = ({ pending_id, onContinue }) => {
   const [password, setPassword] = useState("");
@@ -29,10 +30,7 @@ const CreatePassword = ({ pending_id, onContinue }) => {
     }
 
     try {
-      await api.post("/pending/signup/google/set-password", {
-        pending_id,
-        password,
-      });
+      await googleSetPassword({ pending_id, password });
 
       onContinue();
     } catch (err) {

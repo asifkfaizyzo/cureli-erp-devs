@@ -11,6 +11,12 @@ import shopRoutes from "./src/modules/shop/shop.routes.js";
 import adminRoutes from "./src/modules/admin/admin.routes.js";
 import pendingRoutes from "./src/modules/pending/pending.routes.js";
 import shopFilesRoutes from "./src/modules/shopFiles/shopFiles.routes.js";
+import subscriptionRoutes from "./src/modules/subscription/subscription.routes.js";
+import plansRoutes from "./src/modules/plans/plans.routes.js";
+
+
+
+
 
 
 import { initializeCronJobs } from "./src/cron/jobs.js";
@@ -28,6 +34,8 @@ app.use("/api/shop", shopRoutes);
 app.use("/api/pending", pendingRoutes);
 app.use("/api/shop/files", shopFilesRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/plans", plansRoutes);
 
 // health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

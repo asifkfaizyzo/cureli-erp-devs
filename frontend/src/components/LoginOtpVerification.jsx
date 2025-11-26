@@ -2,44 +2,46 @@ import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { IoArrowBackOutline } from "react-icons/io5";
 import { verifyLoginOtp } from "../api/auth";
+import { getMySubscription } from "../api/subscription";
 import { useNavigate } from "react-router-dom";
 
 const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   const navigate = useNavigate();
-  const [otp, setOtp] = useState(["", "", "", ""]); // ✅ Changed to 4 digits
+  const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(30);
 
   const inputsRef = useRef([]);
 
+  // Focus first box
   useEffect(() => {
     inputsRef.current[0]?.focus();
   }, []);
 
+  // Countdown
   useEffect(() => {
     if (timer > 0) {
-      const interval = setInterval(() => setTimer(timer - 1), 1000);
+      const interval = setInterval(() => setTimer((t) => t - 1), 1000);
       return () => clearInterval(interval);
     }
   }, [timer]);
 
+  // Change handler
   const handleChange = (value, index) => {
     if (/^[0-9]?$/.test(value)) {
-      const newOtp = [...otp];
-      newOtp[index] = value;
-      setOtp(newOtp);
+      const updated = [...otp];
+      updated[index] = value;
+      setOtp(updated);
       setError("");
 
-      // Auto-advance
-      if (value && index < 3) {
-        inputsRef.current[index + 1].focus();
-      }
+      // Move forward
+      if (value && index < 3) inputsRef.current[index + 1].focus();
 
-      // Auto-submit when complete
+      // Auto submit
       if (index === 3 && value) {
-        const fullOtp = [...newOtp.slice(0, 3), value].join("");
-        setTimeout(() => handleVerify(fullOtp), 100);
+        const full = [...updated.slice(0, 3), value].join("");
+        setTimeout(() => handleVerify(full), 120);
       }
     }
   };
@@ -50,19 +52,20 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     }
   };
 
-  // ✅ Paste support
+  // Paste support
   const handlePaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").trim();
+    const data = e.clipboardData.getData("text").trim();
 
-    if (/^\d{4}$/.test(pastedData)) {
-      const digits = pastedData.split("");
+    if (/^\d{4}$/.test(data)) {
+      const digits = data.split("");
       setOtp(digits);
       inputsRef.current[3]?.focus();
-      setTimeout(() => handleVerify(pastedData), 100);
+      setTimeout(() => handleVerify(data), 120);
     }
   };
 
+  // Verify OTP
   const handleVerify = async (otpCode = null) => {
     const code = otpCode || otp.join("");
 
@@ -75,6 +78,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     setError("");
 
     try {
+      // Step 1: verify OTP
       const res = await verifyLoginOtp({
         temp_token: tempToken,
         otp: code,
@@ -86,22 +90,40 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       localStorage.setItem("shop_id", shop_id);
       localStorage.setItem("user_id", user_id);
 
-      // Redirect based on next_step
-      // ✅ NEW (CORRECT):
+      // Step 2: If onboarding fully complete
       if (next_step === -1) {
-        navigate("/dashboard");
-        return;
+        try {
+          // Always use the helper, NOT axios directly
+          const subRes = await getMySubscription();
+          const payload = subRes.data?.data;
+
+          const hasActive =
+            payload?.has_active_subscription ||
+            payload?.current_plan ||
+            false;
+
+          if (!hasActive) {
+            navigate("/plan-selection");
+            return;
+          }
+
+          navigate("/dashboard");
+          return;
+        } catch (err) {
+          // Fail-safe → send user to plan selection
+          navigate("/plan-selection");
+          return;
+        }
       }
 
-      // All other steps (4-13) go to onboarding with stepper
-      navigate("/onboarding", {
-        state: { resume_step: next_step },
-      });
+      // Step 3: If onboarding not complete → continue
+      navigate("/onboarding", { state: { resume_step: next_step } });
     } catch (err) {
       console.error(err);
-      const message =
+      const msg =
         err?.response?.data?.message || "Invalid OTP. Please try again.";
-      setError(message);
+
+      setError(msg);
       setOtp(["", "", "", ""]);
       inputsRef.current[0]?.focus();
     }
@@ -110,11 +132,8 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   };
 
   const handleResend = () => {
-    // For now, just show message (implement backend later if needed)
     if (timer > 0) return;
-
     alert("Please go back and login again to receive a new OTP");
-    // TODO: Add resend API endpoint if needed
   };
 
   return (
@@ -138,10 +157,8 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       </h1>
 
       <p className="mt-4 text-gray-600 text-center">
-        Enter 4 digit code sent to <br />
-        <span className="font-medium text-gray-700">
-          {phoneHint || "+91 ******0000"}
-        </span>
+        Enter 4-digit code sent to <br />
+        <span className="font-medium">{phoneHint || "+91 ******0000"}</span>
       </p>
 
       <div className="flex gap-4 mt-10" onPaste={handlePaste}>
@@ -157,10 +174,10 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
             onKeyDown={(e) => handleKeyDown(e, index)}
             disabled={loading}
             className={`w-14 h-16 text-center text-2xl font-semibold border rounded-xl
-                       ${error ? "border-red-500" : "border-gray-300"}
-                       ${digit ? "border-[#000060] bg-[#F7F7FF]" : ""}
-                       focus:ring-2 focus:ring-[#000060] outline-none transition
-                       disabled:bg-gray-100 disabled:cursor-not-allowed`}
+              ${error ? "border-red-500" : "border-gray-300"}
+              ${digit ? "border-[#000060] bg-[#F7F7FF]" : ""}
+              focus:ring-2 focus:ring-[#000060] outline-none transition
+              disabled:bg-gray-100 disabled:cursor-not-allowed`}
           />
         ))}
       </div>
@@ -173,11 +190,12 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         onClick={() => handleVerify()}
         disabled={loading || otp.join("").length !== 4}
         className="w-[300px] bg-[#000060] text-white py-3 rounded-xl font-semibold mt-10 
-                   hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+          hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
         {loading ? "Verifying..." : "Continue"}
       </button>
 
+      {/* TIMER */}
       <p className="mt-4 text-sm text-gray-600">
         {timer > 0 ? (
           <>
