@@ -1,23 +1,15 @@
-
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3"; 
+// ❌ REMOVE THIS:
+// import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3"; 
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-      <GoogleReCaptchaProvider
-        reCaptchaKey={import.meta.env.VITE_GOOGLE_CAPTCHA_ID} 
-        scriptProps={{
-          async: true,
-          defer: true,
-          appendTo: "head",
-        }}
-      >
-        <App />
-      </GoogleReCaptchaProvider>
+      {/* ❌ REMOVE GoogleReCaptchaProvider wrapper */}
+      <App />
     </GoogleOAuthProvider>
   </React.StrictMode>
 );
