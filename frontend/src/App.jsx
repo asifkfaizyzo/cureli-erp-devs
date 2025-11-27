@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 
 // Public Pages
 import Home from "./pages/HomePage.jsx";
@@ -17,10 +18,47 @@ import AppLayout from "./components/layout/AppLayout.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import BillingPage from "./pages/BillingPage.jsx";
 import InvoicePage from "./pages/InvoicePage.jsx";
+import PurchasePage from "./pages/PurchasePage.jsx";
 
 import "./index.css";
 
 const App = () => {
+   useEffect(() => {
+    // Disable Ctrl + Scroll Zoom
+    const disableZoomScroll = (e) => {
+      if (e.ctrlKey) e.preventDefault();
+    };
+
+    // Disable Ctrl + (+, -, 0) keys
+    const disableKeyZoom = (e) => {
+      if (
+        e.ctrlKey &&
+        (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    // Disable touchpad pinch zoom
+    const disablePinch = (e) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener("wheel", disableZoomScroll, { passive: false });
+    window.addEventListener("keydown", disableKeyZoom);
+    window.addEventListener("gesturestart", disablePinch);
+    window.addEventListener("gesturechange", disablePinch);
+    window.addEventListener("gestureend", disablePinch);
+
+    return () => {
+      window.removeEventListener("wheel", disableZoomScroll);
+      window.removeEventListener("keydown", disableKeyZoom);
+      window.removeEventListener("gesturestart", disablePinch);
+      window.removeEventListener("gesturechange", disablePinch);
+      window.removeEventListener("gestureend", disablePinch);
+    };
+  }, []);
+
   return (
     <Router>
       <Routes>
@@ -40,6 +78,8 @@ const App = () => {
           <Route path="Salesinvoice" element={<InvoicePage />} />
           <Route path="plan-selection" element={<PlanSelectionPage />} />
           <Route path="pending-users" element={<PendingUsersPage />} />
+          <Route path="purchase-billing" element={<PurchasePage />} />
+
         </Route>
 
         {/* ERROR PAGE */}

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
 
 const ProductRow = ({
   index,
@@ -16,6 +18,20 @@ const ProductRow = ({
 
   const inputBatchRef = useRef(null);
   const inputQtyRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+  if (inputBatchRef.current) {
+    const rect = inputBatchRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + 4,
+      left: rect.left + rect.width / 2 - 120, // center align
+    });
+  }
+}, [localBatch, showSuggestions]);
+
+
 
   useEffect(() => {
     if (batchRef) batchRef(inputBatchRef.current);
@@ -145,33 +161,41 @@ const ProductRow = ({
           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
         />
 
-        {showSuggestions && suggestions.length > 0 && (
-          <ul
-            className="
-              absolute left-1/2 -translate-x-1/2 top-full mt-1
-              w-[240px] max-h-60 overflow-auto
-              bg-white rounded-xl shadow-2xl border border-gray-200
-              z-[9999] text-[12px]
-            "
-          >
-            {suggestions.map((s, i) => (
-              <li
-                key={`${s.batch}-${i}`}
-                onMouseDown={(ev) => {
-                  ev.preventDefault();
-                  applySuggestion(s);
-                }}
-                className={`
-                  px-3 py-2 cursor-pointer select-none transition
-                  ${i === activeSuggestion ? "bg-[#000060] text-white" : "hover:bg-gray-100"}
-                `}
-              >
-                <div className="font-semibold leading-tight">{s.name}</div>
-                <div className="text-xs opacity-80">{s.batch}</div>
-              </li>
-            ))}
-          </ul>
-        )}
+        {showSuggestions && suggestions.length > 0 &&
+  createPortal(
+    <ul
+      ref={dropdownRef}
+      className="
+        fixed 
+        w-[240px] max-h-60 overflow-auto 
+        bg-white rounded-xl shadow-2xl border border-gray-200 
+        z-[999999] text-[12px]
+      "
+      style={{
+        top: dropdownPos.top,
+        left: dropdownPos.left,
+      }}
+    >
+      {suggestions.map((s, i) => (
+        <li
+          key={`${s.batch}-${i}`}
+          onMouseDown={(ev) => {
+            ev.preventDefault();
+            applySuggestion(s);
+          }}
+          className={`px-3 py-2 cursor-pointer select-none transition
+             ${i === activeSuggestion ? "bg-[#000060] text-white" : "hover:bg-gray-100"}
+          `}
+        >
+          <div className="font-semibold">{s.name}</div>
+          <div className="text-xs opacity-80">{s.batch}</div>
+        </li>
+      ))}
+    </ul>,
+    document.getElementById("suggestion-root")
+  )
+}
+
       </td>
 
       {/* QTY */}
@@ -200,7 +224,7 @@ const ProductRow = ({
     }}
   />
 </td>
-    
+
 
       {/* MRP */}
       <td className="px-2 py-2 border-4 border-white rounded-xl text-right font-semibold text-gray-800">
@@ -227,9 +251,42 @@ const ProductRow = ({
         <input className="w-full bg-transparent text-center outline-none" value={item.rack || ""} readOnly />
       </td>
 
+      <td className="px-2 py-2 border-4 border-white text-center">
+  <input
+    className="w-full bg-transparent text-center outline-none"
+    type="number"
+    value={item.disc ?? ""}
+    onChange={(e) => {
+      const v = e.target.value;
+      onChange(index, "disc", v === "" ? "" : Number(v));
+    }}
+  />
+</td>
+
+<td className="px-2 py-2 border-4 border-white text-center">
+  <input
+    className="w-full bg-transparent text-center outline-none"
+    type="number"
+    value={item.tax ?? ""}
+    onChange={(e) => {
+      const v = e.target.value;
+      onChange(index, "tax", v === "" ? "" : Number(v));
+    }}
+  />
+</td>
+
+<td className="px-2 py-2 border-4 border-white text-center font-semibold">
+  <input
+    className="w-full bg-transparent text-center outline-none"
+    value={item.taxAmt ?? 0}
+    readOnly
+  />
+</td>
+
+
          {/* AMOUNT = qty × mrp */}
       <td className="px-2 py-2 border-4 border-white rounded-xl text-right font-bold text-gray-900">
-        <input className="w-full bg-transparent text-right outline-none" value={item.amount ?? 0} readOnly />
+        <input className="w-full bg-transparent text-center outline-none" value={item.amount ?? 0} readOnly />
       </td>
       
     </tr>
