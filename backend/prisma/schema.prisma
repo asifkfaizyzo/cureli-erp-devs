@@ -7,34 +7,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model PendingUser {
-  pending_id String @id @default(uuid()) @db.Uuid
+model CAdmin {
+  cadmin_id       String   @id @default(uuid()) @db.Uuid
 
-  first_name    String
-  last_name     String
-  email         String  @unique
-  password_hash String?
+  username        String   @unique @db.Text
+  email           String?  @unique @db.Text
+  phone_number    String   @db.Text
+  password_hash   String   @db.Text
+  is_active       Boolean  @default(true)
 
-  google_id      String? @unique
-  login_provider String  @default("password")
+  // MessageCentral OTP
+  verification_id String?  @db.Text
+  otp_expires     DateTime?
 
-  email_otp_hash    String?
-  email_otp_expires DateTime?
-  email_verified    Boolean   @default(false)
+  // Password reset
+  reset_token         String?   @db.VarChar(500)
+  reset_token_expires DateTime? @db.Timestamptz(6)
 
-  phone               String?   @db.Text
-  sms_verification_id String?   @db.Text
-  sms_transaction_id  String?   @db.Text
-  sms_otp_expires     DateTime? @db.Timestamptz
-  sms_verified        Boolean   @default(false)
+  last_login_at   DateTime?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
 
-  username String?
-
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @updatedAt @db.Timestamptz(6)
-
-  @@map("pending_users")
+  @@map("cadmins")
 }
+
 
 model User {
   user_id                        String  @id @default(uuid()) @db.Uuid
