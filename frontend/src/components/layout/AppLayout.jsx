@@ -38,23 +38,25 @@ const AppLayout = () => {
       <div className="flex-1 flex flex-col">
         <TopHeader />
 
-        <main className="pt-20 px-8 pb-6 overflow-hidden">
-          <Breadcrumb />
+        <main className="pt-20 px-8 pb-6">
+  <Breadcrumb />
 
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.key}
-              variants={pageVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="mt-2 h-full w-full"
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
+  <AnimatePresence mode="wait">
+    {location && (
+      <motion.div
+        key={location.pathname}   // ⭐ use pathname, not key
+        variants={pageVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        className="mt-2 h-full w-full"
+      >
+        <Outlet />
+      </motion.div>
+    )}
+  </AnimatePresence>
+</main>
 
-        </main>
       </div>
     </div>
   );
