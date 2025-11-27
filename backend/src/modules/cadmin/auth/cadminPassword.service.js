@@ -27,7 +27,7 @@ export async function requestCAdminPasswordReset(email) {
     },
   });
 
-  const resetUrl = `${process.env.ADMIN_FRONTEND_ORIGIN}/reset-password?token=${resetToken}`;
+  const resetUrl = `${process.env.ADMIN_FRONTEND_ORIGIN}/admin-reset-password?token=${resetToken}`;
 
   const html = `
     <div style="font-family: 'Arial', sans-serif; background:#f4f6fb; padding:40px 0;">
@@ -51,7 +51,7 @@ export async function requestCAdminPasswordReset(email) {
 
     <!-- Body -->
     <p style="font-size:15px; color:#333; line-height:1.6;">
-      Hello <strong>{{USERNAME}}</strong>,
+      Hello <strong>${admin.cadmin_id}</strong>,
     </p>
 
     <p style="font-size:15px; color:#333; line-height:1.6;">
@@ -61,7 +61,7 @@ export async function requestCAdminPasswordReset(email) {
 
     <!-- Button -->
     <div style="text-align:center; margin:30px 0;">
-      <a href="{{RESET_URL}}"
+      <a href="${resetUrl}"
         style="
           background:#000060;
           color:white;
@@ -82,7 +82,7 @@ export async function requestCAdminPasswordReset(email) {
     </p>
 
     <p style="word-break:break-all; font-size:14px; color:#000060;">
-      <a href="{{RESET_URL}}" style="color:#000060; text-decoration:none;">{{RESET_URL}}</a>
+      <a href="${resetUrl}" style="color:#000060; text-decoration:none;">${resetUrl}</a>
     </p>
 
     <!-- Expiry -->
