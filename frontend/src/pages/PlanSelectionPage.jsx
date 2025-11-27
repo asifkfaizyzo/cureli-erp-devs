@@ -10,18 +10,18 @@ const PlanSelectionPage = () => {
   const [selecting, setSelecting] = useState(false);
   const [error, setError] = useState("");
 
-  // Convert paise (BigInt/string) → INR format
+  // Convert paise → rupees
   const toRupees = (amount) => {
     if (amount === null || amount === undefined) return null;
     return Number(amount) / 100;
   };
 
-  // Load plans on mount
+  // Load backend plans
   useEffect(() => {
     async function loadPlans() {
       try {
         const res = await getPlans();
-        const backendPlans = res.data.data.plans;
+        const backendPlans = res.data.data.plans || [];
 
         setPlans(
           backendPlans.map((p) => ({
@@ -36,7 +36,7 @@ const PlanSelectionPage = () => {
           }))
         );
       } catch (err) {
-        console.error(err);
+        console.error("Failed to load plans", err);
         setError("Failed to load plans.");
       } finally {
         setLoading(false);
@@ -46,16 +46,18 @@ const PlanSelectionPage = () => {
     loadPlans();
   }, []);
 
+  // Select plan
   const handleSelect = async (planId) => {
     try {
       setSelecting(true);
+
       await selectPlan({ plan_id: planId });
 
-      // Free plan = immediate activation
+      // Free plan = immediate dashboard
       navigate("/dashboard");
     } catch (err) {
-      console.error(err);
-      setError("Something went wrong while selecting plan.");
+      console.error("Select plan error:", err);
+      setError("Unable to select this plan. Try again.");
     } finally {
       setSelecting(false);
     }
@@ -71,19 +73,16 @@ const PlanSelectionPage = () => {
 
   return (
     <div className="min-h-screen mt-15 bg-white flex flex-col items-center py-10 font-poppins px-4">
-
-      <h1 className="text-3xl font-bold text-[#000060] mb-2">
-        Choose Your Plan
-      </h1>
+      {/* TITLE */}
+      <h1 className="text-3xl font-bold text-[#000060] mb-2">Choose Your Plan</h1>
 
       <p className="text-gray-600 text-sm mb-10 text-center max-w-lg">
         Select the plan that fits your business. Upgrade anytime.
       </p>
 
-      {error && (
-        <p className="text-red-600 text-sm mb-6">{error}</p>
-      )}
+      {error && <p className="text-red-600 text-sm mb-6">{error}</p>}
 
+      {/* PLAN GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl w-full">
         {plans.map((plan) => (
           <div
@@ -100,15 +99,18 @@ const PlanSelectionPage = () => {
                 : `₹${plan.priceMonthly}`}
             </p>
 
+            {/* BRANCH + USERS */}
             <p className="text-gray-600 text-sm mt-2">{plan.branches}</p>
             <p className="text-gray-600 text-sm">{plan.employees}</p>
 
+            {/* FEATURES */}
             <ul className="mt-4 text-sm text-gray-700 space-y-1">
               {plan.features.map((f, idx) => (
                 <li key={idx}>• {f}</li>
               ))}
             </ul>
 
+            {/* SELECT BUTTON */}
             <button
               onClick={() => handleSelect(plan.id)}
               disabled={selecting}

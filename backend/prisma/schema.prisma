@@ -180,7 +180,7 @@ model ShopSubscription {
   plan_id String @db.Uuid
 
   status         String
-  billing_cycle  String
+  billing_cycle   String @default("monthly")
   payment_status String
 
   start_date   DateTime @db.Timestamptz(6)
