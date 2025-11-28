@@ -132,11 +132,12 @@ const Sidebar = () => {
     <aside
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className={`
-        mt-16 bg-white border-r border-gray-200
+       className={`
+        bg-white border-r border-gray-200 mt-16
         transition-[width] duration-700
-        ease-[cubic-bezier(0.34,1.56,0.64,1)]
-        ${expanded ? "w-64" : "w-20"}
+        ease-[cubic-bezier(0.34,1.2,0.64,1)]
+        ${expanded ? "w-64 xl:w-72" : "w-[65px] sm:w-[70px] md:w-[80px]"}
+        overflow-hidden h-screen
       `}
     >
       <nav className="mt-3 flex-1 space-y-1">
