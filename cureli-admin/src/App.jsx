@@ -7,7 +7,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import UserPage from "./pages/UserPage";
 import CAdminForgotPassword from "./pages/CAdminForgotPassword";
 import CAdminResetPassword from "./pages/CAdminResetPassword";
-import VerifyDocuments from "./pages/VerifyDocuments";
 
 // Layout
 import AppLayout from "./components/layout/AppLayout";
