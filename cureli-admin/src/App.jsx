@@ -3,6 +3,7 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import CAdminForgotPassword from "./pages/CAdminForgotPassword";
 import CAdminResetPassword from "./pages/CAdminResetPassword";
+import VerifyDocuments from "./pages/VerifyDocuments";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           path="/admin-reset-password"
           element={<CAdminResetPassword />}
         />
+        <Route path="/verify-documents" element={<VerifyDocuments />} />
       </Routes>
     </BrowserRouter>
   );

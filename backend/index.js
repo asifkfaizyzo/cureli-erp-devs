@@ -46,7 +46,7 @@ app.use("/api/shop/files", shopFilesRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/plans", plansRoutes);
 app.use("/cadmin", cadminAuthRoutes);
-app.use("/admin", cadminDocsRoutes);     
+app.use("/cadmin", cadminDocsRoutes);     
 // health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 

@@ -32,7 +32,15 @@ export async function findFileById(file_id) {
   });
 }
 
-export async function createLog({ file_id, shop_id, cadmin_id = null, actor_type, action, reason = null, meta = null }) {
+export async function createLog({
+  file_id,
+  shop_id,
+  cadmin_id = null,
+  actor_type,
+  action,
+  reason = null,
+  meta = null,
+}) {
   return prisma.fileVerificationLog.create({
     data: { file_id, shop_id, cadmin_id, actor_type, action, reason, meta },
   });
@@ -45,14 +53,24 @@ export async function createLog({ file_id, shop_id, cadmin_id = null, actor_type
 export async function markVerified({ file_id, cadmin_id }) {
   const file = await prisma.shopFile.update({
     where: { file_id },
-    data: { status: "verified", verification_notes: null, verified_at: new Date() },
+    data: {
+      status: "verified",
+      verification_notes: null,
+      verified_at: new Date(),
+    },
   });
 
-  await createLog({ file_id, shop_id: file.shop_id, cadmin_id, actor_type: "admin", action: "verified" });
+  await createLog({
+    file_id,
+    shop_id: file.shop_id,
+    cadmin_id,
+    actor_type: "admin",
+    action: "verified",
+  });
 
   // check if all files for shop are verified
   const pending = await prisma.shopFile.count({
-    where: { shop_id: file.shop_id, status: { in: ["uploaded", "rejected"] } }
+    where: { shop_id: file.shop_id, status: { in: ["uploaded", "rejected"] } },
   });
 
   if (pending === 0) {
@@ -63,11 +81,20 @@ export async function markVerified({ file_id, cadmin_id }) {
     });
 
     // create system log
-    await createLog({ file_id: file.file_id, shop_id: file.shop_id, actor_type: "system", action: "shop_verified", reason: "All files verified" });
+    await createLog({
+      file_id: file.file_id,
+      shop_id: file.shop_id,
+      actor_type: "system",
+      action: "shop_verified",
+      reason: "All files verified",
+    });
 
     // email owner
     try {
-      const shop = await prisma.shop.findUnique({ where: { shop_id: file.shop_id }, include: { owner: true } });
+      const shop = await prisma.shop.findUnique({
+        where: { shop_id: file.shop_id },
+        include: { owner: true },
+      });
       if (shop?.owner?.email) {
         const html = `<p>Your shop <strong>${shop.business_name}</strong> has been verified by Cureli. You can now access the dashboard.</p>`;
         await sendMail(shop.owner.email, "Cureli - Shop Verified", html);
@@ -89,18 +116,35 @@ export async function markRejected({ file_id, cadmin_id, reason }) {
     data: { status: "rejected", verification_notes: reason },
   });
 
-  await createLog({ file_id, shop_id: file.shop_id, cadmin_id, actor_type: "admin", action: "rejected", reason });
+  await createLog({
+    file_id,
+    shop_id: file.shop_id,
+    cadmin_id,
+    actor_type: "admin",
+    action: "rejected",
+    reason,
+  });
 
   // notify owner with summary email (aggregate counts)
   try {
-    const shop = await prisma.shop.findUnique({ where: { shop_id: file.shop_id }, include: { owner: true } });
+    const shop = await prisma.shop.findUnique({
+      where: { shop_id: file.shop_id },
+      include: { owner: true },
+    });
     if (shop?.owner?.email) {
       // prepare counts
       const counts = await prisma.shopFile.groupBy({
         by: ["status"],
         where: { shop_id: file.shop_id },
+        _count: {
+          _all: true,
+        },
       });
-      const statusCounts = counts.reduce((acc, row) => { acc[row.status] = row._count._all; return acc; }, {});
+
+      const statusCounts = counts.reduce((acc, row) => {
+        acc[row.status] = row._count._all;
+        return acc;
+      }, {});
       const rejectedCount = statusCounts["rejected"] || 1;
       const uploadedCount = statusCounts["uploaded"] || 0;
       const verifiedCount = statusCounts["verified"] || 0;
@@ -116,7 +160,11 @@ export async function markRejected({ file_id, cadmin_id, reason }) {
         <p>One or more documents were rejected. Reason for this document: <em>${reason}</em></p>
         <p>Please log in and resubmit the rejected document(s): <a href="${process.env.USER_FRONTEND_ORIGIN}/onboarding?resume_step=12">Resubmit documents</a></p>
       `;
-      await sendMail(shop.owner.email, "Action required: Document review result", html);
+      await sendMail(
+        shop.owner.email,
+        "Action required: Document review result",
+        html
+      );
     }
   } catch (err) {
     console.error("Failed to send rejection summary email", err);

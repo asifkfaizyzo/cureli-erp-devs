@@ -33,7 +33,7 @@ export async function getFileController(req, res) {
 
 export async function verifyFileController(req, res) {
   try {
-    const cadmin_id = req.admin.cadmin_id;
+    const cadmin_id = req.cadmin.cadmin_id;
     const { file_id } = req.params;
 
     const file = await svc.markVerified({ file_id, cadmin_id });
@@ -47,7 +47,7 @@ export async function verifyFileController(req, res) {
 
 export async function rejectFileController(req, res) {
   try {
-    const cadmin_id = req.admin.cadmin_id;
+    const cadmin_id = req.cadmin.cadmin_id;
     const { file_id } = req.params;
     const { reason } = req.validated;
 
