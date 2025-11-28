@@ -1,15 +1,24 @@
 import { Search } from "lucide-react";
 
-const UserHeader = () => {
+const UserHeader = ({
+  searchText,
+  setSearchText,
+  statusFilter,
+  setStatusFilter,
+  roleFilter,
+  setRoleFilter,
+  dateFilter,
+  setDateFilter
+}) => {
   return (
     <div
       className="
         bg-white shadow-md rounded-xl p-3
         flex flex-wrap items-center gap-4
-        relative   /* Needed for absolute positioning */
+        relative
       "
     >
-      {/* LEFT SECTION (Auto-wrap) */}
+      {/* LEFT SECTION */}
       <div className="flex flex-wrap items-center gap-4 pr-36">
 
         {/* Search Input */}
@@ -18,33 +27,45 @@ const UserHeader = () => {
           <input
             type="text"
             placeholder="Search users"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
             className="flex-1 outline-none text-sm"
           />
         </div>
 
         {/* Status Filter */}
-        <select className="h-11 px-3 border border-gray-300 rounded-lg text-sm">
-          <option>Status</option>
-          <option>Active</option>
-          <option>Inactive</option>
+        <select
+          className="h-11 px-3 border border-gray-300 rounded-lg text-sm"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="">Status</option>
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
         </select>
 
         {/* Role Filter */}
-        <select className="h-11 px-3 border border-gray-300 rounded-lg text-sm">
-          <option>Roles</option>
-          <option>Super Admin</option>
-          <option>Branch Admin</option>
-          <option>Staff</option>
+        <select
+          className="h-11 px-3 border border-gray-300 rounded-lg text-sm"
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+        >
+          <option value="">Roles</option>
+          <option value="Super Admin">Super Admin</option>
+          <option value="Branch Admin">Branch Admin</option>
+          <option value="Staff">Staff</option>
         </select>
 
-        {/* Date */}
+        {/* Date Filter */}
         <input
           type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
           className="h-11 px-3 border border-gray-300 rounded-lg text-sm"
         />
       </div>
 
-      {/* RIGHT-FIXED SEARCH BUTTON */}
+      {/* RIGHT SEARCH BUTTON */}
       <button
         className="
           h-11 px-6 bg-[#05015A] text-white rounded-lg

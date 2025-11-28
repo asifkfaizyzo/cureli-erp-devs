@@ -20,76 +20,58 @@ const UserPagination = ({ currentPage, setCurrentPage, totalPages }) => {
   const pages = [];
   for (let p = windowStart; p <= windowEnd; p++) pages.push(p);
 
-  const goPrev = () => {
-    if (currentPage > 1) setCurrentPage(currentPage - 1);
-  };
-
-  const goNext = () => {
-    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-  };
-
-  const jumpBackward = () =>
-    setCurrentPage(Math.max(currentPage - JUMP, 1));
-
-  const jumpForward = () =>
-    setCurrentPage(Math.min(currentPage + JUMP, totalPages));
-
   return (
-    <div className="flex justify-center items-center gap-3 mt-3">
+    <div className="flex justify-center items-center gap-3 mt-1 select-none">
 
-      {/* ← PREVIOUS */}
+      {/* PREV */}
       <button
-        onClick={goPrev}
+        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
         disabled={currentPage === 1}
         className="text-[#05015A] text-lg disabled:opacity-30"
       >
         ←
       </button>
 
-      {/* LEFT ⋮ */}
+      {/* LEFT DOTS */}
       {windowStart > 1 && (
         <button
-          onClick={jumpBackward}
+          onClick={() => setCurrentPage((p) => Math.max(1, p - JUMP))}
           className="text-[#05015A] text-lg hover:scale-105"
         >
           <MdMoreVert size={18} />
         </button>
       )}
 
-      {/* PAGE NUMBERS */}
+      {/* PAGE BUTTONS */}
       <div className="flex items-center gap-3">
-        {pages.map((page) => {
-          const active = page === currentPage;
-
-          return (
-            <button
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              className={`text-base transition ${
-                active
-                  ? "bg-[#05015A] text-white w-7 h-7 rounded-full flex items-center justify-center"
-                  : "text-[#05015A] hover:text-black px-1"
-              }`}
-            >
-              {page}
-            </button>
-          );
-        })}
+        {pages.map((page) => (
+          <button
+            key={page}
+            onClick={() => setCurrentPage(page)}
+            className={`text-sm transition ${
+              page === currentPage
+                ? "bg-[#05015A] text-white w-7 h-7 rounded-full flex items-center justify-center"
+                : "text-[#05015A] hover:text-black"
+            }`}
+          >
+            {page}
+          </button>
+        ))}
       </div>
 
-      {/* RIGHT ⋮ */}
+      {/* RIGHT DOTS */}
       {windowEnd < totalPages && (
         <button
-          onClick={jumpForward}
+          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + JUMP))}
           className="text-[#05015A] text-lg hover:scale-105"
         >
           <MdMoreVert size={18} />
         </button>
       )}
 
-      {/* → NEXT */}
+      {/* NEXT */}
       <button
-        onClick={goNext}
+        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
         disabled={currentPage === totalPages}
         className="text-[#05015A] text-lg disabled:opacity-30"
       >
