@@ -22,7 +22,7 @@ const makeEmptyRow = () => ({
 });
 
 const BillingPage = () => {
-  const [rows, setRows] = useState(() => Array.from({ length: 6 }).map(makeEmptyRow));
+  const [rows, setRows] = useState(() => Array.from({ length: 18 }).map(makeEmptyRow));
 
   const [customer, setCustomer] = useState({
     id: "123564",
@@ -67,7 +67,7 @@ const BillingPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden">
+    <div className="flex flex-col h-[97%] w-full overflow-hidden">
 
       <BillingHeader onSave={handleSave} onSavePrint={handleSavePrint} />
 
@@ -76,7 +76,7 @@ const BillingPage = () => {
           <ProductTable rows={rows} setRows={setRows} />
         </div>
 
-        <div className="mt-1 flex gap-4 items-start">
+        <div className="flex  gap-3 items-start">
           <CustomerDetailsCard customer={customer} setCustomer={setCustomer} />
           <BillingSummaryCard summary={summary} />
         </div>

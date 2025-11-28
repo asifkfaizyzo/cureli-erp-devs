@@ -138,15 +138,16 @@ const CreateAccount = ({ onLoginClick }) => {
         <div className="w-1/2">
           <label className="text-xs font-bold text-[#000060]">First Name</label>
           <input
-            type="text"
-            placeholder="Enter your First Name"
-            className={`w-full mt-1 px-3 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
-              errors.first_name ? "border-red-500" : "border-gray-300"
-            }`}
-            value={form.first_name}
-            onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-            onKeyDown={(e) => e.key === "Enter" && lastNameRef.current.focus()}
-          />
+  type="text"
+  placeholder="Enter your First Name"
+  className={`w-full mt-1 px-2 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
+    errors.first_name ? "border-red-500" : "border-gray-300"
+  } placeholder-xs sm:placeholder-sm md:placeholder-sm`}
+  value={form.first_name}
+  onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+  onKeyDown={(e) => e.key === "Enter" && lastNameRef.current.focus()}
+/>
+
           {errors.first_name && (
             <p className="text-xs text-red-500 mt-1">{errors.first_name}</p>
           )}
@@ -158,7 +159,7 @@ const CreateAccount = ({ onLoginClick }) => {
             ref={lastNameRef}
             type="text"
             placeholder="Enter your Last Name"
-            className={`w-full mt-1 px-3 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
+            className={`w-full mt-1 px-2 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
               errors.last_name ? "border-red-500" : "border-gray-300"
             }`}
             value={form.last_name}
@@ -219,7 +220,7 @@ const CreateAccount = ({ onLoginClick }) => {
           )}
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+        <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
           <PasswordRuleInline
             valid={form.password.length >= 8}
             text="8+ chars"

@@ -35,13 +35,24 @@ const BillingHeader = ({ onSave, onSavePrint }) => {
 
   return (
     <div className="w-full flex flex-col gap-1">
-
       {/* ----------------- TOP ROW ----------------- */}
-      <div className="flex justify-between items-center">
-
+      <div
+        className="
+          flex
+          flex-col sm:flex-row
+          justify-between
+          items-start sm:items-center
+          gap-2 sm:gap-3
+        "
+      >
         {/* Left Section: Billed by / Date / Time */}
-        <div className="flex items-center gap-6 text-sm text-gray-600">
-
+        <div
+          className="
+            flex flex-wrap items-center
+            gap-x-4 sm:gap-x-6 gap-y-1
+            text-[11px] sm:text-sm text-gray-600
+          "
+        >
           <span>
             Billed by{" "}
             <span className="font-medium text-gray-800">{billedBy}</span>
@@ -49,41 +60,80 @@ const BillingHeader = ({ onSave, onSavePrint }) => {
 
           <span className="flex items-center">
             Date :
-            <span className="font-medium text-gray-800 px-2 ml-1 py-1 bg-gray-100 rounded text-sm">
+            <span
+              className="
+                font-medium text-gray-800
+                px-2 ml-1 py-1
+                bg-gray-100 rounded
+                text-[11px] sm:text-sm
+              "
+            >
               {currentDate}
             </span>
           </span>
 
           <span className="flex items-center">
             Time :
-            <span className="font-medium text-gray-800 px-2 ml-1 py-1 bg-gray-100 rounded text-sm">
+            <span
+              className="
+                font-medium text-gray-800
+                px-2 ml-1 py-1
+                bg-gray-100 rounded
+                text-[11px] sm:text-sm
+              "
+            >
               {currentTime}
             </span>
           </span>
         </div>
 
         {/* Right Section: Buttons */}
-        <div className="flex items-center gap-3">
+        <div
+          className="
+            flex flex-wrap
+            gap-2 sm:gap-3
+            justify-start sm:justify-end
+          "
+        >
           <button
-  onClick={onSave}
-  className="flex items-center gap-2 bg-[#000060] text-white text-sm px-4 py-2 rounded-lg shadow-sm hover:bg-[#000060d1] transition"
->
-  <FiSave size={14} />
-  Save
-</button>
+            onClick={onSave}
+            className="
+              flex items-center justify-center gap-2
+              bg-[#000060] text-white
+              text-[11px] sm:text-sm
+              px-3 sm:px-4 py-1.5 sm:py-2
+              rounded-lg shadow-sm
+              hover:bg-[#000060d1] transition
+              w-full xs:w-auto sm:w-auto
+            "
+          >
+            <FiSave size={14} />
+            Save
+          </button>
 
-<button
-  onClick={onSavePrint}
-  className="bg-[#000060] text-white text-sm px-5 py-2 rounded-lg shadow-sm hover:bg-[#000060d1] transition"
->
-  Save & Print (F5)
-</button>
-
+          <button
+            onClick={onSavePrint}
+            className="
+              bg-[#000060] text-white
+              text-[11px] sm:text-sm
+              px-3 sm:px-5 py-1.5 sm:py-2
+              rounded-lg shadow-sm
+              hover:bg-[#000060d1] transition
+              w-full xs:w-auto sm:w-auto
+            "
+          >
+            Save &amp; Print (F5)
+          </button>
         </div>
       </div>
 
       {/* ----------------- SECOND ROW (Bill No) ----------------- */}
-      <h1 className="text-[22px] font-bold text-[#000060]">
+      <h1
+        className="
+          text-[18px] sm:text-[20px] md:text-[22px]
+          font-bold text-[#000060]
+        "
+      >
         Bill No : <span className="font-extrabold">{billNo}</span>
       </h1>
     </div>
