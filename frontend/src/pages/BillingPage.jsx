@@ -22,7 +22,7 @@ const makeEmptyRow = () => ({
 });
 
 const BillingPage = () => {
-  const [rows, setRows] = useState(() => Array.from({ length: 6 }).map(makeEmptyRow));
+  const [rows, setRows] = useState(() => Array.from({ length: 18 }).map(makeEmptyRow));
 
   const [customer, setCustomer] = useState({
     id: "123564",

@@ -141,7 +141,16 @@ r.amount = amount;
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
       <div
         ref={containerRef}
-        className="max-h-[245px] overflow-y-auto relative"
+       className="
+  max-h-[240px]
+  min-[1366px]:max-h-[300px]
+  min-[1440px]:max-h-[400px]
+  min-[1920px]:max-h-[600px]
+  min-[2560px]:max-h-[620px]
+  overflow-y-auto
+  relative
+"
+
       >
         <table className="min-w-full border-collapse">
           <thead className="sticky top-0 z-10 bg-[#000060] text-white">
