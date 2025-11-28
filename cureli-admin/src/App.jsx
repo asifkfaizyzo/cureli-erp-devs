@@ -1,24 +1,24 @@
-import { useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import AdminLogin from "./components/AdminLogin";
-import LoginPage from "./pages/LoginPage";
-import "./index.css"; // Tailwind entry
+import AdminLoginPage from "./pages/AdminLoginPage";
+import AdminDashboard from "./pages/AdminDashboard";
+import CAdminForgotPassword from "./pages/CAdminForgotPassword";
+import CAdminResetPassword from "./pages/CAdminResetPassword";
 
 function App() {
-  // Optional global rows state example if needed later
-  const [rows, setRows] = useState([]);
-
   return (
     <BrowserRouter>
-      <div className="min-h-screen">
-        <Routes>
-          //
-
-          {/* Admin login route */}
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/admin-login" element={<AdminLogin />} />
-        </Routes>
-      </div>
+      <Routes>
+        <Route path="/" element={<AdminLoginPage />} />
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route
+          path="/admin-forgot-password"
+          element={<CAdminForgotPassword />}
+        />
+        <Route
+          path="/admin-reset-password"
+          element={<CAdminResetPassword />}
+        />
+      </Routes>
     </BrowserRouter>
   );
 }
