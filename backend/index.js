@@ -13,6 +13,9 @@ import shopFilesRoutes from "./src/modules/shopFiles/shopFiles.routes.js";
 import subscriptionRoutes from "./src/modules/subscription/subscription.routes.js";
 import plansRoutes from "./src/modules/plans/plans.routes.js";
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
+import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
+
+
 
 
 
@@ -43,6 +46,7 @@ app.use("/api/shop/files", shopFilesRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/plans", plansRoutes);
 app.use("/cadmin", cadminAuthRoutes);
+app.use("/admin", cadminDocsRoutes);     
 // health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 

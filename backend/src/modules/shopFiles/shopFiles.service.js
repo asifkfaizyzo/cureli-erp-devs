@@ -1,5 +1,5 @@
 import prisma from "../../config/prisma.js";
-
+import { createLog as createCadminLog } from "../cadmin/cadminDocs/cadminDocs.service.js";
 /**
  * fileData should contain:
  * { shop_id, user_id, file_type, original_name, mime_type, file_size, storage_key }
@@ -50,4 +50,67 @@ export async function uploadShopFile(fileData) {
   }
 
   return file;
+}
+
+/**
+ * List rejected files for a shop
+ */
+export async function listRejectedFilesForShop(shop_id) {
+  return prisma.shopFile.findMany({
+    where: { shop_id, status: "rejected" },
+    orderBy: { uploaded_at: "desc" },
+  });
+}
+
+/**
+ * Resubmit (replace) file — caller must handle file upload and provide storage_key etc.
+ * fileData: { file_id, shop_id, storage_key, original_name, mime_type, file_size, owner_message }
+ */
+export async function resubmitFile({ file_id, shop_id, storage_key, original_name, mime_type, file_size, owner_message = null }) {
+  const old = await prisma.shopFile.findUnique({ where: { file_id } });
+  if (!old) {
+    const err = new Error("file_not_found");
+    err.code = "FILE_NOT_FOUND";
+    throw err;
+  }
+  if (old.shop_id !== shop_id) {
+    const err = new Error("forbidden");
+    err.code = "FORBIDDEN";
+    throw err;
+  }
+
+  const updated = await prisma.shopFile.update({
+    where: { file_id },
+    data: {
+      storage_key,
+      original_name,
+      mime_type,
+      file_size,
+      status: "uploaded",
+      verification_notes: null,
+      verified_at: null,
+      resubmission_count: { increment: 1 },
+      uploaded_at: new Date()
+    },
+  });
+
+  // Log owner resubmission
+  await createCadminLog({ file_id, shop_id, actor_type: "owner", action: "resubmitted", reason: owner_message });
+
+  return updated;
+}
+
+/**
+ * Owner sends message to admin about a file (stored as log)
+ */
+export async function ownerMessage({ file_id, shop_id, message }) {
+  const file = await prisma.shopFile.findUnique({ where: { file_id }});
+  if (!file || file.shop_id !== shop_id) {
+    const err = new Error("forbidden");
+    err.code = "FORBIDDEN";
+    throw err;
+  }
+
+  await createCadminLog({ file_id, shop_id, actor_type: "owner", action: "owner_message", reason: message });
+  return { success: true };
 }
