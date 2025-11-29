@@ -202,16 +202,28 @@ const [isModalOpen, setIsModalOpen] = useState(false);
                 {/* ACTION ICONS */}
                 <td className="p-2 bg-white text-center border-r-4 border-white">
                   <div className="inline-flex items-center justify-center gap-3">
-                   <Eye
+                   {/* VIEW (EYE) */}
+<Eye
   size={15}
   className="cursor-pointer text-gray-600 hover:text-[#05015A]"
   onClick={() => {
     setSelectedUser(u);
     setIsModalOpen(true);
+    setModalMode("view");   // 👈 NEW
   }}
 />
 
-                    <Pencil size={15} className="cursor-pointer text-gray-600 hover:text-[#05015A]" />
+{/* EDIT (PENCIL) */}
+<Pencil
+  size={15}
+  className="cursor-pointer text-gray-600 hover:text-[#05015A]"
+  onClick={() => {
+    setSelectedUser(u);
+    setIsModalOpen(true);
+    setModalMode("edit");   // 👈 NEW
+  }}
+/>
+
                     <Trash2 size={15} className="cursor-pointer text-red-500 hover:text-red-700" />
                   </div>
                 </td>
