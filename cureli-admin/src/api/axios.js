@@ -23,7 +23,8 @@ CAdminAPI.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !original._retry &&
-      !original.url.includes("/refresh")
+      !original.url.includes("/refresh") &&
+      !original.url.includes("/verify-otp")
     ) {
       original._retry = true;
 

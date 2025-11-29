@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 
 // Admin Pages
@@ -13,12 +13,10 @@ import AppLayout from "./components/layout/AppLayout";
 
 function App() {
   useEffect(() => {
-    // Disable Ctrl + Scroll Zoom
     const disableZoomScroll = (e) => {
       if (e.ctrlKey) e.preventDefault();
     };
 
-    // Disable Ctrl + (+, -, 0)
     const disableKeyZoom = (e) => {
       if (
         e.ctrlKey &&
@@ -28,7 +26,6 @@ function App() {
       }
     };
 
-    // Disable pinch zoom
     const disablePinch = (e) => {
       e.preventDefault();
     };
@@ -52,16 +49,30 @@ function App() {
     <Router>
       <Routes>
 
-        {/* PUBLIC ADMIN ROUTES */}
-        <Route path="/" element={<AdminLoginPage />} />
-        <Route path="/admin-forgot-password" element={<CAdminForgotPassword />} />
-        <Route path="/admin-reset-password" element={<CAdminResetPassword />} />
+        {/* ══════════════════════════════════════════════════════
+            PUBLIC ROUTES (No Layout)
+        ══════════════════════════════════════════════════════ */}
+        <Route path="/login" element={<AdminLoginPage />} />
+        <Route path="/forgot-password" element={<CAdminForgotPassword />} />
+        <Route path="/reset-password" element={<CAdminResetPassword />} />
 
-        {/* PROTECTED ADMIN DASHBOARD (with AppLayout) */}
-        <Route path="/" element={<AppLayout />}>
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="users" element={<UserPage />} />
+        {/* ══════════════════════════════════════════════════════
+            PROTECTED ROUTES (With AppLayout)
+        ══════════════════════════════════════════════════════ */}
+        <Route element={<AppLayout />}>
+          <Route path="/dashboard" element={<AdminDashboard />} />
+          <Route path="/users" element={<UserPage />} />
+          <Route path="/shops" element={<div>Shops Page</div>} />
+          <Route path="/subscriptions" element={<div>Subscriptions Page</div>} />
+          <Route path="/audits" element={<div>Audits Page</div>} />
+          <Route path="/settings" element={<div>Settings Page</div>} />
         </Route>
+
+        {/* ══════════════════════════════════════════════════════
+            REDIRECTS
+        ══════════════════════════════════════════════════════ */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
 
       </Routes>
     </Router>

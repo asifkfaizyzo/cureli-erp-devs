@@ -16,24 +16,26 @@ const Breadcrumb = () => {
       </Link>
       
       {pathnames.map((name, index) => {
-  const routeTo = `/${pathnames.slice(0, index + 1).join("/")}`;
-  const isLast = index === pathnames.length - 1;
-  const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+        const routeTo = `/${pathnames.slice(0, index + 1).join("/")}`;
+        const isLast = index === pathnames.length - 1;
+        const displayName = name.charAt(0).toUpperCase() + name.slice(1);
 
-  return (
-    <span key={index}>
-      {!isLast ? (
-        <Link to={routeTo} className="hover:text-blue-400">
-          {displayName}
-        </Link>
-      ) : (
-        <span className="text-gray-400">{displayName}</span>
-      )}
-      {!isLast && <span className="mx-2 text-gray-600">/</span>}
-    </span>
-  );
-})}
-
+        return (
+          <span key={name} className="flex items-center">
+            <ChevronRight size={14} className="mx-2 text-gray-400" />
+            {isLast ? (
+              <span className="font-medium text-gray-900">{displayName}</span>
+            ) : (
+              <Link 
+                to={routeTo} 
+                className="hover:text-gray-700 transition-colors"
+              >
+                {displayName}
+              </Link>
+            )}
+          </span>
+        );
+      })}
     </nav>
   );
 };

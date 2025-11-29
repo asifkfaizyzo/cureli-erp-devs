@@ -10,80 +10,61 @@ const AppLayout = () => {
   const location = useLocation();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
-  // Memoized to prevent unnecessary re-renders
   const handleSidebarExpand = useCallback((value) => {
     setSidebarExpanded(value);
   }, []);
 
-  // Page transition variants - isolated from sidebar
   const pageVariants = {
     initial: { opacity: 0, y: 20 },
     animate: { 
       opacity: 1, 
       y: 0, 
-      transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] } 
+      transition: { duration: 0.3, ease: "easeOut" } 
     },
     exit: { 
       opacity: 0, 
       y: -10, 
-      transition: { duration: 0.2, ease: "easeIn" } 
+      transition: { duration: 0.15 } 
     },
   };
 
   return (
-    <div className="h-screen w-full flex flex-col bg-gray-50 overflow-hidden">
+    <div className="h-screen w-full flex flex-col bg-gray-50">
       
-      {/* ═══════════════════════════════════════════════════════════
-          FIXED HEADER - Always on top, never covered by sidebar
-      ═══════════════════════════════════════════════════════════ */}
-      <header className="flex-shrink-0 h-16 z-50">
+      {/* Header */}
+      <header className="h-16 flex-shrink-0 z-50">
         <TopHeader />
       </header>
 
-      {/* ═══════════════════════════════════════════════════════════
-          MAIN BODY: Sidebar + Content (Flex Row)
-          Sidebar pushes content - NO overlay
-      ═══════════════════════════════════════════════════════════ */}
+      {/* Body */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* Sidebar Component */}
         <Sidebar 
           expanded={sidebarExpanded} 
           onExpandChange={handleSidebarExpand} 
         />
 
-        {/* ═══════════════════════════════════════════════════════
-            MAIN CONTENT AREA
-            - Flexibly resizes when sidebar expands
-            - Fully scrollable
-            - Page transitions happen ONLY here
-        ═══════════════════════════════════════════════════════ */}
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          
-          {/* Scrollable Content Container */}
-          <div className="flex-1 overflow-y-hidden overflow-x-hidden">
-            <div className="px-4 sm:px-6 lg:px-8 py-6">
-              
-              {/* Breadcrumb - Sticky within scroll */}
-              <div className="sticky top-0 z-10 bg-gray-50 pb-4">
-                <Breadcrumb />
-              </div>
-
-              {/* Page Content with Transitions */}
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={location.pathname}
-                  variants={pageVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  className="w-full"
-                >
-                  <Outlet />
-                </motion.div>
-              </AnimatePresence>
-
+        {/* Main Content - Scrollable */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="px-4 sm:px-6 lg:px-8 py-4">
+            
+            {/* Breadcrumb */}
+            <div className="mb-4">
+              <Breadcrumb />
             </div>
+
+            {/* Page Content */}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={location.pathname}
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
           </div>
         </main>
       </div>
