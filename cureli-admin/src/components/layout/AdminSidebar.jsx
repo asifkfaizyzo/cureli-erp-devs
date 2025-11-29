@@ -43,7 +43,7 @@ const AdminSidebar = () => {
         bg-white border-r border-gray-200 mt-16 h-screen
         transition-[width] duration-700
         ease-[cubic-bezier(0.34,1.2,0.64,1)]
-        ${expanded ? "w-64 xl:w-72" : "w-[65px] sm:w-[70px] md:w-[80px]"}
+        ${expanded ? "w-64 xl:w-50" : "w-[65px] sm:w-[70px] md:w-[80px]"}
         overflow-hidden
       `}
     >

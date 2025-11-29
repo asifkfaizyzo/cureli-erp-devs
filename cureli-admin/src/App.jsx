@@ -59,7 +59,7 @@ function App() {
 
         {/* PROTECTED ADMIN DASHBOARD (with AppLayout) */}
         <Route path="/" element={<AppLayout />}>
-          <Route path="admin-dashboard" element={<AdminDashboard />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<UserPage />} />
         </Route>
 
