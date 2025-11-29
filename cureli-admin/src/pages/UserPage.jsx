@@ -13,7 +13,7 @@ const UserPage = () => {
   const [dateFilter, setDateFilter] = useState("");
 
   return (
-    <div className="w-full h-full flex flex-col gap-3">
+    <div className="w-full h-full overflow-hidden flex flex-col gap-3">
 
       {/* Filters */}
       <UserHeader
