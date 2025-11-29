@@ -99,12 +99,27 @@ export async function verifyCAdminOtpService({ username, otp, req, res }) {
   // get MC auth token
   const authToken = await getMCAuthToken(process.env.MC_CUSTOMER, process.env.MC_PASSWORD);
 
-  const mcValidation = await mcValidateOtp({
-    authToken,
-    verificationId: cadmin.verification_id,
-    code: otp,
-    mobileNumber: cadmin.phone_number,
-  });
+const mcValidation = await mcValidateOtp({
+  authToken,
+  verificationId: cadmin.verification_id,
+  code: otp,
+  mobileNumber: cadmin.phone_number,
+});
+console.log("MC RESPONSE:", mcValidation);
+
+// If MC returns failure, throw manually (THIS WAS MISSING)
+const valid =
+  mcValidation?.verificationStatus === "VERIFICATION_COMPLETED" &&
+  mcValidation?.responseCode === "200";
+
+if (!valid) {
+  const err = new Error("Invalid OTP");
+  err.status = 401;
+  throw err;
+}
+
+console.log("MC RESPONSE:", mcValidation);
+
 
   // if mcValidateOtp throws, it will be caught by controller
   // success path: clear verification fields and issue tokens

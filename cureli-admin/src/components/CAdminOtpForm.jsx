@@ -9,6 +9,7 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
   const [timer, setTimer] = useState(30);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [shake, setShake] = useState(false);
 
   const refs = useRef([]);
   const navigate = useNavigate();
@@ -22,6 +23,14 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
     }
   }, [timer]);
 
+  // Auto-submit when 4 digits are filled
+  useEffect(() => {
+    const code = otp.join("");
+    if (code.length === 4 && otp.every((d) => d !== "")) {
+      handleVerify();
+    }
+  }, [otp]);
+
   const updateOtp = (value, idx) => {
     if (!/^\d?$/.test(value)) return;
 
@@ -30,6 +39,23 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
     setOtp(updated);
 
     if (value && idx < 3) refs.current[idx + 1].focus();
+  };
+
+  // Handle paste full OTP
+  const handlePaste = (e) => {
+    const pasted = e.clipboardData.getData("text").trim();
+
+    if (/^\d{4}$/.test(pasted)) {
+      setOtp(pasted.split(""));
+      refs.current[3]?.focus();
+    }
+  };
+
+  const handleKeyDown = (e, idx) => {
+    // Auto move backward on backspace
+    if (e.key === "Backspace" && !otp[idx] && idx > 0) {
+      refs.current[idx - 1]?.focus();
+    }
   };
 
   const handleVerify = async () => {
@@ -41,9 +67,15 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
     try {
       const res = await verifyOtpCAdmin({ username, otp: code });
       localStorage.setItem("cadmin_access_token", res.data.data.access_token);
-      navigate("/admin-dashboard");
+      navigate("/dashboard");
     } catch (err) {
       setError("Invalid OTP");
+
+      // Shake animation
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+
+      // Reset OTP
       setOtp(["", "", "", ""]);
       refs.current[0]?.focus();
     }
@@ -58,7 +90,10 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
       className="w-full"
     >
       {/* BACK */}
-      <div className="flex items-center gap-2 text-[#000060] mb-6 cursor-pointer" onClick={onBack}>
+      <div
+        className="flex items-center gap-2 text-[#000060] mb-6 cursor-pointer"
+        onClick={onBack}
+      >
         <IoArrowBackOutline className="text-xl" />
         <span className="text-sm">Back</span>
       </div>
@@ -71,7 +106,12 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
         Sent to <span className="font-medium">{phoneHint}</span>
       </p>
 
-      <div className="flex gap-4 mb-4">
+      <div
+        className={`flex gap-4 mb-4 ${
+          shake ? "animate-[shake_0.3s_ease-in-out]" : ""
+        }`}
+        onPaste={handlePaste}
+      >
         {otp.map((digit, idx) => (
           <input
             key={idx}
@@ -85,6 +125,7 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
             "
             value={digit}
             onChange={(e) => updateOtp(e.target.value, idx)}
+            onKeyDown={(e) => handleKeyDown(e, idx)}
           />
         ))}
       </div>
@@ -92,7 +133,7 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
       {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 
       <button
-        disabled={loading}
+        disabled={loading || otp.some((v) => v === "")}
         onClick={handleVerify}
         className="w-full bg-[#000060] text-white py-3 rounded-xl mb-4 disabled:bg-gray-400"
       >
@@ -104,6 +145,17 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
           ? `Resend in 00:${timer < 10 ? "0" + timer : timer}`
           : "Resend OTP by restarting login"}
       </p>
+
+      {/* Shake keyframes */}
+      <style>{`
+        @keyframes shake {
+          0% { transform: translateX(0); }
+          25% { transform: translateX(-6px); }
+          50% { transform: translateX(6px); }
+          75% { transform: translateX(-6px); }
+          100% { transform: translateX(0); }
+        }
+      `}</style>
     </motion.div>
   );
 };
