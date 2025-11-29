@@ -2,7 +2,7 @@ import DetailRow from "./DetailRow";
 
 export const ProfileDetails = ({ user, isEditing }) => {
   return (
-    <div className="flex flex-col gap-4 w-full">
+    <div className="flex flex-col gap-1 w-full">
 
       <DetailRow label="Full Name" value={user.name} isEditing={isEditing} />
 
@@ -31,7 +31,7 @@ export const ShopDetails = ({ user, isEditing }) => {
   const shop = user.shop || {};
 
   return (
-    <div className="flex flex-col gap-4 w-full">
+    <div className="flex flex-col gap-2 w-full">
 
       <ShopDetailRow
         label="Shop ID"
