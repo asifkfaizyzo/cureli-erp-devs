@@ -44,6 +44,7 @@ const UserTable = ({
 
   const [selectedUser, setSelectedUser] = useState(null);
 const [isModalOpen, setIsModalOpen] = useState(false);
+const [modalMode, setModalMode] = useState("view"); // "view" or "edit"
 
   // ------------------------------------------------------------
   // ⭐ SORTING
@@ -208,19 +209,19 @@ const [isModalOpen, setIsModalOpen] = useState(false);
   className="cursor-pointer text-gray-600 hover:text-[#05015A]"
   onClick={() => {
     setSelectedUser(u);
+    setModalMode("view");
     setIsModalOpen(true);
-    setModalMode("view");   // 👈 NEW
   }}
 />
 
-{/* EDIT (PENCIL) */}
+{/* // EDIT (PENCIL) */}
 <Pencil
   size={15}
   className="cursor-pointer text-gray-600 hover:text-[#05015A]"
   onClick={() => {
     setSelectedUser(u);
+    setModalMode("edit");
     setIsModalOpen(true);
-    setModalMode("edit");   // 👈 NEW
   }}
 />
 
@@ -241,10 +242,12 @@ const [isModalOpen, setIsModalOpen] = useState(false);
         setCurrentPage={setCurrentPage}
       />
 
-      <UserDetailsModal
+      
+<UserDetailsModal
+  user={selectedUser}
   isOpen={isModalOpen}
   onClose={() => setIsModalOpen(false)}
-  user={selectedUser}
+  mode={modalMode}   // 👈 pass mode
 />
 
 
