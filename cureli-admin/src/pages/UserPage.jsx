@@ -28,7 +28,7 @@ const UserPage = () => {
       />
 
       {/* Table */}
-      <div className="bg-white shadow-md rounded-xl p-3 flex-1 overflow-hidden">
+      <div className="px-1 py-2 flex-1 overflow-hidden">
         <UserTable
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
