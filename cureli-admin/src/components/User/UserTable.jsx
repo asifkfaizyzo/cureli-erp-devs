@@ -83,7 +83,7 @@ const [isModalOpen, setIsModalOpen] = useState(false);
   const rowsPerPage =
     window.innerWidth >= 2560 ? 14 :
     window.innerWidth >= 1920 ? 14 :
-    window.innerWidth >= 1440 ? 8 :
+    window.innerWidth >= 1440 ? 11 :
     window.innerWidth >= 1366 ? 7 :
     6;
 

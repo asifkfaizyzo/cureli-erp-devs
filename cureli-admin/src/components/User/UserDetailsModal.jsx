@@ -30,7 +30,7 @@ const UserDetailsModal = ({ user, isOpen, onClose }) => {
         </button>
 
         {/* TABS */}
-        <div className="flex pt-2 pl-4 pb-2 text-lg font-semibold ml-[-3%] mt-[-2%]">
+        <div className="flex pt-2 pl-4 pb-2 text-lg font-semibold ">
 
           <button
             className={`px-4 py-2 rounded-t-lg ${
@@ -68,19 +68,40 @@ const UserDetailsModal = ({ user, isOpen, onClose }) => {
         </div>
 
         {/* TAB CONTENT */}
-        <div className="mt-6">
-          {activeTab === "profile" && (
-            <ProfileDetails user={user} isEditing={isEditing} />
-          )}
+        <div
+  className="
+    mt-4 
+    flex flex-col gap-6
 
-          {activeTab === "shop" && (
-            <ShopDetails user={user} isEditing={isEditing} />
-          )}
+    /* Height grows per screen */
+    min-h-[300px]
+    min-[1366px]:min-h-[360px]
+    min-[1440px]:min-h-[420px]
+    min-[1920px]:min-h-[520px]
+    min-[2560px]:min-h-[620px]
 
-          {activeTab === "documents" && (
-            <DocumentsTab user={user} isEditing={isEditing} />
-          )}
-        </div>
+    /* Increasing padding on bigger screens */
+    p-3
+    min-[1440px]:p-4
+    min-[1920px]:p-6
+    min-[2560px]:p-8
+
+    overflow-y-hidden
+  "
+>
+  {activeTab === "profile" && (
+    <ProfileDetails user={user} isEditing={isEditing} />
+  )}
+
+  {activeTab === "shop" && (
+    <ShopDetails user={user} isEditing={isEditing} />
+  )}
+
+  {activeTab === "documents" && (
+    <DocumentsTab user={user} />
+  )}
+</div>
+
 
       </div>
     </div>

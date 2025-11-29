@@ -81,7 +81,7 @@ export const ShopDetails = ({ user, isEditing }) => {
 
 
 import { useState } from "react";
-import { FileText, CloudDownload, Trash2 } from "lucide-react";
+import { FileText, CloudDownload, Trash2, ExternalLink } from "lucide-react";
 
 export const DocumentsTab = ({ user }) => {
   // Local state so deleting updates instantly
@@ -146,9 +146,12 @@ export const DocumentsTab = ({ user }) => {
 
     if (confirmed) {
       setDocs((prev) => prev.filter((d) => d.name !== name));
-      // ⭐ You can later call API here:
-      // await api.deleteDocument(docId)
     }
+  };
+
+  // ⭐ Preview Handler (Open in new tab)
+  const handlePreview = (doc) => {
+    window.open(doc.fileUrl, "_blank");
   };
 
   return (
@@ -184,6 +187,13 @@ export const DocumentsTab = ({ user }) => {
 
           {/* RIGHT SIDE: ACTION ICONS */}
           <div className="flex items-center gap-4 pr-2">
+
+            {/* PREVIEW */}
+            <ExternalLink
+              size={18}
+              className="cursor-pointer text-gray-600 hover:text-[#05015A]"
+              onClick={() => handlePreview(doc)}
+            />
 
             {/* DOWNLOAD */}
             <CloudDownload
