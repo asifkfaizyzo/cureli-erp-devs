@@ -1,5 +1,6 @@
-import { useState,useEffect } from "react";
-import { X, Pencil } from "lucide-react";
+
+import { useState, useEffect } from "react";
+import { X, Pencil, Save, User, Store, FileText } from "lucide-react";
 import { ProfileDetails, ShopDetails, DocumentsTab } from "./UserDetailsTabs";
 
 const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
@@ -7,53 +8,146 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    // Reset editing state whenever modal opens
     setIsEditing(false);
+    setActiveTab("profile");
   }, [isOpen]);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    if (isOpen) {
+      document.addEventListener("keydown", handleEsc);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen || !user) return null;
 
+  const tabs = [
+    { id: "profile", label: "Profile", icon: User },
+    { id: "shop", label: "Shop Details", icon: Store },
+    { id: "documents", label: "Documents", icon: FileText },
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50">
-      <div className="bg-white w-[90%] max-h-[90%] rounded-xl shadow-xl p-5 overflow-auto relative">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
-        {/* CLOSE BUTTON */}
-        <button
-          className="absolute top-4 right-4 text-gray-600 hover:text-red-500"
-          onClick={onClose}
-        >
-          <X size={28} />
-        </button>
+      {/* Modal Container */}
+      <div 
+        className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        
+        {/* ═══════════════════════════════════════════════════════
+            HEADER
+        ═══════════════════════════════════════════════════════ */}
+        <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4">
+          <div className="flex items-center justify-between">
+            
+            {/* User Info */}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                <span className="text-white text-lg font-bold">
+                  {user.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
+                </span>
+              </div>
+              <div>
+                <h2 className="text-white text-lg font-semibold">{user.name}</h2>
+                <p className="text-white/70 text-sm">@{user.username}</p>
+              </div>
+            </div>
 
-        {/* ✅ Show edit button ONLY in edit mode */}
-        {mode === "edit" && (
-          <button
-            className="absolute top-4 right-16 border px-3 py-1 rounded-lg flex items-center gap-2"
-            onClick={() => setIsEditing(!isEditing)}
-          >
-            <Pencil size={16} />
-            {isEditing ? "Save" : "Edit Details"}
-          </button>
-        )}
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              {/* Edit Button - Only in edit mode */}
+              {mode === "edit" && (
+                <button
+                  onClick={() => setIsEditing(!isEditing)}
+                  className={`
+                    flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                    ${isEditing 
+                      ? "bg-emerald-500 text-white hover:bg-emerald-600" 
+                      : "bg-white/20 text-white hover:bg-white/30"
+                    }
+                  `}
+                >
+                  {isEditing ? <Save size={16} /> : <Pencil size={16} />}
+                  {isEditing ? "Save Changes" : "Edit Details"}
+                </button>
+              )}
 
-        {/* TABS */}
-        <div className="flex pt-2 pl-4 pb-2 text-lg font-semibold ">
-          <button className={`px-4 py-2 rounded-t-lg ${activeTab === "profile" ? "bg-[#05015A] text-white" : "bg-[#E2E4E5] text-black"}`} onClick={() => setActiveTab("profile")}>Profile Details</button>
-          <button className={`px-4 py-2 rounded-t-lg ${activeTab === "shop" ? "bg-[#05015A] text-white" : "bg-[#E2E4E5] text-black"}`} onClick={() => setActiveTab("shop")}>Shop Details</button>
-          <button className={`px-4 py-2 rounded-t-lg ${activeTab === "documents" ? "bg-[#05015A] text-white" : "bg-[#E2E4E5] text-black"}`} onClick={() => setActiveTab("documents")}>Documents</button>
+              {/* Close Button */}
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 mt-4">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-sm font-medium transition-all
+                    ${isActive 
+                      ? "bg-white text-[#05015A]" 
+                      : "bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
+                    }
+                  `}
+                >
+                  <Icon size={16} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* TAB CONTENT */}
-        <div className="mt-4 flex flex-col gap-6 min-h-[300px] min-[1366px]:min-h-[360px] min-[1440px]:min-h-[420px] min-[1920px]:min-h-[520px] min-[2560px]:min-h-[620px] p-3 min-[1440px]:p-4 min-[1920px]:p-6 min-[2560px]:p-8 overflow-y-hidden">
+        {/* ═══════════════════════════════════════════════════════
+            CONTENT
+        ═══════════════════════════════════════════════════════ */}
+        <div className="p-6 max-h-[60vh] overflow-y-auto bg-gray-50">
           {activeTab === "profile" && <ProfileDetails user={user} isEditing={isEditing} />}
           {activeTab === "shop" && <ShopDetails user={user} isEditing={isEditing} />}
           {activeTab === "documents" && <DocumentsTab user={user} />}
         </div>
 
+        {/* ═══════════════════════════════════════════════════════
+            FOOTER
+        ═══════════════════════════════════════════════════════ */}
+        <div className="px-6 py-4 bg-white border-t border-gray-100 flex items-center justify-between">
+          <p className="text-xs text-gray-400">
+            User ID: {user.userId || user.id || "N/A"} • Last updated: {user.lastLogin}
+          </p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-all"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );
 };
-
 
 export default UserDetailsModal;

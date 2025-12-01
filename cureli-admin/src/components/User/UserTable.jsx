@@ -550,8 +550,8 @@ const UserTable = ({
                   key={u.id}
                   className={`
                     border-b border-gray-100 transition-all duration-150
-                    ${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
-                    hover:bg-indigo-50/50
+                    ${index % 2 === 0 ? "bg-gray-100" : "bg-gray-150"}
+                    hover:bg-indigo-100
                   `}
                 >
                   {/* SL.No */}
