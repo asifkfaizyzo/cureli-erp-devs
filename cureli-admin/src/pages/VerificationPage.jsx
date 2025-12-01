@@ -1,127 +1,7 @@
-// import { useState, useMemo, useEffect } from "react";
-// import VerificationHeader from "../components/Verification/VerificationHeader";
-// import VerificationTable from "../components/Verification/VerificationTable";
-// import VerificationPagination from "../components/Verification/VerificationPagination";
-
-// import verificationDummyData from "../data/verificationDummyData";
-
-// const VerificationPage = () => {
-//   const [search, setSearch] = useState("");
-//   const [status, setStatus] = useState("");
-//   const [count, setCount] = useState("");
-//   const [date, setDate] = useState("");
-
-//   // Sorting state
-//   const [sortField, setSortField] = useState("");
-//   const [sortOrder, setSortOrder] = useState("");
-
-//   // Pagination
-//   const [currentPage, setCurrentPage] = useState(1);
-//   const [rowsPerPage, setRowsPerPage] = useState(6);
-
-//   // Responsive rowsPerPage
-//   useEffect(() => {
-//     const calculateRows = () => {
-//       const width = window.innerWidth;
-
-//       const newRows =
-//         width >= 2560 ? 16 :
-//         width >= 1920 ? 19 :
-//         width >= 1440 ? 14 :
-//         width >= 1366 ? 11 :
-//         9;
-
-//       setRowsPerPage(newRows);
-//     };
-
-//     calculateRows();
-//     window.addEventListener("resize", calculateRows);
-
-//     return () => window.removeEventListener("resize", calculateRows);
-//   }, []);
-
-//   // Sorting Logic
-//   const triggerSort = (field, order) => {
-//     setSortField(field);
-//     setSortOrder(order);
-//     setCurrentPage(1); // reset to page 1 on sort
-//   };
-
-//   // Sorted data
-//   const sortedData = useMemo(() => {
-//     let list = [...verificationDummyData];
-
-//     if (sortField && sortOrder) {
-//       list.sort((a, b) => {
-//         let A = a[sortField];
-//         let B = b[sortField];
-
-//         if (typeof A === "string") {
-//           return sortOrder === "asc"
-//             ? A.localeCompare(B)
-//             : B.localeCompare(A);
-//         }
-
-//         if (sortField === "date") {
-//           return sortOrder === "asc"
-//             ? new Date(A) - new Date(B)
-//             : new Date(B) - new Date(A);
-//         }
-
-//         return sortOrder === "asc" ? A - B : B - A;
-//       });
-//     }
-
-//     return list;
-//   }, [sortField, sortOrder]);
-
-//   // Paginated data
-//   const indexOfLast = currentPage * rowsPerPage;
-//   const indexOfFirst = indexOfLast - rowsPerPage;
-//   const paginatedData = sortedData.slice(indexOfFirst, indexOfLast);
-
-//   const totalPages = Math.ceil(sortedData.length / rowsPerPage);
-
-//   return (
-//     <div className="p-6">
-
-//       <VerificationHeader
-//         search={search}
-//         setSearch={setSearch}
-//         status={status}
-//         setStatus={setStatus}
-//         count={count}
-//         setCount={setCount}
-//         date={date}
-//         setDate={setDate}
-//         onSearch={() => {}}
-//       />
-
-//       <VerificationTable
-//         data={paginatedData}
-//         triggerSort={triggerSort}
-//         sortField={sortField}
-//         sortOrder={sortOrder}
-//       />
-
-//       <VerificationPagination
-//         currentPage={currentPage}
-//         setCurrentPage={setCurrentPage}
-//         totalPages={totalPages}
-//       />
-
-//     </div>
-//   );
-// };
-
-// export default VerificationPage;
-
 import { useState, useMemo, useEffect } from "react";
 import VerificationHeader from "../components/Verification/VerificationHeader";
 import VerificationTable from "../components/Verification/VerificationTable";
-import VerificationPagination from "../components/Verification/VerificationPagination";
 import VerificationModal from "../components/Verification/VerificationModal";
-
 import verificationDummyData from "../data/verificationDummyData";
 
 const VerificationPage = () => {
@@ -137,27 +17,29 @@ const VerificationPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(6);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // Responsive rows
+  // Responsive rows per page (same rules as ShopsTable)
   useEffect(() => {
-    const calculateRows = () => {
-      const width = window.innerWidth;
-       const newRows =
-        width >= 2560 ? 16 :
-        width >= 1920 ? 19 :
-        width >= 1440 ? 14 :
-        width >= 1366 ? 11 :
-        9;
-      setRowsPerPage(newRows);
+    const updateRows = () => {
+      const w = window.innerWidth;
+
+      const r =
+        w >= 2560 ? 16 :
+        w >= 1920 ? 14 :
+        w >= 1440 ? 12 :
+        w >= 1366 ? 10 :
+        7;
+
+      setRowsPerPage(r);
     };
 
-    calculateRows();
-    window.addEventListener("resize", calculateRows);
-    return () => window.removeEventListener("resize", calculateRows);
+    updateRows();
+    window.addEventListener("resize", updateRows);
+    return () => window.removeEventListener("resize", updateRows);
   }, []);
 
-  // Row click → open modal
+  // Row click → opens modal
   const handleRowClick = (row) => {
     setSelectedUser(row);
     setIsModalOpen(true);
@@ -170,23 +52,25 @@ const VerificationPage = () => {
     setCurrentPage(1);
   };
 
-  // Sorted Data
+  // Sorting Logic
   const sortedData = useMemo(() => {
     let list = [...verificationDummyData];
 
     if (sortField && sortOrder) {
       list.sort((a, b) => {
-        let A = a[sortField];
-        let B = b[sortField];
-
-        if (typeof A === "string") {
-          return sortOrder === "asc" ? A.localeCompare(B) : B.localeCompare(A);
-        }
+        const A = a[sortField];
+        const B = b[sortField];
 
         if (sortField === "date") {
           return sortOrder === "asc"
             ? new Date(A) - new Date(B)
             : new Date(B) - new Date(A);
+        }
+
+        if (typeof A === "string") {
+          return sortOrder === "asc"
+            ? A.localeCompare(B)
+            : B.localeCompare(A);
         }
 
         return sortOrder === "asc" ? A - B : B - A;
@@ -196,16 +80,18 @@ const VerificationPage = () => {
     return list;
   }, [sortField, sortOrder]);
 
-  // Pagination slice
+  // Pagination Slice
+  const totalCount = sortedData.length;
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
+
   const indexOfLast = currentPage * rowsPerPage;
   const indexOfFirst = indexOfLast - rowsPerPage;
   const paginatedData = sortedData.slice(indexOfFirst, indexOfLast);
 
-  const totalPages = Math.ceil(sortedData.length / rowsPerPage);
-
   return (
-    <div className="p-6">
+    <div className="p-2">
 
+      {/* 🔍 Filters */}
       <VerificationHeader
         search={search}
         setSearch={setSearch}
@@ -218,25 +104,27 @@ const VerificationPage = () => {
         onSearch={() => {}}
       />
 
+      {/* TABLE + PAGINATION INSIDE FOOTER */}
       <VerificationTable
         data={paginatedData}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        rowsPerPage={rowsPerPage}
+        totalCount={totalCount}
+        totalPages={totalPages}
         triggerSort={triggerSort}
+        sortField={sortField}
+        sortOrder={sortOrder}
         onRowClick={handleRowClick}
       />
 
-      <VerificationPagination
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        totalPages={totalPages}
-      />
-
+      {/* MODAL */}
       {isModalOpen && (
         <VerificationModal
           user={selectedUser}
           onClose={() => setIsModalOpen(false)}
         />
       )}
-
     </div>
   );
 };
