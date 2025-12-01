@@ -1,34 +1,55 @@
-import { useState, useMemo } from "react";
+// src/pages/ShopsPage.jsx
+import { useState, useEffect, useMemo } from "react";
 import ShopsHeader from "../components/Shops/ShopsHeader";
 import ShopsTable from "../components/Shops/ShopsTable";
-import Pagination from "../components/Shops/Pagination";
-import shopsData from "../data/shopsdummydata"; // dummy data
+import shopsData from "../data/shopsdummydata";
 
 const ShopsPage = () => {
-  const [page, setPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  const pageSize = 6;
+  useEffect(() => {
+    const updateRows = () => {
+      const w = window.innerWidth;
+      if (w >= 2560) setRowsPerPage(14);
+      else if (w >= 1920) setRowsPerPage(12);
+      else if (w >= 1440) setRowsPerPage(10);
+      else if (w >= 1366) setRowsPerPage(8);
+      else setRowsPerPage(6);
+    };
+    updateRows();
+    window.addEventListener("resize", updateRows);
+    return () => window.removeEventListener("resize", updateRows);
+  }, []);
 
   const filtered = useMemo(() => {
-    return shopsData.filter((s) =>
-      s.businessName.toLowerCase().includes(search.toLowerCase()) ||
-      s.ownerName.toLowerCase().includes(search.toLowerCase())
+    const txt = search.toLowerCase();
+    return shopsData.filter(
+      (s) =>
+        s.businessName.toLowerCase().includes(txt) ||
+        s.ownerName.toLowerCase().includes(txt) ||
+        s.gst.toLowerCase().includes(txt)
     );
   }, [search]);
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const totalCount = filtered.length;
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
+
+  useEffect(() => setCurrentPage(1), [rowsPerPage, search]);
+
+  const paginated = filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   return (
-    <div className="w-full h-full flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <ShopsHeader search={search} setSearch={setSearch} />
 
-      <ShopsTable shops={paginated} />
-
-      <Pagination
-        page={page}
-        setPage={setPage}
+      <ShopsTable
+        shops={paginated}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        rowsPerPage={rowsPerPage}
+        totalCount={totalCount}
         totalPages={totalPages}
       />
     </div>
