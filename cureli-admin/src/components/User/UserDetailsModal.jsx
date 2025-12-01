@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { X, Pencil, Save, User, Store, FileText } from "lucide-react";
 import { ProfileDetails, ShopDetails, DocumentsTab } from "./UserDetailsTabs";
@@ -36,7 +35,7 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
   ];
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
@@ -44,41 +43,43 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
       {/* Modal Container */}
-      <div 
+      <div
         className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        
-        {/* ═══════════════════════════════════════════════════════
-            HEADER
-        ═══════════════════════════════════════════════════════ */}
+        {/* HEADER */}
         <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4">
           <div className="flex items-center justify-between">
-            
             {/* User Info */}
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                 <span className="text-white text-lg font-bold">
-                  {user.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
+                  {user.name
+                    ?.split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2) || "U"}
                 </span>
               </div>
               <div>
-                <h2 className="text-white text-lg font-semibold">{user.name}</h2>
+                <h2 className="text-white text-lg font-semibold">
+                  {user.name}
+                </h2>
                 <p className="text-white/70 text-sm">@{user.username}</p>
               </div>
             </div>
 
             {/* Actions */}
             <div className="flex items-center gap-2">
-              {/* Edit Button - Only in edit mode */}
               {mode === "edit" && (
                 <button
                   onClick={() => setIsEditing(!isEditing)}
                   className={`
                     flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                    ${isEditing 
-                      ? "bg-emerald-500 text-white hover:bg-emerald-600" 
-                      : "bg-white/20 text-white hover:bg-white/30"
+                    ${
+                      isEditing
+                        ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                        : "bg-white/20 text-white hover:bg-white/30"
                     }
                   `}
                 >
@@ -87,7 +88,6 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
                 </button>
               )}
 
-              {/* Close Button */}
               <button
                 onClick={onClose}
                 className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all"
@@ -96,47 +96,49 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
               </button>
             </div>
           </div>
-
-          {/* Tabs */}
-          <div className="flex gap-1 mt-4">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-sm font-medium transition-all
-                    ${isActive 
-                      ? "bg-white text-[#05015A]" 
-                      : "bg-white/10 text-white/80 hover:bg-white/20 hover:text-white"
-                    }
-                  `}
-                >
-                  <Icon size={16} />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
-        {/* ═══════════════════════════════════════════════════════
-            CONTENT
-        ═══════════════════════════════════════════════════════ */}
-        <div className="p-6 max-h-[60vh] overflow-y-auto bg-gray-50">
-          {activeTab === "profile" && <ProfileDetails user={user} isEditing={isEditing} />}
-          {activeTab === "shop" && <ShopDetails user={user} isEditing={isEditing} />}
+        {/* TABS — moved here */}
+        <div className="flex gap-1 px-6 pt-4 bg-white border-b border-gray-200">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-md transition-all
+                  ${
+                    isActive
+                      ? "text-[#05015A] border-b-2 border-[#05015A] bg-white"
+                      : "text-gray-500 hover:text-gray-700"
+                  }
+                `}
+              >
+                <Icon size={16} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* CONTENT */}
+        <div className="p-6 h-[65vh] overflow-y-auto bg-gray-50">
+          {activeTab === "profile" && (
+            <ProfileDetails user={user} isEditing={isEditing} />
+          )}
+          {activeTab === "shop" && (
+            <ShopDetails user={user} isEditing={isEditing} />
+          )}
           {activeTab === "documents" && <DocumentsTab user={user} />}
         </div>
 
-        {/* ═══════════════════════════════════════════════════════
-            FOOTER
-        ═══════════════════════════════════════════════════════ */}
+        {/* FOOTER */}
         <div className="px-6 py-4 bg-white border-t border-gray-100 flex items-center justify-between">
           <p className="text-xs text-gray-400">
-            User ID: {user.userId || user.id || "N/A"} • Last updated: {user.lastLogin}
+            User ID: {user.userId || user.id || "N/A"} • Last updated:{" "}
+            {user.lastLogin}
           </p>
           <button
             onClick={onClose}

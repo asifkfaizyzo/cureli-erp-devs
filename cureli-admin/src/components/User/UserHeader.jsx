@@ -166,7 +166,7 @@ const UserHeader = ({
                        flex items-center gap-2 hover:bg-gray-200 transition-all"
           >
             <Download size={16} />
-            <span>Export</span>
+            <span>Export CSV</span>
           </button>
 
           {showExportMenu && (
