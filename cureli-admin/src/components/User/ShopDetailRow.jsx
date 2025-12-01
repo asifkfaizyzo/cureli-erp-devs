@@ -15,7 +15,7 @@ const ShopDetailRow = ({ label, value, isEditing }) => {
           defaultValue={value}
           readOnly={!isEditing}
           className={`
-            w-full px-4 py-2.5 rounded-lg text-sm transition-all duration-200
+            w-full px-4 py-2.5 pr-8 rounded-lg text-sm transition-all duration-200
             ${isEditing 
               ? "bg-white border-2 border-indigo-500 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20" 
               : "bg-white border border-gray-200 text-gray-700 cursor-default"
