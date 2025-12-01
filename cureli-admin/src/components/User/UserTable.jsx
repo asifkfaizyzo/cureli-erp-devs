@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Pagination from "./Pagination";
 import UserDetailsModal from "./UserDetailsModal";
+import ConfirmDialog from "../common/ConfirmDialog";
 
 const UserTable = ({
   currentPage,
@@ -217,6 +218,36 @@ const UserTable = ({
     );
   };
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+    const handleDeleteClick = (user) => {
+    setUserToDelete(user);
+    setShowDeleteConfirm(true);
+  };
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
+
+    setDeleteLoading(true);
+    try {
+      // TODO: Call your delete API here
+      console.log("Deleting user:", userToDelete.id);
+
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      setShowDeleteConfirm(false);
+      setUserToDelete(null);
+
+      // Refresh your data here if needed
+    } catch (error) {
+      console.error("Delete failed:", error);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   // ═══════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════
@@ -340,7 +371,6 @@ const UserTable = ({
                           : "bg-orange-100 text-orange-700"
                       }`}
                     >
-                      
                       {u.status}
                     </span>
                   </td>
@@ -379,11 +409,7 @@ const UserTable = ({
 
                       {/* Delete */}
                       <button
-                        onClick={() => {
-                          if (confirm(`Delete user "${u.name}"?`)) {
-                            console.log("Delete:", u.id);
-                          }
-                        }}
+                        onClick={() => handleDeleteClick(u)}
                         className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all"
                         title="Delete User"
                       >
@@ -449,6 +475,21 @@ const UserTable = ({
         onClose={() => setIsModalOpen(false)}
         user={selectedUser}
         mode={modalMode}
+      />
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setUserToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete User?"
+        message={`Are you sure you want to delete "${userToDelete?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        loading={deleteLoading}
       />
     </div>
   );

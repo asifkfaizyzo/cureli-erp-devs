@@ -91,10 +91,6 @@ export const DocumentsTab = ({ user }) => {
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
           Uploaded Documents ({docs.length})
         </h3>
-        <button className="flex items-center gap-2 px-3 py-1.5 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
-          <Upload size={16} />
-          Upload New
-        </button>
       </div>
 
       {/* Documents Grid */}
