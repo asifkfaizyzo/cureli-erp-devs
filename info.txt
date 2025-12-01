@@ -1,0 +1,28 @@
+Primary CAdmin Functions Should Be:
+
+    📋 Verification Queue (Main job)
+        Review pending shop registrations
+        Verify uploaded documents
+        Approve/reject with notes
+
+    👥 User Management (View/Monitor only)
+        See all shops & users
+        Suspend fraudulent accounts
+        View activity logs
+        Reset passwords (support)
+
+    📊 Dashboard
+        Active shops
+        Revenue metrics
+        Subscription renewals
+        System health
+
+    💰 Subscription Management
+        View all subscriptions
+        Handle payment issues
+        Manually extend/upgrade plans
+
+    ⚙️ Settings
+        Platform configuration
+        Email templates
+        Document requirements

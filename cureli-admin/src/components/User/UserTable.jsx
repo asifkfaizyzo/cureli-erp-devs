@@ -1,11 +1,14 @@
+// components/User/UserTable.jsx
+
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Eye,
   Pencil,
-  Trash2,
   ChevronUp,
   ChevronDown,
   Users,
+  Ban,
+  CheckCircle,
 } from "lucide-react";
 import Pagination from "./Pagination";
 import UserDetailsModal from "./UserDetailsModal";
@@ -28,6 +31,13 @@ const UserTable = ({
   const [modalMode, setModalMode] = useState("view");
 
   // ═══════════════════════════════════════════════════════════
+  // SUSPEND CONFIRM STATE
+  // ═══════════════════════════════════════════════════════════
+  const [showSuspendConfirm, setShowSuspendConfirm] = useState(false);
+  const [userToSuspend, setUserToSuspend] = useState(null);
+  const [suspendLoading, setSuspendLoading] = useState(false);
+
+  // ═══════════════════════════════════════════════════════════
   // COLUMN RESIZING
   // ═══════════════════════════════════════════════════════════
   const [columnWidths, setColumnWidths] = useState({
@@ -38,7 +48,7 @@ const UserTable = ({
     role: 110,
     status: 100,
     lastLogin: 110,
-    actions: 90, // Reduced from 120
+    actions: 90,
   });
 
   const [resizing, setResizing] = useState(null);
@@ -78,7 +88,7 @@ const UserTable = ({
   }, [resizing, handleMouseMove, handleMouseUp]);
 
   // ═══════════════════════════════════════════════════════════
-  // FILTER
+  // FILTER - Updated to use is_active for status
   // ═══════════════════════════════════════════════════════════
   const filteredUsers = useMemo(() => {
     return dummyUsers.filter((u) => {
@@ -87,10 +97,23 @@ const UserTable = ({
         u.username.toLowerCase().includes(searchText.toLowerCase()) ||
         u.email.toLowerCase().includes(searchText.toLowerCase());
 
-      const matchStatus = !statusFilter || u.status === statusFilter;
+      // Status filter now uses is_active field
+      let matchStatus = true;
+      if (statusFilter === "Active") {
+        matchStatus = u.is_active === true;
+      } else if (statusFilter === "Inactive") {
+        matchStatus = u.is_active === false;
+      } else if (statusFilter) {
+        // For any other status filter value
+        matchStatus = (u.is_active ? "Active" : "Inactive") === statusFilter;
+      }
+
       const matchRole = !roleFilter || u.role === roleFilter;
+      
+      // Handle "Never" for lastLogin
       const matchDate =
         !dateFilter ||
+        u.lastLogin === "Never" ||
         u.lastLogin.split("/").reverse().join("-") === dateFilter;
 
       return matchSearch && matchStatus && matchRole && matchDate;
@@ -123,6 +146,9 @@ const UserTable = ({
 
     if (sortConfig.key === "lastLogin") {
       sorted.sort((a, b) => {
+        // Handle "Never" - put at end
+        if (a.lastLogin === "Never") return 1;
+        if (b.lastLogin === "Never") return -1;
         const dateA = new Date(a.lastLogin.split("/").reverse().join("-"));
         const dateB = new Date(b.lastLogin.split("/").reverse().join("-"));
         return sortConfig.order === "asc" ? dateA - dateB : dateB - dateA;
@@ -180,6 +206,26 @@ const UserTable = ({
   };
 
   // ═══════════════════════════════════════════════════════════
+  // STATUS BADGE - Now uses is_active
+  // ═══════════════════════════════════════════════════════════
+  const getStatusBadge = (is_active) => {
+    if (is_active) {
+      return (
+        <span className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 min-w-[70px]">
+          <CheckCircle size={12} />
+          Active
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 min-w-[70px]">
+        <Ban size={12} />
+        Inactive
+      </span>
+    );
+  };
+
+  // ═══════════════════════════════════════════════════════════
   // SORTABLE HEADER
   // ═══════════════════════════════════════════════════════════
   const SortableHeader = ({ column, label, width }) => {
@@ -218,33 +264,40 @@ const UserTable = ({
     );
   };
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-
-    const handleDeleteClick = (user) => {
-    setUserToDelete(user);
-    setShowDeleteConfirm(true);
+  // ═══════════════════════════════════════════════════════════
+  // SUSPEND HANDLER - Now uses is_active
+  // ═══════════════════════════════════════════════════════════
+  const handleSuspendClick = (user) => {
+    setUserToSuspend(user);
+    setShowSuspendConfirm(true);
   };
-  const handleDeleteConfirm = async () => {
-    if (!userToDelete) return;
 
-    setDeleteLoading(true);
+  const handleSuspendConfirm = async () => {
+    if (!userToSuspend) return;
+
+    setSuspendLoading(true);
     try {
-      // TODO: Call your delete API here
-      console.log("Deleting user:", userToDelete.id);
+      // Action is based on is_active, not status
+      const action = userToSuspend.is_active ? "suspend" : "activate";
+
+      // TODO: Call your API here
+      // await axios.patch(`/api/admin/users/${userToSuspend.user_id}/toggle-active`, {
+      //   is_active: !userToSuspend.is_active
+      // });
+
+      console.log(`${action} user:`, userToSuspend.user_id);
 
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      setShowDeleteConfirm(false);
-      setUserToDelete(null);
+      setShowSuspendConfirm(false);
+      setUserToSuspend(null);
 
-      // Refresh your data here if needed
+      // TODO: Refresh data
     } catch (error) {
-      console.error("Delete failed:", error);
+      console.error("Suspend/Activate failed:", error);
     } finally {
-      setDeleteLoading(false);
+      setSuspendLoading(false);
     }
   };
 
@@ -314,7 +367,7 @@ const UserTable = ({
               <th
                 style={{
                   width: columnWidths.actions,
-                  minWidth: 80, // Minimum width
+                  minWidth: 80,
                 }}
                 className="p-2 font-semibold text-center"
               >
@@ -331,8 +384,9 @@ const UserTable = ({
                   key={u.id}
                   className={`
                     border-b border-gray-100 transition-all duration-150
-                    ${index % 2 === 0 ? "bg-gray-100" : "bg-gray-150"}
-                    hover:bg-indigo-100
+                    ${index % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                    ${!u.is_active ? "opacity-60" : ""}
+                    hover:bg-indigo-50
                   `}
                 >
                   {/* SL.No */}
@@ -340,8 +394,15 @@ const UserTable = ({
                     {startIndex + index + 1}
                   </td>
 
-                  {/* Name */}
-                  <td className="p-3 font-medium text-gray-900">{u.name}</td>
+                  {/* Name - with inactive indicator */}
+                  <td className="p-3 font-medium text-gray-900">
+                    <div className="flex items-center gap-2">
+                      {u.name}
+                      {!u.is_active && (
+                        <Ban size={14} className="text-red-400" />
+                      )}
+                    </div>
+                  </td>
 
                   {/* Username */}
                   <td className="p-3 text-gray-600">@{u.username}</td>
@@ -353,26 +414,18 @@ const UserTable = ({
                   <td className="p-3 text-center">
                     <span
                       className={`
-      inline-block px-3 py-1 rounded-full text-xs font-medium 
-      whitespace-nowrap text-center w-25
-      ${getRoleBadgeStyle(u.role)}
-    `}
+                        inline-block px-3 py-1 rounded-full text-xs font-medium 
+                        whitespace-nowrap text-center min-w-[90px]
+                        ${getRoleBadgeStyle(u.role)}
+                      `}
                     >
                       {u.role}
                     </span>
                   </td>
 
-                  {/* Status */}
+                  {/* Status - Now uses is_active */}
                   <td className="p-3 text-center">
-                    <span
-                      className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium w-18 ${
-                        u.status === "Active"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-orange-100 text-orange-700"
-                      }`}
-                    >
-                      {u.status}
-                    </span>
+                    {getStatusBadge(u.is_active)}
                   </td>
 
                   {/* Last Login */}
@@ -407,13 +460,21 @@ const UserTable = ({
                         <Pencil size={15} />
                       </button>
 
-                      {/* Delete */}
+                      {/* Suspend / Activate - Now uses is_active */}
                       <button
-                        onClick={() => handleDeleteClick(u)}
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all"
-                        title="Delete User"
+                        onClick={() => handleSuspendClick(u)}
+                        className={`p-1.5 rounded-lg transition-all ${
+                          u.is_active
+                            ? "text-gray-500 hover:text-orange-600 hover:bg-orange-50"
+                            : "text-gray-500 hover:text-emerald-600 hover:bg-emerald-50"
+                        }`}
+                        title={u.is_active ? "Suspend User" : "Activate User"}
                       >
-                        <Trash2 size={15} />
+                        {u.is_active ? (
+                          <Ban size={15} />
+                        ) : (
+                          <CheckCircle size={15} />
+                        )}
                       </button>
                     </div>
                   </td>
@@ -445,7 +506,10 @@ const UserTable = ({
       <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-1.5 flex items-center justify-between">
         <div className="text-sm text-gray-500">
           Showing{" "}
-          <span className="font-medium text-gray-700">{startIndex + 1}</span> to{" "}
+          <span className="font-medium text-gray-700">
+            {sortedUsers.length > 0 ? startIndex + 1 : 0}
+          </span>{" "}
+          to{" "}
           <span className="font-medium text-gray-700">
             {Math.min(startIndex + rowsPerPage, sortedUsers.length)}
           </span>{" "}
@@ -476,20 +540,25 @@ const UserTable = ({
         user={selectedUser}
         mode={modalMode}
       />
-      {/* Delete Confirmation Dialog */}
+
+      {/* Suspend/Activate Confirmation Dialog - Now uses is_active */}
       <ConfirmDialog
-        isOpen={showDeleteConfirm}
+        isOpen={showSuspendConfirm}
         onClose={() => {
-          setShowDeleteConfirm(false);
-          setUserToDelete(null);
+          setShowSuspendConfirm(false);
+          setUserToSuspend(null);
         }}
-        onConfirm={handleDeleteConfirm}
-        title="Delete User?"
-        message={`Are you sure you want to delete "${userToDelete?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
+        onConfirm={handleSuspendConfirm}
+        title={userToSuspend?.is_active ? "Suspend User?" : "Activate User?"}
+        message={
+          userToSuspend?.is_active
+            ? `Are you sure you want to suspend "${userToSuspend?.name}"? They will not be able to log in until reactivated.`
+            : `Are you sure you want to activate "${userToSuspend?.name}"? They will be able to log in again.`
+        }
+        confirmText={userToSuspend?.is_active ? "Suspend" : "Activate"}
         cancelText="Cancel"
-        type="danger"
-        loading={deleteLoading}
+        type={userToSuspend?.is_active ? "warning" : "success"}
+        loading={suspendLoading}
       />
     </div>
   );

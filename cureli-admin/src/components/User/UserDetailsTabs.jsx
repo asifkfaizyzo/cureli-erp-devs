@@ -1,28 +1,223 @@
+// components/User/UserDetailsTabs.jsx
+
 import { useState } from "react";
-import { FileText, CloudDownload, Trash2, ExternalLink, Upload } from "lucide-react";
+import {
+  FileText,
+  CloudDownload,
+  ExternalLink,
+  CheckCircle,
+  Clock,
+  XCircle,
+  Building2,
+  MapPin,
+  CreditCard,
+  Users,
+  GitBranch,
+  LogIn,
+  KeyRound,
+  UserCog,
+  AlertTriangle,
+  Mail,
+  Phone,
+  Calendar,
+  Shield,
+} from "lucide-react";
 import DetailRow from "./DetailRow";
-import ShopDetailRow from "./ShopDetailRow";
+
+// ═══════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════
+const formatDate = (dateString) => {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return "Never";
+  const date = new Date(dateString);
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes) return "0 KB";
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(0)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+};
+
+const getRoleDisplayName = (role) => {
+  switch (role) {
+    case "Super Admin":
+      return "Shop Owner";
+    case "Branch Admin":
+      return "Branch Admin";
+    case "Staff":
+      return "Staff";
+    default:
+      return role;
+  }
+};
 
 // ═══════════════════════════════════════════════════════════
 // PROFILE DETAILS TAB
 // ═══════════════════════════════════════════════════════════
 export const ProfileDetails = ({ user, isEditing }) => {
+  const isOwner = user.role === "Super Admin";
+  const isBranchAdmin = user.role === "Branch Admin";
+  const isStaff = user.role === "Staff";
+
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-6">
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-        Personal Information
-      </h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-        <DetailRow label="Full Name" value={user.name} isEditing={isEditing} />
-        <DetailRow label="Username" value={user.username} isEditing={isEditing} />
-        <DetailRow label="Email" value={user.email} isEditing={isEditing} />
-        <DetailRow label="Phone" value={user.phone || "7035261820"} isEditing={isEditing} />
-        <DetailRow label="Role" value={user.role} isEditing={isEditing} />
-        <DetailRow label="User ID" value={user.userId || "6728291037"} isEditing={isEditing} />
-        <DetailRow label="Created" value={user.accCreated || "14/08/2024"} isEditing={isEditing} />
-        <DetailRow label="Last Login" value={user.lastLogin} isEditing={isEditing} />
+    <div className="space-y-6">
+      {/* Personal Information - EDITABLE */}
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <User size={16} />
+          Personal Information
+          {isEditing && (
+            <span className="text-xs text-indigo-500 font-normal ml-2">
+              (Editing)
+            </span>
+          )}
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+          <DetailRow
+            label="First Name"
+            value={user.first_name}
+            isEditing={isEditing}
+            fieldName="first_name"
+          />
+          <DetailRow
+            label="Last Name"
+            value={user.last_name}
+            isEditing={isEditing}
+            fieldName="last_name"
+          />
+          <DetailRow
+            label="Username"
+            value={user.username || "Not set"}
+            isEditing={isEditing}
+            fieldName="username"
+          />
+          <DetailRow
+            label="Email"
+            value={user.email || "Not provided"}
+            isEditing={isEditing}
+            fieldName="email"
+          />
+          <DetailRow
+            label="Phone Number"
+            value={user.phone_number || "Not provided"}
+            isEditing={isEditing}
+            fieldName="phone_number"
+          />
+          <DetailRow
+            label="Role"
+            value={getRoleDisplayName(user.role)}
+            isEditing={isEditing}
+            fieldName="role"
+            type="select"
+            options={[
+              { value: "Super Admin", label: "Super Admin" },
+              { value: "Branch Admin", label: "Branch Admin" },
+              { value: "Staff", label: "Staff" },
+            ]}
+          />
+        </div>
       </div>
+
+      {/* Account Information - NOT EDITABLE */}
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Shield size={16} />
+          Account Information
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+          <DetailRow
+            label="User ID"
+            value={user.user_id}
+            isEditing={false}
+          />
+          <DetailRow
+            label="Status"
+            value={user.status}
+            isEditing={false}
+            type="status"
+          />
+          <DetailRow
+            label="Login Method"
+            value={user.login_provider === "google" ? "Google" : "Email/Password"}
+            isEditing={false}
+          />
+          <DetailRow
+            label="Account Active"
+            value={user.is_active ? "Yes" : "No"}
+            isEditing={false}
+          />
+          <DetailRow
+            label="Onboarding Step"
+            value={`${user.onboarding_step}/4`}
+            isEditing={false}
+          />
+          <DetailRow
+            label="Created At"
+            value={formatDate(user.created_at)}
+            isEditing={false}
+          />
+          <DetailRow
+            label="Last Login"
+            value={formatDateTime(user.last_login_at)}
+            isEditing={false}
+          />
+          <DetailRow
+            label="Last Updated"
+            value={formatDateTime(user.updated_at)}
+            isEditing={false}
+          />
+        </div>
+      </div>
+
+      {/* Assignment Info - For Branch Admin & Staff (NOT EDITABLE) */}
+      {(isBranchAdmin || isStaff) && (
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Building2 size={16} />
+            Assignment
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            <DetailRow
+              label="Assigned Shop"
+              value={user.shop?.business_name || "Not assigned"}
+              isEditing={false}
+            />
+            <DetailRow
+              label="Assigned Branch"
+              value={user.branch?.branch_name || "Not assigned"}
+              isEditing={false}
+            />
+            {user.branch?.branch_type && (
+              <DetailRow
+                label="Branch Type"
+                value={user.branch.branch_type === "main" ? "Main Branch" : "Sub Branch"}
+                isEditing={false}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -30,24 +225,204 @@ export const ProfileDetails = ({ user, isEditing }) => {
 // ═══════════════════════════════════════════════════════════
 // SHOP DETAILS TAB
 // ═══════════════════════════════════════════════════════════
-export const ShopDetails = ({ user, isEditing }) => {
-  const shop = user.shop || {};
+export const ShopDetails = ({ user }) => {
+  const isOwner = user.role === "Super Admin";
+  const isBranchAdmin = user.role === "Branch Admin";
+  const isStaff = user.role === "Staff";
+  const shop = user.shop;
+  const branch = user.branch;
 
-  return (
-    <div className="bg-white rounded-xl border border-gray-100 p-6">
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-        Shop Information
-      </h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-        <ShopDetailRow label="Shop ID" value={shop.id || "13234566567675435342435465"} isEditing={isEditing} />
-        <ShopDetailRow label="Shop Name" value={shop.name || "Royal Care Comprehensive Health & Solutions"} isEditing={isEditing} />
-        <ShopDetailRow label="Branch" value={shop.branch || "Royal Care Pharma"} isEditing={isEditing} />
-        <ShopDetailRow label="GST" value={shop.gst || "27ABCDE1234A1Z5"} isEditing={isEditing} />
-        <ShopDetailRow label="Address" value={shop.address || "Pavakulath Building, Kaloor, Ernakulam"} isEditing={isEditing} />
-        <ShopDetailRow label="Postal Code" value={shop.postal || "682017"} isEditing={isEditing} />
-        <ShopDetailRow label="Status" value={shop.subStatus || "Active"} isEditing={isEditing} />
+  // Staff - Minimal view
+  if (isStaff) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Building2 size={16} />
+          Workplace Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+          <DetailRow label="Shop" value={shop?.business_name || "N/A"} isEditing={false} />
+          <DetailRow label="Branch" value={branch?.branch_name || "N/A"} isEditing={false} />
+          {branch?.branch_type && (
+            <DetailRow
+              label="Branch Type"
+              value={branch.branch_type === "main" ? "Main Branch" : "Sub Branch"}
+              isEditing={false}
+            />
+          )}
+        </div>
       </div>
+    );
+  }
+
+  // Branch Admin - Branch Details
+  if (isBranchAdmin && branch) {
+    return (
+      <div className="space-y-6">
+        {/* Shop Reference */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Building2 size={16} />
+            Shop Information
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            <DetailRow label="Shop Name" value={shop?.business_name || "N/A"} isEditing={false} />
+            <DetailRow
+              label="Verification"
+              value={shop?.verification_status}
+              isEditing={false}
+              type="verification"
+            />
+          </div>
+        </div>
+
+        {/* Branch Info */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <GitBranch size={16} />
+            Branch Information
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            <DetailRow label="Branch ID" value={branch.branch_id?.slice(0, 8) + "..."} isEditing={false} />
+            <DetailRow label="Branch Name" value={branch.branch_name} isEditing={false} />
+            <DetailRow
+              label="Branch Type"
+              value={branch.branch_type === "main" ? "Main Branch" : "Sub Branch"}
+              isEditing={false}
+            />
+            <DetailRow label="Contact Number" value={branch.contact_number} isEditing={false} />
+            <DetailRow label="Alternate Number" value={branch.alternate_number || "N/A"} isEditing={false} />
+            <DetailRow
+              label="Status"
+              value={branch.is_active ? "Active" : "Inactive"}
+              isEditing={false}
+              type="status"
+            />
+          </div>
+        </div>
+
+        {/* Branch Address */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <MapPin size={16} />
+            Branch Address
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            <DetailRow label="Address Line 1" value={branch.address_line_1} isEditing={false} />
+            <DetailRow label="Address Line 2" value={branch.address_line_2 || "N/A"} isEditing={false} />
+            <DetailRow label="City" value={branch.city} isEditing={false} />
+            <DetailRow label="State" value={branch.state} isEditing={false} />
+            <DetailRow label="Pincode" value={branch.pincode} isEditing={false} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Owner - Full Shop Details
+  if (isOwner && shop) {
+    const subscription = shop.currentSubscription;
+
+    return (
+      <div className="space-y-6">
+        {/* Business Information */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Building2 size={16} />
+            Business Information
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            <DetailRow label="Shop ID" value={shop.shop_id?.slice(0, 8) + "..."} isEditing={false} />
+            <DetailRow label="Business Name" value={shop.business_name} isEditing={false} />
+            <DetailRow label="Legal Name" value={shop.legal_name || "N/A"} isEditing={false} />
+            <DetailRow label="GST Number" value={shop.gst_number || "Not provided"} isEditing={false} />
+            <DetailRow label="Business Type" value={shop.business_type || "N/A"} isEditing={false} />
+            <DetailRow
+              label="Verification"
+              value={shop.verification_status}
+              isEditing={false}
+              type="verification"
+            />
+          </div>
+          {shop.verification_notes && (
+            <div className="mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
+              <p className="text-sm text-orange-700">
+                <strong>Note:</strong> {shop.verification_notes}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Address */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <MapPin size={16} />
+            Business Address
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            <DetailRow label="Address Line 1" value={shop.address_line_1} isEditing={false} />
+            <DetailRow label="Address Line 2" value={shop.address_line_2 || "N/A"} isEditing={false} />
+            <DetailRow label="City" value={shop.city} isEditing={false} />
+            <DetailRow label="State" value={shop.state} isEditing={false} />
+            <DetailRow label="Pincode" value={shop.pincode} isEditing={false} />
+          </div>
+        </div>
+
+        {/* Subscription */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <CreditCard size={16} />
+            Subscription
+          </h3>
+          {subscription ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+              <DetailRow label="Plan" value={subscription.plan?.plan_name || "N/A"} isEditing={false} />
+              <DetailRow label="Status" value={subscription.status} isEditing={false} type="status" />
+              <DetailRow label="Billing Cycle" value={subscription.billing_cycle} isEditing={false} />
+              <DetailRow label="Payment Status" value={subscription.payment_status} isEditing={false} />
+              <DetailRow label="Start Date" value={formatDate(subscription.start_date)} isEditing={false} />
+              <DetailRow label="End Date" value={formatDate(subscription.end_date)} isEditing={false} />
+              <DetailRow label="Max Branches" value={subscription.branch_limit_snapshot} isEditing={false} />
+              <DetailRow label="Max Users" value={subscription.user_limit_snapshot} isEditing={false} />
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <CreditCard size={32} className="mx-auto text-gray-300 mb-2" />
+              <p>No active subscription</p>
+            </div>
+          )}
+        </div>
+
+        {/* Statistics */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Users size={16} />
+            Statistics
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 text-center border border-indigo-100">
+              <p className="text-2xl font-bold text-[#05015A]">{shop._count?.branches || 0}</p>
+              <p className="text-sm text-gray-500">Branches</p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 text-center border border-emerald-100">
+              <p className="text-2xl font-bold text-emerald-700">{shop._count?.users || 0}</p>
+              <p className="text-sm text-gray-500">Users</p>
+            </div>
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 text-center border border-amber-100">
+              <p className="text-lg font-bold text-amber-700">{formatDate(shop.created_at)}</p>
+              <p className="text-sm text-gray-500">Registered</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-6 text-center">
+      <Building2 size={48} className="mx-auto text-gray-300 mb-3" />
+      <p className="text-gray-500">No shop information available</p>
     </div>
   );
 };
@@ -56,102 +431,387 @@ export const ShopDetails = ({ user, isEditing }) => {
 // DOCUMENTS TAB
 // ═══════════════════════════════════════════════════════════
 export const DocumentsTab = ({ user }) => {
-  const [docs, setDocs] = useState(
-    user.documents || [
-      { name: "Drug License", date: "22 September 2025", by: "John Phillips", size: "103 KB", fileUrl: "/dummy/drug-license.pdf" },
-      { name: "Shop & Establishment License", date: "22 September 2025", by: "John Phillips", size: "103 KB", fileUrl: "/dummy/shop-license.pdf" },
-      { name: "Pharmacy Registration", date: "22 September 2025", by: "John Phillips", size: "103 KB", fileUrl: "/dummy/pharma-cert.pdf" },
-      { name: "Business PAN", date: "22 September 2025", by: "John Phillips", size: "103 KB", fileUrl: "/dummy/business-pan.pdf" },
-      { name: "Business Registration", date: "22 September 2025", by: "John Phillips", size: "103 KB", fileUrl: "/dummy/business-reg.pdf" },
-      { name: "Address Proof", date: "22 September 2025", by: "John Phillips", size: "103 KB", fileUrl: "/dummy/address-proof.pdf" },
-    ]
-  );
+  const docs = user.shopFiles || [];
+  const isStaff = user.role === "Staff";
 
-  const handleDownload = (doc) => {
-    const link = document.createElement("a");
-    link.href = doc.fileUrl || "#";
-    link.download = doc.name || "document";
-    link.click();
+  // Staff don't see documents
+  if (isStaff || docs.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
+        <FileText size={48} className="mx-auto text-gray-300 mb-3" />
+        <p className="text-gray-500">
+          {isStaff ? "Documents not available for this role" : "No documents uploaded"}
+        </p>
+      </div>
+    );
+  }
+
+  const getFileTypeLabel = (fileType) => {
+    const labels = {
+      drug_license: "Drug License",
+      gst_certificate: "GST Certificate",
+      pharmacy_registration: "Pharmacy Registration",
+      business_pan: "Business PAN",
+      address_proof: "Address Proof",
+      shop_license: "Shop & Establishment License",
+    };
+    return labels[fileType] || fileType?.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
-  const handleDelete = (name) => {
-    if (window.confirm(`Delete "${name}" permanently?`)) {
-      setDocs((prev) => prev.filter((d) => d.name !== name));
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "verified":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+            <CheckCircle size={10} /> Verified
+          </span>
+        );
+      case "rejected":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+            <XCircle size={10} /> Rejected
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+            <Clock size={10} /> Pending
+          </span>
+        );
     }
-  };
-
-  const handlePreview = (doc) => {
-    window.open(doc.fileUrl, "_blank");
   };
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
           Uploaded Documents ({docs.length})
         </h3>
       </div>
 
-      {/* Documents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {docs.map((doc, i) => (
+        {docs.map((doc) => (
           <div
-            key={i}
+            key={doc.file_id}
             className="group bg-white rounded-xl border border-gray-100 p-4 hover:border-indigo-200 hover:shadow-md transition-all duration-200"
           >
             <div className="flex items-start gap-4">
-              {/* Icon */}
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center flex-shrink-0">
                 <FileText size={24} className="text-indigo-500" />
               </div>
 
-              {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-800 truncate">{doc.name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{doc.date}</p>
-                <p className="text-xs text-gray-400">by {doc.by} • {doc.size}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-gray-800 truncate">
+                    {getFileTypeLabel(doc.file_type)}
+                  </p>
+                  {getStatusBadge(doc.status)}
+                </div>
+                <p className="text-xs text-gray-500 mt-1 truncate">{doc.original_name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {formatDate(doc.uploaded_at)} • {formatFileSize(doc.file_size)}
+                </p>
+                {doc.verification_notes && (
+                  <p className="text-xs text-orange-600 mt-1 bg-orange-50 px-2 py-1 rounded">
+                    {doc.verification_notes}
+                  </p>
+                )}
               </div>
 
-              {/* Actions */}
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => handlePreview(doc)}
                   className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
                   title="Preview"
                 >
                   <ExternalLink size={16} />
                 </button>
                 <button
-                  onClick={() => handleDownload(doc)}
                   className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
                   title="Download"
                 >
                   <CloudDownload size={16} />
-                </button>
-                <button
-                  onClick={() => handleDelete(doc.name)}
-                  className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                  title="Delete"
-                >
-                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
           </div>
         ))}
       </div>
-
-      {/* Empty State */}
-      {docs.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
-          <FileText size={48} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500">No documents uploaded</p>
-          <button className="mt-3 text-sm text-indigo-600 hover:text-indigo-700">
-            Upload your first document
-          </button>
-        </div>
-      )}
     </div>
   );
 };
+
+// ═══════════════════════════════════════════════════════════
+// BRANCHES TAB (Owner Only)
+// ═══════════════════════════════════════════════════════════
+export const BranchesTab = ({ user }) => {
+  const branches = user.shop?.branches || [];
+
+  if (branches.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
+        <GitBranch size={48} className="mx-auto text-gray-300 mb-3" />
+        <p className="text-gray-500">No branches found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          Shop Branches ({branches.length})
+        </h3>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-100">
+              <th className="text-left p-4 font-semibold text-gray-600">Branch Name</th>
+              <th className="text-left p-4 font-semibold text-gray-600">Type</th>
+              <th className="text-left p-4 font-semibold text-gray-600">City</th>
+              <th className="text-center p-4 font-semibold text-gray-600">Users</th>
+              <th className="text-center p-4 font-semibold text-gray-600">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {branches.map((branch, index) => (
+              <tr
+                key={branch.branch_id}
+                className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${
+                  index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                }`}
+              >
+                <td className="p-4 font-medium text-gray-900">{branch.branch_name}</td>
+                <td className="p-4">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      branch.branch_type === "main"
+                        ? "bg-purple-100 text-purple-700"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
+                  >
+                    {branch.branch_type === "main" ? "Main" : "Sub"}
+                  </span>
+                </td>
+                <td className="p-4 text-gray-600">{branch.city}</td>
+                <td className="p-4 text-center text-gray-600">{branch.users_count || 0}</td>
+                <td className="p-4 text-center">
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                      branch.is_active
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {branch.is_active ? (
+                      <>
+                        <CheckCircle size={10} /> Active
+                      </>
+                    ) : (
+                      <>
+                        <XCircle size={10} /> Inactive
+                      </>
+                    )}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// USERS TAB (Owner Only)
+// ═══════════════════════════════════════════════════════════
+export const UsersTab = ({ user }) => {
+  const users = user.shop?.users || [];
+
+  if (users.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
+        <Users size={48} className="mx-auto text-gray-300 mb-3" />
+        <p className="text-gray-500">No users found in this shop</p>
+      </div>
+    );
+  }
+
+  const getRoleBadgeStyle = (role) => {
+    switch (role) {
+      case "Branch Admin":
+        return "bg-blue-100 text-blue-700";
+      case "Staff":
+        return "bg-slate-100 text-slate-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          Shop Users ({users.length})
+        </h3>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-100">
+              <th className="text-left p-4 font-semibold text-gray-600">Name</th>
+              <th className="text-left p-4 font-semibold text-gray-600">Email</th>
+              <th className="text-left p-4 font-semibold text-gray-600">Branch</th>
+              <th className="text-center p-4 font-semibold text-gray-600">Role</th>
+              <th className="text-center p-4 font-semibold text-gray-600">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u, index) => (
+              <tr
+                key={u.user_id}
+                className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${
+                  index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                }`}
+              >
+                <td className="p-4 font-medium text-gray-900">{u.full_name}</td>
+                <td className="p-4 text-gray-600">{u.email}</td>
+                <td className="p-4 text-gray-600">{u.branch_name || "N/A"}</td>
+                <td className="p-4 text-center">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadgeStyle(
+                      u.role
+                    )}`}
+                  >
+                    {getRoleDisplayName(u.role)}
+                  </span>
+                </td>
+                <td className="p-4 text-center">
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                      u.status === "Active"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {u.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// ACTIVITY TAB
+// ═══════════════════════════════════════════════════════════
+export const ActivityTab = ({ user }) => {
+  const activities = user.activityLogs || [];
+
+  const getActivityIcon = (action) => {
+    switch (action) {
+      case "login":
+        return { icon: LogIn, color: "text-blue-500", bg: "bg-blue-50" };
+      case "logout":
+        return { icon: LogIn, color: "text-gray-500", bg: "bg-gray-50" };
+      case "password_change":
+        return { icon: KeyRound, color: "text-amber-500", bg: "bg-amber-50" };
+      case "profile_update":
+        return { icon: UserCog, color: "text-indigo-500", bg: "bg-indigo-50" };
+      case "status_change":
+        return { icon: AlertTriangle, color: "text-red-500", bg: "bg-red-50" };
+      case "role_change":
+        return { icon: Shield, color: "text-purple-500", bg: "bg-purple-50" };
+      default:
+        return { icon: Calendar, color: "text-gray-500", bg: "bg-gray-50" };
+    }
+  };
+
+  const getActionLabel = (action) => {
+    switch (action) {
+      case "login":
+        return "Login";
+      case "logout":
+        return "Logout";
+      case "password_change":
+        return "Password Changed";
+      case "profile_update":
+        return "Profile Updated";
+      case "status_change":
+        return "Status Changed";
+      case "role_change":
+        return "Role Changed";
+      default:
+        return action;
+    }
+  };
+
+  if (activities.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
+        <History size={48} className="mx-auto text-gray-300 mb-3" />
+        <p className="text-gray-500">No activity recorded</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          Recent Activity ({activities.length})
+        </h3>
+      </div>
+
+      <div className="space-y-3">
+        {activities.map((activity) => {
+          const { icon: Icon, color, bg } = getActivityIcon(activity.action);
+          return (
+            <div
+              key={activity.id}
+              className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-all"
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className={`w-10 h-10 rounded-lg ${bg} flex items-center justify-center flex-shrink-0`}
+                >
+                  <Icon size={20} className={color} />
+                </div>
+
+                <div className="flex-1">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        {getActionLabel(activity.action)}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-0.5">{activity.description}</p>
+                    </div>
+                    <span className="text-xs text-gray-400 whitespace-nowrap ml-4">
+                      {formatDateTime(activity.created_at)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
+                    <span>IP: {activity.ip_address}</span>
+                    <span>•</span>
+                    <span>{activity.user_agent}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Need to import these icons at the top
+const User = Users; // Reusing Users icon
+const History = Clock; // Reusing Clock as History

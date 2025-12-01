@@ -29,7 +29,8 @@ const UserHeader = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const hasActiveFilters = statusFilter || roleFilter || dateFilter || searchText;
+  const hasActiveFilters =
+    statusFilter || roleFilter || dateFilter || searchText;
 
   const clearFilters = () => {
     setStatusFilter("");
@@ -38,15 +39,41 @@ const UserHeader = ({
     setSearchText("");
   };
 
-  // Export to CSV
-  const exportToCSV = () => {
-    if (!dummyUsers || dummyUsers.length === 0) {
-      alert("No data to export");
-      return;
-    }
+  // -------------------------------
+  // 🔥 FILTERED USERS (for export)
+  // -------------------------------
+  const filteredUsers = dummyUsers.filter((u) => {
+    const matchesSearch =
+      !searchText ||
+      u.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+      u.username?.toLowerCase().includes(searchText.toLowerCase()) ||
+      u.email?.toLowerCase().includes(searchText.toLowerCase());
 
-    const headers = ["ID", "Name", "Username", "Email", "Role", "Status", "Last Login"];
-    const rows = dummyUsers.map((u) => [
+    const matchesStatus = !statusFilter || u.status === statusFilter;
+    const matchesRole = !roleFilter || u.role === roleFilter;
+
+    const matchesDate = !dateFilter || u.lastLogin === dateFilter; // adjust if your date filter is a range
+
+    return matchesSearch && matchesStatus && matchesRole && matchesDate;
+  });
+
+  // -------------------------------
+  // 🔥 CSV Generator
+  // -------------------------------
+  const generateCSV = (data) => {
+    if (!data || data.length === 0) return null;
+
+    const headers = [
+      "ID",
+      "Name",
+      "Username",
+      "Email",
+      "Role",
+      "Status",
+      "Last Login",
+    ];
+
+    const rows = data.map((u) => [
       u.id,
       u.name,
       u.username,
@@ -56,25 +83,48 @@ const UserHeader = ({
       u.lastLogin,
     ]);
 
-    const csvContent = [
+    const csv = [
       headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+      ...rows.map((r) => r.map((c) => `"${c ?? ""}"`).join(",")),
     ].join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    return new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  };
+
+  // -------------------------------
+  // 🔥 Export: Filtered Only
+  // -------------------------------
+  const exportFilteredUsers = () => {
+    const blob = generateCSV(filteredUsers);
+    if (!blob) return alert("No filtered users available.");
+
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `users_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `filtered_users_${new Date()
+      .toISOString()
+      .split("T")[0]}.csv`;
+    link.click();
+    setShowExportMenu(false);
+  };
+
+  // -------------------------------
+  // 🔥 Export: All Users
+  // -------------------------------
+  const exportAllUsers = () => {
+    const blob = generateCSV(dummyUsers);
+    if (!blob) return alert("No users available.");
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `all_users_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     setShowExportMenu(false);
   };
 
   return (
     <div className="flex justify-between bg-white shadow-sm rounded-xl border border-gray-100 p-2">
-      
       {/* Left Side: Filters */}
       <div className="flex items-end gap-3 ">
-        
         {/* Search */}
         <div className="flex flex-col gap-1.5 flex-1 min-w-[230px]">
           <label className="text-xs text-gray-500 font-medium">Search</label>
@@ -89,15 +139,15 @@ const UserHeader = ({
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className="w-full h-10 pl-9 pr-8 border border-gray-200 rounded-lg text-sm 
-                     bg-gray-50 focus:bg-white
-                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                     placeholder:text-gray-400 transition-all"
+                       bg-gray-50 focus:bg-white
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                       placeholder:text-gray-400 transition-all"
             />
             {searchText && (
               <button
                 onClick={() => setSearchText("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded
-                       text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                         text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
               >
                 <X size={14} />
               </button>
@@ -146,8 +196,8 @@ const UserHeader = ({
           <button
             onClick={clearFilters}
             className="h-10 px-3 text-sm text-gray-500 hover:text-red-600 
-                       hover:bg-red-50 rounded-lg
-                       flex items-center gap-1.5 transition-colors"
+                         hover:bg-red-50 rounded-lg
+                         flex items-center gap-1.5 transition-colors"
           >
             <X size={14} />
             <span>Clear</span>
@@ -157,7 +207,6 @@ const UserHeader = ({
 
       {/* Right Side: Actions */}
       <div className="flex items-center gap-2 self-center">
-        
         {/* Export Button */}
         <div className="relative" ref={exportMenuRef}>
           <button
@@ -170,15 +219,37 @@ const UserHeader = ({
           </button>
 
           {showExportMenu && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+
+              {/* Export Filtered */}
               <button
-                onClick={exportToCSV}
-                className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                onClick={exportFilteredUsers}
+                className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 
+                           flex items-center gap-3 transition-colors"
+              >
+                <FileSpreadsheet size={16} className="text-blue-600" />
+                <div>
+                  <div className="font-medium">Export Filtered</div>
+                  <div className="text-xs text-gray-400">
+                    {filteredUsers.length} users
+                  </div>
+                </div>
+              </button>
+
+              <div className="h-px bg-gray-100" />
+
+              {/* Export All */}
+              <button
+                onClick={exportAllUsers}
+                className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 
+                           flex items-center gap-3 transition-colors"
               >
                 <FileSpreadsheet size={16} className="text-green-600" />
                 <div>
-                  <div className="font-medium">Export CSV</div>
-                  <div className="text-xs text-gray-400">{dummyUsers.length} users</div>
+                  <div className="font-medium">Export All</div>
+                  <div className="text-xs text-gray-400">
+                    {dummyUsers.length} users
+                  </div>
                 </div>
               </button>
             </div>
