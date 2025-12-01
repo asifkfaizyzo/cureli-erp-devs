@@ -1,81 +1,95 @@
-import { MdMoreVert } from "react-icons/md";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 const VerificationPagination = ({ currentPage, setCurrentPage, totalPages }) => {
-  const WINDOW = 3;
-  const JUMP = 3;
+  if (totalPages <= 1) return null;
 
-  const computeWindowStart = (page) => {
-    if (totalPages <= WINDOW) return 1;
+  const getPages = () => {
+    const pages = [];
+    const showStartDots = currentPage > 3;
+    const showEndDots = currentPage < totalPages - 2;
 
-    let start = page - 1;
-    if (start < 1) start = 1;
-    if (start > totalPages - WINDOW + 1) start = totalPages - WINDOW + 1;
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
 
-    return start;
+      if (showStartDots) pages.push("...");
+
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let p = start; p <= end; p++) pages.push(p);
+
+      if (showEndDots) pages.push("...");
+
+      pages.push(totalPages);
+    }
+
+    return pages;
   };
 
-  const windowStart = computeWindowStart(currentPage);
-  const windowEnd = Math.min(totalPages, windowStart + WINDOW - 1);
-
-  const pages = [];
-  for (let p = windowStart; p <= windowEnd; p++) pages.push(p);
-
   return (
-    <div className="flex justify-center items-center gap-3 mt-3 select-none">
+    <div className="flex items-center gap-1 select-none">
 
-      {/* PREV */}
+      {/* First Page */}
+      <button
+        onClick={() => setCurrentPage(1)}
+        disabled={currentPage === 1}
+        className="p-2 rounded-md text-gray-600 hover:bg-gray-200 disabled:opacity-30"
+      >
+        <ChevronsLeft size={16} />
+      </button>
+
+      {/* Previous */}
       <button
         onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
         disabled={currentPage === 1}
-        className="text-[#05015A] text-lg disabled:opacity-30"
+        className="p-2 rounded-md text-gray-600 hover:bg-gray-200 disabled:opacity-30"
       >
-        ←
+        <ChevronLeft size={16} />
       </button>
 
-      {/* LEFT DOTS */}
-      {windowStart > 1 && (
-        <button
-          onClick={() => setCurrentPage((p) => Math.max(1, p - JUMP))}
-          className="text-[#05015A] text-lg hover:scale-105"
-        >
-          <MdMoreVert size={18} />
-        </button>
-      )}
-
-      {/* PAGE NUMBERS */}
-      <div className="flex items-center gap-3">
-        {pages.map((page) => (
-          <button
-            key={page}
-            onClick={() => setCurrentPage(page)}
-            className={`text-sm transition ${
-              page === currentPage
-                ? "bg-[#05015A] text-white w-7 h-7 rounded-full flex items-center justify-center"
-                : "text-[#05015A] hover:text-black"
-            }`}
-          >
-            {page}
-          </button>
-        ))}
+      {/* Page Numbers */}
+      <div className="flex items-center gap-1">
+        {getPages().map((page, i) =>
+          page === "..." ? (
+            <span key={i} className="px-2 text-gray-400">
+              ...
+            </span>
+          ) : (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`min-w-[32px] h-8 px-2 rounded-md text-sm font-medium transition-all
+                ${
+                  currentPage === page
+                    ? "bg-[#05015A] text-white"
+                    : "text-gray-700 hover:bg-gray-200"
+                }
+              `}
+            >
+              {page}
+            </button>
+          )
+        )}
       </div>
 
-      {/* RIGHT DOTS */}
-      {windowEnd < totalPages && (
-        <button
-          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + JUMP))}
-          className="text-[#05015A] text-lg hover:scale-105"
-        >
-          <MdMoreVert size={18} />
-        </button>
-      )}
-
-      {/* NEXT */}
+      {/* Next */}
       <button
         onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
         disabled={currentPage === totalPages}
-        className="text-[#05015A] text-lg disabled:opacity-30"
+        className="p-2 rounded-md text-gray-600 hover:bg-gray-200 disabled:opacity-30"
       >
-        →
+        <ChevronRight size={16} />
+      </button>
+
+      {/* Last Page */}
+      <button
+        onClick={() => setCurrentPage(totalPages)}
+        disabled={currentPage === totalPages}
+        className="p-2 rounded-md text-gray-600 hover:bg-gray-200 disabled:opacity-30"
+      >
+        <ChevronsRight size={16} />
       </button>
     </div>
   );
