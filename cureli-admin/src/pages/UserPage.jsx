@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from "react";
 import UserHeader from "../components/User/UserHeader";
 import UserTable from "../components/User/UserTable";
-import dummyUsers from "../data/dummyUsers";
+import { getAllCAdminUsers } from "../api/cadminUsers";
 
 const UserPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -12,15 +11,34 @@ const UserPage = () => {
   const [roleFilter, setRoleFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
 
+  const [users, setUsers] = useState([]);   // REPLACES dummyUsers
+  const [loading, setLoading] = useState(true);
+
+  // Fetch users on mount
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        setLoading(true);
+        const resp = await getAllCAdminUsers();
+        setUsers(resp.data.data || []);
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadUsers();
+  }, []);
+
+  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchText, statusFilter, roleFilter, dateFilter]);
 
   return (
-    // KEY FIX: Added min-w-0 to allow proper flex shrinking
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
 
-      {/* Header - flex-shrink-0 prevents it from collapsing */}
       <UserHeader
         searchText={searchText}
         setSearchText={setSearchText}
@@ -30,10 +48,9 @@ const UserPage = () => {
         setRoleFilter={setRoleFilter}
         dateFilter={dateFilter}
         setDateFilter={setDateFilter}
-        dummyUsers={dummyUsers}
+        dummyUsers={users}     // UPDATED
       />
 
-      {/* Table - Takes remaining space */}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <UserTable
           currentPage={currentPage}
@@ -42,7 +59,8 @@ const UserPage = () => {
           statusFilter={statusFilter}
           roleFilter={roleFilter}
           dateFilter={dateFilter}
-          dummyUsers={dummyUsers}
+          dummyUsers={users}     // UPDATED
+          loading={loading}      // NEW
         />
       </div>
     </div>

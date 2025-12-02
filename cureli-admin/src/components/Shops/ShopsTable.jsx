@@ -144,7 +144,7 @@ const ShopsTable = ({
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 bg-[#05015A] text-white z-10">
             <tr>
-              <th style={{ width: columnWidths.slNo }} className="p-3 font-semibold">SL NO</th>
+              <th style={{ width: columnWidths.slNo }} className="p-3 font-semibold">#</th>
 
               <SortableHeader column="businessName" label="Business" width={columnWidths.businessName} />
               <SortableHeader column="ownerName" label="Owner" width={columnWidths.ownerName} />
