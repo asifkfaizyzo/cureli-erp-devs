@@ -76,6 +76,8 @@ export async function loginCAdminService({ username, password }) {
 /**
  * verifyCAdminOtpService
  */
+// In cadminAuth.service.js - verifyCAdminOtpService
+
 export async function verifyCAdminOtpService({ username, otp, req, res }) {
   const cadmin = await prisma.cAdmin.findUnique({ where: { username } });
   if (!cadmin) {
@@ -135,15 +137,21 @@ export async function verifyCAdminOtpService({ username, otp, req, res }) {
 
   const accessToken = generateCAdminAccessToken(accessPayload);
   const refreshToken = generateCAdminRefreshToken(refreshPayload);
+
   console.log("🔑 GENERATED REFRESH TOKEN:", refreshToken);
 
   const cookieOptions = {
     httpOnly: true,
     secure: false,
     sameSite: "lax",
-    path: "/cadmin",
+    path: "/",  // 👈 CHANGED TO ROOT PATH
     maxAge: 7 * 24 * 60 * 60 * 1000,
   };
+
+  // 👇 CLEAR ANY EXISTING COOKIES FIRST (all possible paths)
+  res.clearCookie("cadmin_refresh_token", { path: "/" });
+  res.clearCookie("cadmin_refresh_token", { path: "/cadmin" });
+  res.clearCookie("cadmin_refresh_token", { path: "/cadmin/refresh" });
 
   console.log("Setting refresh token cookie with options:", cookieOptions);
   res.cookie("cadmin_refresh_token", refreshToken, cookieOptions);
@@ -161,7 +169,8 @@ export async function refreshCAdminService({ req, res }) {
   console.log("All cookies:", Object.keys(req.cookies || {}));
 
   const token = req.cookies?.cadmin_refresh_token;
-console.log("🍪 COOKIE REFRESH TOKEN:", token);  
+  console.log("🍪 COOKIE REFRESH TOKEN:", token);
+
   if (!token) {
     console.log("❌ No refresh token cookie found");
     const err = new Error("Missing refresh token");
@@ -170,10 +179,8 @@ console.log("🍪 COOKIE REFRESH TOKEN:", token);
   }
 
   console.log("✅ Refresh token found");
-  console.log("Token preview:", token.slice(0, 50) + "...");
 
   try {
-    // 👇 Now using the imported verifyCAdminRefreshToken function
     console.log("Verifying with secret:", ADMIN_REFRESH_SECRET?.slice(0, 5) + "...");
     const payload = verifyCAdminRefreshToken(token);
     console.log("✅ Token verified, cadmin_id:", payload.cadmin_id);
@@ -195,13 +202,12 @@ console.log("🍪 COOKIE REFRESH TOKEN:", token);
       throw err;
     }
 
-    // Generate new access token
     const accessToken = generateCAdminAccessToken({
       cadmin_id: cadmin.cadmin_id,
       username: cadmin.username,
     });
 
-    // 🔄 ROTATE: Generate new refresh token and set new cookie
+    // Generate new refresh token (rotation)
     const newRefreshToken = generateCAdminRefreshToken({
       cadmin_id: cadmin.cadmin_id,
     });
@@ -210,9 +216,14 @@ console.log("🍪 COOKIE REFRESH TOKEN:", token);
       httpOnly: true,
       secure: false,
       sameSite: "lax",
-      path: "/cadmin",
+      path: "/",  // 👈 ROOT PATH
       maxAge: 7 * 24 * 60 * 60 * 1000,
     };
+
+    // Clear old cookies first
+    res.clearCookie("cadmin_refresh_token", { path: "/" });
+    res.clearCookie("cadmin_refresh_token", { path: "/cadmin" });
+    res.clearCookie("cadmin_refresh_token", { path: "/cadmin/refresh" });
 
     res.cookie("cadmin_refresh_token", newRefreshToken, cookieOptions);
     console.log("✅ New tokens generated and cookie refreshed for:", cadmin.username);
@@ -222,13 +233,10 @@ console.log("🍪 COOKIE REFRESH TOKEN:", token);
     console.log("❌ Token verification failed:", err.message);
     console.log("Error name:", err.name);
 
-    // Clear the invalid cookie
-    res.clearCookie("cadmin_refresh_token", {
-      path: "/cadmin",
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-    });
+    // Clear all possible cookies
+    res.clearCookie("cadmin_refresh_token", { path: "/" });
+    res.clearCookie("cadmin_refresh_token", { path: "/cadmin" });
+    res.clearCookie("cadmin_refresh_token", { path: "/cadmin/refresh" });
 
     const e = new Error("Invalid or expired refresh token");
     e.status = 401;
@@ -236,16 +244,11 @@ console.log("🍪 COOKIE REFRESH TOKEN:", token);
   }
 }
 
-/**
- * logoutCAdminService
- */
 export async function logoutCAdminService({ req, res }) {
-  res.clearCookie("cadmin_refresh_token", {
-    path: "/cadmin",
-    httpOnly: true,
-    secure: false,
-    sameSite: "lax",
-  });
+  // Clear all possible paths
+  res.clearCookie("cadmin_refresh_token", { path: "/" });
+  res.clearCookie("cadmin_refresh_token", { path: "/cadmin" });
+  res.clearCookie("cadmin_refresh_token", { path: "/cadmin/refresh" });
   console.log("✅ Refresh token cookie cleared");
   return;
 }
