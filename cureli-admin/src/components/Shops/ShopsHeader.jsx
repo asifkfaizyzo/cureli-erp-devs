@@ -8,7 +8,7 @@ const ShopsHeader = ({ search, setSearch }) => {
       <div className="flex items-center w-full md:w-1/3">
         <input
           type="text"
-          placeholder="Search business, owner or GST..."
+          placeholder="Search business or owner"
           className="
             w-full px-3 py-2 rounded-md border text-sm
             focus:outline-none bg-gray-50 text-gray-700

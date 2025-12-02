@@ -8,6 +8,7 @@ import {
   Podcast,
   ListChecks,
   Settings,
+  ShieldCheck
 } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 
@@ -38,6 +39,7 @@ const MENU_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/dashboard" },
   { id: "users", label: "Users", icon: Users, path: "/users" },
   { id: "shops", label: "Shops", icon: HousePlus, path: "/shops" },
+  { id: "verification", label: "verification", icon: ShieldCheck, path: "/verification" },
   { id: "subscriptions", label: "Subscriptions", icon: Podcast, path: "/subscriptions" },
   { id: "audits", label: "Audits", icon: ListChecks, path: "/audits" },
   { id: "settings", label: "Settings", icon: Settings, path: "/settings" },

@@ -1,6 +1,6 @@
 // src/components/Shops/ShopsTable.jsx
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, ShoppingBag } from "lucide-react";
 import ShopRow from "./ShopRow";
 import Pagination from "./Pagination";
 
@@ -12,18 +12,15 @@ const ShopsTable = ({
   totalCount = 0,
   totalPages = 1,
 }) => {
-  // column widths (resizable except slNo & actions)
+  // 1. Adjusted widths for Fixed Layout
   const [columnWidths, setColumnWidths] = useState({
-    slNo: 10,
-    businessName: 160,
-    ownerName: 140,
-    gst: 140,
-    businessType: 90,
-    verificationStatus: 95,
-    location: 190,
-    subscriptionStatus: 110,
-    plan: 80,
-    actions: 90,
+    slNo: 50,
+    businessName: 180,
+    ownerName: 150,
+    businessType: 110,
+    pin: 90,
+    plan: 100,
+    actions: 110,
   });
 
   const [resizing, setResizing] = useState(null);
@@ -38,7 +35,8 @@ const ShopsTable = ({
     (e) => {
       if (!resizing) return;
       const diff = e.clientX - resizing.startX;
-      const newWidth = Math.max(80, resizing.startWidth + diff);
+      // Allow columns to shrink smaller for fixed layout
+      const newWidth = Math.max(50, resizing.startWidth + diff);
       setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
     },
     [resizing]
@@ -56,7 +54,7 @@ const ShopsTable = ({
     };
   }, [resizing, handleMouseMove, handleMouseUp]);
 
-  // Sorting state
+  // Sorting
   const [sortConfig, setSortConfig] = useState({ key: null, order: null });
 
   const toggleSort = (key) => {
@@ -65,11 +63,6 @@ const ShopsTable = ({
       order: prev.key === key && prev.order === "asc" ? "desc" : "asc",
     }));
   };
-
-  // Sorting helpers
-  const verificationPriority = ["Verified", "Pending", "Rejected", "Partially Rejected"];
-  const subscriptionPriority = ["Active", "Inactive"];
-  const planPriority = ["Premium", "Standard"];
 
   const sorted = useMemo(() => {
     const list = [...shops];
@@ -90,25 +83,12 @@ const ShopsTable = ({
         const pb = Number(b.location?.pin) || 0;
         return order === "asc" ? pa - pb : pb - pa;
       });
-    } else if (key === "verificationStatus") {
-      list.sort((a, b) => {
-        const ia = verificationPriority.indexOf(a.verificationStatus);
-        const ib = verificationPriority.indexOf(b.verificationStatus);
-        return order === "asc" ? ia - ib : ib - ia;
-      });
-    } else if (key === "subscriptionStatus") {
-      list.sort((a, b) => {
-        const ia = subscriptionPriority.indexOf(a.subscriptionStatus);
-        const ib = subscriptionPriority.indexOf(b.subscriptionStatus);
-        return order === "asc" ? ia - ib : ib - ia;
-      });
     }
 
     return list;
   }, [shops, sortConfig]);
 
-  const startIndex =
-    totalCount === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+  const startIndex = totalCount === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
 
   const SortableHeader = ({ column, label, width }) => {
     const active = sortConfig.key === column;
@@ -116,75 +96,86 @@ const ShopsTable = ({
     const desc = active && sortConfig.order === "desc";
 
     return (
-      <th style={{ width, minWidth: width }} className="relative group select-none">
+      <th style={{ width }} className="relative group select-none cursor-pointer px-3 py-3 text-left">
         <div
           onClick={() => toggleSort(column)}
-          className="flex items-center justify-between p-1 cursor-pointer"
+          className="flex items-center justify-between hover:bg-white/10 transition-colors rounded p-1 -ml-1"
         >
-          <span className="font-semibold">{label}</span>
-          <div className="flex flex-col gap-0.5">
+          <span className="font-semibold truncate">{label}</span>
+          <div className="flex flex-col gap-0.5 ml-1 shrink-0">
             <ChevronUp size={12} className={asc ? "text-yellow-300" : "text-white/40"} />
             <ChevronDown size={12} className={desc ? "text-yellow-300" : "text-white/40"} />
           </div>
         </div>
-
         <div
           onMouseDown={(e) => handleMouseDown(column, e)}
-          className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-white/20"
+          className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-white/30 transition-colors z-20"
         />
       </th>
     );
   };
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl border border-gray-200 overflow-auto">
+    <div className="h-full w-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
 
-      {/* Table - NO SCROLL */}
-      <div>
-        <table className="w-full border-collapse text-sm">
-          <thead className="sticky top-0 bg-[#05015A] text-white z-10">
-            <tr>
-              <th style={{ width: columnWidths.slNo }} className="p-3 font-semibold">#</th>
-
-              <SortableHeader column="businessName" label="Business" width={columnWidths.businessName} />
-              <SortableHeader column="ownerName" label="Owner" width={columnWidths.ownerName} />
-
-              <th style={{ width: columnWidths.gst }} className="p-1 font-semibold relative">
-                GST Number
-                <div onMouseDown={(e) => handleMouseDown("gst", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize" />
-              </th>
-
+      {/* 
+         2. LAYOUT FIX: 
+         - overflow-y-auto: vertical scroll only
+         - overflow-x-hidden: no horizontal scroll
+         - min-h-0: fix flex overflow bug
+      */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden w-full min-h-0">
+        
+        {/* 
+          3. TABLE FIX: 
+          - w-full: full width
+          - table-fixed: respects column widths & truncates content
+        */}
+        <table className="w-full border-collapse text-sm table-fixed">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white text-left">
+              <th style={{ width: columnWidths.slNo }} className="px-3 py-3 font-semibold truncate">#</th>
+              <SortableHeader column="businessName" label="Business Name" width={columnWidths.businessName} />
+              <SortableHeader column="ownerName" label="Owner Name" width={columnWidths.ownerName} />
               <SortableHeader column="businessType" label="Type" width={columnWidths.businessType} />
-              <SortableHeader column="verificationStatus" label="Verification" width={columnWidths.verificationStatus} />
-              <SortableHeader column="pin" label="Location (PIN)" width={columnWidths.location} />
-              <SortableHeader column="subscriptionStatus" label="Subscription" width={columnWidths.subscriptionStatus} />
+              <SortableHeader column="pin" label="Pin Code" width={columnWidths.pin} />
               <SortableHeader column="plan" label="Plan" width={columnWidths.plan} />
-
-              <th style={{ width: columnWidths.actions }} className="p-3 font-semibold text-center">Actions</th>
+              <th style={{ width: columnWidths.actions }} className="px-3 py-3 font-semibold text-center truncate">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {sorted.length > 0 ? (
               sorted.map((s, idx) => (
-                <ShopRow key={`shop-${startIndex + idx}`} index={startIndex + idx} shop={s} />
+                <ShopRow 
+                  key={`shop-${startIndex + idx}`} 
+                  index={startIndex + idx} 
+                  shop={s} 
+                />
               ))
             ) : (
               <tr>
-                <td colSpan="10" className="p-10 text-center text-gray-500">No shops found</td>
+                <td colSpan="7" className="p-12">
+                  <div className="flex flex-col items-center justify-center text-gray-400">
+                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                      <ShoppingBag size={32} className="text-gray-300" />
+                    </div>
+                    <p className="text-lg font-medium text-gray-500 mb-1">No shops found</p>
+                  </div>
+                </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Footer – INSIDE TABLE CONTAINER */}
-      <div className="border-t bg-gray-50 px-4 py-2 flex items-center justify-between text-sm text-gray-600">
-        <span>
-          Showing <b>{totalCount === 0 ? 0 : startIndex}</b> to{" "}
-          <b>{Math.min(startIndex + rowsPerPage - 1, totalCount)}</b> of{" "}
-          <b>{totalCount}</b> results
-        </span>
+      {/* Footer */}
+      <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-1.5 flex items-center justify-between">
+        <div className="text-sm text-gray-500">
+          Showing <span className="font-medium text-gray-700">{totalCount === 0 ? 0 : startIndex}</span> to{" "}
+          <span className="font-medium text-gray-700">{Math.min(startIndex + rowsPerPage - 1, totalCount)}</span> of{" "}
+          <span className="font-medium text-gray-700">{totalCount}</span> results
+        </div>
 
         <Pagination
           totalPages={totalPages}
@@ -192,7 +183,6 @@ const ShopsTable = ({
           setCurrentPage={setCurrentPage}
         />
       </div>
-
     </div>
   );
 };
