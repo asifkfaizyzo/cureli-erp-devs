@@ -25,11 +25,11 @@ const VerificationPage = () => {
       const w = window.innerWidth;
 
       const r =
-        w >= 2560 ? 16 :
-        w >= 1920 ? 14 :
-        w >= 1440 ? 12 :
-        w >= 1366 ? 10 :
-        7;
+        w >= 2560 ? 14 :
+        w >= 1920 ? 12 :
+        w >= 1440 ? 10 :
+        w >= 1366 ? 8 :
+        6;
 
       setRowsPerPage(r);
     };

@@ -12,11 +12,11 @@ const ShopsPage = () => {
   useEffect(() => {
     const updateRows = () => {
       const w = window.innerWidth;
-      if (w >= 2560) setRowsPerPage(16);
-      else if (w >= 1920) setRowsPerPage(14);
+      if (w >= 2560) setRowsPerPage(14);
+      else if (w >= 1920) setRowsPerPage(12);
       else if (w >= 1440) setRowsPerPage(10);
       else if (w >= 1366) setRowsPerPage(8);
-      else setRowsPerPage(7);
+      else setRowsPerPage(6);
     };
     updateRows();
     window.addEventListener("resize", updateRows);
