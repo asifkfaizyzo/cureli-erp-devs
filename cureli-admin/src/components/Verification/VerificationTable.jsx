@@ -141,7 +141,7 @@ const VerificationTable = ({
               <SortHeader field="ownerName" label="Owner Name" width={columnWidths.ownerName} />
               <SortHeader field="email" label="Email" width={columnWidths.email} />
 
-              <th style={{ width: columnWidths.status }} className="px-3 py-3 font-semibold relative group truncate text-left">
+              <th style={{ width: columnWidths.status }} className="px-2 py-2 font-semibold relative group truncate text-left">
                 Status
                 <div onMouseDown={(e) => handleMouseDown("status", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-white/30" />
               </th>
