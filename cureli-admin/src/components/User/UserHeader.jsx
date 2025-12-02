@@ -13,12 +13,12 @@ const UserHeader = ({
   dateFilter,
   setDateFilter,
   onAddUser,
-  dummyUsers = [],
+  users = [],
+  totalItems = 0,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef(null);
 
-  // Close export menu on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
@@ -30,7 +30,7 @@ const UserHeader = ({
   }, []);
 
   const hasActiveFilters =
-    statusFilter || roleFilter || dateFilter || searchText;
+    !!statusFilter || !!roleFilter || !!dateFilter || !!searchText;
 
   const clearFilters = () => {
     setStatusFilter("");
@@ -39,27 +39,7 @@ const UserHeader = ({
     setSearchText("");
   };
 
-  // -------------------------------
-  // 🔥 FILTERED USERS (for export)
-  // -------------------------------
-  const filteredUsers = dummyUsers.filter((u) => {
-    const matchesSearch =
-      !searchText ||
-      u.name?.toLowerCase().includes(searchText.toLowerCase()) ||
-      u.username?.toLowerCase().includes(searchText.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchText.toLowerCase());
-
-    const matchesStatus = !statusFilter || u.status === statusFilter;
-    const matchesRole = !roleFilter || u.role === roleFilter;
-
-    const matchesDate = !dateFilter || u.lastLogin === dateFilter; // adjust if your date filter is a range
-
-    return matchesSearch && matchesStatus && matchesRole && matchesDate;
-  });
-
-  // -------------------------------
-  // 🔥 CSV Generator
-  // -------------------------------
+  // CSV generator uses server list (users) passed by parent
   const generateCSV = (data) => {
     if (!data || data.length === 0) return null;
 
@@ -74,58 +54,43 @@ const UserHeader = ({
     ];
 
     const rows = data.map((u) => [
-      u.id,
-      u.name,
-      u.username,
-      u.email,
-      u.role,
-      u.status,
-      u.lastLogin,
+      u.id ?? "",
+      u.name ?? "",
+      u.username ?? "",
+      u.email ?? "",
+      u.role ?? "",
+      u.is_active ? "Active" : "Inactive",
+      u.lastLogin ?? "",
     ]);
 
     const csv = [
       headers.join(","),
-      ...rows.map((r) => r.map((c) => `"${c ?? ""}"`).join(",")),
+      ...rows.map((r) => r.map((c) => `"${String(c ?? "")}"`).join(",")),
     ].join("\n");
 
     return new Blob([csv], { type: "text/csv;charset=utf-8;" });
   };
 
-  // -------------------------------
-  // 🔥 Export: Filtered Only
-  // -------------------------------
   const exportFilteredUsers = () => {
-    const blob = generateCSV(filteredUsers);
-    if (!blob) return alert("No filtered users available.");
-
+    // Parent already fetched filtered users (current page). If you require "all filtered across pages",
+    // implement an export backend endpoint. For now we export current users array.
+    const blob = generateCSV(users);
+    if (!blob) return alert("No users available to export.");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `filtered_users_${new Date()
-      .toISOString()
-      .split("T")[0]}.csv`;
+    link.download = `users_export_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     setShowExportMenu(false);
   };
 
-  // -------------------------------
-  // 🔥 Export: All Users
-  // -------------------------------
   const exportAllUsers = () => {
-    const blob = generateCSV(dummyUsers);
-    if (!blob) return alert("No users available.");
-
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `all_users_${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
-    setShowExportMenu(false);
+    // Same as above; export currently loaded users. Use backend export for larger datasets.
+    exportFilteredUsers();
   };
 
   return (
     <div className="flex justify-between bg-white shadow-sm rounded-xl border border-gray-100 p-2">
-      {/* Left Side: Filters */}
       <div className="flex items-end gap-3 ">
-        {/* Search */}
         <div className="flex flex-col gap-1.5 flex-1 min-w-[230px]">
           <label className="text-xs text-gray-500 font-medium">Search</label>
           <div className="relative">
@@ -155,7 +120,6 @@ const UserHeader = ({
           </div>
         </div>
 
-        {/* Status */}
         <StyledSelect
           label="Status"
           value={statusFilter}
@@ -168,7 +132,6 @@ const UserHeader = ({
           ]}
         />
 
-        {/* Role */}
         <StyledSelect
           label="Role"
           value={roleFilter}
@@ -182,7 +145,6 @@ const UserHeader = ({
           ]}
         />
 
-        {/* Date */}
         <div className="min-w-[160px]">
           <StyledDateFilter
             label="Last Login"
@@ -191,7 +153,6 @@ const UserHeader = ({
           />
         </div>
 
-        {/* Clear */}
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
@@ -205,9 +166,7 @@ const UserHeader = ({
         )}
       </div>
 
-      {/* Right Side: Actions */}
       <div className="flex items-center gap-2 self-center">
-        {/* Export Button */}
         <div className="relative" ref={exportMenuRef}>
           <button
             onClick={() => setShowExportMenu(!showExportMenu)}
@@ -220,8 +179,6 @@ const UserHeader = ({
 
           {showExportMenu && (
             <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
-
-              {/* Export Filtered */}
               <button
                 onClick={exportFilteredUsers}
                 className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 
@@ -229,16 +186,15 @@ const UserHeader = ({
               >
                 <FileSpreadsheet size={16} className="text-blue-600" />
                 <div>
-                  <div className="font-medium">Export Filtered</div>
+                  <div className="font-medium">Export Visible</div>
                   <div className="text-xs text-gray-400">
-                    {filteredUsers.length} users
+                    {users.length} users
                   </div>
                 </div>
               </button>
 
               <div className="h-px bg-gray-100" />
 
-              {/* Export All */}
               <button
                 onClick={exportAllUsers}
                 className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 
@@ -246,9 +202,9 @@ const UserHeader = ({
               >
                 <FileSpreadsheet size={16} className="text-green-600" />
                 <div>
-                  <div className="font-medium">Export All</div>
+                  <div className="font-medium">Export All (Visible)</div>
                   <div className="text-xs text-gray-400">
-                    {dummyUsers.length} users
+                    {totalItems} total
                   </div>
                 </div>
               </button>
@@ -256,7 +212,6 @@ const UserHeader = ({
           )}
         </div>
 
-        {/* Add User */}
         <button
           onClick={onAddUser}
           className="h-10 px-5 bg-[#05015A] text-white rounded-lg text-sm font-medium 

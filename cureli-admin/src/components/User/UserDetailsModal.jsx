@@ -1,5 +1,3 @@
-// components/User/UserDetailsModal.jsx
-
 import { useState, useEffect } from "react";
 import {
   X,
@@ -14,6 +12,7 @@ import {
   GitBranch,
   Users,
   History,
+  Loader2,
 } from "lucide-react";
 import {
   ProfileDetails,
@@ -24,10 +23,24 @@ import {
   ActivityTab,
 } from "./UserDetailsTabs";
 import ConfirmDialog from "../common/ConfirmDialog";
+import {
+  getCAdminUserById,
+  toggleCAdminUserAccess,
+  resetCAdminUserPassword,
+  updateCAdminUser,
+} from "../../api/cadminUsers";
 
-const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
+const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
+
+  // Full user data fetched from API
+  const [user, setUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
+
+  // Form data for editing
+  const [formData, setFormData] = useState({});
 
   // Confirm dialogs state
   const [showSuspendConfirm, setShowSuspendConfirm] = useState(false);
@@ -36,16 +49,86 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
   const [showResetPasswordConfirm, setShowResetPasswordConfirm] = useState(false);
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
 
+  // Save loading state
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  // Fetch full user details when modal opens
+  useEffect(() => {
+    if (isOpen && basicUser?.id) {
+      fetchUserDetails(basicUser.id);
+    }
+  }, [isOpen, basicUser?.id]);
+
+  const fetchUserDetails = async (userId) => {
+    setLoadingUser(true);
+    setFetchError(null);
+    try {
+      const response = await getCAdminUserById(userId);
+      const userData = response.data?.data || response.data;
+      setUser(userData);
+      // Initialize form data - include email and phone for Super Admin
+      setFormData({
+        first_name: userData.first_name || "",
+        last_name: userData.last_name || "",
+        username: userData.username || "",
+        email: userData.email || "",
+        phone_number: userData.phone_number || "",
+        role: userData.raw_role || userData.role || "",
+      });
+    } catch (err) {
+      console.error("Failed to fetch user details:", err);
+      setFetchError(err.response?.data?.message || "Failed to load user details");
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveTab("profile");
+      setIsEditing(false);
+      setUser(null);
+      setFormData({});
+      setFetchError(null);
+    }
+  }, [isOpen]);
+
+  // Set editing mode based on mode prop
+  useEffect(() => {
+    setIsEditing(mode === "edit");
+  }, [mode]);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose(false);
+    };
+    if (isOpen) {
+      document.addEventListener("keydown", handleEsc);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
   // Determine user role
   const isOwner = user?.role === "Super Admin";
   const isBranchAdmin = user?.role === "Branch Admin";
-  const isStaff = user?.role === "staff";
+  const isStaff = user?.role === "Staff";
+
+  // Check if Reset Password should be shown (only for Super Admin)
+  const canResetPassword = isOwner;
 
   // Dynamic tabs based on role
   const getTabs = () => {
-    const baseTabs = [
-      { id: "profile", label: "Profile", icon: User },
-    ];
+    const baseTabs = [{ id: "profile", label: "Profile", icon: User }];
+
+    if (!user) return baseTabs;
 
     if (isOwner) {
       return [
@@ -77,94 +160,141 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
 
   const tabs = getTabs();
 
-  useEffect(() => {
-    setActiveTab("profile");
-    setIsEditing(mode === "edit");
-  }, [isOpen, mode]);
+  // Get display label for active/inactive status
+  const getActiveStatusLabel = (is_active) => {
+    return is_active ? "Active" : "Inactive";
+  };
 
-  useEffect(() => {
-    const handleEsc = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    if (isOpen) {
-      document.addEventListener("keydown", handleEsc);
-      document.body.style.overflow = "hidden";
-    }
-    return () => {
-      document.removeEventListener("keydown", handleEsc);
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen || !user) return null;
-
-  // Get role display name
-  const getRoleDisplayName = (role) => {
-    switch (role) {
-      case "Super Admin":
-        return "Shop Owner";
-      case "Branch Admin":
-        return "Branch Admin";
-      case "staff":
-        return "Staff";
-      default:
-        return role;
-    }
+  // Get onboarding status label
+  const getOnboardingStatusLabel = (status) => {
+    if (!status) return "Unknown";
+    return status
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   // ═══════════════════════════════════════════════════════════
   // HANDLERS
   // ═══════════════════════════════════════════════════════════
+  
+  const handleFormChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
   const handleSuspendConfirm = async () => {
+    if (!user) return;
     setSuspendLoading(true);
     try {
-      const action = user.status === "Active" ? "suspend" : "activate";
-
-      // TODO: Call API
-      console.log(`${action} user:`, user.user_id);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
+      const newIsActive = !user.is_active;
+      await toggleCAdminUserAccess(user.user_id, newIsActive);
+      
       setShowSuspendConfirm(false);
-      onClose();
+      onClose(true); // Close and refresh
     } catch (error) {
       console.error("Suspend/Activate failed:", error);
+      alert(error.response?.data?.message || "Failed to update user status");
     } finally {
       setSuspendLoading(false);
     }
   };
 
   const handleResetPasswordConfirm = async () => {
+    if (!user) return;
     setResetPasswordLoading(true);
     try {
-      // TODO: Call API
-      console.log("Reset password for:", user.user_id);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
+      await resetCAdminUserPassword(user.user_id);
+      
       setShowResetPasswordConfirm(false);
       alert(`Password reset link sent to ${user.email}`);
+      onClose(true); // Close and refresh
     } catch (error) {
       console.error("Reset password failed:", error);
+      alert(error.response?.data?.message || "Failed to send reset link");
     } finally {
       setResetPasswordLoading(false);
     }
   };
 
   const handleSaveChanges = async () => {
-    // TODO: Implement save logic - collect form data
-    console.log("Saving changes...");
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setIsEditing(false);
+    if (!user) return;
+    setSaveLoading(true);
+    try {
+      // Prepare payload with only changed fields
+      const payload = {};
+      if (formData.first_name !== user.first_name) payload.first_name = formData.first_name;
+      if (formData.last_name !== user.last_name) payload.last_name = formData.last_name;
+      if (formData.username !== user.username) payload.username = formData.username;
+      
+      // Only include email and phone for Super Admin
+      if (isOwner) {
+        if (formData.email !== user.email) payload.email = formData.email;
+        if (formData.phone_number !== user.phone_number) payload.phone_number = formData.phone_number;
+      }
+      
+      // Only include role if it's editable (not Super Admin) and changed
+      if (!isOwner && formData.role !== user.raw_role) {
+        payload.role = formData.role;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setIsEditing(false);
+        return;
+      }
+
+      await updateCAdminUser(user.user_id, payload);
+      
+      setIsEditing(false);
+      onClose(true); // Close and refresh
+    } catch (error) {
+      console.error("Save failed:", error);
+      alert(error.response?.data?.message || "Failed to save changes");
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
   // ═══════════════════════════════════════════════════════════
   // RENDER CONTENT
   // ═══════════════════════════════════════════════════════════
   const renderTabContent = () => {
+    if (loadingUser) {
+      return (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={32} className="animate-spin text-indigo-500" />
+          <span className="ml-3 text-gray-500">Loading user details...</span>
+        </div>
+      );
+    }
+
+    if (fetchError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-red-500">
+          <p className="text-lg font-medium">Error loading user</p>
+          <p className="text-sm mt-1">{fetchError}</p>
+          <button
+            onClick={() => fetchUserDetails(basicUser?.id)}
+            className="mt-4 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+
+    if (!user) return null;
+
     switch (activeTab) {
       case "profile":
-        return <ProfileDetails user={user} isEditing={isEditing} />;
+        return (
+          <ProfileDetails
+            user={user}
+            isEditing={isEditing}
+            formData={formData}
+            onFormChange={handleFormChange}
+          />
+        );
       case "shop":
-        return <ShopDetails user={user} isEditing={false} />; // Shop details not editable
+        return <ShopDetails user={user} isEditing={false} />;
       case "documents":
         return <DocumentsTab user={user} />;
       case "branches":
@@ -178,11 +308,17 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
     }
   };
 
+  // Use basic user data for header while loading full details
+  const displayName = user?.full_name || basicUser?.name || "User";
+  const displayUsername = user?.username || basicUser?.username || "";
+  const displayRole = user?.role || basicUser?.role || "";
+  const displayIsActive = user?.is_active ?? basicUser?.is_active ?? true;
+
   return (
     <>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        onClick={onClose}
+        onClick={() => onClose(false)}
       >
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -201,43 +337,41 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                   <span className="text-white text-lg font-bold">
-                    {user.full_name
-                      ?.split(" ")
+                    {displayName
+                      .split(" ")
                       .map((n) => n[0])
                       .join("")
-                      .slice(0, 2) || "U"}
+                      .slice(0, 2)}
                   </span>
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-white text-lg font-semibold">
-                      {user.full_name}
+                      {displayName}
                     </h2>
                     {/* Role Badge */}
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/20 text-white">
-                      {getRoleDisplayName(user.role)}
+                      {displayRole}
                     </span>
-                    {/* Status Badge */}
+                    {/* Active/Inactive Status Badge */}
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        user.status === "Active"
+                        displayIsActive
                           ? "bg-emerald-500/20 text-emerald-200"
-                          : user.status === "Suspended"
-                          ? "bg-red-500/20 text-red-200"
-                          : "bg-orange-500/20 text-orange-200"
+                          : "bg-red-500/20 text-red-200"
                       }`}
                     >
-                      {user.status}
+                      {getActiveStatusLabel(displayIsActive)}
                     </span>
                   </div>
-                  <p className="text-white/70 text-sm">@{user.username}</p>
+                  <p className="text-white/70 text-sm">@{displayUsername}</p>
                 </div>
               </div>
 
               {/* Header Actions */}
               <div className="flex items-center gap-2">
                 {/* Edit / Save Toggle - Only for Profile tab */}
-                {activeTab === "profile" && (
+                {activeTab === "profile" && !loadingUser && user && (
                   <button
                     onClick={() => {
                       if (isEditing) {
@@ -246,6 +380,7 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
                         setIsEditing(true);
                       }
                     }}
+                    disabled={saveLoading}
                     className={`
                       flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
                       ${
@@ -253,16 +388,23 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
                           ? "bg-emerald-500 text-white hover:bg-emerald-600"
                           : "bg-white/20 text-white hover:bg-white/30"
                       }
+                      disabled:opacity-50 disabled:cursor-not-allowed
                     `}
                   >
-                    {isEditing ? <Save size={16} /> : <Pencil size={16} />}
-                    {isEditing ? "Save Changes" : "Edit Details"}
+                    {saveLoading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : isEditing ? (
+                      <Save size={16} />
+                    ) : (
+                      <Pencil size={16} />
+                    )}
+                    {saveLoading ? "Saving..." : isEditing ? "Save Changes" : "Edit Details"}
                   </button>
                 )}
 
                 {/* Close */}
                 <button
-                  onClick={onClose}
+                  onClick={() => onClose(false)}
                   className="p-2 rounded-lg bg-white/20 text-white hover:bg-red-500/30 transition-all"
                 >
                   <X size={20} className="text-red-200" />
@@ -283,7 +425,6 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id);
-                    // Turn off editing when switching tabs
                     if (tab.id !== "profile") {
                       setIsEditing(false);
                     }
@@ -318,35 +459,43 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
             <div className="flex items-center justify-between">
               {/* Left: User Meta Info */}
               <p className="text-xs text-gray-400">
-                User ID: {user.user_id?.slice(0, 8)}... • Last login:{" "}
-                {user.lastLogin || "Never"}
+                User ID: {user?.user_id?.slice(0, 8) || basicUser?.id?.slice(0, 8)}... • Last login:{" "}
+                {user?.last_login_at
+                  ? new Date(user.last_login_at).toLocaleDateString()
+                  : basicUser?.lastLogin || "Never"}
               </p>
 
               {/* Right: Admin Actions */}
               <div className="flex items-center gap-2">
-                {/* Reset Password Button */}
-                <button
-                  onClick={() => setShowResetPasswordConfirm(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium 
-                             bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all"
-                >
-                  <KeyRound size={16} />
-                  Reset Password
-                </button>
+                {/* Reset Password Button - Only for Super Admin */}
+                {canResetPassword && (
+                  <button
+                    onClick={() => setShowResetPasswordConfirm(true)}
+                    disabled={loadingUser || !user}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium 
+                               bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <KeyRound size={16} />
+                    Reset Password
+                  </button>
+                )}
 
                 {/* Suspend / Activate Button */}
                 <button
                   onClick={() => setShowSuspendConfirm(true)}
+                  disabled={loadingUser || !user}
                   className={`
                     flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                    disabled:opacity-50 disabled:cursor-not-allowed
                     ${
-                      user.status === "Active"
+                      displayIsActive
                         ? "bg-orange-50 text-orange-600 hover:bg-orange-100"
                         : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
                     }
                   `}
                 >
-                  {user.status === "Active" ? (
+                  {displayIsActive ? (
                     <>
                       <Ban size={16} />
                       Suspend Account
@@ -373,39 +522,41 @@ const UserDetailsModal = ({ user, isOpen, onClose, mode }) => {
         isOpen={showSuspendConfirm}
         onClose={() => setShowSuspendConfirm(false)}
         onConfirm={handleSuspendConfirm}
-        title={user.status === "Active" ? "Suspend User?" : "Activate User?"}
+        title={displayIsActive ? "Suspend User?" : "Activate User?"}
         message={
-          user.status === "Active"
-            ? `Are you sure you want to suspend "${user.full_name}"? They will not be able to log in until reactivated.`
-            : `Are you sure you want to activate "${user.full_name}"? They will regain access to their account.`
+          displayIsActive
+            ? `Are you sure you want to suspend "${displayName}"? They will not be able to log in until reactivated.`
+            : `Are you sure you want to activate "${displayName}"? They will regain access to their account.`
         }
-        confirmText={user.status === "Active" ? "Suspend" : "Activate"}
+        confirmText={displayIsActive ? "Suspend" : "Activate"}
         cancelText="Cancel"
-        type={user.status === "Active" ? "warning" : "success"}
+        type={displayIsActive ? "warning" : "success"}
         loading={suspendLoading}
       />
 
-      {/* Reset Password Confirmation */}
-      <ConfirmDialog
-        isOpen={showResetPasswordConfirm}
-        onClose={() => setShowResetPasswordConfirm(false)}
-        onConfirm={handleResetPasswordConfirm}
-        title="Reset Password?"
-        message={
-          <span>
-            Send a password reset link to <strong>{user.email}</strong>?
-            <br />
-            <span className="text-gray-400 text-sm mt-1 block">
-              The user will receive an email with instructions to create a new
-              password.
+      {/* Reset Password Confirmation - Only rendered for Super Admin */}
+      {canResetPassword && (
+        <ConfirmDialog
+          isOpen={showResetPasswordConfirm}
+          onClose={() => setShowResetPasswordConfirm(false)}
+          onConfirm={handleResetPasswordConfirm}
+          title="Reset Password?"
+          message={
+            <span>
+              Send a password reset link to <strong>{user?.email || basicUser?.email}</strong>?
+              <br />
+              <span className="text-gray-400 text-sm mt-1 block">
+                The user will receive an email with instructions to create a new
+                password.
+              </span>
             </span>
-          </span>
-        }
-        confirmText="Send Reset Link"
-        cancelText="Cancel"
-        type="info"
-        loading={resetPasswordLoading}
-      />
+          }
+          confirmText="Send Reset Link"
+          cancelText="Cancel"
+          type="info"
+          loading={resetPasswordLoading}
+        />
+      )}
     </>
   );
 };

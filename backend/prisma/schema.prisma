@@ -102,7 +102,7 @@ model User {
   branch      Branch?    @relation(fields: [branch_id], references: [branch_id])
   shop        Shop?      @relation("UsersInShop", fields: [shop_id], references: [shop_id])
   shopFiles   ShopFile[]
-
+  activityLogs ActivityLog[]
   @@map("users")
 }
 
@@ -305,4 +305,20 @@ model PaymentTransaction {
   subscription ShopSubscription? @relation("SubscriptionPayments", fields: [subscription_id], references: [subscription_id])
 
   @@map("payment_transactions")
+}
+
+
+model ActivityLog {
+  activity_id   String   @id @default(uuid()) @db.Uuid
+  user_id       String   @db.Uuid
+  action        String   @db.Text           // login | logout | profile_update | password_change | status_change | role_change
+  description   String?  @db.Text
+  ip_address    String?  @db.Text
+  user_agent    String?  @db.Text
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@index([user_id])
+  @@map("activity_logs")
 }

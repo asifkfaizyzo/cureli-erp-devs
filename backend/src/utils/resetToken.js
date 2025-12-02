@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import crypto from "crypto";
 
 export function generateResetToken() {
@@ -7,3 +8,4 @@ export function generateResetToken() {
 export function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
+

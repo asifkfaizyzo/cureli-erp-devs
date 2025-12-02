@@ -17,10 +17,9 @@ import {
   KeyRound,
   UserCog,
   AlertTriangle,
-  Mail,
-  Phone,
-  Calendar,
   Shield,
+  Calendar,
+  User,
 } from "lucide-react";
 import DetailRow from "./DetailRow";
 
@@ -59,23 +58,51 @@ const formatFileSize = (bytes) => {
 const getRoleDisplayName = (role) => {
   switch (role) {
     case "Super Admin":
-      return "Shop Owner";
+    case "super_admin":
+      return "Super Admin";
     case "Branch Admin":
+    case "branch_admin":
       return "Branch Admin";
     case "Staff":
+    case "staff":
       return "Staff";
     default:
       return role;
   }
 };
 
+const getOnboardingStatusLabel = (status) => {
+  if (!status) return "Unknown";
+  return status
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
 // ═══════════════════════════════════════════════════════════
 // PROFILE DETAILS TAB
 // ═══════════════════════════════════════════════════════════
-export const ProfileDetails = ({ user, isEditing }) => {
+export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
   const isOwner = user.role === "Super Admin";
   const isBranchAdmin = user.role === "Branch Admin";
   const isStaff = user.role === "Staff";
+
+  // Determine if role is editable
+  // Super Admin role cannot be changed, and no one can become Super Admin
+  const isRoleEditable = !isOwner;
+
+  // Get available role options based on current role
+  const getRoleOptions = () => {
+    if (isOwner) {
+      // Super Admin sees only their role (locked)
+      return [{ value: "super_admin", label: "Super Admin" }];
+    }
+    // Branch Admin and Staff can switch between each other
+    // Note: super_admin is NOT included - no one can be promoted to Super Admin
+    return [
+      { value: "branch_admin", label: "Branch Admin" },
+      { value: "staff", label: "Staff" },
+    ];
+  };
 
   return (
     <div className="space-y-6">
@@ -94,45 +121,58 @@ export const ProfileDetails = ({ user, isEditing }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
           <DetailRow
             label="First Name"
-            value={user.first_name}
+            value={isEditing ? formData.first_name : user.first_name}
             isEditing={isEditing}
             fieldName="first_name"
+            onChange={(val) => onFormChange?.("first_name", val)}
           />
           <DetailRow
             label="Last Name"
-            value={user.last_name}
+            value={isEditing ? formData.last_name : user.last_name}
             isEditing={isEditing}
             fieldName="last_name"
+            onChange={(val) => onFormChange?.("last_name", val)}
           />
           <DetailRow
             label="Username"
-            value={user.username || "Not set"}
+            value={isEditing ? formData.username : (user.username || "Not set")}
             isEditing={isEditing}
             fieldName="username"
+            onChange={(val) => onFormChange?.("username", val)}
           />
-          <DetailRow
-            label="Email"
-            value={user.email || "Not provided"}
-            isEditing={isEditing}
-            fieldName="email"
-          />
-          <DetailRow
-            label="Phone Number"
-            value={user.phone_number || "Not provided"}
-            isEditing={isEditing}
-            fieldName="phone_number"
-          />
+          
+          {/* Email - Only for Super Admin, editable */}
+          {isOwner && (
+            <DetailRow
+              label="Email"
+              value={isEditing ? formData.email : (user.email || "Not provided")}
+              isEditing={isEditing}
+              fieldName="email"
+              onChange={(val) => onFormChange?.("email", val)}
+            />
+          )}
+          
+          {/* Phone Number - Only for Super Admin, editable */}
+          {isOwner && (
+            <DetailRow
+              label="Phone Number"
+              value={isEditing ? formData.phone_number : (user.phone_number || "Not provided")}
+              isEditing={isEditing}
+              fieldName="phone_number"
+              onChange={(val) => onFormChange?.("phone_number", val)}
+            />
+          )}
+
           <DetailRow
             label="Role"
-            value={getRoleDisplayName(user.role)}
+            value={isEditing ? formData.role : getRoleDisplayName(user.role)}
             isEditing={isEditing}
+            disabled={!isRoleEditable}
             fieldName="role"
             type="select"
-            options={[
-              { value: "Super Admin", label: "Super Admin" },
-              { value: "Branch Admin", label: "Branch Admin" },
-              { value: "Staff", label: "Staff" },
-            ]}
+            options={getRoleOptions()}
+            onChange={(val) => onFormChange?.("role", val)}
+            helperText={isOwner && isEditing ? "Super Admin role cannot be modified" : null}
           />
         </div>
       </div>
@@ -151,10 +191,16 @@ export const ProfileDetails = ({ user, isEditing }) => {
             isEditing={false}
           />
           <DetailRow
-            label="Status"
-            value={user.status}
+            label="Account Status"
+            value={user.is_active ? "Active" : "Inactive"}
             isEditing={false}
             type="status"
+          />
+          <DetailRow
+            label="Onboarding Status"
+            value={getOnboardingStatusLabel(user.status)}
+            isEditing={false}
+            type="onboarding"
           />
           <DetailRow
             label="Login Method"
@@ -162,13 +208,8 @@ export const ProfileDetails = ({ user, isEditing }) => {
             isEditing={false}
           />
           <DetailRow
-            label="Account Active"
-            value={user.is_active ? "Yes" : "No"}
-            isEditing={false}
-          />
-          <DetailRow
             label="Onboarding Step"
-            value={`${user.onboarding_step}/4`}
+            value={`${user.onboarding_step || 0}/4`}
             isEditing={false}
           />
           <DetailRow
@@ -434,7 +475,6 @@ export const DocumentsTab = ({ user }) => {
   const docs = user.shopFiles || [];
   const isStaff = user.role === "Staff";
 
-  // Staff don't see documents
   if (isStaff || docs.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
@@ -570,7 +610,6 @@ export const BranchesTab = ({ user }) => {
               <th className="text-left p-4 font-semibold text-gray-600">Branch Name</th>
               <th className="text-left p-4 font-semibold text-gray-600">Type</th>
               <th className="text-left p-4 font-semibold text-gray-600">City</th>
-              <th className="text-center p-4 font-semibold text-gray-600">Users</th>
               <th className="text-center p-4 font-semibold text-gray-600">Status</th>
             </tr>
           </thead>
@@ -595,7 +634,6 @@ export const BranchesTab = ({ user }) => {
                   </span>
                 </td>
                 <td className="p-4 text-gray-600">{branch.city}</td>
-                <td className="p-4 text-center text-gray-600">{branch.users_count || 0}</td>
                 <td className="p-4 text-center">
                   <span
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
@@ -664,7 +702,6 @@ export const UsersTab = ({ user }) => {
             <tr className="bg-gray-50 border-b border-gray-100">
               <th className="text-left p-4 font-semibold text-gray-600">Name</th>
               <th className="text-left p-4 font-semibold text-gray-600">Email</th>
-              <th className="text-left p-4 font-semibold text-gray-600">Branch</th>
               <th className="text-center p-4 font-semibold text-gray-600">Role</th>
               <th className="text-center p-4 font-semibold text-gray-600">Status</th>
             </tr>
@@ -678,8 +715,7 @@ export const UsersTab = ({ user }) => {
                 }`}
               >
                 <td className="p-4 font-medium text-gray-900">{u.full_name}</td>
-                <td className="p-4 text-gray-600">{u.email}</td>
-                <td className="p-4 text-gray-600">{u.branch_name || "N/A"}</td>
+                <td className="p-4 text-gray-600">{u.email || "N/A"}</td>
                 <td className="p-4 text-center">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadgeStyle(
@@ -692,12 +728,12 @@ export const UsersTab = ({ user }) => {
                 <td className="p-4 text-center">
                   <span
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                      u.status === "Active"
+                      u.status === "active"
                         ? "bg-emerald-100 text-emerald-700"
                         : "bg-red-100 text-red-700"
                     }`}
                   >
-                    {u.status}
+                    {u.status === "active" ? "Active" : u.status}
                   </span>
                 </td>
               </tr>
@@ -756,7 +792,7 @@ export const ActivityTab = ({ user }) => {
   if (activities.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
-        <History size={48} className="mx-auto text-gray-300 mb-3" />
+        <Clock size={48} className="mx-auto text-gray-300 mb-3" />
         <p className="text-gray-500">No activity recorded</p>
       </div>
     );
@@ -797,11 +833,15 @@ export const ActivityTab = ({ user }) => {
                       {formatDateTime(activity.created_at)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                    <span>IP: {activity.ip_address}</span>
-                    <span>•</span>
-                    <span>{activity.user_agent}</span>
-                  </div>
+                  {(activity.ip_address || activity.user_agent) && (
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
+                      {activity.ip_address && <span>IP: {activity.ip_address}</span>}
+                      {activity.ip_address && activity.user_agent && <span>•</span>}
+                      {activity.user_agent && (
+                        <span className="truncate max-w-[300px]">{activity.user_agent}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -811,7 +851,3 @@ export const ActivityTab = ({ user }) => {
     </div>
   );
 };
-
-// Need to import these icons at the top
-const User = Users; // Reusing Users icon
-const History = Clock; // Reusing Clock as History
