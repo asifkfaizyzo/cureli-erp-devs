@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { updateShopGst } from "../api/shop";
 import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 const BusinessTypeAndGST = ({ onContinue }) => {
     const [form, setForm] = useState({
@@ -24,8 +25,6 @@ const BusinessTypeAndGST = ({ onContinue }) => {
     ];
 
     const navigate = useNavigate();
-    
-    // ✅ ADD THIS LINE
     const shop_id = localStorage.getItem("shop_id");
 
     useEffect(() => {
@@ -34,8 +33,7 @@ const BusinessTypeAndGST = ({ onContinue }) => {
             navigate("/login");
             return;
         }
-        
-        // ✅ Also check shop_id
+
         if (!shop_id) {
             navigate("/signup");
             return;
@@ -68,9 +66,8 @@ const BusinessTypeAndGST = ({ onContinue }) => {
         setLoading(true);
 
         try {
-            // ✅ ADD shop_id here
             await updateShopGst({
-                shop_id,  // ✅ ADDED
+                shop_id,
                 business_type: form.type,
                 gst_number: form.gst,
             });
@@ -78,7 +75,6 @@ const BusinessTypeAndGST = ({ onContinue }) => {
             onContinue();
 
         } catch (err) {
-            console.log("GST ERROR:", err.response?.data);
             alert(err?.response?.data?.message || "Failed to save GST information");
         }
 
@@ -139,13 +135,21 @@ const BusinessTypeAndGST = ({ onContinue }) => {
             {gstValid === true && <p className="text-green-600 text-xs mt-1">Valid GST number ✓</p>}
             {errors.gst && <p className="text-red-500 text-xs mt-1 mb-4">{errors.gst}</p>}
 
+            {/* UPDATED BUTTON WITH SPINNER */}
             <button
                 onClick={handleSubmit}
                 disabled={loading}
                 className="w-full bg-[#000060] text-white py-2 rounded-xl mt-2
-                           hover:bg-[#000060d1] transition disabled:bg-gray-400"
+                           hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-                {loading ? "Saving..." : "Continue"}
+                {loading ? (
+                    <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Saving...
+                    </div>
+                ) : (
+                    "Continue"
+                )}
             </button>
         </div>
     );

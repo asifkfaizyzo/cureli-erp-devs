@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { saveUsername, completeSignup } from "../api/auth";
+import { Loader2 } from "lucide-react";
 
 const IdentityForm = ({ pending_id, onContinue, onNext }) => {
   const [username, setUsername] = useState("");
@@ -20,17 +21,15 @@ const IdentityForm = ({ pending_id, onContinue, onNext }) => {
     return Object.keys(err).length === 0;
   };
 
-  // SUBMIT USERNAME → backend check + save
   const handleSubmit = async () => {
     if (!validate()) return;
 
     try {
       setLoading(true);
-
       await saveUsername({ pending_id, username });
 
       setErrors({});
-      setUsernameSaved(true); // enable NEXT button
+      setUsernameSaved(true);
     } catch (err) {
       setErrors({
         username: err?.response?.data?.message || "Username error",
@@ -40,26 +39,23 @@ const IdentityForm = ({ pending_id, onContinue, onNext }) => {
     setLoading(false);
   };
 
-  // FINALIZE SIGNUP → convert pending user → real user
   const handleNextClick = async () => {
-  if (!usernameSaved) return;
+    if (!usernameSaved) return;
 
-  try {
-    const res = await completeSignup({ pending_id });
+    try {
+      const res = await completeSignup({ pending_id });
 
-    const { user, shop, access_token } = res.data.data;
+      const { user, shop, access_token } = res.data.data;
 
-    // Save tokens + shop_id for the next onboarding steps
-    localStorage.setItem("access_token", access_token);
-    localStorage.setItem("shop_id", shop.shop_id);
-    localStorage.setItem("user_id", user.user_id);
+      localStorage.setItem("access_token", access_token);
+      localStorage.setItem("shop_id", shop.shop_id);
+      localStorage.setItem("user_id", user.user_id);
 
-    onNext(); // Move forward
-  } catch (err) {
-    alert(err?.response?.data?.message || "Failed to complete signup");
-  }
-};
-
+      onNext();
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to complete signup");
+    }
+  };
 
   return (
     <div className="w-full max-w-md mt-6 px-3" style={{ marginLeft: "-20%" }}>
@@ -88,14 +84,21 @@ const IdentityForm = ({ pending_id, onContinue, onNext }) => {
       )}
 
       <div className="flex gap-3 mt-6">
-        {/* SUBMIT USERNAME */}
+        {/* SUBMIT USERNAME WITH SPINNER */}
         <button
           onClick={handleSubmit}
           disabled={loading}
           className="flex-1 bg-[#000060] text-white py-2.5 rounded-lg text-sm hover:bg-[#000060d1] 
-                     transition disabled:bg-gray-400"
+                     transition disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
-          {loading ? "Saving..." : "Submit"}
+          {loading ? (
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving...
+            </div>
+          ) : (
+            "Submit"
+          )}
         </button>
 
         {/* NEXT BUTTON */}

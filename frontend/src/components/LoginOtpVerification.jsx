@@ -4,6 +4,8 @@ import { IoArrowBackOutline } from "react-icons/io5";
 import { verifyLoginOtp } from "../api/auth";
 import { getMySubscription } from "../api/subscription";
 import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+
 
 const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   const navigate = useNavigate();
@@ -11,6 +13,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(30);
+  
 
   const inputsRef = useRef([]);
 
@@ -187,13 +190,21 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       )}
 
       <button
-        onClick={() => handleVerify()}
-        disabled={loading || otp.join("").length !== 4}
-        className="w-[300px] bg-[#000060] text-white py-3 rounded-xl font-semibold mt-10 
-          hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-      >
-        {loading ? "Verifying..." : "Continue"}
-      </button>
+  onClick={() => handleVerify()}
+  disabled={loading || otp.join("").length !== 4}
+  className="w-[300px] bg-[#000060] text-white py-3 rounded-xl font-semibold mt-10 
+    hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+>
+  {loading ? (
+    <div className="flex items-center justify-center gap-2">
+      <Loader2 className="h-5 w-5 animate-spin" />
+      Verifying...
+    </div>
+  ) : (
+    "Continue"
+  )}
+</button>
+
 
       {/* TIMER */}
       <p className="mt-4 text-sm text-gray-600">

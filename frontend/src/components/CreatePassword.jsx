@@ -1,17 +1,15 @@
 import { useState, useRef } from "react";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
-import api from "../api/axios";
 import { googleSetPassword } from "../api/auth";
+import { Loader2 } from "lucide-react";
 
 const CreatePassword = ({ pending_id, onContinue }) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef(null);
+  const [loading, setLoading] = useState(false);
 
-  // ---------------------------
-  // VALIDATION RULES
-  // ---------------------------
   const validatePassword = () => {
     if (!password.trim()) return "Password required";
     if (password.length < 8) return "Min 8 characters";
@@ -29,13 +27,16 @@ const CreatePassword = ({ pending_id, onContinue }) => {
       return;
     }
 
+    setLoading(true);
+
     try {
       await googleSetPassword({ pending_id, password });
-
       onContinue();
     } catch (err) {
       console.error(err);
       alert("Failed to set password");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -45,7 +46,6 @@ const CreatePassword = ({ pending_id, onContinue }) => {
 
       <label className="text-xs font-bold text-[#000060] mt-3">Password *</label>
 
-      {/* INPUT WRAPPER */}
       <div
         className={`flex items-center gap-2 mt-1 px-3 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
           error ? "border-red-500" : "border-gray-300"
@@ -76,7 +76,7 @@ const CreatePassword = ({ pending_id, onContinue }) => {
         )}
       </div>
 
-      {/* INLINE PASSWORD RULES */}
+      {/* Inline Password Rules */}
       <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
         <PasswordRuleInline valid={password.length >= 8} text="8+ chars" />
         <PasswordRuleInline valid={/[A-Z]/.test(password)} text="uppercase" />
@@ -87,22 +87,27 @@ const CreatePassword = ({ pending_id, onContinue }) => {
 
       {error && <p className="text-red-500 text-xs mt-1 mb-3">{error}</p>}
 
+      {/* UPDATED BUTTON WITH SPINNER */}
       <button
         onClick={handleSubmit}
-        className="w-full bg-[#000060] text-white py-2 rounded-xl mt-4 hover:bg-[#000060d1]"
+        disabled={loading}
+        className="w-full bg-[#000060] text-white py-2 rounded-xl mt-4 
+                   hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
-        Continue
+        {loading ? (
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Saving...
+          </div>
+        ) : (
+          "Continue"
+        )}
       </button>
     </div>
   );
 };
 
 export default CreatePassword;
-
-
-// ---------------------------
-// INLINE RULE COMPONENT
-// ---------------------------
 
 const PasswordRuleInline = ({ valid, text }) => (
   <span

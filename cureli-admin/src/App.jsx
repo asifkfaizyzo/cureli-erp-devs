@@ -8,6 +8,7 @@ import UserPage from "./pages/UserPage";
 import CAdminForgotPassword from "./pages/CAdminForgotPassword";
 import CAdminResetPassword from "./pages/CAdminResetPassword";
 import VerificationPage from "./pages/VerificationPage";
+import SubscriptionPage from "./pages/SubscriptionPage";
  import ShopsPage from "./pages/ShopsPage";
 // Layout
 import AppLayout from "./components/layout/AppLayout";
@@ -65,7 +66,7 @@ function App() {
           <Route path="/users" element={<UserPage />} />
           <Route path="/shops" element={<ShopsPage />} />
            <Route path="/verification" element={<VerificationPage />} />
-          <Route path="/subscriptions" element={<div>Subscriptions Page</div>} />
+          <Route path="/subscriptions" element={<SubscriptionPage/>} />
           <Route path="/audits" element={<div>Audits Page</div>} />
           <Route path="/settings" element={<div>Settings Page</div>} />
         </Route>

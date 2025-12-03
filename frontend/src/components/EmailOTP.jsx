@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { sendSignupOtp, verifySignupOtp } from "../api/otp";
+import { Loader2 } from "lucide-react";
 
 const EmailOTP = ({ pending_id, email, onContinue }) => {
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -9,15 +10,13 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
 
   const inputsRef = useRef([]);
 
-  // Auto-focus
   useEffect(() => {
     inputsRef.current[0]?.focus();
   }, []);
 
-  // Timer
   useEffect(() => {
     if (timer <= 0) return;
-    const id = setInterval(() => setTimer(t => t - 1), 1000);
+    const id = setInterval(() => setTimer((t) => t - 1), 1000);
     return () => clearInterval(id);
   }, [timer]);
 
@@ -31,7 +30,6 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
     if (value && index < 3) inputsRef.current[index + 1]?.focus();
   };
 
-  // RESEND OTP
   const handleResend = async () => {
     try {
       setOtp(["", "", "", ""]);
@@ -46,7 +44,6 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
     }
   };
 
-  // VERIFY OTP
   const handleSubmit = async () => {
     const fullOtp = otp.join("");
 
@@ -60,12 +57,12 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
     try {
       await verifySignupOtp({ pending_id, otp: fullOtp });
       setError("");
-      onContinue(); // move to next step
+      onContinue();
     } catch (err) {
       setError(err?.response?.data?.message || "Invalid OTP.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -116,13 +113,21 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
 
       {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
 
+      {/* UPDATED LOADER BUTTON */}
       <button
         onClick={handleSubmit}
         disabled={loading}
         className="w-full bg-[#000060] text-white py-3 rounded-xl mt-6 
-          hover:bg-[#000060d1] transition disabled:bg-gray-400"
+                 hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
-        {loading ? "Verifying..." : "Continue"}
+        {loading ? (
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Verifying...
+          </div>
+        ) : (
+          "Continue"
+        )}
       </button>
     </div>
   );

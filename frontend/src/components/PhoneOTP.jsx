@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { verifySmsOtp, sendSmsOtp } from "../api/otp";
+import { Loader2 } from "lucide-react";
 
 const PhoneOtp = ({ pending_id, phone, onContinue }) => {
     const [otp, setOtp] = useState(["", "", "", ""]);
@@ -9,19 +10,16 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
 
     const inputsRef = useRef([]);
 
-    // Auto-focus first box
     useEffect(() => {
         inputsRef.current[0]?.focus();
     }, []);
 
-    // Timer countdown
     useEffect(() => {
         if (timer <= 0) return;
         const id = setInterval(() => setTimer((t) => t - 1), 1000);
         return () => clearInterval(id);
     }, [timer]);
 
-    // Handle OTP input
     const handleChange = (value, index) => {
         if (!/^[0-9]?$/.test(value)) return;
 
@@ -32,7 +30,6 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
         if (value && index < 3) inputsRef.current[index + 1].focus();
     };
 
-    // VERIFY OTP (calls backend)
     const handleSubmit = async () => {
         const fullOtp = otp.join("");
 
@@ -45,9 +42,8 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
 
         try {
             await verifySmsOtp({ pending_id, code: fullOtp });
-
             setError("");
-            onContinue(); // Move to next onboarding step
+            onContinue();
         } catch (err) {
             setError(err?.response?.data?.message || "Invalid OTP. Try again.");
         }
@@ -55,7 +51,6 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
         setLoading(false);
     };
 
-    // RESEND OTP
     const handleResend = async () => {
         if (timer !== 0) return;
 
@@ -119,13 +114,21 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
 
             {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
 
+            {/* LOADER BUTTON */}
             <button
                 onClick={handleSubmit}
                 disabled={loading}
                 className="w-full bg-[#000060] text-white py-3 rounded-xl mt-6 
-                           hover:bg-[#000060d1] transition disabled:bg-gray-400"
+                           hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-                {loading ? "Verifying..." : "Continue"}
+                {loading ? (
+                    <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Verifying...
+                    </div>
+                ) : (
+                    "Continue"
+                )}
             </button>
         </div>
     );

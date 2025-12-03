@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { sendSmsOtp } from "../api/otp";
+import { Loader2 } from "lucide-react";
 
 const PhoneDetails = ({ pending_id, onContinue }) => {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const inputRef = useRef(null);
 
@@ -23,13 +25,17 @@ const PhoneDetails = ({ pending_id, onContinue }) => {
   const handleSubmit = async () => {
     if (!validatePhone()) return;
 
+    setLoading(true);
+
     try {
       await sendSmsOtp({ pending_id, phone });
 
-      // Move to PhoneOTP page
+      // Move to next page
       onContinue();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to send SMS OTP.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,12 +72,22 @@ const PhoneDetails = ({ pending_id, onContinue }) => {
 
       {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
 
+      {/* UPDATED BUTTON WITH SPINNER */}
       <button
         onClick={handleSubmit}
+        disabled={loading}
         className="w-full bg-[#000060] text-white py-2 rounded-xl mt-4
-                   hover:bg-[#000060d1] transition font-medium"
+                   hover:bg-[#000060d1] transition font-medium
+                   disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
-        Continue
+        {loading ? (
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Sending...
+          </div>
+        ) : (
+          "Continue"
+        )}
       </button>
     </div>
   );

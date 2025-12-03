@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { updateShopInfo } from "../api/shop";
 import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 const BusinessInfo = ({ onContinue }) => {
   const [form, setForm] = useState({
@@ -177,13 +178,20 @@ const BusinessInfo = ({ onContinue }) => {
       </div>
 
       <button
-        onClick={handleSubmit}
-        disabled={loading}
-        className="w-full bg-[#000060] text-white py-2 rounded-xl mt-6
-                           hover:bg-[#000060d1] transition disabled:bg-gray-400"
-      >
-        {loading ? "Saving..." : "Continue"}
-      </button>
+  onClick={handleSubmit}
+  disabled={loading}
+  className="w-full bg-[#000060] text-white py-2 rounded-xl mt-6
+             hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+>
+  {loading ? (
+    <div className="flex items-center justify-center gap-2">
+      <Loader2 className="h-5 w-5 animate-spin" />
+      Saving...
+    </div>
+  ) : (
+    "Continue"
+  )}
+</button>
     </div>
   );
 };

@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
-import OnboardStepper from "../components/OnboardStepper";
+import OnboardStepper from "../components/CustomStepper";
+
 import IdentityForm from "../components/IdentityForm";
 import EmailOTP from "../components/EmailOTP";
 import PhoneDetails from "../components/PhoneDetails";
@@ -22,25 +23,26 @@ import CreatePassword from "../components/CreatePassword";
 
 const OnboardingPage = () => {
   const location = useLocation();
+
   const pending_id = location.state?.pending_id;
   const email = location.state?.email;
+  const provider = location.state?.provider || "password";
+
   const [progressStep, setProgressStep] = useState(
     location.state?.resume_step ?? 0
   );
 
-  // Skip pending-user steps if logged-in user resumes onboarding
+  // Continue Step
+  const handleContinue = () => setProgressStep((prev) => prev + 1);
+
+  // Skip ahead if user already past first steps
   useEffect(() => {
     if (progressStep < 4 && location.state?.resume_step >= 4) {
       setProgressStep(location.state.resume_step);
     }
   }, []);
 
-  const provider = location.state?.provider || "password";
-
-  const handleContinue = () => {
-    setProgressStep((prev) => prev + 1);
-  };
-
+  // Step Rendering
   const renderStep = () => {
     switch (progressStep) {
       case 0:
@@ -55,13 +57,9 @@ const OnboardingPage = () => {
         );
 
       case 1:
-        return (
-          <PhoneDetails pending_id={pending_id} onContinue={handleContinue} />
-        );
-
+        return <PhoneDetails pending_id={pending_id} onContinue={handleContinue} />;
       case 2:
         return <PhoneOTP pending_id={pending_id} onContinue={handleContinue} />;
-
       case 3:
         return (
           <IdentityForm
@@ -70,6 +68,7 @@ const OnboardingPage = () => {
             onNext={handleContinue}
           />
         );
+
       case 4:
         return <BusinessInfo onContinue={handleContinue} />;
       case 5:
@@ -90,25 +89,30 @@ const OnboardingPage = () => {
         return <VerificationPending onContinue={handleContinue} />;
       case 13:
         return <OnboardSuccess />;
+
       default:
         return null;
     }
   };
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-white flex flex-col items-center py-10 font-poppins">
-      <OnboardStepper progressStep={progressStep} />
+    <div className="w-full h-screen bg-gray-50 flex flex-col overflow-hidden font-poppins">
 
-      {/* ANIMATED STEP CONTENT */}
-      <div className="w-full flex justify-center mt-5">
+      {/* TOP FIXED STEPPER */}
+      <div className="w-full flex justify-center py-4">
+        <OnboardStepper currentStep={progressStep + 1} />
+      </div>
+
+      {/* FORM CONTENT (scrollable) */}
+      <div className="flex-1 w-full flex justify-center overflow-y-auto px-4 pb-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={progressStep}
-            initial={{ opacity: 0, x: 50 }}
+            initial={{ opacity: 0, x: 25 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            className="w-full flex justify-center"
+            exit={{ opacity: 0, x: -25 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="w-full max-w-2xl"
           >
             {renderStep()}
           </motion.div>

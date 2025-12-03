@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { IoCloudUploadOutline } from "react-icons/io5";
 import { uploadShopFile } from "../api/shopFiles";
+import { Loader2 } from "lucide-react";
 
 const UploadDrugLicense = ({ onContinue }) => {
     const [file, setFile] = useState(null);
@@ -56,10 +57,8 @@ const UploadDrugLicense = ({ onContinue }) => {
 
             await uploadShopFile(formData);
 
-            // 🔥 Mark onboarding progress
             localStorage.setItem("onboarding_step", 7);
-
-            onContinue(); 
+            onContinue();
         } catch (err) {
             console.error("UPLOAD ERROR:", err);
             setError(err?.response?.data?.message || "Failed to upload file");
@@ -71,15 +70,14 @@ const UploadDrugLicense = ({ onContinue }) => {
     return (
         <div
             className="w-full max-w-2xl font-poppins"
-            style={{ marginTop: "30px" }}
+            style={{ marginTop: "28px" }}
         >
-            <h2 className="text-[30px] font-semibold text-[#000006]">
+            <h2 className="text-[28px] font-semibold text-[#000006]">
                 Upload Your Drug License
             </h2>
 
             <p className="text-gray-500 text-xs mt-1 mb-4">
-                Eg: <span className="font-bold">PDF, JPEG, EPS, PNG</span> &nbsp; 
-                Max file limit upto <span className="font-bold">5MB</span>
+                Eg: <span className="font-bold">PDF, JPEG, EPS, PNG</span> — Max <span className="font-bold">5MB</span>
             </p>
 
             <div
@@ -110,19 +108,24 @@ const UploadDrugLicense = ({ onContinue }) => {
                 />
             </div>
 
-            {error && (
-                <p className="text-red-600 text-sm mt-2">{error}</p>
-            )}
+            {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
 
+            {/* 🔥 UPDATED LOADER BUTTON */}
             <button
                 onClick={handleSubmit}
                 disabled={!file || loading}
-                className={`w-[470px] bg-[#000060] text-white py-3 rounded-xl mt-8
-                           hover:bg-[#000060d1] transition ${
-                               !file ? "opacity-60 cursor-not-allowed" : ""
-                           }`}
+                className={`w-[470px] bg-[#000060] text-white py-3 rounded-xl mt-8 
+                           hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed
+                           ${!file ? "opacity-60 cursor-not-allowed" : ""}`}
             >
-                {loading ? "Uploading..." : "Continue"}
+                {loading ? (
+                    <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Uploading...
+                    </div>
+                ) : (
+                    "Continue"
+                )}
             </button>
         </div>
     );

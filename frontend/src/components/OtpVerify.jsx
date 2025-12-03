@@ -1,9 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { IoArrowBackOutline } from "react-icons/io5";
+import { Loader2 } from "lucide-react";
 
 const OtpVerify = ({ onBack }) => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [loading, setLoading] = useState(false);
+  const [timer, setTimer] = useState(30);
+
   const inputsRef = useRef([]);
 
   const handleChange = (value, index) => {
@@ -24,14 +28,23 @@ const OtpVerify = ({ onBack }) => {
     }
   };
 
-  const [timer, setTimer] = useState(30);
-
   useEffect(() => {
     if (timer > 0) {
-      const interval = setInterval(() => setTimer(timer - 1), 1000);
+      const interval = setInterval(() => setTimer((t) => t - 1), 1000);
       return () => clearInterval(interval);
     }
   }, [timer]);
+
+  // Dummy submit with loader
+  const handleSubmit = async () => {
+    setLoading(true);
+
+    // fake delay or add actual API later
+    setTimeout(() => {
+      setLoading(false);
+      alert("OTP Submitted!");
+    }, 1500);
+  };
 
   return (
     <motion.div
@@ -41,7 +54,7 @@ const OtpVerify = ({ onBack }) => {
       transition={{ duration: 0.5 }}
     >
       {/* BACK BUTTON */}
-      <div 
+      <div
         className="absolute top-8 left-6 flex items-center gap-2 text-[#000060] cursor-pointer"
         onClick={onBack}
       >
@@ -63,27 +76,46 @@ const OtpVerify = ({ onBack }) => {
             ref={(el) => (inputsRef.current[index] = el)}
             type="text"
             maxLength="1"
+            disabled={loading}
             value={digit}
             onChange={(e) => handleChange(e.target.value, index)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             className="w-14 h-16 text-center text-2xl font-semibold border border-gray-300 rounded-xl
-                       focus:ring-2 focus:ring-[#000060] outline-none"
+                       focus:ring-2 focus:ring-[#000060] outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
         ))}
       </div>
 
-      <button className="w-[300px] bg-[#000060] text-white py-3 rounded-xl font-semibold mt-10 hover:bg-[#000060d1] transition">
-        Continue
+      {/* LOADER BUTTON */}
+      <button
+        onClick={handleSubmit}
+        disabled={loading || otp.join("").length !== 6}
+        className="w-[300px] bg-[#000060] text-white py-3 rounded-xl font-semibold mt-10 
+                   hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+      >
+        {loading ? (
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Verifying...
+          </div>
+        ) : (
+          "Continue"
+        )}
       </button>
 
       <p className="mt-4 text-sm text-gray-600">
-        Re-send code in <span className="font-medium">00:{timer < 10 ? `0${timer}` : timer}</span>
+        Re-send code in{" "}
+        <span className="font-medium">
+          00:{timer < 10 ? `0${timer}` : timer}
+        </span>
       </p>
 
       <p className="text-center text-[13px] text-gray-400 mt-10 w-[300px]">
         This site is protected by reCAPTCHA and the <br />
-        <span className="text-[#000060] underline cursor-pointer">Google Privacy</span> policy and{" "}
-        <span className="text-[#000060] underline cursor-pointer">Terms of Service</span> apply.
+        <span className="text-[#000060] underline cursor-pointer">Google Privacy</span>{" "}
+        policy and{" "}
+        <span className="text-[#000060] underline cursor-pointer">Terms of Service</span>{" "}
+        apply.
       </p>
     </motion.div>
   );
