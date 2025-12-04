@@ -3,20 +3,7 @@ import { useEffect, useRef, useCallback, useMemo } from "react";
 import PurchaseRow from "./PurchaseRowFixed";
 
 const makeEmptyRow = () => ({
-  name: "",
-  batch: "",
-  rate: "",
-  qty: "",
-  pack: "",
-  exp: "",
-  type: "",
-  category: "",
-  rack: "",
-  tax: "",
-  packRate: "",
-  disc: "",
-  mrp: "",
-  free: "",
+  name: "", batch: "", rate: "", qty: "", pack: "", exp: "", type: "", category: "", rack: "", tax: "", packRate: "", disc: "", mrp: "", free: "",
 });
 
 const FIELDS_COUNT = 14;
@@ -25,118 +12,95 @@ const PurchaseTable = ({ rows, setRows, productMaster }) => {
   const fieldRefs = useRef([]);
   const containerRef = useRef(null);
 
-  // ✅ Memoize productMaster to ensure stable reference
-  const stableProductMaster = useMemo(() => {
-    return productMaster || [];
-  }, [productMaster]);
+  const stableProductMaster = useMemo(() => productMaster || [], [productMaster]);
 
-  // Keep ref array sized to rows
   useEffect(() => {
     fieldRefs.current = fieldRefs.current.slice(0, rows.length);
   }, [rows.length]);
 
-  /** Focus navigation (Enter) */
-  const focusNextField = useCallback(
-    (rowIndex, fieldIndex) => {
-      const lastField = FIELDS_COUNT - 1;
-      let nextRow = rowIndex;
-      let nextField = fieldIndex + 1;
+  // Focus Navigation
+  const focusNextField = useCallback((rowIndex, fieldIndex) => {
+    const lastField = FIELDS_COUNT - 1;
+    let nextRow = rowIndex;
+    let nextField = fieldIndex + 1;
 
-      if (nextField > lastField) {
-        nextField = 0;
-        nextRow = rowIndex + 1;
+    if (nextField > lastField) {
+      nextField = 0;
+      nextRow = rowIndex + 1;
 
-        // Check if need to add new row
-        setRows((prev) => {
-          if (prev[nextRow]) return prev; // Row exists, no change
-          return [...prev, makeEmptyRow()];
-        });
-
-        // Wait for next paint then focus
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            try {
-              const el = fieldRefs.current?.[nextRow]?.[nextField] ?? null;
-              if (el && typeof el.focus === "function") {
-                el.focus();
-                if (containerRef.current && el.scrollIntoView) {
-                  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-                }
-              }
-            } catch (err) {
-              // fail silently
-            }
-          });
-        });
-        return;
-      }
+      setRows((prev) => {
+        if (prev[nextRow]) return prev;
+        return [...prev, makeEmptyRow()];
+      });
 
       requestAnimationFrame(() => {
-        try {
-          const el = fieldRefs.current?.[nextRow]?.[nextField] ?? null;
-          if (el && typeof el.focus === "function") {
-            el.focus();
-          }
-        } catch (err) {
-          // fail silently
-        }
+        requestAnimationFrame(() => {
+          try {
+            const el = fieldRefs.current?.[nextRow]?.[nextField] ?? null;
+            if (el && typeof el.focus === "function") {
+              el.focus();
+              if (containerRef.current && el.scrollIntoView) {
+                el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+              }
+            }
+          } catch (err) {}
+        });
       });
-    },
-    [setRows]  // ✅ Removed 'rows' dependency - use functional update instead
-  );
+      return;
+    }
 
-  /** Update a row value safely */
-  const handleRowChange = useCallback(
-    (rowIndex, key, value) => {
-      setRows((prev) => {
-        if (prev[rowIndex]?.[key] === value) return prev;
+    requestAnimationFrame(() => {
+      try {
+        const el = fieldRefs.current?.[nextRow]?.[nextField] ?? null;
+        if (el && typeof el.focus === "function") el.focus();
+      } catch (err) {}
+    });
+  }, [setRows]);
 
-        const updated = [...prev];
-        updated[rowIndex] = {
-          ...(updated[rowIndex] ?? makeEmptyRow()),
-          [key]: value,
-        };
-        return updated;
-      });
-    },
-    [setRows]
-  );
+  const handleRowChange = useCallback((rowIndex, key, value) => {
+    setRows((prev) => {
+      if (prev[rowIndex]?.[key] === value) return prev;
+      const updated = [...prev];
+      updated[rowIndex] = { ...(updated[rowIndex] ?? makeEmptyRow()), [key]: value };
+      return updated;
+    });
+  }, [setRows]);
 
-  /** ✅ Memoize registerFieldRef creators for each row */
   const getRegisterFieldRef = useCallback((rowIndex) => {
     return (fieldIndex, el) => {
-      if (!fieldRefs.current[rowIndex]) {
-        fieldRefs.current[rowIndex] = [];
-      }
+      if (!fieldRefs.current[rowIndex]) fieldRefs.current[rowIndex] = [];
       fieldRefs.current[rowIndex][fieldIndex] = el;
     };
   }, []);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-      <div ref={containerRef} className="max-h-[245px] overflow-y-auto">
-        <table className="min-w-full border-collapse table-fixed">
-          <thead className="sticky top-0 bg-[#000060] text-white">
-            <tr className="text-[11px]">
-              <th className="px-2 py-2 w-[40px] text-left">Sl.No</th>
-              <th className="px-2 py-2 w-[180px] text-left">Product Name</th>
-              <th className="px-2 py-2 w-[100px] text-center">Batch</th>
-              <th className="px-2 py-2 w-[70px] text-right">Rate</th>
-              <th className="px-2 py-2 w-[55px] text-center">Qty</th>
-              <th className="px-2 py-2 w-[70px] text-center">Pack</th>
-              <th className="px-2 py-2 w-[70px] text-center">Exp</th>
-              <th className="px-2 py-2 w-[110px] text-left">Type</th>
-              <th className="px-2 py-2 w-[110px] text-left">Category</th>
-              <th className="px-2 py-2 w-[60px] text-center">Rack</th>
-              <th className="px-2 py-2 w-[55px] text-center">Tax%</th>
-              <th className="px-2 py-2 w-[70px] text-right">Pack Rate</th>
-              <th className="px-2 py-2 w-[55px] text-center">Disc%</th>
-              <th className="px-2 py-2 w-[70px] text-right">MRP</th>
-              <th className="px-2 py-2 w-[55px] text-center">Free</th>
+    <div className="h-full w-full flex flex-col bg-white">
+      
+      <div ref={containerRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+        
+        <table className="w-full border-collapse text-[10px] 2xl:text-xs table-fixed">
+          
+          <thead className="sticky top-0 z-10 bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white shadow-sm">
+            <tr className="h-8">
+              <th className="px-2 py-1 w-[40px] text-left font-semibold border-r border-indigo-900/30">#</th>
+              <th className="px-2 py-1 w-[160px] text-left font-semibold border-r border-indigo-900/30">Product Name</th>
+              <th className="px-2 py-1 w-[90px] text-center font-semibold border-r border-indigo-900/30">Batch</th>
+              <th className="px-2 py-1 w-[60px] text-right font-semibold border-r border-indigo-900/30">Rate</th>
+              <th className="px-2 py-1 w-[50px] text-center font-semibold border-r border-indigo-900/30">Qty</th>
+              <th className="px-2 py-1 w-[60px] text-center font-semibold border-r border-indigo-900/30">Pack</th>
+              <th className="px-2 py-1 w-[60px] text-center font-semibold border-r border-indigo-900/30">Exp</th>
+              <th className="px-2 py-1 w-[90px] text-left font-semibold border-r border-indigo-900/30">Type</th>
+              <th className="px-2 py-1 w-[90px] text-left font-semibold border-r border-indigo-900/30">Category</th>
+              <th className="px-2 py-1 w-[50px] text-center font-semibold border-r border-indigo-900/30">Rack</th>
+              <th className="px-2 py-1 w-[50px] text-center font-semibold border-r border-indigo-900/30">Tax%</th>
+              <th className="px-2 py-1 w-[60px] text-right font-semibold border-r border-indigo-900/30">Pk Rate</th>
+              <th className="px-2 py-1 w-[50px] text-center font-semibold border-r border-indigo-900/30">Disc%</th>
+              <th className="px-2 py-1 w-[60px] text-right font-semibold border-r border-indigo-900/30">MRP</th>
+              <th className="px-2 py-1 w-[50px] text-center font-semibold">Free</th>
             </tr>
           </thead>
 
-          <tbody>
+          <tbody className="bg-white">
             {rows.map((item, index) => (
               <PurchaseRow
                 key={item.id || index}

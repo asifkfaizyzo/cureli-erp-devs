@@ -1,93 +1,3 @@
-import { useState, useMemo } from "react";
-import BillingHeader from "../components/billing/BillingHeader";
-import ProductTable from "../components/billing/ProductTable";
-import CustomerDetailsCard from "../components/billing/CustomerDetailsCard";
-import BillingSummaryCard from "../components/billing/BillingSummaryCard";
-
-const makeEmptyRow = () => ({
-  name: "",
-  batch: "",
-  qty: "",
-  mrp: 0,
-  amount: 0,
-  exp: "",
-  type: "",
-  category: "",
-  stock: "",
-  rack: "",
-  tax: 0,
-  taxAmt: 0,
-  disc: 0,
-  barcode: "",
-});
-
-const BillingPage = () => {
-  const [rows, setRows] = useState(() => Array.from({ length: 18 }).map(makeEmptyRow));
-
-  const [customer, setCustomer] = useState({
-    id: "123564",
-    name: "",
-    phone: "",
-    eway: "",
-    address: "",
-    payment: "Cash",
-  });
-
-  const summary = useMemo(() => {
-    const subTotal = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-    const sgst = +(subTotal * 0.05).toFixed(2);
-    const cgst = +(subTotal * 0.05).toFixed(2);
-
-    return {
-      subTotal: +subTotal.toFixed(2),
-      sgst,
-      cgst,
-      total: +(subTotal + sgst + cgst).toFixed(2),
-    };
-  }, [rows]);
-
-  const handleSave = () => {
-    const billData = {
-      billNo: "123456",
-      date: new Date().toLocaleDateString(),
-      time: new Date().toLocaleTimeString(),
-      billedBy: "Amith",
-      customer,
-      rows,
-      summary,
-    };
-
-    console.log("SAVE BILL DATA:", billData);
-    alert("Bill Saved Successfully!");
-  };
-
-  const handleSavePrint = () => {
-    handleSave();
-    setTimeout(() => window.print(), 500);
-  };
-
-  return (
-    <div className="flex flex-col h-[97%] w-full overflow-hidden">
-
-      <BillingHeader onSave={handleSave} onSavePrint={handleSavePrint} />
-
-      <div className="flex-1 flex flex-col overflow-hidden mt-1">
-        <div className="flex-1 overflow-y-auto">
-          <ProductTable rows={rows} setRows={setRows} />
-        </div>
-
-        <div className="flex  gap-3 items-start">
-          <CustomerDetailsCard customer={customer} setCustomer={setCustomer} />
-          <BillingSummaryCard summary={summary} />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default BillingPage;
-
-
 // import { useState, useMemo } from "react";
 // import BillingHeader from "../components/billing/BillingHeader";
 // import ProductTable from "../components/billing/ProductTable";
@@ -146,6 +56,7 @@ export default BillingPage;
 //       rows,
 //       summary,
 //     };
+
 //     console.log("SAVE BILL DATA:", billData);
 //     alert("Bill Saved Successfully!");
 //   };
@@ -156,48 +67,19 @@ export default BillingPage;
 //   };
 
 //   return (
-    /* 
-      LAYOUT ADJUSTMENT:
-      - Removed bg-gray-50 (AppLayout has it)
-      - Removed outer p-4 (AppLayout has padding)
-      - Added 'h-full' and 'flex-col' to fill the AnimatePresence container
-      - gap-3 gives breathing room between Header, Table, and Footer
-    */
-//     <div className="flex flex-col h-full gap-3">
-      
-//       {/* HEADER: Fixed height, transparent bg (components will have their own bg) */}
-//       <div className="flex-none">
-//         <BillingHeader onSave={handleSave} onSavePrint={handleSavePrint} />
-//       </div>
+//     <div className="flex flex-col h-[97%] w-full overflow-hidden">
 
-//       {/* TABLE CONTAINER: 
-//           - flex-1: Greedily takes all remaining space
-//           - bg-white: Creates the card look
-//           - overflow-hidden: Contains the scrolling table inside this card
-//       */}
-//       <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-//         <div className="flex-1 relative">
-//           {/* Table fills this relative container */}
+//       <BillingHeader onSave={handleSave} onSavePrint={handleSavePrint} />
+
+//       <div className="flex-1 flex flex-col overflow-hidden mt-1">
+//         <div className="flex-1 overflow-y-auto">
 //           <ProductTable rows={rows} setRows={setRows} />
 //         </div>
-//       </div>
 
-//       {/* FOOTER CONTAINER:
-//           - Fixed height (h-48 is approx 192px, good for summary)
-//           - Horizontal layout
-//       */}
-//       <div className="flex-none h-48 flex gap-3">
-        
-//         {/* Customer Card - Takes 70% space */}
-//         <div className="w-[70%] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+//         <div className="flex  gap-3 items-start">
 //           <CustomerDetailsCard customer={customer} setCustomer={setCustomer} />
-//         </div>
-
-//         {/* Summary Card - Takes 30% space */}
-//         <div className="w-[30%] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
 //           <BillingSummaryCard summary={summary} />
 //         </div>
-
 //       </div>
 //     </div>
 //   );
@@ -205,70 +87,95 @@ export default BillingPage;
 
 // export default BillingPage;
 
-// import { useState, useMemo } from "react";
-// import BillingHeader from "../components/billing/BillingHeader";
-// import ProductTable from "../components/billing/ProductTable";
-// import CustomerDetailsCard from "../components/billing/CustomerDetailsCard";
-// import BillingSummaryCard from "../components/billing/BillingSummaryCard";
 
-// const makeEmptyRow = () => ({
-//   name: "", batch: "", qty: "", mrp: 0, amount: 0, exp: "", type: "", category: "", stock: "", rack: "", tax: 0, taxAmt: 0, disc: 0, barcode: "",
-// });
+// src/pages/BillingPage.jsx
+import { useState, useMemo, useEffect } from "react";
+import BillingHeader from "../components/billing/BillingHeader";
+import ProductTable from "../components/billing/ProductTable";
+import CustomerDetailsCard from "../components/billing/CustomerDetailsCard";
+import BillingSummaryCard from "../components/billing/BillingSummaryCard";
 
-// const BillingPage = () => {
-//   const [rows, setRows] = useState(() => Array.from({ length: 19 }).map(makeEmptyRow));
-  
-//   const [customer, setCustomer] = useState({
-//     id: "123564", name: "", phone: "", eway: "", address: "", payment: "Cash",
-//   });
+const makeEmptyRow = () => ({
+  name: "", batch: "", qty: "", mrp: 0, amount: 0, exp: "", type: "", category: "", stock: "", rack: "", tax: 0, taxAmt: 0, disc: 0, barcode: "",
+});
 
-//   const summary = useMemo(() => {
-//     const subTotal = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-//     const sgst = +(subTotal * 0.05).toFixed(2);
-//     const cgst = +(subTotal * 0.05).toFixed(2);
-//     return { subTotal: +subTotal.toFixed(2), sgst, cgst, total: +(subTotal + sgst + cgst).toFixed(2) };
-//   }, [rows]);
+const BillingPage = () => {
+  const [targetRowCount, setTargetRowCount] = useState(8); // Default for small screens
+  const [rows, setRows] = useState([]);
 
-//   const handleSave = () => { /* Save Logic */ };
-//   const handleSavePrint = () => { /* Print Logic */ };
+  const [customer, setCustomer] = useState({
+    id: "123564", name: "", phone: "", eway: "", address: "", payment: "Cash",
+  });
 
-//   return (
-//     <div className="flex flex-col h-full gap-3">
-      
-//       {/* HEADER */}
-//       <div className="flex-none">
-//         <BillingHeader onSave={handleSave} onSavePrint={handleSavePrint} />
-//       </div>
+  // 1. RESPONSIVE LOGIC (Provided by you)
+  useEffect(() => {
+    const updateLayout = () => {
+      const width = window.innerWidth;
+      let count = 6; // Default / Mobile
 
-//       {/* TABLE CONTAINER 
-//           - flex-1: Takes remaining space, but since footer is taller now, this area is smaller.
-//           - Less whitespace!
-//       */}
-//       <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative flex flex-col">
-//         <div className="absolute inset-0">
-//           <ProductTable rows={rows} setRows={setRows} />
-//         </div>
-//       </div>
+      if (width >= 2560) count = 18;       // 4k / 27 inch
+      else if (width >= 1920) count = 16;  // 1080p Full HD
+      else if (width >= 1440) count = 12;  // 19 inch / high res laptop
+      else if (width >= 1366) count = 6;   // 14 inch laptop
+      else count = 6;
 
-//       {/* FOOTER CONTAINER
-//           - Increased height to h-[280px] (was h-48).
-//           - This "lifts" the content up and gives inputs room to breathe.
-//       */}
-//       <div className="flex-none h-[210px] flex gap-2">
-        
-//         {/* Customer Card */}
-//         <div className="w-[70%] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-//           <CustomerDetailsCard customer={customer} setCustomer={setCustomer} />
-//         </div>
+      setTargetRowCount(count);
+    };
 
-//         {/* Summary Card */}
-//         <div className="w-[30%] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-//           <BillingSummaryCard summary={summary} />
-//         </div>
+    // Run on mount and resize
+    updateLayout();
+    window.addEventListener("resize", updateLayout);
+    return () => window.removeEventListener("resize", updateLayout);
+  }, []);
 
-//       </div>
-//     </div>
-//   );
-// };
+  // 2. Update Rows when targetRowCount changes
+  useEffect(() => {
+    setRows((prev) => {
+      // If we need more rows, add them
+      if (prev.length < targetRowCount) {
+        const needed = targetRowCount - prev.length;
+        return [...prev, ...Array.from({ length: needed }).map(makeEmptyRow)];
+      }
+      // If we have enough, just ensure we don't cut off data (optional logic)
+      // For now, we just keep existing rows if they are greater than target to avoid data loss
+      return prev.length > 0 ? prev : Array.from({ length: targetRowCount }).map(makeEmptyRow);
+    });
+  }, [targetRowCount]);
 
-// export default BillingPage;
+  const summary = useMemo(() => {
+    const subTotal = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+    const sgst = +(subTotal * 0.05).toFixed(2);
+    const cgst = +(subTotal * 0.05).toFixed(2);
+    return { subTotal: +subTotal.toFixed(2), sgst, cgst, total: +(subTotal + sgst + cgst).toFixed(2) };
+  }, [rows]);
+
+  const handleSave = () => { alert("Bill Saved!"); };
+  const handleSavePrint = () => { handleSave(); setTimeout(() => window.print(), 500); };
+
+  return (
+    // Main Container: Tighter padding (p-2)
+    <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1 gap-1 font-sans">
+
+      {/* HEADER */}
+      <div className="shrink-0">
+        <BillingHeader onSave={handleSave} onSavePrint={handleSavePrint} />
+      </div>
+
+      {/* TABLE: Fills remaining space */}
+      <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm min-h-0 relative">
+        <div className="flex-1 overflow-y-auto">
+          <ProductTable rows={rows} setRows={setRows} />
+        </div>
+      </div>
+
+      {/* FOOTER: Fixed height, responsive card sizing */}
+      <div className="shrink-0 flex gap-2 h-[170px] 2xl:h-[200px]">
+        <CustomerDetailsCard customer={customer} setCustomer={setCustomer} />
+        <BillingSummaryCard summary={summary} />
+      </div>
+
+    </div>
+  );
+};
+
+export default BillingPage;

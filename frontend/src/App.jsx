@@ -12,6 +12,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import PlanSelectionPage from "./pages/PlanSelectionPage.jsx";
 import PendingUsersPage from "./pages/PendingUsersPage.jsx";
+import SupplierPage from "./pages/SupplierPage.jsx";
 
 // Protected Pages (ERP)
 import AppLayout from "./components/layout/AppLayout.jsx";
@@ -79,6 +80,7 @@ const App = () => {
           <Route path="plan-selection" element={<PlanSelectionPage />} />
           <Route path="pending-users" element={<PendingUsersPage />} />
           <Route path="purchase-billing" element={<PurchasePage />} />
+          <Route path="suppliers" element={<SupplierPage />} />
 
         </Route>
 

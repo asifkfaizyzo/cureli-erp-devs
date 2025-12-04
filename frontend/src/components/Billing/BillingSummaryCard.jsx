@@ -1,78 +1,66 @@
-const BillingSummaryCard = ({ summary }) => {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-80 text-sm">
-
-      <div className="space-y-1 text-xs text-gray-700">
-        <div className="flex justify-between">
-          <span>Sub Total</span>
-          <span>₹ {summary.subTotal.toFixed(2)}</span>
-        </div>
-
-        <div className="flex justify-between">
-          <span>SGST</span>
-          <span>₹ {summary.sgst.toFixed(2)}</span>
-        </div>
-
-        <div className="flex justify-between">
-          <span>CGST</span>
-          <span>₹ {summary.cgst.toFixed(2)}</span>
-        </div>
-      </div>
-
-      <div className="mt-1 pt-2 border-t border-gray-200">
-        <div className="flex justify-between items-center text-base font-medium">
-          <span>Total Amount:</span>
-          <span>₹ {summary.total.toFixed(2)}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default BillingSummaryCard;
-
 // const BillingSummaryCard = ({ summary }) => {
 //   return (
-//     <div className="h-full flex flex-col p-3">
-      
-//       <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 border-b border-gray-100 pb-1">
-//         Payment Summary
-//       </h3>
+//     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-80 text-sm">
 
-//       {/* Reduced text size to text-[11px] and gap-1.5 */}
-//       <div className="flex-1 flex flex-col gap-1.5 text-[11px] justify-center">
-//         <div className="flex justify-between text-gray-600">
+//       <div className="space-y-1 text-xs text-gray-700">
+//         <div className="flex justify-between">
 //           <span>Sub Total</span>
-//           <span className="font-semibold text-gray-900">₹ {summary.subTotal.toFixed(2)}</span>
+//           <span>₹ {summary.subTotal.toFixed(2)}</span>
 //         </div>
 
-//         <div className="flex justify-between text-gray-600">
-//           <span>SGST <span className="text-[9px] text-gray-400">(2.5%)</span></span>
-//           <span className="font-semibold text-gray-900">₹ {summary.sgst.toFixed(2)}</span>
+//         <div className="flex justify-between">
+//           <span>SGST</span>
+//           <span>₹ {summary.sgst.toFixed(2)}</span>
 //         </div>
 
-//         <div className="flex justify-between text-gray-600">
-//           <span>CGST <span className="text-[9px] text-gray-400">(2.5%)</span></span>
-//           <span className="font-semibold text-gray-900">₹ {summary.cgst.toFixed(2)}</span>
+//         <div className="flex justify-between">
+//           <span>CGST</span>
+//           <span>₹ {summary.cgst.toFixed(2)}</span>
 //         </div>
 //       </div>
 
-//       {/* Compact Total Section */}
-//       <div className="mt-auto pt-2 border-t-2 border-dashed border-gray-200 bg-gray-50/50 rounded-lg p-2 -mx-1">
-//         <div className="flex justify-between items-end">
-//           <span className="text-xs font-bold text-gray-600 mb-0.5">Net Payable</span>
-//           {/* Reduced total size from 3xl to 2xl */}
-//           <span className="text-2xl font-extrabold text-[#05015A] leading-none">
-//             ₹ {Math.round(summary.total).toFixed(2)}
-//           </span>
-//         </div>
-//         <div className="text-right text-[9px] text-gray-400 mt-0.5 font-medium">
-//           (Inclusive of all taxes)
+//       <div className="mt-1 pt-2 border-t border-gray-200">
+//         <div className="flex justify-between items-center text-base font-medium">
+//           <span>Total Amount:</span>
+//           <span>₹ {summary.total.toFixed(2)}</span>
 //         </div>
 //       </div>
-
 //     </div>
 //   );
 // };
 
 // export default BillingSummaryCard;
+
+
+
+// src/components/billing/BillingSummaryCard.jsx
+import { Wallet } from "lucide-react";
+
+const BillingSummaryCard = ({ summary }) => {
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-0 w-64 2xl:w-72 flex flex-col overflow-hidden h-full">
+      <div className="bg-gray-50 px-3 py-1.5 border-b border-gray-100 flex items-center gap-2">
+        <Wallet size={12} className="text-gray-500" />
+        <h3 className="text-xs font-semibold text-gray-700">Payment</h3>
+      </div>
+      <div className="p-3 flex-1 flex flex-col justify-center gap-1.5">
+        <div className="flex justify-between text-[11px] text-gray-600">
+          <span>Sub Total</span><span className="font-medium text-gray-900">₹ {summary.subTotal.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between text-[11px] text-gray-600">
+          <span>SGST (2.5%)</span><span className="font-medium text-gray-900">₹ {summary.sgst.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between text-[11px] text-gray-600">
+          <span>CGST (2.5%)</span><span className="font-medium text-gray-900">₹ {summary.cgst.toFixed(2)}</span>
+        </div>
+      </div>
+      <div className="bg-[#05015A] px-3 py-2 text-white mt-auto">
+        <div className="flex justify-between items-center">
+          <span className="text-[11px] font-medium opacity-90">Total</span>
+          <span className="text-lg font-bold">₹ {summary.total.toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+export default BillingSummaryCard;
