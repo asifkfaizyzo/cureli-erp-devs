@@ -56,7 +56,7 @@ const UploadRegistration = ({ onContinue }) => {
 
             await uploadShopFile(formData);
 
-            localStorage.setItem("onboarding_step", 8);
+            
             onContinue();
         } catch (err) {
             setError(err?.response?.data?.message || "Failed to upload file");

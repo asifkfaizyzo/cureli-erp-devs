@@ -1,3 +1,5 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\shop\shop.routes.js
+
 import express from "express";
 import { requireAuth } from "../../middleware/auth.js";
 import { validateBody } from "../../middleware/validate.js";
@@ -22,5 +24,6 @@ router.patch(
   validateBody(shopGstSchema),
   updateShopGstController
 );
+
 
 export default router;

@@ -1,4 +1,4 @@
-// modules/cadminUsers/cadminUser.controller.js
+// backend/src/modules/cadmin/users/cadminUser.controller.js
 import { success, fail } from "../../../utils/response.js";
 import {
   getUsersService,

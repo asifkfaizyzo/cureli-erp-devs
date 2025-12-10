@@ -1,3 +1,5 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\index.js
+
 import express from "express";
 import dotenv from "dotenv";
 dotenv.config();

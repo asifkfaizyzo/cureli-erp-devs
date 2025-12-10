@@ -1,3 +1,4 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\auth\login.controller.js
 import prisma from "../../config/prisma.js";
 import { comparePassword } from "../../utils/hash.js";
 import jwt from "jsonwebtoken";
@@ -10,6 +11,76 @@ import {
 } from "../../config/jwt.js";
 import { fail, success } from "../../utils/response.js";
 import { sendLoginOtp, verifyLoginOtp } from "./login.service.js";
+
+export async function getOnboardingStatusController(req, res) {
+  try {
+    const user_id = req.user.user_id;
+
+    const user = await prisma.user.findUnique({
+      where: { user_id },
+      select: {
+        status: true,
+        onboarding_step: true,
+        shop: {
+          select: {
+            verification_status: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return fail(res, "User not found", 404);
+    }
+
+    return success(res, {
+      status: user.status,
+      onboarding_step: user.onboarding_step ?? 4,
+      verification_status: user.shop?.verification_status || null,
+    });
+  } catch (err) {
+    console.error(err);
+    return fail(res, "Failed to get onboarding status", 500);
+  }
+}
+
+export async function updateOnboardingStepController(req, res) {
+  try {
+    const user_id = req.user.user_id;
+    const { step } = req.body;
+
+    // Validate step is a number between 4 and 12
+    if (typeof step !== "number" || step < 4 || step > 12) {
+      return fail(res, "Invalid step value", 400);
+    }
+
+    // Get current step to prevent going backwards
+    const user = await prisma.user.findUnique({
+      where: { user_id },
+      select: { onboarding_step: true },
+    });
+
+    if (!user) {
+      return fail(res, "User not found", 404);
+    }
+
+    // Only allow moving forward, not backward
+    if (step <= user.onboarding_step) {
+      return success(res, { onboarding_step: user.onboarding_step }, "Step already completed");
+    }
+
+    // Update the step
+    await prisma.user.update({
+      where: { user_id },
+      data: { onboarding_step: step },
+    });
+
+    return success(res, { onboarding_step: step }, "Step updated");
+  } catch (err) {
+    console.error(err);
+    return fail(res, "Failed to update onboarding step", 500);
+  }
+}
 
 export async function loginController(req, res) {
   try {
@@ -86,6 +157,11 @@ export async function loginController(req, res) {
   }
 }
 
+// backend/src/modules/auth/auth.controller.js
+
+
+// backend/src/modules/auth/login.controller.js
+
 export async function verifyLoginOtpController(req, res) {
   try {
     const { temp_token, otp } = req.validated;
@@ -105,9 +181,16 @@ export async function verifyLoginOtpController(req, res) {
     // Verify OTP
     await verifyLoginOtp(decoded.user_id, otp);
 
-    // Get user details
+    // Get user details WITH shop info
     const user = await prisma.user.findUnique({
       where: { user_id: decoded.user_id },
+      include: {
+        shop: {
+          select: {
+            verification_status: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -140,36 +223,62 @@ export async function verifyLoginOtpController(req, res) {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // Determine next step
-    let nextStep = typeof user.onboarding_step === "number" 
-      ? user.onboarding_step 
-      : 4;
-    let showSuccess = false;
+    // ✅ FIXED: Determine next step based on user + shop status
+    let nextStep = -1; // Default: dashboard
+    
+    const shopStatus = user.shop?.verification_status;
 
-    if (user.status === "pending_setup" && nextStep < 12) {
-      // Continue onboarding
+    console.log("🔍 LOGIN DEBUG:", {
+      user_status: user.status,
+      shop_verification_status: shopStatus,
+      onboarding_step: user.onboarding_step,
+      first_login_after_verification: user.first_login_after_verification,
+    });
+
+    // CASE 1: Still in onboarding (hasn't completed document upload)
+    if (user.status === "pending_setup") {
+      nextStep = user.onboarding_step || 4;
+      console.log("📋 User in onboarding, step:", nextStep);
     }
 
-    if (user.onboarding_step === 12 && user.status !== "verified") {
-      nextStep = 12; // Verification pending
-    }
-
-    if (user.status === "verified") {
-      if (!user.first_login_after_verification) {
-        nextStep = 13; // Show success page
-        showSuccess = true;
+    // CASE 2: Documents submitted, waiting for verification
+    else if (user.status === "pending_verification") {
+      if (shopStatus === "partially_rejected" || shopStatus === "rejected") {
+        // Has rejected files → show resubmission page
+        nextStep = 14;
+        console.log("❌ Documents rejected, showing resubmission page");
       } else {
-        nextStep = -1; // Dashboard
+        // pending_review or other → show pending page
+        nextStep = 12;
+        console.log("⏳ Documents under review, showing pending page");
       }
     }
 
-    return success(res, {
-      access_token: accessToken,
-      next_step: nextStep,
-      show_success: showSuccess,
-      shop_id: user.shop_id,
-      user_id: user.user_id,
-    }, "Login successful");
+    // CASE 3: Fully verified
+    else if (user.status === "verified") {
+      if (!user.first_login_after_verification) {
+        // First login after verification → show success page
+        nextStep = 15; // ✅ FIXED: Changed from 13 to 15
+        console.log("🎉 First login after verification, showing success");
+      } else {
+        // Already seen success → go to dashboard
+        nextStep = -1;
+        console.log("✅ Verified user, going to dashboard");
+      }
+    }
+
+    console.log("📍 FINAL next_step:", nextStep);
+
+    return success(
+      res,
+      {
+        access_token: accessToken,
+        next_step: nextStep,
+        shop_id: user.shop_id,
+        user_id: user.user_id,
+      },
+      "Login successful"
+    );
 
   } catch (err) {
     console.error(err);

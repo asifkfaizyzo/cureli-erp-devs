@@ -57,7 +57,7 @@ const UploadDrugLicense = ({ onContinue }) => {
 
             await uploadShopFile(formData);
 
-            localStorage.setItem("onboarding_step", 7);
+            
             onContinue();
         } catch (err) {
             console.error("UPLOAD ERROR:", err);

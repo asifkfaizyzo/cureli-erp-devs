@@ -1,3 +1,4 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\middleware\requireCAdmin.js
 import { ADMIN_ACCESS_SECRET } from "../config/cadmin_jwt.js";
 import jwt from "jsonwebtoken";
 import { fail } from "../utils/response.js";

@@ -1,3 +1,4 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\middleware\auth.js
 import jwt from "jsonwebtoken";
 import { ACCESS_SECRET } from "../config/jwt.js";
 import { fail } from "../utils/response.js";

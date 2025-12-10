@@ -97,8 +97,13 @@ export async function googleSignupController(req, res) {
       "Google signup started"
     );
   } catch (err) {
+    // 🔥 Handle Google ID already exists
+    if (err.code === "GOOGLE_ID_EXISTS") {
+      return fail(res, err.message, 409); // 409 Conflict
+    }
+    
     if (err.code === "EMAIL_EXISTS") {
-      return fail(res, err.message, 400);
+      return fail(res, err.message, 409);
     }
 
     console.error(err);
@@ -215,9 +220,14 @@ export async function chooseUsernameController(req, res) {
 
 /* FINALIZE SIGNUP → CREATE SUPERADMIN */
 export async function completePendingSignupController(req, res) {
+  console.log("=== Complete Signup Request ===");
+  console.log("Body:", req.body);
+  console.log("Validated:", req.validated);
   try {
     const { pending_id } = req.body;
-
+ console.log("=== Complete Signup Request ===");
+    console.log("Body:", req.body);
+    console.log("pending_id:", pending_id);
     const { user, shop } = await finalizePendingSignup(pending_id);
 
     const accessToken = jwt.sign(
@@ -253,6 +263,10 @@ export async function completePendingSignupController(req, res) {
       201
     );
   } catch (err) {
+     console.error("=== Complete Signup ERROR ===");
+    console.error("Error message:", err.message);
+    console.error("Error code:", err.code);
+    console.error("Full error:", err);
     return fail(res, err.message, 400);
   }
 }

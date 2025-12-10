@@ -22,6 +22,7 @@ import InvoicePage from "./pages/InvoicePage.jsx";
 import PurchasePage from "./pages/PurchasePage.jsx";
 
 import "./index.css";
+import VerificationPage from "./pages/VerificationPage.jsx";
 
 const App = () => {
    useEffect(() => {
@@ -67,6 +68,7 @@ const App = () => {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/verification" element={<VerificationPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />

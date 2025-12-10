@@ -1,3 +1,4 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\cadmin\users\cadminUser.routes.js
 
 import express from "express";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";

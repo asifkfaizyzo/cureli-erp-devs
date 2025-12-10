@@ -1,18 +1,10 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\cadmin\users\cadminUser.service.js
+
 import prisma from "../../../config/prisma.js";
 import { generateResetToken, hashToken } from "../../../utils/resetToken.js";
 import { hashPassword } from "../../../utils/hash.js";
 import { sendMail } from "../../../utils/email.js";
-/**
- * getUsersService:
- * Supports query params:
- * - page, limit
- * - search
- * - status (active|inactive)
- * - role
- * - last_login (YYYY-MM-DD)
- * - sort (name|username|last_login)
- * - order (asc|desc)
- */
+
 export async function getUsersService(query = {}) {
   const page = Math.max(Number(query.page) || 1, 1);
   const limit = Math.min(Number(query.limit) || 10, 200); // cap limit

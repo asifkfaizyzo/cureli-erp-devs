@@ -1,3 +1,4 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\api\axios.js
 import axios from "axios";
 
 const CAdminAPI = axios.create({
