@@ -1,414 +1,459 @@
 // src/components/Shops/ShopEditModal.jsx
-import { useEffect, useState } from "react";
+
+import { useState, useEffect } from "react";
 import {
   X,
-  Pencil,
   Building2,
   MapPin,
   CreditCard,
   FileText,
-  GitBranch,
-  Clock,
   Users,
+  GitBranch,
+  History,
+  Save,
   Loader2,
 } from "lucide-react";
+import { getShopById, updateShop } from "../../api/cadminShops";
 
-import DetailRow from "../User/DetailRow";
-import ShopBranchesTable from "./ShopBranchesTable";
+// Tab Components
+import ShopEditOverviewTab from "./tabs/ShopEditOverviewTab";
+import ShopEditAddressTab from "./tabs/ShopEditAddressTab";
+import ShopEditSubscriptionTab from "./tabs/ShopEditSubscriptionTab";
+import ShopEditDocumentsTab from "./tabs/ShopEditDocumentsTab";
+import ShopUsersTab from "./tabs/ShopUsersTab";
+import ShopBranchesTab from "./tabs/ShopBranchesTab";
+import ShopActivityTab from "./tabs/ShopActivityTab";
 
-const ShopEditModal = ({ shop, isOpen, onClose, onSave }) => {
+const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState("overview");
-  const [formData, setFormData] = useState({});
-  const [saving, setSaving] = useState(false);
 
+  // Full shop data
+  const [shop, setShop] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Form data for editable fields
+  const [formData, setFormData] = useState({
+    business_name: "",
+    gst_number: "",
+    business_type: "",
+    address_line_1: "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
+
+  // Track if form has changes
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  // Fetch full shop details
   useEffect(() => {
-    if (isOpen && shop) {
+    if (isOpen && basicShop?.shop_id) {
+      fetchShopDetails(basicShop.shop_id);
+    }
+  }, [isOpen, basicShop?.shop_id]);
+
+  const fetchShopDetails = async (shopId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await getShopById(shopId);
+      const shopData = response.data?.data || response.data;
+      setShop(shopData);
+
+      // Initialize form data
       setFormData({
-        businessName: shop.businessName || "",
-        ownerName: shop.ownerName || "",
-        gst: shop.gst || "",
-        businessType: shop.businessType || "",
-        verificationStatus: shop.verificationStatus || "",
-        lastLogin: shop.lastLogin || "N/A",
-        updatedAt: shop.updatedAt || "N/A",
-
-        location: {
-          pin: shop.location?.pin || "",
-          place: shop.location?.place || "",
-          state: shop.location?.state || "",
-        },
-
-        plan: shop.plan || "",
-        subscriptionStatus: shop.subscriptionStatus || "",
-        // subscriptionStart/end kept as read-only fields (system-managed)
-        subscriptionStart: shop.subscriptionStart || "",
-        subscriptionEnd: shop.subscriptionEnd || "",
+        business_name: shopData.business_name || "",
+        gst_number: shopData.gst_number || "",
+        business_type: shopData.business_type || "",
+        address_line_1: shopData.address_line_1 || "",
+        city: shopData.city || "",
+        state: shopData.state || "",
+        pincode: shopData.pincode || "",
       });
-    }
-  }, [isOpen, shop]);
 
-  if (!isOpen || !shop) return null;
-
-  const handleChange = (field, value) => {
-    if (field.startsWith("location.")) {
-      const key = field.split(".")[1];
-      setFormData((prev) => ({
-        ...prev,
-        location: { ...prev.location, [key]: value },
-      }));
-    } else {
-      setFormData((prev) => ({ ...prev, [field]: value }));
+      setHasChanges(false);
+    } catch (err) {
+      console.error("Failed to fetch shop details:", err);
+      setError(err.response?.data?.message || "Failed to load shop details");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSave = () => {
-    setSaving(true);
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveTab("overview");
+      setShop(null);
+      setError(null);
+      setFormData({
+        business_name: "",
+        gst_number: "",
+        business_type: "",
+        address_line_1: "",
+        city: "",
+        state: "",
+        pincode: "",
+      });
+      setHasChanges(false);
+    }
+  }, [isOpen]);
 
-    setTimeout(() => {
-      // Build updated object — do not overwrite subscriptionStart/End or lastLogin/updatedAt (system fields)
-      const updated = {
-        ...shop,
-        businessName: formData.businessName,
-        ownerName: formData.ownerName,
-        gst: formData.gst,
-        businessType: formData.businessType,
-        verificationStatus: formData.verificationStatus,
-        location: {
-          pin: formData.location?.pin,
-          place: formData.location?.place,
-          state: formData.location?.state,
-        },
-        plan: formData.plan,
-        subscriptionStatus: formData.subscriptionStatus,
-        // keep subscriptionStart/subscriptionEnd from original shop (system-managed)
-        subscriptionStart: shop.subscriptionStart || formData.subscriptionStart,
-        subscriptionEnd: shop.subscriptionEnd || formData.subscriptionEnd,
-      };
+  // Handle escape key
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") {
+        handleClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("keydown", handleEsc);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleEsc);
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, hasChanges]);
 
-      setSaving(false);
-      onSave?.(updated);
-      onClose(true);
-    }, 700);
+  // Handle form changes
+  const handleFormChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setHasChanges(true);
   };
 
-  const tabList = [
-    { id: "overview", label: "Overview", icon: Building2 },
-    { id: "address", label: "Address", icon: MapPin },
-    { id: "subscription", label: "Subscription", icon: CreditCard },
-    { id: "documents", label: "Documents", icon: FileText },
-    { id: "users", label: "Users", icon: Users },
-    { id: "branches", label: "Branches", icon: GitBranch },
-    { id: "activity", label: "Activity", icon: Clock },
+  // Handle save
+  const handleSave = async () => {
+    if (!shop || !hasChanges) return;
+
+    setSaveLoading(true);
+    try {
+      // Build payload with only changed fields
+      const payload = {};
+      
+      if (formData.business_name !== shop.business_name) {
+        payload.business_name = formData.business_name;
+      }
+      if (formData.gst_number !== shop.gst_number) {
+        payload.gst_number = formData.gst_number;
+      }
+      if (formData.business_type !== shop.business_type) {
+        payload.business_type = formData.business_type;
+      }
+      if (formData.address_line_1 !== shop.address_line_1) {
+        payload.address_line_1 = formData.address_line_1;
+      }
+      if (formData.city !== shop.city) {
+        payload.city = formData.city;
+      }
+      if (formData.state !== shop.state) {
+        payload.state = formData.state;
+      }
+      if (formData.pincode !== shop.pincode) {
+        payload.pincode = formData.pincode;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setHasChanges(false);
+        return;
+      }
+
+      await updateShop(shop.shop_id, payload);
+      onClose(true); // Close and refresh
+    } catch (err) {
+      console.error("Save failed:", err);
+      alert(err.response?.data?.message || "Failed to save changes");
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  // Handle close with unsaved changes warning
+  const handleClose = () => {
+    if (hasChanges) {
+      const confirm = window.confirm("You have unsaved changes. Are you sure you want to close?");
+      if (!confirm) return;
+    }
+    onClose(false);
+  };
+
+  // Refresh shop data (called after subscription/document changes)
+  const handleRefresh = () => {
+    if (shop?.shop_id) {
+      fetchShopDetails(shop.shop_id);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  // Tab configuration
+  const tabs = [
+    { id: "overview", label: "Overview", icon: Building2, editable: true },
+    { id: "address", label: "Address", icon: MapPin, editable: true },
+    { id: "subscription", label: "Subscription", icon: CreditCard, editable: true },
+    { id: "documents", label: "Documents", icon: FileText, editable: true },
+    { id: "users", label: "Users", icon: Users, editable: false },
+    { id: "branches", label: "Branches", icon: GitBranch, editable: false },
+    { id: "activity", label: "Activity", icon: History, editable: false },
   ];
 
-  // Dummy users if not present. Include subscriptionStart/End for table.
-  const usersList = (shop.users && shop.users.length
-    ? shop.users
-    : [
-        {
-          name: "Demo User",
-          email: "demo@example.com",
-          role: "Super Admin",
-          user_id: "USR-0001",
-          shop_id: shop.shopId,
-          branch_id: `${shop.shopId}-BR1`,
-        },
-      ]);
+  // Get current tab config
+  const currentTab = tabs.find((t) => t.id === activeTab);
+  const isEditableTab = currentTab?.editable && (activeTab === "overview" || activeTab === "address");
+
+  // Verification status badge
+  const getVerificationBadge = (status) => {
+    const config = {
+      verified: { bg: "bg-emerald-500/20", text: "text-emerald-300", label: "Verified" },
+      pending: { bg: "bg-blue-500/20", text: "text-blue-300", label: "Pending" },
+      pending_review: { bg: "bg-yellow-500/20", text: "text-yellow-300", label: "Pending Review" },
+      rejected: { bg: "bg-red-500/20", text: "text-red-300", label: "Rejected" },
+      partially_rejected: { bg: "bg-orange-500/20", text: "text-orange-300", label: "Partially Rejected" },
+    };
+    const style = config[status] || config.pending;
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
+        {style.label}
+      </span>
+    );
+  };
+
+  // Render tab content
+  const renderTabContent = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 size={32} className="animate-spin text-indigo-500" />
+          <span className="ml-3 text-gray-500">Loading shop details...</span>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-red-500">
+          <p className="text-lg font-medium">Error loading shop</p>
+          <p className="text-sm mt-1">{error}</p>
+          <button
+            onClick={() => fetchShopDetails(basicShop?.shop_id)}
+            className="mt-4 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+
+    if (!shop) return null;
+
+    switch (activeTab) {
+      case "overview":
+        return (
+          <ShopEditOverviewTab
+            shop={shop}
+            formData={formData}
+            onFormChange={handleFormChange}
+          />
+        );
+      case "address":
+        return (
+          <ShopEditAddressTab
+            shop={shop}
+            formData={formData}
+            onFormChange={handleFormChange}
+          />
+        );
+      case "subscription":
+        return (
+          <ShopEditSubscriptionTab
+            shop={shop}
+            onRefresh={handleRefresh}
+          />
+        );
+      case "documents":
+        return (
+          <ShopEditDocumentsTab
+            shop={shop}
+            onRefresh={handleRefresh}
+          />
+        );
+      case "users":
+        return <ShopUsersTab shop={shop} />;
+      case "branches":
+        return <ShopBranchesTab shop={shop} />;
+      case "activity":
+        return <ShopActivityTab shop={shop} />;
+      default:
+        return null;
+    }
+  };
+
+  // Display values
+  const displayName = shop?.business_name || basicShop?.business_name || "Shop";
+  const displayType = shop?.business_type || basicShop?.business_type || "";
+  const displayVerification = shop?.verification_status || basicShop?.verification_status || "pending";
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={() => onClose(false)}
+      onClick={handleClose}
     >
+      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
+      {/* Modal */}
       <div
-        className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* HEADER */}
-        <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-              <Pencil size={18} className="text-white" />
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Shop Info */}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                <span className="text-white text-lg font-bold">
+                  {displayName
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-white text-lg font-semibold">Edit: {displayName}</h2>
+                  {displayType && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/20 text-white">
+                      {displayType}
+                    </span>
+                  )}
+                  {getVerificationBadge(displayVerification)}
+                </div>
+                <p className="text-white/70 text-sm mt-0.5">
+                  Make changes to shop details
+                </p>
+              </div>
             </div>
-            <h3 className="text-white font-semibold">Edit Shop</h3>
-          </div>
 
-          <button
-            onClick={() => onClose(false)}
-            className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20"
-          >
-            <X size={18} />
-          </button>
+            {/* Header Actions */}
+            <div className="flex items-center gap-2">
+              {/* Save Button - Show for editable tabs */}
+              {isEditableTab && (
+                <button
+                  onClick={handleSave}
+                  disabled={!hasChanges || saveLoading}
+                  className={`
+                    flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                    ${hasChanges && !saveLoading
+                      ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                      : "bg-white/20 text-white/50 cursor-not-allowed"
+                    }
+                  `}
+                >
+                  {saveLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      Save Changes
+                      {hasChanges && (
+                        <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                      )}
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Close Button */}
+              <button
+                onClick={handleClose}
+                className="p-2 rounded-lg bg-white/20 text-white hover:bg-red-500/30 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* TABS */}
+        {/* Tabs */}
         <div className="flex gap-1 px-6 pt-4 bg-white border-b border-gray-200 overflow-x-auto">
-          {tabList.map((t) => {
-            const Icon = t.icon;
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
             return (
               <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-md transition-all ${
-                  activeTab === t.id
-                    ? "text-[#05015A] border-b-2 border-[#05015A]"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-md transition-all whitespace-nowrap
+                  ${isActive
+                    ? "text-[#05015A] border-b-2 border-[#05015A] bg-white"
                     : "text-gray-500 hover:text-gray-700"
-                }`}
+                  }
+                `}
               >
                 <Icon size={16} />
-                {t.label}
+                {tab.label}
+                {tab.editable && (
+                  <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" title="Editable" />
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* CONTENT AREA */}
+        {/* Content */}
         <div className="p-4 h-[60vh] overflow-auto bg-gray-50">
-          {/* OVERVIEW TAB */}
-          {activeTab === "overview" && (
-            <div className="bg-white p-6 rounded-xl border border-gray-100 space-y-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2 mb-4">
-                <Building2 size={16} /> Business
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                <DetailRow
-                  label="Business Name"
-                  value={formData.businessName}
-                  isEditing={true}
-                  fieldName="businessName"
-                  onChange={(v) => handleChange("businessName", v)}
-                />
-                <DetailRow
-                  label="GST Number"
-                  value={formData.gst}
-                  isEditing={true}
-                  fieldName="gst"
-                  onChange={(v) => handleChange("gst", v)}
-                />
-                <DetailRow
-                  label="Owner"
-                  value={formData.ownerName}
-                  isEditing={true}
-                  fieldName="ownerName"
-                  onChange={(v) => handleChange("ownerName", v)}
-                />
-                <DetailRow
-                  label="Business Type"
-                  value={formData.businessType}
-                  isEditing={true}
-                  fieldName="businessType"
-                  onChange={(v) => handleChange("businessType", v)}
-                />
-                <DetailRow
-                  label="Verification"
-                  value={formData.verificationStatus}
-                  isEditing={true}
-                  fieldName="verificationStatus"
-                  onChange={(v) => handleChange("verificationStatus", v)}
-                />
-              </div>
-
-              {/* NOT EDITABLE FIELDS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 mt-4">
-                <DetailRow label="Last Login" value={formData.lastLogin} isEditing={false} />
-                <DetailRow label="Last Updated" value={formData.updatedAt} isEditing={false} />
-              </div>
-            </div>
-          )}
-
-          {/* ADDRESS TAB */}
-          {activeTab === "address" && (
-            <div className="bg-white rounded-xl border p-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Address
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                <DetailRow
-                  label="Pincode"
-                  value={formData.location.pin}
-                  isEditing={true}
-                  fieldName="location.pin"
-                  onChange={(v) => handleChange("location.pin", v)}
-                />
-                <DetailRow
-                  label="Place"
-                  value={formData.location.place}
-                  isEditing={true}
-                  fieldName="location.place"
-                  onChange={(v) => handleChange("location.place", v)}
-                />
-                <DetailRow
-                  label="State"
-                  value={formData.location.state}
-                  isEditing={true}
-                  fieldName="location.state"
-                  onChange={(v) => handleChange("location.state", v)}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* SUBSCRIPTION TAB (Start/End are read-only) */}
-          {activeTab === "subscription" && (
-            <div className="bg-white rounded-xl border p-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Subscription
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                <DetailRow
-                  label="Plan"
-                  value={formData.plan}
-                  isEditing={true}
-                  fieldName="plan"
-                  onChange={(v) => handleChange("plan", v)}
-                />
-
-                <DetailRow
-                  label="Status"
-                  value={formData.subscriptionStatus}
-                  isEditing={true}
-                  fieldName="subscriptionStatus"
-                  onChange={(v) => handleChange("subscriptionStatus", v)}
-                />
-
-                {/* Start/End are read-only per your instruction */}
-                <DetailRow
-                  label="Start Date"
-                  value={formData.subscriptionStart || "N/A"}
-                  isEditing={false}
-                />
-                <DetailRow
-                  label="End Date"
-                  value={formData.subscriptionEnd || "N/A"}
-                  isEditing={false}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* DOCUMENTS TAB */}
-          {activeTab === "documents" && (
-            <div className="bg-white rounded-xl border p-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Documents
-              </h3>
-              <p className="text-sm text-gray-500">No documents available.</p>
-            </div>
-          )}
-
-          {/* USERS TAB (VIEW ONLY) - now includes subscription start/end */}
-           {activeTab === "users" && (
-            <div className="bg-white rounded-xl border border-gray-100 p-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Users size={16} /> Users
-              </h3>
-
-              <div className="overflow-auto rounded-md border border-gray-100">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100">
-                      <th className="p-3 text-left font-semibold text-gray-600">Name</th>
-                      <th className="p-3 text-left font-semibold text-gray-600">Email</th>
-                      <th className="p-3 text-left font-semibold text-gray-600">User ID</th>
-                      <th className="p-3 text-left font-semibold text-gray-600">Role</th>
-                      <th className="p-3 text-left font-semibold text-gray-600">Shop ID</th>
-                      <th className="p-3 text-left font-semibold text-gray-600">Branch ID</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {usersList.length > 0 ? (
-                      usersList.map((u, idx) => (
-                        <tr
-                          key={u.user_id ?? idx}
-                          className="border-b border-gray-50 hover:bg-indigo-50 cursor-pointer transition"
-                          onClick={() => window.location.assign("*")}
-                        >
-                          <td className="p-3">
-                            <a href="*" className="hover:underline text-[#05015A]">
-                              {u.name ?? u.full_name ?? "Unknown"}
-                            </a>
-                          </td>
-
-                          <td className="p-3">
-                            <a href="*" className="hover:underline text-[#05015A]">
-                              {u.email ?? "N/A"}
-                            </a>
-                          </td>
-
-                          <td className="p-3">
-                            <a href="*" className="hover:underline text-[#05015A]">
-                              {u.user_id ?? "N/A"}
-                            </a>
-                          </td>
-
-                          <td className="p-3">
-                            <a
-                              href="*"
-                              className="px-2 py-1 rounded-full text-xs bg-indigo-50 text-indigo-700 hover:underline"
-                            >
-                              {u.role ?? "Staff"}
-                            </a>
-                          </td>
-
-                          <td className="p-3">
-                            <a href="*" className="hover:underline text-[#05015A]">
-                              {u.shop_id ?? shop.shopId}
-                            </a>
-                          </td>
-
-                          <td className="p-3">
-                            <a href="*" className="hover:underline text-[#05015A]">
-                              {u.branch_id ?? "N/A"}
-                            </a>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="6" className="p-6 text-center text-gray-400">
-                          No users found for this shop.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* BRANCHES TAB */}
-          {activeTab === "branches" && <ShopBranchesTable shopId={shop.shopId} />}
-
-          {/* ACTIVITY TAB */}
-          {activeTab === "activity" && (
-            <div className="bg-white rounded-xl border p-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Activity
-              </h3>
-              <p className="text-sm text-gray-500">No activity logs available.</p>
-            </div>
-          )}
+          {renderTabContent()}
         </div>
 
-        {/* FOOTER */}
-        <div className="px-6 py-3 bg-white border-t flex justify-end gap-2">
-          <button onClick={() => onClose(false)} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200">
-            Cancel
-          </button>
+        {/* Footer */}
+        <div className="px-6 py-4 bg-white border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            {/* Left: Meta Info */}
+            <p className="text-xs text-gray-400">
+              Shop ID: {shop?.shop_id?.slice(0, 8) || basicShop?.shop_id?.slice(0, 8)}... •
+              Last Updated: {shop?.updated_at ? new Date(shop.updated_at).toLocaleDateString() : "N/A"}
+            </p>
 
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-5 py-2 rounded-lg bg-[#05015A] text-white hover:bg-[#0a0280] flex items-center gap-2 disabled:opacity-50"
-          >
-            {saving ? <Loader2 size={16} className="animate-spin" /> : "Save"}
-          </button>
+            {/* Right: Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleClose}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+
+              {isEditableTab && (
+                <button
+                  onClick={handleSave}
+                  disabled={!hasChanges || saveLoading}
+                  className={`
+                    flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                    ${hasChanges && !saveLoading
+                      ? "bg-[#05015A] text-white hover:bg-[#0a0280]"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    }
+                  `}
+                >
+                  {saveLoading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  Save Changes
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

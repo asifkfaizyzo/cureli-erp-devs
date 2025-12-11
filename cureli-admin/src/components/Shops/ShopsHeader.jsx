@@ -1,12 +1,23 @@
-import { Search, X, Download, FileSpreadsheet, Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+// src/components/Shops/ShopsHeader.jsx
+
+import { Search, X, Download, FileSpreadsheet } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import StyledSelect from "../common/StyledSelect";
+import StyledDateFilter from "../common/StyledDateFilter";
 
 const ShopsHeader = ({
-  search,
-  setSearch,
+  searchText,
+  setSearchText,
+  verificationFilter,
+  setVerificationFilter,
+  subscriptionFilter,
+  setSubscriptionFilter,
+  activeFilter,
+  setActiveFilter,
+  dateFilter,
+  setDateFilter,
   shops = [],
   totalItems = 0,
-  onAddShop,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef(null);
@@ -22,40 +33,62 @@ const ShopsHeader = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // CSV generation (Same format system used in UserHeader)
+  const hasActiveFilters =
+    !!verificationFilter || !!subscriptionFilter || !!activeFilter || !!dateFilter || !!searchText;
+
+  const clearFilters = () => {
+    setVerificationFilter("");
+    setSubscriptionFilter("");
+    setActiveFilter("");
+    setDateFilter("");
+    setSearchText("");
+  };
+
+  // CSV generator
   const generateCSV = (data) => {
     if (!data || data.length === 0) return null;
 
     const headers = [
+      "Shop ID",
       "Business Name",
       "Owner Name",
       "Business Type",
+      "GST Number",
+      "City",
+      "State",
+      "Verification Status",
       "Plan",
-      "Status",
-      "Pincode",
+      "Subscription Status",
+      "Active",
+      "Created At",
     ];
 
     const rows = data.map((shop) => [
-      shop.businessName ?? "",
-      shop.ownerName ?? "",
-      shop.businessType ?? "",
-      shop.plan ?? "",
-      shop.subscriptionStatus ?? "",
-      shop.location?.pin ?? "",
+      shop.shop_id || "",
+      shop.business_name || "",
+      shop.owner?.name || shop.owner?.full_name || "",
+      shop.business_type || "",
+      shop.gst_number || "",
+      shop.city || "",
+      shop.state || "",
+      shop.verification_status || "",
+      shop.subscription?.plan_name || "None",
+      shop.subscription?.status || "None",
+      shop.is_active ? "Active" : "Inactive",
+      shop.created_at ? new Date(shop.created_at).toLocaleDateString() : "",
     ]);
 
     const csv = [
       headers.join(","),
-      ...rows.map((row) => row.map((c) => `"${String(c)}"`).join(",")),
+      ...rows.map((r) => r.map((c) => `"${String(c ?? "")}"`).join(",")),
     ].join("\n");
 
     return new Blob([csv], { type: "text/csv;charset=utf-8;" });
   };
 
-  const exportVisible = () => {
+  const exportVisibleShops = () => {
     const blob = generateCSV(shops);
     if (!blob) return alert("No shops available to export.");
-
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `shops_export_${new Date().toISOString().split("T")[0]}.csv`;
@@ -63,45 +96,116 @@ const ShopsHeader = ({
     setShowExportMenu(false);
   };
 
+  // Verification status options
+  const verificationOptions = [
+    { value: "", label: "All Verification" },
+    { value: "pending", label: "Pending" },
+    { value: "pending_review", label: "Pending Review" },
+    { value: "verified", label: "Verified" },
+    { value: "rejected", label: "Rejected" },
+    { value: "partially_rejected", label: "Partially Rejected" },
+  ];
+
+  // Subscription status options
+  const subscriptionOptions = [
+    { value: "", label: "All Subscriptions" },
+    { value: "active", label: "Active" },
+    { value: "expired", label: "Expired" },
+    { value: "none", label: "No Subscription" },
+  ];
+
+  // Active status options
+  const activeOptions = [
+    { value: "", label: "All Status" },
+    { value: "Active", label: "Active" },
+    { value: "Inactive", label: "Inactive" },
+  ];
+
   return (
-    <div className="flex justify-between bg-white shadow-sm rounded-xl border border-gray-100 p-3">
-
-      {/* Search */}
-      <div className="flex flex-col gap-1.5 flex-1 max-w-[320px]">
-        <label className="text-xs text-gray-500 font-medium">Search</label>
-
-        <div className="relative">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-
-          <input
-            type="text"
-            placeholder="Business or owner name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-10 pl-9 pr-8 border border-gray-200 rounded-lg text-sm 
-                        bg-gray-50 focus:bg-white
-                        focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                        placeholder:text-gray-400 transition-all"
-          />
-
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded
+    <div className="flex justify-between bg-white shadow-sm rounded-xl border border-gray-100 p-2">
+      <div className="flex items-end gap-3">
+        {/* Search */}
+        <div className="flex flex-col gap-1.5 flex-1 min-w-[280px]">
+          <label className="text-xs text-gray-500 font-medium">Search</label>
+          <div className="relative">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="text"
+              placeholder="Business, owner, GST, city, pincode..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="w-full h-10 pl-9 pr-8 border border-gray-200 rounded-lg text-sm 
+                       bg-gray-50 focus:bg-white
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                       placeholder:text-gray-400 transition-all"
+            />
+            {searchText && (
+              <button
+                onClick={() => setSearchText("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded
                          text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
-            >
-              <X size={14} />
-            </button>
-          )}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Verification Status Filter */}
+        <StyledSelect
+          label="Verification"
+          value={verificationFilter}
+          onChange={setVerificationFilter}
+          placeholder="All Verification"
+          options={verificationOptions}
+        />
+
+        {/* Subscription Status Filter */}
+        <StyledSelect
+          label="Subscription"
+          value={subscriptionFilter}
+          onChange={setSubscriptionFilter}
+          placeholder="All Subscriptions"
+          options={subscriptionOptions}
+        />
+
+        {/* Active Status Filter */}
+        <StyledSelect
+          label="Status"
+          value={activeFilter}
+          onChange={setActiveFilter}
+          placeholder="All Status"
+          options={activeOptions}
+        />
+
+        {/* Date Filter */}
+        <div className="min-w-[160px]">
+          <StyledDateFilter
+            label="Created Date"
+            date={dateFilter}
+            setDate={setDateFilter}
+          />
+        </div>
+
+        {/* Clear Filters */}
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            className="h-10 px-3 text-sm text-gray-500 hover:text-red-600 
+                       hover:bg-red-50 rounded-lg
+                       flex items-center gap-1.5 transition-colors"
+          >
+            <X size={14} />
+            <span>Clear</span>
+          </button>
+        )}
       </div>
 
       {/* Right Actions */}
-      <div className="flex items-end gap-2">
-
+      <div className="flex items-center gap-2 self-center">
         {/* Export Menu */}
         <div className="relative" ref={exportMenuRef}>
           <button
@@ -110,38 +214,43 @@ const ShopsHeader = ({
                        flex items-center gap-2 hover:bg-gray-200 transition-all"
           >
             <Download size={16} />
-            Export CSV
+            <span>Export CSV</span>
           </button>
 
           {showExportMenu && (
             <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
               <button
-                onClick={exportVisible}
+                onClick={exportVisibleShops}
                 className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 
                            flex items-center gap-3 transition-colors"
               >
                 <FileSpreadsheet size={16} className="text-blue-600" />
                 <div>
                   <div className="font-medium">Export Visible</div>
-                  <div className="text-xs text-gray-400">{shops.length} shops</div>
+                  <div className="text-xs text-gray-400">
+                    {shops.length} shops
+                  </div>
                 </div>
               </button>
 
               <div className="h-px bg-gray-100" />
+
+              <button
+                onClick={exportVisibleShops}
+                className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 
+                           flex items-center gap-3 transition-colors"
+              >
+                <FileSpreadsheet size={16} className="text-green-600" />
+                <div>
+                  <div className="font-medium">Export All (Visible)</div>
+                  <div className="text-xs text-gray-400">
+                    {totalItems} total
+                  </div>
+                </div>
+              </button>
             </div>
           )}
         </div>
-
-        {/* Add Shop Button */}
-        <button
-          onClick={onAddShop}
-          className="h-10 px-5 bg-[#05015A] text-white rounded-lg text-sm font-medium 
-                     flex items-center gap-2 hover:bg-[#0a0280] active:scale-[0.98]
-                     transition-all shadow-sm hover:shadow-md"
-        >
-          <Plus size={18} strokeWidth={2.5} />
-          Add Shop
-        </button>
       </div>
     </div>
   );

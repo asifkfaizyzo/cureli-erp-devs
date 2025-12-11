@@ -72,7 +72,7 @@ const VerificationModal = ({ shop, onClose }) => {
         resubmission_count: f.resubmission_count || 0,
         storage_key: f.storage_key,
         mime_type: f.mime_type,
-        pdfUrl: f.storage_key ? `/uploads/shop-files/${f.storage_key}` : null,
+        pdfUrl: f.storage_key ? `/uploads/shop_files/${f.storage_key}` : null,
       }));
 
       setDocuments(mappedDocs);

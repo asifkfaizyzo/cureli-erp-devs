@@ -1,3 +1,5 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\config\multer.js
+
 import multer from "multer";
 import path from "path";
 import fs from "fs";

@@ -1,0 +1,177 @@
+// src/components/Shops/tabs/ShopSubscriptionTab.jsx
+
+import { CreditCard, Calendar, CheckCircle, XCircle, Clock } from "lucide-react";
+import DetailRow from "../../User/DetailRow";
+
+const ShopSubscriptionTab = ({ shop }) => {
+  if (!shop) return null;
+
+  const currentSub = shop.currentSubscription;
+  const allSubscriptions = shop.subscriptions || [];
+  const transactions = shop.paymentTransactions || [];
+
+  // Format date helper
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  // Status badge for subscription
+  const getStatusBadge = (status, isActive) => {
+    if (isActive && status === "active") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+          <CheckCircle size={10} /> Active
+        </span>
+      );
+    }
+    if (status === "expired" || !isActive) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+          <XCircle size={10} /> Expired
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+        <Clock size={10} /> {status}
+      </span>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Current Subscription */}
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <CreditCard size={16} />
+          Current Subscription
+        </h3>
+
+        {currentSub ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            <DetailRow label="Plan" value={currentSub.plan?.plan_name || "N/A"} isEditing={false} />
+            <div className="flex flex-col gap-1 py-2">
+              <label className="w-36 text-sm font-medium text-gray-500">Status</label>
+              <div className="px-4 py-2.5 rounded-lg bg-white border border-gray-200">
+                {getStatusBadge(currentSub.status, currentSub.is_active)}
+              </div>
+            </div>
+            <DetailRow label="Billing Cycle" value={currentSub.billing_cycle || "N/A"} isEditing={false} />
+            <DetailRow label="Payment Status" value={currentSub.payment_status || "N/A"} isEditing={false} />
+            <DetailRow label="Start Date" value={formatDate(currentSub.start_date)} isEditing={false} />
+            <DetailRow label="End Date" value={formatDate(currentSub.end_date)} isEditing={false} />
+            <DetailRow label="Renewal Date" value={formatDate(currentSub.renewal_date)} isEditing={false} />
+            <DetailRow label="Max Branches" value={currentSub.branch_limit_snapshot || "Unlimited"} isEditing={false} />
+            <DetailRow label="Max Users" value={currentSub.user_limit_snapshot || "Unlimited"} isEditing={false} />
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <CreditCard size={32} className="mx-auto text-gray-300 mb-2" />
+            <p>No active subscription</p>
+          </div>
+        )}
+      </div>
+
+      {/* Subscription History */}
+      {allSubscriptions.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Calendar size={16} />
+            Subscription History ({allSubscriptions.length})
+          </h3>
+
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="text-left p-3 font-semibold text-gray-600">Plan</th>
+                  <th className="text-left p-3 font-semibold text-gray-600">Cycle</th>
+                  <th className="text-left p-3 font-semibold text-gray-600">Start</th>
+                  <th className="text-left p-3 font-semibold text-gray-600">End</th>
+                  <th className="text-center p-3 font-semibold text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allSubscriptions.map((sub, index) => (
+                  <tr
+                    key={sub.subscription_id}
+                    className={`border-b border-gray-50 ${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}
+                  >
+                    <td className="p-3 font-medium text-gray-900">{sub.plan?.plan_name || "N/A"}</td>
+                    <td className="p-3 text-gray-600">{sub.billing_cycle}</td>
+                    <td className="p-3 text-gray-600">{formatDate(sub.start_date)}</td>
+                    <td className="p-3 text-gray-600">{formatDate(sub.end_date)}</td>
+                    <td className="p-3 text-center">{getStatusBadge(sub.status, sub.is_active)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Transactions */}
+      {transactions.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <CreditCard size={16} />
+            Recent Transactions ({transactions.length})
+          </h3>
+
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="text-left p-3 font-semibold text-gray-600">Transaction ID</th>
+                  <th className="text-left p-3 font-semibold text-gray-600">Plan</th>
+                  <th className="text-left p-3 font-semibold text-gray-600">Amount</th>
+                  <th className="text-left p-3 font-semibold text-gray-600">Provider</th>
+                  <th className="text-center p-3 font-semibold text-gray-600">Status</th>
+                  <th className="text-left p-3 font-semibold text-gray-600">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((txn, index) => (
+                  <tr
+                    key={txn.transaction_id}
+                    className={`border-b border-gray-50 ${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}
+                  >
+                    <td className="p-3 font-mono text-xs text-gray-600">
+                      {txn.transaction_id?.slice(0, 8)}...
+                    </td>
+                    <td className="p-3 text-gray-900">{txn.subscription?.plan?.plan_name || "N/A"}</td>
+                    <td className="p-3 text-gray-900 font-medium">
+                      ₹{(Number(txn.amount) / 100).toLocaleString()}
+                    </td>
+                    <td className="p-3 text-gray-600 capitalize">{txn.provider}</td>
+                    <td className="p-3 text-center">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          txn.status === "captured" || txn.status === "success"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : txn.status === "failed"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-yellow-100 text-yellow-700"
+                        }`}
+                      >
+                        {txn.status}
+                      </span>
+                    </td>
+                    <td className="p-3 text-gray-600">{formatDate(txn.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ShopSubscriptionTab;

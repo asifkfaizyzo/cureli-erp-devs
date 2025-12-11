@@ -105,7 +105,7 @@ async function deleteUserAndRelatedData(user) {
   if (user.shop?.shopFiles) {
     for (const file of user.shop.shopFiles) {
       try {
-        const filePath = path.join("uploads", "shop-files", file.storage_key);
+        const filePath = path.join("uploads", "shop_files", file.storage_key);
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
           filesDeleted.push(file.storage_key);
