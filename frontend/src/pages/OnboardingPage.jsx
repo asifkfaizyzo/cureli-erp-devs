@@ -1,7 +1,10 @@
+// src/pages/OnboardingPage.jsx
+
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import OnboardingHeader from "../components/layout/OnboardingHeader";
 import OnboardStepper from "../components/CustomStepper";
 
 import IdentityForm from "../components/IdentityForm";
@@ -25,10 +28,13 @@ const OnboardingPage = () => {
 
   const pending_id = location.state?.pending_id;
   const email = location.state?.email;
+  const firstName = location.state?.first_name;
+  const lastName = location.state?.last_name;
   const provider = location.state?.provider || "password";
 
   const [loading, setLoading] = useState(true);
   const [progressStep, setProgressStep] = useState(0);
+  const [userName, setUserName] = useState("");
 
   // ------------------------------------------
   // INITIALIZE STEP ON MOUNT
@@ -38,93 +44,109 @@ const OnboardingPage = () => {
   }, []);
 
   const initializeStep = async () => {
-  const routerStep = location.state?.resume_step;
-  const token = localStorage.getItem("access_token");
+    const routerStep = location.state?.resume_step;
+    const token = localStorage.getItem("access_token");
 
-  console.log("🔍 DEBUG initializeStep:");
-  console.log("  - location.state:", location.state);
-  console.log("  - pending_id:", pending_id);
-  console.log("  - routerStep:", routerStep);
-  console.log("  - access_token exists:", !!token);
-
-  // CASE 1: Router passed a specific step (from login OTP verification)
-  if (typeof routerStep === "number") {
-    console.log("✅ Using navigation step:", routerStep);
-
-    if (routerStep >= 12) {
-      navigate("/verification", {
-        state: { resume_step: routerStep },
-        replace: true,
-      });
-      return;
+    // Set user name from location state or localStorage
+    if (firstName) {
+      const fullName = `${firstName} ${lastName || ""}`.trim();
+      setUserName(fullName);
+      localStorage.setItem("user_name", fullName);
+    } else {
+      setUserName(localStorage.getItem("user_name") || "");
     }
 
-    setProgressStep(routerStep);
-    setLoading(false);
-    return;
-  }
+    console.log("🔍 DEBUG initializeStep:");
+    console.log("  - location.state:", location.state);
+    console.log("  - pending_id:", pending_id);
+    console.log("  - routerStep:", routerStep);
+    console.log("  - access_token exists:", !!token);
 
-  // CASE 2: Has access_token = Real user exists
-  // Fetch current step from backend (handles refresh correctly)
-  if (token) {
-    try {
-      const res = await getOnboardingStatus();
-      const data = res.data?.data;
+    // CASE 1: Router passed a specific step (from login OTP verification)
+    if (typeof routerStep === "number") {
+      console.log("✅ Using navigation step:", routerStep);
 
-      console.log("📡 Onboarding status from API:", data);
-
-      const step = data?.onboarding_step ?? 4;
-      const userStatus = data?.status;
-
-      // If user is past onboarding, redirect appropriately
-      if (userStatus === "pending_verification" || userStatus === "verified") {
-        navigate("/verification", { replace: true });
-        return;
-      }
-
-      // If step is >= 12, go to verification
-      if (step >= 12) {
+      if (routerStep >= 12) {
         navigate("/verification", {
-          state: { resume_step: step },
+          state: { resume_step: routerStep },
           replace: true,
         });
         return;
       }
 
-      setProgressStep(step);
+      setProgressStep(routerStep);
       setLoading(false);
       return;
-    } catch (err) {
-      console.error("Failed to fetch onboarding status:", err);
-
-      // If 401, clear tokens and redirect to login
-      if (err.response?.status === 401) {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("shop_id");
-        localStorage.removeItem("user_id");
-        navigate("/", { replace: true });
-        return;
-      }
-
-      // For other errors, still try to continue if we have pending_id
-      // Fall through to Case 3
     }
-  }
 
-  // CASE 3: Fresh signup (has pending_id, no access_token)
-  // This is a brand new user who just came from signup
-  if (pending_id && !token) {
-    console.log("📝 Fresh signup detected, starting at step 0");
-    setProgressStep(0);
+    // CASE 2: Has access_token = Real user exists
+    // Fetch current step from backend (handles refresh correctly)
+    if (token) {
+      try {
+        const res = await getOnboardingStatus();
+        const data = res.data?.data;
+
+        console.log("📡 Onboarding status from API:", data);
+
+        const step = data?.onboarding_step ?? 4;
+        const userStatus = data?.status;
+
+        // Update username from API if available
+        if (data?.user_name) {
+          setUserName(data.user_name);
+          localStorage.setItem("user_name", data.user_name);
+        }
+
+        // If user is past onboarding, redirect appropriately
+        if (userStatus === "pending_verification" || userStatus === "verified") {
+          navigate("/verification", { replace: true });
+          return;
+        }
+
+        // If step is >= 12, go to verification
+        if (step >= 12) {
+          navigate("/verification", {
+            state: { resume_step: step },
+            replace: true,
+          });
+          return;
+        }
+
+        setProgressStep(step);
+        setLoading(false);
+        return;
+      } catch (err) {
+        console.error("Failed to fetch onboarding status:", err);
+
+        // If 401, clear tokens and redirect to login
+        if (err.response?.status === 401) {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("shop_id");
+          localStorage.removeItem("user_id");
+          localStorage.removeItem("user_name");
+          navigate("/", { replace: true });
+          return;
+        }
+
+        // For other errors, still try to continue if we have pending_id
+        // Fall through to Case 3
+      }
+    }
+
+    // CASE 3: Fresh signup (has pending_id, no access_token)
+    // This is a brand new user who just came from signup
+    if (pending_id && !token) {
+      console.log("📝 Fresh signup detected, starting at step 0");
+      setProgressStep(0);
+      setLoading(false);
+      return;
+    }
+
+    // CASE 4: No token, no pending_id = redirect to home
+    console.log("❌ No valid session, redirecting to home");
+    navigate("/", { replace: true });
     setLoading(false);
-    return;
-  }
-
-  // CASE 4: No token, no pending_id = redirect to home
-  console.log("❌ No valid session, redirecting to home");
-  navigate("/", { replace: true });
-  setLoading(false);
-};
+  };
 
   // ------------------------------------------
   // NEXT STEP HANDLER
@@ -219,7 +241,7 @@ const OnboardingPage = () => {
   // ------------------------------------------
   if (loading) {
     return (
-      <div className="w-full h-screen flex items-center justify-center bg-gray-50 font-poppins">
+      <div className="min-h-dvh h-dvh flex items-center justify-center bg-gray-50 font-poppins">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#000060] border-t-transparent rounded-full animate-spin" />
           <p className="text-gray-600">Loading...</p>
@@ -229,12 +251,17 @@ const OnboardingPage = () => {
   }
 
   return (
-    <div className="w-full h-screen bg-gray-50 flex flex-col overflow-hidden font-poppins">
-      <div className="w-full flex justify-center py-4">
+    <div className="min-h-dvh h-dvh bg-gray-50 flex flex-col font-poppins">
+      {/* Header */}
+      <OnboardingHeader userName={userName} />
+
+      {/* Stepper */}
+      <div className="flex-shrink-0 w-full flex justify-center px-4 pt-4 pb-2">
         <OnboardStepper currentStep={progressStep + 1} />
       </div>
 
-      <div className="flex-1 w-full flex justify-center overflow-y-auto px-4 pb-10">
+      {/* Main Content */}
+      <div className="flex-1 min-h-0 w-full flex justify-center overflow-y-auto px-4 pb-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={progressStep}

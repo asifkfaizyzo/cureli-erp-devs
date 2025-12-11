@@ -21,6 +21,8 @@ export async function getOnboardingStatusController(req, res) {
       select: {
         status: true,
         onboarding_step: true,
+        first_name: true,
+        last_name: true,
         shop: {
           select: {
             verification_status: true,
@@ -37,6 +39,7 @@ export async function getOnboardingStatusController(req, res) {
       status: user.status,
       onboarding_step: user.onboarding_step ?? 4,
       verification_status: user.shop?.verification_status || null,
+      user_name: `${user.first_name} ${user.last_name || ""}`.trim(),
     });
   } catch (err) {
     console.error(err);

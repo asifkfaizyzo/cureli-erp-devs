@@ -258,9 +258,14 @@ export async function verifyEmailOtp(pending_id, otp) {
 
 
 export async function sendSmsOtp(pending_id, phone) {
+  console.log("📱 sendSmsOtp called with:", { pending_id, phone });
+
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
   });
+  
+  console.log("📋 Pending user found:", pending ? "Yes" : "No");
+  
   if (!pending) {
     const err = new Error("Pending user not found");
     err.code = "NOT_FOUND";
@@ -272,6 +277,7 @@ export async function sendSmsOtp(pending_id, phone) {
     pending.sms_otp_expires &&
     new Date(pending.sms_otp_expires) > new Date()
   ) {
+    console.log("⏰ OTP cooldown active, expires:", pending.sms_otp_expires);
     const err = new Error(
       "OTP already sent. Please wait before requesting again."
     );
@@ -279,11 +285,22 @@ export async function sendSmsOtp(pending_id, phone) {
     throw err;
   }
 
+  console.log("🔑 Getting MC auth token...");
+  
   // Get MessageCentral token
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
     process.env.MC_PASSWORD
   );
+  
+  console.log("✅ Auth token received:", authToken ? "Yes" : "No");
+
+  console.log("📤 Calling mcSendOtp with:", {
+    customerId: process.env.MC_CUSTOMER,
+    mobileNumber: phone,
+    otpLength: Number(process.env.SMS_OTP_LENGTH || 4),
+    countryCode: process.env.MC_COUNTRY || "91",
+  });
 
   // Call provider
   const data = await mcSendOtp({
@@ -294,10 +311,14 @@ export async function sendSmsOtp(pending_id, phone) {
     countryCode: process.env.MC_COUNTRY || "91",
   });
 
+  console.log("📥 mcSendOtp response:", JSON.stringify(data, null, 2));
+
   const verificationId =
     data?.verificationId || data?.verificationID || data?.verification_id;
   const transactionId = data?.transactionId || data?.transaction_id;
   const timeout = Number(data?.timeout || data?.time || 300);
+
+  console.log("📝 Extracted:", { verificationId, transactionId, timeout });
 
   // Save verificationId + phone + expiry
   await prisma.pendingUser.update({
@@ -309,6 +330,8 @@ export async function sendSmsOtp(pending_id, phone) {
       sms_otp_expires: new Date(Date.now() + timeout * 1000),
     },
   });
+
+  console.log("✅ Database updated successfully");
 
   return { verificationId, transactionId, timeout };
 }
