@@ -56,7 +56,7 @@ const LoginPage = () => {
         <div className="relative w-full md:w-2/5 bg-white px-6 py-10 sm:px-10 sm:py-12 flex items-center justify-center font-poppins">
           
           {/* Skewed white strip only for medium+ screens */}
-          <div className="hidden md:block absolute left-[-100px] top-0 h-full w-[200px] lg:w-[220px] bg-white transform -skew-x-[12deg]" />
+          <div className="hidden md:block absolute left-[-115px] top-0 h-full w-[200px] lg:w-[220px] bg-white transform -skew-x-[12deg]" />
 
           {/* Form container */}
           <div className="relative z-10 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-sm bg-white rounded-xl p-6 sm:p-8 transition-all">
