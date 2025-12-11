@@ -154,9 +154,9 @@ const PurchasePage = () => {
       const width = window.innerWidth;
       let count = 6; // Default / Mobile
 
-      if (width >= 2560) count = 18;       // 4k / 27 inch
-      else if (width >= 1920) count = 16;  // 1080p Full HD
-      else if (width >= 1440) count = 11;  // 19 inch / high res laptop
+      if (width >= 2560) count = 21;       // 4k / 27 inch
+      else if (width >= 1920) count = 20;  // 1080p Full HD
+      else if (width >= 1440) count = 16;  // 19 inch / high res laptop
       else if (width >= 1366) count = 6;   // 14 inch laptop (Specific requirement)
       else count = 6;
 

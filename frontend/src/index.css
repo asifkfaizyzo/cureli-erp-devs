@@ -11,21 +11,24 @@ input[type="number"] {
   -moz-appearance: textfield; /* Firefox */
 }
 
-/* In your global CSS */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+::-webkit-scrollbar {
+  width: 4px;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 153, 255, 0.3); /* cureli-blue transparent */
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 153, 255, 0.55);
+}
+
+
+::-webkit-scrollbar-track {
   background: transparent;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1; /* gray-300 */
-  border-radius: 20px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8; /* gray-400 */
-}
+
 
 
 @keyframes fadeOverlay {
@@ -36,4 +39,5 @@ input[type="number"] {
 .animate-fadeOverlay {
   animation: fadeOverlay 120ms ease-out;
 }
+
 

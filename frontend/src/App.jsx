@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
 // Public Pages
-import Home from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
@@ -20,6 +19,10 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import BillingPage from "./pages/BillingPage.jsx";
 import InvoicePage from "./pages/InvoicePage.jsx";
 import PurchasePage from "./pages/PurchasePage.jsx";
+
+
+//landing pages
+import Home from "./pages/home/Home.jsx";
 
 import "./index.css";
 
