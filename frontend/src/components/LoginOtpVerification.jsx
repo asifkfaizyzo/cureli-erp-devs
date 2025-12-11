@@ -6,23 +6,21 @@ import { getMySubscription } from "../api/subscription";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
-
 const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   const navigate = useNavigate();
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(30);
-  
 
   const inputsRef = useRef([]);
 
-  // Focus first box
+  // Auto focus first input
   useEffect(() => {
     inputsRef.current[0]?.focus();
   }, []);
 
-  // Countdown
+  // Countdown timer
   useEffect(() => {
     if (timer > 0) {
       const interval = setInterval(() => setTimer((t) => t - 1), 1000);
@@ -30,7 +28,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     }
   }, [timer]);
 
-  // Change handler
+  // OTP change
   const handleChange = (value, index) => {
     if (/^[0-9]?$/.test(value)) {
       const updated = [...otp];
@@ -38,10 +36,8 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       setOtp(updated);
       setError("");
 
-      // Move forward
       if (value && index < 3) inputsRef.current[index + 1].focus();
 
-      // Auto submit
       if (index === 3 && value) {
         const full = [...updated.slice(0, 3), value].join("");
         setTimeout(() => handleVerify(full), 120);
@@ -55,11 +51,10 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     }
   };
 
-  // Paste support
+  // Paste 4-digit OTP
   const handlePaste = (e) => {
     e.preventDefault();
     const data = e.clipboardData.getData("text").trim();
-
     if (/^\d{4}$/.test(data)) {
       const digits = data.split("");
       setOtp(digits);
@@ -81,7 +76,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     setError("");
 
     try {
-      // Step 1: verify OTP
       const res = await verifyLoginOtp({
         temp_token: tempToken,
         otp: code,
@@ -93,34 +87,34 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       localStorage.setItem("shop_id", shop_id);
       localStorage.setItem("user_id", user_id);
 
-      // Step 2: If onboarding fully complete
+      // 🔥 CASE 1 — Fully verified user → Dashboard or Plan Selection
       if (next_step === -1) {
         try {
-          // Always use the helper, NOT axios directly
-          const subRes = await getMySubscription();
-          const payload = subRes.data?.data;
+          const sub = await getMySubscription();
+          const p = sub.data?.data;
 
-          const hasActive =
-            payload?.has_active_subscription ||
-            payload?.current_plan ||
-            false;
+          const hasActive = p?.has_active_subscription || p?.current_plan;
 
-          if (!hasActive) {
-            navigate("/plan-selection");
-            return;
-          }
-
-          navigate("/dashboard");
+          navigate(hasActive ? "/dashboard" : "/plan-selection");
           return;
-        } catch (err) {
-          // Fail-safe → send user to plan selection
+        } catch {
           navigate("/plan-selection");
           return;
         }
       }
 
-      // Step 3: If onboarding not complete → continue
-      navigate("/onboarding", { state: { resume_step: next_step } });
+      // 🔥 CASE 2 — Verification Flow
+      if ([12, 14, 15].includes(next_step)) {
+        navigate("/verification", {
+          state: { resume_step: next_step },
+        });
+        return;
+      }
+
+      // 🔥 CASE 3 — Normal Onboarding Flow
+      navigate("/onboarding", {
+        state: { resume_step: next_step },
+      });
     } catch (err) {
       console.error(err);
       const msg =
@@ -146,7 +140,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      {/* BACK BUTTON */}
       <div
         className="absolute top-8 left-6 flex items-center gap-2 text-[#000060] cursor-pointer hover:underline"
         onClick={onBack}
@@ -177,10 +170,10 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
             onKeyDown={(e) => handleKeyDown(e, index)}
             disabled={loading}
             className={`w-14 h-16 text-center text-2xl font-semibold border rounded-xl
-              ${error ? "border-red-500" : "border-gray-300"}
-              ${digit ? "border-[#000060] bg-[#F7F7FF]" : ""}
-              focus:ring-2 focus:ring-[#000060] outline-none transition
-              disabled:bg-gray-100 disabled:cursor-not-allowed`}
+            ${error ? "border-red-500" : "border-gray-300"}
+            ${digit ? "border-[#000060] bg-[#F7F7FF]" : ""}
+            focus:ring-2 focus:ring-[#000060] outline-none transition
+            disabled:bg-gray-100 disabled:cursor-not-allowed`}
           />
         ))}
       </div>
@@ -190,23 +183,21 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       )}
 
       <button
-  onClick={() => handleVerify()}
-  disabled={loading || otp.join("").length !== 4}
-  className="w-[300px] bg-[#000060] text-white py-3 rounded-xl font-semibold mt-10 
-    hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
->
-  {loading ? (
-    <div className="flex items-center justify-center gap-2">
-      <Loader2 className="h-5 w-5 animate-spin" />
-      Verifying...
-    </div>
-  ) : (
-    "Continue"
-  )}
-</button>
+        onClick={() => handleVerify()}
+        disabled={loading || otp.join("").length !== 4}
+        className="w-[300px] bg-[#000060] text-white py-3 rounded-xl font-semibold mt-10 
+          hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+      >
+        {loading ? (
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Verifying...
+          </div>
+        ) : (
+          "Continue"
+        )}
+      </button>
 
-
-      {/* TIMER */}
       <p className="mt-4 text-sm text-gray-600">
         {timer > 0 ? (
           <>
@@ -223,24 +214,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
             Resend OTP
           </span>
         )}
-      </p>
-
-      <p className="text-center text-[13px] text-gray-400 mt-10 w-[300px]">
-        This site is protected by reCAPTCHA and the <br />
-        <span
-          onClick={() => navigate("/privacy")}
-          className="text-[#000060] underline cursor-pointer"
-        >
-          Google Privacy
-        </span>{" "}
-        policy and{" "}
-        <span
-          onClick={() => navigate("/terms")}
-          className="text-[#000060] underline cursor-pointer"
-        >
-          Terms of Service
-        </span>{" "}
-        apply.
       </p>
     </motion.div>
   );

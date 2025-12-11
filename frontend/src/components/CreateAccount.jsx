@@ -62,6 +62,7 @@ const CreateAccount = ({ onLoginClick }) => {
 
   const handleGoogleSignup = async (response) => {
     try {
+      localStorage.removeItem("onboarding_step");
       const credential = response.credential;
 
       const res = await googleSignup({ credential });
@@ -82,6 +83,7 @@ const CreateAccount = ({ onLoginClick }) => {
   };
 
   const handleCreateAccount = async () => {
+    localStorage.removeItem("onboarding_step");
     if (!validate()) return;
 
     // ✅ CHECK IF RECAPTCHA IS READY

@@ -1,19 +1,35 @@
-// src/api/cadminDocs.js
+// cureli-admin/src/api/cadminDocs.js
+
 import CAdminAPI from "./axios";
 
-export async function getAdminFiles({ status = "uploaded", q = "", limit = 12, offset = 0 } = {}) {
-  const params = { status, q, limit, offset };
+/**
+ * GET /cadmin/files
+ * List shops for verification with filters, sorting, pagination
+ */
+export function listShopsForVerification(params = {}) {
   return CAdminAPI.get("/files", { params });
 }
 
-export async function getAdminFile(file_id) {
-  return CAdminAPI.get(`/files/${file_id}`);
+/**
+ * GET /cadmin/shops/:shop_id
+ * Get shop details with all files for verification modal
+ */
+export function getShopVerificationDetail(shop_id) {
+  return CAdminAPI.get(`/shops/${shop_id}`);
 }
 
-export async function verifyAdminFile(file_id) {
+/**
+ * PATCH /cadmin/files/:file_id/verify
+ * Approve a document
+ */
+export function verifyFile(file_id) {
   return CAdminAPI.patch(`/files/${file_id}/verify`);
 }
 
-export async function rejectAdminFile(file_id, reason) {
+/**
+ * PATCH /cadmin/files/:file_id/reject
+ * Reject a document with reason
+ */
+export function rejectFile(file_id, reason) {
   return CAdminAPI.patch(`/files/${file_id}/reject`, { reason });
 }

@@ -1,3 +1,5 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\auth\auth.controller.js
+
 import prisma from "../../config/prisma.js";
 import { fail, success } from "../../utils/response.js";
 import jwt from "jsonwebtoken";

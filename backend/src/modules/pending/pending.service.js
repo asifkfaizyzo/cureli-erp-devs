@@ -81,35 +81,59 @@ export async function createPendingUserFromGoogle({
   first_name,
   last_name,
 }) {
-  // Check actual user
-  const existingUser = await prisma.user.findUnique({ where: { email } });
+  // 🔥 Check if google_id already exists in User table
+  if (google_id) {
+    const existingGoogleUser = await prisma.user.findUnique({
+      where: { google_id },
+    });
+
+    if (existingGoogleUser) {
+      const err = new Error("This Google account is already registered. Please login instead.");
+      err.code = "GOOGLE_ID_EXISTS";
+      throw err;
+    }
+  }
+
+  // Check if email already exists in User table
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
   if (existingUser) {
-    const err = new Error("Email already registered. Please login.");
+    const err = new Error("Email already registered. Please login instead.");
     err.code = "EMAIL_EXISTS";
     throw err;
   }
 
-  // Check pending
+  // Check if email exists in PendingUser table (ongoing signup)
   const existingPending = await prisma.pendingUser.findUnique({
     where: { email },
   });
 
   if (existingPending) {
-    // 🔥 Delete old incomplete signup
-    await prisma.pendingUser.delete({
-      where: { pending_id: existingPending.pending_id },
+    // Update existing pending user with Google info and return it
+    const updated = await prisma.pendingUser.update({
+      where: { email },
+      data: {
+        google_id,
+        first_name,
+        last_name,
+        login_provider: "google",
+        email_verified: true, // Google emails are pre-verified
+      },
     });
+    return updated;
   }
 
-  // Create pending without password, auto-verify email for Google
+  // Create new pending user
   const pending = await prisma.pendingUser.create({
     data: {
+      google_id,
+      email,
       first_name,
       last_name,
-      email,
-      google_id,
       login_provider: "google",
-      email_verified: true, // Auto-verified for Google
+      email_verified: true, // Google emails are pre-verified
     },
   });
 
@@ -460,23 +484,29 @@ export async function finalizePendingSignup(pending_id) {
     throw err;
   }
 
-  // CREATE SUPERADMIN
-  const user = await prisma.user.create({
-    data: {
-      first_name: pending.first_name,
-      last_name: pending.last_name,
-      full_name: pending.first_name + " " + pending.last_name,
-      email: pending.email,
-      username: pending.username,
-      phone_number: pending.phone,
-      password_hash: pending.password_hash || null,
-      login_provider: pending.login_provider || "password",
-      google_id: pending.google_id || null,
-      role: "super_admin",
-      status: "pending_setup",
-      is_active: true,
-    },
-  });
+  // Build user data conditionally
+const userData = {
+  first_name: pending.first_name,
+  last_name: pending.last_name,
+  full_name: pending.first_name + " " + pending.last_name,
+  email: pending.email,
+  username: pending.username,
+  phone_number: pending.phone,
+  password_hash: pending.password_hash || null,
+  login_provider: pending.login_provider || "password",
+  role: "super_admin",
+  status: "pending_setup",
+  is_active: true,
+};
+
+// Only add google_id if it actually exists
+if (pending.google_id) {
+  userData.google_id = pending.google_id;
+}
+
+const user = await prisma.user.create({
+  data: userData,
+});
 
   // NOW create the shop row linked to this user
   const shop = await prisma.shop.create({

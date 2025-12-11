@@ -34,3 +34,11 @@ export const googleSetPassword = (data) =>
 
 export const completeOnboarding = () =>
   API.post("/auth/complete-onboarding");
+
+// Update onboarding step progress
+export const updateOnboardingStep = (step) =>
+  API.post("/auth/onboarding-step", { step });
+
+// Get current user's onboarding status (for page refresh)
+export const getOnboardingStatus = () =>
+  API.get("/auth/onboarding-status");

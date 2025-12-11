@@ -56,7 +56,7 @@ const UploadProof = ({ onContinue }) => {
 
             await uploadShopFile(formData);
 
-            localStorage.setItem("onboarding_step", 9);
+            
 
             onContinue();
         } catch (err) {

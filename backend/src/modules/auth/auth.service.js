@@ -1,3 +1,4 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\auth\auth.service.js
 import prisma from "../../config/prisma.js";
 import { hashPassword } from "../../utils/hash.js";
 import { generateResetToken, hashToken } from "../../utils/tokens.js";

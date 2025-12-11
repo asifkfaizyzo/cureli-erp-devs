@@ -56,7 +56,7 @@ const UploadEALisence = ({ onContinue }) => {
 
             await uploadShopFile(formData);
 
-            localStorage.setItem("onboarding_step", 10);
+            
 
             onContinue();
         } catch (err) {

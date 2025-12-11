@@ -1,39 +1,97 @@
-const VerificationDetailsTop = ({ user }) => {
-  const dummy = {
-    ownerId: "1323445",
-    username: "ALEX645836",
-    address: "Sunrise Technologies Noida, 201309",
-    gst: "27ABCDE1234A1Z5",
-    busiType: "Private Limited",
-    loginProvider: "Google",
-    phone: "7035261820",
+// cureli-admin/src/components/Verification/VerificationDetailsTop.jsx
+
+import {
+  Building2,
+  User,
+  MapPin,
+  FileText,
+  Phone,
+  Mail,
+  Hash,
+  Calendar,
+} from "lucide-react";
+
+const VerificationDetailsTop = ({ shop }) => {
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   };
 
-  const InputField = ({ label, value }) => (
-    <div className="flex flex-col gap-1 group">
-      <label className="text-slate-400 font-semibold text-[11px] uppercase tracking-wider group-hover:text-blue-600 transition-colors">{label}</label>
-      <div className="w-full border border-slate-200 bg-slate-50 text-slate-700 rounded-md px-3 py-2 text-[13px] font-medium shadow-sm outline-none hover:border-blue-300 transition-colors">
-        {value || "N/A"}
+  const DetailRow = ({ icon: Icon, label, value, className = "" }) => (
+    <div className={`flex items-start gap-3 py-3 ${className}`}>
+      <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+        <Icon size={16} className="text-indigo-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-0.5">
+          {label}
+        </p>
+        <p className="text-sm font-medium text-gray-800 truncate">
+          {value || "N/A"}
+        </p>
       </div>
     </div>
   );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
-      <div className="col-span-1 md:col-span-2 pb-1 border-b border-slate-100 mb-1">
-         <h4 className="text-sm font-semibold text-slate-800">Personal Information</h4>
+    <div className="space-y-6">
+      {/* Business Information */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Building2 size={16} />
+          Business Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+          <DetailRow icon={Building2} label="Business Name" value={shop?.business_name} />
+          <DetailRow icon={FileText} label="Legal Name" value={shop?.legal_name} />
+          <DetailRow icon={Hash} label="GST Number" value={shop?.gst_number} />
+          <DetailRow icon={FileText} label="Business Type" value={shop?.business_type} />
+          <DetailRow icon={Hash} label="Shop ID" value={shop?.shop_id} />
+          <DetailRow icon={Calendar} label="Registered On" value={formatDate(shop?.created_at)} />
+        </div>
       </div>
 
-      <InputField label="Shop Name" value={user.shopName} />
-      <InputField label="Owner Name" value={user.ownerName} />
-      <InputField label="Email Address" value={user.email} />
-      <InputField label="Phone Number" value={dummy.phone} />
-      <InputField label="Shop ID" value={user.shopId} />
-      <InputField label="Username" value={dummy.username} />
-      <InputField label="GST Number" value={dummy.gst} />
-      <InputField label="Business Type" value={dummy.busiType} />
-      <InputField label="Address" value={dummy.address} />
-      <InputField label="Subscription Date" value={user.date} />
+      {/* Owner Information */}
+      <div className="pt-4 border-t border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <User size={16} />
+          Owner Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+          <DetailRow icon={User} label="Full Name" value={shop?.owner?.full_name} />
+          <DetailRow icon={User} label="Username" value={shop?.owner?.username ? `@${shop.owner.username}` : null} />
+          <DetailRow icon={Mail} label="Email Address" value={shop?.owner?.email} />
+          <DetailRow icon={Phone} label="Phone Number" value={shop?.owner?.phone_number} />
+        </div>
+      </div>
+
+      {/* Address Information */}
+      <div className="pt-4 border-t border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <MapPin size={16} />
+          Business Address
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+          <DetailRow icon={MapPin} label="Address Line 1" value={shop?.address_line_1} />
+          <DetailRow icon={MapPin} label="City" value={shop?.city} />
+          <DetailRow icon={MapPin} label="State" value={shop?.state} />
+          <DetailRow icon={Hash} label="Pincode" value={shop?.pincode} />
+        </div>
+      </div>
+
+      {/* Verification Notes */}
+      {shop?.verification_notes && (
+        <div className="pt-4 border-t border-gray-100">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <h4 className="text-sm font-semibold text-amber-800 mb-2">Verification Notes</h4>
+            <p className="text-sm text-amber-700">{shop.verification_notes}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

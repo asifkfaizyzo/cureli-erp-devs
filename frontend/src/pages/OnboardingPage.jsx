@@ -1,7 +1,6 @@
-// pages/OnboardingPage.jsx
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import OnboardStepper from "../components/CustomStepper";
 
@@ -17,32 +16,148 @@ import UploadProof from "../components/UploadProof";
 import UploadEALisence from "../components/UploadEALisence";
 import UploadBPan from "../components/UploadBPan";
 import UploadAddressProof from "../components/UploadAddressProof";
-import VerificationPending from "../components/VerificationPending";
-import OnboardSuccess from "../components/OnboardSuccess";
 import CreatePassword from "../components/CreatePassword";
+import { getOnboardingStatus, updateOnboardingStep } from "../api/auth";
 
 const OnboardingPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const pending_id = location.state?.pending_id;
   const email = location.state?.email;
   const provider = location.state?.provider || "password";
 
-  const [progressStep, setProgressStep] = useState(
-    location.state?.resume_step ?? 0
-  );
+  const [loading, setLoading] = useState(true);
+  const [progressStep, setProgressStep] = useState(0);
 
-  // Continue Step
-  const handleContinue = () => setProgressStep((prev) => prev + 1);
-
-  // Skip ahead if user already past first steps
+  // ------------------------------------------
+  // INITIALIZE STEP ON MOUNT
+  // ------------------------------------------
   useEffect(() => {
-    if (progressStep < 4 && location.state?.resume_step >= 4) {
-      setProgressStep(location.state.resume_step);
-    }
+    initializeStep();
   }, []);
 
-  // Step Rendering
+  const initializeStep = async () => {
+  const routerStep = location.state?.resume_step;
+  const token = localStorage.getItem("access_token");
+
+  console.log("🔍 DEBUG initializeStep:");
+  console.log("  - location.state:", location.state);
+  console.log("  - pending_id:", pending_id);
+  console.log("  - routerStep:", routerStep);
+  console.log("  - access_token exists:", !!token);
+
+  // CASE 1: Router passed a specific step (from login OTP verification)
+  if (typeof routerStep === "number") {
+    console.log("✅ Using navigation step:", routerStep);
+
+    if (routerStep >= 12) {
+      navigate("/verification", {
+        state: { resume_step: routerStep },
+        replace: true,
+      });
+      return;
+    }
+
+    setProgressStep(routerStep);
+    setLoading(false);
+    return;
+  }
+
+  // CASE 2: Has access_token = Real user exists
+  // Fetch current step from backend (handles refresh correctly)
+  if (token) {
+    try {
+      const res = await getOnboardingStatus();
+      const data = res.data?.data;
+
+      console.log("📡 Onboarding status from API:", data);
+
+      const step = data?.onboarding_step ?? 4;
+      const userStatus = data?.status;
+
+      // If user is past onboarding, redirect appropriately
+      if (userStatus === "pending_verification" || userStatus === "verified") {
+        navigate("/verification", { replace: true });
+        return;
+      }
+
+      // If step is >= 12, go to verification
+      if (step >= 12) {
+        navigate("/verification", {
+          state: { resume_step: step },
+          replace: true,
+        });
+        return;
+      }
+
+      setProgressStep(step);
+      setLoading(false);
+      return;
+    } catch (err) {
+      console.error("Failed to fetch onboarding status:", err);
+
+      // If 401, clear tokens and redirect to login
+      if (err.response?.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("shop_id");
+        localStorage.removeItem("user_id");
+        navigate("/", { replace: true });
+        return;
+      }
+
+      // For other errors, still try to continue if we have pending_id
+      // Fall through to Case 3
+    }
+  }
+
+  // CASE 3: Fresh signup (has pending_id, no access_token)
+  // This is a brand new user who just came from signup
+  if (pending_id && !token) {
+    console.log("📝 Fresh signup detected, starting at step 0");
+    setProgressStep(0);
+    setLoading(false);
+    return;
+  }
+
+  // CASE 4: No token, no pending_id = redirect to home
+  console.log("❌ No valid session, redirecting to home");
+  navigate("/", { replace: true });
+  setLoading(false);
+};
+
+  // ------------------------------------------
+  // NEXT STEP HANDLER
+  // ------------------------------------------
+  const handleContinue = async () => {
+    const nextStep = progressStep + 1;
+
+    // For steps 4+, update the backend
+    if (nextStep >= 4 && nextStep <= 12) {
+      try {
+        await updateOnboardingStep(nextStep);
+        console.log("✅ Backend step updated to:", nextStep);
+      } catch (err) {
+        console.error("Failed to update step in backend:", err);
+        // Continue anyway - don't block user progress
+      }
+    }
+
+    // Redirect to verification flow
+    if (nextStep >= 12) {
+      navigate("/verification", {
+        state: { resume_step: nextStep },
+        replace: true,
+      });
+      return;
+    }
+
+    setProgressStep(nextStep);
+  };
+
+  // ------------------------------------------
+  // RENDER STEPS
+  // ------------------------------------------
   const renderStep = () => {
     switch (progressStep) {
       case 0:
@@ -57,9 +172,13 @@ const OnboardingPage = () => {
         );
 
       case 1:
-        return <PhoneDetails pending_id={pending_id} onContinue={handleContinue} />;
+        return (
+          <PhoneDetails pending_id={pending_id} onContinue={handleContinue} />
+        );
+
       case 2:
         return <PhoneOTP pending_id={pending_id} onContinue={handleContinue} />;
+
       case 3:
         return (
           <IdentityForm
@@ -85,25 +204,36 @@ const OnboardingPage = () => {
         return <UploadBPan onContinue={handleContinue} />;
       case 11:
         return <UploadAddressProof onContinue={handleContinue} />;
-      case 12:
-        return <VerificationPending onContinue={handleContinue} />;
-      case 13:
-        return <OnboardSuccess />;
 
       default:
+        navigate("/verification", {
+          state: { resume_step: 12 },
+          replace: true,
+        });
         return null;
     }
   };
 
+  // ------------------------------------------
+  // LOADING STATE
+  // ------------------------------------------
+  if (loading) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-gray-50 font-poppins">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[#000060] border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-screen bg-gray-50 flex flex-col overflow-hidden font-poppins">
-
-      {/* TOP FIXED STEPPER */}
       <div className="w-full flex justify-center py-4">
         <OnboardStepper currentStep={progressStep + 1} />
       </div>
 
-      {/* FORM CONTENT (scrollable) */}
       <div className="flex-1 w-full flex justify-center overflow-y-auto px-4 pb-10">
         <AnimatePresence mode="wait">
           <motion.div

@@ -1,65 +1,319 @@
-import { RotateCcw, Download, FileText, CheckCircle2, AlertCircle } from "lucide-react";
+// cureli-admin/src/components/Verification/DocumentCard.jsx
 
-const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
-  const getStatusStyles = () => {
-    switch (doc.status) {
-      case "approved": return "border-emerald-200 bg-emerald-50/40 ring-1 ring-emerald-100";
-      case "failed": return "border-red-200 bg-red-50/40 ring-1 ring-red-100";
-      default: return "border-slate-200 bg-white hover:border-blue-300 hover:shadow-md";
-    }
+import { useState } from "react";
+import {
+  RotateCcw,
+  Download,
+  ExternalLink,
+  FileText,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Image,
+  File,
+  X,
+  ZoomIn,
+  ZoomOut,
+  Eye,
+  Loader2,
+  Info,
+  RefreshCw,
+} from "lucide-react";
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+
+const FILE_TYPE_LABELS = {
+  drug_license: "Drug License",
+  pharmacy_registration: "Pharmacy Registration",
+  gst_certificate: "GST Certificate",
+  business_registration_proof: "Business Registration",
+  shop_establishment_license: "Shop Establishment",
+  address_proof: "Address Proof",
+  pan_card: "PAN Card",
+  fssai_license: "FSSAI License",
+};
+
+const getFileUrl = (storageKey) => {
+  if (!storageKey) return null;
+  if (storageKey.startsWith("http")) return storageKey;
+  return `${BACKEND_URL}/uploads/shop-files/${storageKey}`;
+};
+
+// Compact Tooltip Component
+const Tooltip = ({ children, content, position = "top" }) => {
+  const [show, setShow] = useState(false);
+  
+  const positionClasses = {
+    top: "bottom-full left-1/2 -translate-x-1/2 mb-2",
+    bottom: "top-full left-1/2 -translate-x-1/2 mt-2",
+    left: "right-full top-1/2 -translate-y-1/2 mr-2",
+    right: "left-full top-1/2 -translate-y-1/2 ml-2",
   };
 
   return (
-    <div className={`relative rounded-lg border transition-all duration-300 flex flex-col justify-between group ${getStatusStyles()}`}>
+    <div 
+      className="relative inline-flex"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      {show && content && (
+        <div className={`absolute z-50 ${positionClasses[position]} animate-in fade-in zoom-in-95 duration-150`}>
+          <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-lg max-w-xs">
+            {content}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Compact File Preview Modal
+const FilePreviewModal = ({ isOpen, onClose, doc }) => {
+  const [zoom, setZoom] = useState(100);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+
+  if (!isOpen || !doc) return null;
+
+  const fileUrl = getFileUrl(doc.storage_key);
+  const isImage = doc.mime_type?.includes("image");
+  const isPdf = doc.mime_type?.includes("pdf");
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       
-      {/* TOP CONTENT */}
-      <div className="p-3">
-        <div className="flex justify-between items-start mb-2">
-          <div className="flex items-center gap-2.5">
-            <div className={`p-2 rounded-lg transition-colors ${doc.status === 'normal' ? 'bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600' : 'bg-white shadow-sm'}`}>
-              <FileText size={16} />
+      <div
+        className="relative w-full max-w-5xl h-[85vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Compact Header */}
+        <div className="flex items-center justify-between px-4 py-3 bg-[#05015A] shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+              {isImage ? <Image size={16} className="text-white" /> : <FileText size={16} className="text-white" />}
             </div>
-            <div className="min-w-0">
-              <h4 className="font-semibold text-[12px] text-slate-800 truncate pr-2" title={doc.name}>{doc.name}</h4>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">PDF</span>
+            <div>
+              <h3 className="text-white font-medium text-sm">{FILE_TYPE_LABELS[doc.file_type] || doc.file_type}</h3>
+              <p className="text-white/60 text-xs truncate max-w-[200px]">{doc.name}</p>
             </div>
           </div>
-          <a href={doc.pdfUrl} download className="text-slate-400 hover:text-[#0F172A] bg-transparent hover:bg-slate-100 p-1 rounded transition-all"><Download size={14} /></a>
+
+          <div className="flex items-center gap-1">
+            {isImage && !imageError && (
+              <div className="flex items-center bg-white/10 rounded-lg p-0.5 mr-2">
+                <button onClick={() => setZoom(p => Math.max(p - 25, 50))} className="p-1.5 text-white/70 hover:text-white">
+                  <ZoomOut size={14} />
+                </button>
+                <span className="text-white text-xs px-2">{zoom}%</span>
+                <button onClick={() => setZoom(p => Math.min(p + 25, 200))} className="p-1.5 text-white/70 hover:text-white">
+                  <ZoomIn size={14} />
+                </button>
+              </div>
+            )}
+            <button onClick={() => window.open(fileUrl, "_blank")} className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg">
+              <ExternalLink size={16} />
+            </button>
+            <button onClick={onClose} className="p-2 text-white hover:bg-red-500/50 rounded-lg ml-1">
+              <X size={18} />
+            </button>
+          </div>
         </div>
-        
-        <div className="bg-slate-50/80 rounded p-2 mt-2 border border-slate-100">
-           <div className="flex justify-between text-[10px] mb-1"><span className="text-slate-500 font-medium">Date</span><span className="text-slate-700 font-semibold">{doc.date}</span></div>
-           <div className="flex justify-between text-[10px]"><span className="text-slate-500 font-medium">Size</span><span className="text-slate-700 font-semibold">{doc.size}</span></div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto bg-gray-900 flex items-center justify-center">
+          {isImage && (
+            <div className="relative w-full h-full flex items-center justify-center p-4">
+              {imageLoading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 size={32} className="animate-spin text-white/50" />
+                </div>
+              )}
+              {!imageError && (
+                <img
+                  src={fileUrl}
+                  alt={doc.name}
+                  className="max-w-full max-h-full object-contain transition-transform duration-200"
+                  style={{ transform: `scale(${zoom / 100})` }}
+                  onLoad={() => setImageLoading(false)}
+                  onError={() => { setImageLoading(false); setImageError(true); }}
+                />
+              )}
+              {imageError && (
+                <div className="text-center text-gray-400">
+                  <Image size={48} className="mx-auto mb-2 opacity-50" />
+                  <p>Failed to load image</p>
+                </div>
+              )}
+            </div>
+          )}
+          {isPdf && (
+            <iframe src={`${fileUrl}#toolbar=1`} className="w-full h-full border-0" title={doc.name} />
+          )}
+          {!isImage && !isPdf && (
+            <div className="text-center text-gray-400 p-8">
+              <File size={48} className="mx-auto mb-2 opacity-50" />
+              <p>Preview not available</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main Compact Document Card
+const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
+  const [showPreview, setShowPreview] = useState(false);
+  const fileUrl = getFileUrl(doc.storage_key);
+
+  const getFileIcon = () => {
+    if (doc.mime_type?.includes("image")) return Image;
+    if (doc.mime_type?.includes("pdf")) return FileText;
+    return File;
+  };
+
+  const FileIcon = getFileIcon();
+
+  const statusConfig = {
+    approved: {
+      border: "border-l-emerald-500",
+      bg: "bg-emerald-50/50",
+      icon: <CheckCircle size={12} className="text-emerald-600" />,
+      label: "Verified",
+      labelBg: "bg-emerald-100 text-emerald-700",
+    },
+    failed: {
+      border: "border-l-red-500",
+      bg: "bg-red-50/50",
+      icon: <XCircle size={12} className="text-red-600" />,
+      label: "Rejected",
+      labelBg: "bg-red-100 text-red-700",
+    },
+    normal: {
+      border: "border-l-amber-500",
+      bg: "bg-white",
+      icon: <Clock size={12} className="text-amber-600" />,
+      label: "Pending",
+      labelBg: "bg-amber-100 text-amber-700",
+    },
+  };
+
+  const config = statusConfig[doc.status] || statusConfig.normal;
+
+  return (
+    <>
+      <div className={`group rounded-lg border border-l-4 ${config.border} ${config.bg} hover:shadow-md transition-all duration-200`}>
+        <div className="p-3">
+          {/* Top Row: Icon, Title, Status */}
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div 
+                className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-indigo-100 transition"
+                onClick={() => setShowPreview(true)}
+              >
+                <FileIcon size={14} className="text-gray-500" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="font-semibold text-xs text-gray-800 truncate">
+                  {FILE_TYPE_LABELS[doc.file_type] || doc.file_type}
+                </h4>
+                <p className="text-[10px] text-gray-400 truncate">{doc.name}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Resubmission Badge with Hover */}
+              {doc.resubmission_count > 0 && (
+                <Tooltip content={`Resubmitted ${doc.resubmission_count} time(s)`}>
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 rounded text-amber-700">
+                    <RefreshCw size={10} />
+                    <span className="text-[10px] font-medium">{doc.resubmission_count}</span>
+                  </div>
+                </Tooltip>
+              )}
+              
+              {/* Status Badge */}
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${config.labelBg}`}>
+                {config.icon}
+                <span className="hidden sm:inline">{config.label}</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Rejection Reason - Hover Tooltip */}
+          {doc.status === "failed" && doc.reason && (
+            <Tooltip content={doc.reason} position="bottom">
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-red-50 border border-red-100 rounded text-[10px] text-red-600 cursor-help mb-2">
+                <Info size={10} />
+                <span className="truncate">Hover to see reason</span>
+              </div>
+            </Tooltip>
+          )}
+
+          {/* Meta Row */}
+          <div className="flex items-center justify-between text-[10px] text-gray-400 mb-2">
+            <span>{doc.date}</span>
+            <span>{doc.size}</span>
+          </div>
+
+          {/* Action Buttons - Compact */}
+          <div className="flex items-center gap-1.5">
+            {doc.status === "normal" && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onApprove(); }}
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-emerald-600 text-white text-[10px] font-semibold rounded hover:bg-emerald-700 transition"
+                >
+                  <CheckCircle size={12} />
+                  Approve
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onReject(); }}
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-white border border-gray-200 text-gray-600 text-[10px] font-semibold rounded hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition"
+                >
+                  <XCircle size={12} />
+                  Reject
+                </button>
+              </>
+            )}
+
+            {(doc.status === "approved" || doc.status === "failed") && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onReset(); }}
+                className="flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-600 text-[10px] font-semibold rounded hover:bg-gray-200 transition"
+              >
+                <RotateCcw size={12} />
+                Reset
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowPreview(true)}
+              className="flex items-center justify-center gap-1 px-2 py-1.5 bg-indigo-50 text-indigo-600 text-[10px] font-semibold rounded hover:bg-indigo-100 transition ml-auto"
+            >
+              <Eye size={12} />
+              View
+            </button>
+
+            {fileUrl && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(fileUrl, "_blank");
+                }}
+                className="p-1.5 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+              >
+                <Download size={14} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* BOTTOM ACTIONS */}
-      <div className="p-2.5 bg-white/50 border-t border-slate-100">
-        {doc.status === "normal" && (
-          <div className="flex gap-2">
-            <button onClick={() => onApprove(doc.id)} className="flex-1 bg-emerald-600 text-white hover:bg-emerald-700 py-1.5 rounded text-[11px] font-bold shadow-sm transition-all">Approve</button>
-            <button onClick={() => onReject(doc.id)} className="flex-1 bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 py-1.5 rounded text-[11px] font-bold transition-all">Reject</button>
-          </div>
-        )}
-        
-        {doc.status === "approved" && (
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-1.5 text-emerald-700"><CheckCircle2 size={14} /><span className="text-[11px] font-bold">Verified</span></div>
-            <button onClick={() => onReset(doc.id)} className="text-slate-400 hover:text-emerald-700 p-1 rounded transition-all"><RotateCcw size={12} /></button>
-          </div>
-        )}
-        
-        {doc.status === "failed" && (
-          <div className="flex flex-col gap-1 px-1">
-            <div className="flex items-center justify-between text-red-600">
-               <div className="flex items-center gap-1.5"><AlertCircle size={14} /><span className="text-[11px] font-bold">Rejected</span></div>
-               <button onClick={() => onReset(doc.id)} className="text-slate-400 hover:text-red-600 p-1 rounded transition-all"><RotateCcw size={12} /></button>
-            </div>
-            {doc.reason && <p className="text-[10px] text-red-500 pl-5 font-medium truncate">"{doc.reason}"</p>}
-          </div>
-        )}
-      </div>
-    </div>
+      <FilePreviewModal isOpen={showPreview} onClose={() => setShowPreview(false)} doc={doc} />
+    </>
   );
 };
 

@@ -1,8 +1,4 @@
-/**
- * Simple query validator middleware for /cadmin/users
- * - Validates query params and normalizes them on req.validated
- * - Does not depend on global validateBody helper (keeps module self-contained)
- */
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\cadmin\users\cadminUser.schema.js
 
 import { fail } from "../../../utils/response.js";
 
