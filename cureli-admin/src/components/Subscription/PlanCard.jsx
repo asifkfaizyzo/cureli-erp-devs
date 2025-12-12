@@ -1,3 +1,4 @@
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\components\Subscription\PlanCard.jsx
 import { Pencil } from "lucide-react";
 
 const PlanCard = ({ plan, onEdit, onToggle }) => {

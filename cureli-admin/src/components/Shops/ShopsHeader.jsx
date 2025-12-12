@@ -20,6 +20,7 @@ const ShopsHeader = ({
   totalItems = 0,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const exportMenuRef = useRef(null);
 
   // Close export menu on outside click
@@ -94,6 +95,18 @@ const ShopsHeader = ({
     link.download = `shops_export_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     setShowExportMenu(false);
+  };
+
+  // Toggle menu with position calculation
+  const handleToggleMenu = () => {
+    if (!showExportMenu && exportMenuRef.current) {
+      const rect = exportMenuRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
+    }
+    setShowExportMenu(!showExportMenu);
   };
 
   // Verification status options
@@ -209,7 +222,7 @@ const ShopsHeader = ({
         {/* Export Menu */}
         <div className="relative" ref={exportMenuRef}>
           <button
-            onClick={() => setShowExportMenu(!showExportMenu)}
+            onClick={handleToggleMenu}
             className="h-10 px-4 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium 
                        flex items-center gap-2 hover:bg-gray-200 transition-all"
           >
@@ -218,7 +231,13 @@ const ShopsHeader = ({
           </button>
 
           {showExportMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+            <div 
+              className="fixed w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden"
+              style={{
+                top: `${menuPosition.top}px`,
+                right: `${menuPosition.right}px`,
+              }}
+            >
               <button
                 onClick={exportVisibleShops}
                 className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 

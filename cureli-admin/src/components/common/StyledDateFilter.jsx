@@ -1,29 +1,39 @@
 // cureli-admin/src/components/common/StyledDateFilter.jsx
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Calendar as CalendarIcon, X, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 const StyledDateFilter = ({ label, date, setDate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const [dropdownPosition, setDropdownPosition] = useState(null);
   const triggerRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Update dropdown position when opened
-  useEffect(() => {
-    if (isOpen && triggerRef.current) {
+  // Calculate position before opening
+  const updatePosition = useCallback(() => {
+    if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       setDropdownPosition({
         top: rect.bottom + 4,
         left: rect.left,
       });
     }
-  }, [isOpen]);
+  }, []);
+
+  // Handle opening - calculate position first, then open
+  const handleToggle = () => {
+    if (!isOpen) {
+      updatePosition();
+    }
+    setIsOpen(!isOpen);
+  };
 
   // Close on outside click
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (e) => {
       if (
         triggerRef.current && !triggerRef.current.contains(e.target) &&
@@ -34,16 +44,23 @@ const StyledDateFilter = ({ label, date, setDate }) => {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Close on scroll
-  useEffect(() => {
-    if (isOpen) {
-      const handleScroll = () => setIsOpen(false);
-      window.addEventListener("scroll", handleScroll, true);
-      return () => window.removeEventListener("scroll", handleScroll, true);
-    }
   }, [isOpen]);
+
+  // Close on scroll and update position on resize
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleScroll = () => setIsOpen(false);
+    const handleResize = () => updatePosition();
+
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [isOpen, updatePosition]);
 
   // Date Logic
   const daysInMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
@@ -117,7 +134,8 @@ const StyledDateFilter = ({ label, date, setDate }) => {
 
   const isActive = Boolean(date);
 
-  const dropdown = isOpen
+  // Only render dropdown when open AND position is calculated
+  const dropdown = isOpen && dropdownPosition
     ? createPortal(
         <div
           ref={dropdownRef}
@@ -170,7 +188,7 @@ const StyledDateFilter = ({ label, date, setDate }) => {
         <button
           ref={triggerRef}
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleToggle}
           className={`
             h-10 pl-10 pr-10 border rounded-lg text-sm text-left 
             flex items-center w-auto min-w-[160px] shadow-sm whitespace-nowrap

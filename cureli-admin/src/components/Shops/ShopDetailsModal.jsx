@@ -22,7 +22,6 @@ import ConfirmDialog from "../common/ConfirmDialog";
 
 // Tab Components (View Mode)
 import ShopOverviewTab from "./tabs/ShopOverviewTab";
-import ShopAddressTab from "./tabs/ShopAddressTab";
 import ShopSubscriptionTab from "./tabs/ShopSubscriptionTab";
 import ShopDocumentsTab from "./tabs/ShopDocumentsTab";
 import ShopUsersTab from "./tabs/ShopUsersTab";
@@ -31,7 +30,6 @@ import ShopActivityTab from "./tabs/ShopActivityTab";
 
 // Tab Components (Edit Mode)
 import ShopEditOverviewTab from "./tabs/ShopEditOverviewTab";
-import ShopEditAddressTab from "./tabs/ShopEditAddressTab";
 import ShopEditSubscriptionTab from "./tabs/ShopEditSubscriptionTab";
 import ShopEditDocumentsTab from "./tabs/ShopEditDocumentsTab";
 
@@ -60,7 +58,6 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
     gst_number: "",
     business_type: "",
     address_line_1: "",
-    address_line_2: "",
     city: "",
     state: "",
     pincode: "",
@@ -97,7 +94,6 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
         gst_number: shopData.gst_number || "",
         business_type: shopData.business_type || "",
         address_line_1: shopData.address_line_1 || "",
-        address_line_2: shopData.address_line_2 || "",
         city: shopData.city || "",
         state: shopData.state || "",
         pincode: shopData.pincode || "",
@@ -128,7 +124,6 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
         gst_number: "",
         business_type: "",
         address_line_1: "",
-        address_line_2: "",
         city: "",
         state: "",
         pincode: "",
@@ -165,7 +160,6 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
   // Tab configuration
   const tabs = [
     { id: "overview", label: "Overview", icon: Building2, editable: true },
-    { id: "address", label: "Address", icon: MapPin, editable: true },
     { id: "subscription", label: "Subscription", icon: CreditCard, editable: true },
     { id: "documents", label: "Documents", icon: FileText, editable: true },
     { id: "users", label: "Users", icon: Users, editable: false },
@@ -256,9 +250,6 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
       }
       if (formData.address_line_1 !== shop.address_line_1) {
         payload.address_line_1 = formData.address_line_1;
-      }
-      if (formData.address_line_2 !== shop.address_line_2) {
-        payload.address_line_2 = formData.address_line_2;
       }
       if (formData.city !== shop.city) {
         payload.city = formData.city;
@@ -357,12 +348,6 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
           <ShopEditOverviewTab shop={shop} formData={formData} onFormChange={handleFormChange} />
         ) : (
           <ShopOverviewTab shop={shop} />
-        );
-      case "address":
-        return isEditing ? (
-          <ShopEditAddressTab shop={shop} formData={formData} onFormChange={handleFormChange} />
-        ) : (
-          <ShopAddressTab shop={shop} />
         );
       case "subscription":
         return isEditing ? (

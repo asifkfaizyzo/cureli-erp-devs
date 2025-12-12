@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { updateShopGst } from "../api/shop";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown, Check } from "lucide-react";
 
 const BusinessTypeAndGST = ({ onContinue }) => {
     const [form, setForm] = useState({
@@ -12,16 +13,21 @@ const BusinessTypeAndGST = ({ onContinue }) => {
     const [errors, setErrors] = useState({});
     const [gstValid, setGstValid] = useState(null);
     const [loading, setLoading] = useState(false);
+    
+    // Dropdown state
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [dropdownPosition, setDropdownPosition] = useState(null);
 
     const gstRef = useRef(null);
     const typeRef = useRef(null);
+    const dropdownRef = useRef(null);
 
     const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
     const businessTypes = [
-        "Sole Proprietorship",
-        "Partnership",
-        "Private Limited",
-        "LLP",
+        { value: "Sole Proprietorship", label: "Sole Proprietorship" },
+        { value: "Partnership", label: "Partnership" },
+        { value: "Private Limited", label: "Private Limited" },
+        { value: "LLP", label: "LLP" },
     ];
 
     const navigate = useNavigate();
@@ -40,9 +46,62 @@ const BusinessTypeAndGST = ({ onContinue }) => {
         }
     }, [shop_id, navigate]);
 
-    useEffect(() => {
-        typeRef.current?.focus();
+    // Calculate dropdown position before opening
+    const updateDropdownPosition = useCallback(() => {
+        if (typeRef.current) {
+            const rect = typeRef.current.getBoundingClientRect();
+            setDropdownPosition({
+                top: rect.bottom + 4,
+                left: rect.left,
+                width: rect.width,
+            });
+        }
     }, []);
+
+    const handleDropdownToggle = () => {
+        if (!isDropdownOpen) {
+            updateDropdownPosition();
+        }
+        setIsDropdownOpen(!isDropdownOpen);
+    };
+
+    const handleSelectOption = (value) => {
+        setForm((prev) => ({ ...prev, type: value }));
+        setErrors((prev) => ({ ...prev, type: "" }));
+        setIsDropdownOpen(false);
+    };
+
+    // Close on outside click
+    useEffect(() => {
+        if (!isDropdownOpen) return;
+
+        const handleClickOutside = (e) => {
+            if (
+                typeRef.current && !typeRef.current.contains(e.target) &&
+                dropdownRef.current && !dropdownRef.current.contains(e.target)
+            ) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [isDropdownOpen]);
+
+    // Close on scroll and update position on resize
+    useEffect(() => {
+        if (!isDropdownOpen) return;
+
+        const handleScroll = () => setIsDropdownOpen(false);
+        const handleResize = () => updateDropdownPosition();
+
+        window.addEventListener("scroll", handleScroll, true);
+        window.addEventListener("resize", handleResize);
+
+        return () => {
+            window.removeEventListener("scroll", handleScroll, true);
+            window.removeEventListener("resize", handleResize);
+        };
+    }, [isDropdownOpen, updateDropdownPosition]);
 
     const handleChange = (field, value) => {
         setForm((prev) => ({ ...prev, [field]: value }));
@@ -81,6 +140,48 @@ const BusinessTypeAndGST = ({ onContinue }) => {
         setLoading(false);
     };
 
+    // Get selected option label
+    const selectedLabel = businessTypes.find((t) => t.value === form.type)?.label;
+
+    // Render dropdown via portal
+    const renderDropdown = () => {
+        if (!isDropdownOpen || !dropdownPosition) return null;
+
+        return createPortal(
+            <div
+                ref={dropdownRef}
+                className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl py-1 overflow-hidden"
+                style={{
+                    top: dropdownPosition.top,
+                    left: dropdownPosition.left,
+                    width: dropdownPosition.width,
+                }}
+            >
+                {businessTypes.map((option) => (
+                    <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleSelectOption(option.value)}
+                        className={`
+                            w-full px-4 py-3 text-sm text-left flex items-center justify-between
+                            transition-colors duration-150
+                            ${form.type === option.value
+                                ? "bg-[#000060]/10 text-[#000060]"
+                                : "text-gray-700 hover:bg-gray-50"
+                            }
+                        `}
+                    >
+                        <span className="font-medium">{option.label}</span>
+                        {form.type === option.value && (
+                            <Check size={16} className="text-[#000060] flex-shrink-0" />
+                        )}
+                    </button>
+                ))}
+            </div>,
+            document.body
+        );
+    };
+
     return (
         <div
             className="w-full max-w-xl font-poppins"
@@ -90,57 +191,96 @@ const BusinessTypeAndGST = ({ onContinue }) => {
                 Add Your Business Type & GST Number
             </h2>
 
-            {/* BUSINESS TYPE */}
-            <label className="text-xs font-bold text-[#000060]">Business Type *</label>
-            <select
-                ref={typeRef}
-                value={form.type}
-                onChange={(e) => handleChange("type", e.target.value)}
-                className={`w-full mt-1 px-3 py-2 bg-white border rounded-lg 
-                    ${errors.type ? "border-red-500" : "border-gray-300"}
-                    focus:ring-2 focus:ring-[#000060] transition`}
-            >
-                <option value="">Select business type</option>
-                {businessTypes.map((t, idx) => (
-                    <option key={idx} value={t}>{t}</option>
-                ))}
-            </select>
-            {errors.type && <p className="text-red-500 text-xs mt-1 mb-3">{errors.type}</p>}
+            {/* BUSINESS TYPE - Custom Dropdown */}
+            <div className="mb-4">
+                <label className="text-xs font-bold text-[#000060] block mb-1">
+                    Business Type *
+                </label>
+                <button
+                    ref={typeRef}
+                    type="button"
+                    onClick={handleDropdownToggle}
+                    className={`
+                        w-full px-3 py-2.5 bg-white border rounded-lg text-left
+                        flex items-center justify-between
+                        transition-all duration-200
+                        ${errors.type 
+                            ? "border-red-500 focus:ring-2 focus:ring-red-500/20" 
+                            : isDropdownOpen
+                                ? "border-[#000060] ring-2 ring-[#000060]/20"
+                                : "border-gray-300 hover:border-gray-400 focus:ring-2 focus:ring-[#000060]/20"
+                        }
+                    `}
+                >
+                    <span className={selectedLabel ? "text-gray-900" : "text-gray-400"}>
+                        {selectedLabel || "Select business type"}
+                    </span>
+                    <ChevronDown
+                        size={18}
+                        className={`
+                            text-gray-400 transition-transform duration-200
+                            ${isDropdownOpen ? "rotate-180 text-[#000060]" : ""}
+                        `}
+                    />
+                </button>
+                {renderDropdown()}
+                {errors.type && (
+                    <p className="text-red-500 text-xs mt-1">{errors.type}</p>
+                )}
+            </div>
 
             {/* GST NUMBER */}
-            <label className="text-xs font-bold text-[#000060]">GST Number *</label>
-            <input
-                ref={gstRef}
-                type="text"
-                maxLength={15}
-                value={form.gst}
-                placeholder="Enter GST number"
-                onChange={(e) => {
-                    const value = e.target.value.toUpperCase();
-                    handleChange("gst", value);
-                    setGstValid(value === "" ? null : GST_REGEX.test(value));
-                }}
-                className={`w-full mt-1 px-3 py-2 bg-white border rounded-lg transition
-                    ${
-                        gstValid === null
-                            ? "border-gray-300"
-                            : gstValid
-                            ? "border-green-600"
-                            : "border-red-500"
-                    }
-                    focus:ring-2 focus:ring-[#000060]`}
-            />
+            <div className="mb-4">
+                <label className="text-xs font-bold text-[#000060] block mb-1">
+                    GST Number *
+                </label>
+                <input
+                    ref={gstRef}
+                    type="text"
+                    maxLength={15}
+                    value={form.gst}
+                    placeholder="Enter GST number"
+                    onChange={(e) => {
+                        const value = e.target.value.toUpperCase();
+                        handleChange("gst", value);
+                        setGstValid(value === "" ? null : GST_REGEX.test(value));
+                    }}
+                    className={`
+                        w-full px-3 py-2.5 bg-white border rounded-lg transition-all duration-200
+                        focus:outline-none focus:ring-2
+                        ${
+                            errors.gst
+                                ? "border-red-500 focus:ring-red-500/20"
+                                : gstValid === null
+                                    ? "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
+                                    : gstValid
+                                        ? "border-green-500 focus:ring-green-500/20"
+                                        : "border-red-500 focus:ring-red-500/20"
+                        }
+                    `}
+                />
+                {gstValid === false && (
+                    <p className="text-red-500 text-xs mt-1">Invalid GST number</p>
+                )}
+                {gstValid === true && (
+                    <p className="text-green-600 text-xs mt-1 flex items-center gap-1">
+                        <Check size={12} />
+                        Valid GST number
+                    </p>
+                )}
+                {errors.gst && !gstValid && (
+                    <p className="text-red-500 text-xs mt-1">{errors.gst}</p>
+                )}
+            </div>
 
-            {gstValid === false && <p className="text-red-500 text-xs mt-1">Invalid GST number</p>}
-            {gstValid === true && <p className="text-green-600 text-xs mt-1">Valid GST number ✓</p>}
-            {errors.gst && <p className="text-red-500 text-xs mt-1 mb-4">{errors.gst}</p>}
-
-            {/* UPDATED BUTTON WITH SPINNER */}
+            {/* SUBMIT BUTTON */}
             <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="w-full bg-[#000060] text-white py-2 rounded-xl mt-2
-                           hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="w-full bg-[#000060] text-white py-3 rounded-xl mt-2
+                           font-medium hover:bg-[#000060]/90 transition-all duration-200
+                           disabled:bg-gray-400 disabled:cursor-not-allowed
+                           focus:outline-none focus:ring-2 focus:ring-[#000060]/50 focus:ring-offset-2"
             >
                 {loading ? (
                     <div className="flex items-center justify-center gap-2">
