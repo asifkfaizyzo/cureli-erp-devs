@@ -4,7 +4,46 @@ import prisma from "../../../config/prisma.js";
 import fs from "fs";
 import path from "path";
 
+// ✅ Import the correct updateShopVerificationStatus from cadminDocs
+import { createVerificationLog } from "../cadminDocs/cadminDocs.service.js";
 
+/**
+ * Helper: Update shop verification status based on document statuses
+ * ✅ Single source of truth - matches cadminDocs logic exactly
+ */
+async function updateShopVerificationStatus(shop_id) {
+  const allFiles = await prisma.shopFile.findMany({
+    where: { shop_id },
+  });
+
+  const filesVerified = allFiles.filter((f) => f.status === "verified").length;
+  const filesRejected = allFiles.filter((f) => f.status === "rejected").length;
+  const filesTotal = allFiles.length;
+
+  let newStatus = "pending_review";
+
+  if (filesTotal === 0) {
+    newStatus = "pending";
+  } else if (filesVerified === filesTotal) {
+    newStatus = "verified";
+  } else if (filesRejected === filesTotal) {
+    newStatus = "rejected";
+  } else if (filesRejected > 0) {
+    newStatus = "partially_rejected";
+  } else {
+    newStatus = "pending_review";
+  }
+
+  await prisma.shop.update({
+    where: { shop_id },
+    data: {
+      verification_status: newStatus,
+      updated_at: new Date(),
+    },
+  });
+
+  return newStatus;
+}
 
 /**
  * Update shop subscription (create new subscription with new plan)
@@ -124,7 +163,7 @@ export async function uploadShopDocument({
   shop_id,
   file_type,
   file,
-  uploaded_by,
+  uploaded_by, // This is cadmin_id
 }) {
   // Check if shop exists
   const shop = await prisma.shop.findUnique({
@@ -174,7 +213,7 @@ export async function uploadShopDocument({
         storage_key: storageKey,
         mime_type: mimeType,
         file_size: fileSize,
-        status: "pending_review", // Reset to pending for admin review
+        status: "uploaded", // ✅ Reset to "uploaded" (consistent with user uploads)
         verification_notes: null,
         resubmission_count: existingDoc.resubmission_count + 1,
         last_resubmitted_at: new Date(),
@@ -184,45 +223,43 @@ export async function uploadShopDocument({
       },
     });
 
-    // Log the replacement
-    await prisma.fileVerificationLog.create({
-      data: {
-        file_id: shopFile.file_id,
-        shop_id,
-        action: "replaced_by_admin",
-        notes: `Document replaced by admin (ID: ${uploaded_by})`,
-        performed_by: uploaded_by,
-      },
+    // ✅ FIX: Use correct field names for FileVerificationLog
+    await createVerificationLog({
+      file_id: shopFile.file_id,
+      shop_id,
+      cadmin_id: uploaded_by,        // ✅ Correct field name
+      actor_type: "admin",           // ✅ Required field
+      action: "replaced_by_admin",
+      reason: `Document replaced by admin`,  // ✅ Correct field name
     });
   } else {
-    // Create new document record
+    // ✅ FIX: Use correct field name "uploaded_by" instead of "user_id"
     shopFile = await prisma.shopFile.create({
       data: {
         shop_id,
-        user_id: shop.owner.user_id, // Attribute to shop owner
+        uploaded_by: shop.owner.user_id,  // ✅ Correct field name
         file_type,
         original_name: originalName,
         storage_key: storageKey,
         mime_type: mimeType,
         file_size: fileSize,
-        status: "pending_review",
+        status: "uploaded",  // ✅ Consistent status value
         resubmission_count: 0,
       },
     });
 
-    // Log the upload
-    await prisma.fileVerificationLog.create({
-      data: {
-        file_id: shopFile.file_id,
-        shop_id,
-        action: "uploaded_by_admin",
-        notes: `Document uploaded by admin (ID: ${uploaded_by})`,
-        performed_by: uploaded_by,
-      },
+    // ✅ FIX: Use correct field names for FileVerificationLog
+    await createVerificationLog({
+      file_id: shopFile.file_id,
+      shop_id,
+      cadmin_id: uploaded_by,        // ✅ Correct field name
+      actor_type: "admin",           // ✅ Required field
+      action: "uploaded_by_admin",
+      reason: `Document uploaded by admin`,  // ✅ Correct field name
     });
   }
 
-  // Update shop verification status if needed
+  // Update shop verification status
   await updateShopVerificationStatus(shop_id);
 
   return {
@@ -236,48 +273,6 @@ export async function uploadShopDocument({
     uploaded_at: shopFile.uploaded_at,
   };
 }
-
-/**
- * Helper: Update shop verification status based on document statuses
- */
-async function updateShopVerificationStatus(shop_id) {
-  const documents = await prisma.shopFile.findMany({
-    where: { shop_id },
-  });
-
-  if (documents.length === 0) {
-    return;
-  }
-
-  const allVerified = documents.every((d) => d.status === "verified");
-  const anyRejected = documents.some((d) => d.status === "rejected");
-  const anyPending = documents.some(
-    (d) => d.status === "pending" || d.status === "pending_review"
-  );
-
-  let newStatus;
-
-  if (allVerified) {
-    newStatus = "verified";
-  } else if (anyRejected && anyPending) {
-    newStatus = "partially_rejected";
-  } else if (anyRejected && !anyPending) {
-    newStatus = "rejected";
-  } else if (anyPending) {
-    newStatus = "pending_review";
-  } else {
-    newStatus = "pending";
-  }
-
-  await prisma.shop.update({
-    where: { shop_id },
-    data: {
-      verification_status: newStatus,
-      updated_at: new Date(),
-    },
-  });
-}
-
 
 /**
  * List shops with filters, sorting, and pagination
@@ -375,7 +370,7 @@ export async function listShops({
 
   // Build orderBy
   const orderBy = {};
-  
+
   // Handle special sort fields
   if (sort_by === "owner") {
     orderBy.owner = { full_name: sort_order };
@@ -441,9 +436,8 @@ export async function listShops({
     prisma.shop.count({ where }),
   ]);
 
-  // Format response
+  // Format response - ✅ Consistent field names for frontend
   const formattedShops = shops.map((shop) => ({
-    id: shop.shop_id,
     shop_id: shop.shop_id,
     business_name: shop.business_name,
     legal_name: shop.legal_name,
@@ -460,7 +454,8 @@ export async function listShops({
     owner: shop.owner
       ? {
           user_id: shop.owner.user_id,
-          name: shop.owner.full_name,
+          name: shop.owner.full_name,       // ✅ "name" for list view
+          full_name: shop.owner.full_name,  // ✅ Also include full_name for compatibility
           email: shop.owner.email,
           username: shop.owner.username,
           is_active: shop.owner.is_active,
@@ -496,6 +491,7 @@ export async function listShops({
 /**
  * Get single shop with full details
  */
+
 export async function getShopById(shop_id) {
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
@@ -535,7 +531,7 @@ export async function getShopById(shop_id) {
           },
         },
         orderBy: [
-          { branch_type: "asc" }, // main first
+          { branch_type: "asc" },
           { created_at: "asc" },
         ],
       },
@@ -654,7 +650,7 @@ export async function getShopById(shop_id) {
           },
         },
         orderBy: { created_at: "desc" },
-        take: 20, // Limit to recent 20 transactions
+        take: 20,
       },
       _count: {
         select: {
@@ -674,9 +670,20 @@ export async function getShopById(shop_id) {
     throw err;
   }
 
-  // Get verification logs for this shop's files
+  // ✅ Get verification logs with explicit field selection
   const verificationLogs = await prisma.fileVerificationLog.findMany({
     where: { shop_id },
+    select: {
+      id: true,
+      file_id: true,
+      shop_id: true,
+      cadmin_id: true,
+      actor_type: true,
+      action: true,
+      reason: true,
+      meta: true,
+      created_at: true,
+    },
     orderBy: { created_at: "desc" },
     take: 50,
   });
@@ -737,13 +744,11 @@ export async function updateShop(shop_id, updates, cadmin_id) {
       state: true,
       pincode: true,
       verification_status: true,
-      verification_notes: true,
+      verification_notes: true,  // ✅ FIX: Correct field name
       is_active: true,
       updated_at: true,
     },
   });
-
-  // TODO: Log this action if you have an admin activity log
 
   return updatedShop;
 }
@@ -785,16 +790,6 @@ export async function toggleShopActive(shop_id, is_active, cadmin_id) {
       updated_at: true,
     },
   });
-
-  // TODO: Optionally also suspend/activate all users under this shop
-  // if (!is_active) {
-  //   await prisma.user.updateMany({
-  //     where: { shop_id },
-  //     data: { is_active: false },
-  //   });
-  // }
-
-  // TODO: Log this action
 
   return updatedShop;
 }

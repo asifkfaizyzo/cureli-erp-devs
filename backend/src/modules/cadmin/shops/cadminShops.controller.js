@@ -46,7 +46,6 @@ export async function updateShopSubscriptionController(req, res) {
     return fail(res, err.message || "Failed to update subscription", 500);
   }
 }
-
 /**
  * Upload document on behalf of shop
  */
@@ -102,8 +101,6 @@ export async function uploadShopDocumentController(req, res) {
     return fail(res, err.message || "Failed to upload document", 500);
   }
 }
-
-
 /**
  * List shops with filters, sorting, and pagination
  */
@@ -146,7 +143,6 @@ export async function listShopsController(req, res) {
     return fail(res, err.message || "Failed to fetch shops", 500);
   }
 }
-
 /**
  * Get single shop with full details
  */
@@ -175,7 +171,6 @@ export async function getShopByIdController(req, res) {
     return fail(res, err.message || "Failed to fetch shop", 500);
   }
 }
-
 /**
  * Update shop details
  */
@@ -231,7 +226,6 @@ export async function updateShopController(req, res) {
     return fail(res, err.message || "Failed to update shop", 500);
   }
 }
-
 /**
  * Toggle shop active status (suspend/activate)
  */
@@ -263,7 +257,6 @@ export async function toggleShopActiveController(req, res) {
     return fail(res, err.message || "Failed to toggle shop status", 500);
   }
 }
-
 export async function getShopStatsController(req, res) {
   try {
     const stats = await getShopStats();

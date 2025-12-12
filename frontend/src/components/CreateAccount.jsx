@@ -4,12 +4,12 @@ import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { googleSignup, signupUser } from "../api/auth";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
-import { useGoogleReCaptcha } from "react-google-recaptcha-v3"; // ✅ ADD
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import api from "../api/axios";
 
 const CreateAccount = ({ onLoginClick }) => {
   const navigate = useNavigate();
-  const { executeRecaptcha } = useGoogleReCaptcha(); // ✅ ADD
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -27,6 +27,20 @@ const CreateAccount = ({ onLoginClick }) => {
   const lastNameRef = useRef(null);
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
+
+  // ---------------------------
+  // CLEAR PREVIOUS SESSION
+  // ---------------------------
+  const clearPreviousSession = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("shop_id");
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("user_name");
+    localStorage.removeItem("onboarding_step");
+
+    // Clear refresh_token cookie
+    document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  };
 
   // ---------------------------
   // VALIDATION
@@ -62,9 +76,10 @@ const CreateAccount = ({ onLoginClick }) => {
 
   const handleGoogleSignup = async (response) => {
     try {
-      localStorage.removeItem("onboarding_step");
-      const credential = response.credential;
+      // ✅ Clear any existing session before new signup
+      clearPreviousSession();
 
+      const credential = response.credential;
       const res = await googleSignup({ credential });
 
       navigate("/onboarding", {
@@ -83,7 +98,6 @@ const CreateAccount = ({ onLoginClick }) => {
   };
 
   const handleCreateAccount = async () => {
-    localStorage.removeItem("onboarding_step");
     if (!validate()) return;
 
     // ✅ CHECK IF RECAPTCHA IS READY
@@ -95,6 +109,9 @@ const CreateAccount = ({ onLoginClick }) => {
     setLoading(true);
 
     try {
+      // ✅ Clear any existing session before new signup
+      clearPreviousSession();
+
       // ✅ GET RECAPTCHA TOKEN
       const recaptchaToken = await executeRecaptcha("signup");
 
@@ -103,7 +120,7 @@ const CreateAccount = ({ onLoginClick }) => {
         last_name: form.last_name,
         email: form.email,
         password: form.password,
-        recaptchaToken, // ✅ SEND TOKEN TO BACKEND
+        recaptchaToken,
       };
 
       const res = await signupUser(payload);
@@ -140,15 +157,15 @@ const CreateAccount = ({ onLoginClick }) => {
         <div className="w-1/2">
           <label className="text-xs font-bold text-[#000060]">First Name</label>
           <input
-  type="text"
-  placeholder="Enter your First Name"
-  className={`w-full mt-1 px-2 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
-    errors.first_name ? "border-red-500" : "border-gray-300"
-  } placeholder-xs sm:placeholder-sm md:placeholder-sm`}
-  value={form.first_name}
-  onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-  onKeyDown={(e) => e.key === "Enter" && lastNameRef.current.focus()}
-/>
+            type="text"
+            placeholder="Enter your First Name"
+            className={`w-full mt-1 px-2 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
+              errors.first_name ? "border-red-500" : "border-gray-300"
+            } placeholder-xs sm:placeholder-sm md:placeholder-sm`}
+            value={form.first_name}
+            onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+            onKeyDown={(e) => e.key === "Enter" && lastNameRef.current.focus()}
+          />
 
           {errors.first_name && (
             <p className="text-xs text-red-500 mt-1">{errors.first_name}</p>

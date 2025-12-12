@@ -15,6 +15,7 @@ import {
   Ban,
   CheckCircle,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { getShopById, updateShop, toggleShopActive } from "../../api/cadminShops";
 import ConfirmDialog from "../common/ConfirmDialog";
@@ -34,6 +35,16 @@ import ShopEditAddressTab from "./tabs/ShopEditAddressTab";
 import ShopEditSubscriptionTab from "./tabs/ShopEditSubscriptionTab";
 import ShopEditDocumentsTab from "./tabs/ShopEditDocumentsTab";
 
+// Required document types (6 required)
+const REQUIRED_DOCUMENT_TYPES = [
+  "drug_license",
+  "pharmacy_registration",
+  "business_registration_proof",
+  "shop_establishment_license",
+  "address_proof",
+  "pan_card",
+];
+
 const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) => {
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditing, setIsEditing] = useState(false);
@@ -49,6 +60,7 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
     gst_number: "",
     business_type: "",
     address_line_1: "",
+    address_line_2: "",
     city: "",
     state: "",
     pincode: "",
@@ -60,6 +72,9 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
   // Suspend dialog
   const [showSuspendConfirm, setShowSuspendConfirm] = useState(false);
   const [suspendLoading, setSuspendLoading] = useState(false);
+
+  // ✅ Document validation state
+  const [documentsValid, setDocumentsValid] = useState(true);
 
   // Fetch full shop details when modal opens
   useEffect(() => {
@@ -82,10 +97,18 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
         gst_number: shopData.gst_number || "",
         business_type: shopData.business_type || "",
         address_line_1: shopData.address_line_1 || "",
+        address_line_2: shopData.address_line_2 || "",
         city: shopData.city || "",
         state: shopData.state || "",
         pincode: shopData.pincode || "",
       });
+
+      // ✅ Check initial document validation - 6 REQUIRED types
+      const uploadedTypes = (shopData.shopFiles || []).map((f) => f.file_type);
+      const allRequiredPresent = REQUIRED_DOCUMENT_TYPES.every((type) =>
+        uploadedTypes.includes(type)
+      );
+      setDocumentsValid(allRequiredPresent);
     } catch (err) {
       console.error("Failed to fetch shop details:", err);
       setError(err.response?.data?.message || "Failed to load shop details");
@@ -105,11 +128,13 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
         gst_number: "",
         business_type: "",
         address_line_1: "",
+        address_line_2: "",
         city: "",
         state: "",
         pincode: "",
       });
       setError(null);
+      setDocumentsValid(true);
     }
   }, [isOpen]);
 
@@ -121,7 +146,9 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
   // Handle escape key
   useEffect(() => {
     const handleEsc = (e) => {
-      if (e.key === "Escape") onClose(false);
+      if (e.key === "Escape") {
+        handleClose();
+      }
     };
     if (isOpen) {
       document.addEventListener("keydown", handleEsc);
@@ -131,7 +158,7 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
       document.removeEventListener("keydown", handleEsc);
       document.body.style.overflow = "unset";
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -148,7 +175,17 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
 
   // Check if current tab is editable
   const currentTab = tabs.find((t) => t.id === activeTab);
-  const isEditableTab = currentTab?.editable && (activeTab === "overview" || activeTab === "address");
+  const isEditableTab = currentTab?.editable;
+
+  // ✅ Check if save should be enabled
+  const canSave = () => {
+    // When on documents tab in edit mode, require all 6 required documents
+    if (isEditing && activeTab === "documents") {
+      return documentsValid;
+    }
+    // For other tabs, always allow save
+    return true;
+  };
 
   // Verification status badge
   const getVerificationBadge = (status) => {
@@ -157,7 +194,11 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
       pending: { bg: "bg-blue-500/20", text: "text-blue-300", label: "Pending" },
       pending_review: { bg: "bg-yellow-500/20", text: "text-yellow-300", label: "Pending Review" },
       rejected: { bg: "bg-red-500/20", text: "text-red-300", label: "Rejected" },
-      partially_rejected: { bg: "bg-orange-500/20", text: "text-orange-300", label: "Partially Rejected" },
+      partially_rejected: {
+        bg: "bg-orange-500/20",
+        text: "text-orange-300",
+        label: "Partially Rejected",
+      },
     };
     const style = config[status] || config.pending;
     return (
@@ -185,14 +226,25 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // ✅ Handle document validation change (callback from ShopEditDocumentsTab)
+  const handleDocumentValidationChange = (isValid) => {
+    setDocumentsValid(isValid);
+  };
+
   // Handle save
   const handleSaveChanges = async () => {
+    // ✅ Block save if documents are invalid
+    if (!canSave()) {
+      alert("Please upload all 6 required documents before saving.");
+      return;
+    }
+
     if (!shop) return;
     setSaveLoading(true);
     try {
       // Build payload with only changed fields
       const payload = {};
-      
+
       if (formData.business_name !== shop.business_name) {
         payload.business_name = formData.business_name;
       }
@@ -204,6 +256,9 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
       }
       if (formData.address_line_1 !== shop.address_line_1) {
         payload.address_line_1 = formData.address_line_1;
+      }
+      if (formData.address_line_2 !== shop.address_line_2) {
+        payload.address_line_2 = formData.address_line_2;
       }
       if (formData.city !== shop.city) {
         payload.city = formData.city;
@@ -229,6 +284,18 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
     } finally {
       setSaveLoading(false);
     }
+  };
+
+  // ✅ Handle close with validation
+  const handleClose = () => {
+    // If editing documents and not all uploaded, warn user
+    if (isEditing && activeTab === "documents" && !documentsValid) {
+      const confirm = window.confirm(
+        "Not all required documents are uploaded. Are you sure you want to close? Changes will not be saved."
+      );
+      if (!confirm) return;
+    }
+    onClose(false);
   };
 
   // Suspend/Activate handler
@@ -269,6 +336,7 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center py-20 text-red-500">
+          <AlertTriangle size={48} className="mb-4 opacity-50" />
           <p className="text-lg font-medium">Error loading shop</p>
           <p className="text-sm mt-1">{error}</p>
           <button
@@ -304,9 +372,13 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
         );
       case "documents":
         return isEditing ? (
-          <ShopEditDocumentsTab shop={shop} onRefresh={handleRefresh} />
+          <ShopEditDocumentsTab
+            shop={shop}
+            onRefresh={handleRefresh}
+            onValidationChange={handleDocumentValidationChange}
+          />
         ) : (
-          <ShopDocumentsTab shop={shop} onRefresh={handleRefresh} />
+          <ShopDocumentsTab shop={shop} />
         );
       case "users":
         return <ShopUsersTab shop={shop} />;
@@ -322,15 +394,17 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
   // Display values (use basic shop while loading full details)
   const displayName = shop?.business_name || basicShop?.business_name || "Shop";
   const displayType = shop?.business_type || basicShop?.business_type || "";
-  const displayVerification = shop?.verification_status || basicShop?.verification_status || "pending";
+  const displayVerification =
+    shop?.verification_status || basicShop?.verification_status || "pending";
   const displayIsActive = shop?.is_active ?? basicShop?.is_active ?? true;
-  const ownerName = shop?.owner?.full_name || basicShop?.owner?.name || basicShop?.owner?.full_name || "";
+  const ownerName =
+    shop?.owner?.full_name || basicShop?.owner?.name || basicShop?.owner?.full_name || "";
 
   return (
     <>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        onClick={() => onClose(false)}
+        onClick={handleClose}
       >
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -376,7 +450,7 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
 
               {/* Header Actions */}
               <div className="flex items-center gap-2">
-                {/* Edit / Save Toggle - Only for editable tabs */}
+                {/* Edit / Save Toggle */}
                 {isEditableTab && !loading && shop && (
                   <button
                     onClick={() => {
@@ -386,15 +460,19 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
                         setIsEditing(true);
                       }
                     }}
-                    disabled={saveLoading}
+                    disabled={saveLoading || (isEditing && !canSave())}
                     className={`
                       flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                      ${isEditing
-                        ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                        : "bg-white/20 text-white hover:bg-white/30"
+                      ${
+                        isEditing
+                          ? canSave()
+                            ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                            : "bg-gray-400 text-white cursor-not-allowed"
+                          : "bg-white/20 text-white hover:bg-white/30"
                       }
                       disabled:opacity-50 disabled:cursor-not-allowed
                     `}
+                    title={isEditing && !canSave() ? "Upload all 6 required documents to save" : ""}
                   >
                     {saveLoading ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -407,9 +485,17 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
                   </button>
                 )}
 
+                {/* ✅ Show warning indicator when documents invalid */}
+                {isEditing && activeTab === "documents" && !documentsValid && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-red-500/30 rounded-lg">
+                    <AlertTriangle size={14} className="text-red-200" />
+                    <span className="text-xs text-red-200">Missing docs</span>
+                  </div>
+                )}
+
                 {/* Close */}
                 <button
-                  onClick={() => onClose(false)}
+                  onClick={handleClose}
                   className="p-2 rounded-lg bg-white/20 text-white hover:bg-red-500/30 transition-all"
                 >
                   <X size={20} className="text-red-200" />
@@ -423,27 +509,32 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+
+              // ✅ Show warning dot on documents tab if invalid
+              const showWarning = tab.id === "documents" && isEditing && !documentsValid;
+
               return (
                 <button
                   key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    // Reset editing when switching to non-editable tabs
-                    if (!tab.editable || (tab.id !== "overview" && tab.id !== "address")) {
-                      setIsEditing(false);
-                    }
-                  }}
+                  onClick={() => setActiveTab(tab.id)}
                   className={`
                     flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-md transition-all whitespace-nowrap
-                    ${isActive
-                      ? "text-[#05015A] border-b-2 border-[#05015A] bg-white"
-                      : "text-gray-500 hover:text-gray-700"
+                    ${
+                      isActive
+                        ? "text-[#05015A] border-b-2 border-[#05015A] bg-white"
+                        : "text-gray-500 hover:text-gray-700"
                     }
                   `}
                 >
                   <Icon size={16} />
                   {tab.label}
-                  {tab.editable && isEditing && (
+                  {showWarning && (
+                    <span
+                      className="w-2 h-2 bg-red-500 rounded-full animate-pulse"
+                      title="Missing required documents"
+                    />
+                  )}
+                  {tab.editable && isEditing && !showWarning && (
                     <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" title="Editable" />
                   )}
                 </button>
@@ -452,9 +543,7 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
           </div>
 
           {/* Content */}
-          <div className="p-4 h-[60vh] overflow-auto bg-gray-50">
-            {renderTabContent()}
-          </div>
+          <div className="p-4 h-[60vh] overflow-auto bg-gray-50">{renderTabContent()}</div>
 
           {/* Footer */}
           <div className="px-6 py-4 bg-white border-t border-gray-100">
@@ -463,9 +552,17 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
               <p className="text-xs text-gray-400">
                 Shop ID: {shop?.shop_id?.slice(0, 8) || basicShop?.shop_id?.slice(0, 8)}... •
                 {isEditing ? (
-                  <span> Last Updated: {shop?.updated_at ? new Date(shop.updated_at).toLocaleDateString() : "N/A"}</span>
+                  <span>
+                    {" "}
+                    Last Updated:{" "}
+                    {shop?.updated_at ? new Date(shop.updated_at).toLocaleDateString() : "N/A"}
+                  </span>
                 ) : (
-                  <span> Created: {shop?.created_at ? new Date(shop.created_at).toLocaleDateString() : "N/A"}</span>
+                  <span>
+                    {" "}
+                    Created:{" "}
+                    {shop?.created_at ? new Date(shop.created_at).toLocaleDateString() : "N/A"}
+                  </span>
                 )}
               </p>
 
@@ -478,9 +575,10 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
                   className={`
                     flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
                     disabled:opacity-50 disabled:cursor-not-allowed
-                    ${displayIsActive
-                      ? "bg-orange-50 text-orange-600 hover:bg-orange-100"
-                      : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                    ${
+                      displayIsActive
+                        ? "bg-orange-50 text-orange-600 hover:bg-orange-100"
+                        : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
                     }
                   `}
                 >
@@ -506,7 +604,7 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
                   </button>
                 ) : (
                   <button
-                    onClick={() => onClose(false)}
+                    onClick={handleClose}
                     className="px-4 py-2 bg-[#05015A] text-white rounded-lg hover:bg-[#0a0280] transition-colors"
                   >
                     Close

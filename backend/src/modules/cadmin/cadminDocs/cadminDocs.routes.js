@@ -14,38 +14,21 @@ import { rejectSchema, validateVerificationQuery } from "./cadminDocs.schema.js"
 
 const router = express.Router();
 
-// All routes require admin authentication
 router.use(requireCAdmin);
 
-/**
- * GET /cadmin/files
- * List shops for verification with filters, sorting, pagination
- */
+// List shops for verification
 router.get("/files", validateVerificationQuery, listFilesController);
 
-/**
- * GET /cadmin/shops/:shop_id
- * Get shop details with all files for verification modal
- * This is the main endpoint used when clicking on a shop row
- */
-router.get("/shops/:shop_id", getShopDetailController);
+// Get shop verification detail (unique path to avoid conflict with cadminShops)
+router.get("/files/shop/:shop_id", getShopDetailController);
 
-/**
- * GET /cadmin/files/:file_id
- * Get single file details (optional - for individual file view)
- */
+// Get single file details
 router.get("/files/:file_id", getFileController);
 
-/**
- * PATCH /cadmin/files/:file_id/verify
- * Approve a document
- */
+// Verify a document
 router.patch("/files/:file_id/verify", verifyFileController);
 
-/**
- * PATCH /cadmin/files/:file_id/reject
- * Reject a document with required reason
- */
+// Reject a document
 router.patch("/files/:file_id/reject", validateBody(rejectSchema), rejectFileController);
 
 export default router;

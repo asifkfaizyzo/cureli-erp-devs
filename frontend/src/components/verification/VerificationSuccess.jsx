@@ -6,13 +6,13 @@ import { Check, ArrowRight, Package, Receipt, BarChart3 } from "lucide-react";
 import { completeOnboarding } from "../../api/auth";
 import { getMySubscription } from "../../api/subscription";
 
-// Compact animated checkmark
+// Scaled up animated checkmark (2x)
 const AnimatedCheckmark = () => {
   return (
-    <div className="relative w-20 h-20 flex-shrink-0">
+    <div className="relative w-40 h-40 flex-shrink-0">
       {/* Outer ring */}
       <motion.div
-        className="absolute inset-0 rounded-full border-3 border-emerald-200"
+        className="absolute inset-0 rounded-full border-4 border-emerald-200"
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -20,7 +20,7 @@ const AnimatedCheckmark = () => {
 
       {/* Pulse ring */}
       <motion.div
-        className="absolute inset-0 rounded-full border-2 border-emerald-400"
+        className="absolute inset-0 rounded-full border-4 border-emerald-400"
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1.3, opacity: 0 }}
         transition={{ duration: 1.2, delay: 0.5, repeat: Infinity, repeatDelay: 2 }}
@@ -28,7 +28,7 @@ const AnimatedCheckmark = () => {
 
       {/* Inner circle */}
       <motion.div
-        className="absolute inset-1.5 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600"
+        className="absolute inset-3 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ duration: 0.4, type: "spring", stiffness: 200 }}
@@ -36,7 +36,7 @@ const AnimatedCheckmark = () => {
 
       {/* Checkmark */}
       <motion.svg
-        className="absolute inset-0 w-full h-full p-5"
+        className="absolute inset-0 w-full h-full p-10"
         viewBox="0 0 24 24"
         fill="none"
       >
@@ -56,13 +56,13 @@ const AnimatedCheckmark = () => {
       {[...Array(4)].map((_, i) => (
         <motion.div
           key={i}
-          className="absolute w-1.5 h-1.5 bg-emerald-400 rounded-full"
+          className="absolute w-3 h-3 bg-emerald-400 rounded-full"
           style={{ top: "50%", left: "50%" }}
           initial={{ scale: 0, x: 0, y: 0 }}
           animate={{
             scale: [0, 1, 0],
-            x: Math.cos((i * 90 * Math.PI) / 180) * 40,
-            y: Math.sin((i * 90 * Math.PI) / 180) * 40,
+            x: Math.cos((i * 90 * Math.PI) / 180) * 80,
+            y: Math.sin((i * 90 * Math.PI) / 180) * 80,
           }}
           transition={{ duration: 0.6, delay: 0.6 + i * 0.05 }}
         />
@@ -104,21 +104,21 @@ const VerificationSuccess = () => {
   ];
 
   return (
-    <div className="w-full h-full flex items-center justify-center px-4 font-poppins">
+    <div className="w-full h-full flex items-center justify-center px-6 font-poppins">
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="relative w-full max-w-4xl bg-white rounded-2xl overflow-hidden"
-        style={{ boxShadow: "0px 4px 30px rgba(0,0,0,0.08)" }}
+        className="relative w-full max-w-6xl bg-white rounded-3xl overflow-hidden"
+        style={{ boxShadow: "0px 8px 60px rgba(0,0,0,0.1)" }}
       >
         {/* Top gradient line */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-[#000060] to-emerald-400" />
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-emerald-400 via-[#000060] to-emerald-400" />
 
-        <div className="flex flex-col lg:flex-row items-center gap-6 p-6 lg:p-8">
+        <div className="flex flex-col lg:flex-row items-center gap-12 p-10 lg:p-16">
           {/* Left Section - Checkmark & Title */}
           <div className="flex flex-col items-center lg:items-start text-center lg:text-left lg:flex-1">
-            <div className="flex items-center gap-4 mb-3">
+            <div className="flex items-center gap-8 mb-6">
               <AnimatedCheckmark />
               
               <div>
@@ -127,10 +127,10 @@ const VerificationSuccess = () => {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.6 }}
-                  className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full mb-2"
+                  className="inline-flex items-center gap-3 bg-emerald-50 border-2 border-emerald-200 px-5 py-2 rounded-full mb-4"
                 >
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                  <span className="text-xs font-medium text-emerald-700">Verified</span>
+                  <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-base font-semibold text-emerald-700">Verified</span>
                 </motion.div>
 
                 {/* Title */}
@@ -138,7 +138,7 @@ const VerificationSuccess = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.7 }}
-                  className="text-2xl lg:text-3xl font-bold text-[#000060]"
+                  className="text-4xl lg:text-5xl font-bold text-[#000060]"
                 >
                   Welcome to Cureli
                 </motion.h2>
@@ -150,7 +150,7 @@ const VerificationSuccess = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
-              className="text-gray-500 text-sm max-w-sm"
+              className="text-gray-500 text-lg lg:text-xl max-w-lg"
             >
               Your pharmacy is verified. Full access to all features is now available.
             </motion.p>
@@ -165,18 +165,18 @@ const VerificationSuccess = () => {
               whileHover={{ scale: loading ? 1 : 1.02 }}
               whileTap={{ scale: loading ? 1 : 0.98 }}
               className={`
-                hidden lg:flex items-center justify-center gap-2 mt-4 px-6 py-2.5 rounded-xl font-semibold text-sm
+                hidden lg:flex items-center justify-center gap-3 mt-8 px-10 py-4 rounded-2xl font-bold text-lg
                 transition-all duration-200
                 ${loading
                   ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-[#000060] hover:bg-[#000080] text-white shadow-lg shadow-[#000060]/20"
+                  : "bg-[#000060] hover:bg-[#000080] text-white shadow-xl shadow-[#000060]/25"
                 }
               `}
             >
               {loading ? (
                 <>
                   <motion.div
-                    className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                    className="w-6 h-6 border-3 border-white border-t-transparent rounded-full"
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                   />
@@ -186,10 +186,10 @@ const VerificationSuccess = () => {
                 <>
                   Get Started
                   <motion.div
-                    animate={{ x: [0, 4, 0] }}
+                    animate={{ x: [0, 6, 0] }}
                     transition={{ duration: 1.5, repeat: Infinity }}
                   >
-                    <ArrowRight size={16} />
+                    <ArrowRight size={24} />
                   </motion.div>
                 </>
               )}
@@ -201,7 +201,7 @@ const VerificationSuccess = () => {
             initial={{ scaleY: 0 }}
             animate={{ scaleY: 1 }}
             transition={{ delay: 0.9, duration: 0.4 }}
-            className="hidden lg:block w-px h-32 bg-gradient-to-b from-transparent via-gray-200 to-transparent"
+            className="hidden lg:block w-px h-56 bg-gradient-to-b from-transparent via-gray-300 to-transparent"
           />
 
           {/* Horizontal Divider - Mobile */}
@@ -209,32 +209,32 @@ const VerificationSuccess = () => {
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ delay: 0.9, duration: 0.4 }}
-            className="lg:hidden w-full max-w-xs h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"
+            className="lg:hidden w-full max-w-md h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"
           />
 
           {/* Right Section - Features */}
           {showFeatures && (
-            <div className="flex flex-row lg:flex-col gap-3 lg:gap-2 lg:flex-1">
+            <div className="flex flex-row lg:flex-col gap-5 lg:gap-4 lg:flex-1">
               {features.map((feature, idx) => (
                 <motion.div
                   key={idx}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.1 }}
-                  whileHover={{ x: -3, backgroundColor: "#f8fafc" }}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 cursor-default transition-colors flex-1 lg:flex-none"
+                  whileHover={{ x: -5, backgroundColor: "#f8fafc" }}
+                  className="flex items-center gap-5 p-5 rounded-2xl border-2 border-gray-100 cursor-default transition-colors flex-1 lg:flex-none"
                 >
-                  <div className="w-9 h-9 bg-[#000060]/5 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <feature.icon size={18} className="text-[#000060]" />
+                  <div className="w-16 h-16 bg-[#000060]/5 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <feature.icon size={32} className="text-[#000060]" />
                   </div>
                   <div className="hidden sm:block min-w-0">
-                    <p className="font-medium text-gray-800 text-sm leading-tight">{feature.title}</p>
-                    <p className="text-xs text-gray-400 leading-tight">{feature.desc}</p>
+                    <p className="font-semibold text-gray-800 text-lg leading-tight">{feature.title}</p>
+                    <p className="text-base text-gray-400 leading-tight">{feature.desc}</p>
                   </div>
                   <div className="sm:hidden">
-                    <p className="font-medium text-gray-800 text-xs">{feature.title}</p>
+                    <p className="font-semibold text-gray-800 text-sm">{feature.title}</p>
                   </div>
-                  <Check size={14} className="text-emerald-500 flex-shrink-0 ml-auto hidden sm:block" />
+                  <Check size={22} className="text-emerald-500 flex-shrink-0 ml-auto hidden sm:block" />
                 </motion.div>
               ))}
             </div>
@@ -246,24 +246,24 @@ const VerificationSuccess = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.2 }}
-          className="lg:hidden px-6 pb-6"
+          className="lg:hidden px-10 pb-10"
         >
           <button
             onClick={handleGetStarted}
             disabled={loading}
             className={`
-              w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm
+              w-full flex items-center justify-center gap-3 py-5 rounded-2xl font-bold text-lg
               transition-all duration-200
               ${loading
                 ? "bg-gray-400 cursor-not-allowed"
-                : "bg-[#000060] hover:bg-[#000080] text-white shadow-lg shadow-[#000060]/20"
+                : "bg-[#000060] hover:bg-[#000080] text-white shadow-xl shadow-[#000060]/25"
               }
             `}
           >
             {loading ? (
               <>
                 <motion.div
-                  className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                  className="w-6 h-6 border-3 border-white border-t-transparent rounded-full"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                 />
@@ -272,7 +272,7 @@ const VerificationSuccess = () => {
             ) : (
               <>
                 Get Started
-                <ArrowRight size={16} />
+                <ArrowRight size={24} />
               </>
             )}
           </button>

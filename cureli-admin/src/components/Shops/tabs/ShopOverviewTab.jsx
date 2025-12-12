@@ -1,6 +1,4 @@
-// src/components/Shops/tabs/ShopOverviewTab.jsx
-
-import { Building2, User, Shield } from "lucide-react";
+import { Building2, User, Shield, MapPin } from "lucide-react";
 import DetailRow from "../../User/DetailRow";
 
 const ShopOverviewTab = ({ shop }) => {
@@ -31,6 +29,7 @@ const ShopOverviewTab = ({ shop }) => {
 
   return (
     <div className="space-y-6">
+
       {/* Business Information */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -90,37 +89,34 @@ const ShopOverviewTab = ({ shop }) => {
         </div>
       )}
 
-      {/* Shop Statistics */}
+      {/* Business Address (Moved from Address Tab + simplified) */}
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <MapPin size={16} />
+          Business Address
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+          <DetailRow label="Address" value={shop.address_line_1 || "N/A"} isEditing={false} />
+          <DetailRow label="City" value={shop.city || "N/A"} isEditing={false} />
+          <DetailRow label="State" value={shop.state || "N/A"} isEditing={false} />
+          <DetailRow label="Pincode" value={shop.pincode || "N/A"} isEditing={false} />
+        </div>
+      </div>
+
+      {/* Dates Only (Stats removed) */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
           <Shield size={16} />
-          Statistics & Dates
+          Important Dates
         </h3>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 text-center border border-indigo-100">
-            <p className="text-2xl font-bold text-[#05015A]">{shop._count?.branches || 0}</p>
-            <p className="text-sm text-gray-500">Branches</p>
-          </div>
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 text-center border border-emerald-100">
-            <p className="text-2xl font-bold text-emerald-700">{shop._count?.users || 0}</p>
-            <p className="text-sm text-gray-500">Users</p>
-          </div>
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 text-center border border-amber-100">
-            <p className="text-2xl font-bold text-amber-700">{shop._count?.shopFiles || 0}</p>
-            <p className="text-sm text-gray-500">Documents</p>
-          </div>
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 text-center border border-blue-100">
-            <p className="text-2xl font-bold text-blue-700">{shop._count?.subscriptions || 0}</p>
-            <p className="text-sm text-gray-500">Subscriptions</p>
-          </div>
-        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
           <DetailRow label="Created At" value={formatDate(shop.created_at)} isEditing={false} />
           <DetailRow label="Last Updated" value={formatDateTime(shop.updated_at)} isEditing={false} />
         </div>
       </div>
+
     </div>
   );
 };

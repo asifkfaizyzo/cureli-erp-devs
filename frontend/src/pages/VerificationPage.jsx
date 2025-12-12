@@ -156,7 +156,7 @@ const VerificationPage = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-0 w-full flex flex-col items-center overflow-y-auto px-4 py-4">
+      <div className="flex-1 min-h-0 w-full flex flex-col items-center  overflow-y-auto px-4 py-4">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}
@@ -164,7 +164,7 @@ const VerificationPage = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="w-full max-w-3xl flex-1 flex flex-col"
+            className="w-full flex-1 flex flex-col"
           >
             {renderStep()}
           </motion.div>

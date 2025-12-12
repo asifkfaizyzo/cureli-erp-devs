@@ -1,6 +1,4 @@
-// src/components/Shops/tabs/ShopEditOverviewTab.jsx
-
-import { Building2, User, AlertTriangle } from "lucide-react";
+import { Building2, User, MapPin, AlertTriangle } from "lucide-react";
 import DetailRow from "../../User/DetailRow";
 
 const BUSINESS_TYPES = [
@@ -17,6 +15,7 @@ const ShopEditOverviewTab = ({ shop, formData, onFormChange }) => {
 
   return (
     <div className="space-y-6">
+
       {/* Editable Business Information */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -26,6 +25,7 @@ const ShopEditOverviewTab = ({ shop, formData, onFormChange }) => {
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+
           <DetailRow
             label="Business Name"
             value={formData.business_name}
@@ -33,7 +33,7 @@ const ShopEditOverviewTab = ({ shop, formData, onFormChange }) => {
             fieldName="business_name"
             onChange={(val) => onFormChange("business_name", val)}
           />
-          
+
           <DetailRow
             label="GST Number"
             value={formData.gst_number}
@@ -41,7 +41,7 @@ const ShopEditOverviewTab = ({ shop, formData, onFormChange }) => {
             fieldName="gst_number"
             onChange={(val) => onFormChange("gst_number", val)}
           />
-          
+
           <DetailRow
             label="Business Type"
             value={formData.business_type}
@@ -58,14 +58,14 @@ const ShopEditOverviewTab = ({ shop, formData, onFormChange }) => {
             value={shop.shop_id?.slice(0, 12) + "..."}
             isEditing={false}
           />
-          
+
           <DetailRow
             label="Verification Status"
             value={shop.verification_status}
             isEditing={false}
             type="verification"
           />
-          
+
           <DetailRow
             label="Active Status"
             value={shop.is_active ? "Active" : "Inactive"}
@@ -74,16 +74,62 @@ const ShopEditOverviewTab = ({ shop, formData, onFormChange }) => {
           />
         </div>
 
-        {/* Warning about verification */}
         <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200 flex items-start gap-2">
           <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
           <p className="text-sm text-amber-700">
-            Changing business details may require re-verification. The verification status cannot be edited directly.
+            Changing business details may require re-verification. Verification status cannot be edited manually.
           </p>
         </div>
       </div>
 
-      {/* Owner Information - Read Only */}
+      {/* Editable Address Section — moved into Overview */}
+      <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <MapPin size={16} />
+          Business Address
+          <span className="text-xs text-indigo-500 font-normal ml-2">(Editing)</span>
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+
+          <div className="md:col-span-2">
+            <DetailRow
+              label="Address"
+              value={formData.address_line_1}
+              isEditing={true}
+              fieldName="address_line_1"
+              onChange={(val) => onFormChange("address_line_1", val)}
+            />
+          </div>
+
+          <DetailRow
+            label="City"
+            value={formData.city}
+            isEditing={true}
+            fieldName="city"
+            onChange={(val) => onFormChange("city", val)}
+          />
+
+          <DetailRow
+            label="State"
+            value={formData.state}
+            isEditing={true}
+            fieldName="state"
+            type="text"
+            onChange={(val) => onFormChange("state", val)}
+          />
+
+          <DetailRow
+            label="Pincode"
+            value={formData.pincode}
+            isEditing={true}
+            fieldName="pincode"
+            onChange={(val) => onFormChange("pincode", val)}
+          />
+        </div>
+      </div>
+
+      {/* Owner Information (Read only) */}
       {owner && (
         <div className="bg-white rounded-xl border border-gray-100 p-6">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
