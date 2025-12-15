@@ -1,456 +1,370 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\pages\SubscriptionPage.jsx
-import { 
-  Plus, 
-  LayoutGrid, 
-  CheckCircle2, 
-  XCircle, 
-  Search,
-  SlidersHorizontal,
-  CreditCard,
-  Users,
-  ChevronLeft,
-  ChevronRight
-} from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { Plus, CreditCard, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
+// Components
 import PlanCard from "../components/Subscription/PlanCard";
-import PlanEditModal from "../components/Subscription/PlanEditModal";
+import PlanModal from "../components/Subscription/PlanModal";
 import CreatePlanModal from "../components/Subscription/CreatePlanModal";
+import ConfirmActionModal from "../components/Subscription/ConfirmActionModal";
+import PlanStatsGrid from "../components/Subscription/PlanStatsGrid";
+import PlanFilterBar from "../components/Subscription/PlanFilterBar";
+
+// Config & Data
+import { 
+  PLAN_STATUS, 
+  generateCloneName,
+  isNameAvailable 
+} from "../config/modules/subscriptionConfig";
+import { dummyPlans, generatePlanId } from "../data/subscriptionDummyData";
 
 export default function SubscriptionPage() {
-  // ===== ALL STATE DECLARATIONS FIRST =====
-  const [plans, setPlans] = useState([
-    {
-      id: 1,
-      name: "Basic Plan",
-      price: "FREE",
-      duration: "/month",
-      description: "Get started with our Basic plan kickstart your Cureli journey.",
-      features: ["Only 2 users", "Single Branch"],
-      buttonText: "Get Plan",
-      active: false,
-    },
-    {
-      id: 2,
-      name: "Standard Plan",
-      price: "1000",
-      duration: "/month",
-      description: "Standard Plan for a comprehensive Cureli experience.",
-      features: ["Up to 6 users", "2 Branches allowed"],
-      buttonText: "Get Plan",
-      active: true,
-    },
-    {
-      id: 3,
-      name: "Premium Plan",
-      price: "5000",
-      duration: "/month",
-      description: "Go Pro and take your Cureli level with a tutor.",
-      features: ["Up to 10 users", "4 Branches allowed"],
-      buttonText: "Get Plan",
-      active: true,
-    },
-    {
-      id: 4,
-      name: "Custom Plan",
-      price: "??",
-      duration: "/custom",
-      description: "Perfect for large scale.",
-      features: ["Customize your users", "Customize your branches"],
-      buttonText: "Contact Us",
-      active: false,
-    },
-    {
-      id: 5,
-      name: "Enterprise Plan",
-      price: "10000",
-      duration: "/month",
-      description: "For large organizations.",
-      features: ["Unlimited users", "10 Branches allowed"],
-      buttonText: "Get Plan",
-      active: true,
-    },
-    {
-      id: 6,
-      name: "Starter Plan",
-      price: "500",
-      duration: "/month",
-      description: "Perfect for small teams.",
-      features: ["Up to 3 users", "1 Branch allowed"],
-      buttonText: "Get Plan",
-      active: false,
-    },
-  ]);
-
+  // ============================================
+  // STATE
+  // ============================================
+  const [plans, setPlans] = useState(dummyPlans);
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all");
-  const [isEditOpen, setIsEditOpen] = useState(false);
+  
+  // Modal states
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [planModalMode, setPlanModalMode] = useState("view");
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    action: null,
+    plan: null,
+    newName: null,
+  });
+
+  // Slider
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-
-  // Refs
   const sliderRef = useRef(null);
 
-  // ===== DERIVED VALUES =====
-  const filteredPlans = plans.filter((p) => {
+  // ============================================
+  // DERIVED DATA
+  // ============================================
+  
+  // Sort by createdAt descending (newest first)
+  const sortedPlans = [...plans].sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
+
+  // Filter plans
+  const filteredPlans = sortedPlans.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
     if (filter === "all") return true;
-    if (filter === "active") return p.active;
-    if (filter === "suspended") return !p.active;
-    return true;
+    return p.status === filter;
   });
 
-  const totalPlans = plans.length;
-  const activePlans = plans.filter(p => p.active).length;
-  const suspendedPlans = plans.filter(p => !p.active).length;
-  const totalUsers = plans.reduce((acc, p) => {
-    const match = p.features[0]?.match(/\d+/);
-    return acc + (match ? parseInt(match[0]) : 0);
-  }, 0);
+  // Plan counts for stats and filters
+  const planCounts = {
+    total: plans.length,
+    draft: plans.filter(p => p.status === PLAN_STATUS.DRAFT).length,
+    active: plans.filter(p => p.status === PLAN_STATUS.ACTIVE).length,
+    deprecated: plans.filter(p => p.status === PLAN_STATUS.DEPRECATED).length,
+    suspended: plans.filter(p => p.status === PLAN_STATUS.SUSPENDED).length,
+  };
 
   const showNavigation = filteredPlans.length > 4;
 
-  const filterButtons = [
-    { 
-      key: "all", 
-      label: "All Plans", 
-      icon: LayoutGrid,
-      count: totalPlans,
-      activeColor: "bg-[#05015A]",
-    },
-    { 
-      key: "active", 
-      label: "Active", 
-      icon: CheckCircle2,
-      count: activePlans,
-      activeColor: "bg-emerald-600",
-    },
-    { 
-      key: "suspended", 
-      label: "Suspended", 
-      icon: XCircle,
-      count: suspendedPlans,
-      activeColor: "bg-red-600",
-    },
-  ];
-
-  // ===== FUNCTIONS =====
-  const checkScrollPosition = () => {
+  // ============================================
+  // SLIDER FUNCTIONS
+  // ============================================
+  const checkScrollPosition = useCallback(() => {
     if (sliderRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = sliderRef.current;
       setCanScrollLeft(scrollLeft > 0);
       setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
     }
-  };
+  }, []);
 
-  const scrollLeft = () => {
+  const scrollSlider = (direction) => {
     if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: -300, behavior: "smooth" });
+      const scrollAmount = direction === "left" ? -320 : 320;
+      sliderRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
       setTimeout(checkScrollPosition, 300);
     }
   };
 
-  const scrollRight = () => {
-    if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: 300, behavior: "smooth" });
-      setTimeout(checkScrollPosition, 300);
+  useEffect(() => {
+    checkScrollPosition();
+    window.addEventListener("resize", checkScrollPosition);
+    const timeout = setTimeout(checkScrollPosition, 100);
+    
+    return () => {
+      window.removeEventListener("resize", checkScrollPosition);
+      clearTimeout(timeout);
+    };
+  }, [filteredPlans.length, checkScrollPosition]);
+
+  // ============================================
+  // PLAN ACTIONS
+  // ============================================
+  
+  const handlePlanAction = (actionType, plan) => {
+    switch (actionType) {
+      case "edit":
+        setSelectedPlan(plan);
+        setPlanModalMode("edit");
+        setPlanModalOpen(true);
+        break;
+
+      case "view":
+        setSelectedPlan(plan);
+        setPlanModalMode("view");
+        setPlanModalOpen(true);
+        break;
+
+      case "activate":
+      case "suspend":
+      case "reactivate":
+        setConfirmModal({
+          open: true,
+          action: actionType,
+          plan: plan,
+          newName: null,
+        });
+        break;
+
+      case "clone":
+        const cloneName = generateCloneName(plan.name, plans);
+        setConfirmModal({
+          open: true,
+          action: "clone",
+          plan: plan,
+          newName: cloneName,
+        });
+        break;
+
+      default:
+        break;
     }
   };
 
-  const togglePlanStatus = (id) => {
-    setPlans((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, active: !p.active } : p
-      )
-    );
+  const handleConfirmAction = () => {
+    const { action, plan, newName } = confirmModal;
+
+    switch (action) {
+      case "activate":
+        setPlans(prev => prev.map(p => 
+          p.id === plan.id 
+            ? { ...p, status: PLAN_STATUS.ACTIVE, activatedAt: new Date().toISOString() }
+            : p
+        ));
+        break;
+
+      case "suspend":
+        setPlans(prev => prev.map(p => {
+          if (p.id !== plan.id) return p;
+          const newStatus = p.subscriberCount > 0 
+            ? PLAN_STATUS.DEPRECATED 
+            : PLAN_STATUS.SUSPENDED;
+          return { ...p, status: newStatus, suspendedAt: new Date().toISOString() };
+        }));
+        break;
+
+      case "reactivate":
+        setPlans(prev => prev.map(p => 
+          p.id === plan.id 
+            ? { ...p, status: PLAN_STATUS.ACTIVE, activatedAt: new Date().toISOString() }
+            : p
+        ));
+        break;
+
+      case "clone":
+        const clonedPlan = {
+          ...plan,
+          id: generatePlanId(),
+          name: newName,
+          status: PLAN_STATUS.DRAFT,
+          subscriberCount: 0,
+          createdAt: new Date().toISOString(),
+          activatedAt: null,
+          suspendedAt: null,
+        };
+        setPlans(prev => [clonedPlan, ...prev]);
+        break;
+
+      default:
+        break;
+    }
+
+    setConfirmModal({ open: false, action: null, plan: null, newName: null });
   };
 
-  const handleEdit = (plan) => {
-    setSelectedPlan(plan);
-    setIsEditOpen(true);
-  };
-
-  const handleSave = (updatedPlan) => {
-    setPlans((prev) =>
-      prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p))
-    );
-    setIsEditOpen(false);
-  };
-
-  const handleCreatePlan = (data) => {
+  const handleCreatePlan = (formData) => {
     const newPlan = {
-      id: plans.length + 1,
-      name: data.planName,
-      price: data.price,
-      duration: data.duration,
-      description: data.detail,
-      features: [
-        `${data.users} users allowed`,
-        `${data.branches} branches allowed`,
-      ],
-      buttonText: data.buttonText || "Get Plan",
-      active: false,
+      id: generatePlanId(),
+      ...formData,
+      status: PLAN_STATUS.DRAFT,
+      subscriberCount: 0,
+      createdAt: new Date().toISOString(),
+      activatedAt: null,
+      createdBy: "current_admin", // Would come from auth context
     };
 
-    setPlans([...plans, newPlan]);
-    setIsCreateOpen(false);
-    
+    setPlans(prev => [newPlan, ...prev]);
+    setCreateModalOpen(false);
+
+    // Scroll to show new plan
     setTimeout(() => {
       if (sliderRef.current) {
-        sliderRef.current.scrollTo({ left: sliderRef.current.scrollWidth, behavior: "smooth" });
+        sliderRef.current.scrollTo({ left: 0, behavior: "smooth" });
         setTimeout(checkScrollPosition, 300);
       }
     }, 100);
   };
 
-  // ===== EFFECTS =====
-  useEffect(() => {
-    checkScrollPosition();
-    
-    const handleResize = () => {
-      checkScrollPosition();
-    };
+  const handleSavePlan = (updatedPlan) => {
+    setPlans(prev => prev.map(p => 
+      p.id === updatedPlan.id ? updatedPlan : p
+    ));
+    setPlanModalOpen(false);
+  };
 
-    window.addEventListener("resize", handleResize);
-    const timeout = setTimeout(checkScrollPosition, 100);
-    
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      clearTimeout(timeout);
-    };
-  }, [filteredPlans.length]);
-
-  // ===== RENDER =====
+  // ============================================
+  // RENDER
+  // ============================================
   return (
     <div className="w-full min-w-0 overflow-hidden">
-
-      {/* Header Section */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-[#05015A] rounded-lg shadow-md shadow-[#05015A]/20">
-            <CreditCard className="text-white" size={18} />
+      
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-[#05015A] rounded-xl shadow-lg shadow-[#05015A]/20">
+            <CreditCard className="text-white" size={22} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[#05015A]">Subscription Plans</h1>
-            <p className="text-xs text-gray-500">Manage your subscription tiers</p>
+            <h1 className="text-2xl font-bold text-[#05015A]">Subscription Plans</h1>
+            <p className="text-sm text-gray-500">Manage your billing plans and pricing tiers</p>
           </div>
         </div>
 
         <button
+          onClick={() => setCreateModalOpen(true)}
           className="
-            group flex items-center gap-1.5 
+            group flex items-center gap-2 
             bg-[#05015A] text-white 
-            px-4 py-2 rounded-lg text-sm font-medium
-            shadow-md shadow-[#05015A]/25
-            hover:bg-[#0a0280] hover:shadow-lg
+            px-5 py-2.5 rounded-xl text-sm font-semibold
+            shadow-lg shadow-[#05015A]/25
+            hover:bg-[#0a0280] hover:shadow-xl
             active:scale-[0.98]
             transition-all duration-300
-            flex-shrink-0
           "
-          onClick={() => setIsCreateOpen(true)}
         >
-          <Plus size={16} className="transition-transform duration-300 group-hover:rotate-90" />
+          <Plus size={18} className="transition-transform duration-300 group-hover:rotate-90" />
           Create Plan
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        
-        <div className="group bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-[#05015A]/20 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Total Plans</p>
-              <p className="text-xl font-bold text-[#05015A]">{totalPlans}</p>
-            </div>
-            <div className="p-2 bg-[#05015A]/10 rounded-lg group-hover:bg-[#05015A] transition-all duration-300">
-              <LayoutGrid size={16} className="text-[#05015A] group-hover:text-white transition-colors" />
-            </div>
-          </div>
-        </div>
+      {/* Stats Grid */}
+      <PlanStatsGrid plans={plans} />
 
-        <div className="group bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-emerald-200 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Active</p>
-              <p className="text-xl font-bold text-emerald-600">{activePlans}</p>
-            </div>
-            <div className="p-2 bg-emerald-100 rounded-lg group-hover:bg-emerald-500 transition-all duration-300">
-              <CheckCircle2 size={16} className="text-emerald-600 group-hover:text-white transition-colors" />
-            </div>
-          </div>
-        </div>
-
-        <div className="group bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-red-200 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Suspended</p>
-              <p className="text-xl font-bold text-red-600">{suspendedPlans}</p>
-            </div>
-            <div className="p-2 bg-red-100 rounded-lg group-hover:bg-red-500 transition-all duration-300">
-              <XCircle size={16} className="text-red-600 group-hover:text-white transition-colors" />
-            </div>
-          </div>
-        </div>
-
-        <div className="group bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Users Capacity</p>
-              <p className="text-xl font-bold text-blue-600">{totalUsers}+</p>
-            </div>
-            <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-500 transition-all duration-300">
-              <Users size={16} className="text-blue-600 group-hover:text-white transition-colors" />
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Filter & Search Bar */}
-      <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-5">
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-3">
-
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <SlidersHorizontal size={14} className="text-gray-400 mr-1" />
-            {filterButtons.map((btn) => (
-              <button
-                key={btn.key}
-                onClick={() => setFilter(btn.key)}
-                className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-xs
-                  transition-all duration-300
-                  ${filter === btn.key 
-                    ? `${btn.activeColor} text-white shadow-md` 
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }
-                `}
-              >
-                <btn.icon size={12} />
-                {btn.label}
-                <span className={`
-                  px-1.5 py-0.5 rounded-full text-[10px] font-bold
-                  ${filter === btn.key 
-                    ? "bg-white/20 text-white" 
-                    : "bg-gray-200 text-gray-600"
-                  }
-                `}>
-                  {btn.count}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className="relative w-full lg:w-auto">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search plans..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="
-                w-full lg:w-[220px] pl-9 pr-3 py-1.5 
-                border-2 border-gray-200 rounded-lg text-xs
-                focus:border-[#05015A] focus:ring-2 focus:ring-[#05015A]/20
-                transition-all duration-300 outline-none
-                hover:border-[#05015A]/50
-              "
-            />
-          </div>
-
-        </div>
-      </div>
+      {/* Filter Bar */}
+      <PlanFilterBar
+        filter={filter}
+        setFilter={setFilter}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        planCounts={planCounts}
+      />
 
       {/* Plans Slider */}
       {filteredPlans.length > 0 ? (
         <div className="relative w-full overflow-hidden">
           
+          {/* Left Arrow */}
           {showNavigation && canScrollLeft && (
             <button
-              onClick={scrollLeft}
+              onClick={() => scrollSlider("left")}
               className="
                 absolute left-2 top-1/2 -translate-y-1/2 z-10
-                p-2 rounded-full shadow-lg border-2
+                p-2.5 rounded-full shadow-lg border-2
                 bg-[#05015A] text-white border-[#05015A] 
                 hover:bg-[#0a0280] hover:scale-110 
                 transition-all duration-300
               "
             >
-              <ChevronLeft size={20} />
+              <ChevronLeft size={22} />
             </button>
           )}
 
+          {/* Slider Container */}
           <div
             ref={sliderRef}
             onScroll={checkScrollPosition}
-            className="flex gap-4 overflow-x-auto scroll-smooth py-2"
+            className="flex gap-4 overflow-x-auto scroll-smooth py-3"
             style={{
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-              paddingLeft: showNavigation ? '50px' : '4px',
-              paddingRight: showNavigation ? '50px' : '4px',
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+              paddingLeft: showNavigation ? "56px" : "4px",
+              paddingRight: showNavigation ? "56px" : "4px",
             }}
           >
             {filteredPlans.map((plan) => (
               <div 
                 key={plan.id}
-                className="flex-shrink-0 w-[260px] min-w-[260px]"
+                className="flex-shrink-0 w-[280px] min-w-[280px]"
               >
                 <PlanCard 
                   plan={plan} 
-                  onEdit={handleEdit} 
-                  onToggle={togglePlanStatus}
+                  onAction={handlePlanAction}
                 />
               </div>
             ))}
           </div>
 
+          {/* Right Arrow */}
           {showNavigation && canScrollRight && (
             <button
-              onClick={scrollRight}
+              onClick={() => scrollSlider("right")}
               className="
                 absolute right-2 top-1/2 -translate-y-1/2 z-10
-                p-2 rounded-full shadow-lg border-2
+                p-2.5 rounded-full shadow-lg border-2
                 bg-[#05015A] text-white border-[#05015A] 
                 hover:bg-[#0a0280] hover:scale-110 
                 transition-all duration-300
               "
             >
-              <ChevronRight size={20} />
+              <ChevronRight size={22} />
             </button>
           )}
 
+          {/* Pagination Dots */}
           {showNavigation && (
-            <div className="flex justify-center gap-2 mt-3">
+            <div className="flex justify-center gap-2 mt-4">
               {Array.from({ length: Math.ceil(filteredPlans.length / 4) }).map((_, index) => (
                 <button
                   key={index}
                   onClick={() => {
                     if (sliderRef.current) {
                       sliderRef.current.scrollTo({ 
-                        left: index * 4 * 276, 
+                        left: index * 4 * 296, 
                         behavior: "smooth" 
                       });
                       setTimeout(checkScrollPosition, 300);
                     }
                   }}
-                  className="w-2 h-2 rounded-full bg-gray-300 hover:bg-[#05015A] transition-all duration-300"
+                  className="
+                    w-2 h-2 rounded-full bg-gray-300 
+                    hover:bg-[#05015A] transition-all duration-300
+                  "
                 />
               ))}
             </div>
           )}
-
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
-          <div className="p-4 bg-gray-100 rounded-full mb-4">
-            <CreditCard size={40} className="text-gray-400" />
+        /* Empty State */
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200">
+          <div className="p-5 bg-gray-100 rounded-full mb-5">
+            <CreditCard size={48} className="text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">No Plans Found</h3>
-          <p className="text-gray-500 mb-4 text-center max-w-md text-sm">
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">No Plans Found</h3>
+          <p className="text-gray-500 mb-5 text-center max-w-md">
             {searchQuery 
               ? `No plans match "${searchQuery}". Try a different search term.`
               : "No plans match the selected filter. Try changing your filter options."
@@ -458,25 +372,46 @@ export default function SubscriptionPage() {
           </p>
           <button
             onClick={() => { setFilter("all"); setSearchQuery(""); }}
-            className="px-5 py-2 bg-[#05015A] text-white rounded-lg text-sm font-medium hover:bg-[#0a0280] transition-all duration-300"
+            className="
+              px-6 py-2.5 bg-[#05015A] text-white rounded-xl 
+              text-sm font-semibold hover:bg-[#0a0280] 
+              transition-all duration-300
+            "
           >
             Clear Filters
           </button>
         </div>
       )}
 
-      <PlanEditModal
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
-        plan={selectedPlan}
-        onSave={handleSave}
+      {/* Modals */}
+      <CreatePlanModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={handleCreatePlan}
+        existingNames={plans.map(p => p.name)}
       />
 
-      <CreatePlanModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSubmit={handleCreatePlan}
+      <PlanModal
+        isOpen={planModalOpen}
+        onClose={() => {
+          setPlanModalOpen(false);
+          setSelectedPlan(null);
+        }}
+        plan={selectedPlan}
+        onSave={handleSavePlan}
+        allPlans={plans}
+        mode={planModalMode}
       />
+
+      <ConfirmActionModal
+        isOpen={confirmModal.open}
+        onClose={() => setConfirmModal({ open: false, action: null, plan: null, newName: null })}
+        onConfirm={handleConfirmAction}
+        action={confirmModal.action}
+        plan={confirmModal.plan}
+        newName={confirmModal.newName}
+      />
+
     </div>
   );
 }

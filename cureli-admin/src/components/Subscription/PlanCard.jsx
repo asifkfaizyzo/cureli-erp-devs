@@ -1,83 +1,231 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\components\Subscription\PlanCard.jsx
-import { Pencil } from "lucide-react";
+import { 
+  Pencil, 
+  Eye, 
+  Copy, 
+  Power, 
+  PlayCircle, 
+  PauseCircle,
+  Sparkles,
+  Users,
+  Building2
+} from "lucide-react";
+import { 
+  PLAN_STATUS, 
+  STATUS_CONFIG, 
+  ALLOWED_ACTIONS,
+  getCardTheme,
+  generateFeatures,
+  formatPrice,
+  BILLING
+} from "../../config/modules/subscriptionConfig";
 
-const PlanCard = ({ plan, onEdit, onToggle }) => {
+export default function PlanCard({ plan, onAction }) {
+  const statusConfig = STATUS_CONFIG[plan.status];
+  const StatusIcon = statusConfig.icon;
+  const cardTheme = getCardTheme(plan);
+  const features = generateFeatures(plan);
+  const actions = ALLOWED_ACTIONS[plan.status];
+  const isFree = plan.price === 0;
+
+  const handleAction = (actionType) => {
+    onAction(actionType, plan);
+  };
+
   return (
     <div
-      className="
-        group
-        h-full flex flex-col justify-between relative rounded-xl p-6 shadow-md
-        bg-gradient-to-b from-[#afccf4] to-[#e7e9ec]
-        transition-all duration-300
-        hover:from-[#05015A] hover:to-[#05015A]
-      "
+      className={`
+        group relative h-full flex flex-col rounded-xl p-5 
+        shadow-md border transition-all duration-300
+        bg-gradient-to-b ${cardTheme.gradient} ${cardTheme.hoverGradient}
+        ${cardTheme.borderAccent}
+        hover:shadow-xl hover:-translate-y-1
+      `}
     >
-      {/* Edit Button */}
-      <button
-        className="
-          absolute top-4 right-4 
-          bg-white text-[#05015A]
-          p-2 rounded-full shadow
-          transition-all
-          group-hover:bg-white group-hover:text-[#05015A]
-        "
-        onClick={() => onEdit(plan)}
+      {/* Status Badge */}
+      <div 
+        className={`
+          absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] 
+          font-semibold border flex items-center gap-1.5
+          ${statusConfig.badgeColor}
+        `}
       >
-        <Pencil size={16} />
-      </button>
+        <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor}`} />
+        {statusConfig.label}
+      </div>
 
-      {/* Top Section */}
-      <div>
-        <h2 className="text-xl font-semibold mb-3 group-hover:text-white">
+      {/* Highlighted Badge */}
+      {plan.isHighlighted && (
+        <div 
+          className="
+            absolute top-3 right-3 px-2 py-1 rounded-full 
+            bg-violet-500 text-white text-[10px] font-semibold
+            flex items-center gap-1
+          "
+        >
+          <Sparkles size={10} />
+          Featured
+        </div>
+      )}
+
+      {/* Action Buttons - Top Right (when not highlighted) */}
+      {!plan.isHighlighted && (
+        <div className="absolute top-3 right-3 flex gap-1.5">
+          {actions.includes("edit") && (
+            <ActionButton
+              icon={Pencil}
+              tooltip="Edit Plan"
+              onClick={() => handleAction("edit")}
+            />
+          )}
+          {actions.includes("view") && (
+            <ActionButton
+              icon={Eye}
+              tooltip="View Details"
+              onClick={() => handleAction("view")}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="mt-8">
+        {/* Plan Name */}
+        <h2 className="text-lg font-bold text-gray-800 group-hover:text-white mb-2">
           {plan.name}
         </h2>
 
-        <div className="flex items-end gap-1 mb-2">
-          <span className="text-2xl font-bold group-hover:text-white">
-            ₹ {plan.price}
+        {/* Price */}
+        <div className="flex items-baseline gap-1 mb-3">
+          <span 
+            className={`
+              text-2xl font-bold 
+              ${isFree ? "text-emerald-600" : "text-[#05015A]"}
+              group-hover:text-white
+            `}
+          >
+            {formatPrice(plan.price)}
           </span>
-          <span className="text-gray-600 group-hover:text-white/70">
-            {plan.duration}
-          </span>
+          {!isFree && (
+            <span className="text-sm text-gray-500 group-hover:text-white/70">
+              {BILLING.displayText}
+            </span>
+          )}
         </div>
 
-        <p className="text-sm mb-4 text-gray-600 group-hover:text-white/70">
+        {/* Description */}
+        <p className="text-xs text-gray-600 group-hover:text-white/80 mb-4 line-clamp-2">
           {plan.description}
         </p>
 
-        <div className="h-[1px] w-full mb-4 bg-gray-300 group-hover:bg-white/40"></div>
-      </div>
+        {/* Divider */}
+        <div className="h-px w-full bg-gray-300 group-hover:bg-white/30 mb-4" />
 
-      {/* Features */}
-      <div className="flex-1">
-        <ul className="space-y-2 text-sm">
-          {plan.features.map((feat, i) => (
-            <li key={i} className="flex items-center gap-2">
-              <span className="text-[#6A5ACD] group-hover:text-white">✔</span>
-              <span className="text-gray-700 group-hover:text-white">
-                {feat}
-              </span>
+        {/* Features */}
+        <ul className="space-y-2 mb-4 flex-1">
+          {features.map((feature, idx) => (
+            <li key={idx} className="flex items-center gap-2 text-xs">
+              <span className="text-emerald-500 group-hover:text-emerald-300">✓</span>
+              <span className="text-gray-700 group-hover:text-white">{feature}</span>
             </li>
           ))}
         </ul>
+
+        {/* Subscriber Count (for Active/Deprecated) */}
+        {(plan.status === PLAN_STATUS.ACTIVE || plan.status === PLAN_STATUS.DEPRECATED) && (
+          <div 
+            className="
+              flex items-center gap-2 text-xs text-gray-500 
+              group-hover:text-white/70 mb-4 p-2 rounded-lg
+              bg-white/50 group-hover:bg-white/10
+            "
+          >
+            <Users size={14} />
+            <span>{plan.subscriberCount} active subscribers</span>
+          </div>
+        )}
       </div>
 
-      {/* Toggle Button */}
-      <button
-        onClick={() => onToggle(plan.id)}
-        className={`
-          mt-6 w-full py-2 rounded-lg text-sm font-medium transition-all
+      {/* Action Buttons - Bottom */}
+      <div className="mt-auto pt-4 flex gap-2">
+        {/* Primary Action */}
+        {actions.includes("activate") && (
+          <button
+            onClick={() => handleAction("activate")}
+            className="
+              flex-1 flex items-center justify-center gap-1.5
+              py-2 rounded-lg text-xs font-semibold
+              bg-emerald-600 text-white
+              hover:bg-emerald-700 transition-all
+            "
+          >
+            <PlayCircle size={14} />
+            Activate
+          </button>
+        )}
 
-          ${plan.active
-            ? "bg-white text-[#05015A] group-hover:bg-white group-hover:text-[#05015A]"
-            : "bg-[#05015A] text-white group-hover:bg-white group-hover:text-[#05015A]"
-          }
-        `}
-      >
-        {plan.active ? "Suspend Plan" : "Activate Plan"}
-      </button>
+        {actions.includes("suspend") && (
+          <button
+            onClick={() => handleAction("suspend")}
+            className="
+              flex-1 flex items-center justify-center gap-1.5
+              py-2 rounded-lg text-xs font-semibold
+              bg-orange-500 text-white
+              hover:bg-orange-600 transition-all
+            "
+          >
+            <PauseCircle size={14} />
+            Suspend
+          </button>
+        )}
+
+        {actions.includes("reactivate") && (
+          <button
+            onClick={() => handleAction("reactivate")}
+            className="
+              flex-1 flex items-center justify-center gap-1.5
+              py-2 rounded-lg text-xs font-semibold
+              bg-emerald-600 text-white
+              hover:bg-emerald-700 transition-all
+            "
+          >
+            <Power size={14} />
+            Reactivate
+          </button>
+        )}
+
+        {/* Clone - Always available */}
+        <button
+          onClick={() => handleAction("clone")}
+          className="
+            flex items-center justify-center gap-1.5
+            px-3 py-2 rounded-lg text-xs font-semibold
+            bg-white text-[#05015A] border border-[#05015A]/20
+            hover:bg-[#05015A] hover:text-white 
+            group-hover:bg-white group-hover:text-[#05015A]
+            transition-all
+          "
+        >
+          <Copy size={14} />
+          Clone
+        </button>
+      </div>
     </div>
   );
-};
+}
 
-export default PlanCard;
+// Small action button component
+function ActionButton({ icon: Icon, tooltip, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      title={tooltip}
+      className="
+        p-1.5 rounded-lg bg-white/80 text-gray-600
+        hover:bg-white hover:text-[#05015A] hover:shadow-md
+        transition-all duration-200
+      "
+    >
+      <Icon size={14} />
+    </button>
+  );
+}
