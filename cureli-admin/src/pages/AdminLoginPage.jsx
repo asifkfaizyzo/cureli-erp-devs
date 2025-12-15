@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import CAdminLoginForm from "../components/CAdminLoginForm";
 import CAdminOtpForm from "../components/CAdminOtpForm";
+import { AUTH_CONFIG } from "../config/modules/authConfig.js";
 
 import bgImage from "../assets/images/login-background.jpg";
 import logo from "../assets/icons/logo.png";
@@ -11,6 +12,18 @@ const AdminLoginPage = () => {
   const [username, setUsername] = useState("");
   const [phoneHint, setPhoneHint] = useState("");
 
+  // Handle successful login - either go to OTP or complete login
+  const handleLoginSuccess = (uname, hint, directLogin = false) => {
+    if (directLogin || !AUTH_CONFIG.ENABLE_OTP) {
+      // Direct login completed - navigation handled in the form
+      return;
+    }
+    // OTP flow
+    setUsername(uname);
+    setPhoneHint(hint);
+    setStep("otp");
+  };
+
   return (
     <div className="relative flex flex-col md:flex-row min-h-screen w-full overflow-hidden font-poppins">
 
@@ -19,10 +32,11 @@ const AdminLoginPage = () => {
         <img
           src={bgImage}
           className="absolute inset-0 w-full h-full object-cover md:scale-145 md:-translate-x-[25%]"
+          alt="Background"
         />
         <div className="absolute inset-0 bg-[#000060A3]" />
 
-        <img src={logo} className="absolute top-6 left-6 w-32 z-20" />
+        <img src={logo} className="absolute top-6 left-6 w-32 z-20" alt="Logo" />
 
         <div className="hidden md:block absolute z-10 text-white px-12 mt-24">
           <h1 className="text-4xl lg:text-5xl font-semibold mb-6">
@@ -49,11 +63,8 @@ const AdminLoginPage = () => {
                 transition={{ duration: 0.4 }}
               >
                 <CAdminLoginForm
-                  onSuccess={(uname, hint) => {
-                    setUsername(uname);
-                    setPhoneHint(hint);
-                    setStep("otp");
-                  }}
+                  onSuccess={handleLoginSuccess}
+                  enableOtp={AUTH_CONFIG.ENABLE_OTP}
                 />
               </motion.div>
             ) : (

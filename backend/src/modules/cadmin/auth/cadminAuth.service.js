@@ -72,7 +72,68 @@ export async function loginCAdminService({ username, password }) {
 
   return { phone_hint };
 }
+export async function loginCAdminDirectService({ username, password, req, res }) {
+  const cadmin = await prisma.cAdmin.findUnique({ where: { username } });
 
+  if (!cadmin) {
+    const err = new Error("Invalid username or password");
+    err.status = 401;
+    throw err;
+  }
+
+  if (!cadmin.is_active) {
+    const err = new Error("Account disabled");
+    err.status = 403;
+    throw err;
+  }
+
+  const ok = await comparePassword(password, cadmin.password_hash);
+  if (!ok) {
+    const err = new Error("Invalid username or password");
+    err.status = 401;
+    throw err;
+  }
+
+  // Update last login
+  await prisma.cAdmin.update({
+    where: { cadmin_id: cadmin.cadmin_id },
+    data: {
+      last_login_at: new Date(),
+    },
+  });
+
+  // Generate tokens
+  const accessPayload = {
+    cadmin_id: cadmin.cadmin_id,
+    username: cadmin.username,
+  };
+  const refreshPayload = { cadmin_id: cadmin.cadmin_id };
+
+  const accessToken = generateCAdminAccessToken(accessPayload);
+  const refreshToken = generateCAdminRefreshToken(refreshPayload);
+
+  console.log("🔑 Direct login - tokens generated for:", cadmin.username);
+
+  const cookieOptions = {
+    httpOnly: true,
+    secure: false, // Set to true in production with HTTPS
+    sameSite: "lax",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  };
+
+  // Clear any existing cookies first
+  res.clearCookie("cadmin_refresh_token", { path: "/" });
+  res.clearCookie("cadmin_refresh_token", { path: "/cadmin" });
+  res.clearCookie("cadmin_refresh_token", { path: "/cadmin/refresh" });
+
+  // Set new refresh token cookie
+  res.cookie("cadmin_refresh_token", refreshToken, cookieOptions);
+
+  return {
+    access_token: accessToken,
+  };
+}
 /**
  * verifyCAdminOtpService
  */

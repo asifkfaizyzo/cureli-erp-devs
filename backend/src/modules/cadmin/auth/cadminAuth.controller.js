@@ -2,6 +2,7 @@ import {
   loginCAdminService,
   verifyCAdminOtpService,
   refreshCAdminService,
+  loginCAdminDirectService,
   logoutCAdminService,
 } from "./cadminAuth.service.js";
 import { success, fail } from "../../../utils/response.js";
@@ -13,6 +14,17 @@ export async function loginCAdminController(req, res) {
     return success(res, resp, "OTP sent");
   } catch (err) {
     console.error("cadmin.login", err);
+    const status = err.status || 400;
+    return fail(res, err.message || "Login failed", status);
+  }
+}
+export async function loginCAdminDirectController(req, res) {
+  try {
+    const { username, password } = req.validated;
+    const resp = await loginCAdminDirectService({ username, password, req, res });
+    return success(res, resp, "Logged in");
+  } catch (err) {
+    console.error("cadmin.login-direct", err);
     const status = err.status || 400;
     return fail(res, err.message || "Login failed", status);
   }

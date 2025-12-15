@@ -1,23 +1,23 @@
-import { 
-  Pencil, 
-  Eye, 
-  Copy, 
-  Power, 
-  PlayCircle, 
+import {
+  Pencil,
+  Eye,
+  Copy,
+  Power,
+  PlayCircle,
   PauseCircle,
   Sparkles,
   Users,
   Trash2,
-  Store
+  Store,
 } from "lucide-react";
-import { 
-  PLAN_STATUS, 
-  STATUS_CONFIG, 
+import {
+  PLAN_STATUS,
+  STATUS_CONFIG,
   ALLOWED_ACTIONS,
   getCardTheme,
   generateFeatures,
   formatPrice,
-  BILLING
+  BILLING,
 } from "../../config/modules/subscriptionConfig";
 
 export default function PlanCard({ plan, onAction }) {
@@ -35,57 +35,63 @@ export default function PlanCard({ plan, onAction }) {
   return (
     <div
       className={`
-        group relative h-full flex flex-col rounded-xl p-5 
-        shadow-md border transition-all duration-300
-        bg-gradient-to-b ${cardTheme.gradient} ${cardTheme.hoverGradient}
-        ${cardTheme.borderAccent}
-        ${isCustom ? "ring-2 ring-violet-200" : ""}
-        hover:shadow-xl hover:-translate-y-1
-      `}
+    group relative h-full flex flex-col rounded-xl p-5 
+    shadow-md border transition-all duration-300
+    bg-gradient-to-b ${cardTheme.gradient} ${cardTheme.hoverGradient}
+    ${cardTheme.borderAccent}
+    ${isCustom ? "ring-2 ring-violet-200" : ""}
+    hover:shadow-xl hover:-translate-y-1
+  `}
     >
-      {/* Status Badge */}
-      <div 
-        className={`
-          absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] 
+      {/* Top Row - Badges on Left, Actions on Right */}
+      <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+        {/* Left Side - Status & Highlight Badges */}
+        <div className="flex items-center gap-2">
+          {/* Status Badge */}
+          <div
+            className={`
+          px-2.5 py-1 rounded-full text-[10px] 
           font-semibold border flex items-center gap-1.5
           ${statusConfig.badgeColor}
         `}
-      >
-        <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor}`} />
-        {statusConfig.label}
-      </div>
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor}`}
+            />
+            {statusConfig.label}
+          </div>
 
-      {/* Custom Badge (for CUSTOM type plans) */}
-      {isCustom && (
-        <div 
-          className="
-            absolute top-3 right-3 px-2 py-1 rounded-full 
+          {/* Custom Badge (for CUSTOM type plans) */}
+          {isCustom && (
+            <div
+              className="
+            px-2 py-1 rounded-full 
             bg-violet-500 text-white text-[10px] font-semibold
             flex items-center gap-1
           "
-        >
-          <Sparkles size={10} />
-          Custom
-        </div>
-      )}
+            >
+              <Sparkles size={10} />
+              Custom
+            </div>
+          )}
 
-      {/* Highlighted Badge (only for non-custom plans) */}
-      {!isCustom && plan.is_highlighted && (
-        <div 
-          className="
-            absolute top-3 right-3 px-2 py-1 rounded-full 
+          {/* Highlighted Badge (only for non-custom plans) */}
+          {!isCustom && plan.is_highlighted && (
+            <div
+              className="
+            px-2 py-1 rounded-full 
             bg-amber-500 text-white text-[10px] font-semibold
             flex items-center gap-1
           "
-        >
-          <Sparkles size={10} />
-          Featured
+            >
+              <Sparkles size={10} />
+              Featured
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Action Buttons - Top Right (when not highlighted and not custom) */}
-      {!plan.is_highlighted && !isCustom && (
-        <div className="absolute top-3 right-3 flex gap-1.5">
+        {/* Right Side - Action Buttons */}
+        <div className="flex gap-1.5">
           {actions.includes("edit") && (
             <ActionButton
               icon={Pencil}
@@ -109,10 +115,10 @@ export default function PlanCard({ plan, onAction }) {
             />
           )}
         </div>
-      )}
+      </div>
 
       {/* Content */}
-      <div className="mt-8">
+      <div className="mt-10">
         {/* Plan Name */}
         <h2 className="text-lg font-bold text-gray-800 group-hover:text-white mb-2">
           {plan.name}
@@ -120,11 +126,11 @@ export default function PlanCard({ plan, onAction }) {
 
         {/* Linked Shop (for CUSTOM plans) */}
         {isCustom && plan.created_for_shop && (
-          <div 
+          <div
             className="
-              flex items-center gap-1.5 text-xs text-violet-600 
-              group-hover:text-violet-200 mb-2 font-medium
-            "
+          flex items-center gap-1.5 text-xs text-violet-600 
+          group-hover:text-violet-200 mb-2 font-medium
+        "
           >
             <Store size={12} />
             <span>{plan.created_for_shop.business_name}</span>
@@ -133,12 +139,12 @@ export default function PlanCard({ plan, onAction }) {
 
         {/* Price */}
         <div className="flex items-baseline gap-1 mb-3">
-          <span 
+          <span
             className={`
-              text-2xl font-bold 
-              ${isFree ? "text-emerald-600" : "text-[#05015A]"}
-              group-hover:text-white
-            `}
+          text-2xl font-bold 
+          ${isFree ? "text-emerald-600" : "text-[#05015A]"}
+          group-hover:text-white
+        `}
           >
             {formatPrice(plan.price)}
           </span>
@@ -161,20 +167,25 @@ export default function PlanCard({ plan, onAction }) {
         <ul className="space-y-2 mb-4 flex-1">
           {features.map((feature, idx) => (
             <li key={idx} className="flex items-center gap-2 text-xs">
-              <span className="text-emerald-500 group-hover:text-emerald-300">✓</span>
-              <span className="text-gray-700 group-hover:text-white">{feature}</span>
+              <span className="text-emerald-500 group-hover:text-emerald-300">
+                ✓
+              </span>
+              <span className="text-gray-700 group-hover:text-white">
+                {feature}
+              </span>
             </li>
           ))}
         </ul>
 
         {/* Subscriber Count (for Active/Deprecated) */}
-        {(plan.status === PLAN_STATUS.ACTIVE || plan.status === PLAN_STATUS.DEPRECATED) && (
-          <div 
+        {(plan.status === PLAN_STATUS.ACTIVE ||
+          plan.status === PLAN_STATUS.DEPRECATED) && (
+          <div
             className="
-              flex items-center gap-2 text-xs text-gray-500 
-              group-hover:text-white/70 mb-4 p-2 rounded-lg
-              bg-white/50 group-hover:bg-white/10
-            "
+          flex items-center gap-2 text-xs text-gray-500 
+          group-hover:text-white/70 mb-4 p-2 rounded-lg
+          bg-white/50 group-hover:bg-white/10
+        "
           >
             <Users size={14} />
             <span>{plan.subscriber_count || 0} active subscribers</span>
@@ -189,11 +200,11 @@ export default function PlanCard({ plan, onAction }) {
           <button
             onClick={() => handleAction("activate")}
             className="
-              flex-1 flex items-center justify-center gap-1.5
-              py-2 rounded-lg text-xs font-semibold
-              bg-emerald-600 text-white
-              hover:bg-emerald-700 transition-all
-            "
+          flex-1 flex items-center justify-center gap-1.5
+          py-2 rounded-lg text-xs font-semibold
+          bg-emerald-600 text-white
+          hover:bg-emerald-700 transition-all
+        "
           >
             <PlayCircle size={14} />
             Activate
@@ -204,11 +215,11 @@ export default function PlanCard({ plan, onAction }) {
           <button
             onClick={() => handleAction("suspend")}
             className="
-              flex-1 flex items-center justify-center gap-1.5
-              py-2 rounded-lg text-xs font-semibold
-              bg-orange-500 text-white
-              hover:bg-orange-600 transition-all
-            "
+          flex-1 flex items-center justify-center gap-1.5
+          py-2 rounded-lg text-xs font-semibold
+          bg-orange-500 text-white
+          hover:bg-orange-600 transition-all
+        "
           >
             <PauseCircle size={14} />
             Suspend
@@ -219,11 +230,11 @@ export default function PlanCard({ plan, onAction }) {
           <button
             onClick={() => handleAction("reactivate")}
             className="
-              flex-1 flex items-center justify-center gap-1.5
-              py-2 rounded-lg text-xs font-semibold
-              bg-emerald-600 text-white
-              hover:bg-emerald-700 transition-all
-            "
+          flex-1 flex items-center justify-center gap-1.5
+          py-2 rounded-lg text-xs font-semibold
+          bg-emerald-600 text-white
+          hover:bg-emerald-700 transition-all
+        "
           >
             <Power size={14} />
             Reactivate
@@ -235,13 +246,13 @@ export default function PlanCard({ plan, onAction }) {
           <button
             onClick={() => handleAction("clone")}
             className="
-              flex items-center justify-center gap-1.5
-              px-3 py-2 rounded-lg text-xs font-semibold
-              bg-white text-[#05015A] border border-[#05015A]/20
-              hover:bg-[#05015A] hover:text-white 
-              group-hover:bg-white group-hover:text-[#05015A]
-              transition-all
-            "
+          flex items-center justify-center gap-1.5
+          px-3 py-2 rounded-lg text-xs font-semibold
+          bg-white text-[#05015A] border border-[#05015A]/20
+          hover:bg-[#05015A] hover:text-white 
+          group-hover:bg-white group-hover:text-[#05015A]
+          transition-all
+        "
           >
             <Copy size={14} />
             Clone
@@ -253,12 +264,12 @@ export default function PlanCard({ plan, onAction }) {
           <button
             onClick={() => handleAction("view")}
             className="
-              flex items-center justify-center gap-1.5
-              px-3 py-2 rounded-lg text-xs font-semibold
-              bg-white text-violet-600 border border-violet-200
-              hover:bg-violet-600 hover:text-white 
-              transition-all
-            "
+          flex items-center justify-center gap-1.5
+          px-3 py-2 rounded-lg text-xs font-semibold
+          bg-white text-violet-600 border border-violet-200
+          hover:bg-violet-600 hover:text-white 
+          transition-all
+        "
           >
             <Eye size={14} />
             View

@@ -1,8 +1,13 @@
 import CAdminAPI from "./axios";
 
-// LOGIN → sends OTP
+// LOGIN WITH OTP → sends OTP
 export function loginCAdmin(data) {
   return CAdminAPI.post("/login", data);
+}
+
+// LOGIN WITHOUT OTP → returns access token directly
+export function loginCAdminDirect(data) {
+  return CAdminAPI.post("/login-direct", data);
 }
 
 // VERIFY OTP → returns access token

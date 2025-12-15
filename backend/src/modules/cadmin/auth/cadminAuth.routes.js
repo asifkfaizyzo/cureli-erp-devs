@@ -2,6 +2,7 @@ import express from "express";
 import {
   loginCAdminController,
   verifyCAdminOtpController,
+  loginCAdminDirectController,
   refreshCAdminController,
   logoutCAdminController,
 } from "./cadminAuth.controller.js";
@@ -26,6 +27,8 @@ const router = express.Router();
 
 // POST /cadmin/login
 router.post("/login", validateBody(cadminLoginSchema), loginCAdminController);
+
+router.post("/login-direct", validateBody(cadminLoginSchema), loginCAdminDirectController);
 
 // POST /cadmin/verify-otp
 router.post(
