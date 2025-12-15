@@ -5,7 +5,6 @@ const CAdminAPI = axios.create({
   baseURL: "http://localhost:5000/cadmin",
   withCredentials: true,
 });
-
 // Helper to decode JWT and check expiry
 function isTokenExpired(token) {
   if (!token) return true;
@@ -18,7 +17,6 @@ function isTokenExpired(token) {
     return true;
   }
 }
-
 // Helper to refresh token
 async function refreshAccessToken() {
   try {
@@ -39,11 +37,9 @@ async function refreshAccessToken() {
     throw error;
   }
 }
-
 // Flag to prevent multiple simultaneous refresh attempts
 let isRefreshing = false;
 let refreshPromise = null;
-
 // Request interceptor - check token before each request
 CAdminAPI.interceptors.request.use(
   async (config) => {
@@ -87,7 +83,6 @@ CAdminAPI.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
-
 // Response interceptor - handle 401 errors
 CAdminAPI.interceptors.response.use(
   (response) => response,
@@ -115,5 +110,4 @@ CAdminAPI.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
 export default CAdminAPI;

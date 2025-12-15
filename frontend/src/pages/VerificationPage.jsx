@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import OnboardingHeader from "../components/layout/OnboardingHeader";
 import VerificationStepper from "../components/verification/VerificationStepper";
 import VerificationPending from "../components/verification/VerificationPending";
 import DocumentResubmission from "../components/verification/DocumentResubmission";
@@ -19,8 +20,11 @@ const VerificationPage = () => {
   const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(initialStep || 12);
   const [error, setError] = useState(null);
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
+    // Get user name from localStorage
+    setUserName(localStorage.getItem("user_name") || "");
     initializeVerification();
   }, []);
 
@@ -44,6 +48,12 @@ const VerificationPage = () => {
       const shopStatus = data?.verification_status;
       const userStatus = data?.user_status;
       const firstLogin = data?.first_login_after_verification;
+
+      // Update username if available
+      if (data?.user_name) {
+        setUserName(data.user_name);
+        localStorage.setItem("user_name", data.user_name);
+      }
 
       console.log("🔍 Status check:", { shopStatus, userStatus, firstLogin });
 
@@ -75,7 +85,11 @@ const VerificationPage = () => {
       console.error("Failed to fetch verification status:", e);
 
       if (e.response?.status === 401) {
-        navigate("/login");
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("shop_id");
+        localStorage.removeItem("user_id");
+        localStorage.removeItem("user_name");
+        navigate("/", { replace: true });
         return;
       }
 
@@ -133,13 +147,16 @@ const VerificationPage = () => {
 
   return (
     <div className="min-h-dvh h-dvh bg-gray-50 flex flex-col font-poppins">
-      {/* Stepper - Fixed height, no shrink */}
+      {/* Header */}
+      <OnboardingHeader userName={userName} />
+
+      {/* Stepper */}
       <div className="flex-shrink-0 w-full flex justify-center px-4 pt-3 pb-2">
         <VerificationStepper currentStep={currentStep} />
       </div>
 
-      {/* Main Content - Flexible, fills remaining space */}
-      <div className="flex-1 min-h-0 w-full flex flex-col items-center overflow-y-auto px-4 py-4">
+      {/* Main Content */}
+      <div className="flex-1 min-h-0 w-full flex flex-col items-center  overflow-y-auto px-4 py-4">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}
@@ -147,7 +164,7 @@ const VerificationPage = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="w-full max-w-3xl flex-1 flex flex-col"
+            className="w-full flex-1 flex flex-col"
           >
             {renderStep()}
           </motion.div>

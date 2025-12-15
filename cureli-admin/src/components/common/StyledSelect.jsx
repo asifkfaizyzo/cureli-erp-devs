@@ -1,5 +1,6 @@
 // components/common/StyledSelect.jsx
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
 
 const StyledSelect = ({ 
@@ -10,24 +11,105 @@ const StyledSelect = ({
   placeholder = "Select..." 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState(null);
+  const triggerRef = useRef(null);
   const dropdownRef = useRef(null);
+
+  // Calculate position before opening
+  const updatePosition = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, []);
+
+  // Handle opening - calculate position first, then open
+  const handleToggle = () => {
+    if (!isOpen) {
+      updatePosition();
+    }
+    setIsOpen(!isOpen);
+  };
 
   // Close on outside click
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target) &&
+        dropdownRef.current && !dropdownRef.current.contains(e.target)
+      ) {
         setIsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isOpen]);
+
+  // Close on scroll and update position on resize
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleScroll = () => setIsOpen(false);
+    const handleResize = () => updatePosition();
+
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleResize);
+    
+    return () => {
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [isOpen, updatePosition]);
 
   const selectedOption = options.find((opt) => opt.value === value);
   const isActive = Boolean(value);
 
+  // Only render dropdown when open AND position is calculated
+  const dropdown = isOpen && dropdownPosition
+    ? createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl py-1 animate-in fade-in slide-in-from-top-2 duration-150"
+          style={{
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            minWidth: Math.max(dropdownPosition.width, 160),
+          }}
+        >
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+              }}
+              className={`w-full px-3 py-2 text-sm text-left flex items-center justify-between
+                         transition-colors
+                         ${value === option.value 
+                           ? "bg-indigo-50 text-indigo-700" 
+                           : "text-gray-700 hover:bg-gray-50"
+                         }`}
+            >
+              <span>{option.label}</span>
+              {value === option.value && (
+                <Check size={14} className="text-indigo-600" />
+              )}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )
+    : null;
+
   return (
-    <div className="flex flex-col gap-1.5" ref={dropdownRef}>
+    <div className="flex flex-col gap-1.5">
       {label && (
         <label className="text-xs text-gray-500 font-medium">{label}</label>
       )}
@@ -35,8 +117,9 @@ const StyledSelect = ({
       <div className="relative">
         {/* Trigger Button */}
         <button
+          ref={triggerRef}
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleToggle}
           className={`h-10 pl-4 pr-10 border rounded-lg text-sm text-left
                      flex items-center min-w-[140px] whitespace-nowrap shadow-sm
                      focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
@@ -58,36 +141,10 @@ const StyledSelect = ({
                      ${isOpen ? "rotate-180" : ""}
                      ${isActive ? "text-indigo-500" : "text-gray-400"}`} 
         />
-
-        {/* Dropdown Menu */}
-        {isOpen && (
-          <div className="absolute z-50 top-full left-0 mt-1 w-full min-w-[160px]
-                         bg-white border border-gray-200 rounded-lg shadow-lg
-                         py-1 animate-in fade-in slide-in-from-top-2 duration-150">
-            {options.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-                className={`w-full px-3 py-2 text-sm text-left flex items-center justify-between
-                           transition-colors
-                           ${value === option.value 
-                             ? "bg-indigo-50 text-indigo-700" 
-                             : "text-gray-700 hover:bg-gray-50"
-                           }`}
-              >
-                <span>{option.label}</span>
-                {value === option.value && (
-                  <Check size={14} className="text-indigo-600" />
-                )}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
+
+      {/* Dropdown Portal */}
+      {dropdown}
     </div>
   );
 };

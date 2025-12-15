@@ -11,7 +11,7 @@ const VerificationPending = ({ onRefresh }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-3xl bg-white rounded-xl flex flex-col items-center py-6 sm:py-10 px-6"
+        className="w-full max-w-3xl bg-white rounded-xl flex flex-col items-center py-6 sm:py-5 px-6"
         style={{ boxShadow: "0px 4px 35px rgba(0,0,0,0.08)" }}
       >
         {/* ANIMATED DOCUMENT SCANNER - Scaled down */}

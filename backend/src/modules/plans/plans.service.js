@@ -9,11 +9,10 @@ import prisma from "../../config/prisma.js";
 function mapPlanRecord(plan) {
   return {
     plan_id: plan.plan_id,
-    plan_name: plan.plan_name,
+    name: plan.name,
     max_branches: plan.max_branches,
     max_users: plan.max_users,
-    price_monthly: plan.price_monthly !== null ? plan.price_monthly.toString() : null,
-    price_yearly: plan.price_yearly !== null ? plan.price_yearly.toString() : null,
+    price: plan.price !== null ? plan.price.toString() : null,
     is_customizable: plan.is_customizable,
     is_visible: plan.is_visible,
     features_json: plan.features_json || null,
@@ -29,7 +28,7 @@ function mapPlanRecord(plan) {
 export async function getVisiblePlans() {
   const plans = await prisma.plan.findMany({
     where: { is_visible: true },
-    orderBy: [{ price_monthly: "asc" }, { plan_name: "asc" }],
+    orderBy: [{ price: "asc" }, { name: "asc" }],
   });
 
   return plans.map(mapPlanRecord);

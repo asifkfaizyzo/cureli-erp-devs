@@ -14,8 +14,6 @@ import {
   Image as ImageIcon,
   Send,
   Eye,
-  Info,
-  RefreshCw,
 } from "lucide-react";
 import { getRejectedFiles, resubmitFile } from "../../api/shopFiles";
 
@@ -51,7 +49,6 @@ const DocumentResubmission = ({ refreshStatus }) => {
   const [uploadProgress, setUploadProgress] = useState({});
   const [error, setError] = useState("");
   const [allResubmitted, setAllResubmitted] = useState(false);
-  const [expandedReason, setExpandedReason] = useState(null);
 
   const fileInputRefs = useRef({});
 
@@ -202,7 +199,7 @@ const DocumentResubmission = ({ refreshStatus }) => {
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 pb-4 font-poppins">
+    <div className="w-full max-w-6xl mx-auto px-4 pb-4 font-poppins">
       {/* Compact Header */}
       <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-4 mb-4 border border-red-100">
         <div className="flex items-center gap-4">
@@ -254,14 +251,13 @@ const DocumentResubmission = ({ refreshStatus }) => {
         )}
       </AnimatePresence>
 
-      {/* Compact Document Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+      {/* Document Grid - 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
         {rejectedFiles.map((file, index) => {
           const isSelected = !!selectedFiles[file.file_id];
           const selectedFile = selectedFiles[file.file_id];
           const progress = uploadProgress[file.file_id];
           const FileIcon = selectedFile ? getFileIcon(selectedFile) : FileText;
-          const isExpanded = expandedReason === file.file_id;
 
           return (
             <motion.div
@@ -281,66 +277,43 @@ const DocumentResubmission = ({ refreshStatus }) => {
                 }
               `}
             >
-              {/* Compact Card Header */}
+              {/* Card Header */}
               <div className="p-3 border-b border-gray-100">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className={`
-                      w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
-                      ${progress === "success" ? "bg-green-100" : progress === "error" ? "bg-red-100" : "bg-gray-100"}
-                    `}>
-                      {progress === "success" ? (
-                        <CheckCircle2 size={16} className="text-green-600" />
-                      ) : progress === "uploading" ? (
-                        <Loader2 size={16} className="text-[#000060] animate-spin" />
-                      ) : (
-                        <FileText size={16} className="text-gray-500" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-medium text-sm text-gray-800 truncate">
-                        {FILE_TYPE_LABELS[file.file_type] || file.file_type}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
-                        {file.resubmission_count > 0 && (
-                          <span className="text-amber-600">
-                            {file.resubmission_count}x resubmitted
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                <div className="flex items-center gap-2">
+                  <div className={`
+                    w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
+                    ${progress === "success" ? "bg-green-100" : progress === "error" ? "bg-red-100" : "bg-gray-100"}
+                  `}>
+                    {progress === "success" ? (
+                      <CheckCircle2 size={16} className="text-green-600" />
+                    ) : progress === "uploading" ? (
+                      <Loader2 size={16} className="text-[#000060] animate-spin" />
+                    ) : (
+                      <FileText size={16} className="text-gray-500" />
+                    )}
                   </div>
-                  
-                  {/* Reason Toggle */}
-                  <button
-                    onClick={() => setExpandedReason(isExpanded ? null : file.file_id)}
-                    className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition"
-                    title="View rejection reason"
-                  >
-                    <Info size={14} />
-                  </button>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-medium text-sm text-gray-800 truncate">
+                      {FILE_TYPE_LABELS[file.file_type] || file.file_type}
+                    </h3>
+                    {file.resubmission_count > 0 && (
+                      <span className="text-[10px] text-amber-600">
+                        {file.resubmission_count}x resubmitted
+                      </span>
+                    )}
+                  </div>
                 </div>
-
-                {/* Expandable Reason */}
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="mt-2 p-2 bg-red-50 rounded-lg border border-red-100">
-                        <p className="text-xs text-red-700 leading-relaxed">
-                          {file.verification_notes || "Document could not be verified. Please resubmit."}
-                        </p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
 
-              {/* Compact Upload Area */}
+              {/* Always Visible Rejection Reason */}
+              <div className="px-3 py-2 bg-red-50 border-b border-red-100">
+                <p className="text-xs text-red-700 leading-relaxed">
+                  <span className="font-medium">Reason: </span>
+                  {file.verification_notes || "Document could not be verified. Please resubmit."}
+                </p>
+              </div>
+
+              {/* Upload Area */}
               <div className="p-3">
                 <input
                   type="file"
@@ -355,7 +328,7 @@ const DocumentResubmission = ({ refreshStatus }) => {
                     <div className="flex items-center gap-2 min-w-0">
                       <FileIcon size={18} className="text-[#000060] flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-gray-700 truncate max-w-[120px]">
+                        <p className="text-xs font-medium text-gray-700 truncate max-w-[100px]">
                           {selectedFile.name}
                         </p>
                         <p className="text-[10px] text-gray-400">

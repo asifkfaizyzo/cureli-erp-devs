@@ -1,4 +1,4 @@
-
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\components\common\ConfirmDialog.jsx
 
 import { AlertTriangle, CheckCircle, Mail, Trash2 } from "lucide-react";
 

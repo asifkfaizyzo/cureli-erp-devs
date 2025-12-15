@@ -73,9 +73,7 @@ const getRoleDisplayName = (role) => {
 
 const getOnboardingStatusLabel = (status) => {
   if (!status) return "Unknown";
-  return status
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (l) => l.toUpperCase());
+  return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -135,28 +133,32 @@ export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
           />
           <DetailRow
             label="Username"
-            value={isEditing ? formData.username : (user.username || "Not set")}
+            value={isEditing ? formData.username : user.username || "Not set"}
             isEditing={isEditing}
             fieldName="username"
             onChange={(val) => onFormChange?.("username", val)}
           />
-          
+
           {/* Email - Only for Super Admin, editable */}
           {isOwner && (
             <DetailRow
               label="Email"
-              value={isEditing ? formData.email : (user.email || "Not provided")}
+              value={isEditing ? formData.email : user.email || "Not provided"}
               isEditing={isEditing}
               fieldName="email"
               onChange={(val) => onFormChange?.("email", val)}
             />
           )}
-          
+
           {/* Phone Number - Only for Super Admin, editable */}
           {isOwner && (
             <DetailRow
               label="Phone Number"
-              value={isEditing ? formData.phone_number : (user.phone_number || "Not provided")}
+              value={
+                isEditing
+                  ? formData.phone_number
+                  : user.phone_number || "Not provided"
+              }
               isEditing={isEditing}
               fieldName="phone_number"
               onChange={(val) => onFormChange?.("phone_number", val)}
@@ -172,7 +174,11 @@ export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
             type="select"
             options={getRoleOptions()}
             onChange={(val) => onFormChange?.("role", val)}
-            helperText={isOwner && isEditing ? "Super Admin role cannot be modified" : null}
+            helperText={
+              isOwner && isEditing
+                ? "Super Admin role cannot be modified"
+                : null
+            }
           />
         </div>
       </div>
@@ -185,11 +191,7 @@ export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-          <DetailRow
-            label="User ID"
-            value={user.user_id}
-            isEditing={false}
-          />
+          <DetailRow label="User ID" value={user.user_id} isEditing={false} />
           <DetailRow
             label="Account Status"
             value={user.is_active ? "Active" : "Inactive"}
@@ -204,7 +206,9 @@ export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
           />
           <DetailRow
             label="Login Method"
-            value={user.login_provider === "google" ? "Google" : "Email/Password"}
+            value={
+              user.login_provider === "google" ? "Google" : "Email/Password"
+            }
             isEditing={false}
           />
           <DetailRow
@@ -252,7 +256,11 @@ export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
             {user.branch?.branch_type && (
               <DetailRow
                 label="Branch Type"
-                value={user.branch.branch_type === "main" ? "Main Branch" : "Sub Branch"}
+                value={
+                  user.branch.branch_type === "main"
+                    ? "Main Branch"
+                    : "Sub Branch"
+                }
                 isEditing={false}
               />
             )}
@@ -282,12 +290,22 @@ export const ShopDetails = ({ user }) => {
           Workplace Information
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-          <DetailRow label="Shop" value={shop?.business_name || "N/A"} isEditing={false} />
-          <DetailRow label="Branch" value={branch?.branch_name || "N/A"} isEditing={false} />
+          <DetailRow
+            label="Shop"
+            value={shop?.business_name || "N/A"}
+            isEditing={false}
+          />
+          <DetailRow
+            label="Branch"
+            value={branch?.branch_name || "N/A"}
+            isEditing={false}
+          />
           {branch?.branch_type && (
             <DetailRow
               label="Branch Type"
-              value={branch.branch_type === "main" ? "Main Branch" : "Sub Branch"}
+              value={
+                branch.branch_type === "main" ? "Main Branch" : "Sub Branch"
+              }
               isEditing={false}
             />
           )}
@@ -307,7 +325,11 @@ export const ShopDetails = ({ user }) => {
             Shop Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <DetailRow label="Shop Name" value={shop?.business_name || "N/A"} isEditing={false} />
+            <DetailRow
+              label="Shop Name"
+              value={shop?.business_name || "N/A"}
+              isEditing={false}
+            />
             <DetailRow
               label="Verification"
               value={shop?.verification_status}
@@ -324,15 +346,33 @@ export const ShopDetails = ({ user }) => {
             Branch Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <DetailRow label="Branch ID" value={branch.branch_id?.slice(0, 8) + "..."} isEditing={false} />
-            <DetailRow label="Branch Name" value={branch.branch_name} isEditing={false} />
             <DetailRow
-              label="Branch Type"
-              value={branch.branch_type === "main" ? "Main Branch" : "Sub Branch"}
+              label="Branch ID"
+              value={branch.branch_id?.slice(0, 8) + "..."}
               isEditing={false}
             />
-            <DetailRow label="Contact Number" value={branch.contact_number} isEditing={false} />
-            <DetailRow label="Alternate Number" value={branch.alternate_number || "N/A"} isEditing={false} />
+            <DetailRow
+              label="Branch Name"
+              value={branch.branch_name}
+              isEditing={false}
+            />
+            <DetailRow
+              label="Branch Type"
+              value={
+                branch.branch_type === "main" ? "Main Branch" : "Sub Branch"
+              }
+              isEditing={false}
+            />
+            <DetailRow
+              label="Contact Number"
+              value={branch.contact_number}
+              isEditing={false}
+            />
+            <DetailRow
+              label="Alternate Number"
+              value={branch.alternate_number || "N/A"}
+              isEditing={false}
+            />
             <DetailRow
               label="Status"
               value={branch.is_active ? "Active" : "Inactive"}
@@ -349,11 +389,23 @@ export const ShopDetails = ({ user }) => {
             Branch Address
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <DetailRow label="Address Line 1" value={branch.address_line_1} isEditing={false} />
-            <DetailRow label="Address Line 2" value={branch.address_line_2 || "N/A"} isEditing={false} />
+            <DetailRow
+              label="Address Line 1"
+              value={branch.address_line_1}
+              isEditing={false}
+            />
+            <DetailRow
+              label="Address Line 2"
+              value={branch.address_line_2 || "N/A"}
+              isEditing={false}
+            />
             <DetailRow label="City" value={branch.city} isEditing={false} />
             <DetailRow label="State" value={branch.state} isEditing={false} />
-            <DetailRow label="Pincode" value={branch.pincode} isEditing={false} />
+            <DetailRow
+              label="Pincode"
+              value={branch.pincode}
+              isEditing={false}
+            />
           </div>
         </div>
       </div>
@@ -373,11 +425,31 @@ export const ShopDetails = ({ user }) => {
             Business Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <DetailRow label="Shop ID" value={shop.shop_id?.slice(0, 8) + "..."} isEditing={false} />
-            <DetailRow label="Business Name" value={shop.business_name} isEditing={false} />
-            <DetailRow label="Legal Name" value={shop.legal_name || "N/A"} isEditing={false} />
-            <DetailRow label="GST Number" value={shop.gst_number || "Not provided"} isEditing={false} />
-            <DetailRow label="Business Type" value={shop.business_type || "N/A"} isEditing={false} />
+            <DetailRow
+              label="Shop ID"
+              value={shop.shop_id?.slice(0, 8) + "..."}
+              isEditing={false}
+            />
+            <DetailRow
+              label="Business Name"
+              value={shop.business_name}
+              isEditing={false}
+            />
+            <DetailRow
+              label="Legal Name"
+              value={shop.legal_name || "N/A"}
+              isEditing={false}
+            />
+            <DetailRow
+              label="GST Number"
+              value={shop.gst_number || "Not provided"}
+              isEditing={false}
+            />
+            <DetailRow
+              label="Business Type"
+              value={shop.business_type || "N/A"}
+              isEditing={false}
+            />
             <DetailRow
               label="Verification"
               value={shop.verification_status}
@@ -401,8 +473,16 @@ export const ShopDetails = ({ user }) => {
             Business Address
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <DetailRow label="Address Line 1" value={shop.address_line_1} isEditing={false} />
-            <DetailRow label="Address Line 2" value={shop.address_line_2 || "N/A"} isEditing={false} />
+            <DetailRow
+              label="Address Line 1"
+              value={shop.address_line_1}
+              isEditing={false}
+            />
+            <DetailRow
+              label="Address Line 2"
+              value={shop.address_line_2 || "N/A"}
+              isEditing={false}
+            />
             <DetailRow label="City" value={shop.city} isEditing={false} />
             <DetailRow label="State" value={shop.state} isEditing={false} />
             <DetailRow label="Pincode" value={shop.pincode} isEditing={false} />
@@ -417,14 +497,47 @@ export const ShopDetails = ({ user }) => {
           </h3>
           {subscription ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-              <DetailRow label="Plan" value={subscription.plan?.plan_name || "N/A"} isEditing={false} />
-              <DetailRow label="Status" value={subscription.status} isEditing={false} type="status" />
-              <DetailRow label="Billing Cycle" value={subscription.billing_cycle} isEditing={false} />
-              <DetailRow label="Payment Status" value={subscription.payment_status} isEditing={false} />
-              <DetailRow label="Start Date" value={formatDate(subscription.start_date)} isEditing={false} />
-              <DetailRow label="End Date" value={formatDate(subscription.end_date)} isEditing={false} />
-              <DetailRow label="Max Branches" value={subscription.branch_limit_snapshot} isEditing={false} />
-              <DetailRow label="Max Users" value={subscription.user_limit_snapshot} isEditing={false} />
+              <DetailRow
+                label="Plan"
+                value={subscription.plan?.name || "N/A"}
+                isEditing={false}
+              />
+              <DetailRow
+                label="Status"
+                value={subscription.status}
+                isEditing={false}
+                type="status"
+              />
+              <DetailRow
+                label="Billing Cycle"
+                value={subscription.billing_cycle}
+                isEditing={false}
+              />
+              <DetailRow
+                label="Payment Status"
+                value={subscription.payment_status}
+                isEditing={false}
+              />
+              <DetailRow
+                label="Start Date"
+                value={formatDate(subscription.start_date)}
+                isEditing={false}
+              />
+              <DetailRow
+                label="End Date"
+                value={formatDate(subscription.end_date)}
+                isEditing={false}
+              />
+              <DetailRow
+                label="Max Branches"
+                value={subscription.branch_limit_snapshot}
+                isEditing={false}
+              />
+              <DetailRow
+                label="Max Users"
+                value={subscription.user_limit_snapshot}
+                isEditing={false}
+              />
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
@@ -442,15 +555,21 @@ export const ShopDetails = ({ user }) => {
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 text-center border border-indigo-100">
-              <p className="text-2xl font-bold text-[#05015A]">{shop._count?.branches || 0}</p>
+              <p className="text-2xl font-bold text-[#05015A]">
+                {shop._count?.branches || 0}
+              </p>
               <p className="text-sm text-gray-500">Branches</p>
             </div>
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 text-center border border-emerald-100">
-              <p className="text-2xl font-bold text-emerald-700">{shop._count?.users || 0}</p>
+              <p className="text-2xl font-bold text-emerald-700">
+                {shop._count?.users || 0}
+              </p>
               <p className="text-sm text-gray-500">Users</p>
             </div>
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 text-center border border-amber-100">
-              <p className="text-lg font-bold text-amber-700">{formatDate(shop.created_at)}</p>
+              <p className="text-lg font-bold text-amber-700">
+                {formatDate(shop.created_at)}
+              </p>
               <p className="text-sm text-gray-500">Registered</p>
             </div>
           </div>
@@ -480,7 +599,9 @@ export const DocumentsTab = ({ user }) => {
       <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
         <FileText size={48} className="mx-auto text-gray-300 mb-3" />
         <p className="text-gray-500">
-          {isStaff ? "Documents not available for this role" : "No documents uploaded"}
+          {isStaff
+            ? "Documents not available for this role"
+            : "No documents uploaded"}
         </p>
       </div>
     );
@@ -495,7 +616,10 @@ export const DocumentsTab = ({ user }) => {
       address_proof: "Address Proof",
       shop_license: "Shop & Establishment License",
     };
-    return labels[fileType] || fileType?.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    return (
+      labels[fileType] ||
+      fileType?.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+    );
   };
 
   const getStatusBadge = (status) => {
@@ -547,9 +671,12 @@ export const DocumentsTab = ({ user }) => {
                   </p>
                   {getStatusBadge(doc.status)}
                 </div>
-                <p className="text-xs text-gray-500 mt-1 truncate">{doc.original_name}</p>
+                <p className="text-xs text-gray-500 mt-1 truncate">
+                  {doc.original_name}
+                </p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {formatDate(doc.uploaded_at)} • {formatFileSize(doc.file_size)}
+                  {formatDate(doc.uploaded_at)} •{" "}
+                  {formatFileSize(doc.file_size)}
                 </p>
                 {doc.verification_notes && (
                   <p className="text-xs text-orange-600 mt-1 bg-orange-50 px-2 py-1 rounded">
@@ -607,10 +734,18 @@ export const BranchesTab = ({ user }) => {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left p-4 font-semibold text-gray-600">Branch Name</th>
-              <th className="text-left p-4 font-semibold text-gray-600">Type</th>
-              <th className="text-left p-4 font-semibold text-gray-600">City</th>
-              <th className="text-center p-4 font-semibold text-gray-600">Status</th>
+              <th className="text-left p-4 font-semibold text-gray-600">
+                Branch Name
+              </th>
+              <th className="text-left p-4 font-semibold text-gray-600">
+                Type
+              </th>
+              <th className="text-left p-4 font-semibold text-gray-600">
+                City
+              </th>
+              <th className="text-center p-4 font-semibold text-gray-600">
+                Status
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -621,7 +756,9 @@ export const BranchesTab = ({ user }) => {
                   index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
                 }`}
               >
-                <td className="p-4 font-medium text-gray-900">{branch.branch_name}</td>
+                <td className="p-4 font-medium text-gray-900">
+                  {branch.branch_name}
+                </td>
                 <td className="p-4">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -700,10 +837,18 @@ export const UsersTab = ({ user }) => {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left p-4 font-semibold text-gray-600">Name</th>
-              <th className="text-left p-4 font-semibold text-gray-600">Email</th>
-              <th className="text-center p-4 font-semibold text-gray-600">Role</th>
-              <th className="text-center p-4 font-semibold text-gray-600">Status</th>
+              <th className="text-left p-4 font-semibold text-gray-600">
+                Name
+              </th>
+              <th className="text-left p-4 font-semibold text-gray-600">
+                Email
+              </th>
+              <th className="text-center p-4 font-semibold text-gray-600">
+                Role
+              </th>
+              <th className="text-center p-4 font-semibold text-gray-600">
+                Status
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -827,7 +972,9 @@ export const ActivityTab = ({ user }) => {
                       <p className="font-semibold text-gray-800">
                         {getActionLabel(activity.action)}
                       </p>
-                      <p className="text-sm text-gray-600 mt-0.5">{activity.description}</p>
+                      <p className="text-sm text-gray-600 mt-0.5">
+                        {activity.description}
+                      </p>
                     </div>
                     <span className="text-xs text-gray-400 whitespace-nowrap ml-4">
                       {formatDateTime(activity.created_at)}
@@ -835,10 +982,16 @@ export const ActivityTab = ({ user }) => {
                   </div>
                   {(activity.ip_address || activity.user_agent) && (
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                      {activity.ip_address && <span>IP: {activity.ip_address}</span>}
-                      {activity.ip_address && activity.user_agent && <span>•</span>}
+                      {activity.ip_address && (
+                        <span>IP: {activity.ip_address}</span>
+                      )}
+                      {activity.ip_address && activity.user_agent && (
+                        <span>•</span>
+                      )}
                       {activity.user_agent && (
-                        <span className="truncate max-w-[300px]">{activity.user_agent}</span>
+                        <span className="truncate max-w-[300px]">
+                          {activity.user_agent}
+                        </span>
                       )}
                     </div>
                   )}

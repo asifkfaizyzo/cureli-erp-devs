@@ -9,7 +9,7 @@ export async function getPlansController(req, res) {
   try {
     const plans = await prisma.plan.findMany({
       where: { is_visible: true },
-      orderBy: { price_monthly: "asc" },
+      orderBy: { price: "asc" },
     });
 
     return success(res, { plans });

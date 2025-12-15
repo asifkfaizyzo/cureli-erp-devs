@@ -36,7 +36,7 @@ const FILE_TYPE_LABELS = {
 const getFileUrl = (storageKey) => {
   if (!storageKey) return null;
   if (storageKey.startsWith("http")) return storageKey;
-  return `${BACKEND_URL}/uploads/shop-files/${storageKey}`;
+  return `${BACKEND_URL}/uploads/shop_files/${storageKey}`;
 };
 
 // Compact Tooltip Component

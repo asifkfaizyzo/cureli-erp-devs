@@ -17,9 +17,8 @@ import plansRoutes from "./src/modules/plans/plans.routes.js";
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
 import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
 import cadminUserRoutes from "./src/modules/cadmin/users/cadminUser.routes.js";
-
-
-
+import cadminShopsRoutes from "./src/modules/cadmin/shops/cadminShops.routes.js";
+import cadminPlansRoutes from "./src/modules/cadmin/plans/cadminPlans.routes.js";
 
 
 
@@ -49,9 +48,14 @@ app.use("/api/pending", pendingRoutes);
 app.use("/api/shop/files", shopFilesRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/plans", plansRoutes);
+
 app.use("/cadmin", cadminAuthRoutes);
 app.use("/cadmin", cadminDocsRoutes);
 app.use("/cadmin", cadminUserRoutes);     
+app.use("/cadmin", cadminShopsRoutes);
+app.use("/cadmin", cadminPlansRoutes);
+
+
 // health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
