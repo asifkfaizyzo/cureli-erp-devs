@@ -25,10 +25,8 @@ const Pricing = () => {
       period: "/month",
       description: "Perfect for growing businesses with advanced features.",
       features: [
-        "Up to 10 users",
-        "Multi-Branch Support",
-        "Advanced Reports",
-        "Priority Support",
+        "Up to 6 users",
+        "Two Branch",
       ],
     },
     {
@@ -37,11 +35,8 @@ const Pricing = () => {
       period: "/month",
       description: "Complete solution for large-scale operations.",
       features: [
-        "Unlimited Users",
-        "Unlimited Branches",
-        "Custom Integrations",
-        "Dedicated Manager",
-        "Advanced Analytics",
+        "12 Users",
+        "Three Branches",
       ],
     },
     {
@@ -50,10 +45,9 @@ const Pricing = () => {
       period: "us",
       description: "Tailored solutions for your unique business needs.",
       features: [
-        "Custom Features",
-        "Dedicated Support",
-        "Flexible Pricing",
-        "API Access",
+        "Custom users",
+        "Custom Branches",
+        "Custom Pricing",
       ],
     },
   ];

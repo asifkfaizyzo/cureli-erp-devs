@@ -23,6 +23,9 @@ import PurchasePage from "./pages/PurchasePage.jsx";
 
 //landing pages
 import Home from "./pages/home/Home.jsx";
+import About from "./pages/about/About.jsx";
+import Contact from "./pages/Contact/Contact.jsx";
+import Pricing from "./pages/pricing/Pricing.jsx";
 
 import "./index.css";
 import VerificationPage from "./pages/VerificationPage.jsx";
@@ -67,8 +70,15 @@ const App = () => {
   return (
     <Router>
       <Routes>
-        {/* PUBLIC ROUTES */}
+        {/* landing pages */}
         <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/pricing" element={<Pricing />} />
+
+
+        {/* PUBLIC ROUTES */}
+        
         <Route path="/login" element={<LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/verification" element={<VerificationPage />} />
