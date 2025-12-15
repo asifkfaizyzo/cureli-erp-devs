@@ -7,7 +7,7 @@ import {
   PauseCircle,
   Sparkles,
   Users,
-  Building2
+  Trash2
 } from "lucide-react";
 import { 
   PLAN_STATUS, 
@@ -21,7 +21,6 @@ import {
 
 export default function PlanCard({ plan, onAction }) {
   const statusConfig = STATUS_CONFIG[plan.status];
-  const StatusIcon = statusConfig.icon;
   const cardTheme = getCardTheme(plan);
   const features = generateFeatures(plan);
   const actions = ALLOWED_ACTIONS[plan.status];
@@ -54,7 +53,7 @@ export default function PlanCard({ plan, onAction }) {
       </div>
 
       {/* Highlighted Badge */}
-      {plan.isHighlighted && (
+      {plan.is_highlighted && (
         <div 
           className="
             absolute top-3 right-3 px-2 py-1 rounded-full 
@@ -68,7 +67,7 @@ export default function PlanCard({ plan, onAction }) {
       )}
 
       {/* Action Buttons - Top Right (when not highlighted) */}
-      {!plan.isHighlighted && (
+      {!plan.is_highlighted && (
         <div className="absolute top-3 right-3 flex gap-1.5">
           {actions.includes("edit") && (
             <ActionButton
@@ -82,6 +81,14 @@ export default function PlanCard({ plan, onAction }) {
               icon={Eye}
               tooltip="View Details"
               onClick={() => handleAction("view")}
+            />
+          )}
+          {actions.includes("delete") && (
+            <ActionButton
+              icon={Trash2}
+              tooltip="Delete Draft"
+              onClick={() => handleAction("delete")}
+              className="hover:bg-red-500 hover:text-white"
             />
           )}
         </div>
@@ -140,7 +147,7 @@ export default function PlanCard({ plan, onAction }) {
             "
           >
             <Users size={14} />
-            <span>{plan.subscriberCount} active subscribers</span>
+            <span>{plan.subscriber_count || 0} active subscribers</span>
           </div>
         )}
       </div>
@@ -214,16 +221,17 @@ export default function PlanCard({ plan, onAction }) {
 }
 
 // Small action button component
-function ActionButton({ icon: Icon, tooltip, onClick }) {
+function ActionButton({ icon: Icon, tooltip, onClick, className = "" }) {
   return (
     <button
       onClick={onClick}
       title={tooltip}
-      className="
+      className={`
         p-1.5 rounded-lg bg-white/80 text-gray-600
         hover:bg-white hover:text-[#05015A] hover:shadow-md
         transition-all duration-200
-      "
+        ${className}
+      `}
     >
       <Icon size={14} />
     </button>

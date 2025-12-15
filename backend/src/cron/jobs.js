@@ -1,51 +1,51 @@
+// ============================================
+// Add to existing cron/jobs.js file
+// ============================================
+
 import cron from "node-cron";
-import {
-  cleanupOldPendingUsers,
-  cleanupIncompleteUsers,
-  cleanupOldDeletionLogs,
-} from "../utils/cleanup.js";
+import { transitionDeprecatedPlans } from "../modules/cadmin/plans/cadminPlans.service.js";
+
+// ... existing imports and jobs ...
 
 /**
- * Initialize all scheduled cron jobs
+ * Plan Status Transition Job
+ * Runs daily at 2:00 AM
+ * Transitions DEPRECATED plans to SUSPENDED when all subscriptions end
  */
+function initializePlanTransitionJob() {
+  // Run at 2:00 AM every day
+  cron.schedule("0 2 * * *", async () => {
+    console.log("[CRON] Starting plan status transition check...");
+    
+    try {
+      const result = await transitionDeprecatedPlans();
+      
+      console.log(`[CRON] Plan transition complete:`);
+      console.log(`  - Checked: ${result.checked} deprecated plans`);
+      console.log(`  - Transitioned: ${result.transitioned} plans to SUSPENDED`);
+      
+      if (result.transitioned > 0) {
+        console.log(`  - Plans: ${result.plans.map(p => p.name).join(", ")}`);
+      }
+    } catch (err) {
+      console.error("[CRON] Plan transition job failed:", err);
+    }
+  });
+
+  console.log("[CRON] Plan transition job scheduled (daily at 2:00 AM)");
+}
+
+// ============================================
+// Update initializeCronJobs function
+// ============================================
+
 export function initializeCronJobs() {
-  console.log("⏰ Initializing cron jobs...");
-
-  // Cleanup old pending users (every day at 3:00 AM)
-  cron.schedule("0 3 * * *", async () => {
-    console.log("🧹 Running pending users cleanup...");
-    try {
-      await cleanupOldPendingUsers();
-      console.log("✅ Pending users cleanup completed");
-    } catch (err) {
-      console.error("❌ Pending users cleanup failed:", err);
-    }
-  });
-
-  // Cleanup incomplete users (every day at 3:15 AM)
-  cron.schedule("15 3 * * *", async () => {
-    console.log("🧹 Running incomplete users cleanup...");
-    try {
-      const result = await cleanupIncompleteUsers();
-      console.log(`✅ Incomplete users cleanup completed: ${result.deleted} deleted`);
-    } catch (err) {
-      console.error("❌ Incomplete users cleanup failed:", err);
-    }
-  });
-
-  // Cleanup old deletion logs (every day at 3:30 AM)
-  cron.schedule("30 3 * * *", async () => {
-    console.log("🧹 Running deletion logs cleanup...");
-    try {
-      const count = await cleanupOldDeletionLogs();
-      console.log(`✅ Deletion logs cleanup completed: ${count} old logs removed`);
-    } catch (err) {
-      console.error("❌ Deletion logs cleanup failed:", err);
-    }
-  });
-
-  console.log("✅ All cron jobs initialized:");
-  console.log("   - Pending users cleanup: Daily at 3:00 AM");
-  console.log("   - Incomplete users cleanup: Daily at 3:15 AM");
-  console.log("   - Deletion logs cleanup: Daily at 3:30 AM");
+  console.log("[CRON] Initializing cron jobs...");
+  
+  // ... existing job initializations ...
+  
+  // Add plan transition job
+  initializePlanTransitionJob();
+  
+  console.log("[CRON] All cron jobs initialized");
 }

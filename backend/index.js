@@ -22,7 +22,6 @@ import cadminPlansRoutes from "./src/modules/cadmin/plans/cadminPlans.routes.js"
 
 
 
-
 import { initializeCronJobs } from "./src/cron/jobs.js";
 
 const app = express();
@@ -55,6 +54,7 @@ app.use("/cadmin", cadminDocsRoutes);
 app.use("/cadmin", cadminUserRoutes);     
 app.use("/cadmin", cadminShopsRoutes);
 app.use("/cadmin", cadminPlansRoutes);
+
 
 // health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

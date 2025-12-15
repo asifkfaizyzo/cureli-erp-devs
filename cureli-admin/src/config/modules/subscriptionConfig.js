@@ -6,12 +6,11 @@ import {
   CheckCircle2, 
   Clock, 
   XCircle,
-  Sparkles,
   LayoutGrid 
 } from "lucide-react";
 
 // ============================================
-// PLAN STATUSES
+// PLAN STATUSES (must match backend enum)
 // ============================================
 export const PLAN_STATUS = {
   DRAFT: "DRAFT",
@@ -55,7 +54,7 @@ export const STATUS_CONFIG = {
 // ACTIONS PER STATUS
 // ============================================
 export const ALLOWED_ACTIONS = {
-  [PLAN_STATUS.DRAFT]: ["edit", "activate", "clone"],
+  [PLAN_STATUS.DRAFT]: ["edit", "activate", "clone", "delete"],
   [PLAN_STATUS.ACTIVE]: ["view", "suspend", "clone"],
   [PLAN_STATUS.DEPRECATED]: ["view", "clone"],
   [PLAN_STATUS.SUSPENDED]: ["view", "reactivate", "clone"],
@@ -140,31 +139,35 @@ export const BILLING = {
  */
 export const getCardTheme = (plan) => {
   if (plan.price === 0) return CARD_THEMES.free;
-  if (plan.isHighlighted) return CARD_THEMES.highlighted;
+  if (plan.is_highlighted) return CARD_THEMES.highlighted;
   return CARD_THEMES.default;
 };
 
 /**
  * Generates feature list from plan limits
+ * Now uses max_users and max_branches from backend
  */
 export const generateFeatures = (plan) => {
   const features = [];
   
-  if (plan.usersLimit !== undefined) {
-    if (plan.usersLimit === -1) {
+  const users = plan.max_users;
+  const branches = plan.max_branches;
+  
+  if (users !== undefined) {
+    if (users === -1) {
       features.push("Unlimited users");
     } else {
-      features.push(`Up to ${plan.usersLimit} users`);
+      features.push(`Up to ${users} users`);
     }
   }
   
-  if (plan.branchesLimit !== undefined) {
-    if (plan.branchesLimit === -1) {
+  if (branches !== undefined) {
+    if (branches === -1) {
       features.push("Unlimited branches");
-    } else if (plan.branchesLimit === 1) {
+    } else if (branches === 1) {
       features.push("Single branch");
     } else {
-      features.push(`Up to ${plan.branchesLimit} branches`);
+      features.push(`Up to ${branches} branches`);
     }
   }
   
@@ -173,33 +176,39 @@ export const generateFeatures = (plan) => {
 
 /**
  * Formats price for display
+ * Backend stores price in paisa, we convert to rupees for display
  */
 export const formatPrice = (price) => {
   if (price === 0) return "FREE";
-  return `${BILLING.currency}${price.toLocaleString("en-IN")}`;
+  // Price is already in rupees from our API formatting
+  return `${BILLING.currency}${Number(price).toLocaleString("en-IN")}`;
 };
 
 /**
  * Checks if plan name is available for activation
+ * Used in frontend validation before API call
  */
 export const isNameAvailable = (name, plans, excludeId = null) => {
   return !plans.some(
     (p) => 
       p.name.toLowerCase() === name.toLowerCase() && 
       p.status === PLAN_STATUS.ACTIVE &&
-      p.id !== excludeId
+      p.plan_id !== excludeId
   );
 };
 
 /**
- * Generates cloned plan name
+ * Generates cloned plan name (frontend helper)
+ * Backend does this too, but we show preview in confirm modal
  */
 export const generateCloneName = (originalName, existingPlans) => {
   let baseName = originalName.replace(/\s*\(Copy(?:\s*\d+)?\)\s*$/, "");
   let copyName = `${baseName} (Copy)`;
   let counter = 1;
   
-  while (existingPlans.some(p => p.name === copyName)) {
+  const existingNames = existingPlans.map(p => p.name.toLowerCase());
+  
+  while (existingNames.includes(copyName.toLowerCase())) {
     counter++;
     copyName = `${baseName} (Copy ${counter})`;
   }

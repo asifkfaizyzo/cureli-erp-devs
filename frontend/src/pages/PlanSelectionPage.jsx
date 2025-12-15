@@ -26,10 +26,11 @@ const PlanSelectionPage = () => {
         setPlans(
           backendPlans.map((p) => ({
             id: p.plan_id,
-            title: p.plan_name,
-            priceMonthly: toRupees(p.price_monthly),
-            priceYearly: toRupees(p.price_yearly),
-            branches: `${p.max_branches} Branch${p.max_branches > 1 ? "es" : ""}`,
+            title: p.name,
+            priceYearly: toRupees(p.price),
+            branches: `${p.max_branches} Branch${
+              p.max_branches > 1 ? "es" : ""
+            }`,
             employees: `${p.max_users} Employees`,
             features: p.features_json?.benefits || [],
             isCustom: p.is_customizable,
@@ -74,7 +75,9 @@ const PlanSelectionPage = () => {
   return (
     <div className="min-h-screen mt-15 bg-white flex flex-col items-center py-10 font-poppins px-4">
       {/* TITLE */}
-      <h1 className="text-3xl font-bold text-[#000060] mb-2">Choose Your Plan</h1>
+      <h1 className="text-3xl font-bold text-[#000060] mb-2">
+        Choose Your Plan
+      </h1>
 
       <p className="text-gray-600 text-sm mb-10 text-center max-w-lg">
         Select the plan that fits your business. Upgrade anytime.
@@ -89,7 +92,9 @@ const PlanSelectionPage = () => {
             key={plan.id}
             className="bg-white border border-gray-300 rounded-2xl shadow-sm hover:shadow-xl transition p-6 flex flex-col items-center text-center cursor-pointer"
           >
-            <h2 className="text-xl font-semibold text-[#000060]">{plan.title}</h2>
+            <h2 className="text-xl font-semibold text-[#000060]">
+              {plan.title}
+            </h2>
 
             <p className="text-3xl font-bold text-[#000060] mt-4">
               {plan.priceMonthly === 0

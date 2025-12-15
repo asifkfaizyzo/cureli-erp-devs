@@ -11,11 +11,10 @@ ALTER TABLE "branches" DROP COLUMN "branch_seat_limit";
 -- CreateTable
 CREATE TABLE "plans" (
     "plan_id" UUID NOT NULL,
-    "plan_name" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
     "max_branches" INTEGER NOT NULL,
     "max_users" INTEGER NOT NULL,
-    "price_monthly" BIGINT NOT NULL,
-    "price_yearly" BIGINT,
+    "price" BIGINT,
     "is_customizable" BOOLEAN NOT NULL DEFAULT false,
     "is_visible" BOOLEAN NOT NULL DEFAULT true,
     "features_json" JSONB,

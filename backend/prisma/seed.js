@@ -1,8 +1,8 @@
 // prisma/seed.js
 
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
+import { randomUUID } from "crypto";
 
 const prisma = new PrismaClient();
 
@@ -14,7 +14,9 @@ const randomFrom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // Helper to get random date within range
 const randomDate = (start, end) => {
-  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+  return new Date(
+    start.getTime() + Math.random() * (end.getTime() - start.getTime())
+  );
 };
 
 // Helper to get date X days ago
@@ -32,142 +34,310 @@ const daysFromNow = (days) => {
 };
 
 async function main() {
-  console.log('🌱 Starting comprehensive seed...\n');
+  console.log("🌱 Starting comprehensive seed...\n");
 
   // ============================================
   // CLEAR EXISTING DATA (in order of dependencies)
   // ============================================
-  console.log('🧹 Clearing existing data...');
-  
+  console.log("🧹 Clearing existing data...");
+
   await prisma.activityLog.deleteMany();
   await prisma.fileVerificationLog.deleteMany();
   await prisma.shopFile.deleteMany();
   await prisma.paymentTransaction.deleteMany();
-  
+
   // Clear current_subscription_id first to avoid FK issues
   await prisma.shop.updateMany({
-    data: { current_subscription_id: null }
+    data: { current_subscription_id: null },
   });
-  
+
   await prisma.shopSubscription.deleteMany();
-  
+
   // Clear user references before deleting branches
   await prisma.user.updateMany({
-    data: { shop_id: null, branch_id: null }
+    data: { shop_id: null, branch_id: null },
   });
-  
+
   await prisma.branch.deleteMany();
   await prisma.user.deleteMany();
   await prisma.shop.deleteMany();
+
+  // Clear plan activity logs and plans
+  await prisma.planActivityLog.deleteMany();
   await prisma.plan.deleteMany();
+
   await prisma.pendingUser.deleteMany();
   await prisma.deletionLog.deleteMany();
   await prisma.cAdmin.deleteMany();
 
-  console.log('✅ Cleared all existing data\n');
+  console.log("✅ Cleared all existing data\n");
 
   // ============================================
   // PASSWORD HASH
   // ============================================
-  const passwordHash = await bcrypt.hash('Password123!', 10);
+  const passwordHash = await bcrypt.hash("Password123!", 10);
 
   // ============================================
-  // 1. CREATE PLANS (4 plans)
+  // 1. CREATE CADMIN (moved before plans)
   // ============================================
-  console.log('📦 Creating plans...');
+  console.log("👨‍💼 Creating CAdmin...");
+
+  const cadminHash = await bcrypt.hash("Admin@123", 10);
+  const cadmin = await prisma.cAdmin.create({
+    data: {
+      cadmin_id: uuid(),
+      username: "cadmin",
+      email: "admin@cureli.com",
+      phone_number: "9961045596",
+      password_hash: cadminHash,
+      is_active: true,
+      last_login_at: new Date(),
+    },
+  });
+  console.log("✅ Created CAdmin\n");
+
+  // ============================================
+  // 2. CREATE PLANS (4 plans with new schema)
+  // ============================================
+  console.log("📦 Creating plans...");
 
   const plansData = [
     {
       plan_id: uuid(),
-      plan_name: 'Free Trial',
+      // Legacy fields (kept for compatibility)
+      name: "Free Trial",
       max_branches: 1,
       max_users: 2,
-      price_monthly: BigInt(0),
-      price_yearly: BigInt(0),
+      price: BigInt(0),
       is_customizable: false,
-      is_visible: true,
-      features_json: {
-        features: ['1 Branch', '2 Users', 'Basic Inventory', 'Email Support', '14-day Trial']
-      }
+      // New fields
+      name: "Free Trial",
+      description:
+        "Perfect for trying out Cureli with basic features for 14 days",
+      price: BigInt(0),
+      status: "ACTIVE",
+      is_highlighted: false,
+      created_by: cadmin.cadmin_id,
+      activated_at: daysAgo(90),
     },
     {
       plan_id: uuid(),
-      plan_name: 'Starter',
+      // Legacy fields
+      name: "Starter",
       max_branches: 1,
       max_users: 5,
-      price_monthly: BigInt(49900), // ₹499
-      price_yearly: BigInt(499000), // ₹4990
+      price: BigInt(499000), // ₹4990
       is_customizable: false,
-      is_visible: true,
-      features_json: {
-        features: ['1 Branch', 'Up to 5 Users', 'Basic Reports', 'Inventory Management', 'Email Support']
-      }
+      // New fields
+      name: "Starter",
+      description: "Ideal for small pharmacies starting their digital journey",
+      price: BigInt(499000), // ₹4990/year
+      status: "ACTIVE",
+      is_highlighted: false,
+      created_by: cadmin.cadmin_id,
+      activated_at: daysAgo(90),
     },
     {
       plan_id: uuid(),
-      plan_name: 'Professional',
+      // Legacy fields
+      name: "Professional",
       max_branches: 5,
       max_users: 15,
-      price_monthly: BigInt(149900), // ₹1499
-      price_yearly: BigInt(1499000), // ₹14990
+      price: BigInt(1499000), // ₹14990
       is_customizable: false,
-      is_visible: true,
-      features_json: {
-        features: ['Up to 5 Branches', 'Up to 15 Users', 'Advanced Reports', 'Multi-branch Inventory', 'Priority Support', 'API Access']
-      }
+      // New fields
+      name: "Professional",
+      description: "Best for growing pharmacies with multiple branches",
+      price: BigInt(1499000), // ₹14990/year
+      status: "ACTIVE",
+      is_highlighted: true, // Most popular
+      created_by: cadmin.cadmin_id,
+      activated_at: daysAgo(90),
     },
     {
       plan_id: uuid(),
-      plan_name: 'Enterprise',
+      // Legacy fields
+      name: "Enterprise",
       max_branches: 20,
       max_users: 100,
-      price_monthly: BigInt(499900), // ₹4999
-      price_yearly: BigInt(4999000), // ₹49990
+      price: BigInt(4999000), // ₹49990
       is_customizable: true,
-      is_visible: true,
-      features_json: {
-        features: ['Up to 20 Branches', 'Up to 100 Users', 'Custom Reports', 'Advanced Analytics', '24/7 Support', 'API Access', 'Custom Integrations', 'Dedicated Account Manager']
-      }
-    }
+      // New fields
+      name: "Enterprise",
+      description:
+        "Complete solution for large pharmacy chains with custom requirements",
+      price: BigInt(4999000), // ₹49990/year
+      status: "ACTIVE",
+      is_highlighted: false,
+      created_by: cadmin.cadmin_id,
+      activated_at: daysAgo(90),
+    },
   ];
 
   const plans = [];
   for (const planData of plansData) {
     const plan = await prisma.plan.create({ data: planData });
     plans.push(plan);
+
+    // Create activity log for plan creation
+    await prisma.planActivityLog.create({
+      data: {
+        id: uuid(),
+        plan_id: plan.plan_id,
+        cadmin_id: cadmin.cadmin_id,
+        action: "created",
+        from_status: null,
+        to_status: "ACTIVE",
+        changes: null,
+        meta: {
+          note: "Plan created during seed",
+          initial_setup: true,
+        },
+        created_at: plan.activated_at || plan.created_at,
+      },
+    });
+
+    // Create activation log
+    await prisma.planActivityLog.create({
+      data: {
+        id: uuid(),
+        plan_id: plan.plan_id,
+        cadmin_id: cadmin.cadmin_id,
+        action: "activated",
+        from_status: "DRAFT",
+        to_status: "ACTIVE",
+        changes: null,
+        meta: {
+          note: "Plan activated during seed",
+        },
+        created_at: plan.activated_at || plan.created_at,
+      },
+    });
   }
-  console.log(`✅ Created ${plans.length} plans\n`);
+  console.log(`✅ Created ${plans.length} plans with activity logs\n`);
 
   // ============================================
-  // 2. CREATE CADMIN (for testing)
+  // 3. CREATE A DEPRECATED PLAN (for testing)
   // ============================================
-  console.log('👨‍💼 Creating CAdmin...');
+  console.log("📦 Creating deprecated plan...");
 
-  const cadminHash = await bcrypt.hash('Admin@123', 10);
-  await prisma.cAdmin.create({
+  const deprecatedPlan = await prisma.plan.create({
     data: {
-      cadmin_id: uuid(),
-      username: 'cadmin',
-      email: 'admin@cureli.com',
-      phone_number: '9961045596',
-      password_hash: cadminHash,
-      is_active: true,
-      last_login_at: new Date(),
-    }
+      plan_id: uuid(),
+      // Legacy fields
+      name: "Basic (Old)",
+      max_branches: 1,
+      max_users: 3,
+      price: BigInt(299000),
+      is_customizable: false,
+      // New fields
+      name: "Basic (Old)",
+      description: "Legacy plan - no longer available for new subscriptions",
+      price: BigInt(299000),
+      status: "DEPRECATED",
+      is_highlighted: false,
+      created_by: cadmin.cadmin_id,
+      activated_at: daysAgo(180),
+      suspended_at: daysAgo(30),
+    },
   });
-  console.log('✅ Created CAdmin\n');
+  plans.push(deprecatedPlan);
+
+  // Activity logs for deprecated plan
+  await prisma.planActivityLog.create({
+    data: {
+      id: uuid(),
+      plan_id: deprecatedPlan.plan_id,
+      cadmin_id: cadmin.cadmin_id,
+      action: "created",
+      from_status: null,
+      to_status: "ACTIVE",
+      changes: null,
+      meta: { note: "Old plan created during seed" },
+      created_at: daysAgo(180),
+    },
+  });
+
+  await prisma.planActivityLog.create({
+    data: {
+      id: uuid(),
+      plan_id: deprecatedPlan.plan_id,
+      cadmin_id: cadmin.cadmin_id,
+      action: "suspended",
+      from_status: "ACTIVE",
+      to_status: "DEPRECATED",
+      changes: null,
+      meta: {
+        reason: "Replaced by Starter plan",
+        active_subscribers: 2,
+      },
+      created_at: daysAgo(30),
+    },
+  });
+
+  console.log("✅ Created deprecated plan\n");
 
   // ============================================
-  // 3. CREATE SHOP OWNERS (10 Super Admins)
+  // 4. CREATE SHOP OWNERS (10 Super Admins)
   // ============================================
-  console.log('👑 Creating shop owners...');
+  console.log("👑 Creating shop owners...");
 
-  const indianFirstNames = ['Rahul', 'Priya', 'Amit', 'Sneha', 'Vikram', 'Anjali', 'Rajesh', 'Deepika', 'Suresh', 'Kavita'];
-  const indianLastNames = ['Sharma', 'Patel', 'Kumar', 'Singh', 'Gupta', 'Reddy', 'Nair', 'Joshi', 'Mehta', 'Verma'];
-  const cities = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Hyderabad', 'Pune', 'Kolkata', 'Ahmedabad', 'Jaipur', 'Lucknow'];
-  const states = ['Maharashtra', 'Delhi', 'Karnataka', 'Tamil Nadu', 'Telangana', 'Maharashtra', 'West Bengal', 'Gujarat', 'Rajasthan', 'Uttar Pradesh'];
-  const businessTypes = ['pharmacy', 'medical_store', 'hospital_pharmacy', 'wholesale', 'retail'];
-  const verificationStatuses = ['verified', 'pending', 'rejected', 'pending'];
+  const indianFirstNames = [
+    "Rahul",
+    "Priya",
+    "Amit",
+    "Sneha",
+    "Vikram",
+    "Anjali",
+    "Rajesh",
+    "Deepika",
+    "Suresh",
+    "Kavita",
+  ];
+  const indianLastNames = [
+    "Sharma",
+    "Patel",
+    "Kumar",
+    "Singh",
+    "Gupta",
+    "Reddy",
+    "Nair",
+    "Joshi",
+    "Mehta",
+    "Verma",
+  ];
+  const cities = [
+    "Mumbai",
+    "Delhi",
+    "Bangalore",
+    "Chennai",
+    "Hyderabad",
+    "Pune",
+    "Kolkata",
+    "Ahmedabad",
+    "Jaipur",
+    "Lucknow",
+  ];
+  const states = [
+    "Maharashtra",
+    "Delhi",
+    "Karnataka",
+    "Tamil Nadu",
+    "Telangana",
+    "Maharashtra",
+    "West Bengal",
+    "Gujarat",
+    "Rajasthan",
+    "Uttar Pradesh",
+  ];
+  const businessTypes = [
+    "pharmacy",
+    "medical_store",
+    "hospital_pharmacy",
+    "wholesale",
+    "retail",
+  ];
+  const verificationStatuses = ["verified", "pending", "rejected", "pending"];
 
   const owners = [];
   for (let i = 0; i < 10; i++) {
@@ -183,69 +353,100 @@ async function main() {
         email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`,
         phone_number: `+9198${String(70000000 + i * 1111111).slice(0, 8)}`,
         password_hash: passwordHash,
-        login_provider: i % 3 === 0 ? 'google' : 'password',
+        login_provider: i % 3 === 0 ? "google" : "password",
         google_id: i % 3 === 0 ? `google_${uuid().slice(0, 20)}` : null,
-        role: 'super_admin',
-        status: i < 7 ? 'active' : randomFrom(['pending_verification', 'pending_setup', 'active']),
+        role: "super_admin",
+        status:
+          i < 7
+            ? "active"
+            : randomFrom(["pending_verification", "pending_setup", "active"]),
         is_active: i < 8, // 2 inactive owners
         onboarding_step: i < 7 ? 4 : randomFrom([1, 2, 3, 4]),
         last_login_at: i < 8 ? randomDate(daysAgo(30), new Date()) : null,
         created_at: randomDate(daysAgo(180), daysAgo(30)),
-      }
+      },
     });
     owners.push(owner);
   }
   console.log(`✅ Created ${owners.length} shop owners\n`);
 
   // ============================================
-  // 4. CREATE SHOPS (10 shops)
+  // 5. CREATE SHOPS (10 shops)
   // ============================================
-  console.log('🏪 Creating shops...');
+  console.log("🏪 Creating shops...");
 
   const shopNames = [
-    'HealthCare Pharmacy', 'MediPlus Stores', 'Apollo Pharmacy', 'Wellness Medical',
-    'LifeCare Chemist', 'CureWell Pharmacy', 'Medicare Hub', 'Remedy Medical Store',
-    'VitalHealth Pharmacy', 'PharmaZone'
+    "HealthCare Pharmacy",
+    "MediPlus Stores",
+    "Apollo Pharmacy",
+    "Wellness Medical",
+    "LifeCare Chemist",
+    "CureWell Pharmacy",
+    "Medicare Hub",
+    "Remedy Medical Store",
+    "VitalHealth Pharmacy",
+    "PharmaZone",
   ];
 
   const shops = [];
   for (let i = 0; i < 10; i++) {
-    const verificationStatus = i < 6 ? 'verified' : verificationStatuses[i % 4];
+    const verificationStatus = i < 6 ? "verified" : verificationStatuses[i % 4];
     const shop = await prisma.shop.create({
       data: {
         shop_id: uuid(),
         owner_user_id: owners[i].user_id,
         business_name: shopNames[i],
         legal_name: `${shopNames[i]} Pvt. Ltd.`,
-        gst_number: i < 8 ? `${states[i].slice(0, 2).toUpperCase()}${String(10 + i).padStart(2, '0')}ABCD${1234 + i}E${i + 1}Z${i + 5}` : null,
+        gst_number:
+          i < 8
+            ? `${states[i].slice(0, 2).toUpperCase()}${String(10 + i).padStart(
+                2,
+                "0"
+              )}ABCD${1234 + i}E${i + 1}Z${i + 5}`
+            : null,
         business_type: businessTypes[i % 5],
-        address_line_1: `${100 + i * 10}, ${randomFrom(['MG Road', 'Station Road', 'Main Street', 'Market Lane', 'Commercial Complex'])}`,
-        address_line_2: randomFrom(['Near Bus Stand', 'Opposite Railway Station', 'Next to SBI Bank', null, 'Ground Floor']),
+        address_line_1: `${100 + i * 10}, ${randomFrom([
+          "MG Road",
+          "Station Road",
+          "Main Street",
+          "Market Lane",
+          "Commercial Complex",
+        ])}`,
+        address_line_2: randomFrom([
+          "Near Bus Stand",
+          "Opposite Railway Station",
+          "Next to SBI Bank",
+          null,
+          "Ground Floor",
+        ]),
         city: cities[i],
         state: states[i],
         pincode: String(400001 + i * 11111),
         verification_status: verificationStatus,
-        verification_notes: verificationStatus === 'rejected' ? 'GST certificate unclear. Please resubmit.' : 
-                           verificationStatus === 'pending' ? 'Documents under review' : null,
+        verification_notes:
+          verificationStatus === "rejected"
+            ? "GST certificate unclear. Please resubmit."
+            : verificationStatus === "pending"
+            ? "Documents under review"
+            : null,
         created_at: randomDate(daysAgo(180), daysAgo(30)),
-      }
+      },
     });
     shops.push(shop);
 
     // Update owner with shop_id
     await prisma.user.update({
       where: { user_id: owners[i].user_id },
-      data: { shop_id: shop.shop_id }
+      data: { shop_id: shop.shop_id },
     });
   }
   console.log(`✅ Created ${shops.length} shops\n`);
 
   // ============================================
-  // 5. CREATE BRANCHES (2-3 per shop = ~25 branches)
+  // 6. CREATE BRANCHES (2-3 per shop = ~25 branches)
   // ============================================
-  console.log('🏢 Creating branches...');
+  console.log("🏢 Creating branches...");
 
-  const branchTypes = ['main', 'sub'];
   const branches = [];
 
   for (let shopIndex = 0; shopIndex < shops.length; shopIndex++) {
@@ -258,18 +459,36 @@ async function main() {
         data: {
           branch_id: uuid(),
           shop_id: shop.shop_id,
-          branch_name: isMain ? `${shop.business_name} - Main` : `${shop.business_name} - Branch ${b}`,
-          branch_type: isMain ? 'main' : 'sub',
-          address_line_1: `${200 + b * 50}, ${randomFrom(['Link Road', 'Highway Junction', 'Industrial Area', 'City Center', 'Mall Road'])}`,
-          address_line_2: randomFrom(['Floor 1', 'Shop No. 5', null, 'Building A']),
+          branch_name: isMain
+            ? `${shop.business_name} - Main`
+            : `${shop.business_name} - Branch ${b}`,
+          branch_type: isMain ? "main" : "sub",
+          address_line_1: `${200 + b * 50}, ${randomFrom([
+            "Link Road",
+            "Highway Junction",
+            "Industrial Area",
+            "City Center",
+            "Mall Road",
+          ])}`,
+          address_line_2: randomFrom([
+            "Floor 1",
+            "Shop No. 5",
+            null,
+            "Building A",
+          ]),
           city: b === 0 ? cities[shopIndex] : randomFrom(cities),
           state: b === 0 ? states[shopIndex] : randomFrom(states),
           pincode: String(400001 + shopIndex * 11111 + b * 1000),
-          contact_number: `+9198${String(60000000 + shopIndex * 1000000 + b * 100000).slice(0, 8)}`,
-          alternate_number: b === 0 ? `+9197${String(60000000 + shopIndex * 1000000).slice(0, 8)}` : null,
+          contact_number: `+9198${String(
+            60000000 + shopIndex * 1000000 + b * 100000
+          ).slice(0, 8)}`,
+          alternate_number:
+            b === 0
+              ? `+9197${String(60000000 + shopIndex * 1000000).slice(0, 8)}`
+              : null,
           is_active: !(shopIndex === 9 && b > 0), // Last shop has inactive sub-branches
           created_at: randomDate(daysAgo(150), daysAgo(20)),
-        }
+        },
       });
       branches.push({ ...branch, shopIndex });
     }
@@ -278,30 +497,58 @@ async function main() {
 
   // Update owners with main branch
   for (let i = 0; i < owners.length; i++) {
-    const mainBranch = branches.find(b => b.shopIndex === i && b.branch_type === 'main');
+    const mainBranch = branches.find(
+      (b) => b.shopIndex === i && b.branch_type === "main"
+    );
     if (mainBranch) {
       await prisma.user.update({
         where: { user_id: owners[i].user_id },
-        data: { branch_id: mainBranch.branch_id }
+        data: { branch_id: mainBranch.branch_id },
       });
     }
   }
 
   // ============================================
-  // 6. CREATE BRANCH ADMINS (10 branch admins)
+  // 7. CREATE BRANCH ADMINS (10 branch admins)
   // ============================================
-  console.log('👨‍💼 Creating branch admins...');
+  console.log("👨‍💼 Creating branch admins...");
 
-  const branchAdminFirstNames = ['Arun', 'Meera', 'Kiran', 'Pooja', 'Sanjay', 'Neha', 'Manoj', 'Ritu', 'Ashok', 'Swati'];
-  const branchAdminLastNames = ['Desai', 'Iyer', 'Kulkarni', 'Pillai', 'Rao', 'Saxena', 'Tiwari', 'Bose', 'Chatterjee', 'Menon'];
+  const branchAdminFirstNames = [
+    "Arun",
+    "Meera",
+    "Kiran",
+    "Pooja",
+    "Sanjay",
+    "Neha",
+    "Manoj",
+    "Ritu",
+    "Ashok",
+    "Swati",
+  ];
+  const branchAdminLastNames = [
+    "Desai",
+    "Iyer",
+    "Kulkarni",
+    "Pillai",
+    "Rao",
+    "Saxena",
+    "Tiwari",
+    "Bose",
+    "Chatterjee",
+    "Menon",
+  ];
 
   const branchAdmins = [];
   for (let i = 0; i < 10; i++) {
     const shopIndex = i % 10;
     const shop = shops[shopIndex];
     // Assign to a sub-branch if exists, otherwise main
-    const subBranches = branches.filter(b => b.shopIndex === shopIndex && b.branch_type === 'sub');
-    const branch = subBranches[i % subBranches.length] || branches.find(b => b.shopIndex === shopIndex);
+    const subBranches = branches.filter(
+      (b) => b.shopIndex === shopIndex && b.branch_type === "sub"
+    );
+    const branch =
+      subBranches[i % subBranches.length] ||
+      branches.find((b) => b.shopIndex === shopIndex);
 
     const firstName = branchAdminFirstNames[i];
     const lastName = branchAdminLastNames[i];
@@ -315,35 +562,69 @@ async function main() {
         last_name: lastName,
         full_name: `${firstName} ${lastName}`,
         username: `${firstName.toLowerCase()}_${lastName.toLowerCase()}`,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${shop.business_name.toLowerCase().replace(/\s+/g, '')}.com`,
+        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${shop.business_name
+          .toLowerCase()
+          .replace(/\s+/g, "")}.com`,
         phone_number: `+9199${String(10000000 + i * 1111111).slice(0, 8)}`,
         password_hash: passwordHash,
-        login_provider: 'password',
-        role: 'branch_admin',
-        status: i < 8 ? 'active' : randomFrom(['pending_setup', 'active']),
+        login_provider: "password",
+        role: "branch_admin",
+        status: i < 8 ? "active" : randomFrom(["pending_setup", "active"]),
         is_active: i < 9,
         onboarding_step: 4,
         last_login_at: i < 8 ? randomDate(daysAgo(14), new Date()) : null,
         created_at: randomDate(daysAgo(120), daysAgo(15)),
-      }
+      },
     });
     branchAdmins.push(branchAdmin);
   }
   console.log(`✅ Created ${branchAdmins.length} branch admins\n`);
 
   // ============================================
-  // 7. CREATE STAFF MEMBERS (15 staff)
+  // 8. CREATE STAFF MEMBERS (15 staff)
   // ============================================
-  console.log('👷 Creating staff members...');
+  console.log("👷 Creating staff members...");
 
-  const staffFirstNames = ['Ravi', 'Sunita', 'Prakash', 'Geeta', 'Vijay', 'Lakshmi', 'Mohan', 'Savita', 'Dinesh', 'Anita', 'Ramesh', 'Kamala', 'Sunil', 'Usha', 'Gopal'];
-  const staffLastNames = ['Patil', 'Shinde', 'Jadhav', 'More', 'Pawar', 'Sawant', 'Gaikwad', 'Bhosale', 'Chavan', 'Kale', 'Deshpande', 'Jain', 'Shah', 'Agarwal', 'Bansal'];
+  const staffFirstNames = [
+    "Ravi",
+    "Sunita",
+    "Prakash",
+    "Geeta",
+    "Vijay",
+    "Lakshmi",
+    "Mohan",
+    "Savita",
+    "Dinesh",
+    "Anita",
+    "Ramesh",
+    "Kamala",
+    "Sunil",
+    "Usha",
+    "Gopal",
+  ];
+  const staffLastNames = [
+    "Patil",
+    "Shinde",
+    "Jadhav",
+    "More",
+    "Pawar",
+    "Sawant",
+    "Gaikwad",
+    "Bhosale",
+    "Chavan",
+    "Kale",
+    "Deshpande",
+    "Jain",
+    "Shah",
+    "Agarwal",
+    "Bansal",
+  ];
 
   const staffMembers = [];
   for (let i = 0; i < 15; i++) {
     const shopIndex = i % 10;
     const shop = shops[shopIndex];
-    const shopBranches = branches.filter(b => b.shopIndex === shopIndex);
+    const shopBranches = branches.filter((b) => b.shopIndex === shopIndex);
     const branch = shopBranches[i % shopBranches.length];
 
     const firstName = staffFirstNames[i];
@@ -361,14 +642,14 @@ async function main() {
         email: `${firstName.toLowerCase()}${i}@staff.example.com`,
         phone_number: `+9191${String(10000000 + i * 1234567).slice(0, 8)}`,
         password_hash: passwordHash,
-        login_provider: 'password',
-        role: 'staff',
-        status: i < 12 ? 'verified' : 'pending_setup',
+        login_provider: "password",
+        role: "staff",
+        status: i < 12 ? "verified" : "pending_setup",
         is_active: i < 13,
         onboarding_step: 4,
         last_login_at: i < 12 ? randomDate(daysAgo(7), new Date()) : null,
         created_at: randomDate(daysAgo(90), daysAgo(5)),
-      }
+      },
     });
     staffMembers.push(staff);
   }
@@ -379,26 +660,52 @@ async function main() {
   console.log(`📊 Total users created: ${allUsers.length}\n`);
 
   // ============================================
-  // 8. CREATE SUBSCRIPTIONS (one per shop)
+  // 9. CREATE SUBSCRIPTIONS (one per shop)
   // ============================================
-  console.log('💳 Creating subscriptions...');
+  console.log("💳 Creating subscriptions...");
 
-  const subscriptionStatuses = ['active', 'active', 'active', 'active', 'trial', 'expired', 'cancelled', 'active', 'active', 'pending'];
-  const billingCycles = ['monthly', 'yearly', 'monthly', 'yearly', 'monthly'];
-  const paymentStatuses = ['paid', 'paid', 'paid', 'pending', 'paid', 'failed', 'paid', 'paid', 'paid', 'pending'];
+  const subscriptionStatuses = [
+    "active",
+    "active",
+    "active",
+    "active",
+    "trial",
+    "expired",
+    "cancelled",
+    "active",
+    "active",
+    "pending",
+  ];
+  const paymentStatuses = [
+    "paid",
+    "paid",
+    "paid",
+    "pending",
+    "paid",
+    "failed",
+    "paid",
+    "paid",
+    "paid",
+    "pending",
+  ];
 
   const subscriptions = [];
   for (let i = 0; i < shops.length; i++) {
     const shop = shops[i];
-    const plan = plans[i % plans.length];
+    // First 4 use active plans, rest use active plans, 2 shops use deprecated plan
+    let plan;
+    if (i === 8 || i === 9) {
+      plan = deprecatedPlan; // Use deprecated plan for last 2 shops
+    } else {
+      plan = plans[i % 4]; // Cycle through the 4 active plans
+    }
+
     const status = subscriptionStatuses[i];
-    const billingCycle = billingCycles[i % 5];
-    const isActive = ['active', 'trial'].includes(status);
+    const billingCycle = "yearly"; // All subscriptions are yearly now
+    const isActive = ["active", "trial"].includes(status);
 
     const startDate = randomDate(daysAgo(90), daysAgo(30));
-    const endDate = billingCycle === 'yearly' 
-      ? new Date(startDate.getTime() + 365 * 24 * 60 * 60 * 1000)
-      : new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const endDate = new Date(startDate.getTime() + 365 * 24 * 60 * 60 * 1000);
 
     const subscription = await prisma.shopSubscription.create({
       data: {
@@ -415,7 +722,7 @@ async function main() {
         user_limit_snapshot: plan.max_users,
         is_active: isActive,
         created_at: startDate,
-      }
+      },
     });
     subscriptions.push(subscription);
 
@@ -423,26 +730,26 @@ async function main() {
     if (isActive) {
       await prisma.shop.update({
         where: { shop_id: shop.shop_id },
-        data: { current_subscription_id: subscription.subscription_id }
+        data: { current_subscription_id: subscription.subscription_id },
       });
     }
   }
   console.log(`✅ Created ${subscriptions.length} subscriptions\n`);
 
   // ============================================
-  // 9. CREATE PAYMENT TRANSACTIONS
+  // 10. CREATE PAYMENT TRANSACTIONS
   // ============================================
-  console.log('💰 Creating payment transactions...');
+  console.log("💰 Creating payment transactions...");
 
-  const paymentProviders = ['razorpay', 'razorpay', 'stripe', 'razorpay'];
-  const txnStatuses = ['captured', 'captured', 'failed', 'pending', 'captured'];
+  const paymentProviders = ["razorpay", "razorpay", "stripe", "razorpay"];
+  const txnStatuses = ["captured", "captured", "failed", "pending", "captured"];
 
   let txnCount = 0;
   for (let i = 0; i < subscriptions.length; i++) {
     const sub = subscriptions[i];
     const shop = shops[i];
-    const plan = plans.find(p => p.plan_id === sub.plan_id);
-    const amount = sub.billing_cycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
+    const plan = plans.find((p) => p.plan_id === sub.plan_id) || deprecatedPlan;
+    const amount = plan.price || plan.price; // Use new price field, fallback to price
 
     if (amount > 0) {
       await prisma.paymentTransaction.create({
@@ -452,16 +759,19 @@ async function main() {
           subscription_id: sub.subscription_id,
           provider: paymentProviders[i % 4],
           provider_order_id: `order_${uuid().slice(0, 14)}`,
-          provider_payment_id: txnStatuses[i % 5] === 'captured' ? `pay_${uuid().slice(0, 14)}` : null,
+          provider_payment_id:
+            txnStatuses[i % 5] === "captured"
+              ? `pay_${uuid().slice(0, 14)}`
+              : null,
           amount: amount,
-          currency: 'INR',
+          currency: "INR",
           status: txnStatuses[i % 5],
           meta: {
-            method: randomFrom(['card', 'upi', 'netbanking']),
-            bank: randomFrom(['HDFC', 'ICICI', 'SBI', 'Axis']),
+            method: randomFrom(["card", "upi", "netbanking"]),
+            bank: randomFrom(["HDFC", "ICICI", "SBI", "Axis"]),
           },
           created_at: sub.start_date,
-        }
+        },
       });
       txnCount++;
     }
@@ -469,12 +779,26 @@ async function main() {
   console.log(`✅ Created ${txnCount} payment transactions\n`);
 
   // ============================================
-  // 10. CREATE SHOP FILES
+  // 11. CREATE SHOP FILES
   // ============================================
-  console.log('📄 Creating shop files...');
+  console.log("📄 Creating shop files...");
 
-  const fileTypes = ['drug_license', 'gst_certificate', 'pharmacy_registration', 'business_pan', 'address_proof', 'shop_license'];
-  const fileStatuses = ['verified', 'verified', 'pending', 'rejected', 'uploaded', 'verified'];
+  const fileTypes = [
+    "drug_license",
+    "gst_certificate",
+    "pharmacy_registration",
+    "business_pan",
+    "address_proof",
+    "shop_license",
+  ];
+  const fileStatuses = [
+    "verified",
+    "verified",
+    "pending",
+    "rejected",
+    "uploaded",
+    "verified",
+  ];
 
   let fileCount = 0;
   for (let i = 0; i < shops.length; i++) {
@@ -484,7 +808,10 @@ async function main() {
 
     for (let f = 0; f < fileCountForShop; f++) {
       const fileType = fileTypes[f % fileTypes.length];
-      const status = shop.verification_status === 'verified' ? 'verified' : fileStatuses[f % fileStatuses.length];
+      const status =
+        shop.verification_status === "verified"
+          ? "verified"
+          : fileStatuses[f % fileStatuses.length];
 
       await prisma.shopFile.create({
         data: {
@@ -492,16 +819,22 @@ async function main() {
           shop_id: shop.shop_id,
           file_type: fileType,
           storage_key: `shops/${shop.shop_id}/${fileType}_${Date.now()}.pdf`,
-          original_name: `${fileType.replace(/_/g, '-')}-${shop.business_name.toLowerCase().replace(/\s+/g, '-')}.pdf`,
-          mime_type: 'application/pdf',
+          original_name: `${fileType.replace(/_/g, "-")}-${shop.business_name
+            .toLowerCase()
+            .replace(/\s+/g, "-")}.pdf`,
+          mime_type: "application/pdf",
           file_size: Math.floor(Math.random() * 500000) + 100000, // 100KB - 600KB
           status: status,
-          verification_notes: status === 'rejected' ? 'Document expired or unclear. Please resubmit a valid document.' : null,
-          resubmission_count: status === 'rejected' ? 1 : 0,
+          verification_notes:
+            status === "rejected"
+              ? "Document expired or unclear. Please resubmit a valid document."
+              : null,
+          resubmission_count: status === "rejected" ? 1 : 0,
           uploaded_by: owner.user_id,
           uploaded_at: randomDate(daysAgo(60), daysAgo(10)),
-          verified_at: status === 'verified' ? randomDate(daysAgo(30), daysAgo(5)) : null,
-        }
+          verified_at:
+            status === "verified" ? randomDate(daysAgo(30), daysAgo(5)) : null,
+        },
       });
       fileCount++;
     }
@@ -509,27 +842,30 @@ async function main() {
   console.log(`✅ Created ${fileCount} shop files\n`);
 
   // ============================================
-  // 11. CREATE FILE VERIFICATION LOGS
+  // 12. CREATE FILE VERIFICATION LOGS
   // ============================================
-  console.log('📋 Creating file verification logs...');
+  console.log("📋 Creating file verification logs...");
 
   const shopFiles = await prisma.shopFile.findMany();
   let logCount = 0;
 
   for (const file of shopFiles) {
-    if (file.status === 'verified' || file.status === 'rejected') {
+    if (file.status === "verified" || file.status === "rejected") {
       await prisma.fileVerificationLog.create({
         data: {
           id: uuid(),
           file_id: file.file_id,
           shop_id: file.shop_id,
-          cadmin_id: null,
-          actor_type: 'admin',
+          cadmin_id: cadmin.cadmin_id,
+          actor_type: "admin",
           action: file.status,
-          reason: file.status === 'rejected' ? 'Document quality issues' : 'Document verified successfully',
-          meta: { processed_by: 'system_seed' },
+          reason:
+            file.status === "rejected"
+              ? "Document quality issues"
+              : "Document verified successfully",
+          meta: { processed_by: "cadmin", processed_during: "seed" },
           created_at: file.verified_at || new Date(),
-        }
+        },
       });
       logCount++;
     }
@@ -537,30 +873,37 @@ async function main() {
   console.log(`✅ Created ${logCount} file verification logs\n`);
 
   // ============================================
-  // 12. CREATE ACTIVITY LOGS
+  // 13. CREATE ACTIVITY LOGS
   // ============================================
-  console.log('📝 Creating activity logs...');
+  console.log("📝 Creating activity logs...");
 
-  const actions = ['login', 'logout', 'profile_update', 'password_change', 'status_change', 'role_change'];
+  const actions = [
+    "login",
+    "logout",
+    "profile_update",
+    "password_change",
+    "status_change",
+    "role_change",
+  ];
   const userAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Safari/537.36',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-    'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile',
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile",
   ];
 
   let activityCount = 0;
   for (const user of allUsers) {
     // Each user gets 2-5 activity logs
     const logsForUser = Math.floor(Math.random() * 4) + 2;
-    
+
     for (let a = 0; a < logsForUser; a++) {
       const action = actions[a % actions.length];
       const descriptions = {
-        login: 'User logged in successfully',
-        logout: 'User logged out',
-        profile_update: 'Updated profile information',
-        password_change: 'Password was changed',
+        login: "User logged in successfully",
+        logout: "User logged out",
+        profile_update: "Updated profile information",
+        password_change: "Password was changed",
         status_change: `Status changed to ${user.status}`,
         role_change: `Role updated to ${user.role}`,
       };
@@ -571,10 +914,12 @@ async function main() {
           user_id: user.user_id,
           action: action,
           description: descriptions[action],
-          ip_address: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+          ip_address: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(
+            Math.random() * 255
+          )}`,
           user_agent: randomFrom(userAgents),
           created_at: randomDate(daysAgo(30), new Date()),
-        }
+        },
       });
       activityCount++;
     }
@@ -582,12 +927,18 @@ async function main() {
   console.log(`✅ Created ${activityCount} activity logs\n`);
 
   // ============================================
-  // 13. CREATE PENDING USERS (5 pending registrations)
+  // 14. CREATE PENDING USERS (5 pending registrations)
   // ============================================
-  console.log('⏳ Creating pending users...');
+  console.log("⏳ Creating pending users...");
 
-  const pendingFirstNames = ['Akash', 'Bhavna', 'Chirag', 'Divya', 'Ekta'];
-  const pendingLastNames = ['Arora', 'Bajaj', 'Choudhary', 'Dwivedi', 'Fernandes'];
+  const pendingFirstNames = ["Akash", "Bhavna", "Chirag", "Divya", "Ekta"];
+  const pendingLastNames = [
+    "Arora",
+    "Bajaj",
+    "Choudhary",
+    "Dwivedi",
+    "Fernandes",
+  ];
 
   for (let i = 0; i < 5; i++) {
     const firstName = pendingFirstNames[i];
@@ -600,22 +951,23 @@ async function main() {
         last_name: lastName,
         email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@pending.example.com`,
         password_hash: passwordHash,
-        login_provider: i % 2 === 0 ? 'password' : 'google',
+        login_provider: i % 2 === 0 ? "password" : "google",
         google_id: i % 2 === 1 ? `google_pending_${uuid().slice(0, 15)}` : null,
         email_verified: i < 3,
-        phone: i < 3 ? `+9190${String(10000000 + i * 2222222).slice(0, 8)}` : null,
+        phone:
+          i < 3 ? `+9190${String(10000000 + i * 2222222).slice(0, 8)}` : null,
         sms_verified: i < 2,
         username: i < 2 ? `${firstName.toLowerCase()}${i}` : null,
         created_at: randomDate(daysAgo(7), new Date()),
-      }
+      },
     });
   }
   console.log(`✅ Created 5 pending users\n`);
 
   // ============================================
-  // 14. CREATE DELETION LOGS (for audit)
+  // 15. CREATE DELETION LOGS (for audit)
   // ============================================
-  console.log('🗑️ Creating deletion logs...');
+  console.log("🗑️ Creating deletion logs...");
 
   for (let i = 0; i < 3; i++) {
     await prisma.deletionLog.create({
@@ -624,23 +976,67 @@ async function main() {
         user_id: uuid(), // Fake UUIDs for deleted users
         email: `deleted_user_${i}@example.com`,
         username: `deleted_user_${i}`,
-        reason: randomFrom(['inactivity', 'user_request', 'incomplete_onboarding']),
+        reason: randomFrom([
+          "inactivity",
+          "user_request",
+          "incomplete_onboarding",
+        ]),
         onboarding_step: randomFrom([1, 2, 3]),
         days_inactive: Math.floor(Math.random() * 60) + 30,
         files_deleted: Math.floor(Math.random() * 3),
         deleted_at: randomDate(daysAgo(60), daysAgo(10)),
-      }
+      },
     });
   }
   console.log(`✅ Created 3 deletion logs\n`);
 
   // ============================================
+  // 16. CREATE ADDITIONAL PLAN ACTIVITY LOGS (for variety)
+  // ============================================
+  console.log("📊 Creating additional plan activity logs...");
+
+  let planActivityCount = plans.length * 2; // We already created 2 logs per plan above
+
+  // Add an update log for one plan
+  const updatedPlan = plans[1]; // Starter plan
+  await prisma.planActivityLog.create({
+    data: {
+      id: uuid(),
+      plan_id: updatedPlan.plan_id,
+      cadmin_id: cadmin.cadmin_id,
+      action: "updated",
+      from_status: null,
+      to_status: null,
+      changes: {
+        description: {
+          old: "Perfect for small pharmacies",
+          new: "Ideal for small pharmacies starting their digital journey",
+        },
+      },
+      meta: {
+        fields_changed: ["description"],
+      },
+      created_at: daysAgo(45),
+    },
+  });
+  planActivityCount++;
+
+  console.log(`✅ Created ${planActivityCount} total plan activity logs\n`);
+
+  // ============================================
   // SUMMARY
   // ============================================
-  console.log('═'.repeat(50));
-  console.log('🎉 SEED COMPLETED SUCCESSFULLY!\n');
-  console.log('📊 Summary:');
-  console.log(`   • Plans: ${plans.length}`);
+  console.log("═".repeat(50));
+  console.log("🎉 SEED COMPLETED SUCCESSFULLY!\n");
+  console.log("📊 Summary:");
+  console.log(
+    `   • Plans: ${plans.length} (${
+      plans.filter((p) => p.status === "ACTIVE").length
+    } active, ${
+      plans.filter((p) => p.status === "DEPRECATED").length
+    } deprecated)`
+  );
+  console.log(`   • Plan Activity Logs: ${planActivityCount}`);
   console.log(`   • CAdmins: 1`);
   console.log(`   • Shop Owners (Super Admins): ${owners.length}`);
   console.log(`   • Shops: ${shops.length}`);
@@ -649,18 +1045,28 @@ async function main() {
   console.log(`   • Staff Members: ${staffMembers.length}`);
   console.log(`   • Total Users: ${allUsers.length}`);
   console.log(`   • Subscriptions: ${subscriptions.length}`);
+  console.log(`   • Payment Transactions: ${txnCount}`);
   console.log(`   • Shop Files: ${fileCount}`);
+  console.log(`   • File Verification Logs: ${logCount}`);
   console.log(`   • Activity Logs: ${activityCount}`);
   console.log(`   • Pending Users: 5`);
-  console.log('═'.repeat(50));
-  console.log('\n🔐 Login Credentials:');
-  console.log('   CAdmin: cadmin / Admin@123');
-  console.log('   All Users: Password123!\n');
+  console.log(`   • Deletion Logs: 3`);
+  console.log("═".repeat(50));
+  console.log("\n🔐 Login Credentials:");
+  console.log("   CAdmin: cadmin / Admin@123");
+  console.log("   All Users: Password123!\n");
+  console.log("📝 Plan Status Distribution:");
+  console.log(
+    "   • ACTIVE: 4 plans (Free Trial, Starter, Professional, Enterprise)"
+  );
+  console.log(
+    "   • DEPRECATED: 1 plan (Basic Old - has 2 active subscribers)\n"
+  );
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed failed:', e);
+    console.error("❌ Seed failed:", e);
     process.exit(1);
   })
   .finally(async () => {

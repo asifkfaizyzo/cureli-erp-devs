@@ -1,5 +1,3 @@
-// src/components/Shops/tabs/ShopEditSubscriptionTab.jsx
-
 import { useState, useEffect } from "react";
 import {
   CreditCard,
@@ -9,6 +7,7 @@ import {
   Clock,
   Loader2,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import DetailRow from "../../User/DetailRow";
 import CustomPlanModal from "../CustomPlanModal";
@@ -16,22 +15,25 @@ import { getPlans, updateShopSubscription } from "../../../api/cadminShops";
 
 const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
   const currentSub = shop?.currentSubscription;
-  
+
   // Plans data
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
-  
+  const [plansError, setPlansError] = useState(null);
+
   // Selected plan
-  const [selectedPlanId, setSelectedPlanId] = useState(currentSub?.plan?.plan_id || "");
-  
+  const [selectedPlanId, setSelectedPlanId] = useState(
+    currentSub?.plan?.plan_id || ""
+  );
+
   // Custom plan modal
   const [showCustomPlanModal, setShowCustomPlanModal] = useState(false);
-  
+
   // Save state
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Fetch available plans
+  // Fetch available plans on mount
   useEffect(() => {
     fetchPlans();
   }, []);
@@ -44,18 +46,26 @@ const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
 
   const fetchPlans = async () => {
     setLoadingPlans(true);
+    setPlansError(null);
     try {
       const response = await getPlans();
-      const plansData = response.data?.data || response.data || [];
-      setPlans(plansData);
+      // Handle new API response structure
+      const plansData =
+        response.data?.data?.plans ||
+        response.data?.data ||
+        response.data?.plans ||
+        [];
+
+      // Filter only ACTIVE plans (the API should already do this, but double-check)
+      const activePlans = Array.isArray(plansData)
+        ? plansData.filter((p) => p.status === "ACTIVE" || !p.status) // Handle legacy plans without status
+        : [];
+
+      setPlans(activePlans);
     } catch (err) {
       console.error("Failed to fetch plans:", err);
-      // Use dummy plans if API fails
-      setPlans([
-        { plan_id: "basic", plan_name: "Basic", max_users: 5, max_branches: 1 },
-        { plan_id: "standard", plan_name: "Standard", max_users: 15, max_branches: 3 },
-        { plan_id: "premium", plan_name: "Premium", max_users: 50, max_branches: 10 },
-      ]);
+      setPlansError(err.response?.data?.message || "Failed to load plans");
+      setPlans([]);
     } finally {
       setLoadingPlans(false);
     }
@@ -71,6 +81,18 @@ const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
     });
   };
 
+  // Get plan name - handles both old (name) and new (name) field names
+  const getPlanName = (plan) => {
+    if (!plan) return "N/A";
+    return plan.name || plan.name || "Unknown Plan";
+  };
+
+  // Format users/branches with unlimited handling
+  const formatLimit = (value) => {
+    if (value === -1) return "Unlimited";
+    return value || "N/A";
+  };
+
   // Handle plan selection
   const handlePlanChange = (planId) => {
     if (planId === "custom") {
@@ -80,11 +102,14 @@ const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
     }
   };
 
-  // Handle custom plan created
+  // Handle custom plan created and activated
   const handleCustomPlanCreated = (newPlan) => {
+    // Add the new plan to the list
     setPlans((prev) => [...prev, newPlan]);
     setSelectedPlanId(newPlan.plan_id);
     setShowCustomPlanModal(false);
+    // Refresh plans to get updated list
+    fetchPlans();
   };
 
   // Handle save subscription
@@ -108,7 +133,9 @@ const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
     { value: "", label: "Select a plan..." },
     ...plans.map((p) => ({
       value: p.plan_id,
-      label: `${p.plan_name} (${p.max_users} users, ${p.max_branches} branches)`,
+      label: `${getPlanName(p)} (${formatLimit(
+        p.max_users
+      )} users, ${formatLimit(p.max_branches)} branches)`,
     })),
     { value: "custom", label: "➕ Create Custom Plan..." },
   ];
@@ -151,17 +178,39 @@ const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
 
           {currentSub ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-              <DetailRow label="Current Plan" value={currentSub.plan?.plan_name || "N/A"} isEditing={false} />
+              <DetailRow
+                label="Current Plan"
+                value={getPlanName(currentSub.plan)}
+                isEditing={false}
+              />
               <div className="flex flex-col gap-1 py-2">
-                <label className="w-36 text-sm font-medium text-gray-500">Status</label>
+                <label className="w-36 text-sm font-medium text-gray-500">
+                  Status
+                </label>
                 <div className="px-4 py-2.5 rounded-lg bg-white border border-gray-200">
                   {getStatusBadge(currentSub.status, currentSub.is_active)}
                 </div>
               </div>
-              <DetailRow label="Start Date" value={formatDate(currentSub.start_date)} isEditing={false} />
-              <DetailRow label="End Date" value={formatDate(currentSub.end_date)} isEditing={false} />
-              <DetailRow label="Max Branches" value={currentSub.branch_limit_snapshot || "N/A"} isEditing={false} />
-              <DetailRow label="Max Users" value={currentSub.user_limit_snapshot || "N/A"} isEditing={false} />
+              <DetailRow
+                label="Start Date"
+                value={formatDate(currentSub.start_date)}
+                isEditing={false}
+              />
+              <DetailRow
+                label="End Date"
+                value={formatDate(currentSub.end_date)}
+                isEditing={false}
+              />
+              <DetailRow
+                label="Max Branches"
+                value={formatLimit(currentSub.branch_limit_snapshot)}
+                isEditing={false}
+              />
+              <DetailRow
+                label="Max Users"
+                value={formatLimit(currentSub.user_limit_snapshot)}
+                isEditing={false}
+              />
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
@@ -176,13 +225,34 @@ const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
             <Calendar size={16} />
             Change Subscription
-            <span className="text-xs text-indigo-500 font-normal ml-2">(Editable)</span>
+            <span className="text-xs text-indigo-500 font-normal ml-2">
+              (Editable)
+            </span>
           </h3>
 
           {loadingPlans ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 size={24} className="animate-spin text-indigo-500" />
               <span className="ml-2 text-gray-500">Loading plans...</span>
+            </div>
+          ) : plansError ? (
+            <div className="flex flex-col items-center justify-center py-8 text-red-500">
+              <AlertTriangle size={32} className="mb-2 opacity-50" />
+              <p className="text-sm">{plansError}</p>
+              <button
+                onClick={fetchPlans}
+                className="mt-3 px-4 py-2 text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600"
+              >
+                Retry
+              </button>
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+              <Info size={32} className="mb-2 opacity-50" />
+              <p className="text-sm">No active plans available</p>
+              <p className="text-xs mt-1">
+                Create a plan in the Subscription Plans page first
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -202,19 +272,27 @@ const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
               {/* Selected Plan Preview */}
               {selectedPlan && selectedPlanId !== currentSub?.plan?.plan_id && (
                 <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                  <h4 className="font-medium text-indigo-900 mb-2">New Plan Details</h4>
+                  <h4 className="font-medium text-indigo-900 mb-2">
+                    New Plan Details
+                  </h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <span className="text-indigo-600">Plan Name:</span>
-                      <p className="font-medium text-indigo-900">{selectedPlan.plan_name}</p>
+                      <p className="font-medium text-indigo-900">
+                        {getPlanName(selectedPlan)}
+                      </p>
                     </div>
                     <div>
                       <span className="text-indigo-600">Max Users:</span>
-                      <p className="font-medium text-indigo-900">{selectedPlan.max_users}</p>
+                      <p className="font-medium text-indigo-900">
+                        {formatLimit(selectedPlan.max_users)}
+                      </p>
                     </div>
                     <div>
                       <span className="text-indigo-600">Max Branches:</span>
-                      <p className="font-medium text-indigo-900">{selectedPlan.max_branches}</p>
+                      <p className="font-medium text-indigo-900">
+                        {formatLimit(selectedPlan.max_branches)}
+                      </p>
                     </div>
                     <div>
                       <span className="text-indigo-600">Duration:</span>
@@ -226,7 +304,10 @@ const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
 
               {/* Warning */}
               <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 flex items-start gap-2">
-                <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                <AlertTriangle
+                  size={16}
+                  className="text-amber-600 mt-0.5 shrink-0"
+                />
                 <div className="text-sm text-amber-700">
                   <p className="font-medium">Changing subscription will:</p>
                   <ul className="list-disc list-inside mt-1 space-y-0.5">
@@ -244,9 +325,10 @@ const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
                   disabled={!hasChanges || saving}
                   className={`
                     flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all
-                    ${hasChanges && !saving
-                      ? "bg-[#05015A] text-white hover:bg-[#0a0280]"
-                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    ${
+                      hasChanges && !saving
+                        ? "bg-[#05015A] text-white hover:bg-[#0a0280]"
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
                     }
                   `}
                 >
@@ -273,6 +355,7 @@ const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
         isOpen={showCustomPlanModal}
         onClose={() => setShowCustomPlanModal(false)}
         onPlanCreated={handleCustomPlanCreated}
+        shopName={shop?.business_name}
       />
     </>
   );

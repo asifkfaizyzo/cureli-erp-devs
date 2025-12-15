@@ -1,5 +1,3 @@
-// src/api/cadminShops.js
-
 import CAdminAPI from "./axios";
 
 /**
@@ -31,17 +29,42 @@ export function toggleShopActive(shopId, isActive) {
 }
 
 /**
- * Get all available plans
+ * Get all available plans (ACTIVE plans only for shop subscription)
+ * Uses the new plan API with status filter
  */
 export function getPlans() {
-  return CAdminAPI.get("/plans");
+  // Only fetch ACTIVE plans for shop subscription assignment
+  return CAdminAPI.get("/plans", { params: { status: "ACTIVE" } });
 }
 
 /**
- * Create a custom plan
+ * Get all plans including drafts (for admin viewing)
+ */
+export function getAllPlans(params = {}) {
+  return CAdminAPI.get("/plans", { params });
+}
+
+/**
+ * Create a custom plan (creates as DRAFT, needs separate activation)
+ * This uses the new plan creation endpoint
  */
 export function createCustomPlan(data) {
-  return CAdminAPI.post("/plans/custom", data);
+  // The new API expects: name, description, price, max_users, max_branches, is_highlighted
+  return CAdminAPI.post("/plans", {
+    name: data.name || `Custom - ${data.max_users}U/${data.max_branches}B`,
+    description: data.description || `Custom plan with ${data.max_users} users and ${data.max_branches} branches`,
+    price: data.price || 0, // Price in paisa (0 for custom/negotiated)
+    max_users: data.max_users,
+    max_branches: data.max_branches,
+    is_highlighted: false,
+  });
+}
+
+/**
+ * Activate a draft plan (DRAFT -> ACTIVE)
+ */
+export function activatePlan(planId) {
+  return CAdminAPI.post(`/plans/${planId}/activate`);
 }
 
 /**

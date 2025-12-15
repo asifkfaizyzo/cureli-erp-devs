@@ -5,7 +5,6 @@ import {
   Clock, 
   XCircle 
 } from "lucide-react";
-import { PLAN_STATUS } from "../../config/modules/subscriptionConfig";
 
 const StatCard = ({ label, count, icon: Icon, iconBg, iconColor, hoverBorder }) => (
   <div 
@@ -31,20 +30,13 @@ const StatCard = ({ label, count, icon: Icon, iconBg, iconColor, hoverBorder }) 
   </div>
 );
 
-export default function PlanStatsGrid({ plans }) {
-  const stats = {
-    total: plans.length,
-    draft: plans.filter(p => p.status === PLAN_STATUS.DRAFT).length,
-    active: plans.filter(p => p.status === PLAN_STATUS.ACTIVE).length,
-    deprecated: plans.filter(p => p.status === PLAN_STATUS.DEPRECATED).length,
-    suspended: plans.filter(p => p.status === PLAN_STATUS.SUSPENDED).length,
-  };
-
+// Now receives stats object directly from API
+export default function PlanStatsGrid({ stats }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
       <StatCard
         label="Total Plans"
-        count={stats.total}
+        count={stats.total || 0}
         icon={LayoutGrid}
         iconBg="bg-[#05015A]/10"
         iconColor="text-[#05015A]"
@@ -52,7 +44,7 @@ export default function PlanStatsGrid({ plans }) {
       />
       <StatCard
         label="Draft"
-        count={stats.draft}
+        count={stats.draft || 0}
         icon={FileEdit}
         iconBg="bg-amber-100"
         iconColor="text-amber-600"
@@ -60,7 +52,7 @@ export default function PlanStatsGrid({ plans }) {
       />
       <StatCard
         label="Active"
-        count={stats.active}
+        count={stats.active || 0}
         icon={CheckCircle2}
         iconBg="bg-emerald-100"
         iconColor="text-emerald-600"
@@ -68,7 +60,7 @@ export default function PlanStatsGrid({ plans }) {
       />
       <StatCard
         label="Deprecated"
-        count={stats.deprecated}
+        count={stats.deprecated || 0}
         icon={Clock}
         iconBg="bg-orange-100"
         iconColor="text-orange-600"
@@ -76,7 +68,7 @@ export default function PlanStatsGrid({ plans }) {
       />
       <StatCard
         label="Suspended"
-        count={stats.suspended}
+        count={stats.suspended || 0}
         icon={XCircle}
         iconBg="bg-red-100"
         iconColor="text-red-600"

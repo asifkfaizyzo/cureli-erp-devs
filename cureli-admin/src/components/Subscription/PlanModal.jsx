@@ -7,7 +7,8 @@ import {
   Building2,
   Sparkles,
   AlertTriangle,
-  Lock
+  Lock,
+  Loader2
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { 
@@ -23,7 +24,8 @@ export default function PlanModal({
   plan, 
   onSave,
   allPlans = [],
-  mode = "view" // "view" | "edit"
+  mode = "view",
+  loading = false
 }) {
   const [formData, setFormData] = useState(null);
   const [errors, setErrors] = useState({});
@@ -50,11 +52,11 @@ export default function PlanModal({
   const validate = () => {
     const newErrors = {};
 
-    if (!formData.name.trim()) {
+    if (!formData.name?.trim()) {
       newErrors.name = "Plan name is required";
     }
 
-    if (!formData.description.trim()) {
+    if (!formData.description?.trim()) {
       newErrors.description = "Description is required";
     }
 
@@ -62,12 +64,12 @@ export default function PlanModal({
       newErrors.price = "Valid price is required";
     }
 
-    if (!formData.usersLimit || Number(formData.usersLimit) < 1) {
-      newErrors.usersLimit = "At least 1 user required";
+    if (!formData.max_users || Number(formData.max_users) < 1) {
+      newErrors.max_users = "At least 1 user required";
     }
 
-    if (!formData.branchesLimit || Number(formData.branchesLimit) < 1) {
-      newErrors.branchesLimit = "At least 1 branch required";
+    if (!formData.max_branches || Number(formData.max_branches) < 1) {
+      newErrors.max_branches = "At least 1 branch required";
     }
 
     setErrors(newErrors);
@@ -75,23 +77,24 @@ export default function PlanModal({
   };
 
   const handleSave = () => {
-    if (!validate()) return;
+    if (!validate() || loading) return;
     onSave({
       ...formData,
       price: Number(formData.price),
-      usersLimit: Number(formData.usersLimit),
-      branchesLimit: Number(formData.branchesLimit),
+      max_users: Number(formData.max_users),
+      max_branches: Number(formData.max_branches),
     });
   };
 
   const handleClose = () => {
+    if (loading) return;
     setFormData(null);
     setErrors({});
     onClose();
   };
 
   // Check if name conflicts with active plans
-  const hasNameConflict = !isNameAvailable(formData.name, allPlans, formData.id);
+  const hasNameConflict = !isNameAvailable(formData.name, allPlans, formData.plan_id);
 
   return (
     <div 
@@ -122,8 +125,10 @@ export default function PlanModal({
             absolute top-4 right-4 p-1.5 rounded-full 
             bg-gray-100 hover:bg-[#05015A] hover:text-white 
             transition-all duration-300 group z-10
+            disabled:opacity-50 disabled:cursor-not-allowed
           "
           onClick={handleClose}
+          disabled={loading}
         >
           <X size={18} className="transition-transform duration-300 group-hover:rotate-90" />
         </button>
@@ -180,9 +185,9 @@ export default function PlanModal({
               </label>
               <input
                 type="text"
-                value={formData.name}
+                value={formData.name || ""}
                 onChange={(e) => handleChange("name", e.target.value)}
-                disabled={!isEditable}
+                disabled={!isEditable || loading}
                 className={`
                   w-full border-2 rounded-lg p-2.5 text-sm
                   transition-all duration-300 outline-none
@@ -212,9 +217,9 @@ export default function PlanModal({
                 <input
                   type="number"
                   min="0"
-                  value={formData.price}
+                  value={formData.price || 0}
                   onChange={(e) => handleChange("price", e.target.value)}
-                  disabled={!isEditable}
+                  disabled={!isEditable || loading}
                   className={`
                     w-full border-2 rounded-lg p-2.5 pl-8 text-sm
                     transition-all duration-300 outline-none
@@ -239,9 +244,9 @@ export default function PlanModal({
                 Description
               </label>
               <textarea
-                value={formData.description}
+                value={formData.description || ""}
                 onChange={(e) => handleChange("description", e.target.value)}
-                disabled={!isEditable}
+                disabled={!isEditable || loading}
                 rows={3}
                 className={`
                   w-full border-2 rounded-lg p-2.5 text-sm resize-none
@@ -269,22 +274,22 @@ export default function PlanModal({
                 <input
                   type="number"
                   min="1"
-                  value={formData.usersLimit}
-                  onChange={(e) => handleChange("usersLimit", e.target.value)}
-                  disabled={!isEditable}
+                  value={formData.max_users || ""}
+                  onChange={(e) => handleChange("max_users", e.target.value)}
+                  disabled={!isEditable || loading}
                   className={`
                     w-full border-2 rounded-lg p-2.5 text-sm
                     transition-all duration-300 outline-none
                     ${!isEditable 
                       ? "bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed" 
-                      : errors.usersLimit 
+                      : errors.max_users 
                         ? "border-red-300 focus:border-red-500" 
                         : "border-gray-200 focus:border-[#05015A]"
                     }
                   `}
                 />
-                {errors.usersLimit && (
-                  <p className="text-red-500 text-xs mt-1">{errors.usersLimit}</p>
+                {errors.max_users && (
+                  <p className="text-red-500 text-xs mt-1">{errors.max_users}</p>
                 )}
               </div>
 
@@ -296,22 +301,22 @@ export default function PlanModal({
                 <input
                   type="number"
                   min="1"
-                  value={formData.branchesLimit}
-                  onChange={(e) => handleChange("branchesLimit", e.target.value)}
-                  disabled={!isEditable}
+                  value={formData.max_branches || ""}
+                  onChange={(e) => handleChange("max_branches", e.target.value)}
+                  disabled={!isEditable || loading}
                   className={`
                     w-full border-2 rounded-lg p-2.5 text-sm
                     transition-all duration-300 outline-none
                     ${!isEditable 
                       ? "bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed" 
-                      : errors.branchesLimit 
+                      : errors.max_branches 
                         ? "border-red-300 focus:border-red-500" 
                         : "border-gray-200 focus:border-[#05015A]"
                     }
                   `}
                 />
-                {errors.branchesLimit && (
-                  <p className="text-red-500 text-xs mt-1">{errors.branchesLimit}</p>
+                {errors.max_branches && (
+                  <p className="text-red-500 text-xs mt-1">{errors.max_branches}</p>
                 )}
               </div>
             </div>
@@ -330,16 +335,16 @@ export default function PlanModal({
                     Featured Plan
                   </p>
                   <p className={`text-xs ${isEditable ? "text-violet-600" : "text-gray-500"}`}>
-                    {formData.isHighlighted ? "This plan is highlighted" : "Not highlighted"}
+                    {formData.is_highlighted ? "This plan is highlighted" : "Not highlighted"}
                   </p>
                 </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={formData.isHighlighted}
-                  onChange={(e) => handleChange("isHighlighted", e.target.checked)}
-                  disabled={!isEditable}
+                  checked={formData.is_highlighted || false}
+                  onChange={(e) => handleChange("is_highlighted", e.target.checked)}
+                  disabled={!isEditable || loading}
                   className="sr-only peer"
                 />
                 <div 
@@ -364,7 +369,7 @@ export default function PlanModal({
                 <div className="flex items-center gap-2">
                   <Users size={16} className="text-blue-600" />
                   <p className="text-sm font-medium text-blue-900">
-                    {formData.subscriberCount} Active Subscribers
+                    {formData.subscriber_count || 0} Active Subscribers
                   </p>
                 </div>
               </div>
@@ -376,11 +381,13 @@ export default function PlanModal({
           <div className="flex gap-3 mt-6">
             <button
               onClick={handleClose}
+              disabled={loading}
               className="
                 flex-1 py-2.5 rounded-lg text-sm font-medium 
                 border-2 border-gray-200 text-gray-600
                 hover:border-[#05015A] hover:text-[#05015A]
                 transition-all duration-300
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
               {isEditable ? "Cancel" : "Close"}
@@ -388,14 +395,24 @@ export default function PlanModal({
             {isEditable && (
               <button
                 onClick={handleSave}
+                disabled={loading}
                 className="
                   flex-1 bg-[#05015A] text-white py-2.5 rounded-lg font-medium
                   hover:bg-[#0a0280] hover:shadow-lg hover:shadow-[#05015A]/30
                   active:scale-[0.98]
                   transition-all duration-300
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  flex items-center justify-center gap-2
                 "
               >
-                Save Changes
+                {loading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
               </button>
             )}
           </div>

@@ -132,7 +132,7 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
       plan: {
         select: {
           plan_id: true,
-          plan_name: true,
+          name: true,
           max_branches: true,
           max_users: true,
         },
@@ -199,7 +199,10 @@ export async function uploadShopDocument({
   if (existingDoc) {
     // Delete old file from disk
     if (existingDoc.storage_key) {
-      const oldFilePath = path.join("uploads/shop_files", existingDoc.storage_key);
+      const oldFilePath = path.join(
+        "uploads/shop_files",
+        existingDoc.storage_key
+      );
       if (fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
       }
@@ -227,23 +230,23 @@ export async function uploadShopDocument({
     await createVerificationLog({
       file_id: shopFile.file_id,
       shop_id,
-      cadmin_id: uploaded_by,        // ✅ Correct field name
-      actor_type: "admin",           // ✅ Required field
+      cadmin_id: uploaded_by, // ✅ Correct field name
+      actor_type: "admin", // ✅ Required field
       action: "replaced_by_admin",
-      reason: `Document replaced by admin`,  // ✅ Correct field name
+      reason: `Document replaced by admin`, // ✅ Correct field name
     });
   } else {
     // ✅ FIX: Use correct field name "uploaded_by" instead of "user_id"
     shopFile = await prisma.shopFile.create({
       data: {
         shop_id,
-        uploaded_by: shop.owner.user_id,  // ✅ Correct field name
+        uploaded_by: shop.owner.user_id, // ✅ Correct field name
         file_type,
         original_name: originalName,
         storage_key: storageKey,
         mime_type: mimeType,
         file_size: fileSize,
-        status: "uploaded",  // ✅ Consistent status value
+        status: "uploaded", // ✅ Consistent status value
         resubmission_count: 0,
       },
     });
@@ -252,10 +255,10 @@ export async function uploadShopDocument({
     await createVerificationLog({
       file_id: shopFile.file_id,
       shop_id,
-      cadmin_id: uploaded_by,        // ✅ Correct field name
-      actor_type: "admin",           // ✅ Required field
+      cadmin_id: uploaded_by, // ✅ Correct field name
+      actor_type: "admin", // ✅ Required field
       action: "uploaded_by_admin",
-      reason: `Document uploaded by admin`,  // ✅ Correct field name
+      reason: `Document uploaded by admin`, // ✅ Correct field name
     });
   }
 
@@ -375,7 +378,7 @@ export async function listShops({
   if (sort_by === "owner") {
     orderBy.owner = { full_name: sort_order };
   } else if (sort_by === "subscription") {
-    orderBy.currentSubscription = { plan: { plan_name: sort_order } };
+    orderBy.currentSubscription = { plan: { name: sort_order } };
   } else {
     orderBy[sort_by] = sort_order;
   }
@@ -419,7 +422,7 @@ export async function listShops({
             plan: {
               select: {
                 plan_id: true,
-                plan_name: true,
+                name: true,
               },
             },
           },
@@ -454,8 +457,8 @@ export async function listShops({
     owner: shop.owner
       ? {
           user_id: shop.owner.user_id,
-          name: shop.owner.full_name,       // ✅ "name" for list view
-          full_name: shop.owner.full_name,  // ✅ Also include full_name for compatibility
+          name: shop.owner.full_name, // ✅ "name" for list view
+          full_name: shop.owner.full_name, // ✅ Also include full_name for compatibility
           email: shop.owner.email,
           username: shop.owner.username,
           is_active: shop.owner.is_active,
@@ -464,7 +467,7 @@ export async function listShops({
     subscription: shop.currentSubscription
       ? {
           subscription_id: shop.currentSubscription.subscription_id,
-          plan_name: shop.currentSubscription.plan?.plan_name || "Unknown",
+          name: shop.currentSubscription.plan?.name || "Unknown",
           status: shop.currentSubscription.status,
           is_active: shop.currentSubscription.is_active,
           end_date: shop.currentSubscription.end_date,
@@ -530,10 +533,7 @@ export async function getShopById(shop_id) {
             },
           },
         },
-        orderBy: [
-          { branch_type: "asc" },
-          { created_at: "asc" },
-        ],
+        orderBy: [{ branch_type: "asc" }, { created_at: "asc" }],
       },
       users: {
         select: {
@@ -596,11 +596,10 @@ export async function getShopById(shop_id) {
           plan: {
             select: {
               plan_id: true,
-              plan_name: true,
+              name: true,
               max_branches: true,
               max_users: true,
-              price_monthly: true,
-              price_yearly: true,
+              price: true,
             },
           },
         },
@@ -621,7 +620,7 @@ export async function getShopById(shop_id) {
           plan: {
             select: {
               plan_id: true,
-              plan_name: true,
+              name: true,
               max_branches: true,
               max_users: true,
             },
@@ -643,7 +642,7 @@ export async function getShopById(shop_id) {
               subscription_id: true,
               plan: {
                 select: {
-                  plan_name: true,
+                  name: true,
                 },
               },
             },
@@ -744,7 +743,7 @@ export async function updateShop(shop_id, updates, cadmin_id) {
       state: true,
       pincode: true,
       verification_status: true,
-      verification_notes: true,  // ✅ FIX: Correct field name
+      verification_notes: true, // ✅ FIX: Correct field name
       is_active: true,
       updated_at: true,
     },

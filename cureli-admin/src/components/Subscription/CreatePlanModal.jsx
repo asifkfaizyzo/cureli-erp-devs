@@ -6,7 +6,8 @@ import {
   Users, 
   Building2,
   Sparkles,
-  Info
+  Info,
+  Loader2
 } from "lucide-react";
 import { useState } from "react";
 import { BILLING } from "../../config/modules/subscriptionConfig";
@@ -20,7 +21,13 @@ const initialFormState = {
   isHighlighted: false,
 };
 
-export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNames = [] }) {
+export default function CreatePlanModal({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  existingNames = [],
+  loading = false 
+}) {
   const [formData, setFormData] = useState(initialFormState);
   const [errors, setErrors] = useState({});
 
@@ -28,7 +35,6 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error when user types
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
@@ -39,12 +45,16 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
 
     if (!formData.name.trim()) {
       newErrors.name = "Plan name is required";
-    } else if (existingNames.some(n => n.toLowerCase() === formData.name.toLowerCase())) {
+    } else if (formData.name.trim().length < 3) {
+      newErrors.name = "Plan name must be at least 3 characters";
+    } else if (existingNames.some(n => n.toLowerCase() === formData.name.toLowerCase().trim())) {
       newErrors.name = "A plan with this name already exists";
     }
 
     if (!formData.description.trim()) {
       newErrors.description = "Description is required";
+    } else if (formData.description.trim().length < 10) {
+      newErrors.description = "Description must be at least 10 characters";
     }
 
     if (formData.price === "" || isNaN(Number(formData.price)) || Number(formData.price) < 0) {
@@ -64,7 +74,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
   };
 
   const handleSubmit = () => {
-    if (!validate()) return;
+    if (!validate() || loading) return;
 
     onSubmit({
       name: formData.name.trim(),
@@ -74,12 +84,10 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
       branchesLimit: Number(formData.branchesLimit),
       isHighlighted: formData.isHighlighted,
     });
-
-    setFormData(initialFormState);
-    setErrors({});
   };
 
   const handleClose = () => {
+    if (loading) return;
     setFormData(initialFormState);
     setErrors({});
     onClose();
@@ -106,8 +114,10 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
             absolute top-4 right-4 p-1.5 rounded-full 
             bg-gray-100 hover:bg-[#05015A] hover:text-white 
             transition-all duration-300 group
+            disabled:opacity-50 disabled:cursor-not-allowed
           "
           onClick={handleClose}
+          disabled={loading}
         >
           <X size={18} className="transition-transform duration-300 group-hover:rotate-90" />
         </button>
@@ -144,10 +154,12 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
                 value={formData.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 placeholder="e.g., Premium Plan"
+                disabled={loading}
                 className={`
                   w-full border-2 rounded-lg p-2.5 text-sm
                   focus:ring-2 focus:ring-[#05015A]/20 outline-none
                   transition-all duration-300
+                  disabled:bg-gray-100 disabled:cursor-not-allowed
                   ${errors.name 
                     ? "border-red-300 focus:border-red-500" 
                     : "border-gray-200 focus:border-[#05015A] hover:border-[#05015A]/50"
@@ -163,7 +175,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
             <div>
               <label className="text-xs font-medium text-[#05015A] mb-1.5 flex items-center gap-1.5">
                 <DollarSign size={14} />
-                Price (per year)
+                Price (per year in Rupees)
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#05015A] font-medium">
@@ -172,13 +184,16 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
                 <input
                   type="number"
                   min="0"
+                  step="1"
                   value={formData.price}
                   onChange={(e) => handleChange("price", e.target.value)}
                   placeholder="0 for free plan"
+                  disabled={loading}
                   className={`
                     w-full border-2 rounded-lg p-2.5 pl-8 text-sm
                     focus:ring-2 focus:ring-[#05015A]/20 outline-none
                     transition-all duration-300
+                    disabled:bg-gray-100 disabled:cursor-not-allowed
                     ${errors.price 
                       ? "border-red-300 focus:border-red-500" 
                       : "border-gray-200 focus:border-[#05015A] hover:border-[#05015A]/50"
@@ -202,10 +217,12 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
                 onChange={(e) => handleChange("description", e.target.value)}
                 placeholder="Describe plan features and ideal customers..."
                 rows={3}
+                disabled={loading}
                 className={`
                   w-full border-2 rounded-lg p-2.5 text-sm resize-none
                   focus:ring-2 focus:ring-[#05015A]/20 outline-none
                   transition-all duration-300
+                  disabled:bg-gray-100 disabled:cursor-not-allowed
                   ${errors.description 
                     ? "border-red-300 focus:border-red-500" 
                     : "border-gray-200 focus:border-[#05015A] hover:border-[#05015A]/50"
@@ -230,10 +247,12 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
                   value={formData.usersLimit}
                   onChange={(e) => handleChange("usersLimit", e.target.value)}
                   placeholder="e.g., 10"
+                  disabled={loading}
                   className={`
                     w-full border-2 rounded-lg p-2.5 text-sm
                     focus:ring-2 focus:ring-[#05015A]/20 outline-none
                     transition-all duration-300
+                    disabled:bg-gray-100 disabled:cursor-not-allowed
                     ${errors.usersLimit 
                       ? "border-red-300 focus:border-red-500" 
                       : "border-gray-200 focus:border-[#05015A] hover:border-[#05015A]/50"
@@ -256,10 +275,12 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
                   value={formData.branchesLimit}
                   onChange={(e) => handleChange("branchesLimit", e.target.value)}
                   placeholder="e.g., 3"
+                  disabled={loading}
                   className={`
                     w-full border-2 rounded-lg p-2.5 text-sm
                     focus:ring-2 focus:ring-[#05015A]/20 outline-none
                     transition-all duration-300
+                    disabled:bg-gray-100 disabled:cursor-not-allowed
                     ${errors.branchesLimit 
                       ? "border-red-300 focus:border-red-500" 
                       : "border-gray-200 focus:border-[#05015A] hover:border-[#05015A]/50"
@@ -291,6 +312,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
                   type="checkbox"
                   checked={formData.isHighlighted}
                   onChange={(e) => handleChange("isHighlighted", e.target.checked)}
+                  disabled={loading}
                   className="sr-only peer"
                 />
                 <div 
@@ -298,6 +320,7 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
                     w-10 h-5 bg-gray-200 rounded-full peer 
                     peer-checked:bg-violet-600 
                     peer-focus:ring-2 peer-focus:ring-violet-300
+                    peer-disabled:opacity-50 peer-disabled:cursor-not-allowed
                     after:content-[''] after:absolute after:top-0.5 after:left-0.5
                     after:bg-white after:rounded-full after:h-4 after:w-4
                     after:transition-all peer-checked:after:translate-x-5
@@ -313,25 +336,37 @@ export default function CreatePlanModal({ isOpen, onClose, onSubmit, existingNam
           <div className="flex gap-3 mt-6">
             <button
               onClick={handleClose}
+              disabled={loading}
               className="
                 flex-1 py-2.5 rounded-lg text-sm font-medium 
                 border-2 border-gray-200 text-gray-600
                 hover:border-[#05015A] hover:text-[#05015A]
                 transition-all duration-300
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
+              disabled={loading}
               className="
                 flex-1 bg-[#05015A] text-white py-2.5 rounded-lg font-medium
                 hover:bg-[#0a0280] hover:shadow-lg hover:shadow-[#05015A]/30
                 active:scale-[0.98]
                 transition-all duration-300
+                disabled:opacity-50 disabled:cursor-not-allowed
+                flex items-center justify-center gap-2
               "
             >
-              Create Draft
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Draft"
+              )}
             </button>
           </div>
 

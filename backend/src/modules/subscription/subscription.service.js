@@ -3,7 +3,7 @@ import prisma from "../../config/prisma.js";
 export async function getVisiblePlans() {
   return prisma.plan.findMany({
     where: { is_visible: true },
-    orderBy: { price_monthly: "asc" },
+    orderBy: { price: "asc" },
   });
 }
 
@@ -20,7 +20,7 @@ export async function createSubscription({ shop_id, plan_id, billing_cycle }) {
   }
 
   // FREE PLAN → instant activation
-  const isFree = Number(plan.price_monthly) === 0;
+  const isFree = Number(plan.price) === 0;
 
   const now = new Date();
   const end = new Date();

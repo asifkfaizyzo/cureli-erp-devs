@@ -82,7 +82,7 @@ const ShopsTable = ({
 
   // Plan badge styling
   const getPlanBadge = (subscription) => {
-    if (!subscription || !subscription.plan_name) {
+    if (!subscription || !subscription.name) {
       return (
         <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 min-w-[70px]">
           None
@@ -90,20 +90,22 @@ const ShopsTable = ({
       );
     }
 
-    const isExpired = !subscription.is_active || subscription.status === "expired" || 
-                      (subscription.end_date && new Date(subscription.end_date) < new Date());
+    const isExpired =
+      !subscription.is_active ||
+      subscription.status === "expired" ||
+      (subscription.end_date && new Date(subscription.end_date) < new Date());
 
     if (isExpired) {
       return (
         <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 min-w-[70px]">
-          {subscription.plan_name}
+          {subscription.name}
         </span>
       );
     }
 
     return (
       <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 min-w-[70px]">
-        {subscription.plan_name}
+        {subscription.name}
       </span>
     );
   };
@@ -111,18 +113,45 @@ const ShopsTable = ({
   // Verification badge styling
   const getVerificationBadge = (status) => {
     const config = {
-      verified: { bg: "bg-emerald-100", text: "text-emerald-700", icon: CheckCircle, label: "Verified" },
-      pending: { bg: "bg-blue-100", text: "text-blue-700", icon: null, label: "Pending" },
-      pending_review: { bg: "bg-yellow-100", text: "text-yellow-700", icon: null, label: "Pending Review" },
-      rejected: { bg: "bg-red-100", text: "text-red-700", icon: null, label: "Rejected" },
-      partially_rejected: { bg: "bg-orange-100", text: "text-orange-700", icon: null, label: "Partial Reject" },
+      verified: {
+        bg: "bg-emerald-100",
+        text: "text-emerald-700",
+        icon: CheckCircle,
+        label: "Verified",
+      },
+      pending: {
+        bg: "bg-blue-100",
+        text: "text-blue-700",
+        icon: null,
+        label: "Pending",
+      },
+      pending_review: {
+        bg: "bg-yellow-100",
+        text: "text-yellow-700",
+        icon: null,
+        label: "Pending Review",
+      },
+      rejected: {
+        bg: "bg-red-100",
+        text: "text-red-700",
+        icon: null,
+        label: "Rejected",
+      },
+      partially_rejected: {
+        bg: "bg-orange-100",
+        text: "text-orange-700",
+        icon: null,
+        label: "Partial Reject",
+      },
     };
 
     const style = config[status] || config.pending;
     const Icon = style.icon;
 
     return (
-      <span className={`inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text} min-w-[90px]`}>
+      <span
+        className={`inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text} min-w-[90px]`}
+      >
         {Icon && <Icon size={12} />}
         {style.label}
       </span>
@@ -145,11 +174,15 @@ const ShopsTable = ({
           <div className="flex flex-col gap-0.5">
             <ChevronUp
               size={12}
-              className={`transition-colors ${isAsc ? "text-yellow-300" : "text-white/50"}`}
+              className={`transition-colors ${
+                isAsc ? "text-yellow-300" : "text-white/50"
+              }`}
             />
             <ChevronDown
               size={12}
-              className={`-mt-1 transition-colors ${isDesc ? "text-yellow-300" : "text-white/50"}`}
+              className={`-mt-1 transition-colors ${
+                isDesc ? "text-yellow-300" : "text-white/50"
+              }`}
             />
           </div>
         </div>
@@ -162,7 +195,10 @@ const ShopsTable = ({
   };
 
   // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil((totalItems || 0) / (rowsPerPage || 1)));
+  const totalPages = Math.max(
+    1,
+    Math.ceil((totalItems || 0) / (rowsPerPage || 1))
+  );
   const startIndex = (currentPage - 1) * rowsPerPage;
 
   // Suspend handlers
@@ -216,16 +252,51 @@ const ShopsTable = ({
     <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
       {/* Table */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full border-collapse text-sm" style={{ minWidth: "900px" }}>
+        <table
+          className="w-full border-collapse text-sm"
+          style={{ minWidth: "900px" }}
+        >
           <thead className="sticky top-0 z-10">
             <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white text-left">
-              <th style={{ width: columnWidths.slNo }} className="p-3 font-semibold">#</th>
-              <SortableHeader column="business_name" label="Business Name" width={columnWidths.businessName} />
-              <SortableHeader column="owner" label="Owner" width={columnWidths.ownerName} />
-              <SortableHeader column="business_type" label="Type" width={columnWidths.businessType} />
-              <th style={{ width: columnWidths.plan }} className="p-3 font-semibold text-center">Plan</th>
-              <th style={{ width: columnWidths.verification }} className="p-3 font-semibold text-center">Verification</th>
-              <th style={{ width: columnWidths.actions, minWidth: 100 }} className="p-3 font-semibold text-center">Actions</th>
+              <th
+                style={{ width: columnWidths.slNo }}
+                className="p-3 font-semibold"
+              >
+                #
+              </th>
+              <SortableHeader
+                column="business_name"
+                label="Business Name"
+                width={columnWidths.businessName}
+              />
+              <SortableHeader
+                column="owner"
+                label="Owner"
+                width={columnWidths.ownerName}
+              />
+              <SortableHeader
+                column="business_type"
+                label="Type"
+                width={columnWidths.businessType}
+              />
+              <th
+                style={{ width: columnWidths.plan }}
+                className="p-3 font-semibold text-center"
+              >
+                Plan
+              </th>
+              <th
+                style={{ width: columnWidths.verification }}
+                className="p-3 font-semibold text-center"
+              >
+                Verification
+              </th>
+              <th
+                style={{ width: columnWidths.actions, minWidth: 100 }}
+                className="p-3 font-semibold text-center"
+              >
+                Actions
+              </th>
             </tr>
           </thead>
 
@@ -241,18 +312,25 @@ const ShopsTable = ({
                     hover:bg-indigo-50
                   `}
                 >
-                  <td className="p-3 text-gray-500 font-medium">{startIndex + index + 1}</td>
+                  <td className="p-3 text-gray-500 font-medium">
+                    {startIndex + index + 1}
+                  </td>
 
                   <td className="p-3 font-medium text-gray-900">
                     <div className="flex items-center gap-2">
                       <span className="truncate" title={shop.business_name}>
                         {shop.business_name}
                       </span>
-                      {!shop.is_active && <Ban size={14} className="text-red-400 shrink-0" />}
+                      {!shop.is_active && (
+                        <Ban size={14} className="text-red-400 shrink-0" />
+                      )}
                     </div>
                   </td>
 
-                  <td className="p-3 text-gray-600 truncate" title={shop.owner?.name || shop.owner?.full_name}>
+                  <td
+                    className="p-3 text-gray-600 truncate"
+                    title={shop.owner?.name || shop.owner?.full_name}
+                  >
                     {shop.owner?.name || shop.owner?.full_name || "N/A"}
                   </td>
 
@@ -304,9 +382,15 @@ const ShopsTable = ({
                             ? "text-gray-500 hover:text-orange-600 hover:bg-orange-50"
                             : "text-gray-500 hover:text-emerald-600 hover:bg-emerald-50"
                         }`}
-                        title={shop.is_active ? "Suspend Shop" : "Activate Shop"}
+                        title={
+                          shop.is_active ? "Suspend Shop" : "Activate Shop"
+                        }
                       >
-                        {shop.is_active ? <Ban size={16} /> : <CheckCircle size={16} />}
+                        {shop.is_active ? (
+                          <Ban size={16} />
+                        ) : (
+                          <CheckCircle size={16} />
+                        )}
                       </button>
                     </div>
                   </td>
@@ -319,8 +403,12 @@ const ShopsTable = ({
                     <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
                       <ShoppingBag size={32} className="text-gray-300" />
                     </div>
-                    <p className="text-lg font-medium text-gray-500 mb-1">No shops found</p>
-                    <p className="text-sm text-gray-400">Try adjusting your search or filters</p>
+                    <p className="text-lg font-medium text-gray-500 mb-1">
+                      No shops found
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Try adjusting your search or filters
+                    </p>
                   </div>
                 </td>
               </tr>
@@ -333,11 +421,14 @@ const ShopsTable = ({
       <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-1.5 flex items-center justify-between">
         <div className="text-sm text-gray-500">
           Showing{" "}
-          <span className="font-medium text-gray-700">{totalItems > 0 ? startIndex + 1 : 0}</span>{" "}
+          <span className="font-medium text-gray-700">
+            {totalItems > 0 ? startIndex + 1 : 0}
+          </span>{" "}
           to{" "}
-          <span className="font-medium text-gray-700">{Math.min(startIndex + rowsPerPage, totalItems)}</span>{" "}
-          of{" "}
-          <span className="font-medium text-gray-700">{totalItems}</span>{" "}
+          <span className="font-medium text-gray-700">
+            {Math.min(startIndex + rowsPerPage, totalItems)}
+          </span>{" "}
+          of <span className="font-medium text-gray-700">{totalItems}</span>{" "}
           results
         </div>
 

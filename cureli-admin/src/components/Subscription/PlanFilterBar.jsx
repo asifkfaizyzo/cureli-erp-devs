@@ -1,5 +1,5 @@
-import { Search, SlidersHorizontal } from "lucide-react";
-import { FILTER_OPTIONS, PLAN_STATUS } from "../../config/modules/subscriptionConfig";
+import { Search, SlidersHorizontal, X } from "lucide-react";
+import { FILTER_OPTIONS } from "../../config/modules/subscriptionConfig";
 
 export default function PlanFilterBar({ 
   filter, 
@@ -17,9 +17,15 @@ export default function PlanFilterBar({
           <SlidersHorizontal size={14} className="text-gray-400 mr-1" />
           
           {FILTER_OPTIONS.map((option) => {
-            const count = option.key === "all" 
-              ? planCounts.total 
-              : planCounts[option.key.toLowerCase()] || 0;
+            // Handle count lookup - API returns lowercase keys
+            let count = 0;
+            if (option.key === "all") {
+              count = planCounts.total || 0;
+            } else {
+              // Convert DRAFT -> draft for lookup
+              const lookupKey = option.key.toLowerCase();
+              count = planCounts[lookupKey] || 0;
+            }
 
             return (
               <button
@@ -64,13 +70,27 @@ export default function PlanFilterBar({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="
-              w-full lg:w-[240px] pl-9 pr-3 py-2 
+              w-full lg:w-[240px] pl-9 pr-8 py-2 
               border-2 border-gray-200 rounded-lg text-sm
               focus:border-[#05015A] focus:ring-2 focus:ring-[#05015A]/20
               transition-all duration-300 outline-none
               hover:border-[#05015A]/50
             "
           />
+          {/* Clear search button */}
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="
+                absolute right-2 top-1/2 -translate-y-1/2 
+                p-1 rounded-full hover:bg-gray-100
+                text-gray-400 hover:text-gray-600
+                transition-all
+              "
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
       </div>

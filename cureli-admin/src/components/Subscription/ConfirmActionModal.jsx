@@ -6,7 +6,9 @@ import {
   Power,
   Copy,
   Users,
-  CheckCircle2
+  CheckCircle2,
+  Trash2,
+  Loader2
 } from "lucide-react";
 
 const ACTION_CONFIG = {
@@ -17,6 +19,7 @@ const ACTION_CONFIG = {
     iconBg: "bg-emerald-100",
     buttonColor: "bg-emerald-600 hover:bg-emerald-700",
     buttonText: "Activate Plan",
+    loadingText: "Activating...",
   },
   suspend: {
     title: "Suspend Plan",
@@ -25,6 +28,7 @@ const ACTION_CONFIG = {
     iconBg: "bg-orange-100",
     buttonColor: "bg-orange-600 hover:bg-orange-700",
     buttonText: "Suspend Plan",
+    loadingText: "Suspending...",
   },
   reactivate: {
     title: "Reactivate Plan",
@@ -33,6 +37,7 @@ const ACTION_CONFIG = {
     iconBg: "bg-emerald-100",
     buttonColor: "bg-emerald-600 hover:bg-emerald-700",
     buttonText: "Reactivate",
+    loadingText: "Reactivating...",
   },
   clone: {
     title: "Clone Plan",
@@ -41,6 +46,16 @@ const ACTION_CONFIG = {
     iconBg: "bg-[#05015A]/10",
     buttonColor: "bg-[#05015A] hover:bg-[#0a0280]",
     buttonText: "Create Clone",
+    loadingText: "Cloning...",
+  },
+  delete: {
+    title: "Delete Draft",
+    icon: Trash2,
+    iconColor: "text-red-600",
+    iconBg: "bg-red-100",
+    buttonColor: "bg-red-600 hover:bg-red-700",
+    buttonText: "Delete Draft",
+    loadingText: "Deleting...",
   },
 };
 
@@ -50,12 +65,20 @@ export default function ConfirmActionModal({
   onConfirm, 
   action, 
   plan,
-  newName = null // For clone action
+  newName = null,
+  loading = false
 }) {
   if (!isOpen || !action || !plan) return null;
 
   const config = ACTION_CONFIG[action];
+  if (!config) return null;
+  
   const Icon = config.icon;
+
+  const handleClose = () => {
+    if (loading) return;
+    onClose();
+  };
 
   const renderContent = () => {
     switch (action) {
@@ -82,7 +105,9 @@ export default function ConfirmActionModal({
         );
 
       case "suspend":
-        const hasSubscribers = plan.subscriberCount > 0;
+        // Use subscriber_count from API (not subscriberCount)
+        const subscriberCount = plan.subscriber_count || 0;
+        const hasSubscribers = subscriberCount > 0;
         return (
           <div className="space-y-3">
             <p className="text-gray-600 text-sm">
@@ -95,7 +120,7 @@ export default function ConfirmActionModal({
                   <Users size={16} className="text-orange-600 mt-0.5 flex-shrink-0" />
                   <div className="text-xs text-orange-800">
                     <p className="font-semibold mb-1">
-                      This plan has {plan.subscriberCount} active subscribers
+                      This plan has {subscriberCount} active subscriber{subscriberCount !== 1 ? 's' : ''}
                     </p>
                     <ul className="list-disc list-inside space-y-0.5">
                       <li>New signups will be blocked immediately</li>
@@ -166,6 +191,28 @@ export default function ConfirmActionModal({
           </div>
         );
 
+      case "delete":
+        return (
+          <div className="space-y-3">
+            <p className="text-gray-600 text-sm">
+              You are about to delete <strong>"{plan.name}"</strong>.
+            </p>
+            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={16} className="text-red-600 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-red-800">
+                  <p className="font-semibold mb-1">This action cannot be undone:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>Draft plan will be permanently deleted</li>
+                    <li>All plan details will be lost</li>
+                    <li>This only works for DRAFT plans</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -174,7 +221,7 @@ export default function ConfirmActionModal({
   return (
     <div 
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div 
         className="
@@ -189,8 +236,10 @@ export default function ConfirmActionModal({
             absolute top-4 right-4 p-1.5 rounded-full 
             bg-gray-100 hover:bg-gray-200
             transition-all duration-300
+            disabled:opacity-50 disabled:cursor-not-allowed
           "
-          onClick={onClose}
+          onClick={handleClose}
+          disabled={loading}
         >
           <X size={16} />
         </button>
@@ -210,26 +259,38 @@ export default function ConfirmActionModal({
           {/* Action Buttons */}
           <div className="flex gap-3 mt-6">
             <button
-              onClick={onClose}
+              onClick={handleClose}
+              disabled={loading}
               className="
                 flex-1 py-2.5 rounded-lg text-sm font-medium 
                 border-2 border-gray-200 text-gray-600
                 hover:border-gray-300 hover:bg-gray-50
                 transition-all duration-300
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
+              disabled={loading}
               className={`
                 flex-1 text-white py-2.5 rounded-lg font-medium text-sm
                 ${config.buttonColor}
                 active:scale-[0.98]
                 transition-all duration-300
+                disabled:opacity-70 disabled:cursor-not-allowed
+                flex items-center justify-center gap-2
               `}
             >
-              {config.buttonText}
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  {config.loadingText}
+                </>
+              ) : (
+                config.buttonText
+              )}
             </button>
           </div>
         </div>

@@ -7,9 +7,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//
-// ---------- CURELI-ADMIN  ----------------
-//
+// ============================================
+// PLAN STATUS ENUM (NEW)
+// ============================================
+// Plan lifecycle states for subscription management
+enum PlanStatus {
+  DRAFT       // Editable, not visible to customers
+  ACTIVE      // Live, immutable, accepts subscriptions
+  DEPRECATED  // Suspended but has active subscribers
+  SUSPENDED   // Inactive, can be reactivated
+}
+
+// ============================================
+// CURELI-ADMIN
+// ============================================
 
 model CAdmin {
   cadmin_id       String   @id @default(uuid()) @db.Uuid
@@ -32,12 +43,16 @@ model CAdmin {
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @updatedAt @db.Timestamptz(6)
 
+  // -------- Relations (NEW) --------
+  createdPlans     Plan[]            @relation("PlanCreator")
+  planActivities   PlanActivityLog[] @relation("PlanActivityByCAdmin")
+
   @@map("cadmins")
 }
 
-//
-// ---------- CURELI-USERS  ----------------
-//
+// ============================================
+// CURELI-USERS
+// ============================================
 
 model PendingUser {
   pending_id String @id @default(uuid()) @db.Uuid
@@ -98,17 +113,18 @@ model User {
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime  @updatedAt @db.Timestamptz(6)
 
-  shops_owned Shop[]     @relation("OwnerOfShop")
-  branch      Branch?    @relation(fields: [branch_id], references: [branch_id])
-  shop        Shop?      @relation("UsersInShop", fields: [shop_id], references: [shop_id])
-  shopFiles   ShopFile[]
+  shops_owned  Shop[]        @relation("OwnerOfShop")
+  branch       Branch?       @relation(fields: [branch_id], references: [branch_id])
+  shop         Shop?         @relation("UsersInShop", fields: [shop_id], references: [shop_id])
+  shopFiles    ShopFile[]
   activityLogs ActivityLog[]
+
   @@map("users")
 }
 
-//
-// ---------- CURELI-SHOPS  ----------------
-//
+// ============================================
+// CURELI-SHOPS
+// ============================================
 
 model Shop {
   shop_id       String @id @default(uuid()) @db.Uuid
@@ -123,10 +139,8 @@ model Shop {
   city                String
   state               String
   pincode             String
-  verification_status String @default("pending")
-  // pending | pending_review | verified | partially_rejected | rejected
-  
-  verification_notes String?  // Admin notes on why rejected/etc
+  verification_status String  @default("pending")
+  verification_notes  String?
   current_subscription_id String? @unique @db.Uuid
 
   is_active Boolean @default(true)
@@ -134,15 +148,13 @@ model Shop {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  branches  Branch[]
-  owner     User       @relation("OwnerOfShop", fields: [owner_user_id], references: [user_id])
-  users     User[]     @relation("UsersInShop")
-  shopFiles ShopFile[]
-
+  branches            Branch[]
+  owner               User                 @relation("OwnerOfShop", fields: [owner_user_id], references: [user_id])
+  users               User[]               @relation("UsersInShop")
+  shopFiles           ShopFile[]
   paymentTransactions PaymentTransaction[] @relation("ShopPayments")
-
-  subscriptions       ShopSubscription[] @relation("ShopSubscriptions")
-  currentSubscription ShopSubscription?  @relation("CurrentSubscription", fields: [current_subscription_id], references: [subscription_id])
+  subscriptions       ShopSubscription[]   @relation("ShopSubscriptions")
+  currentSubscription ShopSubscription?    @relation("CurrentSubscription", fields: [current_subscription_id], references: [subscription_id])
 
   @@map("shops")
 }
@@ -180,24 +192,21 @@ model ShopFile {
   mime_type          String   @db.Text
   file_size          Int
 
-  status             String   @default("uploaded") @db.Text // uploaded | verified | rejected
-  verification_notes String?  @db.Text                     // rejection reason
+  status             String   @default("uploaded") @db.Text
+  verification_notes String?  @db.Text
   resubmission_count Int      @default(0)
 
-  uploaded_by String    @db.Uuid
-  uploaded_at DateTime  @default(now()) @db.Timestamptz(6)
-  verified_at DateTime? @db.Timestamptz(6)
-  
-  // ✅ ADD THESE TWO:
-  rejected_at         DateTime? @db.Timestamptz(6)         // When was it last rejected?
-  last_resubmitted_at DateTime? @db.Timestamptz(6)         // When was it last resubmitted?
+  uploaded_by         String    @db.Uuid
+  uploaded_at         DateTime  @default(now()) @db.Timestamptz(6)
+  verified_at         DateTime? @db.Timestamptz(6)
+  rejected_at         DateTime? @db.Timestamptz(6)
+  last_resubmitted_at DateTime? @db.Timestamptz(6)
 
   shop Shop @relation(fields: [shop_id], references: [shop_id])
   user User @relation(fields: [uploaded_by], references: [user_id])
 
   @@map("shop_files")
 }
-
 
 model ShopSubscription {
   subscription_id String @id @default(uuid()) @db.Uuid
@@ -206,7 +215,7 @@ model ShopSubscription {
   plan_id String @db.Uuid
 
   status         String
-  billing_cycle   String @default("monthly")
+  billing_cycle  String @default("monthly")
   payment_status String
 
   start_date   DateTime @db.Timestamptz(6)
@@ -221,43 +230,111 @@ model ShopSubscription {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  plan Plan @relation(fields: [plan_id], references: [plan_id])
-
-  shop Shop @relation("ShopSubscriptions", fields: [shop_id], references: [shop_id])
-
+  plan                Plan                 @relation(fields: [plan_id], references: [plan_id])
+  shop                Shop                 @relation("ShopSubscriptions", fields: [shop_id], references: [shop_id])
   paymentTransactions PaymentTransaction[] @relation("SubscriptionPayments")
+  currentForShop      Shop?                @relation("CurrentSubscription")
 
-  currentForShop Shop? @relation("CurrentSubscription")
-
+  @@index([plan_id])
+  @@index([shop_id])
+  @@index([is_active])
+  @@index([end_date])
   @@map("shop_subscriptions")
 }
 
-//
-// ---------- CURELI-PLANS  ----------------
-//
+// ============================================
+// CURELI-PLANS (CLEANED UP)
+// ============================================
 
 model Plan {
-  plan_id         String  @id @default(uuid()) @db.Uuid
-  plan_name       String  @unique
+  plan_id String @id @default(uuid()) @db.Uuid
+
+  // -------- CORE FIELDS (consolidated) --------
+  name            String   @unique @db.VarChar(100)  // Primary name field
+  description     String?  @db.Text
+  
+  // Pricing - yearly only (in paisa)
+  price           BigInt
+  
+  // Limits
   max_branches    Int
   max_users       Int
-  price_monthly   BigInt
-  price_yearly    BigInt?
-  is_customizable Boolean @default(false)
-  is_visible      Boolean @default(true)
-  features_json   Json?
+  
+  // Flags
+  is_customizable Boolean  @default(false)
+  is_highlighted  Boolean  @default(false)
 
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @updatedAt @db.Timestamptz(6)
+  // -------- LIFECYCLE FIELDS --------
+  status          PlanStatus @default(ACTIVE)
+  
+  // Admin who created this plan
+  created_by      String?  @db.Uuid
 
-  subscriptions ShopSubscription[]
+  // Timestamps
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @updatedAt @db.Timestamptz(6)
+  activated_at    DateTime? @db.Timestamptz(6)
+  suspended_at    DateTime? @db.Timestamptz(6)
+  deleted_at      DateTime? @db.Timestamptz(6)
 
+
+  // -------- Relations --------
+  subscriptions   ShopSubscription[]
+  creator         CAdmin?            @relation("PlanCreator", fields: [created_by], references: [cadmin_id])
+  activityLogs    PlanActivityLog[]
+
+  @@index([status])
+  @@index([deleted_at])
   @@map("plans")
 }
+// ============================================
+// PLAN ACTIVITY LOG (NEW)
+// ============================================
+// Tracks all plan lifecycle events for audit trail
 
-//
-// ---------- CURELI-LOGS  ----------------
-//
+model PlanActivityLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Plan this activity relates to
+  plan_id String @db.Uuid
+
+  // Admin who performed the action (null for system/migration actions)
+  cadmin_id String? @db.Uuid
+
+  // Action type: created | updated | activated | suspended | 
+  //              reactivated | cloned | deleted | migrated | auto_suspended
+  action String @db.VarChar(50)
+
+  // Previous status (for state transitions)
+  from_status String? @db.VarChar(20)
+
+  // New status (for state transitions)
+  to_status String? @db.VarChar(20)
+
+  // What changed - stores field changes for updates
+  // Example: { "name": { "old": "Basic", "new": "Basic Plus" } }
+  changes Json?
+
+  // Additional context (clone source, subscriber count at suspend, etc.)
+  meta Json?
+
+  // When this action occurred
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  plan   Plan    @relation(fields: [plan_id], references: [plan_id])
+  cadmin CAdmin? @relation("PlanActivityByCAdmin", fields: [cadmin_id], references: [cadmin_id])
+
+  @@index([plan_id])
+  @@index([cadmin_id])
+  @@index([action])
+  @@index([created_at])
+  @@map("plan_activity_logs")
+}
+
+// ============================================
+// CURELI-LOGS
+// ============================================
 
 model DeletionLog {
   id              String   @id @default(uuid()) @db.Uuid
@@ -278,8 +355,8 @@ model FileVerificationLog {
   file_id    String   @db.Uuid
   shop_id    String   @db.Uuid
   cadmin_id  String?  @db.Uuid
-  actor_type String   @db.Text   // "admin" | "owner" | "system"
-  action     String   @db.Text   // "verified" | "rejected" | "resubmitted" | "owner_message"
+  actor_type String   @db.Text
+  action     String   @db.Text
   reason     String?  @db.Text
   meta       Json?
   created_at DateTime @default(now()) @db.Timestamptz(6)
@@ -288,15 +365,14 @@ model FileVerificationLog {
   @@map("file_verification_logs")
 }
 
-//
-// ---------- CURELI-PAYMENTS  ----------------
-//
-
+// ============================================
+// CURELI-PAYMENTS
+// ============================================
 
 model PaymentTransaction {
-  transaction_id  String  @id @default(uuid()) @db.Uuid
-  shop_id         String  @db.Uuid
-  subscription_id String? @db.Uuid
+  transaction_id      String  @id @default(uuid()) @db.Uuid
+  shop_id             String  @db.Uuid
+  subscription_id     String? @db.Uuid
 
   provider            String
   provider_order_id   String? @unique
@@ -315,15 +391,14 @@ model PaymentTransaction {
   @@map("payment_transactions")
 }
 
-
 model ActivityLog {
-  activity_id   String   @id @default(uuid()) @db.Uuid
-  user_id       String   @db.Uuid
-  action        String   @db.Text           // login | logout | profile_update | password_change | status_change | role_change
-  description   String?  @db.Text
-  ip_address    String?  @db.Text
-  user_agent    String?  @db.Text
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  activity_id String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  action      String   @db.Text
+  description String?  @db.Text
+  ip_address  String?  @db.Text
+  user_agent  String?  @db.Text
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
 
   user User @relation(fields: [user_id], references: [user_id])
 

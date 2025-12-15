@@ -35,7 +35,11 @@ const ShopsHeader = ({
   }, []);
 
   const hasActiveFilters =
-    !!verificationFilter || !!subscriptionFilter || !!activeFilter || !!dateFilter || !!searchText;
+    !!verificationFilter ||
+    !!subscriptionFilter ||
+    !!activeFilter ||
+    !!dateFilter ||
+    !!searchText;
 
   const clearFilters = () => {
     setVerificationFilter("");
@@ -73,7 +77,7 @@ const ShopsHeader = ({
       shop.city || "",
       shop.state || "",
       shop.verification_status || "",
-      shop.subscription?.plan_name || "None",
+      shop.subscription?.name || "None",
       shop.subscription?.status || "None",
       shop.is_active ? "Active" : "Inactive",
       shop.created_at ? new Date(shop.created_at).toLocaleDateString() : "",
@@ -92,7 +96,9 @@ const ShopsHeader = ({
     if (!blob) return alert("No shops available to export.");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `shops_export_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `shops_export_${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
     link.click();
     setShowExportMenu(false);
   };
@@ -231,7 +237,7 @@ const ShopsHeader = ({
           </button>
 
           {showExportMenu && (
-            <div 
+            <div
               className="fixed w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden"
               style={{
                 top: `${menuPosition.top}px`,
