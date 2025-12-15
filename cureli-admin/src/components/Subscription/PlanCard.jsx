@@ -7,7 +7,8 @@ import {
   PauseCircle,
   Sparkles,
   Users,
-  Trash2
+  Trash2,
+  Store
 } from "lucide-react";
 import { 
   PLAN_STATUS, 
@@ -25,6 +26,7 @@ export default function PlanCard({ plan, onAction }) {
   const features = generateFeatures(plan);
   const actions = ALLOWED_ACTIONS[plan.status];
   const isFree = plan.price === 0;
+  const isCustom = plan.type === "CUSTOM";
 
   const handleAction = (actionType) => {
     onAction(actionType, plan);
@@ -37,6 +39,7 @@ export default function PlanCard({ plan, onAction }) {
         shadow-md border transition-all duration-300
         bg-gradient-to-b ${cardTheme.gradient} ${cardTheme.hoverGradient}
         ${cardTheme.borderAccent}
+        ${isCustom ? "ring-2 ring-violet-200" : ""}
         hover:shadow-xl hover:-translate-y-1
       `}
     >
@@ -52,8 +55,8 @@ export default function PlanCard({ plan, onAction }) {
         {statusConfig.label}
       </div>
 
-      {/* Highlighted Badge */}
-      {plan.is_highlighted && (
+      {/* Custom Badge (for CUSTOM type plans) */}
+      {isCustom && (
         <div 
           className="
             absolute top-3 right-3 px-2 py-1 rounded-full 
@@ -62,12 +65,26 @@ export default function PlanCard({ plan, onAction }) {
           "
         >
           <Sparkles size={10} />
+          Custom
+        </div>
+      )}
+
+      {/* Highlighted Badge (only for non-custom plans) */}
+      {!isCustom && plan.is_highlighted && (
+        <div 
+          className="
+            absolute top-3 right-3 px-2 py-1 rounded-full 
+            bg-amber-500 text-white text-[10px] font-semibold
+            flex items-center gap-1
+          "
+        >
+          <Sparkles size={10} />
           Featured
         </div>
       )}
 
-      {/* Action Buttons - Top Right (when not highlighted) */}
-      {!plan.is_highlighted && (
+      {/* Action Buttons - Top Right (when not highlighted and not custom) */}
+      {!plan.is_highlighted && !isCustom && (
         <div className="absolute top-3 right-3 flex gap-1.5">
           {actions.includes("edit") && (
             <ActionButton
@@ -100,6 +117,19 @@ export default function PlanCard({ plan, onAction }) {
         <h2 className="text-lg font-bold text-gray-800 group-hover:text-white mb-2">
           {plan.name}
         </h2>
+
+        {/* Linked Shop (for CUSTOM plans) */}
+        {isCustom && plan.created_for_shop && (
+          <div 
+            className="
+              flex items-center gap-1.5 text-xs text-violet-600 
+              group-hover:text-violet-200 mb-2 font-medium
+            "
+          >
+            <Store size={12} />
+            <span>{plan.created_for_shop.business_name}</span>
+          </div>
+        )}
 
         {/* Price */}
         <div className="flex items-baseline gap-1 mb-3">
@@ -200,21 +230,40 @@ export default function PlanCard({ plan, onAction }) {
           </button>
         )}
 
-        {/* Clone - Always available */}
-        <button
-          onClick={() => handleAction("clone")}
-          className="
-            flex items-center justify-center gap-1.5
-            px-3 py-2 rounded-lg text-xs font-semibold
-            bg-white text-[#05015A] border border-[#05015A]/20
-            hover:bg-[#05015A] hover:text-white 
-            group-hover:bg-white group-hover:text-[#05015A]
-            transition-all
-          "
-        >
-          <Copy size={14} />
-          Clone
-        </button>
+        {/* Clone - Always available, but not for custom plans */}
+        {!isCustom && (
+          <button
+            onClick={() => handleAction("clone")}
+            className="
+              flex items-center justify-center gap-1.5
+              px-3 py-2 rounded-lg text-xs font-semibold
+              bg-white text-[#05015A] border border-[#05015A]/20
+              hover:bg-[#05015A] hover:text-white 
+              group-hover:bg-white group-hover:text-[#05015A]
+              transition-all
+            "
+          >
+            <Copy size={14} />
+            Clone
+          </button>
+        )}
+
+        {/* View button for custom plans */}
+        {isCustom && (
+          <button
+            onClick={() => handleAction("view")}
+            className="
+              flex items-center justify-center gap-1.5
+              px-3 py-2 rounded-lg text-xs font-semibold
+              bg-white text-violet-600 border border-violet-200
+              hover:bg-violet-600 hover:text-white 
+              transition-all
+            "
+          >
+            <Eye size={14} />
+            View
+          </button>
+        )}
       </div>
     </div>
   );

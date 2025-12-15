@@ -1,6 +1,3 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\cadmin\plans\cadminPlans.schema.js
-
-
 import { z } from "zod";
 
 // ============================================
@@ -22,7 +19,6 @@ const descriptionSchema = z
   .transform((val) => val.trim());
 
 // Price: non-negative integer (in paisa)
-// 0 = free plan
 const priceSchema = z
   .number()
   .int("Price must be a whole number")
@@ -49,6 +45,12 @@ const maxBranchesSchema = z
 // Highlighted flag
 const isHighlightedSchema = z.boolean().optional().default(false);
 
+// Plan type
+const planTypeSchema = z.enum(["PRE_MADE", "CUSTOM"]).optional().default("PRE_MADE");
+
+// UUID for shop_id
+const uuidSchema = z.string().uuid("Invalid UUID format");
+
 // ============================================
 // CREATE PLAN SCHEMA
 // ============================================
@@ -60,13 +62,27 @@ export const createPlanSchema = z.object({
   max_users: maxUsersSchema,
   max_branches: maxBranchesSchema,
   is_highlighted: isHighlightedSchema,
-});
+  type: planTypeSchema,
+  // Only required when type is CUSTOM
+  created_for_shop_id: uuidSchema.optional().nullable(),
+}).refine(
+  (data) => {
+    // If type is CUSTOM, shop_id is required
+    if (data.type === "CUSTOM" && !data.created_for_shop_id) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: "Shop ID is required for custom plans",
+    path: ["created_for_shop_id"],
+  }
+);
 
 // ============================================
 // UPDATE PLAN SCHEMA
 // ============================================
 
-// All fields optional for partial updates
 export const updatePlanSchema = z.object({
   name: nameSchema.optional(),
   description: descriptionSchema.optional(),
@@ -74,6 +90,7 @@ export const updatePlanSchema = z.object({
   max_users: maxUsersSchema.optional(),
   max_branches: maxBranchesSchema.optional(),
   is_highlighted: z.boolean().optional(),
+  // Note: type and created_for_shop_id cannot be updated after creation
 });
 
 // ============================================
@@ -81,8 +98,6 @@ export const updatePlanSchema = z.object({
 // ============================================
 
 export const clonePlanSchema = z.object({
-  // Optional custom name for the clone
-  // If not provided, will auto-generate "Original Name (Copy)"
   name: nameSchema.optional(),
 });
 
@@ -107,6 +122,11 @@ export const listPlansQuerySchema = z.object({
   
   status: z
     .enum(["DRAFT", "ACTIVE", "DEPRECATED", "SUSPENDED"])
+    .optional(),
+  
+  // NEW: Filter by plan type
+  type: z
+    .enum(["PRE_MADE", "CUSTOM"])
     .optional(),
   
   sort_by: z

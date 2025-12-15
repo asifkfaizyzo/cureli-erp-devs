@@ -63,7 +63,7 @@ const ShopSubscriptionTab = ({ shop }) => {
   // Format price from paisa to rupees
   const formatPrice = (priceInPaisa) => {
     if (!priceInPaisa && priceInPaisa !== 0) return "N/A";
-    const rupees = Number(priceInPaisa) / 100;
+    const rupees = Number(priceInPaisa) ;
     return `₹${rupees.toLocaleString("en-IN")}`;
   };
 

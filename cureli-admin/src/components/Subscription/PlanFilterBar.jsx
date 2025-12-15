@@ -1,68 +1,108 @@
-import { Search, SlidersHorizontal, X } from "lucide-react";
-import { FILTER_OPTIONS } from "../../config/modules/subscriptionConfig";
+import { Search, Filter, X, Layers, Sparkles } from "lucide-react";
+import {
+  PLAN_STATUS,
+  STATUS_CONFIG,
+} from "../../config/modules/subscriptionConfig";
 
-export default function PlanFilterBar({ 
-  filter, 
-  setFilter, 
-  searchQuery, 
+export default function PlanFilterBar({
+  planTypeFilter, // NEW: 'PRE_MADE' or 'CUSTOM'
+  setPlanTypeFilter, // NEW: setter for plan type
+  filter,
+  setFilter,
+  searchQuery,
   setSearchQuery,
-  planCounts 
+  planCounts,
 }) {
-  return (
-    <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-5">
-      <div className="flex flex-col lg:flex-row items-center justify-between gap-3">
-        
-        {/* Filter Buttons */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <SlidersHorizontal size={14} className="text-gray-400 mr-1" />
-          
-          {FILTER_OPTIONS.map((option) => {
-            // Handle count lookup - API returns lowercase keys
-            let count = 0;
-            if (option.key === "all") {
-              count = planCounts.total || 0;
-            } else {
-              // Convert DRAFT -> draft for lookup
-              const lookupKey = option.key.toLowerCase();
-              count = planCounts[lookupKey] || 0;
-            }
+  const statusFilters = [
+    { key: "all", label: "All", count: planCounts.total },
+    { key: PLAN_STATUS.DRAFT, label: "Draft", count: planCounts.draft },
+    { key: PLAN_STATUS.ACTIVE, label: "Active", count: planCounts.active },
+    {
+      key: PLAN_STATUS.DEPRECATED,
+      label: "Deprecated",
+      count: planCounts.deprecated,
+    },
+    {
+      key: PLAN_STATUS.SUSPENDED,
+      label: "Suspended",
+      count: planCounts.suspended,
+    },
+  ];
 
-            return (
+  return (
+    <div className="mb-6 space-y-4">
+      {/* Plan Type Toggle - PRE_MADE vs CUSTOM */}
+      <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+        <button
+          onClick={() => setPlanTypeFilter("PRE_MADE")}
+          className={`
+            flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+            transition-all duration-200
+            ${
+              planTypeFilter === "PRE_MADE"
+                ? "bg-[#05015A] text-white shadow-md"
+                : "text-gray-600 hover:bg-gray-200"
+            }
+          `}
+        >
+          <Layers size={16} />
+          Pre-made Plans
+        </button>
+        <button
+          onClick={() => setPlanTypeFilter("CUSTOM")}
+          className={`
+            flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+            transition-all duration-200
+            ${
+              planTypeFilter === "CUSTOM"
+                ? "bg-violet-600 text-white shadow-md"
+                : "text-gray-600 hover:bg-gray-200"
+            }
+          `}
+        >
+          <Sparkles size={16} />
+          Custom Plans
+        </button>
+      </div>
+
+      {/* Search and Status Filters */}
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+        {/* Status Filter Pills - Only show for PRE_MADE */}
+        {planTypeFilter === "PRE_MADE" && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter size={16} className="text-gray-400" />
+            {statusFilters.map(({ key, label, count }) => (
               <button
-                key={option.key}
-                onClick={() => setFilter(option.key)}
+                key={key}
+                onClick={() => setFilter(key)}
                 className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg 
-                  font-medium text-xs transition-all duration-300
-                  ${filter === option.key 
-                    ? `${option.activeColor} text-white shadow-md` 
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  px-3 py-1.5 rounded-lg text-xs font-medium
+                  transition-all duration-200
+                  ${
+                    filter === key
+                      ? "bg-[#05015A] text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }
                 `}
               >
-                <option.icon size={12} />
-                {option.label}
-                <span 
+                {label}
+                <span
                   className={`
-                    px-1.5 py-0.5 rounded-full text-[10px] font-bold
-                    ${filter === option.key 
-                      ? "bg-white/20 text-white" 
-                      : "bg-gray-200 text-gray-600"
-                    }
+                    ml-1.5 px-1.5 py-0.5 rounded-full text-[10px]
+                    ${filter === key ? "bg-white/20" : "bg-gray-200"}
                   `}
                 >
                   {count}
                 </span>
               </button>
-            );
-          })}
-        </div>
-
-        {/* Search Input */}
-        <div className="relative w-full lg:w-auto">
-          <Search 
-            size={14} 
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" 
+            ))}
+          </div>
+        )}
+        {/* Search Bar */}
+        <div className="relative w-full lg:w-80">
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
           />
           <input
             type="text"
@@ -70,29 +110,29 @@ export default function PlanFilterBar({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="
-              w-full lg:w-[240px] pl-9 pr-8 py-2 
-              border-2 border-gray-200 rounded-lg text-sm
-              focus:border-[#05015A] focus:ring-2 focus:ring-[#05015A]/20
-              transition-all duration-300 outline-none
-              hover:border-[#05015A]/50
+              w-full pl-10 pr-10 py-2.5 
+              border border-gray-200 rounded-xl
+              text-sm text-gray-700 placeholder-gray-400
+              focus:outline-none focus:ring-2 focus:ring-[#05015A]/20 focus:border-[#05015A]
+              transition-all duration-200
             "
           />
-          {/* Clear search button */}
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="
-                absolute right-2 top-1/2 -translate-y-1/2 
-                p-1 rounded-full hover:bg-gray-100
-                text-gray-400 hover:text-gray-600
-                transition-all
-              "
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
-              <X size={14} />
+              <X size={16} />
             </button>
           )}
         </div>
 
+        {/* Info text for Custom Plans */}
+        {planTypeFilter === "CUSTOM" && (
+          <div className="text-sm text-gray-500 italic">
+            Custom plans are created specifically for individual shops
+          </div>
+        )}
       </div>
     </div>
   );

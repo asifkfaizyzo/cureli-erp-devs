@@ -6,7 +6,6 @@ import PlanCard from "../components/Subscription/PlanCard";
 import PlanModal from "../components/Subscription/PlanModal";
 import CreatePlanModal from "../components/Subscription/CreatePlanModal";
 import ConfirmActionModal from "../components/Subscription/ConfirmActionModal";
-import PlanStatsGrid from "../components/Subscription/PlanStatsGrid";
 import PlanFilterBar from "../components/Subscription/PlanFilterBar";
 
 // Config
@@ -46,6 +45,8 @@ export default function SubscriptionPage() {
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   
+  // NEW: Plan type filter (PRE_MADE or CUSTOM)
+  const [planTypeFilter, setPlanTypeFilter] = useState("PRE_MADE");
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all");
   
@@ -75,9 +76,15 @@ export default function SubscriptionPage() {
       setLoading(true);
       setError(null);
       
+      // Fetch plans based on current type filter
       const [plansResponse, statsResponse] = await Promise.all([
-        getPlans({ limit: 100, sort_by: "created_at", sort_order: "desc" }),
-        getPlanStats(),
+        getPlans({ 
+          limit: 100, 
+          sort_by: "created_at", 
+          sort_order: "desc",
+          type: planTypeFilter,  // Filter by type
+        }),
+        getPlanStats(),  // Stats only count PRE_MADE plans
       ]);
 
       if (plansResponse.success) {
@@ -93,27 +100,31 @@ export default function SubscriptionPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [planTypeFilter]);  // Re-fetch when type filter changes
 
   useEffect(() => {
     fetchPlans();
   }, [fetchPlans]);
+
+  // Reset status filter when switching plan types
+  useEffect(() => {
+    setFilter("all");
+    setSearchQuery("");
+  }, [planTypeFilter]);
 
   // ============================================
   // DERIVED DATA
   // ============================================
   
   // Filter plans based on search and status filter
-const filteredPlans = plans.filter((p) => {
-  // Safely check name before calling toLowerCase
-  const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
-  if (!matchesSearch) return false;
-  if (filter === "all") return true;
-  return p.status === filter;
-});
+  const filteredPlans = plans.filter((p) => {
+    const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
+    if (!matchesSearch) return false;
+    if (filter === "all") return true;
+    return p.status === filter;
+  });
 
-
-  // Plan counts for filter badges (use stats from API)
+  // Plan counts for filter badges (use stats from API - only for PRE_MADE)
   const planCounts = {
     total: stats.total,
     draft: stats.draft,
@@ -233,11 +244,13 @@ const filteredPlans = plans.filter((p) => {
       }
 
       if (response?.success) {
-        // Refresh plans after successful action
         await fetchPlans();
         
-        // Scroll to top if cloned (new plan added)
         if (action === "clone") {
+          // Clones are PRE_MADE, so switch to that view if we're on CUSTOM
+          if (planTypeFilter === "CUSTOM") {
+            setPlanTypeFilter("PRE_MADE");
+          }
           setTimeout(() => {
             if (sliderRef.current) {
               sliderRef.current.scrollTo({ left: 0, behavior: "smooth" });
@@ -259,22 +272,27 @@ const filteredPlans = plans.filter((p) => {
     
     try {
       // Convert price from rupees to paisa for API
+      // Plans created from this page are always PRE_MADE
       const apiData = {
         name: formData.name,
         description: formData.description,
-        price: toPaisa(formData.price), // Convert to paisa
+        price: toPaisa(formData.price),
         max_users: formData.usersLimit,
         max_branches: formData.branchesLimit,
         is_highlighted: formData.isHighlighted,
+        type: "PRE_MADE",  // Always PRE_MADE from subscription page
       };
 
       const response = await createPlan(apiData);
 
       if (response?.success) {
+        // Switch to PRE_MADE view if we created from CUSTOM view
+        if (planTypeFilter === "CUSTOM") {
+          setPlanTypeFilter("PRE_MADE");
+        }
         await fetchPlans();
         setCreateModalOpen(false);
 
-        // Scroll to show new plan
         setTimeout(() => {
           if (sliderRef.current) {
             sliderRef.current.scrollTo({ left: 0, behavior: "smooth" });
@@ -293,11 +311,10 @@ const filteredPlans = plans.filter((p) => {
     setActionLoading(true);
     
     try {
-      // Prepare update data - only send changed fields
       const updateData = {
         name: updatedPlan.name,
         description: updatedPlan.description,
-        price: toPaisa(updatedPlan.price), // Convert to paisa
+        price: toPaisa(updatedPlan.price),
         max_users: updatedPlan.max_users,
         max_branches: updatedPlan.max_branches,
         is_highlighted: updatedPlan.is_highlighted,
@@ -360,7 +377,7 @@ const filteredPlans = plans.filter((p) => {
   // RENDER - MAIN
   // ============================================
   return (
-    <div className="w-full min-w-0 overflow-hidden">
+    <div className="w-full min-w-0 overflow-hidden px-2">
       
       {/* Error Banner (for non-critical errors) */}
       {error && plans.length > 0 && (
@@ -400,31 +417,35 @@ const filteredPlans = plans.filter((p) => {
             <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
           </button>
           
-          <button
-            onClick={() => setCreateModalOpen(true)}
-            disabled={actionLoading}
-            className="
-              group flex items-center gap-2 
-              bg-[#05015A] text-white 
-              px-5 py-2.5 rounded-xl text-sm font-semibold
-              shadow-lg shadow-[#05015A]/25
-              hover:bg-[#0a0280] hover:shadow-xl
-              active:scale-[0.98]
-              transition-all duration-300
-              disabled:opacity-50 disabled:cursor-not-allowed
-            "
-          >
-            <Plus size={18} className="transition-transform duration-300 group-hover:rotate-90" />
-            Create Plan
-          </button>
+          {/* Only show Create Plan button on PRE_MADE view */}
+          {planTypeFilter === "PRE_MADE" && (
+            <button
+              onClick={() => setCreateModalOpen(true)}
+              disabled={actionLoading}
+              className="
+                group flex items-center gap-2 
+                bg-[#05015A] text-white 
+                px-5 py-2.5 rounded-xl text-sm font-semibold
+                shadow-lg shadow-[#05015A]/25
+                hover:bg-[#0a0280] hover:shadow-xl
+                active:scale-[0.98]
+                transition-all duration-300
+                disabled:opacity-50 disabled:cursor-not-allowed
+              "
+            >
+              <Plus size={18} className="transition-transform duration-300 group-hover:rotate-90" />
+              Create Plan
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <PlanStatsGrid stats={stats} />
+
 
       {/* Filter Bar */}
       <PlanFilterBar
+        planTypeFilter={planTypeFilter}
+        setPlanTypeFilter={setPlanTypeFilter}
         filter={filter}
         setFilter={setFilter}
         searchQuery={searchQuery}
@@ -523,16 +544,20 @@ const filteredPlans = plans.filter((p) => {
           <div className="p-5 bg-gray-100 rounded-full mb-5">
             <CreditCard size={48} className="text-gray-400" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">No Plans Found</h3>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            {planTypeFilter === "CUSTOM" ? "No Custom Plans" : "No Plans Found"}
+          </h3>
           <p className="text-gray-500 mb-5 text-center max-w-md">
-            {searchQuery 
-              ? `No plans match "${searchQuery}". Try a different search term.`
-              : filter !== "all"
-                ? "No plans match the selected filter. Try changing your filter options."
-                : "Get started by creating your first subscription plan."
+            {planTypeFilter === "CUSTOM" 
+              ? "Custom plans are created when assigning subscriptions to individual shops."
+              : searchQuery 
+                ? `No plans match "${searchQuery}". Try a different search term.`
+                : filter !== "all"
+                  ? "No plans match the selected filter. Try changing your filter options."
+                  : "Get started by creating your first subscription plan."
             }
           </p>
-          {(searchQuery || filter !== "all") ? (
+          {planTypeFilter === "PRE_MADE" && (searchQuery || filter !== "all") ? (
             <button
               onClick={() => { setFilter("all"); setSearchQuery(""); }}
               className="
@@ -543,7 +568,7 @@ const filteredPlans = plans.filter((p) => {
             >
               Clear Filters
             </button>
-          ) : (
+          ) : planTypeFilter === "PRE_MADE" ? (
             <button
               onClick={() => setCreateModalOpen(true)}
               className="
@@ -553,6 +578,17 @@ const filteredPlans = plans.filter((p) => {
               "
             >
               Create First Plan
+            </button>
+          ) : (
+            <button
+              onClick={() => setPlanTypeFilter("PRE_MADE")}
+              className="
+                px-6 py-2.5 bg-violet-600 text-white rounded-xl 
+                text-sm font-semibold hover:bg-violet-700 
+                transition-all duration-300
+              "
+            >
+              View Pre-made Plans
             </button>
           )}
         </div>

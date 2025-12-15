@@ -1,167 +1,207 @@
-// ============================================
-// CADMIN PLANS API
-// ============================================
-// API functions for subscription plan management
-// Uses existing CAdminAPI axios instance
-
 import CAdminAPI from "./axios";
 
 // ============================================
-// READ OPERATIONS
+// UTILITY FUNCTIONS
 // ============================================
 
 /**
- * Get plan statistics (counts by status)
+ * Convert rupees to paisa
  */
-export const getPlanStats = async () => {
-  const response = await CAdminAPI.get("/plans/stats");
-  return response.data;
-};
+export function toPaisa(rupees) {
+  return Math.round(Number(rupees));
+}
 
 /**
- * List plans with filters and pagination
+ * Convert paisa to rupees
+ */
+export function fromPaisa(paisa) {
+  return Number(paisa);
+}
+
+// ============================================
+// PLAN API FUNCTIONS
+// ============================================
+
+/**
+ * Get all plans with optional filters
  * @param {Object} params - Query parameters
- * @param {number} params.page - Page number (default: 1)
- * @param {number} params.limit - Items per page (default: 20)
- * @param {string} params.search - Search term
- * @param {string} params.status - Filter by status (DRAFT|ACTIVE|DEPRECATED|SUSPENDED)
- * @param {string} params.sort_by - Sort field (created_at|name|price|status)
- * @param {string} params.sort_order - Sort order (asc|desc)
- * @param {boolean} params.include_deleted - Include soft-deleted plans
+ * @param {string} params.type - 'PRE_MADE' or 'CUSTOM'
+ * @param {string} params.status - Plan status filter
+ * @param {string} params.search - Search query
+ * @param {number} params.page - Page number
+ * @param {number} params.limit - Items per page
  */
-export const getPlans = async (params = {}) => {
-  const response = await CAdminAPI.get("/plans", { params });
-  return response.data;
-};
+export async function getPlans(params = {}) {
+  try {
+    const response = await CAdminAPI.get("/plans", { params });
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error("getPlans error:", error);
+    throw error;
+  }
+}
 
 /**
- * Get single plan by ID
- * @param {string} planId - Plan UUID
+ * Get PRE_MADE plans only (for subscription page default view)
  */
-export const getPlanById = async (planId) => {
-  const response = await CAdminAPI.get(`/plans/${planId}`);
-  return response.data;
-};
-
-// ============================================
-// CREATE OPERATIONS
-// ============================================
+export async function getPreMadePlans(params = {}) {
+  return getPlans({ ...params, type: "PRE_MADE" });
+}
 
 /**
- * Create new plan (always creates as DRAFT)
- * @param {Object} data - Plan data
- * @param {string} data.name - Plan name
- * @param {string} data.description - Plan description
- * @param {number} data.price - Price in paisa (0 for free)
- * @param {number} data.max_users - User limit (-1 for unlimited)
- * @param {number} data.max_branches - Branch limit (-1 for unlimited)
- * @param {boolean} data.is_highlighted - Featured flag
+ * Get CUSTOM plans only
  */
-export const createPlan = async (data) => {
-  const response = await CAdminAPI.post("/plans", data);
-  return response.data;
-};
-
-// ============================================
-// UPDATE OPERATIONS
-// ============================================
+export async function getCustomPlans(params = {}) {
+  return getPlans({ ...params, type: "CUSTOM" });
+}
 
 /**
- * Update plan details (DRAFT plans only)
- * @param {string} planId - Plan UUID
- * @param {Object} data - Fields to update (partial)
+ * Get plan statistics (only counts PRE_MADE plans)
  */
-export const updatePlan = async (planId, data) => {
-  const response = await CAdminAPI.patch(`/plans/${planId}`, data);
-  return response.data;
-};
-
-// ============================================
-// LIFECYCLE TRANSITIONS
-// ============================================
+export async function getPlanStats() {
+  try {
+    const response = await CAdminAPI.get("/plans/stats");
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error("getPlanStats error:", error);
+    throw error;
+  }
+}
 
 /**
- * Activate a plan (DRAFT -> ACTIVE)
- * Makes plan live and immutable
- * @param {string} planId - Plan UUID
+ * Get a single plan by ID
  */
-export const activatePlan = async (planId) => {
-  const response = await CAdminAPI.post(`/plans/${planId}/activate`);
-  return response.data;
-};
+export async function getPlanById(planId) {
+  try {
+    const response = await CAdminAPI.get(`/plans/${planId}`);
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error("getPlanById error:", error);
+    throw error;
+  }
+}
 
 /**
- * Suspend a plan (ACTIVE -> DEPRECATED/SUSPENDED)
- * @param {string} planId - Plan UUID
+ * Create a new plan
+ * For PRE_MADE: { name, description, price, max_users, max_branches, is_highlighted }
+ * For CUSTOM: add { type: 'CUSTOM', created_for_shop_id: shopId }
  */
-export const suspendPlan = async (planId) => {
-  const response = await CAdminAPI.post(`/plans/${planId}/suspend`);
-  return response.data;
-};
+export async function createPlan(data) {
+  try {
+    const response = await CAdminAPI.post("/plans", data);
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error("createPlan error:", error);
+    throw error;
+  }
+}
 
 /**
- * Reactivate a suspended plan (SUSPENDED -> ACTIVE)
- * @param {string} planId - Plan UUID
+ * Update a draft plan
  */
-export const reactivatePlan = async (planId) => {
-  const response = await CAdminAPI.post(`/plans/${planId}/reactivate`);
-  return response.data;
-};
+export async function updatePlan(planId, data) {
+  try {
+    const response = await CAdminAPI.patch(`/plans/${planId}`, data);
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error("updatePlan error:", error);
+    throw error;
+  }
+}
 
 /**
- * Clone a plan (creates new DRAFT copy)
- * @param {string} planId - Plan UUID to clone
- * @param {string} newName - Optional custom name for clone
+ * Activate a draft plan
  */
-export const clonePlan = async (planId, newName = null) => {
-  const response = await CAdminAPI.post(`/plans/${planId}/clone`, {
-    name: newName,
-  });
-  return response.data;
-};
-
-// ============================================
-// DELETE OPERATIONS
-// ============================================
+export async function activatePlan(planId) {
+  try {
+    const response = await CAdminAPI.post(`/plans/${planId}/activate`);
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error("activatePlan error:", error);
+    throw error;
+  }
+}
 
 /**
- * Soft delete a plan (DRAFT plans only)
- * @param {string} planId - Plan UUID
+ * Suspend an active plan
  */
-export const deletePlan = async (planId) => {
-  const response = await CAdminAPI.delete(`/plans/${planId}`);
-  return response.data;
-};
-
-// ============================================
-// PRICE CONVERSION HELPERS
-// ============================================
+export async function suspendPlan(planId) {
+  try {
+    const response = await CAdminAPI.post(`/plans/${planId}/suspend`);
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error("suspendPlan error:", error);
+    throw error;
+  }
+}
 
 /**
- * Convert rupees to paisa for API
- * @param {number} rupees - Amount in rupees
- * @returns {number} Amount in paisa
+ * Reactivate a suspended plan
  */
-export const toPaisa = (rupees) => Math.round(rupees * 100);
+export async function reactivatePlan(planId) {
+  try {
+    const response = await CAdminAPI.post(`/plans/${planId}/reactivate`);
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error("reactivatePlan error:", error);
+    throw error;
+  }
+}
 
 /**
- * Convert paisa to rupees for display
- * @param {number} paisa - Amount in paisa
- * @returns {number} Amount in rupees
+ * Clone a plan
  */
-export const fromPaisa = (paisa) => paisa / 100;
-
-// ============================================
-// LEGACY SUPPORT (for existing subscription.js usage)
-// ============================================
+export async function clonePlan(planId, customName = null) {
+  try {
+    const response = await CAdminAPI.post(`/plans/${planId}/clone`, {
+      name: customName,
+    });
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error("clonePlan error:", error);
+    throw error;
+  }
+}
 
 /**
- * Get all visible/active plans (for customer-facing pages)
- * This matches the existing getPlans() in subscription.js
+ * Delete a draft plan
  */
-export const getActivePlans = async () => {
-  const response = await CAdminAPI.get("/plans", {
-    params: { status: "ACTIVE" },
-  });
-  return response.data;
-};
+export async function deletePlan(planId) {
+  try {
+    const response = await CAdminAPI.delete(`/plans/${planId}`);
+    return {
+      success: true,
+      data: response.data?.data || response.data,
+    };
+  } catch (error) {
+    console.error("deletePlan error:", error);
+    throw error;
+  }
+}

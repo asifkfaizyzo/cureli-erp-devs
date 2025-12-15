@@ -1,61 +1,36 @@
-import { 
-  X, 
-  AlertTriangle, 
-  PlayCircle, 
-  PauseCircle, 
-  Power,
-  Copy,
-  Users,
-  CheckCircle2,
-  Trash2,
-  Loader2
-} from "lucide-react";
+// ConfirmActionModal.jsx - Simplified version using ConfirmDialog pattern
+import { AlertTriangle, CheckCircle, Users, Copy, Trash2, PlayCircle, PauseCircle, Power } from "lucide-react";
 
 const ACTION_CONFIG = {
   activate: {
     title: "Activate Plan",
+    type: "success",
     icon: PlayCircle,
-    iconColor: "text-emerald-600",
-    iconBg: "bg-emerald-100",
-    buttonColor: "bg-emerald-600 hover:bg-emerald-700",
-    buttonText: "Activate Plan",
-    loadingText: "Activating...",
+    confirmText: "Activate Plan",
   },
   suspend: {
     title: "Suspend Plan",
+    type: "warning",
     icon: PauseCircle,
-    iconColor: "text-orange-600",
-    iconBg: "bg-orange-100",
-    buttonColor: "bg-orange-600 hover:bg-orange-700",
-    buttonText: "Suspend Plan",
-    loadingText: "Suspending...",
+    confirmText: "Suspend Plan",
   },
   reactivate: {
     title: "Reactivate Plan",
+    type: "success",
     icon: Power,
-    iconColor: "text-emerald-600",
-    iconBg: "bg-emerald-100",
-    buttonColor: "bg-emerald-600 hover:bg-emerald-700",
-    buttonText: "Reactivate",
-    loadingText: "Reactivating...",
+    confirmText: "Reactivate",
   },
   clone: {
     title: "Clone Plan",
+    type: "info",
     icon: Copy,
-    iconColor: "text-[#05015A]",
-    iconBg: "bg-[#05015A]/10",
-    buttonColor: "bg-[#05015A] hover:bg-[#0a0280]",
-    buttonText: "Create Clone",
-    loadingText: "Cloning...",
+    confirmText: "Create Clone",
   },
   delete: {
     title: "Delete Draft",
+    type: "danger",
     icon: Trash2,
-    iconColor: "text-red-600",
-    iconBg: "bg-red-100",
-    buttonColor: "bg-red-600 hover:bg-red-700",
-    buttonText: "Delete Draft",
-    loadingText: "Deleting...",
+    confirmText: "Delete Draft",
   },
 };
 
@@ -72,7 +47,27 @@ export default function ConfirmActionModal({
 
   const config = ACTION_CONFIG[action];
   if (!config) return null;
-  
+
+  const typeStyles = {
+    danger: {
+      icon: "bg-red-100 text-red-600",
+      button: "bg-red-600 hover:bg-red-700 text-white",
+    },
+    warning: {
+      icon: "bg-orange-100 text-orange-600",
+      button: "bg-orange-600 hover:bg-orange-700 text-white",
+    },
+    success: {
+      icon: "bg-emerald-100 text-emerald-600",
+      button: "bg-emerald-600 hover:bg-emerald-700 text-white",
+    },
+    info: {
+      icon: "bg-blue-100 text-blue-600",
+      button: "bg-[#05015A] hover:bg-[#0a0280] text-white",
+    },
+  };
+
+  const styles = typeStyles[config.type] || typeStyles.danger;
   const Icon = config.icon;
 
   const handleClose = () => {
@@ -80,11 +75,11 @@ export default function ConfirmActionModal({
     onClose();
   };
 
-  const renderContent = () => {
+  const renderMessage = () => {
     switch (action) {
       case "activate":
         return (
-          <div className="space-y-3">
+          <div className="space-y-3 text-left">
             <p className="text-gray-600 text-sm">
               You are about to activate <strong>"{plan.name}"</strong>.
             </p>
@@ -105,15 +100,13 @@ export default function ConfirmActionModal({
         );
 
       case "suspend":
-        // Use subscriber_count from API (not subscriberCount)
         const subscriberCount = plan.subscriber_count || 0;
         const hasSubscribers = subscriberCount > 0;
         return (
-          <div className="space-y-3">
+          <div className="space-y-3 text-left">
             <p className="text-gray-600 text-sm">
               You are about to suspend <strong>"{plan.name}"</strong>.
             </p>
-            
             {hasSubscribers ? (
               <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
                 <div className="flex items-start gap-2">
@@ -126,7 +119,6 @@ export default function ConfirmActionModal({
                       <li>New signups will be blocked immediately</li>
                       <li>Existing subscriptions will continue until expiry</li>
                       <li>Plan will become <strong>DEPRECATED</strong></li>
-                      <li>Once all subscriptions end, status changes to SUSPENDED</li>
                     </ul>
                   </div>
                 </div>
@@ -134,7 +126,7 @@ export default function ConfirmActionModal({
             ) : (
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-start gap-2">
-                  <CheckCircle2 size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                  <CheckCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
                   <div className="text-xs text-blue-800">
                     <p className="font-semibold mb-1">No active subscribers</p>
                     <ul className="list-disc list-inside space-y-0.5">
@@ -150,19 +142,18 @@ export default function ConfirmActionModal({
 
       case "reactivate":
         return (
-          <div className="space-y-3">
+          <div className="space-y-3 text-left">
             <p className="text-gray-600 text-sm">
               You are about to reactivate <strong>"{plan.name}"</strong>.
             </p>
             <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
               <div className="flex items-start gap-2">
-                <CheckCircle2 size={16} className="text-emerald-600 mt-0.5 flex-shrink-0" />
+                <CheckCircle size={16} className="text-emerald-600 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-emerald-800">
                   <p className="font-semibold mb-1">Plan will become active:</p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>New subscriptions will be accepted</li>
                     <li>Plan will appear on pricing page</li>
-                    <li>Same immutability rules apply</li>
                   </ul>
                 </div>
               </div>
@@ -172,7 +163,7 @@ export default function ConfirmActionModal({
 
       case "clone":
         return (
-          <div className="space-y-3">
+          <div className="space-y-3 text-left">
             <p className="text-gray-600 text-sm">
               Create a draft copy of <strong>"{plan.name}"</strong>.
             </p>
@@ -193,7 +184,7 @@ export default function ConfirmActionModal({
 
       case "delete":
         return (
-          <div className="space-y-3">
+          <div className="space-y-3 text-left">
             <p className="text-gray-600 text-sm">
               You are about to delete <strong>"{plan.name}"</strong>.
             </p>
@@ -205,7 +196,6 @@ export default function ConfirmActionModal({
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>Draft plan will be permanently deleted</li>
                     <li>All plan details will be lost</li>
-                    <li>This only works for DRAFT plans</li>
                   </ul>
                 </div>
               </div>
@@ -219,80 +209,49 @@ export default function ConfirmActionModal({
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-      onClick={handleClose}
-    >
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div 
-        className="
-          bg-white w-full max-w-sm mx-4 rounded-2xl shadow-2xl 
-          relative overflow-hidden animate-[fadeIn_0.2s_ease-out]
-        "
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Close Button */}
-        <button 
-          className="
-            absolute top-4 right-4 p-1.5 rounded-full 
-            bg-gray-100 hover:bg-gray-200
-            transition-all duration-300
-            disabled:opacity-50 disabled:cursor-not-allowed
-          "
-          onClick={handleClose}
-          disabled={loading}
-        >
-          <X size={16} />
-        </button>
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={handleClose}
+      />
+      
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+        {/* Icon */}
+        <div className={`w-12 h-12 rounded-full ${styles.icon} flex items-center justify-center mx-auto mb-4`}>
+          <Icon size={24} />
+        </div>
 
-        <div className="p-6">
-          {/* Icon & Title */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className={`p-3 rounded-xl ${config.iconBg}`}>
-              <Icon size={24} className={config.iconColor} />
-            </div>
-            <h2 className="text-lg font-bold text-gray-900">{config.title}</h2>
-          </div>
+        {/* Title */}
+        <h3 className="text-lg font-semibold text-gray-900 text-center mb-4">
+          {config.title}
+        </h3>
 
-          {/* Content */}
-          {renderContent()}
+        {/* Message */}
+        <div className="mb-6">
+          {renderMessage()}
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={handleClose}
-              disabled={loading}
-              className="
-                flex-1 py-2.5 rounded-lg text-sm font-medium 
-                border-2 border-gray-200 text-gray-600
-                hover:border-gray-300 hover:bg-gray-50
-                transition-all duration-300
-                disabled:opacity-50 disabled:cursor-not-allowed
-              "
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onConfirm}
-              disabled={loading}
-              className={`
-                flex-1 text-white py-2.5 rounded-lg font-medium text-sm
-                ${config.buttonColor}
-                active:scale-[0.98]
-                transition-all duration-300
-                disabled:opacity-70 disabled:cursor-not-allowed
-                flex items-center justify-center gap-2
-              `}
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  {config.loadingText}
-                </>
-              ) : (
-                config.buttonText
-              )}
-            </button>
-          </div>
+        {/* Buttons */}
+        <div className="flex gap-3">
+          <button
+            onClick={handleClose}
+            disabled={loading}
+            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-700 
+                       font-medium hover:bg-gray-50 transition-all disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all 
+                       disabled:opacity-50 flex items-center justify-center gap-2 ${styles.button}`}
+          >
+            {loading && (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            )}
+            {config.confirmText}
+          </button>
         </div>
       </div>
     </div>

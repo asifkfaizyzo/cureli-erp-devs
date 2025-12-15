@@ -44,28 +44,36 @@ export function getAllPlans(params = {}) {
   return CAdminAPI.get("/plans", { params });
 }
 
+// ... existing imports and functions ...
+
 /**
- * Create a custom plan (creates as DRAFT, needs separate activation)
- * This uses the new plan creation endpoint
+ * Create a custom plan for a specific shop
+ * Creates as CUSTOM type linked to the shop
  */
-export function createCustomPlan(data) {
-  // The new API expects: name, description, price, max_users, max_branches, is_highlighted
+export function createCustomPlan(data, shopId, shopName) {
+  // Auto-generate name with shop name
+  const autoName = data.name || `Custom - ${shopName} - ${data.max_users}U/${data.max_branches}B`;
+  
   return CAdminAPI.post("/plans", {
-    name: data.name || `Custom - ${data.max_users}U/${data.max_branches}B`,
-    description: data.description || `Custom plan with ${data.max_users} users and ${data.max_branches} branches`,
-    price: data.price || 0, // Price in paisa (0 for custom/negotiated)
+    name: autoName,
+    description: data.description || `Custom plan for ${shopName} with ${data.max_users} users and ${data.max_branches} branches`,
+    price: data.price || 0,
     max_users: data.max_users,
     max_branches: data.max_branches,
     is_highlighted: false,
+    type: "CUSTOM",  // NEW: Set type to CUSTOM
+    created_for_shop_id: shopId,  // NEW: Link to shop
   });
 }
 
 /**
- * Activate a draft plan (DRAFT -> ACTIVE)
+ * Activate a draft plan
  */
 export function activatePlan(planId) {
   return CAdminAPI.post(`/plans/${planId}/activate`);
 }
+
+// ... rest of existing functions ...
 
 /**
  * Update shop subscription (change plan)
