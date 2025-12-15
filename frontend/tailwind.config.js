@@ -6,10 +6,14 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        'xs': '475px',
+        // sm, md, lg, xl, 2xl are already available by default
+      },
       fontFamily: {
         poppins: ["Poppins", "sans-serif"],
         manrope: ["Manrope", "sans-serif"],
-        sans: ["Manrope", "sans-serif"], // Makes Manrope the default font
+        sans: ["Manrope", "sans-serif"],
       },
     },
   },
