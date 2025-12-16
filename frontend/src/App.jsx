@@ -19,6 +19,7 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import BillingPage from "./pages/BillingPage.jsx";
 import InvoicePage from "./pages/InvoicePage.jsx";
 import PurchasePage from "./pages/PurchasePage.jsx";
+import ReportPage from "./pages/report/ReportPage.jsx"
 
 
 //landing pages
@@ -96,6 +97,7 @@ const App = () => {
           <Route path="pending-users" element={<PendingUsersPage />} />
           <Route path="purchase-billing" element={<PurchasePage />} />
           <Route path="suppliers" element={<SupplierPage />} />
+          <Route path="reports" element={<ReportPage />} />
 
         </Route>
 

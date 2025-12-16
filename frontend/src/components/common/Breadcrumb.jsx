@@ -13,13 +13,22 @@ const MENU_MAP = {
   "purchase-billing": ["Purchase", "Billing"],
   "purchase-invoices": ["Purchase", "Invoices"],
 
-  // OTHER MODULES
+  // INVENTORY & SUPPLIERS
   inventory: ["Inventory"],
   suppliers: ["Suppliers"],
+
+  // REPORTS (✅ UPDATED)
   reports: ["Reports"],
+  "sales-report": ["Reports", "Sales Report"],
+  "purchase-report": ["Reports", "Purchase Report"],
+  "inventory-report": ["Reports", "Inventory Report"],
+  "finance-report": ["Reports", "Finance Report"],
+
+  // OTHER MODULES
   orders: ["Orders"],
   settings: ["Settings"],
 };
+
 
 
 
