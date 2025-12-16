@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
 // Public Pages
+import NotFoundPage from "./components/common/NotFoundPage .jsx"
 import LoginPage from "./pages/LoginPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
@@ -27,9 +28,10 @@ import Home from "./pages/home/Home.jsx";
 import About from "./pages/about/About.jsx";
 import Contact from "./pages/Contact/Contact.jsx";
 import Pricing from "./pages/pricing/Pricing.jsx";
+import VerificationPage from "./pages/VerificationPage.jsx";
 
 import "./index.css";
-import VerificationPage from "./pages/VerificationPage.jsx";
+
 
 const App = () => {
    useEffect(() => {
@@ -103,6 +105,7 @@ const App = () => {
 
         {/* ERROR PAGE */}
         <Route path="/error" element={<ErrorPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>
   );
