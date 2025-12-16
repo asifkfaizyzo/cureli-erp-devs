@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import AOS from "aos";
+///dummy data
 
 const features = [
   { 
