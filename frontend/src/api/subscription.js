@@ -1,17 +1,18 @@
+// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\frontend\src\api\subscription.js
+
 import API from "./axios";
 
-// Fetch my active subscription
+// Get all active plans for selection
+export const getPlans = () => API.get("/plans");
+
+// Get single plan by ID
+export const getPlanById = (planId) => API.get(`/plans/${planId}`);
+
+// Select a plan (future: triggers payment flow)
+export const selectPlan = (data) => API.post("/subscriptions/select", data);
+
+// Confirm payment after Razorpay (future)
+export const confirmPayment = (data) => API.post("/subscriptions/confirm", data);
+
 export const getMySubscription = () =>
   API.get("/subscriptions/my");
-
-// Get all visible plans
-export const getPlans = () =>
-  API.get("/plans");
-
-// Select free or paid plan
-export const selectPlan = (data) =>
-  API.post("/subscriptions/select", data);
-
-// Future payment confirmation
-export const confirmPayment = (data) =>
-  API.post("/subscriptions/confirm", data);
