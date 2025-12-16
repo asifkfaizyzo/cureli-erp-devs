@@ -34,7 +34,12 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   // Auto-submit when 4 digits filled
   useEffect(() => {
     const code = otp.join("");
-    if (code.length === 4 && otp.every((d) => d !== "") && !loading && !success) {
+    if (
+      code.length === 4 &&
+      otp.every((d) => d !== "") &&
+      !loading &&
+      !success
+    ) {
       handleVerify(code);
     }
   }, [otp]);
@@ -117,8 +122,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         if (next_step === -1) {
           try {
             const sub = await getMySubscription();
-            const p = sub.data?.data;
-            const hasActive = p?.has_active_subscription || p?.current_plan;
+            const hasActive = sub.data?.data?.has_active_subscription === true;
             navigate(hasActive ? "/dashboard" : "/plan-selection");
           } catch {
             navigate("/plan-selection");
@@ -135,10 +139,10 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         // CASE 3 — Normal Onboarding Flow
         navigate("/onboarding", { state: { resume_step: next_step } });
       }, 600);
-
     } catch (err) {
       console.error(err);
-      const msg = err?.response?.data?.message || "Invalid OTP. Please try again.";
+      const msg =
+        err?.response?.data?.message || "Invalid OTP. Please try again.";
 
       setError(msg);
       triggerShake();
@@ -214,7 +218,9 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
             onChange={(e) => handleChange(e.target.value, index)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             disabled={loading || success}
-            className={`${getInputClassName(index)} disabled:cursor-not-allowed`}
+            className={`${getInputClassName(
+              index
+            )} disabled:cursor-not-allowed`}
           />
         ))}
 
@@ -238,9 +244,10 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         onClick={() => handleVerify()}
         disabled={loading || otp.join("").length !== 4 || success}
         className={`w-[300px] py-3 rounded-xl font-semibold mt-10 transition-all duration-300
-          ${success
-            ? "bg-green-500 text-white"
-            : "bg-[#000060] text-white hover:bg-[#000060d1] disabled:bg-gray-400"
+          ${
+            success
+              ? "bg-green-500 text-white"
+              : "bg-[#000060] text-white hover:bg-[#000060d1] disabled:bg-gray-400"
           } disabled:cursor-not-allowed`}
       >
         {loading ? (

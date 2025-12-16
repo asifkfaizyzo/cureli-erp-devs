@@ -22,7 +22,6 @@ import InvoicePage from "./pages/InvoicePage.jsx";
 import PurchasePage from "./pages/PurchasePage.jsx";
 import ReportPage from "./pages/report/ReportPage.jsx"
 
-
 //landing pages
 import Home from "./pages/home/Home.jsx";
 import About from "./pages/about/About.jsx";
@@ -34,7 +33,7 @@ import "./index.css";
 
 
 const App = () => {
-   useEffect(() => {
+  useEffect(() => {
     // Disable Ctrl + Scroll Zoom
     const disableZoomScroll = (e) => {
       if (e.ctrlKey) e.preventDefault();
@@ -79,9 +78,9 @@ const App = () => {
         <Route path="/contact" element={<Contact />} />
         <Route path="/pricing" element={<Pricing />} />
 
-
         {/* PUBLIC ROUTES */}
-        
+
+        <Route path="plan-selection" element={<PlanSelectionPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/verification" element={<VerificationPage />} />
@@ -95,7 +94,6 @@ const App = () => {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="Salesbilling" element={<BillingPage />} />
           <Route path="Salesinvoice" element={<InvoicePage />} />
-          <Route path="plan-selection" element={<PlanSelectionPage />} />
           <Route path="pending-users" element={<PendingUsersPage />} />
           <Route path="purchase-billing" element={<PurchasePage />} />
           <Route path="suppliers" element={<SupplierPage />} />

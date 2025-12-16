@@ -10,7 +10,6 @@ import { useMenuStore } from "../../store/useMenuStore";
 const AppLayout = () => {
   const location = useLocation();
 
-  // ⭐ SLIDE FROM RIGHT ANIMATION (unchanged)
   const pageVariants = {
     initial: { opacity: 0, x: 60 },
     animate: { opacity: 1, x: 0, transition: { duration: 0.35, ease: "easeOut" } },
@@ -18,24 +17,21 @@ const AppLayout = () => {
   };
 
   return (
-    /* ✅ lock full viewport & disable scrolling */
+    // ✅ Keep overflow-hidden here (prevents body scroll)
     <div className="h-screen w-full flex bg-gray-50 overflow-hidden">
 
-      {/* Sidebar remains hover-expandable (unchanged behavior) */}
       <Sidebar />
 
-      {/* RIGHT SIDE CONTENT — responsive but not stretched */}
+      {/* ✅ Change overflow-hidden to overflow-y-auto */}
       <div className="flex-1 flex flex-col overflow-hidden w-full">
 
-        {/* Top header stays fixed (unchanged functionality) */}
         <TopHeader />
 
-        <main className="flex-1 mt-5 pt-16 px-2 sm:px-4 md:px-6 lg:px-8 pb-4 overflow-hidden">
+        {/* ✅ THIS IS THE KEY CHANGE - allow scroll here */}
+        <main className="flex-1 mt-5 pt-16 px-2 sm:px-4 md:px-6 lg:px-8 pb-4 overflow-y-auto">
 
-          {/* Breadcrumb unchanged */}
           <Breadcrumb />
 
-          {/* ✅ ROUTED PAGE CONTAINER FIXED RESPONSIVE CENTERING (no stretch, no scroll) */}
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -47,9 +43,9 @@ const AppLayout = () => {
                 mt-2
                 w-[96%] sm:w-[100%] md:w-[100%] lg:w-[100%] xl:w-[100%] 2xl:w-[100%]
                 mx-auto
-                h-full
-                overflow-hidden
+                min-h-full
               "
+              // ✅ Removed h-full and overflow-hidden
             >
               <Outlet />
             </motion.div>

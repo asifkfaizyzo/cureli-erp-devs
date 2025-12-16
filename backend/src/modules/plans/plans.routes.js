@@ -1,3 +1,5 @@
+// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\plans\plans.routes.js
+
 import express from "express";
 import {
   getPlansController,
