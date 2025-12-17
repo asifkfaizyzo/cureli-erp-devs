@@ -1,116 +1,18 @@
-// import { MdMoreVert } from "react-icons/md";
-
-// const InvoicePagination = ({ currentPage, setCurrentPage, totalPages }) => {
-//   const WINDOW = 3;
-//   const JUMP = 3;
-
-//   const computeWindowStart = (page) => {
-//     if (totalPages <= WINDOW) return 1;
-
-//     let start = page - 1;
-//     if (start < 1) start = 1;
-//     if (start > totalPages - WINDOW + 1) start = totalPages - WINDOW + 1;
-
-//     return start;
-//   };
-
-//   const windowStart = computeWindowStart(currentPage);
-//   const windowEnd = Math.min(totalPages, windowStart + WINDOW - 1);
-
-//   const pages = [];
-//   for (let p = windowStart; p <= windowEnd; p++) pages.push(p);
-
-//   const goPrev = () => {
-//     if (currentPage > 1) setCurrentPage(currentPage - 1);
-//   };
-
-//   const goNext = () => {
-//     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-//   };
-
-//   const jumpBackward = () => {
-//     const target = Math.max(currentPage - JUMP, 1);
-//     setCurrentPage(target);
-//   };
-
-//   const jumpForward = () => {
-//     const target = Math.min(currentPage + JUMP, totalPages);
-//     setCurrentPage(target);
-//   };
-
-//   return (
-//     <div className="flex justify-center items-center gap-3 mt-3">
-
-//       {/* ← PREVIOUS */}
-//       <button
-//         onClick={goPrev}
-//         disabled={currentPage === 1}
-//         className="text-[#05015A] text-lg disabled:opacity-30"
-//       >
-//         ←
-//       </button>
-
-//       {/* LEFT ⋮ */}
-//       {windowStart > 1 && (
-//         <button
-//           onClick={jumpBackward}
-//           className="text-[#05015A] text-lg hover:scale-105"
-//         >
-//           <MdMoreVert size={18} />
-//         </button>
-//       )}
-
-//       {/* PAGE NUMBERS */}
-//       <div className="flex items-center gap-3">
-//         {pages.map((page) => {
-//           const active = page === currentPage;
-
-//           return (
-//             <button
-//               key={page}
-//               onClick={() => setCurrentPage(page)}
-//               className={`text-base transition ${
-//                 active
-//                   ? "bg-[#05015A] text-white w-7 h-7 rounded-full flex items-center justify-center"
-//                   : "text-[#05015A] hover:text-black px-1"
-//               }`}
-//             >
-//               {page}
-//             </button>
-//           );
-//         })}
-//       </div>
-
-//       {/* RIGHT ⋮ */}
-//       {windowEnd < totalPages && (
-//         <button
-//           onClick={jumpForward}
-//           className="text-[#05015A] text-lg hover:scale-105"
-//         >
-//           <MdMoreVert size={18} />
-//         </button>
-//       )}
-
-//       {/* → NEXT */}
-//       <button
-//         onClick={goNext}
-//         disabled={currentPage === totalPages}
-//         className="text-[#05015A] text-lg disabled:opacity-30"
-//       >
-//         →
-//       </button>
-//     </div>
-//   );
-// };
-
-// export default InvoicePagination;
-
-
+// components/InvoicePagination.jsx
 import React from "react";
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 
-const InvoicePagination = ({ currentPage, setCurrentPage, totalPages }) => {
-  // --- LOGIC (Unchanged) ---
+const InvoicePagination = ({ 
+  currentPage, 
+  setCurrentPage, 
+  totalItems,
+  rowsPerPage,
+}) => {
+  
+  // --- CALCULATE TOTAL PAGES ---
+  const totalPages = Math.ceil(totalItems / rowsPerPage);
+
+  // --- PAGINATION LOGIC ---
   const WINDOW = 3;
   const JUMP = 3;
 
@@ -154,12 +56,22 @@ const InvoicePagination = ({ currentPage, setCurrentPage, totalPages }) => {
 
   if (totalPages === 0) return null;
 
+  // Calculate display range
+  const startItem = (currentPage - 1) * rowsPerPage + 1;
+  const endItem = Math.min(currentPage * rowsPerPage, totalItems);
+
   return (
     <div className="flex w-full items-center justify-between px-4 py-3 bg-white select-none">
       
-      {/* Left: Page Info */}
-      <div className="hidden sm:block text-xs font-medium text-gray-500">
-        Page <span className="text-[#05015A] font-bold">{currentPage}</span> of <span className="text-gray-900">{totalPages}</span>
+      {/* Left: Page Info with Item Range */}
+      <div className="hidden sm:flex items-center gap-4 text-xs font-medium text-gray-500">
+        <span>
+          Showing <span className="text-[#05015A] font-bold">{startItem}-{endItem}</span> of <span className="text-gray-900">{totalItems}</span>
+        </span>
+        <span className="text-gray-300">|</span>
+        <span>
+          Page <span className="text-[#05015A] font-bold">{currentPage}</span> of <span className="text-gray-900">{totalPages}</span>
+        </span>
       </div>
 
       {/* Right: Controls */}
@@ -212,7 +124,6 @@ const InvoicePagination = ({ currentPage, setCurrentPage, totalPages }) => {
         <button onClick={goNext} disabled={currentPage === totalPages} className={btnNav}>
           <ChevronRight size={16} />
         </button>
-
       </div>
     </div>
   );

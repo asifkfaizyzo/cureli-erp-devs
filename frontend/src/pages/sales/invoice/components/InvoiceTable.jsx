@@ -1,9 +1,17 @@
-
+// components/InvoiceTable.jsx
 import React from "react";
-import { Eye, Pencil, Trash2, MoreHorizontal } from "lucide-react";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 import { useMenuStore } from "../../../../store/useMenuStore";
 
-const InvoiceTable = ({ invoices, onEdit, onDelete, onView, children }) => {
+const InvoiceTable = ({ 
+  invoices, 
+  onEdit, 
+  onDelete, 
+  onView, 
+  children,
+  rowsPerPage = 6,  // Add this prop for empty row calculation
+  startIndex = 0,   // Add this for correct serial numbering
+}) => {
   const sidebarExpanded = useMenuStore((s) => s.sidebarExpanded);
 
   // --- DYNAMIC SIZING CONSTANTS ---
@@ -14,12 +22,14 @@ const InvoiceTable = ({ invoices, onEdit, onDelete, onView, children }) => {
   const cellClass = `${textSize} ${pySize} ${pxSize} border-b border-gray-100 group-hover:border-blue-100 transition-all duration-200`;
   const headerClass = `${pxSize} py-3 text-left font-bold text-[#000060] uppercase tracking-wider bg-gray-50 border-b border-gray-200 sticky top-0 z-10 whitespace-nowrap`;
 
+  // Calculate empty rows needed to maintain consistent height
+  const emptyRowsCount = Math.max(0, rowsPerPage - invoices.length);
+
   return (
-    // Wrapper: Takes full remaining height, flex column to push children (pagination) to bottom
     <div className="flex flex-col h-full bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden transition-all duration-300">
       
-      {/* Scrollable Table Area */}
-      <div className="flex-1 overflow-auto custom-scrollbar relative">
+      {/* Table Area - No Scroll */}
+      <div className="flex-1 relative">
         <table className="w-full text-left border-collapse">
           
           {/* STICKY HEADER */}
@@ -45,6 +55,9 @@ const InvoiceTable = ({ invoices, onEdit, onDelete, onView, children }) => {
                 year: "numeric",
               });
 
+              // Use startIndex for correct serial numbering across pages
+              const serialNumber = startIndex + i + 1;
+
               return (
                 <tr
                   key={row.id}
@@ -52,7 +65,7 @@ const InvoiceTable = ({ invoices, onEdit, onDelete, onView, children }) => {
                 >
                   {/* SL. NO */}
                   <td className={`${cellClass} font-medium text-gray-400`}>
-                    {String(i + 1).padStart(2, '0')}
+                    {String(serialNumber).padStart(2, '0')}
                   </td>
 
                   {/* CUSTOMER */}
@@ -128,7 +141,23 @@ const InvoiceTable = ({ invoices, onEdit, onDelete, onView, children }) => {
               );
             })}
             
-            {/* Empty State for visual height consistency if needed, or just leaves blank */}
+            {/* EMPTY ROWS - Maintain consistent table height */}
+            {invoices.length > 0 && emptyRowsCount > 0 && 
+              Array.from({ length: emptyRowsCount }).map((_, i) => (
+                <tr key={`empty-${i}`} className="bg-white">
+                  <td className={`${cellClass} border-transparent`}>&nbsp;</td>
+                  <td className={`${cellClass} border-transparent`}>&nbsp;</td>
+                  <td className={`${cellClass} border-transparent`}>&nbsp;</td>
+                  <td className={`${cellClass} border-transparent`}>&nbsp;</td>
+                  <td className={`${cellClass} border-transparent`}>&nbsp;</td>
+                  <td className={`${cellClass} border-transparent`}>&nbsp;</td>
+                  <td className={`${cellClass} border-transparent`}>&nbsp;</td>
+                  <td className={`${cellClass} border-transparent`}>&nbsp;</td>
+                </tr>
+              ))
+            }
+            
+            {/* Empty State */}
             {invoices.length === 0 && (
               <tr>
                 <td colSpan={8} className="py-20 text-center text-gray-400 italic text-sm">
@@ -140,11 +169,7 @@ const InvoiceTable = ({ invoices, onEdit, onDelete, onView, children }) => {
         </table>
       </div>
 
-      {/* 
-         PAGINATION SLOT 
-         Rendered as the last element in the Flex column.
-         This visually acts as the "Last Row" or Footer of the table card.
-      */}
+      {/* PAGINATION SLOT */}
       <div className="border-t border-gray-200 bg-gray-50/50">
         {children}
       </div>

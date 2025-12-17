@@ -1,13 +1,10 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import InvoiceFilters from "./components/InvoiceFilters";
 import InvoiceTable from "./components/InvoiceTable";
 import InvoicePagination from "./components/InvoicePagination";
 import ViewInvoiceModal from "./components/ViewInvoiceModal";
+import useDynamicRowCount from "../../../hooks/useDynamicRowCount"; // Add this import
 import { invoiceData } from "../../../components/data/invoices";
-
-
-const ROWS_PER_PAGE = 10;
 
 const InvoicePage = () => {
   const [filters, setFilters] = useState({
@@ -22,31 +19,46 @@ const InvoicePage = () => {
   const [openViewModal, setOpenViewModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
 
+  // ⭐ Use dynamic row count instead of static ROWS_PER_PAGE
+  const rowsPerPage = useDynamicRowCount();
+
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
     setCurrentPage(1);
   };
 
   // --------------------- FILTER LOGIC (Unchanged) ---------------------
-  const filteredData = invoiceData.filter((invoice) => {
-    const matchName = invoice.name.toLowerCase().includes(filters.name.toLowerCase());
-    const matchBill = invoice.billNo.toString().includes(filters.billNo.toString());
-    const matchPhone = invoice.phone.toString().includes(filters.phone.toString());
-    const invoiceDate = new Date(invoice.date);
-    const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
-    const toDate = filters.toDate ? new Date(filters.toDate) : null;
-    const matchDate = (!fromDate || invoiceDate >= fromDate) && (!toDate || invoiceDate <= toDate);
-    return matchName && matchBill && matchPhone && matchDate;
-  });
+  const filteredData = useMemo(() => {
+    return invoiceData.filter((invoice) => {
+      const matchName = invoice.name.toLowerCase().includes(filters.name.toLowerCase());
+      const matchBill = invoice.billNo.toString().includes(filters.billNo.toString());
+      const matchPhone = invoice.phone.toString().includes(filters.phone.toString());
+      const invoiceDate = new Date(invoice.date);
+      const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
+      const toDate = filters.toDate ? new Date(filters.toDate) : null;
+      const matchDate = (!fromDate || invoiceDate >= fromDate) && (!toDate || invoiceDate <= toDate);
+      return matchName && matchBill && matchPhone && matchDate;
+    });
+  }, [filters]);
 
-  // --------------------- PAGINATION (Unchanged) ---------------------
-  const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
-  const paginatedData = filteredData.slice(startIndex, startIndex + ROWS_PER_PAGE);
-  const totalPages = Math.ceil(filteredData.length / ROWS_PER_PAGE);
+  // ⭐ Reset page when rowsPerPage changes (screen resize) or filtered data changes
+  useEffect(() => {
+    const newTotalPages = Math.ceil(filteredData.length / rowsPerPage);
+    if (currentPage > newTotalPages && newTotalPages > 0) {
+      setCurrentPage(newTotalPages);
+    } else if (newTotalPages === 0) {
+      setCurrentPage(1);
+    }
+  }, [rowsPerPage, filteredData.length, currentPage]);
+
+  // --------------------- PAGINATION (Updated) ---------------------
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const paginatedData = useMemo(() => {
+    return filteredData.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredData, startIndex, rowsPerPage]);
 
   // --------------------- HANDLERS (Unchanged) ---------------------
   const handleView = (invoice) => {
-    // ... (Your existing logic regarding fullInvoice object construction)
     const fullInvoice = {
       ...invoice,
       billedBy: "Admin User",
@@ -73,29 +85,30 @@ const InvoicePage = () => {
   };
 
   return (
-    // ⭐ H-FULL is critical here to fit inside AppLayout without double scrollbars
-    <div className="h-full w-full flex flex-col  overflow-hidden font-poppins">
+    <div className="h-full w-full flex flex-col overflow-hidden font-poppins">
       
       {/* 1. Top Section: Filters (Fixed Height) */}
       <div className="p-4 border-b border-gray-100">
         <InvoiceFilters filters={filters} onChange={handleFilterChange} />
       </div>
 
-      {/* 2. Middle Section: Table (Flex-Grow, Scrollable) */}
-      {/* We pass Pagination as a child to render it at the bottom of this container */}
+      {/* 2. Middle Section: Table (Flex-Grow) */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         <InvoiceTable 
           invoices={paginatedData} 
           onView={handleView} 
           onEdit={handleEdit} 
           onDelete={handleDelete}
+          rowsPerPage={rowsPerPage}    // ⭐ Pass rowsPerPage
+          startIndex={startIndex}       // ⭐ Pass startIndex for serial numbers
         >
-           {/* 3. Bottom Section: Pagination (Sticky at bottom of table area) */}
+           {/* 3. Bottom Section: Pagination */}
            <div className="mt-auto border-t border-gray-200 bg-white z-20">
               <InvoicePagination
                 currentPage={currentPage}
                 setCurrentPage={setCurrentPage}
-                totalPages={totalPages}
+                totalItems={filteredData.length}  // ⭐ Changed from totalPages
+                rowsPerPage={rowsPerPage}         // ⭐ Added rowsPerPage
               />
            </div>
         </InvoiceTable>
