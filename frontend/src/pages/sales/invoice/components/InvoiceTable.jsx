@@ -41,7 +41,7 @@ const InvoiceTable = ({
               <th className={headerClass}>Contact</th>
               <th className={headerClass}>Date</th>
               <th className={`${headerClass} text-center`}>E-Way</th>
-              <th className={`${headerClass} text-right`}>Price</th>
+              <th className={`${headerClass} text-center`}>Price</th>
               <th className={`${headerClass} text-center w-24`}>Actions</th>
             </tr>
           </thead>
@@ -93,7 +93,7 @@ const InvoiceTable = ({
                   </td>
 
                   {/* E-WAY BILL */}
-                  <td className={`${cellClass} text-center`}>
+                  <td className={`${cellClass} `}>
                     {row.eway ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-700 border border-green-100">
                         {row.eway}
@@ -104,7 +104,7 @@ const InvoiceTable = ({
                   </td>
 
                   {/* PRICE */}
-                  <td className={`${cellClass} text-right font-bold text-gray-800`}>
+                  <td className={`${cellClass}  font-bold text-gray-800`}>
                     ₹{row.price?.toLocaleString('en-IN')}
                   </td>
 

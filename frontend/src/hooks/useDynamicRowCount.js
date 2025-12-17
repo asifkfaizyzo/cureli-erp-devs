@@ -12,7 +12,7 @@ const useDynamicRowCount = () => {
       if (width >= 2560) count = 16;       // 4K / 27 inch
       else if (width >= 1920) count = 15;  // 1080p Full HD
       else if (width >= 1440) count = 10;  // 19 inch / high res laptop
-      else if (width >= 1366) count = 6;   // 14 inch laptop
+      else if (width >= 1366) count = 8;   // 14 inch laptop
       else count = 6;
 
       setRowsPerPage(count);
