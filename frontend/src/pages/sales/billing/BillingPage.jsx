@@ -1,10 +1,10 @@
 
 // src/pages/BillingPage.jsx
 import { useState, useMemo, useEffect } from "react";
-import BillingHeader from "../components/billing/BillingHeader";
-import ProductTable from "../components/billing/ProductTable";
-import CustomerDetailsCard from "../components/billing/CustomerDetailsCard";
-import BillingSummaryCard from "../components/billing/BillingSummaryCard";
+import BillingHeader from "./components/BillingHeader";
+import ProductTable from "./components/ProductTable";
+import CustomerDetailsCard from "./components/CustomerDetailsCard";
+import BillingSummaryCard from "./components/BillingSummaryCard";
 
 const makeEmptyRow = () => ({
   name: "", batch: "", qty: "", mrp: 0, amount: 0, exp: "", type: "", category: "", stock: "", rack: "", tax: 0, taxAmt: 0, disc: 0, barcode: "",
@@ -24,9 +24,9 @@ const BillingPage = () => {
       const width = window.innerWidth;
       let count = 6; // Default / Mobile
 
-      if (width >= 2560) count = 18;       // 4k / 27 inch
-      else if (width >= 1920) count = 20;  // 1080p Full HD
-      else if (width >= 1440) count = 12;  // 19 inch / high res laptop
+      if (width >= 2560) count = 17;       // 4k / 27 inch
+      else if (width >= 1920) count = 16;  // 1080p Full HD
+      else if (width >= 1440) count = 10;  // 19 inch / high res laptop
       else if (width >= 1366) count = 6;   // 14 inch laptop
       else count = 6;
 

@@ -1,12 +1,13 @@
 import { useState, useRef } from "react";
 import { IoCloudUploadOutline } from "react-icons/io5";
-import { uploadShopFile } from "../api/shopFiles";
+import { uploadShopFile } from "../../api/shopFiles";
 import { Loader2 } from "lucide-react";
 
-const UploadEALisence = ({ onContinue }) => {
+const UploadDrugLicense = ({ onContinue }) => {
     const [file, setFile] = useState(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+
     const fileInputRef = useRef(null);
 
     const allowedTypes = [
@@ -52,14 +53,14 @@ const UploadEALisence = ({ onContinue }) => {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            formData.append("file_type", "shop_establishment_license");
+            formData.append("file_type", "drug_license");
 
             await uploadShopFile(formData);
 
             
-
             onContinue();
         } catch (err) {
+            console.error("UPLOAD ERROR:", err);
             setError(err?.response?.data?.message || "Failed to upload file");
         }
 
@@ -69,15 +70,14 @@ const UploadEALisence = ({ onContinue }) => {
     return (
         <div
             className="w-full max-w-2xl font-poppins"
-            style={{ marginTop: "30px" }}
+            style={{ marginTop: "28px" }}
         >
-            <h2 className="text-[30px] font-semibold text-[#000006]">
-                Upload Your Shop and Establishment Act Licence
+            <h2 className="text-[28px] font-semibold text-[#000006]">
+                Upload Your Drug License
             </h2>
 
             <p className="text-gray-500 text-xs mt-1 mb-4">
-                Eg: <span className="font-bold">PDF, JPEG, EPS, PNG</span> — 
-                Max <span className="font-bold">5MB</span>
+                Eg: <span className="font-bold">PDF, JPEG, EPS, PNG</span> — Max <span className="font-bold">5MB</span>
             </p>
 
             <div
@@ -95,7 +95,7 @@ const UploadEALisence = ({ onContinue }) => {
                             {file.name}
                         </span>
                     ) : (
-                        "*Upload verified Shop and Establishment Act Licence*"
+                        "*Upload verified drug license*"
                     )}
                 </p>
 
@@ -110,11 +110,11 @@ const UploadEALisence = ({ onContinue }) => {
 
             {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
 
-            {/* 🔥 UPDATED SPINNER BUTTON */}
+            {/* 🔥 UPDATED LOADER BUTTON */}
             <button
                 onClick={handleSubmit}
                 disabled={!file || loading}
-                className={`w-[470px] bg-[#000060] text-white py-3 rounded-xl mt-8
+                className={`w-[470px] bg-[#000060] text-white py-3 rounded-xl mt-8 
                            hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed
                            ${!file ? "opacity-60 cursor-not-allowed" : ""}`}
             >
@@ -131,4 +131,4 @@ const UploadEALisence = ({ onContinue }) => {
     );
 };
 
-export default UploadEALisence;
+export default UploadDrugLicense;

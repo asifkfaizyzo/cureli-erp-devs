@@ -359,7 +359,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Printer, Calendar, Clock, User, MapPin, CreditCard, FileText } from "lucide-react";
-import { useMenuStore } from "../../store/useMenuStore";
+import { useMenuStore } from "../../../../store/useMenuStore";
 
 const backdropVariants = {
   hidden: { opacity: 0 },

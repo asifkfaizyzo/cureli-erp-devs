@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { IoArrowBackOutline } from "react-icons/io5";
-import { verifyLoginOtp } from "../api/auth";
-import { getMySubscription } from "../api/subscription";
+import { verifyLoginOtp } from "../../api/auth";
+import { getMySubscription } from "../../api/subscription";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle2 } from "lucide-react";
 

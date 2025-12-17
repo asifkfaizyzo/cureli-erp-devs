@@ -1,13 +1,12 @@
 import { useState, useRef } from "react";
 import { IoCloudUploadOutline } from "react-icons/io5";
-import { uploadShopFile } from "../api/shopFiles";
+import { uploadShopFile } from "../../api/shopFiles";
 import { Loader2 } from "lucide-react";
 
-const UploadDrugLicense = ({ onContinue }) => {
+const UploadRegistration = ({ onContinue }) => {
     const [file, setFile] = useState(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-
     const fileInputRef = useRef(null);
 
     const allowedTypes = [
@@ -53,14 +52,13 @@ const UploadDrugLicense = ({ onContinue }) => {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            formData.append("file_type", "drug_license");
+            formData.append("file_type", "pharmacy_registration");
 
             await uploadShopFile(formData);
 
             
             onContinue();
         } catch (err) {
-            console.error("UPLOAD ERROR:", err);
             setError(err?.response?.data?.message || "Failed to upload file");
         }
 
@@ -68,16 +66,17 @@ const UploadDrugLicense = ({ onContinue }) => {
     };
 
     return (
-        <div
+        <div 
             className="w-full max-w-2xl font-poppins"
-            style={{ marginTop: "28px" }}
+            style={{ marginTop: "30px" }}
         >
-            <h2 className="text-[28px] font-semibold text-[#000006]">
-                Upload Your Drug License
+            <h2 className="text-[30px] font-semibold text-[#000006]">
+                Upload Your Pharmacy Registration
             </h2>
 
             <p className="text-gray-500 text-xs mt-1 mb-4">
-                Eg: <span className="font-bold">PDF, JPEG, EPS, PNG</span> — Max <span className="font-bold">5MB</span>
+                Eg: <span className="font-bold">PDF, JPEG, EPS, PNG</span> — 
+                Max <span className="font-bold">5MB</span>
             </p>
 
             <div
@@ -95,7 +94,7 @@ const UploadDrugLicense = ({ onContinue }) => {
                             {file.name}
                         </span>
                     ) : (
-                        "*Upload verified drug license*"
+                        "*Upload verified pharmacy registration*"
                     )}
                 </p>
 
@@ -110,7 +109,7 @@ const UploadDrugLicense = ({ onContinue }) => {
 
             {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
 
-            {/* 🔥 UPDATED LOADER BUTTON */}
+            {/* 🔥 Updated Button with Loader Spinner */}
             <button
                 onClick={handleSubmit}
                 disabled={!file || loading}
@@ -131,4 +130,4 @@ const UploadDrugLicense = ({ onContinue }) => {
     );
 };
 
-export default UploadDrugLicense;
+export default UploadRegistration;

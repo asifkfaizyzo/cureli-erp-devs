@@ -5,7 +5,7 @@ import logo from "../assets/icons/logo.png";
 
 import LoginForm from "../components/LoginForm";
 import CreateAccount from "../components/CreateAccount";
-import OtpVerify from "../components/OtpVerify";
+import OtpVerify from "../components/onboarding/OtpVerify";
 import ReCaptchaWrapper from "../components/ReCaptchaWrapper";
 
 const LoginPage = () => {

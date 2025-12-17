@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { saveUsername, completeSignup } from "../api/auth";
+import { saveUsername, completeSignup } from "../../api/auth";
 import { Loader2, Check, AlertCircle, Sparkles } from "lucide-react";
 
 const IdentityForm = ({ pending_id, onContinue, onNext }) => {

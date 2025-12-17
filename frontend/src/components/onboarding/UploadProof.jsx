@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { IoCloudUploadOutline } from "react-icons/io5";
-import { uploadShopFile } from "../api/shopFiles";
+import { uploadShopFile } from "../../api/shopFiles";
 import { Loader2 } from "lucide-react";
 
 const UploadProof = ({ onContinue }) => {

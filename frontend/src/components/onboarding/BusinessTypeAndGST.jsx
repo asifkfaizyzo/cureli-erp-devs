@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { updateShopGst } from "../api/shop";
+import { updateShopGst } from "../../api/shop";
 import { useNavigate } from "react-router-dom";
 import { Loader2, ChevronDown, Check } from "lucide-react";
 

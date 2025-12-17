@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { sendSignupOtp, verifySignupOtp } from "../api/otp";
-import { Loader2, CheckCircle2, Mail } from "lucide-react";
+import { verifySmsOtp, sendSmsOtp } from "../../api/otp";
+import { Loader2, CheckCircle2 } from "lucide-react";
 
-const EmailOTP = ({ pending_id, email, onContinue }) => {
+const PhoneOtp = ({ pending_id, phone, onContinue }) => {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [timer, setTimer] = useState(30);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
   const [shake, setShake] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -83,26 +82,6 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
     setTimeout(() => setShake(false), 500);
   };
 
-  const handleResend = async () => {
-    if (timer !== 0 || resending) return;
-
-    try {
-      setResending(true);
-      setOtp(["", "", "", ""]);
-      setError("");
-      setSuccess(false);
-
-      await sendSignupOtp({ pending_id });
-
-      setTimer(30);
-      inputsRef.current[0]?.focus();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to resend OTP.");
-    } finally {
-      setResending(false);
-    }
-  };
-
   const handleSubmit = async (otpCode = null) => {
     const fullOtp = otpCode || otp.join("");
     if (fullOtp.length !== 4 || loading || success) return;
@@ -111,7 +90,7 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
     setError("");
 
     try {
-      await verifySignupOtp({ pending_id, otp: fullOtp });
+      await verifySmsOtp({ pending_id, code: fullOtp });
 
       setSuccess(true);
 
@@ -121,15 +100,32 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
       }, 600);
 
     } catch (err) {
-      setError(err?.response?.data?.message || "Invalid OTP.");
+      setError(err?.response?.data?.message || "Invalid OTP. Try again.");
       triggerShake();
 
       setTimeout(() => {
         setOtp(["", "", "", ""]);
         inputsRef.current[0]?.focus();
       }, 300);
-    } finally {
-      setLoading(false);
+    }
+
+    setLoading(false);
+  };
+
+  const handleResend = async () => {
+    if (timer !== 0) return;
+
+    try {
+      setOtp(["", "", "", ""]);
+      setTimer(30);
+      setError("");
+      setSuccess(false);
+
+      await sendSmsOtp({ pending_id, phone });
+
+      inputsRef.current[0]?.focus();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to resend OTP.");
     }
   };
 
@@ -149,27 +145,16 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
     return `${base} border-gray-300 focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/20`;
   };
 
-  // Mask email for privacy
-  const maskEmail = (email) => {
-    if (!email) return "";
-    const [name, domain] = email.split("@");
-    if (name.length <= 2) return email;
-    return `${name[0]}${"*".repeat(name.length - 2)}${name.slice(-1)}@${domain}`;
-  };
-
   return (
     <div
       className="w-full max-w-sm font-poppins px-3 mt-10"
       style={{ marginLeft: "-25%" }}
     >
-      <h2 className="text-[26px] font-bold text-[#000006]">Verify Your Email</h2>
+      <h2 className="text-[26px] font-bold text-[#000006]">Verify Your Phone</h2>
 
-      <div className="flex items-center gap-2 mt-2 mb-4">
-        <Mail className="w-4 h-4 text-gray-500" />
-        <p className="text-gray-500 text-sm">
-          Code sent to <b className="text-[#000060]">{maskEmail(email)}</b>
-        </p>
-      </div>
+      <p className="text-gray-500 text-sm leading-relaxed mt-1 mb-4">
+        Enter the 4-digit code we sent to <b>{phone}</b>
+      </p>
 
       <div className="w-full h-[1px] bg-gray-300 mb-5" />
 
@@ -207,18 +192,11 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
       <p className="text-center text-sm text-[#7A3AFF] mt-3">
         <span
           className={`cursor-pointer hover:underline transition ${
-            timer !== 0 || resending ? "opacity-50 pointer-events-none" : ""
+            timer !== 0 ? "opacity-50 pointer-events-none" : ""
           }`}
           onClick={handleResend}
         >
-          {resending ? (
-            <span className="flex items-center justify-center gap-1">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Sending...
-            </span>
-          ) : (
-            "Resend Code"
-          )}
+          Resend Code
         </span>{" "}
         {timer > 0 && (
           <span className="text-gray-500">
@@ -236,7 +214,7 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
       {success && (
         <p className="text-green-600 text-sm mt-2 font-medium animate-slide-down flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
-          Email verified successfully!
+          Phone verified successfully!
         </p>
       )}
 
@@ -264,13 +242,6 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
           "Continue"
         )}
       </button>
-
-      {/* Check spam hint */}
-      {!success && (
-        <p className="text-xs text-gray-400 text-center mt-3">
-          Didn't receive it? Check your spam folder
-        </p>
-      )}
 
       {/* Animations */}
       <style>{`
@@ -301,4 +272,4 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
   );
 };
 
-export default EmailOTP;
+export default PhoneOtp;

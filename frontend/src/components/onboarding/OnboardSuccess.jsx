@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import api from "../../api/axios";
 import success from "../assets/images/success.jpg";
-import { completeOnboarding } from "../api/auth";
-import { getMySubscription } from "../api/subscription";
+import { completeOnboarding } from "../../api/auth";
+import { getMySubscription } from "../../api/subscription";
 
 const OnboardSuccess = () => {
   const navigate = useNavigate();
