@@ -1,7 +1,7 @@
 // frontend\src\pages\purchase\invoice\components\ViewInvoiceModal.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Save, Printer, Trash2 } from "lucide-react";
+import { X, Save, Printer, Trash2, Calendar, Clock, User, MapPin, CreditCard, FileText } from "lucide-react";
 import { useMenuStore } from "../../../../store/useMenuStore";
 
 const backdropVariants = {
@@ -36,7 +36,7 @@ const ViewInvoiceModal = ({
 
   // --- DYNAMIC SIZING (matching PurchaseTable) ---
   const textSize = sidebarExpanded ? "text-[11px]" : "text-[13px]";
-  const headerTextSize = sidebarExpanded ? "text-[10px]" : "text-xs";
+  const labelSize = sidebarExpanded ? "text-[10px]" : "text-xs";
   const pySize = sidebarExpanded ? "py-2" : "py-3";
   const pxSize = sidebarExpanded ? "px-2" : "px-4";
   const iconSize = sidebarExpanded ? 14 : 16;
@@ -177,110 +177,116 @@ const ViewInvoiceModal = ({
             role="dialog"
             aria-modal="true"
           >
-            {/* HEADER - FIXED (NOT SCROLLABLE) */}
-            <div className="bg-gray-50 px-3 sm:px-4 py-2 sm:py-2.5 border-b border-gray-200 shrink-0">
-              {/* Top Row - Reduced gaps */}
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-1.5 sm:gap-2 mb-1.5">
-                <div className={`flex flex-col sm:flex-row gap-1 sm:gap-2 lg:gap-4 items-start sm:items-center text-[10px] sm:${textSize} text-gray-600 flex-wrap`}>
-                  <span className="whitespace-nowrap">
-                    Billed by <strong className="text-[#000060] ml-1">{editableBill.billedBy}</strong>
-                  </span>
-                  <span className="whitespace-nowrap">
-                    Date: <strong className="text-gray-900 ml-1">{editableBill.date}</strong>
-                  </span>
-                  {editableBill.time && (
-                    <span className="whitespace-nowrap">
-                      Time: <strong className="text-gray-900 ml-1">{editableBill.time}</strong>
-                    </span>
-                  )}
+            {/* HEADER */}
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-2 px-3 sm:px-4 py-2 sm:py-2.5 border-b border-gray-100 bg-gray-50/50 shrink-0">
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5 text-indigo-600 font-bold uppercase tracking-wider text-[10px] sm:text-xs">
+                  <FileText size={iconSize} />
+                  <span>{isEdit ? "Edit Invoice" : "Tax Invoice"}</span>
                 </div>
-
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {isEdit && (
-                    <button
-                      onClick={handleSaveClick}
-                      className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-[#000060] text-white rounded-lg text-[10px] sm:${textSize} font-medium hover:bg-[#000050] transition-all shadow-sm hover:shadow-md`}
-                      title="Save Changes"
-                    >
-                      <Save size={iconSize} />
-                      <span className="hidden sm:inline">Save</span>
-                    </button>
-                  )}
-                  
-                  <button
-                    onClick={handlePrintClick}
-                    className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-[#000060] text-white rounded-lg text-[10px] sm:${textSize} font-medium hover:bg-[#000050] transition-all shadow-sm hover:shadow-md`}
-                    title="Print"
-                  >
-                    <Printer size={iconSize} />
-                    <span className="hidden sm:inline">Print</span>
-                  </button>
-
-                  {isEdit && onDelete && (
-                    <button
-                      onClick={handleDeleteClick}
-                      className={`p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all`}
-                      title="Delete"
-                    >
-                      <Trash2 size={iconSize} />
-                    </button>
-                  )}
-
-                  <button
-                    onClick={onClose}
-                    className="p-1 sm:p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 hover:text-gray-700 transition-colors"
-                    title="Close"
-                  >
-                    <X size={iconSize + 2} />
-                  </button>
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <h1 className="text-base sm:text-xl font-bold text-gray-900">
+                    #{editableBill.billNo}
+                  </h1>
+                  <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] sm:text-xs font-medium border border-green-200">
+                    Paid
+                  </span>
                 </div>
               </div>
 
-              {/* Bill Number - More compact */}
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-[10px] sm:text-xs font-semibold text-gray-700">Bill No:</span>
-                <span className="font-mono text-gray-900 bg-white px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm font-bold border border-gray-200">
-                  #{editableBill.billNo}
-                </span>
+                {isEdit && (
+                  <button
+                    onClick={handleSaveClick}
+                    className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-[#000060] text-white rounded-lg text-[10px] sm:text-sm font-medium hover:bg-[#000050] transition-all shadow-sm"
+                    title="Save Changes"
+                  >
+                    <Save size={iconSize} />
+                    <span className="hidden sm:inline">Save</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={handlePrintClick}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-white border border-gray-300 rounded-lg text-gray-700 text-[10px] sm:text-sm font-medium hover:bg-gray-50 hover:text-indigo-600 transition-all shadow-sm"
+                  title="Print"
+                >
+                  <Printer size={iconSize} />
+                  <span className="hidden sm:inline">Print</span>
+                </button>
+
+                {isEdit && onDelete && (
+                  <button
+                    onClick={handleDeleteClick}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                    title="Delete"
+                  >
+                    <Trash2 size={iconSize} />
+                  </button>
+                )}
+
+                <button
+                  onClick={onClose}
+                  className="p-1 sm:p-1.5 hover:bg-red-50 hover:text-red-600 rounded-lg text-gray-400 transition-colors"
+                  title="Close"
+                >
+                  <X size={iconSize + 2} />
+                </button>
               </div>
             </div>
 
-            {/* BODY - SCROLLABLE (contains everything) */}
+            {/* BODY - SCROLLABLE */}
             <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-2.5 sm:py-3 custom-scrollbar bg-white">
-              {/* ITEMS TABLE - NO SCROLL, SHOWS ALL ROWS */}
-              <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200 mb-2.5 sm:mb-3">
-                <table className="w-full border-collapse">
+              
+              {/* Meta Data Bar */}
+              <div className="flex flex-wrap gap-2 sm:gap-4 mb-3 sm:mb-4 text-[10px] sm:text-xs text-gray-600 bg-blue-50/50 p-2.5 sm:p-3 rounded-lg border border-blue-100">
+                <div className="flex items-center gap-1.5">
+                  <User size={iconSize} className="text-blue-600" />
+                  <span className="text-gray-500">Billed By:</span>
+                  <span className="font-semibold text-gray-900">{editableBill.billedBy}</span>
+                </div>
+                <div className="w-px h-3 bg-blue-200 hidden sm:block"></div>
+                <div className="flex items-center gap-1.5">
+                  <Calendar size={iconSize} className="text-blue-600" />
+                  <span className="text-gray-500">Date:</span>
+                  <span className="font-semibold text-gray-900">{editableBill.date}</span>
+                </div>
+                {editableBill.time && (
+                  <>
+                    <div className="w-px h-3 bg-blue-200 hidden sm:block"></div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={iconSize} className="text-blue-600" />
+                      <span className="text-gray-500">Time:</span>
+                      <span className="font-semibold text-gray-900">{editableBill.time}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* ITEMS TABLE */}
+              <div className="border rounded-lg overflow-hidden mb-2.5 sm:mb-3 shadow-sm ring-1 ring-gray-100">
+                <table className={`w-full text-left border-collapse ${textSize}`}>
                   <thead className="bg-[#000060] text-white sticky top-0 z-10">
-                    <tr className={headerTextSize}>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Sl.No</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Product Name</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Batch</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Rate</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Qty</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Exp</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Type</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Category</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Stock</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Rack</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Tax%</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Tax Amt</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>Dis%</th>
-                      <th className={`${pxSize} ${pySize} text-left font-bold uppercase tracking-wider whitespace-nowrap`}>MRP</th>
-                      {isEdit && <th className={`${pxSize} ${pySize} text-center font-bold uppercase tracking-wider`}>Del</th>}
+                    <tr className={labelSize}>
+                      {["#", "Item Name", "Batch", "Rate", "Qty", "Exp", "Type", "Cat.", "Stk", "Rack", "Tax%", "Tax Amt", "Disc%", "MRP", ...(isEdit ? ["Del"] : [])].map((h, i) => (
+                        <th key={i} className={`${pxSize} ${pySize} whitespace-nowrap font-bold uppercase tracking-wider ${h === "Del" ? "text-center" : "text-left"}`}>
+                          {h}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="bg-white">
                     {editableBill.items.length > 0 ? (
                       editableBill.items.map((item, i) => (
-                        <tr 
-                          key={i} 
+                        <tr
+                          key={i}
                           className="border-b border-gray-100 hover:bg-blue-50/40 transition-colors group"
                         >
-                          <td className={`${textSize} ${pxSize} ${pySize} text-gray-400 font-medium`}>
+                          <td className={`${pxSize} ${pySize} text-gray-400 font-medium`}>
                             {String(i + 1).padStart(2, '0')}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize}`}>
+                          <td className={`${pxSize} ${pySize}`}>
                             {isEdit ? (
                               <input
                                 className={`w-full bg-white border border-gray-300 rounded px-2 py-1 ${textSize} focus:outline-none focus:ring-2 focus:ring-[#000060] focus:border-transparent`}
@@ -294,7 +300,7 @@ const ViewInvoiceModal = ({
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize}`}>
+                          <td className={`${pxSize} ${pySize}`}>
                             {isEdit ? (
                               <input
                                 className={`w-full bg-white border border-gray-300 rounded px-2 py-1 ${textSize} focus:outline-none focus:ring-2 focus:ring-[#000060] focus:border-transparent`}
@@ -308,7 +314,7 @@ const ViewInvoiceModal = ({
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize}`}>
+                          <td className={`${pxSize} ${pySize}`}>
                             {isEdit ? (
                               <input
                                 type="number"
@@ -321,7 +327,7 @@ const ViewInvoiceModal = ({
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize}`}>
+                          <td className={`${pxSize} ${pySize}`}>
                             {isEdit ? (
                               <input
                                 type="number"
@@ -330,11 +336,11 @@ const ViewInvoiceModal = ({
                                 onChange={(e) => updateItemField(i, "qty", e.target.value)}
                               />
                             ) : (
-                              <span className="text-gray-700">{item.qty}</span>
+                              <span className="font-semibold text-blue-600">{item.qty}</span>
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize} text-gray-500`}>
+                          <td className={`${pxSize} ${pySize}`}>
                             {isEdit ? (
                               <input
                                 className={`w-20 bg-white border border-gray-300 rounded px-2 py-1 ${textSize} focus:outline-none focus:ring-2 focus:ring-[#000060] focus:border-transparent`}
@@ -342,11 +348,11 @@ const ViewInvoiceModal = ({
                                 onChange={(e) => updateItemField(i, "exp", e.target.value)}
                               />
                             ) : (
-                              item.exp
+                              <span className="text-red-500 text-[10px]">{item.exp}</span>
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize} text-gray-700`}>
+                          <td className={`${pxSize} ${pySize} text-gray-500`}>
                             {isEdit ? (
                               <input
                                 className={`w-full bg-white border border-gray-300 rounded px-2 py-1 ${textSize} focus:outline-none focus:ring-2 focus:ring-[#000060] focus:border-transparent`}
@@ -358,7 +364,7 @@ const ViewInvoiceModal = ({
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize} text-gray-700`}>
+                          <td className={`${pxSize} ${pySize} text-gray-500`}>
                             {isEdit ? (
                               <input
                                 className={`w-full bg-white border border-gray-300 rounded px-2 py-1 ${textSize} focus:outline-none focus:ring-2 focus:ring-[#000060] focus:border-transparent`}
@@ -370,7 +376,7 @@ const ViewInvoiceModal = ({
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize} text-gray-700`}>
+                          <td className={`${pxSize} ${pySize} text-gray-500`}>
                             {isEdit ? (
                               <input
                                 className={`w-20 bg-white border border-gray-300 rounded px-2 py-1 ${textSize} focus:outline-none focus:ring-2 focus:ring-[#000060] focus:border-transparent`}
@@ -382,7 +388,7 @@ const ViewInvoiceModal = ({
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize} text-gray-700`}>
+                          <td className={`${pxSize} ${pySize} text-gray-500`}>
                             {isEdit ? (
                               <input
                                 className={`w-20 bg-white border border-gray-300 rounded px-2 py-1 ${textSize} focus:outline-none focus:ring-2 focus:ring-[#000060] focus:border-transparent`}
@@ -394,7 +400,7 @@ const ViewInvoiceModal = ({
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize} text-gray-700`}>
+                          <td className={`${pxSize} ${pySize} text-gray-500`}>
                             {isEdit ? (
                               <input
                                 type="number"
@@ -407,7 +413,7 @@ const ViewInvoiceModal = ({
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize} text-gray-700`}>
+                          <td className={`${pxSize} ${pySize} text-gray-500`}>
                             {isEdit ? (
                               <input
                                 type="number"
@@ -420,7 +426,7 @@ const ViewInvoiceModal = ({
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize} text-gray-700`}>
+                          <td className={`${pxSize} ${pySize}`}>
                             {isEdit ? (
                               <input
                                 type="number"
@@ -429,11 +435,11 @@ const ViewInvoiceModal = ({
                                 onChange={(e) => updateItemField(i, "disc", e.target.value)}
                               />
                             ) : (
-                              item.disc
+                              <span className="text-green-600">{item.disc}</span>
                             )}
                           </td>
 
-                          <td className={`${textSize} ${pxSize} ${pySize}`}>
+                          <td className={`${pxSize} ${pySize}`}>
                             {isEdit ? (
                               <input
                                 type="number"
@@ -442,12 +448,12 @@ const ViewInvoiceModal = ({
                                 onChange={(e) => updateItemField(i, "mrp", e.target.value)}
                               />
                             ) : (
-                              <span className="text-gray-800 font-bold">₹{item.mrp}</span>
+                              <span className="font-bold text-gray-900">₹{item.mrp}</span>
                             )}
                           </td>
 
                           {isEdit && (
-                            <td className={`${textSize} ${pxSize} ${pySize} text-center`}>
+                            <td className={`${pxSize} ${pySize} text-center`}>
                               <button
                                 onClick={() => deleteItemRow(i)}
                                 className="p-1.5 rounded hover:bg-red-50 hover:text-red-600 text-gray-400 transition-all"
@@ -461,7 +467,7 @@ const ViewInvoiceModal = ({
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={isEdit ? 15 : 14} className={`${pxSize} py-12 text-center text-gray-400 ${textSize} italic`}>
+                        <td colSpan={isEdit ? 15 : 14} className={`${pxSize} py-12 text-center text-gray-400 italic text-sm`}>
                           No items found
                         </td>
                       </tr>
@@ -470,83 +476,111 @@ const ViewInvoiceModal = ({
                 </table>
               </div>
 
-              {/* BOTTOM SECTION */}
+              {/* FOOTER INFO GRID */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5 sm:gap-3">
+                
                 {/* Customer Details */}
-                <div className="lg:col-span-2 bg-gray-50 rounded-xl p-2.5 sm:p-3 shadow-sm border border-gray-200">
-                  <h3 className="text-[10px] sm:text-xs font-bold text-[#000060] uppercase tracking-wider mb-2">
-                    Customer Details
+                <div className="lg:col-span-2 bg-gray-50 rounded-xl p-2.5 sm:p-3 border border-gray-200">
+                  <h3 className="text-[10px] sm:text-xs font-bold text-[#000060] uppercase mb-2 flex items-center gap-1.5">
+                    <User size={iconSize} /> Customer Details
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2.5 sm:gap-x-3 gap-y-2">
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-2.5 sm:gap-x-3 gap-y-2">
                     <InputField
-                      label="Cust ID"
+                      label="Customer ID"
                       value={editableBill.customer.id}
                       readOnly
                       textSize={textSize}
+                      labelSize={labelSize}
                     />
                     <InputField
-                      label="Cust Name"
+                      label="Name"
                       value={editableBill.customer.name}
                       editable={isEdit}
                       onChange={(v) => updateCustomerField("name", v)}
                       textSize={textSize}
+                      labelSize={labelSize}
                     />
                     <InputField
-                      label="Cust Ph"
+                      label="Phone"
                       value={editableBill.customer.phone}
                       editable={isEdit}
                       onChange={(v) => updateCustomerField("phone", v)}
                       textSize={textSize}
+                      labelSize={labelSize}
                     />
                     <InputField
-                      label="e-Way"
-                      value={editableBill.customer.eway}
-                      editable={isEdit}
-                      onChange={(v) => updateCustomerField("eway", v)}
-                      textSize={textSize}
-                    />
-                    <InputField
-                      label="Address"
-                      value={editableBill.customer.address}
-                      editable={isEdit}
-                      onChange={(v) => updateCustomerField("address", v)}
-                      fullWidth
-                      textSize={textSize}
-                    />
-                    <InputField
-                      label="Doc Name"
+                      label="Doctor"
                       value={editableBill.customer.docName}
                       editable={isEdit}
                       onChange={(v) => updateCustomerField("docName", v)}
                       textSize={textSize}
+                      labelSize={labelSize}
                     />
                     <InputField
-                      label="Pay by"
+                      label="Payment Mode"
                       value={editableBill.customer.payment}
                       editable={isEdit}
                       onChange={(v) => updateCustomerField("payment", v)}
                       textSize={textSize}
+                      labelSize={labelSize}
                     />
+                    <InputField
+                      label="E-Way Bill"
+                      value={editableBill.customer.eway || "-"}
+                      editable={isEdit}
+                      onChange={(v) => updateCustomerField("eway", v)}
+                      textSize={textSize}
+                      labelSize={labelSize}
+                    />
+
+                    <div className="col-span-1 sm:col-span-2 md:col-span-3 mt-1 pt-1.5 border-t border-gray-200">
+                      <div className="flex gap-1.5 items-start text-gray-600">
+                        <MapPin size={12} className="mt-0.5 shrink-0" />
+                        {isEdit ? (
+                          <textarea
+                            className="flex-1 text-[10px] sm:text-xs leading-snug bg-white border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#000060]"
+                            value={editableBill.customer?.address || ""}
+                            onChange={(e) => updateCustomerField("address", e.target.value)}
+                            rows={2}
+                          />
+                        ) : (
+                          <span className="text-[10px] sm:text-xs leading-snug">
+                            {editableBill.customer?.address || "-"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Payment Summary */}
-                <div className="bg-gray-50 rounded-xl p-2.5 sm:p-3 shadow-sm border border-gray-200 flex flex-col justify-center">
-                  <h3 className="text-[10px] sm:text-xs font-bold text-[#000060] uppercase tracking-wider mb-2">
-                    Payment Summary
+                {/* Amount Summary */}
+                <div className="bg-gray-50 rounded-xl p-2.5 sm:p-3 border border-gray-200 shadow-sm flex flex-col justify-center">
+                  <h3 className="text-[10px] sm:text-xs font-bold text-[#000060] uppercase mb-2 flex items-center gap-1.5">
+                    <CreditCard size={iconSize} /> Payment Summary
                   </h3>
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <SummaryRow label="Sub Total" value={currentSummary.subTotal} textSize={textSize} />
-                    <SummaryRow label="SGST" value={currentSummary.sgst} textSize={textSize} />
-                    <SummaryRow label="CGST" value={currentSummary.cgst} textSize={textSize} />
-                    
-                    <div className="border-t-2 border-[#000060] pt-2 mt-1.5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs sm:text-sm font-bold text-gray-900">Total Amount:</span>
-                        <span className="text-base sm:text-lg font-bold text-[#000060]">
-                          ₹{currentSummary.total.toLocaleString('en-IN')}
-                        </span>
-                      </div>
+
+                  <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
+                    <div className="flex justify-between text-gray-500">
+                      <span>Sub Total</span>
+                      <span className="font-medium text-gray-900">₹{currentSummary.subTotal?.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-500">
+                      <span>SGST</span>
+                      <span className="font-medium text-gray-900">₹{currentSummary.sgst}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-500">
+                      <span>CGST</span>
+                      <span className="font-medium text-gray-900">₹{currentSummary.cgst}</span>
+                    </div>
+
+                    <div className="border-t-2 border-[#000060] pt-2 mt-1.5"></div>
+
+                    <div className="flex justify-between items-end">
+                      <span className="text-xs sm:text-sm font-bold text-gray-900">Total</span>
+                      <span className="text-base sm:text-lg font-bold text-[#000060]">
+                        ₹{currentSummary.total?.toLocaleString('en-IN')}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -559,39 +593,21 @@ const ViewInvoiceModal = ({
   );
 };
 
-/* Helper Components */
-const InputField = ({ label, value, editable, onChange, readOnly, fullWidth, textSize }) => (
-  <div className={fullWidth ? "sm:col-span-2" : ""}>
-    <label className="block text-[9px] sm:text-[10px] text-gray-600 font-semibold mb-0.5 uppercase tracking-wide">
-      {label}
-    </label>
+/* Helper Component */
+const InputField = ({ label, value, editable, onChange, readOnly, textSize, labelSize }) => (
+  <div className="flex flex-col">
+    <span className={`${labelSize} uppercase text-gray-400 font-semibold tracking-wider`}>{label}</span>
     {editable && !readOnly ? (
       <input
         type="text"
-        className={`w-full px-2 py-1 border border-gray-300 rounded-lg ${textSize} text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#000060] focus:border-transparent transition-all`}
+        className={`mt-0.5 ${textSize} font-medium text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#000060] focus:border-transparent transition-all`}
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
       />
     ) : (
-      <div className={`w-full px-2 py-1 border border-gray-200 rounded-lg ${textSize} text-gray-700 bg-white font-medium`}>
-        {value || "-"}
-      </div>
+      <span className={`${textSize} font-medium text-gray-800 mt-0.5`}>{value || "-"}</span>
     )}
   </div>
 );
 
-const SummaryRow = ({ label, value, textSize }) => (
-  <div className="flex justify-between items-center">
-    <span className={`${textSize} text-gray-700 font-medium`}>{label}</span>
-    <span className={`${textSize} font-bold text-gray-900`}>
-      ₹{value.toLocaleString('en-IN')}
-    </span>
-  </div>
-);
-
 export default ViewInvoiceModal;
-
-
-
-
-
