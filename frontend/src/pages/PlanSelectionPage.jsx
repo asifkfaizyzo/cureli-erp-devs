@@ -1,31 +1,29 @@
-// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\PlanSelectionPage.jsx
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Loader2, 
-  AlertCircle, 
-  RefreshCw, 
-  Users, 
-  Building2, 
+import {
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  Users,
+  Building2,
   Check,
   Sparkles,
   Mail,
   LogOut,
 } from "lucide-react";
 
-import { getPlans, selectPlan } from "../api/subscription";
+import { getPlans, selectPlan, confirmPayment } from "../api/subscription";
 import {
   BILLING,
-  CARD_THEMES,
   formatPrice,
   getCardTheme,
   generateFeatures,
 } from "../config/planConfig";
+import PlanConfirmModal from "../components/plans/PlanConfirmModal";
 import logo from "../assets/icons/cureli.png";
 
 // ============================================
-// HEADER COMPONENT (Simplified for Plan Selection)
+// HEADER COMPONENT
 // ============================================
 function PlanSelectionHeader() {
   const navigate = useNavigate();
@@ -36,13 +34,13 @@ function PlanSelectionHeader() {
 
   const handleLogout = async () => {
     setLoggingOut(true);
-    
+
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("shop_id");
     localStorage.removeItem("user_id");
     localStorage.removeItem("user_name");
-    
+
     await new Promise((resolve) => setTimeout(resolve, 300));
     navigate("/", { replace: true });
   };
@@ -50,7 +48,6 @@ function PlanSelectionHeader() {
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 px-4 sm:px-6 py-3 shadow-sm">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Left - Logo */}
         <div className="flex items-center gap-2">
           <img
             src={logo}
@@ -62,9 +59,7 @@ function PlanSelectionHeader() {
           </span>
         </div>
 
-        {/* Right - User info + Logout */}
         <div className="flex items-center gap-3 sm:gap-4">
-          {/* User Avatar & Name */}
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#000060] flex items-center justify-center text-white font-semibold text-sm sm:text-base">
               {avatarLetter}
@@ -74,7 +69,6 @@ function PlanSelectionHeader() {
             </span>
           </div>
 
-          {/* Logout Button */}
           <button
             onClick={handleLogout}
             disabled={loggingOut}
@@ -113,7 +107,6 @@ function PlanCard({ plan, onSelect, isSelecting }) {
         w-[280px] h-[390px]
       `}
     >
-      {/* Highlighted Badge */}
       {plan.is_highlighted && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
           <div className="whitespace-nowrap flex items-center gap-1.5 px-4 py-1.5 bg-violet-600 text-white text-xs font-bold rounded-full shadow-lg">
@@ -123,22 +116,16 @@ function PlanCard({ plan, onSelect, isSelecting }) {
         </div>
       )}
 
-      {/* Content */}
       <div className="flex-1 flex flex-col">
-        
-        {/* ===== TOP SECTION (Fixed Height) ===== */}
         <div className="h-[160px] flex flex-col">
-          {/* Plan Name */}
           <h2 className="text-xl font-bold text-gray-800 group-hover:text-white text-center">
             {plan.name}
           </h2>
 
-          {/* Description */}
           <p className="text-sm text-gray-600 group-hover:text-white/80 text-center mt-1 line-clamp-2 min-h-[40px]">
             {plan.description || "Perfect for getting started"}
           </p>
 
-          {/* Price */}
           <div className="flex items-baseline justify-center gap-1 mt-3">
             <span
               className={`
@@ -156,7 +143,6 @@ function PlanCard({ plan, onSelect, isSelecting }) {
             )}
           </div>
 
-          {/* Limits */}
           <div className="flex justify-center gap-4 mt-3">
             <div className="flex items-center gap-1.5 text-xs text-gray-600 group-hover:text-white/80">
               <Users size={14} />
@@ -167,18 +153,16 @@ function PlanCard({ plan, onSelect, isSelecting }) {
             <div className="flex items-center gap-1.5 text-xs text-gray-600 group-hover:text-white/80">
               <Building2 size={14} />
               <span>
-                {plan.max_branches === -1 ? "Unlimited" : plan.max_branches} Branch{plan.max_branches !== 1 ? "es" : ""}
+                {plan.max_branches === -1 ? "Unlimited" : plan.max_branches}{" "}
+                Branch{plan.max_branches !== 1 ? "es" : ""}
               </span>
             </div>
           </div>
         </div>
 
-        {/* ===== DIVIDER ===== */}
         <div className="h-px w-full bg-gray-300 group-hover:bg-white/30 my-3" />
 
-        {/* ===== BOTTOM SECTION ===== */}
         <div className="flex-1 flex flex-col">
-          {/* Features */}
           <ul className="space-y-1.5 flex-1">
             {features.map((feature, idx) => (
               <li key={idx} className="flex items-center gap-2 text-sm">
@@ -192,9 +176,8 @@ function PlanCard({ plan, onSelect, isSelecting }) {
             ))}
           </ul>
 
-          {/* Select Button */}
           <button
-            onClick={() => onSelect(plan.plan_id)}
+            onClick={() => onSelect(plan)}
             disabled={isSelecting}
             className={`
               mt-auto w-full py-2.5 rounded-xl text-sm font-semibold
@@ -225,7 +208,12 @@ function PlanCard({ plan, onSelect, isSelecting }) {
 // CUSTOM PLAN CARD
 // ============================================
 function CustomPlanCard() {
-  const theme = CARD_THEMES.custom;
+  const theme = {
+    gradient: "from-amber-50 to-orange-100",
+    hoverGradient: "hover:from-amber-600 hover:to-orange-600",
+    borderAccent: "border-amber-300 border-dashed",
+    buttonBg: "bg-amber-600 hover:bg-amber-700",
+  };
 
   return (
     <div
@@ -238,7 +226,6 @@ function CustomPlanCard() {
         w-[280px] h-[390px]
       `}
     >
-      {/* Badge */}
       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
         <div className="whitespace-nowrap flex items-center gap-1.5 px-4 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-full shadow-lg">
           <Sparkles size={12} />
@@ -246,10 +233,7 @@ function CustomPlanCard() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 flex flex-col">
-        
-        {/* ===== TOP SECTION ===== */}
         <div className="h-[160px] flex flex-col">
           <h2 className="text-xl font-bold text-gray-800 group-hover:text-white text-center">
             Custom Plan
@@ -277,10 +261,8 @@ function CustomPlanCard() {
           </div>
         </div>
 
-        {/* ===== DIVIDER ===== */}
         <div className="h-px w-full bg-gray-300 group-hover:bg-white/30 my-3" />
 
-        {/* ===== BOTTOM SECTION ===== */}
         <div className="flex-1 flex flex-col">
           <ul className="space-y-1.5 flex-1">
             {[
@@ -325,67 +307,164 @@ function CustomPlanCard() {
 const PlanSelectionPage = () => {
   const navigate = useNavigate();
 
+  // State
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selecting, setSelecting] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [error, setError] = useState("");
+
+  // Modal state
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [modalError, setModalError] = useState("");
 
   // Load plans
   useEffect(() => {
-    async function loadPlans() {
-      try {
-        setLoading(true);
-        setError("");
-        
-        const res = await getPlans();
-        const backendPlans = res.data?.data?.plans || [];
-        
-        setPlans(backendPlans);
-      } catch (err) {
-        console.error("Failed to load plans:", err);
-        setError(err.response?.data?.message || "Failed to load plans. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadPlans();
   }, []);
 
-  // Handle plan selection
-  const handleSelect = async (planId) => {
+  const loadPlans = async () => {
     try {
-      setSelecting(true);
-      setSelectedPlanId(planId);
+      setLoading(true);
       setError("");
 
-      await selectPlan({ plan_id: planId });
+      const res = await getPlans();
+      const backendPlans = res.data?.data?.plans || [];
 
-      navigate("/dashboard");
+      setPlans(backendPlans);
     } catch (err) {
-      console.error("Select plan error:", err);
-      setError(err.response?.data?.message || "Unable to select this plan. Please try again.");
+      console.error("Failed to load plans:", err);
+      setError(
+        err.response?.data?.message || "Failed to load plans. Please try again."
+      );
     } finally {
-      setSelecting(false);
-      setSelectedPlanId(null);
+      setLoading(false);
     }
+  };
+
+  // Open modal with selected plan
+  const handleSelectPlan = (plan) => {
+    setSelectedPlan(plan);
+    setModalError("");
+    setModalOpen(true);
+  };
+
+  // Close modal
+  const handleCloseModal = () => {
+    if (processing) return;
+    setModalOpen(false);
+    setSelectedPlan(null);
+    setModalError("");
+  };
+
+  // Confirm plan selection (handles both free and paid)
+  const handleConfirmPlan = async () => {
+    if (!selectedPlan || processing) return;
+
+    try {
+      setProcessing(true);
+      setModalError("");
+
+      // Call selectPlan API
+      const res = await selectPlan({ plan_id: selectedPlan.plan_id });
+      const data = res.data?.data;
+
+      if (data.is_free) {
+        // FREE PLAN - Direct activation, go to dashboard
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      // PAID PLAN - Open Razorpay checkout
+      const { razorpay: razorpayData, subscription_id } = data;
+
+      openRazorpayCheckout({
+        ...razorpayData,
+        subscription_id,
+        plan_name: selectedPlan.name,
+      });
+    } catch (err) {
+      console.error("Plan selection error:", err);
+      setModalError(
+        err.response?.data?.message ||
+          "Unable to process your request. Please try again."
+      );
+      setProcessing(false);
+    }
+  };
+
+  // Open Razorpay checkout
+  const openRazorpayCheckout = (data) => {
+    const options = {
+      key: data.key,
+      amount: data.amount,
+      currency: data.currency,
+      name: data.name,
+      description: data.description,
+      order_id: data.order_id,
+      prefill: data.prefill,
+      theme: {
+        color: "#000060",
+      },
+      handler: async function (response) {
+        // Payment successful - verify on backend
+        try {
+          await confirmPayment({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            subscription_id: data.subscription_id,
+          });
+          navigate("/dashboard", { replace: true });
+        } catch (err) {
+          console.error("Payment confirmation error:", err);
+          setModalError(
+            "Payment was successful but activation failed. Please contact support."
+          );
+          setProcessing(false);
+        }
+      },
+      modal: {
+        ondismiss: async function () {
+          // ✅ User closed the Razorpay popup - Cancel the pending subscription
+          try {
+            await cancelPendingSubscription(data.subscription_id);
+          } catch (err) {
+            console.error("Failed to cancel pending subscription:", err);
+          }
+          setModalError("Payment was cancelled. Please try again.");
+          setProcessing(false);
+        },
+        escape: false,
+        backdropclose: false,
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+
+    rzp.on("payment.failed", async function (response) {
+      console.error("Payment failed:", response.error);
+
+      // ✅ Payment failed - Cancel the pending subscription
+      try {
+        await cancelPendingSubscription(data.subscription_id);
+      } catch (err) {
+        console.error("Failed to cancel pending subscription:", err);
+      }
+
+      setModalError(
+        response.error.description ||
+          "Payment failed. Please try again or use a different payment method."
+      );
+      setProcessing(false);
+    });
+
+    rzp.open();
   };
 
   // Retry loading
   const handleRetry = () => {
-    setError("");
-    setLoading(true);
-    getPlans()
-      .then((res) => {
-        setPlans(res.data?.data?.plans || []);
-      })
-      .catch((err) => {
-        setError(err.response?.data?.message || "Failed to load plans.");
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    loadPlans();
   };
 
   // ============================================
@@ -398,7 +477,9 @@ const PlanSelectionPage = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <Loader2 size={48} className="text-[#000060] animate-spin" />
-            <p className="text-gray-600 text-lg font-medium">Loading plans...</p>
+            <p className="text-gray-600 text-lg font-medium">
+              Loading plans...
+            </p>
           </div>
         </div>
       </div>
@@ -417,7 +498,9 @@ const PlanSelectionPage = () => {
             <div className="p-4 bg-red-100 rounded-full">
               <AlertCircle size={48} className="text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-800">Unable to Load Plans</h2>
+            <h2 className="text-2xl font-bold text-gray-800">
+              Unable to Load Plans
+            </h2>
             <p className="text-gray-600">{error}</p>
             <button
               onClick={handleRetry}
@@ -437,10 +520,8 @@ const PlanSelectionPage = () => {
   // ============================================
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
       <PlanSelectionHeader />
 
-      {/* Main Content */}
       <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
           {/* Page Title */}
@@ -449,8 +530,8 @@ const PlanSelectionPage = () => {
               Choose Your Plan
             </h1>
             <p className="text-gray-600 text-base sm:text-lg max-w-2xl mx-auto mt-2">
-              Select the plan that best fits your business needs. 
-              Upgrade or downgrade anytime.
+              Select the plan that best fits your business needs. Upgrade or
+              downgrade anytime.
             </p>
           </div>
 
@@ -476,8 +557,8 @@ const PlanSelectionPage = () => {
               <PlanCard
                 key={plan.plan_id}
                 plan={plan}
-                onSelect={handleSelect}
-                isSelecting={selecting && selectedPlanId === plan.plan_id}
+                onSelect={handleSelectPlan}
+                isSelecting={false}
               />
             ))}
             <CustomPlanCard />
@@ -497,6 +578,16 @@ const PlanSelectionPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Confirmation Modal */}
+      <PlanConfirmModal
+        isOpen={modalOpen}
+        onClose={handleCloseModal}
+        plan={selectedPlan}
+        onConfirm={handleConfirmPlan}
+        loading={processing}
+        error={modalError}
+      />
     </div>
   );
 };
