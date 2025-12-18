@@ -19,6 +19,7 @@ import AppLayout from "./components/layout/AppLayout.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import BillingPage from "./pages/sales/billing/BillingPage.jsx";
 import InvoicePage from "./pages/sales/invoice/InvoicePage.jsx";
+import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.jsx";
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx"
 
@@ -94,6 +95,7 @@ const App = () => {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="Salesbilling" element={<BillingPage />} />
           <Route path="Salesinvoice" element={<InvoicePage />} />
+          <Route path="purchase-invoices" element={<PurchaseInvoicePage />} />
           <Route path="pending-users" element={<PendingUsersPage />} />
           <Route path="purchase-billing" element={<PurchasePage />} />
           <Route path="suppliers" element={<SupplierPage />} />
