@@ -24,10 +24,10 @@ import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx"
 
 //landing pages
-import Home from "./pages/home/Home.jsx";
-import About from "./pages/about/About.jsx";
-import Contact from "./pages/Contact/Contact.jsx";
-import Pricing from "./pages/pricing/Pricing.jsx";
+import Home from "./pages/landingPages/home/Home.jsx";
+import About from "./pages/landingPages/about/About.jsx";
+import Contact from "./pages/landingPages/contact/Contact.jsx";
+import Pricing from "./pages/landingPages/pricing/Pricing.jsx";
 import VerificationPage from "./pages/VerificationPage.jsx";
 
 import "./index.css";

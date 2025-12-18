@@ -2,13 +2,13 @@ import React, { useEffect } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 
-import HeroBG from "../../../assets/images/About-hero.png";
+import HeroBG from "../../../../assets/images/About-hero.png";
 
 // Import PNG icons
-import expIcon from "../../../assets/icons/exp.png";
-import medIcon from "../../../assets/icons/med.png";
-import listIcon from "../../../assets/icons/list.png";
-import groupsIcon from "../../../assets/icons/groups.png";
+import expIcon from "../../../../assets/icons/exp.png";
+import medIcon from "../../../../assets/icons/med.png";
+import listIcon from "../../../../assets/icons/list.png";
+import groupsIcon from "../../../../assets/icons/groups.png";
 
 const AboutHero = () => {
   useEffect(() => {

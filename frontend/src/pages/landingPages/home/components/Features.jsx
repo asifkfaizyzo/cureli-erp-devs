@@ -11,7 +11,7 @@ import {
   Clock,
   Users,
 } from "lucide-react";
-import featuresImage from "../../../assets/images/layout-left.png"; // Update path as needed
+import featuresImage from "../../../../assets/images/layout-left.png"; // Update path as needed
 
 const Features = () => {
   useEffect(() => {
