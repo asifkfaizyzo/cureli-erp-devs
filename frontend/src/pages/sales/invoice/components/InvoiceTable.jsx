@@ -9,8 +9,8 @@ const InvoiceTable = ({
   onDelete, 
   onView, 
   children,
-  rowsPerPage = 6,  // Add this prop for empty row calculation
-  startIndex = 0,   // Add this for correct serial numbering
+  rowsPerPage = 6,
+  startIndex = 0,
 }) => {
   const sidebarExpanded = useMenuStore((s) => s.sidebarExpanded);
 
@@ -24,6 +24,25 @@ const InvoiceTable = ({
 
   // Calculate empty rows needed to maintain consistent height
   const emptyRowsCount = Math.max(0, rowsPerPage - invoices.length);
+
+  // ✅ FIX: Stop event propagation for action buttons
+  const handleViewClick = (e, row) => {
+    e.stopPropagation();
+    console.log("📋 Table: VIEW button clicked");
+    onView?.(row);
+  };
+
+  const handleEditClick = (e, row) => {
+    e.stopPropagation();
+    console.log("✏️ Table: EDIT button clicked");
+    onEdit?.(row);
+  };
+
+  const handleDeleteClick = (e, row) => {
+    e.stopPropagation();
+    console.log("🗑️ Table: DELETE button clicked");
+    onDelete?.(row);
+  };
 
   return (
     <div className="flex flex-col h-full bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden transition-all duration-300">
@@ -55,7 +74,6 @@ const InvoiceTable = ({
                 year: "numeric",
               });
 
-              // Use startIndex for correct serial numbering across pages
               const serialNumber = startIndex + i + 1;
 
               return (
@@ -108,12 +126,12 @@ const InvoiceTable = ({
                     ₹{row.price?.toLocaleString('en-IN')}
                   </td>
 
-                  {/* ACTIONS */}
+                  {/* ACTIONS - ✅ UPDATED WITH stopPropagation */}
                   <td className={`${cellClass} text-center`}>
                     <div className={`flex items-center justify-center gap-1 ${sidebarExpanded ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity duration-200`}>
                       
                       <button 
-                        onClick={() => onView?.(row)}
+                        onClick={(e) => handleViewClick(e, row)}
                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
                         title="View Details"
                       >
@@ -121,7 +139,7 @@ const InvoiceTable = ({
                       </button>
 
                       <button 
-                        onClick={() => onEdit?.(row)}
+                        onClick={(e) => handleEditClick(e, row)}
                         className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-all"
                         title="Edit"
                       >
@@ -129,7 +147,7 @@ const InvoiceTable = ({
                       </button>
 
                       <button 
-                        onClick={() => onDelete?.(row)}
+                        onClick={(e) => handleDeleteClick(e, row)}
                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-all"
                         title="Delete"
                       >
@@ -141,7 +159,7 @@ const InvoiceTable = ({
               );
             })}
             
-            {/* EMPTY ROWS - Maintain consistent table height */}
+            {/* EMPTY ROWS */}
             {invoices.length > 0 && emptyRowsCount > 0 && 
               Array.from({ length: emptyRowsCount }).map((_, i) => (
                 <tr key={`empty-${i}`} className="bg-white">
