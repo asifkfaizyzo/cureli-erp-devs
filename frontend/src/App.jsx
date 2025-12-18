@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
 // Public Pages
+import NotFoundPage from "./components/common/NotFoundPage .jsx"
 import LoginPage from "./pages/LoginPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
@@ -16,19 +17,21 @@ import SupplierPage from "./pages/SupplierPage.jsx";
 // Protected Pages (ERP)
 import AppLayout from "./components/layout/AppLayout.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
-import BillingPage from "./pages/BillingPage.jsx";
-import InvoicePage from "./pages/InvoicePage.jsx";
-import PurchasePage from "./pages/PurchasePage.jsx";
-import ReportPage from "./pages/report/ReportPage.jsx"
+import BillingPage from "./pages/sales/billing/BillingPage.jsx";
+import InvoicePage from "./pages/sales/invoice/InvoicePage.jsx";
+import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.jsx";
+import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
+import ReportPage from "./pages/report/sales/SalesReportPage.jsx"
 
 //landing pages
 import Home from "./pages/home/Home.jsx";
 import About from "./pages/about/About.jsx";
 import Contact from "./pages/Contact/Contact.jsx";
 import Pricing from "./pages/pricing/Pricing.jsx";
+import VerificationPage from "./pages/VerificationPage.jsx";
 
 import "./index.css";
-import VerificationPage from "./pages/VerificationPage.jsx";
+
 
 const App = () => {
   useEffect(() => {
@@ -92,15 +95,17 @@ const App = () => {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="Salesbilling" element={<BillingPage />} />
           <Route path="Salesinvoice" element={<InvoicePage />} />
+          <Route path="purchase-invoices" element={<PurchaseInvoicePage />} />
           <Route path="pending-users" element={<PendingUsersPage />} />
           <Route path="purchase-billing" element={<PurchasePage />} />
           <Route path="suppliers" element={<SupplierPage />} />
-          <Route path="reports" element={<ReportPage />} />
+          <Route path="reports-sales" element={<ReportPage />} />
 
         </Route>
 
         {/* ERROR PAGE */}
         <Route path="/error" element={<ErrorPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>
   );
