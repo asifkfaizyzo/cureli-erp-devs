@@ -2,12 +2,12 @@ import React, { useEffect } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 
-import Netmeds from "../../../assets/images/netmeds.png";
-import Apollo from "../../../assets/images/apollo.png";
-import CureliLogo from "../../../assets/images/cureli.png";
-import MedicalCross from "../../../assets/images/medical-cross.png";
-import SastaSundar from "../../../assets/images/sasta-sundar.png";
-import HealthcareIllustration from "../../../assets/images/About-layout.png";
+import Netmeds from "../../../../assets/images/netmeds.png";
+import Apollo from "../../../../assets/images/apollo.png";
+import CureliLogo from "../../../../assets/images/cureli.png";
+import MedicalCross from "../../../../assets/images/medical-cross.png";
+import SastaSundar from "../../../../assets/images/sasta-sundar.png";
+import HealthcareIllustration from "../../../../assets/images/About-layout.png";
 
 const AboutPartners = () => {
   useEffect(() => {

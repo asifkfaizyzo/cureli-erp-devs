@@ -2,11 +2,11 @@ import React, { useEffect } from "react";
 import AOS from "aos";
 import { Link } from "react-router-dom";
 
-import CommitIcon from "../../../assets/icons/commited.png";
-import TrustIcon from "../../../assets/icons/trust.png";
-import TransparentIcon from "../../../assets/icons/transparent.png";
-import QualityIcon from "../../../assets/icons/quality.png";
-import PeopleIllustration from "../../../assets/images/people.png";
+import CommitIcon from "../../../../assets/icons/commited.png";
+import TrustIcon from "../../../../assets/icons/trust.png";
+import TransparentIcon from "../../../../assets/icons/transparent.png";
+import QualityIcon from "../../../../assets/icons/quality.png";
+import PeopleIllustration from "../../../../assets/images/people.png";
 
 const values = [
   { img: CommitIcon, title: "Committed", desc: "we are commited to delivering seamless technology,responsive, support and improvements that help pharmacies operate efficiently." },

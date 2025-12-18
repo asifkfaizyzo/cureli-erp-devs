@@ -1,6 +1,6 @@
-import Navbar from "../../pages/about/components/Navbar";
-import Footer from "../../pages/home/components/Footer";
-import FAQSection from "../../pages/home/components/FAQ";
+import Navbar from "../about/components/Navbar";
+import Footer from "../home/components/Footer";
+import FAQSection from "../home/components/FAQ";
 
 import PricingHero from "./components/PricingHero";
 import PricingCards from "./components/PricingCards";

@@ -1,9 +1,9 @@
 // src/components/Hero.jsx
 import { useEffect } from "react";
 import AOS from "aos";
-import heroBg from "../../../assets/images/hero-bg.png";
-import dashboardMockup from "../../../assets/images/dashboard-mockup.png"; // Add your dashboard image
-import dashboardMockup2 from "../../../assets/images/dashboard-mockup2.png"; // Add your dashboard image
+import heroBg from "../../../../assets/images/hero-bg.png";
+import dashboardMockup from "../../../../assets/images/dashboard-mockup.png"; // Add your dashboard image
+import dashboardMockup2 from "../../../../assets/images/dashboard-mockup2.png"; // Add your dashboard image
 
 const Hero = () => {
   useEffect(() => {
