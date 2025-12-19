@@ -1,10 +1,10 @@
 // src/pages/SupplierPage.jsx
 
 import { useState, useMemo, useEffect } from "react";
-import SupplierHeader from "../components/Supplier/SupplierHeader";
-import SupplierTable from "../components/Supplier/SupplierTable";
-import { suppliersData } from "../components/data/suppliers";
-import useRowCount from "../hooks/useRowCount";
+import SupplierHeader from "./components/SupplierHeader";
+import SupplierTable from "./components/SupplierTable";
+import { suppliersData } from "../../components/data/suppliers";
+import useRowCount from "../../hooks/useRowCount";
 
 const SupplierPage = () => {
   const rowsPerPage = useRowCount(); // dynamic based on screen size
