@@ -20,8 +20,7 @@ const InvoiceTable = ({
   const pxSize = sidebarExpanded ? "px-2" : "px-4";
   
   const cellClass = `${textSize} ${pySize} ${pxSize} border-b border-gray-100 group-hover:border-blue-100 transition-all duration-200`;
-  const headerClass = `${pxSize} py-3 text-left font-bold text-[#000060] uppercase tracking-wider bg-gray-50 border-b border-gray-200 sticky top-0 z-10 whitespace-nowrap`;
-
+   const headerClass = `${pxSize} py-3 text-left h-10 font-bold text-white uppercase tracking-wider bg-gradient-to-r from-[#05015A] to-[#0a0280] border-r border-blue-800 sticky top-0 z-10 whitespace-nowrap shadow-sm`;
   // Calculate empty rows needed to maintain consistent height
   const emptyRowsCount = Math.max(0, rowsPerPage - invoices.length);
 
@@ -52,16 +51,16 @@ const InvoiceTable = ({
         <table className="w-full text-left border-collapse">
           
           {/* STICKY HEADER */}
-          <thead>
+          <thead className={headerClass}>
             <tr className={sidebarExpanded ? "text-[10px]" : "text-xs"}>
-              <th className={`${headerClass} w-12`}>#</th>
-              <th className={headerClass}>Customer Name</th>
-              <th className={headerClass}>Bill No</th>
-              <th className={headerClass}>Contact</th>
-              <th className={headerClass}>Date</th>
-              <th className={`${headerClass} text-center`}>E-Way</th>
-              <th className={`${headerClass} text-center`}>Price</th>
-              <th className={`${headerClass} text-center w-24`}>Actions</th>
+              <th className={` w-12`}>#</th>
+              <th >Customer Name</th>
+              <th className={`boder-r px-2 py-2`}>Bill No</th>
+              <th className={`text-left`}>Contact</th>
+              <th className={`text-left`}>Date</th>
+              <th className={`text-left`}>E-Way</th>
+              <th className={`text-left`}>Price</th>
+              <th className={`text-center w-24`}>Actions</th>
             </tr>
           </thead>
 

@@ -29,7 +29,7 @@ const ViewInvoiceModal = ({
   onDelete,
   onPrint,
 }) => {
-  console.log("🔍 ViewInvoiceModal render:", { open, mode, bill: !!bill });
+  // console.log("🔍 ViewInvoiceModal render:", { open, mode, bill: !!bill });
 
   const sidebarExpanded = useMenuStore((s) => s.sidebarExpanded);
   const isEdit = mode === "edit";
@@ -136,7 +136,7 @@ const ViewInvoiceModal = ({
   };
 
   const handleSaveClick = () => {
-    console.log("💾 Modal: Save clicked");
+    // console.log("💾 Modal: Save clicked");
     onSave?.({
       ...editableBill,
       summary: currentSummary,
@@ -144,12 +144,12 @@ const ViewInvoiceModal = ({
   };
 
   const handlePrintClick = () => {
-    console.log("🖨️ Modal: Print clicked");
+    // console.log("🖨️ Modal: Print clicked");
     onPrint?.(bill || editableBill);
   };
 
   const handleDeleteClick = () => {
-    console.log("🗑️ Modal: Delete clicked");
+    // console.log("🗑️ Modal: Delete clicked");
     if (confirm(`Delete bill #${editableBill.billNo}?`)) {
       onDelete?.(bill || editableBill);
     }
