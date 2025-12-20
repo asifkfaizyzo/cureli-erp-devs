@@ -28,7 +28,7 @@ const AppLayout = () => {
         <TopHeader />
 
         {/* ✅ THIS IS THE KEY CHANGE - allow scroll here */}
-        <main className="flex-1 mt-5 pt-16 px-2 sm:px-4 md:px-6 lg:px-8 pb-4 overflow-y-auto">
+        <main className="flex-1 mt-6 pt-16 px-2 sm:px-4 md:px-6 lg:px-8 pb-4 overflow-y-auto">
 
           <Breadcrumb />
 
