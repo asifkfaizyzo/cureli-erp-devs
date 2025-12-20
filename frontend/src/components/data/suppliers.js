@@ -488,6 +488,7 @@ export const suppliersData = [
   accountNo: "74196385200",
   accountType: "Current",
   ifsc: "IBKL0000789",
-}
+},
+
 
 ];
