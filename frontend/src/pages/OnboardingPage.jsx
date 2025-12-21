@@ -5,21 +5,21 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import OnboardingHeader from "../components/layout/OnboardingHeader";
-import OnboardStepper from "../components/CustomStepper";
+import OnboardStepper from "../components/onboarding/CustomStepper";
 
-import IdentityForm from "../components/IdentityForm";
-import EmailOTP from "../components/EmailOTP";
-import PhoneDetails from "../components/PhoneDetails";
-import PhoneOTP from "../components/PhoneOTP";
-import BusinessInfo from "../components/BusinessInfo";
-import BusinessTypeAndGST from "../components/BusinessTypeAndGST";
-import UploadDrugLicense from "../components/UploadDrugLicense";
-import UploadRegistration from "../components/UploadRegistration";
-import UploadProof from "../components/UploadProof";
-import UploadEALisence from "../components/UploadEALisence";
-import UploadBPan from "../components/UploadBPan";
-import UploadAddressProof from "../components/UploadAddressProof";
-import CreatePassword from "../components/CreatePassword";
+import IdentityForm from "../components/onboarding/IdentityForm";
+import EmailOTP from "../components/onboarding/EmailOTP";
+import PhoneDetails from "../components/onboarding/PhoneDetails";
+import PhoneOTP from "../components/onboarding/PhoneOTP";
+import BusinessInfo from "../components/onboarding/BusinessInfo";
+import BusinessTypeAndGST from "../components/onboarding/BusinessTypeAndGST";
+import UploadDrugLicense from "../components/onboarding/UploadDrugLicense";
+import UploadRegistration from "../components/onboarding/UploadRegistration";
+import UploadProof from "../components/onboarding/UploadProof";
+import UploadEALisence from "../components/onboarding/UploadEALisence";
+import UploadBPan from "../components/onboarding/UploadBPan";
+import UploadAddressProof from "../components/onboarding/UploadAddressProof";
+import CreatePassword from "../components/onboarding/CreatePassword";
 import { getOnboardingStatus, updateOnboardingStep } from "../api/auth";
 
 const OnboardingPage = () => {

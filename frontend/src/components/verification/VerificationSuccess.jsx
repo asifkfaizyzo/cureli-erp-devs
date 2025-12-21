@@ -23,7 +23,12 @@ const AnimatedCheckmark = () => {
         className="absolute inset-0 rounded-full border-4 border-emerald-400"
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1.3, opacity: 0 }}
-        transition={{ duration: 1.2, delay: 0.5, repeat: Infinity, repeatDelay: 2 }}
+        transition={{
+          duration: 1.2,
+          delay: 0.5,
+          repeat: Infinity,
+          repeatDelay: 2,
+        }}
       />
 
       {/* Inner circle */}
@@ -86,8 +91,7 @@ const VerificationSuccess = () => {
     try {
       await completeOnboarding();
       const subRes = await getMySubscription();
-      const payload = subRes.data?.data;
-      const hasActive = payload?.has_active_subscription || payload?.current_plan || false;
+      const hasActive = subRes.data?.data?.has_active_subscription === true;
       navigate(hasActive ? "/dashboard" : "/plan-selection");
     } catch (err) {
       console.error("Failed to complete onboarding:", err);
@@ -120,7 +124,7 @@ const VerificationSuccess = () => {
           <div className="flex flex-col items-center lg:items-start text-center lg:text-left lg:flex-1">
             <div className="flex items-center gap-8 mb-6">
               <AnimatedCheckmark />
-              
+
               <div>
                 {/* Badge */}
                 <motion.div
@@ -130,7 +134,9 @@ const VerificationSuccess = () => {
                   className="inline-flex items-center gap-3 bg-emerald-50 border-2 border-emerald-200 px-5 py-2 rounded-full mb-4"
                 >
                   <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
-                  <span className="text-base font-semibold text-emerald-700">Verified</span>
+                  <span className="text-base font-semibold text-emerald-700">
+                    Verified
+                  </span>
                 </motion.div>
 
                 {/* Title */}
@@ -152,7 +158,8 @@ const VerificationSuccess = () => {
               transition={{ delay: 0.8 }}
               className="text-gray-500 text-lg lg:text-xl max-w-lg"
             >
-              Your pharmacy is verified. Full access to all features is now available.
+              Your pharmacy is verified. Full access to all features is now
+              available.
             </motion.p>
 
             {/* CTA Button - Desktop */}
@@ -167,9 +174,10 @@ const VerificationSuccess = () => {
               className={`
                 hidden lg:flex items-center justify-center gap-3 mt-8 px-10 py-4 rounded-2xl font-bold text-lg
                 transition-all duration-200
-                ${loading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-[#000060] hover:bg-[#000080] text-white shadow-xl shadow-[#000060]/25"
+                ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-[#000060] hover:bg-[#000080] text-white shadow-xl shadow-[#000060]/25"
                 }
               `}
             >
@@ -178,7 +186,11 @@ const VerificationSuccess = () => {
                   <motion.div
                     className="w-6 h-6 border-3 border-white border-t-transparent rounded-full"
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
                   />
                   Setting up...
                 </>
@@ -228,13 +240,22 @@ const VerificationSuccess = () => {
                     <feature.icon size={32} className="text-[#000060]" />
                   </div>
                   <div className="hidden sm:block min-w-0">
-                    <p className="font-semibold text-gray-800 text-lg leading-tight">{feature.title}</p>
-                    <p className="text-base text-gray-400 leading-tight">{feature.desc}</p>
+                    <p className="font-semibold text-gray-800 text-lg leading-tight">
+                      {feature.title}
+                    </p>
+                    <p className="text-base text-gray-400 leading-tight">
+                      {feature.desc}
+                    </p>
                   </div>
                   <div className="sm:hidden">
-                    <p className="font-semibold text-gray-800 text-sm">{feature.title}</p>
+                    <p className="font-semibold text-gray-800 text-sm">
+                      {feature.title}
+                    </p>
                   </div>
-                  <Check size={22} className="text-emerald-500 flex-shrink-0 ml-auto hidden sm:block" />
+                  <Check
+                    size={22}
+                    className="text-emerald-500 flex-shrink-0 ml-auto hidden sm:block"
+                  />
                 </motion.div>
               ))}
             </div>
@@ -254,9 +275,10 @@ const VerificationSuccess = () => {
             className={`
               w-full flex items-center justify-center gap-3 py-5 rounded-2xl font-bold text-lg
               transition-all duration-200
-              ${loading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-[#000060] hover:bg-[#000080] text-white shadow-xl shadow-[#000060]/25"
+              ${
+                loading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-[#000060] hover:bg-[#000080] text-white shadow-xl shadow-[#000060]/25"
               }
             `}
           >

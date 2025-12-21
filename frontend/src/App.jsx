@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
 // Public Pages
+import NotFoundPage from "./components/common/NotFoundPage .jsx"
 import LoginPage from "./pages/LoginPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
@@ -11,28 +12,29 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import PlanSelectionPage from "./pages/PlanSelectionPage.jsx";
 import PendingUsersPage from "./pages/PendingUsersPage.jsx";
-import SupplierPage from "./pages/SupplierPage.jsx";
+import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
 
 // Protected Pages (ERP)
 import AppLayout from "./components/layout/AppLayout.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
-import BillingPage from "./pages/BillingPage.jsx";
-import InvoicePage from "./pages/InvoicePage.jsx";
-import PurchasePage from "./pages/PurchasePage.jsx";
-import ReportPage from "./pages/report/ReportPage.jsx"
-
+import BillingPage from "./pages/sales/billing/BillingPage.jsx";
+import InvoicePage from "./pages/sales/invoice/InvoicePage.jsx";
+import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.jsx";
+import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
+import ReportPage from "./pages/report/sales/SalesReportPage.jsx"
 
 //landing pages
-import Home from "./pages/home/Home.jsx";
-import About from "./pages/about/About.jsx";
-import Contact from "./pages/Contact/Contact.jsx";
-import Pricing from "./pages/pricing/Pricing.jsx";
-
-import "./index.css";
+import Home from "./pages/landingPages/home/Home.jsx";
+import About from "./pages/landingPages/about/About.jsx";
+import Contact from "./pages/landingPages/contact/Contact.jsx";
+import Pricing from "./pages/landingPages/pricing/Pricing.jsx";
 import VerificationPage from "./pages/VerificationPage.jsx";
 
+import "./index.css";
+
+
 const App = () => {
-   useEffect(() => {
+  useEffect(() => {
     // Disable Ctrl + Scroll Zoom
     const disableZoomScroll = (e) => {
       if (e.ctrlKey) e.preventDefault();
@@ -77,9 +79,9 @@ const App = () => {
         <Route path="/contact" element={<Contact />} />
         <Route path="/pricing" element={<Pricing />} />
 
-
         {/* PUBLIC ROUTES */}
-        
+
+        <Route path="plan-selection" element={<PlanSelectionPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/verification" element={<VerificationPage />} />
@@ -93,16 +95,17 @@ const App = () => {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="Salesbilling" element={<BillingPage />} />
           <Route path="Salesinvoice" element={<InvoicePage />} />
-          <Route path="plan-selection" element={<PlanSelectionPage />} />
+          <Route path="purchase-invoices" element={<PurchaseInvoicePage />} />
           <Route path="pending-users" element={<PendingUsersPage />} />
           <Route path="purchase-billing" element={<PurchasePage />} />
           <Route path="suppliers" element={<SupplierPage />} />
-          <Route path="reports" element={<ReportPage />} />
+          <Route path="reports-sales" element={<ReportPage />} />
 
         </Route>
 
         {/* ERROR PAGE */}
         <Route path="/error" element={<ErrorPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>
   );

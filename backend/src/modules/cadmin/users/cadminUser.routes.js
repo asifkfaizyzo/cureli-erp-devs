@@ -8,7 +8,6 @@ import {getUsersController,
   toggleUserAccessController,
   resetUserPasswordController,
 } from "./cadminUser.controller.js";
-import { validateCAdminUsersQuery } from "./cadminUser.schema.js";
 
 const router = express.Router();
 
