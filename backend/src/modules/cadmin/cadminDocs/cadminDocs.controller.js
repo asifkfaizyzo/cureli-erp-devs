@@ -21,7 +21,6 @@ export async function listFilesController(req, res) {
 /**
  * GET /cadmin/shops/:shop_id
  * Get shop details with all files for verification modal
- * This is the PRIMARY endpoint for viewing shop details
  */
 export async function getShopDetailController(req, res) {
   try {
@@ -47,7 +46,6 @@ export async function getShopDetailController(req, res) {
 /**
  * GET /cadmin/files/:file_id
  * Get single file details
- * Can also return full shop context if needed
  */
 export async function getFileController(req, res) {
   try {
@@ -57,14 +55,12 @@ export async function getFileController(req, res) {
       return fail(res, "File ID is required", 400);
     }
 
-    // Get the file first
     const file = await svc.findFileById(file_id);
 
     if (!file) {
       return fail(res, "File not found", 404);
     }
 
-    // Get full shop context with all files
     const shopData = await svc.getShopVerificationDetail(file.shop_id);
 
     if (!shopData) {
@@ -124,5 +120,31 @@ export async function rejectFileController(req, res) {
   } catch (err) {
     console.error("cadmin.docs.rejectFile", err);
     return fail(res, err.message || "Failed to reject file", err.status || 500);
+  }
+}
+
+/**
+ * POST /cadmin/files/batch
+ * Batch verify/reject multiple files at once
+ */
+export async function batchUpdateFilesController(req, res) {
+  try {
+    const cadmin_id = req.cadmin.cadmin_id;
+    const { verifyIds = [], rejectItems = [] } = req.body;
+
+    if (verifyIds.length === 0 && rejectItems.length === 0) {
+      return fail(res, "No files to update", 400);
+    }
+
+    const result = await svc.batchUpdateFiles({
+      cadmin_id,
+      verifyIds,
+      rejectItems,
+    });
+
+    return success(res, result, `Updated ${result.updated} files`);
+  } catch (err) {
+    console.error("cadmin.docs.batchUpdate", err);
+    return fail(res, err.message || "Failed to update files", err.status || 500);
   }
 }

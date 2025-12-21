@@ -4,19 +4,7 @@ import CAdminAPI from "./axios";
 // UTILITY FUNCTIONS
 // ============================================
 
-/**
- * Convert rupees to paisa
- */
-export function toPaisa(rupees) {
-  return Math.round(Number(rupees));
-}
 
-/**
- * Convert paisa to rupees
- */
-export function fromPaisa(paisa) {
-  return Number(paisa);
-}
 
 // ============================================
 // PLAN API FUNCTIONS

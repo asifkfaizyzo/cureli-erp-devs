@@ -53,7 +53,7 @@ export const CARD_THEMES = {
  */
 export const toRupees = (paisa) => {
   if (paisa === null || paisa === undefined) return 0;
-  return Number(paisa) / 100;
+  return Number(paisa);
 };
 
 /**

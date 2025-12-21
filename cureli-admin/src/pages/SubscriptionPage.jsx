@@ -25,8 +25,6 @@ import {
   reactivatePlan,
   clonePlan,
   deletePlan,
-  toPaisa,
-  fromPaisa,
 } from "../api/cadminPlans";
 
 export default function SubscriptionPage() {
@@ -276,7 +274,7 @@ export default function SubscriptionPage() {
       const apiData = {
         name: formData.name,
         description: formData.description,
-        price: toPaisa(formData.price),
+        price: Number(formData.price),
         max_users: formData.usersLimit,
         max_branches: formData.branchesLimit,
         is_highlighted: formData.isHighlighted,
@@ -314,7 +312,7 @@ export default function SubscriptionPage() {
       const updateData = {
         name: updatedPlan.name,
         description: updatedPlan.description,
-        price: toPaisa(updatedPlan.price),
+        price: Number(updatedPlan.price),
         max_users: updatedPlan.max_users,
         max_branches: updatedPlan.max_branches,
         is_highlighted: updatedPlan.is_highlighted,

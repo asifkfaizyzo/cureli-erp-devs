@@ -33,16 +33,26 @@ const FILE_TYPE_LABELS = {
   fssai_license: "FSSAI License",
 };
 
+// Get file URL for viewing (inline)
 const getFileUrl = (storageKey) => {
   if (!storageKey) return null;
   if (storageKey.startsWith("http")) return storageKey;
   return `${BACKEND_URL}/uploads/shop_files/${storageKey}`;
 };
 
-// Compact Tooltip Component
+// Get download URL (forces download)
+const getDownloadUrl = (storageKey, originalName) => {
+  if (!storageKey) return null;
+  const encodedName = encodeURIComponent(originalName || storageKey);
+  return `${BACKEND_URL}/api/download/shop_files/${storageKey}?name=${encodedName}`;
+};
+
+// ============================================
+// Tooltip Component
+// ============================================
 const Tooltip = ({ children, content, position = "top" }) => {
   const [show, setShow] = useState(false);
-  
+
   const positionClasses = {
     top: "bottom-full left-1/2 -translate-x-1/2 mb-2",
     bottom: "top-full left-1/2 -translate-x-1/2 mt-2",
@@ -51,14 +61,16 @@ const Tooltip = ({ children, content, position = "top" }) => {
   };
 
   return (
-    <div 
+    <div
       className="relative inline-flex"
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
     >
       {children}
       {show && content && (
-        <div className={`absolute z-50 ${positionClasses[position]} animate-in fade-in zoom-in-95 duration-150`}>
+        <div
+          className={`absolute z-50 ${positionClasses[position]} animate-in fade-in zoom-in-95 duration-150`}
+        >
           <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-lg max-w-xs">
             {content}
           </div>
@@ -68,7 +80,9 @@ const Tooltip = ({ children, content, position = "top" }) => {
   );
 };
 
-// Compact File Preview Modal
+// ============================================
+// File Preview Modal
+// ============================================
 const FilePreviewModal = ({ isOpen, onClose, doc }) => {
   const [zoom, setZoom] = useState(100);
   const [imageLoading, setImageLoading] = useState(true);
@@ -80,42 +94,87 @@ const FilePreviewModal = ({ isOpen, onClose, doc }) => {
   const isImage = doc.mime_type?.includes("image");
   const isPdf = doc.mime_type?.includes("pdf");
 
+  const handleDownload = () => {
+    const downloadUrl = getDownloadUrl(doc.storage_key, doc.name);
+    if (downloadUrl) {
+      window.location.href = downloadUrl;
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-      
+
       <div
         className="relative w-full max-w-5xl h-[85vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Compact Header */}
+        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-[#05015A] shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-              {isImage ? <Image size={16} className="text-white" /> : <FileText size={16} className="text-white" />}
+              {isImage ? (
+                <Image size={16} className="text-white" />
+              ) : (
+                <FileText size={16} className="text-white" />
+              )}
             </div>
             <div>
-              <h3 className="text-white font-medium text-sm">{FILE_TYPE_LABELS[doc.file_type] || doc.file_type}</h3>
-              <p className="text-white/60 text-xs truncate max-w-[200px]">{doc.name}</p>
+              <h3 className="text-white font-medium text-sm">
+                {FILE_TYPE_LABELS[doc.file_type] || doc.file_type}
+              </h3>
+              <p className="text-white/60 text-xs truncate max-w-[200px]">
+                {doc.name}
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-1">
+            {/* Zoom controls for images */}
             {isImage && !imageError && (
               <div className="flex items-center bg-white/10 rounded-lg p-0.5 mr-2">
-                <button onClick={() => setZoom(p => Math.max(p - 25, 50))} className="p-1.5 text-white/70 hover:text-white">
+                <button
+                  onClick={() => setZoom((p) => Math.max(p - 25, 50))}
+                  className="p-1.5 text-white/70 hover:text-white"
+                >
                   <ZoomOut size={14} />
                 </button>
                 <span className="text-white text-xs px-2">{zoom}%</span>
-                <button onClick={() => setZoom(p => Math.min(p + 25, 200))} className="p-1.5 text-white/70 hover:text-white">
+                <button
+                  onClick={() => setZoom((p) => Math.min(p + 25, 200))}
+                  className="p-1.5 text-white/70 hover:text-white"
+                >
                   <ZoomIn size={14} />
                 </button>
               </div>
             )}
-            <button onClick={() => window.open(fileUrl, "_blank")} className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg">
+
+            {/* Download button */}
+            <button
+              onClick={handleDownload}
+              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg"
+              title="Download"
+            >
+              <Download size={16} />
+            </button>
+
+            {/* Open in new tab */}
+            <button
+              onClick={() => window.open(fileUrl, "_blank")}
+              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg"
+              title="Open in new tab"
+            >
               <ExternalLink size={16} />
             </button>
-            <button onClick={onClose} className="p-2 text-white hover:bg-red-500/50 rounded-lg ml-1">
+
+            {/* Close */}
+            <button
+              onClick={onClose}
+              className="p-2 text-white hover:bg-red-500/50 rounded-lg ml-1"
+            >
               <X size={18} />
             </button>
           </div>
@@ -134,27 +193,49 @@ const FilePreviewModal = ({ isOpen, onClose, doc }) => {
                 <img
                   src={fileUrl}
                   alt={doc.name}
+                  crossOrigin="anonymous"
                   className="max-w-full max-h-full object-contain transition-transform duration-200"
                   style={{ transform: `scale(${zoom / 100})` }}
                   onLoad={() => setImageLoading(false)}
-                  onError={() => { setImageLoading(false); setImageError(true); }}
+                  onError={() => {
+                    setImageLoading(false);
+                    setImageError(true);
+                  }}
                 />
               )}
               {imageError && (
                 <div className="text-center text-gray-400">
                   <Image size={48} className="mx-auto mb-2 opacity-50" />
-                  <p>Failed to load image</p>
+                  <p className="mb-4">Failed to load image</p>
+                  <button
+                    onClick={() => window.open(fileUrl, "_blank")}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm"
+                  >
+                    Open in new tab
+                  </button>
                 </div>
               )}
             </div>
           )}
+
           {isPdf && (
-            <iframe src={`${fileUrl}#toolbar=1`} className="w-full h-full border-0" title={doc.name} />
+            <iframe
+              src={`${fileUrl}#toolbar=1`}
+              className="w-full h-full border-0"
+              title={doc.name}
+            />
           )}
+
           {!isImage && !isPdf && (
             <div className="text-center text-gray-400 p-8">
               <File size={48} className="mx-auto mb-2 opacity-50" />
-              <p>Preview not available</p>
+              <p className="mb-4">Preview not available for this file type</p>
+              <button
+                onClick={handleDownload}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm"
+              >
+                Download file
+              </button>
             </div>
           )}
         </div>
@@ -163,9 +244,13 @@ const FilePreviewModal = ({ isOpen, onClose, doc }) => {
   );
 };
 
-// Main Compact Document Card
+// ============================================
+// Main Document Card Component
+// ============================================
 const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
   const [showPreview, setShowPreview] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
   const fileUrl = getFileUrl(doc.storage_key);
 
   const getFileIcon = () => {
@@ -202,14 +287,36 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
 
   const config = statusConfig[doc.status] || statusConfig.normal;
 
+  const handleDownload = async (e) => {
+    e.stopPropagation();
+
+    if (!doc.storage_key) return;
+
+    setDownloading(true);
+
+    try {
+      // Use the download endpoint
+      const downloadUrl = getDownloadUrl(doc.storage_key, doc.name);
+      window.location.href = downloadUrl;
+    } catch (err) {
+      console.error("Download failed:", err);
+      // Fallback: open in new tab
+      window.open(fileUrl, "_blank");
+    } finally {
+      setTimeout(() => setDownloading(false), 1000);
+    }
+  };
+
   return (
     <>
-      <div className={`group rounded-lg border border-l-4 ${config.border} ${config.bg} hover:shadow-md transition-all duration-200`}>
+      <div
+        className={`group rounded-lg border border-l-4 ${config.border} ${config.bg} hover:shadow-md transition-all duration-200`}
+      >
         <div className="p-3">
           {/* Top Row: Icon, Title, Status */}
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <div 
+              <div
                 className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-indigo-100 transition"
                 onClick={() => setShowPreview(true)}
               >
@@ -222,27 +329,31 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
                 <p className="text-[10px] text-gray-400 truncate">{doc.name}</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {/* Resubmission Badge with Hover */}
+              {/* Resubmission Badge */}
               {doc.resubmission_count > 0 && (
                 <Tooltip content={`Resubmitted ${doc.resubmission_count} time(s)`}>
                   <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 rounded text-amber-700">
                     <RefreshCw size={10} />
-                    <span className="text-[10px] font-medium">{doc.resubmission_count}</span>
+                    <span className="text-[10px] font-medium">
+                      {doc.resubmission_count}
+                    </span>
                   </div>
                 </Tooltip>
               )}
-              
+
               {/* Status Badge */}
-              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${config.labelBg}`}>
+              <span
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${config.labelBg}`}
+              >
                 {config.icon}
                 <span className="hidden sm:inline">{config.label}</span>
               </span>
             </div>
           </div>
 
-          {/* Rejection Reason - Hover Tooltip */}
+          {/* Rejection Reason */}
           {doc.status === "failed" && doc.reason && (
             <Tooltip content={doc.reason} position="bottom">
               <div className="flex items-center gap-1.5 px-2 py-1 bg-red-50 border border-red-100 rounded text-[10px] text-red-600 cursor-help mb-2">
@@ -258,19 +369,25 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
             <span>{doc.size}</span>
           </div>
 
-          {/* Action Buttons - Compact */}
+          {/* Action Buttons */}
           <div className="flex items-center gap-1.5">
             {doc.status === "normal" && (
               <>
                 <button
-                  onClick={(e) => { e.stopPropagation(); onApprove(); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onApprove();
+                  }}
                   className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-emerald-600 text-white text-[10px] font-semibold rounded hover:bg-emerald-700 transition"
                 >
                   <CheckCircle size={12} />
                   Approve
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); onReject(); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onReject();
+                  }}
                   className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-white border border-gray-200 text-gray-600 text-[10px] font-semibold rounded hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition"
                 >
                   <XCircle size={12} />
@@ -281,7 +398,10 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
 
             {(doc.status === "approved" || doc.status === "failed") && (
               <button
-                onClick={(e) => { e.stopPropagation(); onReset(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReset();
+                }}
                 className="flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-600 text-[10px] font-semibold rounded hover:bg-gray-200 transition"
               >
                 <RotateCcw size={12} />
@@ -289,6 +409,7 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
               </button>
             )}
 
+            {/* View Button */}
             <button
               onClick={() => setShowPreview(true)}
               className="flex items-center justify-center gap-1 px-2 py-1.5 bg-indigo-50 text-indigo-600 text-[10px] font-semibold rounded hover:bg-indigo-100 transition ml-auto"
@@ -297,22 +418,31 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
               View
             </button>
 
+            {/* Download Button */}
             {fileUrl && (
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(fileUrl, "_blank");
-                }}
-                className="p-1.5 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+                onClick={handleDownload}
+                disabled={downloading}
+                className="p-1.5 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition disabled:opacity-50"
+                title="Download"
               >
-                <Download size={14} />
+                {downloading ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Download size={14} />
+                )}
               </button>
             )}
           </div>
         </div>
       </div>
 
-      <FilePreviewModal isOpen={showPreview} onClose={() => setShowPreview(false)} doc={doc} />
+      {/* Preview Modal */}
+      <FilePreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        doc={doc}
+      />
     </>
   );
 };

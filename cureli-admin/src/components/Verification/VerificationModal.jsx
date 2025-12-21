@@ -16,7 +16,8 @@ import { useState, useEffect, useMemo } from "react";
 import DocumentCard from "./DocumentCard";
 import VerificationDetailsTop from "./VerificationDetailsTop";
 import ConfirmDialog from "../common/ConfirmDialog";
-import { getShopVerificationDetail, verifyFile, rejectFile } from "../../api/cadminDocs";
+// ✅ CHANGED: Import batchUpdateFiles instead of verifyFile, rejectFile
+import { getShopVerificationDetail, batchUpdateFiles } from "../../api/cadminDocs";
 
 const VerificationModal = ({ shop, onClose }) => {
   const [activeTab, setActiveTab] = useState("details");
@@ -112,13 +113,15 @@ const VerificationModal = ({ shop, onClose }) => {
     setHasUnsavedChanges(hasChanges);
   }, [documents, originalDocuments]);
 
-  // Validation
+  // Validation - UNCHANGED (still requires all 6 reviewed)
   const canSave = useMemo(() => {
     if (!hasUnsavedChanges) return false;
 
+    // ✅ Must review ALL documents
     const allReviewed = documents.every((d) => d.status === "approved" || d.status === "failed");
     if (!allReviewed) return false;
 
+    // ✅ All rejected must have reasons
     const rejectedWithoutReason = documents.some(
       (d) => d.status === "failed" && (!d.reason || !d.reason.trim())
     );
@@ -183,28 +186,41 @@ const VerificationModal = ({ shop, onClose }) => {
     }
   };
 
-  // Save all changes - Optimized
+  // ✅ UPDATED: Save all changes using batch API
   const handleSave = async () => {
     if (!canSave) return;
 
     setIsSaving(true);
     try {
-      const changes = documents.filter((doc, index) => {
+      // Collect changes into batch format
+      const verifyIds = [];
+      const rejectItems = [];
+
+      documents.forEach((doc, index) => {
         const original = originalDocuments[index];
-        return doc.status !== original.status || doc.reason !== original.reason;
+        if (!original) return;
+
+        // Check if this document changed
+        const hasChanged = doc.status !== original.status || doc.reason !== original.reason;
+        if (!hasChanged) return;
+
+        // Collect verify IDs
+        if (doc.status === "approved" && original.originalStatus !== "verified") {
+          verifyIds.push(doc.file_id);
+        }
+        // Collect reject items with reasons
+        else if (doc.status === "failed" && doc.reason.trim()) {
+          rejectItems.push({
+            file_id: doc.file_id,
+            reason: doc.reason.trim(),
+          });
+        }
       });
 
-      // Process changes in parallel
-      await Promise.all(
-        changes.map((doc) => {
-          if (doc.status === "approved" && doc.originalStatus !== "verified") {
-            return verifyFile(doc.file_id);
-          } else if (doc.status === "failed" && doc.reason.trim()) {
-            return rejectFile(doc.file_id, doc.reason.trim());
-          }
-          return Promise.resolve();
-        })
-      );
+      // Single API call for all changes
+      if (verifyIds.length > 0 || rejectItems.length > 0) {
+        await batchUpdateFiles({ verifyIds, rejectItems });
+      }
 
       // Close modal and trigger refresh
       onClose(true);
@@ -301,9 +317,7 @@ const VerificationModal = ({ shop, onClose }) => {
           className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* ═══════════════════════════════════════════════════════
-              HEADER
-          ═══════════════════════════════════════════════════════ */}
+          {/* HEADER */}
           <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4">
             <div className="flex items-center justify-between">
               {/* Shop Info */}
@@ -331,7 +345,6 @@ const VerificationModal = ({ shop, onClose }) => {
 
               {/* Header Actions */}
               <div className="flex items-center gap-2">
-                {/* Save Button - Only show in documents tab */}
                 {activeTab === "documents" && (
                   <button
                     onClick={handleSave}
@@ -361,7 +374,6 @@ const VerificationModal = ({ shop, onClose }) => {
                   </button>
                 )}
 
-                {/* Close */}
                 <button
                   onClick={handleClose}
                   className="p-2 rounded-lg bg-white/20 text-white hover:bg-red-500/30 transition-all"
@@ -372,10 +384,8 @@ const VerificationModal = ({ shop, onClose }) => {
             </div>
           </div>
 
-          {/* ═══════════════════════════════════════════════════════
-              TABS
-          ═══════════════════════════════════════════════════════ */}
-          <div className="flex gap-1 px-6  bg-white border-b border-gray-200 overflow-x-auto">
+          {/* TABS */}
+          <div className="flex gap-1 px-6 bg-white border-b border-gray-200 overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -403,9 +413,7 @@ const VerificationModal = ({ shop, onClose }) => {
             })}
           </div>
 
-          {/* ═══════════════════════════════════════════════════════
-              CONTENT
-          ═══════════════════════════════════════════════════════ */}
+          {/* CONTENT */}
           <div className="p-2 h-[60vh] overflow-auto bg-gray-50">
             {activeTab === "details" && (
               <div className="bg-white rounded-xl border border-gray-100 p-6">
@@ -488,9 +496,7 @@ const VerificationModal = ({ shop, onClose }) => {
             )}
           </div>
 
-          {/* ═══════════════════════════════════════════════════════
-              FOOTER
-          ═══════════════════════════════════════════════════════ */}
+          {/* FOOTER */}
           <div className="px-6 py-4 bg-white border-t border-gray-100">
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-400">
@@ -508,9 +514,7 @@ const VerificationModal = ({ shop, onClose }) => {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════
-          REJECTION DIALOG
-      ═══════════════════════════════════════════════════════ */}
+      {/* REJECTION DIALOG */}
       <ConfirmDialog
         isOpen={!!rejectingFileId}
         onClose={cancelReject}

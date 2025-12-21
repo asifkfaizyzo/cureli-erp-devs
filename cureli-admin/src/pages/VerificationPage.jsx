@@ -52,7 +52,6 @@ const VerificationPage = () => {
   const fetchShops = useCallback(async () => {
     setLoading(true);
     try {
-      // ✅ Build params object - only include non-empty values
       const params = {
         page: currentPage,
         limit: rowsPerPage,
@@ -60,7 +59,6 @@ const VerificationPage = () => {
         sort_order: sortOrder,
       };
 
-      // Only add filters if they have values
       if (search.trim()) {
         params.search = search.trim();
       }
@@ -97,10 +95,19 @@ const VerificationPage = () => {
     fetchShops();
   }, [fetchShops]);
 
-  // Handlers
+  // ✅ UPDATED: Handler with debugging
   const handleRowClick = (shop) => {
+    console.log("🔵 Row clicked:", shop);
+    console.log("🔵 Shop ID:", shop?.shop_id);
+    
+    if (!shop || !shop.shop_id) {
+      console.error("❌ Invalid shop data:", shop);
+      return;
+    }
+    
     setSelectedShop(shop);
     setIsModalOpen(true);
+    console.log("✅ Modal should open now");
   };
 
   const handleSortChange = (field) => {
@@ -119,6 +126,7 @@ const VerificationPage = () => {
   };
 
   const handleModalClose = (shouldRefresh = false) => {
+    console.log("🔵 Modal closing, shouldRefresh:", shouldRefresh);
     setIsModalOpen(false);
     setSelectedShop(null);
     if (shouldRefresh) {
@@ -128,9 +136,12 @@ const VerificationPage = () => {
 
   const totalPages = Math.max(1, Math.ceil(totalItems / rowsPerPage));
 
+  // ✅ DEBUG: Log modal state
+  console.log("🔍 Modal state:", { isModalOpen, selectedShop: selectedShop?.shop_id });
+
   return (
     <div className="p-4 h-full flex flex-col gap-4">
-      {/* Header with filters - Higher z-index for dropdowns */}
+      {/* Header with filters */}
       <div className="shrink-0 relative z-30">
         <VerificationHeader
           search={search}
@@ -146,7 +157,7 @@ const VerificationPage = () => {
         />
       </div>
 
-      {/* Table with pagination - Lower z-index */}
+      {/* Table with pagination */}
       <div className="flex-1 min-h-0 relative z-10">
         <VerificationTable
           data={shops}
@@ -163,8 +174,8 @@ const VerificationPage = () => {
         />
       </div>
 
-      {/* Modal - Highest z-index */}
-      {isModalOpen && (
+      {/* ✅ Modal - Added null check for selectedShop */}
+      {isModalOpen && selectedShop && (
         <VerificationModal
           shop={selectedShop}
           onClose={handleModalClose}

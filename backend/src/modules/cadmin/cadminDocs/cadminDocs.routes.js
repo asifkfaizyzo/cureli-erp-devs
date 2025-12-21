@@ -9,6 +9,7 @@ import {
   getFileController,
   verifyFileController,
   rejectFileController,
+  batchUpdateFilesController,  // ✅ ADD THIS IMPORT
 } from "./cadminDocs.controller.js";
 import { rejectSchema, validateVerificationQuery } from "./cadminDocs.schema.js";
 
@@ -19,7 +20,7 @@ router.use(requireCAdmin);
 // List shops for verification
 router.get("/files", validateVerificationQuery, listFilesController);
 
-// Get shop verification detail (unique path to avoid conflict with cadminShops)
+// Get shop verification detail
 router.get("/files/shop/:shop_id", getShopDetailController);
 
 // Get single file details
@@ -30,5 +31,8 @@ router.patch("/files/:file_id/verify", verifyFileController);
 
 // Reject a document
 router.patch("/files/:file_id/reject", validateBody(rejectSchema), rejectFileController);
+
+// ✅ Batch update files (NEW)
+router.post("/files/batch", batchUpdateFilesController);
 
 export default router;

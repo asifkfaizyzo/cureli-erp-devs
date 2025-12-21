@@ -133,7 +133,7 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
   // Create Razorpay order
   // Price is in paisa, Razorpay expects amount in smallest currency unit (paisa for INR)
   const razorpayOrder = await razorpay.orders.create({
-    amount: Number(plan.price), // Already in paisa
+    amount: Number(plan.price)*100, // Already in paisa
     currency: RAZORPAY_CURRENCY,
     receipt: subscription.subscription_id,
     notes: {
@@ -165,7 +165,7 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
     subscription,
     razorpay_order_id: razorpayOrder.id,
     razorpay_key: process.env.RAZORPAY_KEY_ID,
-    amount: Number(plan.price),
+    amount: Number(plan.price)*100,
     currency: RAZORPAY_CURRENCY,
     user_name: user.full_name,
     user_email: user.email,

@@ -3,16 +3,14 @@
 import prisma from "../../../config/prisma.js";
 import { sendMail } from "../../../utils/email.js";
 
-/**
- * LIST SHOPS FOR VERIFICATION
- * Returns paginated list of shops with verification status + file counts
- */
+// ═══════════════════════════════════════════════════════════════
+// LIST SHOPS FOR VERIFICATION (unchanged)
+// ═══════════════════════════════════════════════════════════════
 export async function listShopsForVerification(query = {}) {
   const page = Math.max(Number(query.page) || 1, 1);
   const limit = Math.min(Number(query.limit) || 10, 200);
   const skip = (page - 1) * limit;
 
-  // Build where clause for shops
   const where = {};
 
   if (query.search) {
@@ -29,7 +27,6 @@ export async function listShopsForVerification(query = {}) {
     where.verification_status = query.status;
   }
 
-  // Date range filter - Handle both Date objects and strings
   if (query.dateStart) {
     const startDate = query.dateStart instanceof Date 
       ? query.dateStart 
@@ -44,14 +41,10 @@ export async function listShopsForVerification(query = {}) {
       : new Date(query.dateEnd);
     if (!isNaN(endDate.getTime())) {
       endDate.setHours(23, 59, 59, 999);
-      where.created_at = {
-        ...where.created_at,
-        lte: endDate,
-      };
+      where.created_at = { ...where.created_at, lte: endDate };
     }
   }
 
-  // Sorting
   const orderBy = {};
   if (query.sort_by === "business_name") {
     orderBy.business_name = query.sort_order || "desc";
@@ -63,7 +56,6 @@ export async function listShopsForVerification(query = {}) {
     orderBy.created_at = query.sort_order || "desc";
   }
 
-  // Fetch shops with owner info
   const shops = await prisma.shop.findMany({
     where,
     include: {
@@ -88,10 +80,8 @@ export async function listShopsForVerification(query = {}) {
     take: limit,
   });
 
-  // Count total (for pagination) - before filtering
   const totalBeforeFilter = await prisma.shop.count({ where });
 
-  // Transform shops to include verification summary
   let data = shops.map((shop) => {
     const files = shop.shopFiles || [];
     const filesApproved = files.filter((f) => f.status === "verified").length;
@@ -119,17 +109,11 @@ export async function listShopsForVerification(query = {}) {
     };
   });
 
-  // ✅ FIX: Use resubmissionCountMin (camelCase - matching schema)
   const resubMinFilter = Number(query.resubmissionCountMin);
-  
-  
   if (!isNaN(resubMinFilter) && resubMinFilter > 0) {
-    const beforeCount = data.length;
     data = data.filter((shop) => shop.resubmission_count >= resubMinFilter);
-    console.log(`🔍 Filtered: ${beforeCount} -> ${data.length} shops (resub >= ${resubMinFilter})`);
   }
 
-  // Sort by resubmission_count if requested
   if (query.sort_by === "resubmission_count") {
     data.sort((a, b) => {
       const diff = a.resubmission_count - b.resubmission_count;
@@ -137,7 +121,6 @@ export async function listShopsForVerification(query = {}) {
     });
   }
 
-  // Calculate totals
   const filteredTotal = (!isNaN(resubMinFilter) && resubMinFilter > 0)
     ? data.length
     : totalBeforeFilter;
@@ -153,23 +136,19 @@ export async function listShopsForVerification(query = {}) {
   };
 }
 
-/**
- * FIND FILE BY ID
- * Simple helper to get file
- */
+// ═══════════════════════════════════════════════════════════════
+// FIND FILE BY ID
+// ═══════════════════════════════════════════════════════════════
 export async function findFileById(file_id) {
   return prisma.shopFile.findUnique({
     where: { file_id },
   });
 }
 
-/**
- * GET SHOP VERIFICATION DETAIL
- * Returns full shop info + all files + verification logs
- * Used for modal display when admin clicks on a shop
- */
+// ═══════════════════════════════════════════════════════════════
+// GET SHOP VERIFICATION DETAIL
+// ═══════════════════════════════════════════════════════════════
 export async function getShopVerificationDetail(shop_id) {
-  // Fetch shop with owner and all files
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
     include: {
@@ -194,13 +173,11 @@ export async function getShopVerificationDetail(shop_id) {
     throw e;
   }
 
-  // Fetch verification logs
   const logs = await prisma.fileVerificationLog.findMany({
     where: { shop_id },
     orderBy: { created_at: "desc" },
   });
 
-  // Transform shop files
   const files = (shop.shopFiles || []).map((f) => ({
     file_id: f.file_id,
     file_type: f.file_type,
@@ -218,7 +195,6 @@ export async function getShopVerificationDetail(shop_id) {
     last_resubmitted_at: f.last_resubmitted_at,
   }));
 
-  // Calculate summary
   const filesApproved = files.filter((f) => f.status === "verified").length;
   const filesRejected = files.filter((f) => f.status === "rejected").length;
   const filesPending = files.filter((f) => f.status === "uploaded").length;
@@ -274,12 +250,10 @@ export async function getShopVerificationDetail(shop_id) {
   };
 }
 
-/**
- * VERIFY FILE
- * Approve a single file
- * Auto-updates shop verification status if all files verified
- */
-export async function verifyFile({ file_id, cadmin_id }) {
+// ═══════════════════════════════════════════════════════════════
+// VERIFY FILE (Single - lightweight, no shop status update)
+// ═══════════════════════════════════════════════════════════════
+export async function verifyFile({ file_id, cadmin_id, skipShopUpdate = false }) {
   const file = await prisma.shopFile.findUnique({
     where: { file_id },
   });
@@ -290,7 +264,6 @@ export async function verifyFile({ file_id, cadmin_id }) {
     throw e;
   }
 
-  // Update file to verified
   const updated = await prisma.shopFile.update({
     where: { file_id },
     data: {
@@ -300,7 +273,6 @@ export async function verifyFile({ file_id, cadmin_id }) {
     },
   });
 
-  // Create verification log
   await createVerificationLog({
     file_id,
     shop_id: file.shop_id,
@@ -309,32 +281,36 @@ export async function verifyFile({ file_id, cadmin_id }) {
     action: "verified",
   });
 
-  // Update shop status based on all files
-  const newShopStatus = await updateShopVerificationStatus(file.shop_id);
+  // Only update shop status if not in batch mode
+  if (!skipShopUpdate) {
+    const newShopStatus = await updateShopVerificationStatus(file.shop_id);
 
-  if (newShopStatus === "verified") {
-    await updateOwnerStatusToVerified(file.shop_id);
-    await sendVerificationEmail(file.shop_id);
-  }
-  // If shop fully verified, send email
-  if (newShopStatus === "verified") {
-    await sendVerificationEmail(file.shop_id);
+    if (newShopStatus === "verified") {
+      await updateOwnerStatusToVerified(file.shop_id);
+      // Fire-and-forget email
+      sendVerificationEmail(file.shop_id).catch(console.error);
+    }
+
+    return {
+      file_id: updated.file_id,
+      status: updated.status,
+      verified_at: updated.verified_at,
+      shop_verification_status: newShopStatus,
+    };
   }
 
   return {
     file_id: updated.file_id,
     status: updated.status,
     verified_at: updated.verified_at,
-    shop_verification_status: newShopStatus,
+    shop_id: file.shop_id,
   };
 }
 
-/**
- * REJECT FILE
- * Reject a single file with a required reason
- * Auto-updates shop verification status
- */
-export async function rejectFile({ file_id, cadmin_id, reason }) {
+// ═══════════════════════════════════════════════════════════════
+// REJECT FILE (Single - lightweight, no shop status update)
+// ═══════════════════════════════════════════════════════════════
+export async function rejectFile({ file_id, cadmin_id, reason, skipShopUpdate = false }) {
   const file = await prisma.shopFile.findUnique({
     where: { file_id },
   });
@@ -345,7 +321,6 @@ export async function rejectFile({ file_id, cadmin_id, reason }) {
     throw e;
   }
 
-  // Update file to rejected
   const updated = await prisma.shopFile.update({
     where: { file_id },
     data: {
@@ -355,7 +330,6 @@ export async function rejectFile({ file_id, cadmin_id, reason }) {
     },
   });
 
-  // Create verification log
   await createVerificationLog({
     file_id,
     shop_id: file.shop_id,
@@ -365,30 +339,151 @@ export async function rejectFile({ file_id, cadmin_id, reason }) {
     reason: reason.trim(),
   });
 
-  // Update shop status
-  const newShopStatus = await updateShopVerificationStatus(file.shop_id);
+  // Only update shop status if not in batch mode
+  if (!skipShopUpdate) {
+    const newShopStatus = await updateShopVerificationStatus(file.shop_id);
 
+    if (newShopStatus === "rejected" || newShopStatus === "partially_rejected") {
+      await updateOwnerStatusAfterRejection(file.shop_id, newShopStatus);
+    }
 
-  if (newShopStatus === "rejected" || newShopStatus === "partially_rejected") {
-    await updateOwnerStatusAfterRejection(file.shop_id, newShopStatus);
+    // Fire-and-forget email
+    sendRejectionEmail(file.shop_id, reason).catch(console.error);
+
+    return {
+      file_id: updated.file_id,
+      status: updated.status,
+      verification_notes: updated.verification_notes,
+      rejected_at: updated.rejected_at,
+      shop_verification_status: newShopStatus,
+    };
   }
-
-  // Send rejection email
-  await sendRejectionEmail(file.shop_id, reason);
 
   return {
     file_id: updated.file_id,
     status: updated.status,
     verification_notes: updated.verification_notes,
     rejected_at: updated.rejected_at,
-    shop_verification_status: newShopStatus,
+    shop_id: file.shop_id,
   };
 }
 
-/**
- * UPDATE SHOP VERIFICATION STATUS
- * Helper to recalculate and update shop status based on file statuses
- */
+// ═══════════════════════════════════════════════════════════════
+// ✅ NEW: BATCH VERIFY/REJECT FILES (Optimized for bulk operations)
+// ═══════════════════════════════════════════════════════════════
+export async function batchUpdateFiles({ cadmin_id, verifyIds = [], rejectItems = [] }) {
+  if (verifyIds.length === 0 && rejectItems.length === 0) {
+    return { updated: 0 };
+  }
+
+  let shop_id = null;
+  const results = { verified: [], rejected: [] };
+
+  // Use a transaction for atomicity
+  await prisma.$transaction(async (tx) => {
+    // 1. Batch verify files
+    if (verifyIds.length > 0) {
+      // Get shop_id from first file
+      const firstFile = await tx.shopFile.findUnique({
+        where: { file_id: verifyIds[0] },
+        select: { shop_id: true },
+      });
+      shop_id = firstFile?.shop_id;
+
+      // Update all files in one query
+      await tx.shopFile.updateMany({
+        where: { file_id: { in: verifyIds } },
+        data: {
+          status: "verified",
+          verification_notes: null,
+          verified_at: new Date(),
+        },
+      });
+
+      results.verified = verifyIds;
+    }
+
+    // 2. Reject files (need individual updates for different reasons)
+    for (const item of rejectItems) {
+      const file = await tx.shopFile.findUnique({
+        where: { file_id: item.file_id },
+        select: { shop_id: true },
+      });
+      
+      if (!shop_id) shop_id = file?.shop_id;
+
+      await tx.shopFile.update({
+        where: { file_id: item.file_id },
+        data: {
+          status: "rejected",
+          verification_notes: item.reason.trim(),
+          rejected_at: new Date(),
+        },
+      });
+
+      results.rejected.push(item.file_id);
+    }
+
+    // 3. Create verification logs in batch
+    const logs = [
+      ...verifyIds.map((file_id) => ({
+        file_id,
+        shop_id,
+        cadmin_id,
+        actor_type: "admin",
+        action: "verified",
+        reason: null,
+      })),
+      ...rejectItems.map((item) => ({
+        file_id: item.file_id,
+        shop_id,
+        cadmin_id,
+        actor_type: "admin",
+        action: "rejected",
+        reason: item.reason.trim(),
+      })),
+    ];
+
+    if (logs.length > 0) {
+      await tx.fileVerificationLog.createMany({ data: logs });
+    }
+  });
+
+  // 4. Update shop status ONCE (outside transaction for speed)
+  if (shop_id) {
+    const newShopStatus = await updateShopVerificationStatus(shop_id);
+
+    // Handle user status update
+    if (newShopStatus === "verified") {
+      await updateOwnerStatusToVerified(shop_id);
+      // Fire-and-forget email
+      sendVerificationEmail(shop_id).catch(console.error);
+    } else if (newShopStatus === "rejected" || newShopStatus === "partially_rejected") {
+      await updateOwnerStatusAfterRejection(shop_id, newShopStatus);
+      // Send ONE rejection summary email
+      const rejectionReasons = rejectItems.map(r => r.reason).join("; ");
+      sendRejectionEmail(shop_id, rejectionReasons).catch(console.error);
+    }
+
+    return {
+      updated: results.verified.length + results.rejected.length,
+      verified: results.verified.length,
+      rejected: results.rejected.length,
+      shop_verification_status: newShopStatus,
+    };
+  }
+
+  return {
+    updated: results.verified.length + results.rejected.length,
+    verified: results.verified.length,
+    rejected: results.rejected.length,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
 async function updateShopVerificationStatus(shop_id) {
   const allFiles = await prisma.shopFile.findMany({
     where: { shop_id },
@@ -420,10 +515,6 @@ async function updateShopVerificationStatus(shop_id) {
   return newStatus;
 }
 
-/**
- * SEND VERIFICATION EMAIL
- * Send email when shop is fully verified
- */
 async function sendVerificationEmail(shop_id) {
   try {
     const shop = await prisma.shop.findUnique({
@@ -454,10 +545,6 @@ async function sendVerificationEmail(shop_id) {
   }
 }
 
-/**
- * SEND REJECTION EMAIL
- * Send email when a file is rejected
- */
 async function sendRejectionEmail(shop_id, reason) {
   try {
     const shop = await prisma.shop.findUnique({
@@ -512,10 +599,6 @@ async function sendRejectionEmail(shop_id, reason) {
   }
 }
 
-/**
- * CREATE VERIFICATION LOG
- * Helper to log all file verification actions
- */
 export async function createVerificationLog({
   file_id,
   shop_id,
@@ -538,18 +621,6 @@ export async function createVerificationLog({
   });
 }
 
-
-/**
- * UPDATE OWNER STATUS TO VERIFIED
- * When shop becomes fully verified, update the owner's user status
- * This allows them to see the success screen on next login
- */
-// Add these two new helper functions at the bottom of the file
-
-/**
- * UPDATE OWNER STATUS TO VERIFIED
- * When shop becomes fully verified, update the owner's user status
- */
 async function updateOwnerStatusToVerified(shop_id) {
   try {
     const shop = await prisma.shop.findUnique({
@@ -557,43 +628,30 @@ async function updateOwnerStatusToVerified(shop_id) {
       select: { owner_user_id: true },
     });
 
-    if (!shop?.owner_user_id) {
-      console.error("❌ No owner found for shop:", shop_id);
-      return;
-    }
+    if (!shop?.owner_user_id) return;
 
     const user = await prisma.user.findUnique({
       where: { user_id: shop.owner_user_id },
       select: { status: true },
     });
 
-    if (!user) {
-      console.error("❌ User not found:", shop.owner_user_id);
-      return;
-    }
+    if (!user || user.status === "verified") return;
 
-    // Only update if not already verified
-    if (user.status !== "verified") {
-      await prisma.user.update({
-        where: { user_id: shop.owner_user_id },
-        data: {
-          status: "verified",
-          onboarding_step: 12,
-          first_login_after_verification: false, // Show success screen
-        },
-      });
+    await prisma.user.update({
+      where: { user_id: shop.owner_user_id },
+      data: {
+        status: "verified",
+        onboarding_step: 12,
+        first_login_after_verification: false,
+      },
+    });
 
-      console.log("✅ User status updated to verified:", shop.owner_user_id);
-    }
+    console.log("✅ User status updated to verified:", shop.owner_user_id);
   } catch (err) {
     console.error("❌ Failed to update owner status:", err);
   }
 }
 
-/**
- * UPDATE OWNER STATUS AFTER REJECTION
- * Set user back to pending_verification so they can resubmit
- */
 async function updateOwnerStatusAfterRejection(shop_id) {
   try {
     const shop = await prisma.shop.findUnique({
@@ -603,18 +661,16 @@ async function updateOwnerStatusAfterRejection(shop_id) {
 
     if (!shop?.owner_user_id) return;
 
-    // Set user to pending_verification (can resubmit docs)
     await prisma.user.update({
       where: { user_id: shop.owner_user_id },
       data: {
-        status: "pending_verification", // ✅ Changed from "pending_setup"
-        onboarding_step: 12, // Stay on verification step
+        status: "pending_verification",
+        onboarding_step: 12,
       },
     });
 
-    console.log("✅ [Service] Updated user status to pending_verification:", shop.owner_user_id);
+    console.log("✅ Updated user status to pending_verification:", shop.owner_user_id);
   } catch (err) {
-    console.error("❌ [Service] Failed to update owner status after rejection:", err);
+    console.error("❌ Failed to update owner status after rejection:", err);
   }
 }
-
