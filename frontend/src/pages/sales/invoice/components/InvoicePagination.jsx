@@ -1,6 +1,12 @@
 // components/InvoicePagination.jsx
 import React from "react";
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  ChevronsLeft,    // Added
+  ChevronsRight,   // Added
+  MoreHorizontal 
+} from "lucide-react";
 
 const InvoicePagination = ({ 
   currentPage, 
@@ -77,7 +83,17 @@ const InvoicePagination = ({
       {/* Right: Controls */}
       <div className="flex items-center gap-2 mx-auto sm:mx-0">
         
-        {/* ← PREVIOUS */}
+        {/* << FIRST PAGE (Added) */}
+        <button 
+          onClick={() => setCurrentPage(1)} 
+          disabled={currentPage === 1} 
+          className={btnNav}
+          title="First Page"
+        >
+          <ChevronsLeft size={16} />
+        </button>
+
+        {/* < PREVIOUS */}
         <button onClick={goPrev} disabled={currentPage === 1} className={btnNav}>
           <ChevronLeft size={16} />
         </button>
@@ -120,10 +136,21 @@ const InvoicePagination = ({
           )}
         </div>
 
-        {/* → NEXT */}
+        {/* > NEXT */}
         <button onClick={goNext} disabled={currentPage === totalPages} className={btnNav}>
           <ChevronRight size={16} />
         </button>
+
+        {/* >> LAST PAGE (Added) */}
+        <button 
+          onClick={() => setCurrentPage(totalPages)} 
+          disabled={currentPage === totalPages} 
+          className={btnNav}
+          title="Last Page"
+        >
+          <ChevronsRight size={16} />
+        </button>
+
       </div>
     </div>
   );

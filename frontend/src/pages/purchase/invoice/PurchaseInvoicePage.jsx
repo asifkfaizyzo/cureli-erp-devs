@@ -81,14 +81,14 @@ const PurchaseInvoicePage = () => {
   /* ---------------- TABLE ACTIONS ---------------- */
 
   const handleView = (row, mode) => {
-    console.log("👁️ VIEW clicked:", { row, mode });
+    // console.log("👁️ VIEW clicked:", { row, mode });
     setSelectedBill(row);
     setModalMode(mode || "view");
     setOpenModal(true);
   };
 
   const handleEdit = (row, mode) => {
-    console.log("✏️ EDIT clicked:", { row, mode });
+    // console.log("✏️ EDIT clicked:", { row, mode });
     setSelectedBill(row);
     setModalMode(mode || "edit");
     setOpenModal(true);
@@ -106,7 +106,7 @@ const PurchaseInvoicePage = () => {
   /* ---------------- MODAL ACTIONS ---------------- */
 
   const handleSave = (updatedBill) => {
-    console.log("💾 SAVE clicked:", updatedBill);
+    // console.log("💾 SAVE clicked:", updatedBill);
     setPurchases((prev) =>
       prev.map((p) =>
         p.purchaseId === updatedBill.purchaseId ? updatedBill : p
@@ -116,13 +116,13 @@ const PurchaseInvoicePage = () => {
   };
 
   const handleDeleteFromModal = (bill) => {
-    console.log("🗑️ DELETE from modal:", bill);
+    // console.log("🗑️ DELETE from modal:", bill);
     handleDelete(bill);
     setOpenModal(false);
   };
 
   const handlePrint = (bill) => {
-    console.log("🖨️ PRINT clicked:", bill);
+    // console.log("🖨️ PRINT clicked:", bill);
     window.print();
   };
 
@@ -130,7 +130,7 @@ const PurchaseInvoicePage = () => {
   return (
     <div className="h-full w-full flex flex-col overflow-hidden font-poppins">
       {/* FILTERS */}
-      <div className="p-4 border-b border-gray-100 bg-white">
+      <div className="p-4">
         <InvoiceFilters filters={filters} onChange={handleFilterChange} />
       </div>
 
@@ -159,7 +159,7 @@ const PurchaseInvoicePage = () => {
         mode={modalMode}
         bill={selectedBill}
         onClose={() => {
-          console.log("❌ Modal closed");
+          // console.log("❌ Modal closed");
           setOpenModal(false);
         }}
         onSave={handleSave}

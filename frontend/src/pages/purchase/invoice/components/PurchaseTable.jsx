@@ -640,23 +640,22 @@ const PurchaseTable = ({
   const pxSize = sidebarExpanded ? "px-2" : "px-4";
 
   const cellClass = `${textSize} ${pySize} ${pxSize} border-b border-gray-100 group-hover:border-blue-100 transition`;
-  const headerClass = `${pxSize} py-3 text-left font-bold text-[#000060] uppercase tracking-wider bg-gray-50 border-b border-gray-200 sticky top-0 z-10 whitespace-nowrap`;
-
+  const headerClass = `${pxSize} py-3 h-10  text-left font-bold text-white uppercase tracking-wider bg-gradient-to-r from-[#05015A] to-[#0a0280] border-r border-blue-800 sticky top-0 z-10 whitespace-nowrap shadow-sm`;
   const emptyRowsCount = Math.max(0, rowsPerPage - safePurchases.length);
 
   return (
     <div className="flex flex-col h-full bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
       <div className="flex-1 relative overflow-auto">
         <table className="w-full border-collapse">
-          <thead>
+          <thead className={headerClass}>
             <tr className={sidebarExpanded ? "text-[10px]" : "text-xs"}>
-              <th className={`${headerClass} w-12`}>#</th>
-              <th className={headerClass}>Supplier Name</th>
-              <th className={headerClass}>Supplier ID</th>
-              <th className={headerClass}>Purchase ID</th>
-              <th className={headerClass}>Contact</th>
-              <th className={headerClass}>Purchase Date</th>
-              <th className={`${headerClass} text-center w-24`}>Actions</th>
+              <th>#</th>
+              <th >Supplier Name</th>
+              <th>Supplier ID</th>
+              <th>Purchase ID</th>
+              <th>Contact</th>
+              <th>Purchase Date</th>
+              <th className="text-center">Actions</th>
             </tr>
           </thead>
 
@@ -706,7 +705,7 @@ const PurchaseTable = ({
                       {/* VIEW */}
                       <button
                         onClick={() => {
-                          console.log("📋 Table: VIEW button clicked");
+                          // console.log("📋 Table: VIEW button clicked");
                           onView?.(row, "view");
                         }}
                         className="p-1.5 rounded hover:bg-blue-50 hover:text-blue-600"
@@ -718,7 +717,7 @@ const PurchaseTable = ({
                       {/* EDIT */}
                       <button
                         onClick={() => {
-                          console.log("📋 Table: EDIT button clicked");
+                          // console.log("📋 Table: EDIT button clicked");
                           onEdit?.(row, "edit");
                         }}
                         className="p-1.5 rounded hover:bg-amber-50 hover:text-amber-600"
@@ -730,7 +729,7 @@ const PurchaseTable = ({
                       {/* DELETE */}
                       <button
                         onClick={() => {
-                          console.log("📋 Table: DELETE button clicked");
+                          // console.log("📋 Table: DELETE button clicked");
                           onDelete?.(row);
                         }}
                         className="p-1.5 rounded hover:bg-red-50 hover:text-red-600"

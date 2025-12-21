@@ -71,7 +71,7 @@ const InvoiceFilters = ({ filters, onChange, onSearch, onReset }) => {
       <div className="flex items-end gap-3 px-3 py-2">
         
         {/* CUSTOMER */}
-        <FilterField label="Customer" icon={User}>
+        <FilterField label="supplier" icon={User}>
           <input
             type="text"
             className={`${inputBase} w-32`}
@@ -82,11 +82,11 @@ const InvoiceFilters = ({ filters, onChange, onSearch, onReset }) => {
         </FilterField>
 
         {/* BILL NUMBER */}
-        <FilterField label="Invoice #" icon={Hash}>
+        <FilterField label="purchse id #" icon={Hash}>
           <input
             type="text"
             className={`${inputBase} w-24`}
-            placeholder="INV..."
+            placeholder="Purch..."
             value={filters.billNo}
             onChange={(e) => onChange("billNo", e.target.value)}
           />
@@ -95,7 +95,7 @@ const InvoiceFilters = ({ filters, onChange, onSearch, onReset }) => {
         {/* PHONE */}
         <FilterField label="Phone" icon={Phone}>
           <input
-            type="text"
+            type="number"
             className={`${inputBase} w-28`}
             placeholder="98765..."
             value={filters.phone}

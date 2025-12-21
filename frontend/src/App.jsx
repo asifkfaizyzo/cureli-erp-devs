@@ -12,7 +12,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import PlanSelectionPage from "./pages/PlanSelectionPage.jsx";
 import PendingUsersPage from "./pages/PendingUsersPage.jsx";
-import SupplierPage from "./pages/SupplierPage.jsx";
+import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
 
 // Protected Pages (ERP)
 import AppLayout from "./components/layout/AppLayout.jsx";

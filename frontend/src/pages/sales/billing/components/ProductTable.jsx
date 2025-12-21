@@ -167,19 +167,19 @@ const ProductTable = ({ rows, setRows }) => {
         <table className="w-full border-collapse text-[10px] 2xl:text-xs table-fixed">
           <thead className="sticky top-0 z-10 bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white shadow-sm">
             <tr className="h-8">
-              <th className="px-2 py-1 w-[40px] text-left font-semibold border-r border-indigo-900/30">#</th>
-              <th className="px-2 py-1 w-[160px] text-left font-semibold border-r border-indigo-900/30">Product Name</th>
-              <th className="px-2 py-1 w-[100px] text-left font-semibold border-r border-indigo-900/30">Batch</th>
-              <th className="px-2 py-1 w-[50px] text-center font-semibold border-r border-indigo-900/30">Qty</th>
-              <th className="px-2 py-1 w-[60px] text-right font-semibold border-r border-indigo-900/30">MRP</th>
-              <th className="px-2 py-1 w-[70px] text-center font-semibold border-r border-indigo-900/30">Exp</th>
-              <th className="px-2 py-1 w-[100px] text-left font-semibold border-r border-indigo-900/30">Type</th>
-              <th className="px-2 py-1 w-[100px] text-left font-semibold border-r border-indigo-900/30">Category</th>
-              <th className="px-2 py-1 w-[50px] text-center font-semibold border-r border-indigo-900/30">Stock</th>
-              <th className="px-2 py-1 w-[50px] text-center font-semibold border-r border-indigo-900/30">Rack</th>
-              <th className="px-2 py-1 w-[50px] text-center font-semibold border-r border-indigo-900/30">Disc%</th>
-              <th className="px-2 py-1 w-[50px] text-center font-semibold border-r border-indigo-900/30">Tax%</th>
-              <th className="px-2 py-1 w-[60px] text-center font-semibold border-r border-indigo-900/30">Tax Amt</th>
+              <th className="px-2 py-1 w-[40px] text-left font-semibold  border-indigo-900/30">#</th>
+              <th className="px-2 py-1 w-[160px] text-left font-semibold  border-indigo-900/30">Product Name</th>
+              <th className="px-2 py-1 w-[100px] text-left font-semibold  border-indigo-900/30">Batch</th>
+              <th className="px-2 py-1 w-[50px] text-center font-semibold  border-indigo-900/30">Qty</th>
+              <th className="px-2 py-1 w-[60px] text-right font-semibold  border-indigo-900/30">MRP</th>
+              <th className="px-2 py-1 w-[70px] text-center font-semibold  border-indigo-900/30">Exp</th>
+              <th className="px-2 py-1 w-[100px] text-left font-semibold  border-indigo-900/30">Type</th>
+              <th className="px-2 py-1 w-[100px] text-left font-semibold  border-indigo-900/30">Category</th>
+              <th className="px-2 py-1 w-[50px] text-center font-semibold  border-indigo-900/30">Stock</th>
+              <th className="px-2 py-1 w-[50px] text-center font-semibold  border-indigo-900/30">Rack</th>
+              <th className="px-2 py-1 w-[50px] text-center font-semibold  border-indigo-900/30">Disc%</th>
+              <th className="px-2 py-1 w-[50px] text-center font-semibold  border-indigo-900/30">Tax%</th>
+              <th className="px-2 py-1 w-[60px] text-center font-semibold  border-indigo-900/30">Tax Amt</th>
               <th className="px-2 py-1 w-[70px] text-right font-semibold">Amount</th>
             </tr>
           </thead>
