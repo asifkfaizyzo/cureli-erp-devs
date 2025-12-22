@@ -1,3 +1,4 @@
+// src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
@@ -23,7 +24,14 @@ import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.js
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 
-// Landing Pages
+// Setup Pages (3-step wizard)
+import SetupLayout from "./components/setup/SetupLayout.jsx";
+import SetupRouter from "./pages/setup/SetupRouter.jsx";
+import SetupBranchesPage from "./pages/setup/SetupBranchesPage.jsx";
+import SetupUsersPage from "./pages/setup/SetupUsersPage.jsx";
+import SetupReviewPage from "./pages/setup/SetupReviewPage.jsx";
+
+// Landing pages
 import Home from "./pages/landingPages/home/Home.jsx";
 import About from "./pages/landingPages/about/About.jsx";
 import Contact from "./pages/landingPages/contact/Contact.jsx";
@@ -72,7 +80,9 @@ const App = () => {
   return (
     <Router>
       <Routes>
+        {/* ============================================ */}
         {/* LANDING PAGES */}
+        {/* ============================================ */}
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
@@ -80,6 +90,7 @@ const App = () => {
 
         {/* ============================================ */}
         {/* PUBLIC ROUTES */}
+        {/* ============================================ */}
         <Route path="/plan-selection" element={<PlanSelectionPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
@@ -89,7 +100,21 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* PROTECTED ERP ROUTES */}
+        {/* ============================================ */}
+        {/* SETUP ROUTES (3 Steps) */}
+        {/* Post-plan setup wizard with its own layout */}
+        {/* Step 1: Branches, Step 2: Users, Step 3: Review */}
+        {/* ============================================ */}
+        <Route path="/setup" element={<SetupRouter />} />
+        <Route element={<SetupLayout />}>
+          <Route path="/setup/branches" element={<SetupBranchesPage />} />
+          <Route path="/setup/users" element={<SetupUsersPage />} />
+          <Route path="/setup/review" element={<SetupReviewPage />} />
+        </Route>
+
+        {/* ============================================ */}
+        {/* PROTECTED ERP ROUTES (with AppLayout) */}
+        {/* ============================================ */}
         <Route path="/" element={<AppLayout />}>
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="Salesbilling" element={<BillingPage />} />
@@ -101,7 +126,9 @@ const App = () => {
           <Route path="reports-sales" element={<ReportPage />} />
         </Route>
 
-        {/* ERROR */}
+        {/* ============================================ */}
+        {/* ERROR PAGES */}
+        {/* ============================================ */}
         <Route path="/error" element={<ErrorPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
@@ -110,5 +137,3 @@ const App = () => {
 };
 
 export default App;
-
-
