@@ -158,7 +158,7 @@ const CreateAccount = ({ onLoginClick }) => {
           <label className="text-xs font-bold text-[#000060]">First Name</label>
           <input
             type="text"
-            placeholder="Enter your First Name"
+            placeholder="First Name"
             className={`w-full mt-1 px-2 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
               errors.first_name ? "border-red-500" : "border-gray-300"
             } placeholder-xs sm:placeholder-sm md:placeholder-sm`}
@@ -177,7 +177,7 @@ const CreateAccount = ({ onLoginClick }) => {
           <input
             ref={lastNameRef}
             type="text"
-            placeholder="Enter your Last Name"
+            placeholder="Last Name"
             className={`w-full mt-1 px-2 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
               errors.last_name ? "border-red-500" : "border-gray-300"
             }`}

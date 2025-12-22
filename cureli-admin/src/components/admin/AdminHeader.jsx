@@ -3,24 +3,27 @@ import { useState, useRef, useEffect } from "react";
 import StyledSelect from "../common/StyledSelect";
 import StyledDateFilter from "../common/StyledDateFilter";
 
-const UserHeader = ({
+const AdminHeader = ({
   searchText,
   setSearchText,
   statusFilter,
   setStatusFilter,
-  roleFilter,
-  setRoleFilter,
   dateFilter,
   setDateFilter,
-  users = [],
+  admins = [],
   totalItems = 0,
+  onAddAdmin,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef(null);
 
+  // close export menu on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(e.target)
+      ) {
         setShowExportMenu(false);
       }
     };
@@ -29,16 +32,17 @@ const UserHeader = ({
   }, []);
 
   const hasActiveFilters =
-    !!statusFilter || !!roleFilter || !!dateFilter || !!searchText;
+    !!searchText || !!statusFilter || !!dateFilter;
 
   const clearFilters = () => {
-    setStatusFilter("");
-    setRoleFilter("");
-    setDateFilter("");
     setSearchText("");
+    setStatusFilter("");
+    setDateFilter("");
   };
 
-  // CSV generator uses server list (users) passed by parent
+  // -----------------------------
+  // CSV EXPORT
+  // -----------------------------
   const generateCSV = (data) => {
     if (!data || data.length === 0) return null;
 
@@ -46,52 +50,54 @@ const UserHeader = ({
       "ID",
       "Name",
       "Username",
+      "Phone",
       "Email",
-      "Role",
       "Status",
       "Last Login",
+      "Created At",
     ];
 
-    const rows = data.map((u) => [
-      u.id ?? "",
-      u.name ?? "",
-      u.username ?? "",
-      u.email ?? "",
-      u.role ?? "",
-      u.is_active ? "Active" : "Inactive",
-      u.lastLogin ?? "",
+    const rows = data.map((a) => [
+      a.id ?? "",
+      a.name ?? "",
+      a.username ?? "",
+      a.phone ?? "",
+      a.email ?? "",
+      a.status ?? "",
+      a.lastLogin ?? "",
+      a.createdAt ?? "",
     ]);
 
     const csv = [
       headers.join(","),
-      ...rows.map((r) => r.map((c) => `"${String(c ?? "")}"`).join(",")),
+      ...rows.map((r) => r.map((c) => `"${String(c)}"`).join(",")),
     ].join("\n");
 
     return new Blob([csv], { type: "text/csv;charset=utf-8;" });
   };
 
-  const exportFilteredUsers = () => {
-    // Parent already fetched filtered users (current page). If you require "all filtered across pages",
-    // implement an export backend endpoint. For now we export current users array.
-    const blob = generateCSV(users);
-    if (!blob) return alert("No users available to export.");
+  const exportVisibleAdmins = () => {
+    const blob = generateCSV(admins);
+    if (!blob) return alert("No admins available to export.");
+
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `users_export_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `admins_export_${new Date()
+      .toISOString()
+      .split("T")[0]}.csv`;
     link.click();
     setShowExportMenu(false);
   };
 
-  const exportAllUsers = () => {
-    // Same as above; export currently loaded users. Use backend export for larger datasets.
-    exportFilteredUsers();
-  };
-
   return (
     <div className="flex justify-between bg-white shadow-sm rounded-xl border border-gray-100 p-2">
-      <div className="flex items-end gap-3 ">
-        <div className="flex flex-col gap-1.5 flex-1 min-w-[230px]">
-          <label className="text-xs text-gray-500 font-medium">Search</label>
+      {/* LEFT — FILTERS */}
+      <div className="flex items-end gap-3">
+        {/* SEARCH */}
+        <div className="flex flex-col gap-1.5 min-w-[230px]">
+          <label className="text-xs text-gray-500 font-medium">
+            Search
+          </label>
           <div className="relative">
             <Search
               size={16}
@@ -103,15 +109,15 @@ const UserHeader = ({
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className="w-full h-10 pl-9 pr-8 border border-gray-200 rounded-lg text-sm 
-                       bg-gray-50 focus:bg-white
-                       focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                       placeholder:text-gray-400 transition-all"
+                         bg-gray-50 focus:bg-white
+                         focus:outline-none focus:ring-2 focus:ring-indigo-500/20 
+                         focus:border-indigo-500 placeholder:text-gray-400 transition-all"
             />
             {searchText && (
               <button
                 onClick={() => setSearchText("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded
-                         text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                           text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
               >
                 <X size={14} />
               </button>
@@ -119,6 +125,7 @@ const UserHeader = ({
           </div>
         </div>
 
+        {/* STATUS FILTER */}
         <StyledSelect
           label="Status"
           value={statusFilter}
@@ -131,19 +138,7 @@ const UserHeader = ({
           ]}
         />
 
-        <StyledSelect
-          label="Role"
-          value={roleFilter}
-          onChange={setRoleFilter}
-          placeholder="All Roles"
-          options={[
-            { value: "", label: "All Roles" },
-            { value: "Super Admin", label: "Super Admin" },
-            { value: "Branch Admin", label: "Branch Admin" },
-            { value: "Staff", label: "Staff" },
-          ]}
-        />
-
+        {/* LAST LOGIN DATE */}
         <div className="min-w-[160px]">
           <StyledDateFilter
             label="Last Login"
@@ -152,12 +147,13 @@ const UserHeader = ({
           />
         </div>
 
+        {/* CLEAR FILTERS */}
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
             className="h-10 px-3 text-sm text-gray-500 hover:text-red-600 
-                         hover:bg-red-50 rounded-lg
-                         flex items-center gap-1.5 transition-colors"
+                       hover:bg-red-50 rounded-lg
+                       flex items-center gap-1.5 transition-colors"
           >
             <X size={14} />
             <span>Clear</span>
@@ -165,7 +161,9 @@ const UserHeader = ({
         )}
       </div>
 
+      {/* RIGHT — ACTIONS */}
       <div className="flex items-center gap-2 self-center">
+        {/* EXPORT */}
         <div className="relative" ref={exportMenuRef}>
           <button
             onClick={() => setShowExportMenu(!showExportMenu)}
@@ -177,42 +175,38 @@ const UserHeader = ({
           </button>
 
           {showExportMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white 
+                            border border-gray-200 rounded-xl shadow-xl 
+                            z-50 overflow-hidden">
               <button
-                onClick={exportFilteredUsers}
-                className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 
-                           flex items-center gap-3 transition-colors"
+                onClick={exportVisibleAdmins}
+                className="w-full px-4 py-3 text-left text-sm text-gray-700 
+                           hover:bg-gray-50 flex items-center gap-3 transition-colors"
               >
                 <FileSpreadsheet size={16} className="text-blue-600" />
                 <div>
                   <div className="font-medium">Export Visible</div>
                   <div className="text-xs text-gray-400">
-                    {users.length} users
-                  </div>
-                </div>
-              </button>
-
-              <div className="h-px bg-gray-100" />
-
-              <button
-                onClick={exportAllUsers}
-                className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 
-                           flex items-center gap-3 transition-colors"
-              >
-                <FileSpreadsheet size={16} className="text-green-600" />
-                <div>
-                  <div className="font-medium">Export All (Visible)</div>
-                  <div className="text-xs text-gray-400">
-                    {totalItems} total
+                    {admins.length} admins
                   </div>
                 </div>
               </button>
             </div>
           )}
         </div>
+
+        {/* ADD ADMIN */}
+        <button
+          onClick={onAddAdmin}
+          className="h-10 px-4 bg-[#05015A] text-white rounded-lg text-sm font-medium 
+                     flex items-center gap-2 hover:bg-[#06027a] transition-all"
+        >
+          <Plus size={16} />
+          <span>Add Admin</span>
+        </button>
       </div>
     </div>
   );
 };
 
-export default UserHeader;
+export default AdminHeader;

@@ -8,8 +8,10 @@ import {
   Podcast,
   ListChecks,
   Settings,
-  ShieldCheck
+  ShieldCheck,
+  UserStar   // ✅ ADD THIS
 } from "lucide-react";
+
 import { useMenuStore } from "../../store/useMenuStore";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -43,6 +45,7 @@ const MENU_ITEMS = [
   { id: "subscriptions", label: "Subscriptions", icon: Podcast, path: "/subscriptions" },
   { id: "audits", label: "Audits", icon: ListChecks, path: "/audits" },
   { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
+  { id: "admins", label: "Admins", icon: UserStar, path: "/admins" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════
