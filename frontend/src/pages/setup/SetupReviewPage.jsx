@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Building2,
   Users,
-  UserCog,
   ChevronLeft,
   Loader2,
   AlertCircle,
@@ -17,19 +16,18 @@ import {
   Phone,
   MapPin,
   RefreshCw,
+  Lock,
 } from "lucide-react";
 
 import { useSetupStore } from "../../store/useSetupStore";
-import { mockSubmitSetup } from "../../api/setup";
-// When backend is ready, replace with:
-// import { submitSetup } from "../../api/setup";
+import { submitSetup } from "../../api/setup";
 
 /**
  * SetupReviewPage
- * Step 4: Review all setup data and submit
+ * Step 3: Review all setup data and submit
  * 
  * Requirements:
- * - Show summary of branches, users, and operators
+ * - Show summary of branches and users
  * - Validate minimum requirements (≥1 branch)
  * - Submit all data to backend in one transaction
  * - Handle success → clear store → redirect to dashboard
@@ -43,7 +41,6 @@ const SetupReviewPage = () => {
   const {
     branches,
     users,
-    operators,
     superAdmin,
     planLimits,
     getSubmissionData,
@@ -59,7 +56,7 @@ const SetupReviewPage = () => {
 
   // Set current step on mount
   useEffect(() => {
-    setCurrentStep(4);
+    setCurrentStep(3);
   }, [setCurrentStep]);
 
   // ============================================
@@ -74,16 +71,10 @@ const SetupReviewPage = () => {
       count: branches.length,
     },
     {
-      id: "operators",
-      label: "Each branch has a billing operator",
-      passed: branches.every((b) => operators[b.temp_id]),
-      count: branches.length,
-    },
-    {
       id: "users",
       label: "Login users available",
       passed: true, // SA always exists
-      note: users.length === 0 ? "Super Admin only" : `${users.length + 1} users`,
+      note: users.length === 0 ? "Super Admin only" : `${users.length + 1} users (including you)`,
     },
   ];
 
@@ -93,41 +84,31 @@ const SetupReviewPage = () => {
   // HELPERS
   // ============================================
 
-  const getOperatorInfo = (branchTempId) => {
-    const operatorId = operators[branchTempId] || "sa";
-
-    if (operatorId === "sa") {
-      return {
-        name: superAdmin.name || "You",
-        role: "Super Admin",
-        isSuperAdmin: true,
-      };
-    }
-
-    const user = users.find((u) => u.temp_id === operatorId);
-    if (user) {
-      return {
-        name: user.full_name,
-        role: user.role === "branch_admin" ? "Branch Admin" : "Staff",
-        isSuperAdmin: false,
-      };
-    }
-
-    return {
-      name: superAdmin.name || "You",
-      role: "Super Admin",
-      isSuperAdmin: true,
-    };
+  const getRoleIcon = (role) => {
+    if (role === "super_admin") return Crown;
+    if (role === "branch_admin") return Shield;
+    return User;
   };
 
-  const getRoleIcon = (role) => {
-    if (role === "Super Admin") return Crown;
-    if (role === "Branch Admin") return Shield;
-    return User;
+  const getRoleLabel = (role) => {
+    if (role === "super_admin") return "Super Admin";
+    if (role === "branch_admin") return "Branch Admin";
+    if (role === "staff") return "Staff";
+    return role;
   };
 
   const getUsersForBranch = (branchTempId) => {
     return users.filter((u) => u.branch_temp_id === branchTempId);
+  };
+
+  const formatAddress = (branch) => {
+    const parts = [
+      branch.address_line_1,
+      branch.city,
+      branch.state,
+      branch.pincode,
+    ].filter(Boolean);
+    return parts.join(", ");
   };
 
   // ============================================
@@ -135,7 +116,7 @@ const SetupReviewPage = () => {
   // ============================================
 
   const handleBack = () => {
-    navigate("/setup/branch-operator");
+    navigate("/setup/users");
   };
 
   const handleSubmit = async () => {
@@ -149,9 +130,10 @@ const SetupReviewPage = () => {
       
       console.log("📤 Submitting setup data:", data);
 
-      // Use mock for now - replace with real API when ready
-      await mockSubmitSetup(data);
-      // await submitSetup(data);
+      // Submit to backend
+      const response = await submitSetup(data);
+      
+      console.log("✅ Setup response:", response.data);
 
       // Success!
       setShowSuccess(true);
@@ -159,6 +141,8 @@ const SetupReviewPage = () => {
       // Wait a moment for animation, then redirect
       setTimeout(() => {
         completeSetup();
+        // Clear the persisted setup data
+        localStorage.removeItem("cureli-setup-storage");
         navigate("/dashboard", { replace: true });
       }, 2000);
 
@@ -175,6 +159,7 @@ const SetupReviewPage = () => {
   const handleStartOver = () => {
     if (window.confirm("Are you sure you want to start over? All your setup data will be lost.")) {
       resetSetup();
+      localStorage.removeItem("cureli-setup-storage");
       navigate("/setup/branches", { replace: true });
     }
   };
@@ -326,9 +311,7 @@ const SetupReviewPage = () => {
           </div>
           <div className="divide-y divide-gray-100">
             {branches.map((branch, index) => {
-              const operator = getOperatorInfo(branch.temp_id);
               const branchUsers = getUsersForBranch(branch.temp_id);
-              const OperatorIcon = getRoleIcon(operator.role);
 
               return (
                 <div key={branch.temp_id} className="px-5 py-4">
@@ -345,39 +328,25 @@ const SetupReviewPage = () => {
                         )}
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
-                        {branch.address && (
+                        {formatAddress(branch) && (
                           <div className="flex items-center gap-1">
                             <MapPin size={12} />
                             <span className="truncate max-w-[200px]">
-                              {branch.address}
+                              {formatAddress(branch)}
                             </span>
                           </div>
                         )}
-                        {branch.phone && (
+                        {branch.contact_number && (
                           <div className="flex items-center gap-1">
                             <Phone size={12} />
-                            <span>{branch.phone}</span>
+                            <span>{branch.contact_number}</span>
                           </div>
                         )}
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-xs text-gray-400 mb-1">Billing Operator</p>
-                      <div className="flex items-center gap-1.5 justify-end">
-                        <OperatorIcon
-                          size={12}
-                          className={
-                            operator.isSuperAdmin
-                              ? "text-amber-600"
-                              : "text-purple-600"
-                          }
-                        />
-                        <span className="text-sm font-medium text-gray-700">
-                          {operator.name}
-                        </span>
-                      </div>
                       {branchUsers.length > 0 && (
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-gray-400">
                           {branchUsers.length} staff member{branchUsers.length > 1 ? "s" : ""}
                         </p>
                       )}
@@ -468,7 +437,10 @@ const SetupReviewPage = () => {
                         </p>
                       </div>
                       <div className="text-right text-xs text-gray-400">
-                        <p>{user.phone_number}</p>
+                        <p className="flex items-center gap-1">
+                          <Phone size={10} />
+                          {user.phone_number}
+                        </p>
                         <p>@{user.username}</p>
                       </div>
                     </div>
@@ -482,6 +454,27 @@ const SetupReviewPage = () => {
             )}
           </div>
         </motion.div>
+
+        {/* Security Note */}
+        {users.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-amber-50 border border-amber-200 rounded-xl p-4"
+          >
+            <div className="flex gap-3">
+              <Lock size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-800">
+                <p className="font-medium mb-1">Remember to share login credentials</p>
+                <p className="text-amber-700">
+                  You've created accounts for {users.length} user{users.length > 1 ? "s" : ""}. 
+                  Make sure to securely share their username and password so they can log in.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Error Message */}

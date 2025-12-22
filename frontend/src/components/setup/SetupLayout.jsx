@@ -1,5 +1,5 @@
 // src/components/setup/SetupLayout.jsx
-import { useEffect,useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
@@ -9,14 +9,14 @@ import SetupStepper from "./SetupStepper";
 import PlanLimitsBanner from "./PlanLimitsBanner";
 import { useSetupStore } from "../../store/useSetupStore";
 import { getMySubscription } from "../../api/subscription";
+import { getSetupStatus } from "../../api/setup";
 
 /**
  * SetupLayout
- * Wrapper layout for all setup pages
- * - Displays OnboardingHeader (minimal header with logout)
- * - Shows SetupStepper (progress indicator)
- * - Shows PlanLimitsBanner (current usage vs limits)
- * - Handles plan limits initialization from API
+ * Wrapper layout for all setup pages (3 steps)
+ * 
+ * IMPORTANT: Always fetches fresh plan limits from API to ensure
+ * the store has correct values before rendering child pages.
  */
 const SetupLayout = () => {
   const location = useLocation();
@@ -25,10 +25,10 @@ const SetupLayout = () => {
   // Store state
   const {
     isSetupComplete,
-    currentStep,
+    isInitialized,
     planLimits,
     initializeSetup,
-    setError,
+    completeSetup,
   } = useSetupStore();
 
   // Get user name from localStorage
@@ -36,11 +36,11 @@ const SetupLayout = () => {
   const userId = localStorage.getItem("user_id") || "";
 
   // Loading state for initial data fetch
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [initError, setInitError] = React.useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [initError, setInitError] = useState(null);
 
   // ============================================
-  // INITIALIZATION
+  // INITIALIZATION - ALWAYS FETCH FRESH DATA
   // ============================================
   useEffect(() => {
     initializeFromAPI();
@@ -51,58 +51,88 @@ const SetupLayout = () => {
       setIsLoading(true);
       setInitError(null);
 
-      // If setup is already complete, redirect to dashboard
-      if (isSetupComplete) {
-        navigate("/dashboard", { replace: true });
-        return;
+      console.log("🔄 SetupLayout: Fetching fresh data from API...");
+
+      // Step 1: Check if setup is already complete on backend
+      try {
+        const statusRes = await getSetupStatus();
+        const statusData = statusRes.data?.data;
+
+        if (statusData?.is_complete) {
+          console.log("✅ Setup already complete (backend), redirecting to dashboard");
+          completeSetup();
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+      } catch (err) {
+        console.warn("Setup status check failed, continuing...", err);
       }
 
-      // Check if we already have plan limits
-      if (planLimits.plan_id) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Fetch subscription data
+      // Step 2: Fetch subscription data (ALWAYS, to get correct limits)
       const res = await getMySubscription();
       const data = res.data?.data;
 
+      console.log("📦 Subscription data:", data);
+
       if (!data?.has_active_subscription) {
-        // No active subscription - redirect to plan selection
+        console.log("❌ No active subscription, redirecting to plan selection");
         navigate("/plan-selection", { replace: true });
         return;
       }
 
-      // Initialize store with plan limits
+      // Step 3: Extract limits from subscription
+      const maxBranches = data.subscription?.branch_limit ?? 
+                          data.current_plan?.max_branches ?? 
+                          1;
+      const maxUsers = data.subscription?.user_limit ?? 
+                       data.current_plan?.max_users ?? 
+                       1;
+
+      console.log("📊 Plan limits:", { 
+        maxBranches, 
+        maxUsers, 
+        planName: data.current_plan?.name 
+      });
+
+      // Step 4: Initialize store with fresh data
       initializeSetup({
         planLimits: {
           plan_id: data.current_plan.plan_id,
           plan_name: data.current_plan.name,
-          max_branches: data.subscription?.branch_limit ?? data.current_plan?.max_branches ?? 1,
-          max_users: data.subscription?.user_limit ?? data.current_plan?.max_users ?? 1,
+          max_branches: maxBranches,
+          max_users: maxUsers,
         },
         superAdmin: {
           user_id: userId,
           name: userName,
         },
+        forceRefresh: true, // Force update even if already initialized
       });
 
+      console.log("✅ Setup store initialized successfully");
       setIsLoading(false);
+
     } catch (err) {
-      console.error("Failed to initialize setup:", err);
+      console.error("❌ Failed to initialize setup:", err);
+      
+      if (err.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login", { replace: true });
+        return;
+      }
+      
       setInitError("Failed to load subscription data. Please try again.");
       setIsLoading(false);
     }
   };
 
   // ============================================
-  // DETERMINE CURRENT STEP FROM ROUTE
+  // DETERMINE CURRENT STEP FROM ROUTE (3 steps)
   // ============================================
   const getStepFromPath = (pathname) => {
     if (pathname.includes("/setup/branches")) return 1;
     if (pathname.includes("/setup/users")) return 2;
-    if (pathname.includes("/setup/branch-operator")) return 3;
-    if (pathname.includes("/setup/review")) return 4;
+    if (pathname.includes("/setup/review")) return 3;
     return 1;
   };
 
@@ -120,6 +150,9 @@ const SetupLayout = () => {
             <Loader2 size={48} className="text-[#000060] animate-spin" />
             <p className="text-gray-600 text-lg font-medium">
               Loading setup...
+            </p>
+            <p className="text-gray-400 text-sm">
+              Fetching your plan details
             </p>
           </div>
         </div>
@@ -166,6 +199,25 @@ const SetupLayout = () => {
   }
 
   // ============================================
+  // NOT INITIALIZED STATE (shouldn't happen, but safety check)
+  // ============================================
+  if (!isInitialized || !planLimits.plan_id) {
+    return (
+      <div className="min-h-dvh h-dvh flex flex-col bg-gray-50 font-poppins">
+        <OnboardingHeader userName={userName} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 size={48} className="text-[#000060] animate-spin" />
+            <p className="text-gray-600 text-lg font-medium">
+              Initializing...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================
   // MAIN RENDER
   // ============================================
   return (
@@ -201,8 +253,5 @@ const SetupLayout = () => {
     </div>
   );
 };
-
-// Need to import React for useState
-import React from "react";
 
 export default SetupLayout;

@@ -24,13 +24,13 @@ import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.js
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 
-// Setup Pages (NEW)
+// Setup Pages
 import SetupLayout from "./components/setup/SetupLayout.jsx";
 import SetupRouter from "./pages/setup/SetupRouter.jsx";
 import SetupBranchesPage from "./pages/setup/SetupBranchesPage.jsx";
 import SetupUsersPage from "./pages/setup/SetupUsersPage.jsx";
-import SetupOperatorsPage from "./pages/setup/SetupOperatorsPage.jsx";
 import SetupReviewPage from "./pages/setup/SetupReviewPage.jsx";
+// REMOVED: SetupOperatorsPage - no longer needed
 
 // Landing pages
 import Home from "./pages/landingPages/home/Home.jsx";
@@ -102,15 +102,15 @@ const App = () => {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* ============================================ */}
-        {/* SETUP ROUTES (NEW) */}
+        {/* SETUP ROUTES (3 Steps) */}
         {/* Post-plan setup wizard with its own layout */}
         {/* ============================================ */}
         <Route path="/setup" element={<SetupRouter />} />
         <Route element={<SetupLayout />}>
           <Route path="/setup/branches" element={<SetupBranchesPage />} />
           <Route path="/setup/users" element={<SetupUsersPage />} />
-          <Route path="/setup/branch-operator" element={<SetupOperatorsPage />} />
           <Route path="/setup/review" element={<SetupReviewPage />} />
+          {/* REMOVED: /setup/branch-operator route */}
         </Route>
 
         {/* ============================================ */}

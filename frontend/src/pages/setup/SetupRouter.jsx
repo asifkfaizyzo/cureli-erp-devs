@@ -5,10 +5,11 @@ import { Loader2 } from "lucide-react";
 
 import { useSetupStore } from "../../store/useSetupStore";
 import { getMySubscription } from "../../api/subscription";
+import { getSetupStatus } from "../../api/setup";
 
 /**
  * SetupRouter
- * Entry controller for the setup flow
+ * Entry controller for the setup flow (3 steps)
  * 
  * Responsibilities:
  * 1. Check if user has active subscription
@@ -20,8 +21,7 @@ import { getMySubscription } from "../../api/subscription";
  * - No subscription → /plan-selection
  * - Setup complete → /dashboard
  * - No branches → /setup/branches
- * - Has branches, no users (optional) → /setup/users
- * - Otherwise → /setup/branch-operator
+ * - Has branches → /setup/users
  */
 
 const SetupRouter = () => {
@@ -36,6 +36,7 @@ const SetupRouter = () => {
     planLimits,
     initializeSetup,
     resetSetup,
+    completeSetup,
   } = useSetupStore();
 
   // Get user info from localStorage
@@ -52,16 +53,34 @@ const SetupRouter = () => {
       setError(null);
 
       // ============================================
-      // CHECK 1: Setup already complete?
+      // CHECK 1: Check backend setup status first
+      // ============================================
+      try {
+        const statusRes = await getSetupStatus();
+        const statusData = statusRes.data?.data;
+
+        if (statusData?.is_complete) {
+          console.log("✅ Setup already complete (from backend), redirecting to dashboard");
+          completeSetup(); // Sync local state
+          navigate("/dashboard", { replace: true });
+          return;
+        }
+      } catch (err) {
+        // If status check fails, continue with subscription check
+        console.warn("Setup status check failed, continuing...", err);
+      }
+
+      // ============================================
+      // CHECK 2: Local state says complete?
       // ============================================
       if (isSetupComplete) {
-        console.log("✅ Setup already complete, redirecting to dashboard");
+        console.log("✅ Setup already complete (local), redirecting to dashboard");
         navigate("/dashboard", { replace: true });
         return;
       }
 
       // ============================================
-      // CHECK 2: Has active subscription?
+      // CHECK 3: Has active subscription?
       // ============================================
       const res = await getMySubscription();
       const data = res.data?.data;

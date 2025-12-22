@@ -18,12 +18,16 @@ import pendingRoutes from "./src/modules/pending/pending.routes.js";
 import shopFilesRoutes from "./src/modules/shopFiles/shopFiles.routes.js";
 import subscriptionRoutes from "./src/modules/subscription/subscription.routes.js";
 import plansRoutes from "./src/modules/plans/plans.routes.js";
+import setupRoutes from "./src/modules/setup/setup.routes.js";
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
 import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
 import cadminUserRoutes from "./src/modules/cadmin/users/cadminUser.routes.js";
 import cadminShopsRoutes from "./src/modules/cadmin/shops/cadminShops.routes.js";
 import cadminPlansRoutes from "./src/modules/cadmin/plans/cadminPlans.routes.js";
 
+
+
+// Add to API Routes section (after subscription routes)
 import { initializeCronJobs } from "./src/cron/jobs.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -189,7 +193,7 @@ app.use("/cadmin", cadminDocsRoutes);
 app.use("/cadmin", cadminUserRoutes);
 app.use("/cadmin", cadminShopsRoutes);
 app.use("/cadmin", cadminPlansRoutes);
-
+app.use("/api/setup", setupRoutes);
 // ============================================
 // Health Check
 // ============================================

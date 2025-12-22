@@ -7,6 +7,7 @@ import { useSetupStore } from "../../store/useSetupStore";
  * PlanLimitsBanner
  * Displays current plan info and usage vs limits
  * Always visible during setup to help users understand their limits
+ * Updated for 3-step flow (removed operators reference)
  */
 
 const PlanLimitsBanner = () => {
@@ -31,6 +32,7 @@ const PlanLimitsBanner = () => {
   // Calculate percentage for progress bars
   const getPercentage = (used, max) => {
     if (max === -1) return Math.min(used * 10, 100); // Cap at 100 for unlimited
+    if (max === 0) return 0;
     return Math.min((used / max) * 100, 100);
   };
 

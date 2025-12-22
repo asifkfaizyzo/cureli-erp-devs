@@ -1,8 +1,10 @@
+// src/components/onboarding/LoginOtpVerification.jsx
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { IoArrowBackOutline } from "react-icons/io5";
 import { verifyLoginOtp } from "../../api/auth";
 import { getMySubscription } from "../../api/subscription";
+import { getSetupStatus } from "../../api/setup";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle2 } from "lucide-react";
 
@@ -93,6 +95,46 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     setTimeout(() => setShake(false), 500);
   };
 
+  /**
+   * Determine navigation destination for fully verified users
+   * Priority:
+   * 1. No subscription → /plan-selection
+   * 2. Has subscription but setup incomplete → /setup
+   * 3. Has subscription and setup complete → /dashboard
+   */
+  const determineDestination = async () => {
+    try {
+      // Check subscription
+      const subRes = await getMySubscription();
+      const hasActive = subRes.data?.data?.has_active_subscription === true;
+
+      if (!hasActive) {
+        console.log("📍 No active subscription → /plan-selection");
+        return "/plan-selection";
+      }
+
+      // Check setup status
+      try {
+        const setupRes = await getSetupStatus();
+        const setupData = setupRes.data?.data;
+
+        if (setupData?.is_complete) {
+          console.log("📍 Setup complete → /dashboard");
+          return "/dashboard";
+        } else {
+          console.log("📍 Setup incomplete → /setup");
+          return "/setup";
+        }
+      } catch (setupErr) {
+        console.warn("Setup status check failed, defaulting to /setup", setupErr);
+        return "/setup";
+      }
+    } catch (err) {
+      console.warn("Subscription check failed, defaulting to /plan-selection", err);
+      return "/plan-selection";
+    }
+  };
+
   // Verify OTP
   const handleVerify = async (otpCode = null) => {
     const code = otpCode || otp.join("");
@@ -107,40 +149,46 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         otp: code,
       });
 
-      const { access_token, next_step, shop_id, user_id } = res.data.data;
+      const { access_token, next_step, shop_id, user_id, user_name } = res.data.data;
 
       // Show success state
       setSuccess(true);
 
+      // Store tokens
       localStorage.setItem("access_token", access_token);
       localStorage.setItem("shop_id", shop_id);
       localStorage.setItem("user_id", user_id);
+      if (user_name) {
+        localStorage.setItem("user_name", user_name);
+      }
 
-      // Brief delay to show success
+      // Brief delay to show success animation
       setTimeout(async () => {
-        // CASE 1 — Fully verified user
+        // CASE 1 — Fully verified user (next_step === -1)
         if (next_step === -1) {
-          try {
-            const sub = await getMySubscription();
-            const hasActive = sub.data?.data?.has_active_subscription === true;
-            navigate(hasActive ? "/dashboard" : "/plan-selection");
-          } catch {
-            navigate("/plan-selection");
-          }
+          const destination = await determineDestination();
+          navigate(destination, { replace: true });
           return;
         }
 
-        // CASE 2 — Verification Flow
+        // CASE 2 — Verification Flow (document verification)
         if ([12, 14, 15].includes(next_step)) {
-          navigate("/verification", { state: { resume_step: next_step } });
+          navigate("/verification", { 
+            state: { resume_step: next_step },
+            replace: true 
+          });
           return;
         }
 
         // CASE 3 — Normal Onboarding Flow
-        navigate("/onboarding", { state: { resume_step: next_step } });
+        navigate("/onboarding", { 
+          state: { resume_step: next_step },
+          replace: true 
+        });
       }, 600);
+
     } catch (err) {
-      console.error(err);
+      console.error("OTP verification error:", err);
       const msg =
         err?.response?.data?.message || "Invalid OTP. Please try again.";
 
@@ -151,9 +199,9 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         setOtp(["", "", "", ""]);
         inputsRef.current[0]?.focus();
       }, 300);
+      
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleResend = () => {

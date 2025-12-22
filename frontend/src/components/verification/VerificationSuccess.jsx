@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Check, ArrowRight, Package, Receipt, BarChart3 } from "lucide-react";
 import { completeOnboarding } from "../../api/auth";
 import { getMySubscription } from "../../api/subscription";
+import { getSetupStatus } from "../../api/setup";
 
 // Scaled up animated checkmark (2x)
 const AnimatedCheckmark = () => {
@@ -86,16 +87,54 @@ const VerificationSuccess = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  /**
+   * Determine where to navigate after verification
+   * Priority:
+   * 1. No subscription → /plan-selection
+   * 2. Has subscription but setup incomplete → /setup
+   * 3. Has subscription and setup complete → /dashboard
+   */
   const handleGetStarted = async () => {
     setLoading(true);
     try {
+      // Step 1: Complete onboarding status on backend
       await completeOnboarding();
+
+      // Step 2: Check subscription status
       const subRes = await getMySubscription();
       const hasActive = subRes.data?.data?.has_active_subscription === true;
-      navigate(hasActive ? "/dashboard" : "/plan-selection");
+
+      if (!hasActive) {
+        // No subscription - go to plan selection
+        console.log("📍 No active subscription → /plan-selection");
+        navigate("/plan-selection", { replace: true });
+        return;
+      }
+
+      // Step 3: Check if setup is complete (has branches)
+      try {
+        const setupRes = await getSetupStatus();
+        const setupData = setupRes.data?.data;
+
+        if (setupData?.is_complete) {
+          // Setup complete - go to dashboard
+          console.log("📍 Setup complete → /dashboard");
+          navigate("/dashboard", { replace: true });
+        } else {
+          // Setup incomplete - go to setup wizard
+          console.log("📍 Setup incomplete → /setup");
+          navigate("/setup", { replace: true });
+        }
+      } catch (setupErr) {
+        // If setup status check fails, default to setup
+        console.warn("Setup status check failed, defaulting to /setup", setupErr);
+        navigate("/setup", { replace: true });
+      }
+
     } catch (err) {
       console.error("Failed to complete onboarding:", err);
-      navigate("/plan-selection");
+      // On error, try to go to plan selection as fallback
+      navigate("/plan-selection", { replace: true });
     } finally {
       setLoading(false);
     }

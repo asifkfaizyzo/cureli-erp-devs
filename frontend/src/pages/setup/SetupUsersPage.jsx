@@ -20,9 +20,14 @@ import {
   User,
   Shield,
   Building2,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 import { useSetupStore } from "../../store/useSetupStore";
+import { checkUsernameAvailability, checkPhoneAvailability } from "../../api/setup";
 
 /**
  * SetupUsersPage
@@ -33,6 +38,8 @@ import { useSetupStore } from "../../store/useSetupStore";
  * - Each user belongs to exactly ONE branch
  * - Super Admin is NOT counted in user limit
  * - Roles: staff, branch_admin
+ * - Password is created by Super Admin
+ * - Username must be unique (checked against backend)
  */
 
 // Role options
@@ -50,6 +57,23 @@ const ROLES = [
     icon: User,
   },
 ];
+
+// Debounce hook
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
 
 const SetupUsersPage = () => {
   const navigate = useNavigate();
@@ -72,11 +96,23 @@ const SetupUsersPage = () => {
     full_name: "",
     phone_number: "",
     username: "",
+    password: "",
+    confirmPassword: "",
     role: "",
     branch_temp_id: "",
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Username availability check
+  const [usernameCheckStatus, setUsernameCheckStatus] = useState(null); // null | 'checking' | 'available' | 'taken'
+  const debouncedUsername = useDebounce(formData.username, 500);
+
+  // Phone availability check
+  const [phoneCheckStatus, setPhoneCheckStatus] = useState(null);
+  const debouncedPhone = useDebounce(formData.phone_number, 500);
 
   // Dropdown states
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
@@ -106,6 +142,84 @@ const SetupUsersPage = () => {
       setTimeout(() => nameInputRef.current?.focus(), 100);
     }
   }, [showForm]);
+
+  // ============================================
+  // USERNAME AVAILABILITY CHECK
+  // ============================================
+  useEffect(() => {
+    const checkUsername = async () => {
+      const username = debouncedUsername.toLowerCase().trim();
+      
+      if (!username || username.length < 3) {
+        setUsernameCheckStatus(null);
+        return;
+      }
+
+      // Check if username is valid format
+      if (!/^[a-z0-9_]+$/.test(username)) {
+        setUsernameCheckStatus(null);
+        return;
+      }
+
+      // Check locally first (among users being created)
+      const existsLocally = users.some(
+        (u) => u.username.toLowerCase() === username && u.temp_id !== editingUser?.temp_id
+      );
+      if (existsLocally) {
+        setUsernameCheckStatus("taken");
+        return;
+      }
+
+      // Check with backend
+      setUsernameCheckStatus("checking");
+      try {
+        const res = await checkUsernameAvailability(username);
+        const available = res.data?.data?.available;
+        setUsernameCheckStatus(available ? "available" : "taken");
+      } catch (err) {
+        console.error("Username check error:", err);
+        setUsernameCheckStatus(null);
+      }
+    };
+
+    checkUsername();
+  }, [debouncedUsername, users, editingUser]);
+
+  // ============================================
+  // PHONE AVAILABILITY CHECK
+  // ============================================
+  useEffect(() => {
+    const checkPhone = async () => {
+      const phone = debouncedPhone.replace(/\D/g, "");
+      
+      if (!phone || phone.length !== 10) {
+        setPhoneCheckStatus(null);
+        return;
+      }
+
+      // Check locally first
+      const existsLocally = users.some(
+        (u) => u.phone_number === phone && u.temp_id !== editingUser?.temp_id
+      );
+      if (existsLocally) {
+        setPhoneCheckStatus("taken");
+        return;
+      }
+
+      // Check with backend
+      setPhoneCheckStatus("checking");
+      try {
+        const res = await checkPhoneAvailability(phone);
+        const available = res.data?.data?.available;
+        setPhoneCheckStatus(available ? "available" : "taken");
+      } catch (err) {
+        console.error("Phone check error:", err);
+        setPhoneCheckStatus(null);
+      }
+    };
+
+    checkPhone();
+  }, [debouncedPhone, users, editingUser]);
 
   // ============================================
   // DROPDOWN HANDLERS
@@ -206,11 +320,17 @@ const SetupUsersPage = () => {
       full_name: "",
       phone_number: "",
       username: "",
+      password: "",
+      confirmPassword: "",
       role: "",
       branch_temp_id: branches.length === 1 ? branches[0].temp_id : "",
     });
     setErrors({});
     setEditingUser(null);
+    setUsernameCheckStatus(null);
+    setPhoneCheckStatus(null);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   const openAddForm = () => {
@@ -224,6 +344,8 @@ const SetupUsersPage = () => {
       full_name: user.full_name,
       phone_number: user.phone_number,
       username: user.username,
+      password: "", // Don't pre-fill password for security
+      confirmPassword: "",
       role: user.role,
       branch_temp_id: user.branch_temp_id,
     });
@@ -259,6 +381,15 @@ const SetupUsersPage = () => {
     );
   };
 
+  const handleNameChange = (value) => {
+    handleChange("full_name", value);
+    // Auto-generate username if empty
+    if (!formData.username && value.length > 2) {
+      const suggested = generateUsername(value);
+      setFormData((prev) => ({ ...prev, username: suggested }));
+    }
+  };
+
   const validate = () => {
     const newErrors = {};
 
@@ -274,15 +405,43 @@ const SetupUsersPage = () => {
       newErrors.phone_number = "Phone number is required";
     } else if (!/^[0-9]{10}$/.test(formData.phone_number.replace(/\D/g, ""))) {
       newErrors.phone_number = "Please enter a valid 10-digit phone number";
+    } else if (phoneCheckStatus === "taken") {
+      newErrors.phone_number = "This phone number is already registered";
+    }
+
+    // Username
+    if (!formData.username) {
+      newErrors.username = "Username is required";
+    } else if (formData.username.length < 3) {
+      newErrors.username = "Username must be at least 3 characters";
+    } else if (!/^[a-z0-9_]+$/.test(formData.username.toLowerCase())) {
+      newErrors.username = "Username can only contain lowercase letters, numbers, and underscores";
+    } else if (usernameCheckStatus === "taken") {
+      newErrors.username = "This username is already taken";
+    }
+
+    // Password (required for new users, optional for edit)
+    if (!editingUser) {
+      if (!formData.password) {
+        newErrors.password = "Password is required";
+      } else if (formData.password.length < 8) {
+        newErrors.password = "Password must be at least 8 characters";
+      }
+
+      if (!formData.confirmPassword) {
+        newErrors.confirmPassword = "Please confirm the password";
+      } else if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = "Passwords do not match";
+      }
     } else {
-      // Check for duplicate (excluding current editing user)
-      const isDuplicate = users.some(
-        (u) =>
-          u.phone_number === formData.phone_number.replace(/\D/g, "") &&
-          u.temp_id !== editingUser?.temp_id
-      );
-      if (isDuplicate) {
-        newErrors.phone_number = "This phone number is already registered";
+      // For edit, if password is provided, validate it
+      if (formData.password) {
+        if (formData.password.length < 8) {
+          newErrors.password = "Password must be at least 8 characters";
+        }
+        if (formData.password !== formData.confirmPassword) {
+          newErrors.confirmPassword = "Passwords do not match";
+        }
       }
     }
 
@@ -303,25 +462,38 @@ const SetupUsersPage = () => {
   const handleSubmit = () => {
     if (!validate()) return;
 
+    // Check if username/phone checks are still in progress
+    if (usernameCheckStatus === "checking" || phoneCheckStatus === "checking") {
+      setErrors({ submit: "Please wait for validation to complete" });
+      return;
+    }
+
     setIsSubmitting(true);
 
     setTimeout(() => {
-      const username =
-        formData.username.trim() || generateUsername(formData.full_name);
+      const username = formData.username.toLowerCase().trim();
 
       if (editingUser) {
-        updateUser(editingUser.temp_id, {
+        // Update existing user
+        const updates = {
           full_name: formData.full_name.trim(),
           phone_number: formData.phone_number.replace(/\D/g, ""),
           username,
           role: formData.role,
           branch_temp_id: formData.branch_temp_id,
-        });
+        };
+        // Only update password if provided
+        if (formData.password) {
+          updates.password = formData.password;
+        }
+        updateUser(editingUser.temp_id, updates);
       } else {
+        // Add new user
         const result = addUser({
           full_name: formData.full_name.trim(),
           phone_number: formData.phone_number.replace(/\D/g, ""),
           username,
+          password: formData.password,
           role: formData.role,
           branch_temp_id: formData.branch_temp_id,
         });
@@ -349,7 +521,7 @@ const SetupUsersPage = () => {
   };
 
   const handleContinue = () => {
-    navigate("/setup/branch-operator");
+    navigate("/setup/review");
   };
 
   // Get branch name by temp_id
@@ -482,6 +654,35 @@ const SetupUsersPage = () => {
     );
   };
 
+  // Render availability status indicator
+  const renderAvailabilityStatus = (status) => {
+    switch (status) {
+      case "checking":
+        return (
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <Loader2 size={12} className="animate-spin" />
+            Checking...
+          </span>
+        );
+      case "available":
+        return (
+          <span className="flex items-center gap-1 text-xs text-emerald-600">
+            <CheckCircle2 size={12} />
+            Available
+          </span>
+        );
+      case "taken":
+        return (
+          <span className="flex items-center gap-1 text-xs text-red-500">
+            <XCircle size={12} />
+            Already taken
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   // ============================================
   // RENDER
   // ============================================
@@ -508,10 +709,9 @@ const SetupUsersPage = () => {
         <div className="flex gap-3">
           <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-blue-800">
-            <p className="font-medium mb-1">Each user belongs to one branch</p>
+            <p className="font-medium mb-1">You create passwords for your team</p>
             <p className="text-blue-600">
-              Staff and Branch Admins can only access their assigned branch. You
-              (Super Admin) have access to all branches.
+              As the Super Admin, you set the login credentials for each user. Share them securely with your team members.
             </p>
           </div>
         </div>
@@ -693,7 +893,7 @@ const SetupUsersPage = () => {
                     ref={nameInputRef}
                     type="text"
                     value={formData.full_name}
-                    onChange={(e) => handleChange("full_name", e.target.value)}
+                    onChange={(e) => handleNameChange(e.target.value)}
                     placeholder="e.g., John Doe"
                     className={`
                       w-full px-3 py-2.5 bg-white border rounded-lg transition-all duration-200
@@ -718,56 +918,165 @@ const SetupUsersPage = () => {
                   <label className="block text-xs font-bold text-[#000060] mb-1">
                     Phone Number *
                   </label>
-                  <input
-                    type="tel"
-                    value={formData.phone_number}
-                    onChange={(e) =>
-                      handleChange("phone_number", e.target.value.replace(/\D/g, ""))
-                    }
-                    placeholder="e.g., 9876543210"
-                    maxLength={10}
-                    className={`
-                      w-full px-3 py-2.5 bg-white border rounded-lg transition-all duration-200
-                      focus:outline-none focus:ring-2
-                      ${
-                        errors.phone_number
-                          ? "border-red-500 focus:ring-red-500/20"
-                          : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      value={formData.phone_number}
+                      onChange={(e) =>
+                        handleChange("phone_number", e.target.value.replace(/\D/g, "").slice(0, 10))
                       }
-                    `}
-                  />
+                      placeholder="e.g., 9876543210"
+                      maxLength={10}
+                      className={`
+                        w-full px-3 py-2.5 bg-white border rounded-lg transition-all duration-200
+                        focus:outline-none focus:ring-2
+                        ${
+                          errors.phone_number || phoneCheckStatus === "taken"
+                            ? "border-red-500 focus:ring-red-500/20"
+                            : phoneCheckStatus === "available"
+                            ? "border-emerald-500 focus:ring-emerald-500/20"
+                            : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
+                        }
+                      `}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      {renderAvailabilityStatus(phoneCheckStatus)}
+                    </div>
+                  </div>
                   {errors.phone_number && (
                     <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
                       <AlertCircle size={12} />
                       {errors.phone_number}
                     </p>
                   )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    Used for login OTP verification
+                  </p>
                 </div>
 
-                {/* Username (Optional) */}
+                {/* Username */}
                 <div>
                   <label className="block text-xs font-bold text-[#000060] mb-1">
-                    Username
-                    <span className="font-normal text-gray-400 ml-1">
-                      (auto-generated if empty)
-                    </span>
+                    Username *
                   </label>
-                  <input
-                    type="text"
-                    value={formData.username}
-                    onChange={(e) =>
-                      handleChange(
-                        "username",
-                        e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "")
-                      )
-                    }
-                    placeholder={
-                      formData.full_name
-                        ? generateUsername(formData.full_name)
-                        : "e.g., john_doe"
-                    }
-                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:border-[#000060] focus:ring-[#000060]/20"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={formData.username}
+                      onChange={(e) =>
+                        handleChange(
+                          "username",
+                          e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "")
+                        )
+                      }
+                      placeholder="e.g., john_doe"
+                      className={`
+                        w-full px-3 py-2.5 bg-white border rounded-lg transition-all duration-200
+                        focus:outline-none focus:ring-2
+                        ${
+                          errors.username || usernameCheckStatus === "taken"
+                            ? "border-red-500 focus:ring-red-500/20"
+                            : usernameCheckStatus === "available"
+                            ? "border-emerald-500 focus:ring-emerald-500/20"
+                            : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
+                        }
+                      `}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      {renderAvailabilityStatus(usernameCheckStatus)}
+                    </div>
+                  </div>
+                  {errors.username && (
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      {errors.username}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    Lowercase letters, numbers, and underscores only
+                  </p>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-xs font-bold text-[#000060] mb-1">
+                    Password {editingUser ? "(leave blank to keep current)" : "*"}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={(e) => handleChange("password", e.target.value)}
+                      placeholder={editingUser ? "Enter new password" : "Min. 8 characters"}
+                      className={`
+                        w-full px-3 py-2.5 pr-10 bg-white border rounded-lg transition-all duration-200
+                        focus:outline-none focus:ring-2
+                        ${
+                          errors.password
+                            ? "border-red-500 focus:ring-red-500/20"
+                            : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
+                        }
+                      `}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      {errors.password}
+                    </p>
+                  )}
+                </div>
+
+                {/* Confirm Password */}
+                <div>
+                  <label className="block text-xs font-bold text-[#000060] mb-1">
+                    Confirm Password {editingUser ? "" : "*"}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={formData.confirmPassword}
+                      onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                      placeholder="Re-enter password"
+                      className={`
+                        w-full px-3 py-2.5 pr-10 bg-white border rounded-lg transition-all duration-200
+                        focus:outline-none focus:ring-2
+                        ${
+                          errors.confirmPassword
+                            ? "border-red-500 focus:ring-red-500/20"
+                            : formData.confirmPassword && formData.password === formData.confirmPassword
+                            ? "border-emerald-500 focus:ring-emerald-500/20"
+                            : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
+                        }
+                      `}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && (
+                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      {errors.confirmPassword}
+                    </p>
+                  )}
+                  {formData.confirmPassword && formData.password === formData.confirmPassword && (
+                    <p className="text-emerald-600 text-xs mt-1 flex items-center gap-1">
+                      <CheckCircle2 size={12} />
+                      Passwords match
+                    </p>
+                  )}
                 </div>
 
                 {/* Role Dropdown */}
@@ -888,7 +1197,7 @@ const SetupUsersPage = () => {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || usernameCheckStatus === "checking" || phoneCheckStatus === "checking"}
                     className="flex items-center gap-2 px-5 py-2 bg-[#000060] text-white font-medium rounded-lg hover:bg-[#000080] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (

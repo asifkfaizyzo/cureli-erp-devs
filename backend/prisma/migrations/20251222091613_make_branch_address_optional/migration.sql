@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "branches" ALTER COLUMN "address_line_1" DROP NOT NULL,
+ALTER COLUMN "city" DROP NOT NULL,
+ALTER COLUMN "state" DROP NOT NULL,
+ALTER COLUMN "pincode" DROP NOT NULL,
+ALTER COLUMN "contact_number" DROP NOT NULL;

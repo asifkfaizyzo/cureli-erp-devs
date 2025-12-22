@@ -164,17 +164,19 @@ model Shop {
   @@map("shops")
 }
 
+// In schema.prisma - Update the Branch model
+
 model Branch {
   branch_id        String  @id @default(uuid()) @db.Uuid
   shop_id          String  @db.Uuid
   branch_name      String
   branch_type      String  @default("main")
-  address_line_1   String
+  address_line_1   String?   // ← Changed to optional
   address_line_2   String?
-  city             String
-  state            String
-  pincode          String
-  contact_number   String
+  city             String?   // ← Changed to optional
+  state            String?   // ← Changed to optional
+  pincode          String?   // ← Changed to optional
+  contact_number   String?   // ← Changed to optional
   alternate_number String?
 
   is_active Boolean @default(true)

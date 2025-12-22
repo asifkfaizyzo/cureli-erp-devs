@@ -1,16 +1,15 @@
 // src/components/setup/SetupStepper.jsx
 import { motion } from "framer-motion";
-import { Check, Building2, Users, UserCog, ClipboardCheck } from "lucide-react";
+import { Check, Building2, Users, ClipboardCheck } from "lucide-react";
 
 /**
  * SetupStepper
- * 4-step progress indicator for the setup wizard
+ * 3-step progress indicator for the setup wizard
  * 
  * Steps:
  * 1. Create Branches
  * 2. Add Users
- * 3. Assign Operators
- * 4. Review & Finish
+ * 3. Review & Finish
  */
 
 const steps = [
@@ -28,12 +27,6 @@ const steps = [
   },
   {
     id: 3,
-    title: "Operators",
-    shortTitle: "Operators",
-    icon: UserCog,
-  },
-  {
-    id: 4,
     title: "Review",
     shortTitle: "Review",
     icon: ClipboardCheck,
@@ -42,7 +35,7 @@ const steps = [
 
 const SetupStepper = ({ currentStep = 1 }) => {
   return (
-    <div className="w-full max-w-2xl">
+    <div className="w-full max-w-xl">
       <div className="flex items-center justify-between">
         {steps.map((step, index) => {
           const isCompleted = currentStep > step.id;

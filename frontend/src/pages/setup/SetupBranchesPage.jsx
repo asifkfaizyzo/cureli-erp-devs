@@ -1,7 +1,6 @@
 // src/pages/setup/SetupBranchesPage.jsx
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2,
@@ -23,34 +22,31 @@ import { useSetupStore } from "../../store/useSetupStore";
 /**
  * SetupBranchesPage
  * Step 1: Create branches
- * 
- * Requirements:
- * - At least 1 branch required to continue
- * - Respect plan branch limit
- * - Auto-assign Super Admin as billing user for each branch
  */
 
 const SetupBranchesPage = () => {
   const navigate = useNavigate();
 
-  // Store
-  const {
-    branches,
-    planLimits,
-    superAdmin,
-    addBranch,
-    updateBranch,
-    removeBranch,
-    setCurrentStep,
-  } = useSetupStore();
+  // Store - get everything we need
+  const branches = useSetupStore((state) => state.branches);
+  const planLimits = useSetupStore((state) => state.planLimits);
+  const isInitialized = useSetupStore((state) => state.isInitialized);
+  const addBranch = useSetupStore((state) => state.addBranch);
+  const updateBranch = useSetupStore((state) => state.updateBranch);
+  const removeBranch = useSetupStore((state) => state.removeBranch);
+  const setCurrentStep = useSetupStore((state) => state.setCurrentStep);
+  const canAddBranchFn = useSetupStore((state) => state.canAddBranch);
 
   // Local state
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState(null);
   const [formData, setFormData] = useState({
     branch_name: "",
-    address: "",
-    phone: "",
+    address_line_1: "",
+    city: "",
+    state: "",
+    pincode: "",
+    contact_number: "",
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,10 +55,21 @@ const SetupBranchesPage = () => {
   const formRef = useRef(null);
   const nameInputRef = useRef(null);
 
-  // Computed
+  // Computed values
   const maxBranches = planLimits.max_branches;
-  const canAddMore = maxBranches === -1 || branches.length < maxBranches;
+  const canAddMore = canAddBranchFn();
   const canContinue = branches.length >= 1;
+
+  // Debug logging
+  useEffect(() => {
+    console.log("🏢 SetupBranchesPage mounted:", {
+      isInitialized,
+      planLimits,
+      branchCount: branches.length,
+      maxBranches,
+      canAddMore,
+    });
+  }, [isInitialized, planLimits, branches.length]);
 
   // Set current step on mount
   useEffect(() => {
@@ -81,13 +88,23 @@ const SetupBranchesPage = () => {
   // ============================================
 
   const resetForm = () => {
-    setFormData({ branch_name: "", address: "", phone: "" });
+    setFormData({
+      branch_name: "",
+      address_line_1: "",
+      city: "",
+      state: "",
+      pincode: "",
+      contact_number: "",
+    });
     setErrors({});
     setEditingBranch(null);
   };
 
   const openAddForm = () => {
-    if (!canAddMore) return;
+    if (!canAddMore) {
+      console.warn("Cannot add more branches - limit reached");
+      return;
+    }
     resetForm();
     setShowForm(true);
   };
@@ -95,8 +112,11 @@ const SetupBranchesPage = () => {
   const openEditForm = (branch) => {
     setFormData({
       branch_name: branch.branch_name,
-      address: branch.address || "",
-      phone: branch.phone || "",
+      address_line_1: branch.address_line_1 || "",
+      city: branch.city || "",
+      state: branch.state || "",
+      pincode: branch.pincode || "",
+      contact_number: branch.contact_number || "",
     });
     setEditingBranch(branch);
     setShowForm(true);
@@ -109,7 +129,6 @@ const SetupBranchesPage = () => {
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error on change
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
     }
@@ -124,7 +143,7 @@ const SetupBranchesPage = () => {
       newErrors.branch_name = "Branch name must be at least 2 characters";
     }
 
-    // Check for duplicate name (excluding current editing branch)
+    // Check for duplicate name
     const isDuplicate = branches.some(
       (b) =>
         b.branch_name.toLowerCase() === formData.branch_name.trim().toLowerCase() &&
@@ -134,9 +153,14 @@ const SetupBranchesPage = () => {
       newErrors.branch_name = "A branch with this name already exists";
     }
 
-    // Phone validation (optional but must be valid if provided)
-    if (formData.phone && !/^[0-9]{10}$/.test(formData.phone.replace(/\D/g, ""))) {
-      newErrors.phone = "Please enter a valid 10-digit phone number";
+    // Pincode validation
+    if (formData.pincode && !/^[0-9]{6}$/.test(formData.pincode)) {
+      newErrors.pincode = "Pincode must be exactly 6 digits";
+    }
+
+    // Phone validation
+    if (formData.contact_number && !/^[0-9]{10}$/.test(formData.contact_number.replace(/\D/g, ""))) {
+      newErrors.contact_number = "Please enter a valid 10-digit phone number";
     }
 
     setErrors(newErrors);
@@ -148,32 +172,39 @@ const SetupBranchesPage = () => {
 
     setIsSubmitting(true);
 
-    // Simulate a small delay for UX
     setTimeout(() => {
       if (editingBranch) {
-        // Update existing branch
         updateBranch(editingBranch.temp_id, {
           branch_name: formData.branch_name.trim(),
-          address: formData.address.trim(),
-          phone: formData.phone.replace(/\D/g, ""),
+          address_line_1: formData.address_line_1.trim() || "",
+          city: formData.city.trim() || "",
+          state: formData.state.trim() || "",
+          pincode: formData.pincode || "",
+          contact_number: formData.contact_number.replace(/\D/g, "") || "",
         });
+        setIsSubmitting(false);
+        closeForm();
       } else {
-        // Add new branch
         const result = addBranch({
           branch_name: formData.branch_name.trim(),
-          address: formData.address.trim(),
-          phone: formData.phone.replace(/\D/g, ""),
+          address_line_1: formData.address_line_1.trim() || "",
+          city: formData.city.trim() || "",
+          state: formData.state.trim() || "",
+          pincode: formData.pincode || "",
+          contact_number: formData.contact_number.replace(/\D/g, "") || "",
         });
+
+        console.log("📝 Add branch result:", result);
 
         if (!result.success) {
           setErrors({ submit: result.error });
           setIsSubmitting(false);
           return;
         }
-      }
 
-      setIsSubmitting(false);
-      closeForm();
+        setIsSubmitting(false);
+        closeForm();
+      }
     }, 300);
   };
 
@@ -186,6 +217,16 @@ const SetupBranchesPage = () => {
   const handleContinue = () => {
     if (!canContinue) return;
     navigate("/setup/users");
+  };
+
+  const formatAddress = (branch) => {
+    const parts = [
+      branch.address_line_1,
+      branch.city,
+      branch.state,
+      branch.pincode,
+    ].filter(Boolean);
+    return parts.join(", ");
   };
 
   // ============================================
@@ -213,10 +254,10 @@ const SetupBranchesPage = () => {
         <div className="flex gap-3">
           <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-blue-800">
-            <p className="font-medium mb-1">You'll be the default billing operator</p>
+            <p className="font-medium mb-1">Only branch name is required</p>
             <p className="text-blue-600">
-              As the Super Admin, you're automatically assigned as the billing user for each branch. 
-              You can change this later in the Operators step.
+              You can add address and contact details now or update them later. 
+              Your plan allows up to {maxBranches === -1 ? "unlimited" : maxBranches} branch{maxBranches !== 1 ? "es" : ""}.
             </p>
           </div>
         </div>
@@ -237,12 +278,10 @@ const SetupBranchesPage = () => {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4 flex-1 min-w-0">
-                  {/* Branch Icon */}
                   <div className="w-12 h-12 bg-[#000060]/10 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Building2 size={24} className="text-[#000060]" />
                   </div>
 
-                  {/* Branch Details */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-semibold text-gray-800 truncate">
@@ -256,31 +295,30 @@ const SetupBranchesPage = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
-                      {branch.address && (
+                      {formatAddress(branch) && (
                         <div className="flex items-center gap-1">
                           <MapPin size={12} />
-                          <span className="truncate max-w-[200px]">{branch.address}</span>
+                          <span className="truncate max-w-[250px]">
+                            {formatAddress(branch)}
+                          </span>
                         </div>
                       )}
-                      {branch.phone && (
+                      {branch.contact_number && (
                         <div className="flex items-center gap-1">
                           <Phone size={12} />
-                          <span>{branch.phone}</span>
+                          <span>{branch.contact_number}</span>
                         </div>
                       )}
                     </div>
 
-                    {/* Billing User Info */}
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-xs text-gray-400">Billing:</span>
-                      <span className="text-xs font-medium text-[#000060] bg-[#000060]/5 px-2 py-0.5 rounded">
-                        {superAdmin.name} (You)
-                      </span>
-                    </div>
+                    {!formatAddress(branch) && !branch.contact_number && (
+                      <p className="text-xs text-gray-400 italic">
+                        No address or contact added
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     onClick={() => openEditForm(branch)}
@@ -340,7 +378,7 @@ const SetupBranchesPage = () => {
         )}
 
         {/* Limit Reached Message */}
-        {!canAddMore && !showForm && (
+        {!canAddMore && branches.length > 0 && !showForm && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -348,7 +386,7 @@ const SetupBranchesPage = () => {
           >
             <AlertCircle size={18} className="flex-shrink-0" />
             <span>
-              Branch limit reached ({maxBranches} branches). 
+              Branch limit reached ({maxBranches} branch{maxBranches !== 1 ? "es" : ""}). 
               <a href="/pricing" className="underline font-medium ml-1 hover:text-amber-800">
                 Upgrade your plan
               </a> to add more.
@@ -382,7 +420,7 @@ const SetupBranchesPage = () => {
               </div>
 
               <div className="space-y-4">
-                {/* Branch Name */}
+                {/* Branch Name (Required) */}
                 <div>
                   <label className="block text-xs font-bold text-[#000060] mb-1">
                     Branch Name *
@@ -411,49 +449,106 @@ const SetupBranchesPage = () => {
                   )}
                 </div>
 
-                {/* Address (Optional) */}
-                <div>
-                  <label className="block text-xs font-bold text-[#000060] mb-1">
-                    Address
-                    <span className="font-normal text-gray-400 ml-1">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => handleChange("address", e.target.value)}
-                    placeholder="e.g., 123 Main Street, City"
-                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:border-[#000060] focus:ring-[#000060]/20"
-                  />
-                </div>
+                {/* Optional Fields Section */}
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-xs text-gray-500 mb-3">
+                    Optional details (can be added later)
+                  </p>
 
-                {/* Phone (Optional) */}
-                <div>
-                  <label className="block text-xs font-bold text-[#000060] mb-1">
-                    Contact Number
-                    <span className="font-normal text-gray-400 ml-1">(optional)</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => handleChange("phone", e.target.value)}
-                    placeholder="e.g., 9876543210"
-                    maxLength={10}
-                    className={`
-                      w-full px-3 py-2.5 bg-white border rounded-lg transition-all duration-200
-                      focus:outline-none focus:ring-2
-                      ${
-                        errors.phone
-                          ? "border-red-500 focus:ring-red-500/20"
-                          : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
-                      }
-                    `}
-                  />
-                  {errors.phone && (
-                    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                      <AlertCircle size={12} />
-                      {errors.phone}
-                    </p>
-                  )}
+                  {/* Address Line 1 */}
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Address
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.address_line_1}
+                      onChange={(e) => handleChange("address_line_1", e.target.value)}
+                      placeholder="e.g., 123 Main Street"
+                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:border-[#000060] focus:ring-[#000060]/20"
+                    />
+                  </div>
+
+                  {/* City, State, Pincode Row */}
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        City
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.city}
+                        onChange={(e) => handleChange("city", e.target.value)}
+                        placeholder="City"
+                        className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:border-[#000060] focus:ring-[#000060]/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        State
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.state}
+                        onChange={(e) => handleChange("state", e.target.value)}
+                        placeholder="State"
+                        className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:border-[#000060] focus:ring-[#000060]/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Pincode
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.pincode}
+                        onChange={(e) => handleChange("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="123456"
+                        maxLength={6}
+                        className={`
+                          w-full px-3 py-2.5 bg-white border rounded-lg transition-all duration-200
+                          focus:outline-none focus:ring-2
+                          ${
+                            errors.pincode
+                              ? "border-red-500 focus:ring-red-500/20"
+                              : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
+                          }
+                        `}
+                      />
+                      {errors.pincode && (
+                        <p className="text-red-500 text-xs mt-1">{errors.pincode}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Contact Number */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Contact Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.contact_number}
+                      onChange={(e) => handleChange("contact_number", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      placeholder="e.g., 9876543210"
+                      maxLength={10}
+                      className={`
+                        w-full px-3 py-2.5 bg-white border rounded-lg transition-all duration-200
+                        focus:outline-none focus:ring-2
+                        ${
+                          errors.contact_number
+                            ? "border-red-500 focus:ring-red-500/20"
+                            : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
+                        }
+                      `}
+                    />
+                    {errors.contact_number && (
+                      <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                        <AlertCircle size={12} />
+                        {errors.contact_number}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Submit Error */}
@@ -512,7 +607,7 @@ const SetupBranchesPage = () => {
           ) : (
             <span className="text-emerald-600 flex items-center gap-1">
               <Check size={14} />
-              {branches.length} branch{branches.length > 1 ? "es" : ""} created
+              {branches.length} of {maxBranches === -1 ? "∞" : maxBranches} branch{branches.length !== 1 ? "es" : ""} created
             </span>
           )}
         </p>
