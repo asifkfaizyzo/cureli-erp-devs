@@ -24,13 +24,12 @@ import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.js
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 
-// Setup Pages
+// Setup Pages (3-step wizard)
 import SetupLayout from "./components/setup/SetupLayout.jsx";
 import SetupRouter from "./pages/setup/SetupRouter.jsx";
 import SetupBranchesPage from "./pages/setup/SetupBranchesPage.jsx";
 import SetupUsersPage from "./pages/setup/SetupUsersPage.jsx";
 import SetupReviewPage from "./pages/setup/SetupReviewPage.jsx";
-// REMOVED: SetupOperatorsPage - no longer needed
 
 // Landing pages
 import Home from "./pages/landingPages/home/Home.jsx";
@@ -104,13 +103,13 @@ const App = () => {
         {/* ============================================ */}
         {/* SETUP ROUTES (3 Steps) */}
         {/* Post-plan setup wizard with its own layout */}
+        {/* Step 1: Branches, Step 2: Users, Step 3: Review */}
         {/* ============================================ */}
         <Route path="/setup" element={<SetupRouter />} />
         <Route element={<SetupLayout />}>
           <Route path="/setup/branches" element={<SetupBranchesPage />} />
           <Route path="/setup/users" element={<SetupUsersPage />} />
           <Route path="/setup/review" element={<SetupReviewPage />} />
-          {/* REMOVED: /setup/branch-operator route */}
         </Route>
 
         {/* ============================================ */}

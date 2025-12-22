@@ -1,6 +1,6 @@
 import ContactHero from "./components/ContactHero";
 import ContactFormCard from "./components/ContactFormCard";
-import OpeningHours from "./components/OpeningHours";
+// import OpeningHours from "./components/OpeningHours";
 import MapSection from "./components/MapSection";
 import Navbar from "../about/components/Navbar";
 import Footer from "../home/components/Footer";
@@ -22,8 +22,17 @@ const Contact = () => {
       </div>
       
       {/* White Space Below - Responsive Padding */}
-      <div className="bg-white pt-8 xs:pt-10 sm:pt-12 md:pt-14 lg:pt-16 xl:pt-20">
-        <OpeningHours />
+     <div className="
+  bg-white
+  mx-auto
+  w-full
+  max-w-7xl
+  px-4 xs:px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12
+  pt-8 xs:pt-10 sm:pt-12 md:pt-14 lg:pt-16 xl:pt-20
+  pb-8 xs:pb-10 sm:pb-12 md:pb-14 lg:pb-16 xl:pb-20
+">
+
+        {/* <OpeningHours /> */}
         <MapSection />
       </div>
       

@@ -8,7 +8,7 @@ const TopHeader = () => {
   const dropdownRef = useRef(null);
 
   // 🔧 Set role here manually: "super-admin" | "branch-admin" | "staff"
-  const [role] = useState("super-admin");
+  const [role] = useState("Staff");
 
   const [branches] = useState([
     { id: "b1", name: "Kochi Main" },

@@ -10,6 +10,7 @@ import CAdminResetPassword from "./pages/CAdminResetPassword";
 import VerificationPage from "./pages/VerificationPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
  import ShopsPage from "./pages/ShopsPage";
+ import AdminsPage from "./pages/AdminsPage";
 // Layout
 import AppLayout from "./components/layout/AppLayout";
 
@@ -69,6 +70,7 @@ function App() {
           <Route path="/subscriptions" element={<SubscriptionPage/>} />
           <Route path="/audits" element={<div>Audits Page</div>} />
           <Route path="/settings" element={<div>Settings Page</div>} />
+          <Route path="admins" element={<AdminsPage/>} />
         </Route>
 
         {/* ══════════════════════════════════════════════════════
