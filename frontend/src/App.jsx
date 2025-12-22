@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 // import { useEffect } from "react";
 
@@ -113,6 +114,9 @@
 
 // export default App;
 
+=======
+// src/App.jsx
+>>>>>>> 7ea48650a7da54f4d1e1bd3da382e59ee9a698aa
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
@@ -141,7 +145,19 @@ import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.js
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 
+<<<<<<< HEAD
 // Landing Pages
+=======
+// Setup Pages (NEW)
+import SetupLayout from "./components/setup/SetupLayout.jsx";
+import SetupRouter from "./pages/setup/SetupRouter.jsx";
+import SetupBranchesPage from "./pages/setup/SetupBranchesPage.jsx";
+import SetupUsersPage from "./pages/setup/SetupUsersPage.jsx";
+import SetupOperatorsPage from "./pages/setup/SetupOperatorsPage.jsx";
+import SetupReviewPage from "./pages/setup/SetupReviewPage.jsx";
+
+// Landing pages
+>>>>>>> 7ea48650a7da54f4d1e1bd3da382e59ee9a698aa
 import Home from "./pages/landingPages/home/Home.jsx";
 import About from "./pages/landingPages/about/About.jsx";
 import Contact from "./pages/landingPages/contact/Contact.jsx";
@@ -191,13 +207,24 @@ const App = () => {
       <ScrollToTop />
 
       <Routes>
+<<<<<<< HEAD
         {/* LANDING PAGES */}
+=======
+        {/* ============================================ */}
+        {/* LANDING PAGES */}
+        {/* ============================================ */}
+>>>>>>> 7ea48650a7da54f4d1e1bd3da382e59ee9a698aa
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/pricing" element={<Pricing />} />
 
+        {/* ============================================ */}
         {/* PUBLIC ROUTES */}
+<<<<<<< HEAD
+=======
+        {/* ============================================ */}
+>>>>>>> 7ea48650a7da54f4d1e1bd3da382e59ee9a698aa
         <Route path="/plan-selection" element={<PlanSelectionPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
@@ -207,7 +234,25 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+<<<<<<< HEAD
         {/* PROTECTED ERP ROUTES */}
+=======
+        {/* ============================================ */}
+        {/* SETUP ROUTES (NEW) */}
+        {/* Post-plan setup wizard with its own layout */}
+        {/* ============================================ */}
+        <Route path="/setup" element={<SetupRouter />} />
+        <Route element={<SetupLayout />}>
+          <Route path="/setup/branches" element={<SetupBranchesPage />} />
+          <Route path="/setup/users" element={<SetupUsersPage />} />
+          <Route path="/setup/branch-operator" element={<SetupOperatorsPage />} />
+          <Route path="/setup/review" element={<SetupReviewPage />} />
+        </Route>
+
+        {/* ============================================ */}
+        {/* PROTECTED ERP ROUTES (with AppLayout) */}
+        {/* ============================================ */}
+>>>>>>> 7ea48650a7da54f4d1e1bd3da382e59ee9a698aa
         <Route path="/" element={<AppLayout />}>
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="Salesbilling" element={<BillingPage />} />
@@ -219,7 +264,13 @@ const App = () => {
           <Route path="reports-sales" element={<ReportPage />} />
         </Route>
 
+<<<<<<< HEAD
         {/* ERROR */}
+=======
+        {/* ============================================ */}
+        {/* ERROR PAGES */}
+        {/* ============================================ */}
+>>>>>>> 7ea48650a7da54f4d1e1bd3da382e59ee9a698aa
         <Route path="/error" element={<ErrorPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
@@ -227,6 +278,10 @@ const App = () => {
   );
 };
 
+<<<<<<< HEAD
 export default App;
 
 
+=======
+export default App;
+>>>>>>> 7ea48650a7da54f4d1e1bd3da382e59ee9a698aa
