@@ -1,8 +1,9 @@
+// src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
 // Public Pages
-import NotFoundPage from "./components/common/NotFoundPage .jsx"
+import NotFoundPage from "./components/common/NotFoundPage .jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
@@ -21,9 +22,17 @@ import BillingPage from "./pages/sales/billing/BillingPage.jsx";
 import InvoicePage from "./pages/sales/invoice/InvoicePage.jsx";
 import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.jsx";
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
-import ReportPage from "./pages/report/sales/SalesReportPage.jsx"
+import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 
-//landing pages
+// Setup Pages (NEW)
+import SetupLayout from "./components/setup/SetupLayout.jsx";
+import SetupRouter from "./pages/setup/SetupRouter.jsx";
+import SetupBranchesPage from "./pages/setup/SetupBranchesPage.jsx";
+import SetupUsersPage from "./pages/setup/SetupUsersPage.jsx";
+import SetupOperatorsPage from "./pages/setup/SetupOperatorsPage.jsx";
+import SetupReviewPage from "./pages/setup/SetupReviewPage.jsx";
+
+// Landing pages
 import Home from "./pages/landingPages/home/Home.jsx";
 import About from "./pages/landingPages/about/About.jsx";
 import Contact from "./pages/landingPages/contact/Contact.jsx";
@@ -31,7 +40,6 @@ import Pricing from "./pages/landingPages/pricing/Pricing.jsx";
 import VerificationPage from "./pages/VerificationPage.jsx";
 
 import "./index.css";
-
 
 const App = () => {
   useEffect(() => {
@@ -73,15 +81,18 @@ const App = () => {
   return (
     <Router>
       <Routes>
-        {/* landing pages */}
+        {/* ============================================ */}
+        {/* LANDING PAGES */}
+        {/* ============================================ */}
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/pricing" element={<Pricing />} />
 
+        {/* ============================================ */}
         {/* PUBLIC ROUTES */}
-
-        <Route path="plan-selection" element={<PlanSelectionPage />} />
+        {/* ============================================ */}
+        <Route path="/plan-selection" element={<PlanSelectionPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/verification" element={<VerificationPage />} />
@@ -90,7 +101,21 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* PROTECTED ERP ROUTES (with layout) */}
+        {/* ============================================ */}
+        {/* SETUP ROUTES (NEW) */}
+        {/* Post-plan setup wizard with its own layout */}
+        {/* ============================================ */}
+        <Route path="/setup" element={<SetupRouter />} />
+        <Route element={<SetupLayout />}>
+          <Route path="/setup/branches" element={<SetupBranchesPage />} />
+          <Route path="/setup/users" element={<SetupUsersPage />} />
+          <Route path="/setup/branch-operator" element={<SetupOperatorsPage />} />
+          <Route path="/setup/review" element={<SetupReviewPage />} />
+        </Route>
+
+        {/* ============================================ */}
+        {/* PROTECTED ERP ROUTES (with AppLayout) */}
+        {/* ============================================ */}
         <Route path="/" element={<AppLayout />}>
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="Salesbilling" element={<BillingPage />} />
@@ -100,10 +125,11 @@ const App = () => {
           <Route path="purchase-billing" element={<PurchasePage />} />
           <Route path="suppliers" element={<SupplierPage />} />
           <Route path="reports-sales" element={<ReportPage />} />
-
         </Route>
 
-        {/* ERROR PAGE */}
+        {/* ============================================ */}
+        {/* ERROR PAGES */}
+        {/* ============================================ */}
         <Route path="/error" element={<ErrorPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

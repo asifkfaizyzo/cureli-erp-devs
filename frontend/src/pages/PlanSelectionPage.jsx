@@ -9,7 +9,6 @@ import {
   Check,
   Sparkles,
   Mail,
-  LogOut,
 } from "lucide-react";
 
 import { getPlans, selectPlan, confirmPayment } from "../api/subscription";
@@ -20,73 +19,7 @@ import {
   generateFeatures,
 } from "../config/planConfig";
 import PlanConfirmModal from "../components/plans/PlanConfirmModal";
-import logo from "../assets/icons/cureli.png";
-
-// ============================================
-// HEADER COMPONENT
-// ============================================
-function PlanSelectionHeader() {
-  const navigate = useNavigate();
-  const [loggingOut, setLoggingOut] = useState(false);
-
-  const displayName = localStorage.getItem("user_name") || "User";
-  const avatarLetter = displayName.charAt(0).toUpperCase();
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("shop_id");
-    localStorage.removeItem("user_id");
-    localStorage.removeItem("user_name");
-
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    navigate("/", { replace: true });
-  };
-
-  return (
-    <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 px-4 sm:px-6 py-3 shadow-sm">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <img
-            src={logo}
-            alt="Cureli"
-            className="w-8 h-7 sm:w-10 sm:h-9 object-contain"
-          />
-          <span className="font-bold text-[#000060] text-xl sm:text-2xl">
-            Cureli
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3 sm:gap-4">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#000060] flex items-center justify-center text-white font-semibold text-sm sm:text-base">
-              {avatarLetter}
-            </div>
-            <span className="hidden sm:block text-sm font-medium text-gray-700 max-w-[120px] truncate">
-              {displayName}
-            </span>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Logout"
-          >
-            {loggingOut ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <LogOut size={16} />
-            )}
-            <span className="hidden sm:inline">Logout</span>
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}
+import OnboardingHeader from "../components/layout/OnboardingHeader";
 
 // ============================================
 // PLAN CARD COMPONENT
@@ -311,6 +244,7 @@ const PlanSelectionPage = () => {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [userName, setUserName] = useState("");
 
   // Modal state
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -318,8 +252,9 @@ const PlanSelectionPage = () => {
   const [processing, setProcessing] = useState(false);
   const [modalError, setModalError] = useState("");
 
-  // Load plans
+  // Load plans and user name
   useEffect(() => {
+    setUserName(localStorage.getItem("user_name") || "");
     loadPlans();
   }, []);
 
@@ -371,7 +306,7 @@ const PlanSelectionPage = () => {
 
       if (data.is_free) {
         // FREE PLAN - Direct activation, go to dashboard
-        navigate("/dashboard", { replace: true });
+        navigate("/setup", { replace: true });
         return;
       }
 
@@ -415,7 +350,7 @@ const PlanSelectionPage = () => {
             razorpay_signature: response.razorpay_signature,
             subscription_id: data.subscription_id,
           });
-          navigate("/dashboard", { replace: true });
+          navigate("/setup", { replace: true });
         } catch (err) {
           console.error("Payment confirmation error:", err);
           setModalError(
@@ -473,7 +408,7 @@ const PlanSelectionPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <PlanSelectionHeader />
+        <OnboardingHeader userName={userName} />
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <Loader2 size={48} className="text-[#000060] animate-spin" />
@@ -492,7 +427,7 @@ const PlanSelectionPage = () => {
   if (error && plans.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <PlanSelectionHeader />
+        <OnboardingHeader userName={userName} />
         <div className="flex-1 flex items-center justify-center px-4">
           <div className="flex flex-col items-center gap-6 max-w-md text-center">
             <div className="p-4 bg-red-100 rounded-full">
@@ -520,7 +455,7 @@ const PlanSelectionPage = () => {
   // ============================================
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <PlanSelectionHeader />
+      <OnboardingHeader userName={userName} />
 
       <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
