@@ -1,9 +1,9 @@
+// CAdminOtpForm.jsx
 import { useState, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
-import { IoArrowBackOutline } from "react-icons/io5";
+import { motion, AnimatePresence } from "framer-motion";
 import { verifyOtpCAdmin } from "../api/auth";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, ArrowLeft, RefreshCw } from "lucide-react";
 
 const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -16,13 +16,11 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
   const refs = useRef([]);
   const navigate = useNavigate();
 
-  // Auto-focus first input
   useEffect(() => {
-    const timer = setTimeout(() => refs.current[0]?.focus(), 100);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => refs.current[0]?.focus(), 100);
+    return () => clearTimeout(t);
   }, []);
 
-  // Countdown timer
   useEffect(() => {
     if (timer > 0) {
       const t = setInterval(() => setTimer((v) => v - 1), 1000);
@@ -30,7 +28,6 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
     }
   }, [timer]);
 
-  // Auto-submit when 4 digits filled
   useEffect(() => {
     const code = otp.join("");
     if (code.length === 4 && otp.every((d) => d !== "") && !loading && !success) {
@@ -52,7 +49,6 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
     }
   };
 
-  // Handle paste full OTP
   const handlePaste = (e) => {
     e.preventDefault();
     if (loading || success) return;
@@ -68,12 +64,10 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
   const handleKeyDown = (e, idx) => {
     if (loading || success) return;
 
-    // Backspace navigation
     if (e.key === "Backspace" && !otp[idx] && idx > 0) {
       refs.current[idx - 1]?.focus();
     }
 
-    // Enter to submit
     if (e.key === "Enter") {
       const code = otp.join("");
       if (code.length === 4) {
@@ -96,21 +90,17 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
 
     try {
       const res = await verifyOtpCAdmin({ username, otp: code });
-      
-      // Success state
       setSuccess(true);
       
-      // Brief delay to show success before navigating
       setTimeout(() => {
         localStorage.setItem("cadmin_access_token", res.data.data.access_token);
         navigate("/dashboard");
       }, 600);
       
     } catch (err) {
-      setError(err?.response?.data?.message || "Invalid OTP");
+      setError(err?.response?.data?.message || "Invalid OTP. Please try again.");
       triggerShake();
       
-      // Reset OTP after shake
       setTimeout(() => {
         setOtp(["", "", "", ""]);
         refs.current[0]?.focus();
@@ -120,145 +110,142 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
     setLoading(false);
   };
 
-  const getInputClassName = (idx) => {
-    const base = `w-14 h-16 text-center text-xl font-semibold border-2 rounded-xl
-                  outline-none transition-all duration-200`;
-    
-    if (success) {
-      return `${base} border-green-500 bg-green-50 text-green-600`;
-    }
-    if (error) {
-      return `${base} border-red-500 bg-red-50`;
-    }
-    if (otp[idx]) {
-      return `${base} border-[#000060] bg-[#F7F7FF] text-[#000060]`;
-    }
-    return `${base} border-gray-300 bg-[#F7F7FF] focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/20`;
+  const getInputStyle = (idx) => {
+    if (success) return "border-[#000060] bg-[#000060]/5 text-[#000060]";
+    if (error) return "border-red-400 bg-red-50 text-red-600";
+    if (otp[idx]) return "border-[#000060] bg-[#000060]/5 text-[#000060]";
+    return "border-slate-200 bg-slate-50 focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/10";
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full"
-    >
-      {/* BACK */}
-      <div
-        className="flex items-center gap-2 text-[#000060] mb-6 cursor-pointer hover:opacity-70 transition"
+    <div className="w-full font-poppins min-h-[360px]">
+      {/* Back Button */}
+      <motion.button
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
         onClick={onBack}
+        className="flex items-center gap-1.5 text-slate-500 hover:text-[#000060] transition-colors mb-5 group"
       >
-        <IoArrowBackOutline className="text-xl" />
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
         <span className="text-sm font-medium">Back</span>
+      </motion.button>
+
+      {/* Header */}
+      <div className="text-center mb-6">
+        <h2 className="text-xl font-bold text-[#000060] mb-1">Verify OTP</h2>
+        <p className="text-slate-500 text-sm">
+          Code sent to <span className="font-medium text-slate-700">{phoneHint}</span>
+        </p>
       </div>
 
-      <h2 className="text-3xl font-semibold text-[#000060] mb-4">
-        Verify OTP
-      </h2>
-
-      <p className="text-gray-500 text-sm mb-8">
-        Sent to <span className="font-medium">{phoneHint}</span>
-      </p>
-
-      {/* OTP INPUTS */}
-      <div
-        className={`flex gap-4 mb-4 ${shake ? "animate-shake" : ""}`}
+      {/* OTP Inputs */}
+      <motion.div
+        animate={shake ? { x: [0, -8, 8, -8, 8, 0] } : {}}
+        transition={{ duration: 0.4 }}
         onPaste={handlePaste}
+        className="flex justify-center gap-3 mb-5"
       >
         {otp.map((digit, idx) => (
-          <input
+          <motion.input
             key={idx}
             ref={(el) => (refs.current[idx] = el)}
             type="text"
             inputMode="numeric"
             maxLength="1"
             disabled={loading || success}
-            className={`${getInputClassName(idx)} disabled:cursor-not-allowed`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.08 }}
+            className={`w-12 h-14 text-center text-xl font-bold rounded-lg border
+                      outline-none transition-all duration-200 disabled:cursor-not-allowed
+                      ${getInputStyle(idx)}`}
             value={digit}
             onChange={(e) => updateOtp(e.target.value, idx)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
           />
         ))}
         
-        {/* Success checkmark */}
-        {success && (
-          <div className="flex items-center ml-2 animate-scale-in">
-            <CheckCircle2 className="w-8 h-8 text-green-500" />
-          </div>
+        {/* Success Check */}
+        <AnimatePresence>
+          {success && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="flex items-center ml-1"
+            >
+              <div className="w-8 h-8 rounded-full bg-[#000060]/10 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-[#000060]" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Error Message */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            className="mb-4 p-2.5 bg-red-50 border border-red-100 rounded-lg text-center"
+          >
+            <p className="text-red-600 text-sm">{error}</p>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
-      {/* Error message */}
-      {error && (
-        <p className="text-red-600 text-sm mb-4 animate-slide-down">{error}</p>
-      )}
-
-      {/* Submit button */}
-      <button
+      {/* Submit Button */}
+      <motion.button
         disabled={loading || otp.some((v) => v === "") || success}
         onClick={() => handleVerify()}
-        className={`w-full py-3 rounded-xl mb-4 font-medium transition-all duration-300
-          ${success 
-            ? "bg-green-500 text-white" 
-            : "bg-[#000060] text-white hover:bg-[#000060d1] disabled:bg-gray-400"
-          } disabled:cursor-not-allowed`}
+        whileHover={{ scale: loading || success ? 1 : 1.01 }}
+        whileTap={{ scale: loading || success ? 1 : 0.99 }}
+        className={`w-full py-3 rounded-lg font-medium transition-all duration-200 
+                   flex items-center justify-center gap-2
+                   ${success 
+                     ? "bg-[#000060] text-white" 
+                     : "bg-[#000060] text-white hover:bg-[#000060]/90"
+                   }
+                   shadow-md shadow-[#000060]/20
+                   disabled:bg-slate-400 disabled:shadow-none disabled:cursor-not-allowed`}
       >
         {loading ? (
-          <div className="flex items-center justify-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Verifying...
-          </div>
-        ) : success ? (
-          <div className="flex items-center justify-center gap-2">
-            <CheckCircle2 className="h-5 w-5" />
-            Verified!
-          </div>
-        ) : (
-          "Continue"
-        )}
-      </button>
-
-      {/* Timer / Resend */}
-      <p className="text-sm text-gray-600 text-center">
-        {timer > 0 ? (
           <>
-            Resend in{" "}
-            <span className="font-medium text-[#000060]">
-              00:{timer < 10 ? "0" + timer : timer}
-            </span>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Verifying...</span>
+          </>
+        ) : success ? (
+          <>
+            <CheckCircle2 className="h-4 w-4" />
+            <span>Verified</span>
           </>
         ) : (
-          <span className="text-[#000060] font-medium">
-            Resend OTP by restarting login
-          </span>
+          <span>Verify & Continue</span>
         )}
-      </p>
+      </motion.button>
 
-      {/* Animations */}
-      <style>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          20% { transform: translateX(-8px); }
-          40% { transform: translateX(8px); }
-          60% { transform: translateX(-8px); }
-          80% { transform: translateX(8px); }
-        }
-        
-        @keyframes scale-in {
-          0% { transform: scale(0); opacity: 0; }
-          50% { transform: scale(1.2); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        
-        @keyframes slide-down {
-          0% { transform: translateY(-10px); opacity: 0; }
-          100% { transform: translateY(0); opacity: 1; }
-        }
-        
-        .animate-shake { animation: shake 0.4s ease-in-out; }
-        .animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
-        .animate-slide-down { animation: slide-down 0.2s ease-out forwards; }
-      `}</style>
-    </motion.div>
+      {/* Timer / Resend */}
+      <div className="mt-5 text-center">
+        {timer > 0 ? (
+          <p className="text-slate-500 text-sm">
+            Resend in{" "}
+            <span className="font-medium text-[#000060] tabular-nums">
+              00:{timer.toString().padStart(2, '0')}
+            </span>
+          </p>
+        ) : (
+          <button
+            onClick={onBack}
+            className="flex items-center justify-center gap-1.5 mx-auto text-[#000060] 
+                     hover:text-[#000060]/80 font-medium text-sm transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Resend OTP</span>
+          </button>
+        )}
+      </div>
+    </div>
   );
 };
 
