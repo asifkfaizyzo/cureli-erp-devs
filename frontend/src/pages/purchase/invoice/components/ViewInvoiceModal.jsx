@@ -2,7 +2,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Save, Printer, Trash2, Calendar, Clock, User, MapPin, CreditCard, FileText } from "lucide-react";
+import { toast } from 'react-toastify';
 import { useMenuStore } from "../../../../store/useMenuStore";
+import ConfirmDialog from '../../../../components/common/ConfirmDialog';
 
 const backdropVariants = {
   hidden: { opacity: 0 },
@@ -29,10 +31,12 @@ const ViewInvoiceModal = ({
   onDelete,
   onPrint,
 }) => {
-  // console.log("🔍 ViewInvoiceModal render:", { open, mode, bill: !!bill });
-
   const sidebarExpanded = useMenuStore((s) => s.sidebarExpanded);
   const isEdit = mode === "edit";
+
+  // Confirmation states
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDeleteItem, setConfirmDeleteItem] = useState(null);
 
   // --- DYNAMIC SIZING (matching PurchaseTable) ---
   const textSize = sidebarExpanded ? "text-[11px]" : "text-[13px]";
@@ -121,10 +125,7 @@ const ViewInvoiceModal = ({
 
   const deleteItemRow = (index) => {
     if (!isEdit) return;
-    setEditableBill((prev) => {
-      const items = (prev.items || []).filter((_, i) => i !== index);
-      return { ...prev, items };
-    });
+    setConfirmDeleteItem(index);
   };
 
   const updateCustomerField = (field, value) => {
@@ -136,23 +137,54 @@ const ViewInvoiceModal = ({
   };
 
   const handleSaveClick = () => {
-    // console.log("💾 Modal: Save clicked");
-    onSave?.({
-      ...editableBill,
-      summary: currentSummary,
-    });
+    try {
+      // Validation
+      if (!editableBill.items || editableBill.items.length === 0) {
+        toast.warn("Cannot save invoice with no items!", {
+          autoClose: 3000,
+        });
+        return;
+      }
+
+      if (!editableBill.customer?.name) {
+        toast.warn("Customer name is required!", {
+          autoClose: 3000,
+        });
+        return;
+      }
+
+      onSave?.({
+        ...editableBill,
+        summary: currentSummary,
+      });
+      
+      toast.success(`Invoice #${editableBill.billNo} saved successfully!`, {
+        autoClose: 3000,
+      });
+    } catch (error) {
+      toast.error("Failed to save invoice. Please try again.", {
+        autoClose: 4000,
+      });
+      console.error("Save error:", error);
+    }
   };
 
   const handlePrintClick = () => {
-    // console.log("🖨️ Modal: Print clicked");
-    onPrint?.(bill || editableBill);
+    try {
+      onPrint?.(bill || editableBill);
+      toast.info("Preparing invoice for print...", {
+        autoClose: 2000,
+      });
+    } catch (error) {
+      toast.error("Failed to print invoice", {
+        autoClose: 3000,
+      });
+      console.error("Print error:", error);
+    }
   };
 
   const handleDeleteClick = () => {
-    // console.log("🗑️ Modal: Delete clicked");
-    if (confirm(`Delete bill #${editableBill.billNo}?`)) {
-      onDelete?.(bill || editableBill);
-    }
+    setConfirmDelete(true);
   };
 
   return (
@@ -587,6 +619,48 @@ const ViewInvoiceModal = ({
               </div>
             </div>
           </motion.div>
+
+          {/* Delete Invoice Confirmation */}
+          {/* Delete Invoice Confirmation */}
+<ConfirmDialog
+  isOpen={confirmDelete}
+  onClose={() => setConfirmDelete(false)}
+  onConfirm={() => {
+    try {
+      onDelete?.(bill || editableBill);
+      toast.success(`Invoice #${editableBill.billNo} deleted successfully!`);
+    } catch (error) {
+      toast.error("Failed to delete invoice. Please try again.");
+      console.error("Delete error:", error);
+    }
+  }}
+  title="Delete Invoice"
+  message={`Are you sure you want to delete invoice #${editableBill.billNo}? This action cannot be undone.`}
+  confirmText="Delete"
+  cancelText="Cancel"
+  type="danger"
+/>
+
+{/* Delete Item Confirmation */}
+<ConfirmDialog
+  isOpen={confirmDeleteItem !== null}
+  onClose={() => setConfirmDeleteItem(null)}
+  onConfirm={() => {
+    const itemName = editableBill.items[confirmDeleteItem]?.name || "this item";
+    setEditableBill((prev) => {
+      const items = (prev.items || []).filter((_, i) => i !== confirmDeleteItem);
+      return { ...prev, items };
+    });
+    toast.success(`${itemName} removed from invoice`, { autoClose: 2000 });
+    setConfirmDeleteItem(null);
+  }}
+  title="Remove Item"
+  message={`Remove ${editableBill.items[confirmDeleteItem]?.name || "this item"} from the invoice?`}
+  confirmText="Remove"
+  cancelText="Cancel"
+  type="warning"
+/>
+
         </div>
       )}
     </AnimatePresence>

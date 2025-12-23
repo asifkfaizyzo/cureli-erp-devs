@@ -2,7 +2,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Save, Printer, Trash2, Calendar, Clock, User, MapPin, CreditCard, FileText } from "lucide-react";
+import { toast } from 'react-toastify';
 import { useMenuStore } from "../../../../store/useMenuStore";
+import ConfirmDialog from '../../../../components/common/ConfirmDialog';
 
 const backdropVariants = {
   hidden: { opacity: 0 },
@@ -38,13 +40,16 @@ const ViewInvoiceModal = ({
   open, 
   onClose, 
   bill,
-  mode = "view", // ✅ Add mode prop
+  mode = "view",
   onSave,
   onDelete,
   onPrint,
 }) => {
   const sidebarExpanded = useMenuStore((s) => s.sidebarExpanded);
   const isEdit = mode === "edit";
+
+  // ✅ Confirmation states
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Dynamic Text Sizing
   const textSize = sidebarExpanded ? "text-[11px]" : "text-[13px]";
@@ -85,20 +90,34 @@ const ViewInvoiceModal = ({
   };
 
   const handleSaveClick = () => {
-    // console.log("💾 Save clicked from modal");
+  try {
+    // Validation
+    if (!editableBill.customer?.name) {
+      toast.warn("Customer name is required!");
+      return;
+    }
+
+    // ✅ Just call onSave, let parent handle the success toast
     onSave?.(editableBill);
-  };
+    // ❌ REMOVED: toast.success - this was causing the duplicate
+  } catch (error) {
+    toast.error("Failed to save invoice. Please try again.");
+    console.error("Save error:", error);
+  }
+};
+
 
   const handleDeleteClick = () => {
-    // console.log("🗑️ Delete clicked from modal");
-    if (confirm(`Delete invoice #${editableBill.billNo}?`)) {
-      onDelete?.(editableBill);
-    }
+    setConfirmDelete(true);
   };
 
   const handlePrintClick = () => {
-    // console.log("🖨️ Print clicked from modal");
-    onPrint?.(editableBill);
+    try {
+      onPrint?.(editableBill);
+    } catch (error) {
+      toast.error("Failed to print invoice");
+      console.error("Print error:", error);
+    }
   };
   
   return (
@@ -369,6 +388,26 @@ const ViewInvoiceModal = ({
               </div>
             </div>
           </motion.div>
+
+          {/* Delete Confirmation Dialog */}
+          <ConfirmDialog
+            isOpen={confirmDelete}
+            onClose={() => setConfirmDelete(false)}
+            onConfirm={() => {
+              try {
+                onDelete?.(editableBill);
+                toast.success(`Invoice #${editableBill.billNo} deleted successfully!`);
+              } catch (error) {
+                toast.error("Failed to delete invoice. Please try again.");
+                console.error("Delete error:", error);
+              }
+            }}
+            title="Delete Invoice"
+            message={`Are you sure you want to delete invoice #${editableBill.billNo}? This action cannot be undone.`}
+            confirmText="Delete"
+            cancelText="Cancel"
+            type="danger"
+          />
         </div>
       )}
     </AnimatePresence>

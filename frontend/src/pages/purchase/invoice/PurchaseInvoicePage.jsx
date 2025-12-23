@@ -1,10 +1,12 @@
-// frontend\src\pages\purchase\invoice\PurchaseInvoicePage.jsx
+// frontend/src/pages/purchase/invoice/PurchaseInvoicePage.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import { toast } from 'react-toastify';
 
 import PurchaseTable from "./components/PurchaseTable";
 import InvoicePagination from "./components/InvoicePagination";
 import InvoiceFilters from "./components/InvoiceFilters";
 import ViewInvoiceModal from "./components/ViewInvoiceModal";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
 
 import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 import { purchaseData as initialPurchaseData } from "../../../components/data/invoices2";
@@ -27,6 +29,9 @@ const PurchaseInvoicePage = () => {
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState("view");
   const [selectedBill, setSelectedBill] = useState(null);
+
+  /* ---------------- CONFIRMATION STATE ---------------- */
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   /* ---------------- DYNAMIC ROW COUNT ---------------- */
   const rowsPerPage = useDynamicRowCount();
@@ -81,49 +86,51 @@ const PurchaseInvoicePage = () => {
   /* ---------------- TABLE ACTIONS ---------------- */
 
   const handleView = (row, mode) => {
-    // console.log("👁️ VIEW clicked:", { row, mode });
     setSelectedBill(row);
     setModalMode(mode || "view");
     setOpenModal(true);
   };
 
   const handleEdit = (row, mode) => {
-    // console.log("✏️ EDIT clicked:", { row, mode });
     setSelectedBill(row);
     setModalMode(mode || "edit");
     setOpenModal(true);
   };
 
   const handleDelete = (row) => {
-    console.log("🗑️ DELETE clicked:", row);
-    if (confirm(`Delete purchase ${row.purchaseId}?`)) {
-      setPurchases((prev) =>
-        prev.filter((p) => p.purchaseId !== row.purchaseId)
-      );
-    }
+    setConfirmDelete(row);
   };
 
   /* ---------------- MODAL ACTIONS ---------------- */
 
   const handleSave = (updatedBill) => {
-    // console.log("💾 SAVE clicked:", updatedBill);
-    setPurchases((prev) =>
-      prev.map((p) =>
-        p.purchaseId === updatedBill.purchaseId ? updatedBill : p
-      )
-    );
-    setOpenModal(false);
+    try {
+      setPurchases((prev) =>
+        prev.map((p) =>
+          p.purchaseId === updatedBill.purchaseId ? updatedBill : p
+        )
+      );
+      setOpenModal(false);
+      toast.success(`Purchase ${updatedBill.purchaseId} updated successfully!`);
+    } catch (error) {
+      toast.error("Failed to save changes. Please try again.");
+      console.error("Save error:", error);
+    }
   };
 
   const handleDeleteFromModal = (bill) => {
-    // console.log("🗑️ DELETE from modal:", bill);
-    handleDelete(bill);
+    setConfirmDelete(bill);
     setOpenModal(false);
   };
 
   const handlePrint = (bill) => {
-    // console.log("🖨️ PRINT clicked:", bill);
-    window.print();
+    try {
+      window.print();
+      toast.info("Print dialog opened");
+    } catch (error) {
+      toast.error("Failed to open print dialog");
+      console.error("Print error:", error);
+    }
   };
 
   /* ---------------- UI ---------------- */
@@ -153,19 +160,43 @@ const PurchaseInvoicePage = () => {
         </PurchaseTable>
       </div>
 
-      {/* MODAL - correct prop order */}
+      {/* MODAL */}
       <ViewInvoiceModal
         open={openModal}
         mode={modalMode}
         bill={selectedBill}
         onClose={() => {
-          // console.log("❌ Modal closed");
           setOpenModal(false);
         }}
         onSave={handleSave}
         onDelete={handleDeleteFromModal}
         onPrint={handlePrint}
       />
+
+      {/* Delete Confirmation Dialog */}
+     {/* Delete Confirmation Dialog */}
+<ConfirmDialog
+  isOpen={confirmDelete !== null}
+  onClose={() => setConfirmDelete(null)}
+  onConfirm={() => {
+    try {
+      setPurchases((prev) =>
+        prev.filter((p) => p.purchaseId !== confirmDelete.purchaseId)
+      );
+      toast.success(`Purchase ${confirmDelete.purchaseId} deleted successfully!`);
+      setConfirmDelete(null);
+    } catch (error) {
+      toast.error("Failed to delete purchase. Please try again.");
+      console.error("Delete error:", error);
+    }
+  }}
+  title="Delete Purchase"
+  message={`Are you sure you want to delete purchase ${confirmDelete?.purchaseId}? This action cannot be undone.`}
+  confirmText="Delete"
+  cancelText="Cancel"
+  type="danger"
+/>
+
     </div>
   );
 };
