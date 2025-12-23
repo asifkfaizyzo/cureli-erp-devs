@@ -1,24 +1,39 @@
-//Q:\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\components\admin\AddAdminModal.jsx
 import { useEffect, useState, useRef } from "react";
-import { X, Save, Loader2, UserPlus, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  X,
+  Save,
+  Loader2,
+  UserPlus,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+import { createAdmin } from "../../api/cadminAdmins";
 
 const STATUS_OPTIONS = [
   { value: "Active", label: "Active" },
   { value: "Inactive", label: "Inactive" },
 ];
 
-// Custom Input Component with integrated error handling
-const FormInput = ({ 
-  label, 
-  type = "text", 
-  value, 
-  onChange, 
-  error, 
+const ROLE_OPTIONS = [
+  { value: "SUPER_ADMIN", label: "Super Admin" },
+  { value: "ANALYST", label: "Analyst" },
+  { value: "ACCOUNTING", label: "Accounting" },
+];
+
+// FORM INPUT COMPONENT
+const FormInput = ({
+  label,
+  type = "text",
+  value,
+  onChange,
+  onBlur,
+  error,
   placeholder,
   required = false,
   disabled = false,
   maxLength,
-  icon: Icon
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const inputType = type === "password" && showPassword ? "text" : type;
@@ -29,24 +44,20 @@ const FormInput = ({
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <div className="relative">
-        {Icon && (
-          <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        )}
         <input
           type={inputType}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
           placeholder={placeholder}
           disabled={disabled}
           maxLength={maxLength}
-          className={`w-full h-10 ${Icon ? 'pl-9' : 'pl-3'} ${type === 'password' ? 'pr-10' : 'pr-3'} 
+          className={`w-full h-10 px-3 ${type === "password" ? "pr-10" : ""} 
                      border rounded-lg text-sm bg-white
                      focus:outline-none focus:ring-2 focus:ring-indigo-500/20 
                      focus:border-indigo-500 placeholder:text-gray-400 
                      disabled:bg-gray-50 disabled:text-gray-500 transition-all
-                     ${error ? 'border-red-300 bg-red-50/50' : 'border-gray-200'}`}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${label}-error` : undefined}
+                     ${error ? "border-red-300 bg-red-50/50" : "border-gray-200"}`}
         />
         {type === "password" && value && (
           <button
@@ -60,7 +71,7 @@ const FormInput = ({
         )}
       </div>
       {error && (
-        <p id={`${label}-error`} className="text-xs text-red-600 flex items-start gap-1">
+        <p className="text-xs text-red-600 flex items-start gap-1">
           <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />
           {error}
         </p>
@@ -74,7 +85,7 @@ const FormInput = ({
   );
 };
 
-// Select Component
+// FORM SELECT COMPONENT
 const FormSelect = ({ label, value, onChange, options, error, required = false }) => {
   return (
     <div className="space-y-1.5">
@@ -87,8 +98,7 @@ const FormSelect = ({ label, value, onChange, options, error, required = false }
         className={`w-full h-10 px-3 border rounded-lg text-sm bg-white
                    focus:outline-none focus:ring-2 focus:ring-indigo-500/20 
                    focus:border-indigo-500 transition-all
-                   ${error ? 'border-red-300 bg-red-50/50' : 'border-gray-200'}`}
-        aria-invalid={!!error}
+                   ${error ? "border-red-300 bg-red-50/50" : "border-gray-200"}`}
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -106,7 +116,7 @@ const FormSelect = ({ label, value, onChange, options, error, required = false }
   );
 };
 
-// Password Strength Indicator
+// PASSWORD STRENGTH INDICATOR
 const PasswordStrength = ({ password }) => {
   const getStrength = (pwd) => {
     if (!pwd) return { level: 0, label: "", color: "" };
@@ -138,18 +148,24 @@ const PasswordStrength = ({ password }) => {
           />
         ))}
       </div>
-      <p className={`text-xs font-medium ${
-        strength.label === "Weak" ? "text-red-600" :
-        strength.label === "Fair" ? "text-orange-600" :
-        strength.label === "Good" ? "text-blue-600" :
-        "text-green-600"
-      }`}>
+      <p
+        className={`text-xs font-medium ${
+          strength.label === "Weak"
+            ? "text-red-600"
+            : strength.label === "Fair"
+            ? "text-orange-600"
+            : strength.label === "Good"
+            ? "text-blue-600"
+            : "text-green-600"
+        }`}
+      >
         Password Strength: {strength.label}
       </p>
     </div>
   );
 };
 
+// MAIN COMPONENT
 const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
   const [formData, setFormData] = useState({
     name: "",
@@ -157,6 +173,7 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
     phone: "",
     email: "",
     status: "Active",
+    role: "SUPER_ADMIN",
     password: "",
     confirmPassword: "",
   });
@@ -165,10 +182,11 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
   const [touched, setTouched] = useState({});
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [apiError, setApiError] = useState(null);
 
   const firstInputRef = useRef(null);
 
-  // Reset on open/close
+  // RESET ON OPEN/CLOSE
   useEffect(() => {
     if (!isOpen) {
       setFormData({
@@ -177,6 +195,7 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
         phone: "",
         email: "",
         status: "Active",
+        role: "SUPER_ADMIN",
         password: "",
         confirmPassword: "",
       });
@@ -184,133 +203,152 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
       setTouched({});
       setSaving(false);
       setSuccess(false);
+      setApiError(null);
     } else {
-      // Focus first input when modal opens
-      setTimeout(() => firstInputRef.current?.focus(), 100);
+      setTimeout(() => firstInputRef.current?.querySelector("input")?.focus(), 100);
     }
   }, [isOpen]);
 
-  // ESC + body lock
+  // ESC + BODY LOCK
   useEffect(() => {
     if (!isOpen) return;
-    const esc = (e) => {
+
+    const handleEsc = (e) => {
       if (e.key === "Escape" && !saving) onClose(false);
     };
-    document.addEventListener("keydown", esc);
+
+    document.addEventListener("keydown", handleEsc);
     document.body.style.overflow = "hidden";
+
     return () => {
-      document.removeEventListener("keydown", esc);
+      document.removeEventListener("keydown", handleEsc);
       document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose, saving]);
 
   if (!isOpen) return null;
 
-  // Real-time validation
+  // FIELD VALIDATION
   const validateField = (field, value) => {
     switch (field) {
       case "name":
         if (!value.trim()) return "Name is required";
         if (value.length < 2) return "Name must be at least 2 characters";
-        if (value.length > 50) return "Name must be less than 50 characters";
+        if (value.length > 100) return "Name must be less than 100 characters";
         break;
-
       case "username":
         if (!value.trim()) return "Username is required";
         if (value.length < 3) return "Username must be at least 3 characters";
-        if (!/^[a-zA-Z0-9_]+$/.test(value)) return "Only letters, numbers, and underscores allowed";
+        if (!/^[a-zA-Z0-9_]+$/.test(value))
+          return "Only letters, numbers, and underscores allowed";
         break;
-
       case "phone":
         if (!value) return "Phone is required";
         if (!/^\d{10}$/.test(value)) return "Phone must be exactly 10 digits";
         break;
-
       case "email":
         if (!value) return "Email is required";
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Invalid email format";
         break;
-
       case "password":
         if (!value) return "Password is required";
-        if (value.length < 8) return "minimum  8 characters ";
+        if (value.length < 8) return "Password must be at least 8 characters";
         if (value.length > 50) return "Password must be less than 50 characters";
         break;
-
       case "confirmPassword":
         if (!value) return "Please confirm your password";
         if (value !== formData.password) return "Passwords do not match";
         break;
-
       default:
         return "";
     }
     return "";
   };
 
+  // VALIDATE ALL FIELDS
   const validate = () => {
     const e = {};
-    Object.keys(formData).forEach((field) => {
-      if (field !== "status") {
-        const error = validateField(field, formData[field]);
-        if (error) e[field] = error;
-      }
+    const fieldsToValidate = ["name", "username", "phone", "email", "password", "confirmPassword"];
+
+    fieldsToValidate.forEach((field) => {
+      const error = validateField(field, formData[field]);
+      if (error) e[field] = error;
     });
+
     setErrors(e);
-    setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+    setTouched(fieldsToValidate.reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+
     return Object.keys(e).length === 0;
   };
 
+  // HANDLE BLUR
   const handleBlur = (field) => {
     setTouched({ ...touched, [field]: true });
     const error = validateField(field, formData[field]);
     setErrors({ ...errors, [field]: error });
   };
 
-  const handleCreate = () => {
+  // CREATE HANDLER
+  const handleCreate = async () => {
     if (!validate()) return;
 
     setSaving(true);
+    setApiError(null);
 
-    // Simulate API call
-    setTimeout(() => {
-      const newAdmin = {
-        id: `ADM${Date.now()}`,
-        name: formData.name,
-        username: formData.username,
+    try {
+      const payload = {
+        name: formData.name.trim(),
+        username: formData.username.trim(),
         phone: formData.phone,
-        email: formData.email,
+        email: formData.email.trim(),
+        password: formData.password,
+        role: formData.role,
         status: formData.status,
-        lastLogin: "Never",
-        createdAt: new Date().toLocaleDateString("en-GB"),
-        activityLogs: [
-          {
-            id: `ACT-${Date.now()}`,
-            action: "profile_update",
-            description: "Admin account created",
-            created_at: new Date().toISOString(),
-          },
-        ],
       };
 
+      const response = await createAdmin(payload);
+      const newAdmin = response.data.data;
+
+      // Notify parent
       onCreate?.(newAdmin);
+
       setSuccess(true);
-      
-      // Show success, then close
+
+      // Close after showing success
       setTimeout(() => {
         setSaving(false);
         onClose(true);
       }, 800);
-    }, 700);
+    } catch (err) {
+      console.error("Failed to create admin:", err);
+
+      // Handle validation errors from API
+      if (err.response?.data?.data?.errors) {
+        const apiErrors = {};
+        err.response.data.data.errors.forEach((e) => {
+          apiErrors[e.field] = e.message;
+        });
+        setErrors((prev) => ({ ...prev, ...apiErrors }));
+      } else {
+        setApiError(err.response?.data?.message || "Failed to create admin");
+      }
+
+      setSaving(false);
+    }
   };
 
+  // SET FIELD VALUE
   const setField = (field, value) => {
     setFormData((p) => ({ ...p, [field]: value }));
+
     // Clear error when user starts typing
     if (touched[field]) {
       const error = validateField(field, value);
       setErrors({ ...errors, [field]: error });
     }
+
+    // Clear API error when user makes changes
+    if (apiError) setApiError(null);
   };
 
   return (
@@ -332,7 +370,9 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-white">
               <UserPlus size={18} />
-              <h2 id="modal-title" className="text-lg font-semibold">Add New Admin</h2>
+              <h2 id="modal-title" className="text-lg font-semibold">
+                Add New Admin
+              </h2>
             </div>
             <button
               onClick={() => !saving && onClose(false)}
@@ -347,15 +387,29 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
 
         {/* CONTENT */}
         <div className="p-6 bg-gray-50 max-h-[70vh] overflow-auto">
-          <form onSubmit={(e) => { e.preventDefault(); handleCreate(); }} className="space-y-6">
-            {/* BASIC DETAILS */}
+          {/* API ERROR */}
+          {apiError && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-2">
+              <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+              <span>{apiError}</span>
+            </div>
+          )}
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleCreate();
+            }}
+            className="space-y-6"
+          >
+            {/* ADMIN DETAILS */}
             <div className="bg-white rounded-xl border border-gray-100 p-6">
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
                 Admin Details
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div ref={firstInputRef} tabIndex={-1}>
+                <div ref={firstInputRef}>
                   <FormInput
                     label="Full Name"
                     value={formData.name}
@@ -364,7 +418,7 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
                     error={touched.name ? errors.name : ""}
                     placeholder="Enter full name"
                     required
-                    maxLength={50}
+                    maxLength={100}
                   />
                 </div>
 
@@ -376,7 +430,7 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
                   error={touched.username ? errors.username : ""}
                   placeholder="Enter username"
                   required
-                  maxLength={20}
+                  maxLength={50}
                 />
 
                 <FormInput
@@ -403,6 +457,14 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
                 />
 
                 <FormSelect
+                  label="Role"
+                  value={formData.role}
+                  onChange={(v) => setField("role", v)}
+                  options={ROLE_OPTIONS}
+                  required
+                />
+
+                <FormSelect
                   label="Status"
                   value={formData.status}
                   onChange={(v) => setField("status", v)}
@@ -412,7 +474,7 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
               </div>
             </div>
 
-            {/* PASSWORD */}
+            {/* PASSWORD SETUP */}
             <div className="bg-white rounded-xl border border-gray-100 p-6">
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
                 Password Setup
@@ -420,19 +482,17 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
 
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <FormInput
-                      label="Password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(v) => setField("password", v)}
-                      onBlur={() => handleBlur("password")}
-                      error={touched.password ? errors.password : ""}
-                      placeholder="Minimum 8 characters"
-                      required
-                      maxLength={50}
-                    />
-                  </div>
+                  <FormInput
+                    label="Password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(v) => setField("password", v)}
+                    onBlur={() => handleBlur("password")}
+                    error={touched.password ? errors.password : ""}
+                    placeholder="Minimum 8 characters"
+                    required
+                    maxLength={50}
+                  />
 
                   <FormInput
                     label="Confirm Password"

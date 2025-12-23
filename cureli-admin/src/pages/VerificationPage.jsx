@@ -14,7 +14,7 @@ const VerificationPage = () => {
   const [date, setDate] = useState("");
 
   // Sort
-  const [sortField, setSortField] = useState("created_at");
+  const [sortField, setSortField] = useState("default");
   const [sortOrder, setSortOrder] = useState("desc");
 
   // Pagination

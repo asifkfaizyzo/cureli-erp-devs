@@ -244,7 +244,9 @@ async function main() {
   const cadmin = await prisma.cAdmin.create({
     data: {
       cadmin_id: uuid(),
+      name:"asif",
       username: "cadmin",
+      role:"SUPER_ADMIN",
       email: "admin@cureli.com",
       phone_number: "9961045596",
       password_hash: cadminHash,

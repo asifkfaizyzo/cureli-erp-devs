@@ -1,25 +1,30 @@
-//Q:\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\pages\AdminsPage.jsx
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import AdminHeader from "../components/Admin/AdminHeader";
 import AdminTable from "../components/Admin/AdminTable";
 import AddAdminModal from "../components/Admin/AddAdminModal";
 import Pagination from "../components/common/Pagination";
 import useDynamicRowCount from "../hooks/useDynamicRowCount";
-import { dummyAdmins } from "../data/dummyAdmins";
+import { getAdmins } from "../api/cadminAdmins";
 
 const AdminsPage = () => {
-  // DATA
-  const [admins, setAdmins] = useState(dummyAdmins);
+  // DATA STATE
+  const [admins, setAdmins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // PAGINATION META FROM SERVER
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // MODAL STATE
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // FILTERS & SORT
+  // FILTERS & SORT (sent to server)
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
   const [sortConfig, setSortConfig] = useState({
-    sortBy: "createdAt",
+    sortBy: "created_at",
     order: "desc",
   });
 
@@ -27,94 +32,102 @@ const AdminsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = useDynamicRowCount();
 
-  // FILTER + SORT
-  const filteredAdmins = useMemo(() => {
-    let data = [...admins];
+  // FETCH ADMINS FROM SERVER
+  const fetchAdmins = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-    if (searchText) {
-      const q = searchText.toLowerCase();
-      data = data.filter(
-        (a) =>
-          a.name.toLowerCase().includes(q) ||
-          a.username.toLowerCase().includes(q) ||
-          a.email.toLowerCase().includes(q)
-      );
+    try {
+      const params = {
+        page: currentPage,
+        limit: rowsPerPage,
+        sort: sortConfig.sortBy,
+        order: sortConfig.order,
+      };
+
+      // Only add non-empty filters
+      if (searchText.trim()) params.search = searchText.trim();
+      if (statusFilter) params.status = statusFilter.toLowerCase();
+      if (roleFilter) params.role = roleFilter.toLowerCase().replace(/\s+/g, "_");
+
+      const response = await getAdmins(params);
+      const { admins: data, meta } = response.data.data;
+
+      setAdmins(data);
+      setTotalItems(meta.total);
+      setTotalPages(meta.totalPages);
+
+      // Correct page if out of bounds
+      if (currentPage > meta.totalPages && meta.totalPages > 0) {
+        setCurrentPage(meta.totalPages);
+      }
+    } catch (err) {
+      console.error("Failed to fetch admins:", err);
+      setError(err.response?.data?.message || "Failed to fetch admins");
+      setAdmins([]);
+      setTotalItems(0);
+    } finally {
+      setLoading(false);
     }
+  }, [currentPage, rowsPerPage, searchText, statusFilter, roleFilter, sortConfig]);
 
-    if (statusFilter) {
-      data = data.filter((a) => a.status === statusFilter);
-    }
-
-    if (dateFilter) {
-      data = data.filter((a) =>
-        a.lastLogin?.toLowerCase().includes(dateFilter.toLowerCase())
-      );
-    }
-
-    if (sortConfig.sortBy) {
-      data.sort((a, b) => {
-        const aVal = a[sortConfig.sortBy];
-        const bVal = b[sortConfig.sortBy];
-        if (!aVal || !bVal) return 0;
-        return sortConfig.order === "asc"
-          ? aVal > bVal ? 1 : -1
-          : aVal < bVal ? 1 : -1;
-      });
-    }
-
-    return data;
-  }, [admins, searchText, statusFilter, dateFilter, sortConfig]);
-
-  // PAGE CORRECTION
+  // Fetch on mount and when dependencies change
   useEffect(() => {
-    const totalPages = Math.ceil(filteredAdmins.length / rowsPerPage);
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
-    } else if (totalPages === 0) {
-      setCurrentPage(1);
-    }
-  }, [filteredAdmins.length, rowsPerPage, currentPage]);
+    fetchAdmins();
+  }, [fetchAdmins]);
 
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  const paginatedAdmins = filteredAdmins.slice(
-    startIndex,
-    startIndex + rowsPerPage
-  );
+  // Reset to page 1 when filters/sort change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, statusFilter, roleFilter, sortConfig]);
 
   // HANDLERS
   const handleSortChange = (column) => {
     setSortConfig((prev) => ({
       sortBy: column,
-      order:
-        prev.sortBy === column && prev.order === "asc" ? "desc" : "asc",
+      order: prev.sortBy === column && prev.order === "asc" ? "desc" : "asc",
     }));
-    setCurrentPage(1);
   };
 
+  // Update admin in local state (optimistic update)
   const handleAdminUpdate = useCallback((adminId, updates) => {
     setAdmins((prev) =>
       prev.map((a) => (a.id === adminId ? { ...a, ...updates } : a))
     );
   }, []);
 
-  // Open modal
+  // Refresh list from server
+  const handleRefresh = useCallback(() => {
+    fetchAdmins();
+  }, [fetchAdmins]);
+
+  // Open add modal
   const handleOpenAddModal = useCallback(() => {
     setIsAddModalOpen(true);
   }, []);
 
-  // Close modal
-  const handleCloseAddModal = useCallback((wasCreated) => {
-    setIsAddModalOpen(false);
-    // Optional: show success toast if wasCreated is true
-  }, []);
+  // Close add modal
+  const handleCloseAddModal = useCallback(
+    (wasCreated) => {
+      setIsAddModalOpen(false);
+      if (wasCreated) {
+        setCurrentPage(1);
+        fetchAdmins();
+      }
+    },
+    [fetchAdmins]
+  );
 
-  // Create new admin
-  const handleCreateAdmin = useCallback((newAdmin) => {
-    setAdmins((prev) => [newAdmin, ...prev]);
-    setCurrentPage(1);
-    // Optional: show success notification
-    console.log("New admin created:", newAdmin);
-  }, []);
+  // After creating admin, add to list optimistically
+  const handleCreateAdmin = useCallback(
+    (newAdmin) => {
+      setAdmins((prev) => [newAdmin, ...prev.slice(0, rowsPerPage - 1)]);
+      setTotalItems((prev) => prev + 1);
+    },
+    [rowsPerPage]
+  );
+
+  const startIndex = (currentPage - 1) * rowsPerPage;
 
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
@@ -124,27 +137,43 @@ const AdminsPage = () => {
         setSearchText={setSearchText}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
-        dateFilter={dateFilter}
-        setDateFilter={setDateFilter}
-        admins={filteredAdmins}
-        totalItems={filteredAdmins.length}
+        roleFilter={roleFilter}
+        setRoleFilter={setRoleFilter}
+        admins={admins}
+        totalItems={totalItems}
         onAddAdmin={handleOpenAddModal}
+        loading={loading}
       />
+
+      {/* ERROR STATE */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={handleRefresh}
+            className="text-red-700 hover:text-red-900 font-medium underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* TABLE */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <AdminTable
-          admins={paginatedAdmins}
+          admins={admins}
+          loading={loading}
           rowsPerPage={rowsPerPage}
           startIndex={startIndex}
           sortConfig={sortConfig}
           onSortChange={handleSortChange}
           onAdminUpdate={handleAdminUpdate}
+          onRefresh={handleRefresh}
         >
           <Pagination
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
-            totalItems={filteredAdmins.length}
+            totalItems={totalItems}
             rowsPerPage={rowsPerPage}
           />
         </AdminTable>

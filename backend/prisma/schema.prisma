@@ -23,16 +23,31 @@ enum PlanType {
 }
 
 // ============================================
-// CURELI-ADMIN
+// CADMIN ROLE ENUM (NEW)
+// ============================================
+
+enum CAdminRole {
+  SUPER_ADMIN
+  ANALYST
+  ACCOUNTING
+}
+
+// ============================================
+// CURELI-ADMIN (UPDATED)
 // ============================================
 
 model CAdmin {
   cadmin_id       String   @id @default(uuid()) @db.Uuid
 
+  // Profile
+  name            String   @db.Text
   username        String   @unique @db.Text
   email           String?  @unique @db.Text
   phone_number    String   @db.Text
   password_hash   String   @db.Text
+  
+  // Access control
+  role            CAdminRole @default(SUPER_ADMIN)
   is_active       Boolean  @default(true)
 
   // MessageCentral OTP
@@ -43,16 +58,56 @@ model CAdmin {
   reset_token         String?   @db.VarChar(500)
   reset_token_expires DateTime? @db.Timestamptz(6)
 
+  // Timestamps
   last_login_at   DateTime?
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @updatedAt @db.Timestamptz(6)
 
-  // -------- Relations (NEW) --------
-  createdPlans     Plan[]            @relation("PlanCreator")
-  planActivities   PlanActivityLog[] @relation("PlanActivityByCAdmin")
+  // Relations
+  createdPlans     Plan[]              @relation("PlanCreator")
+  planActivities   PlanActivityLog[]   @relation("PlanActivityByCAdmin")
+  activityLogs     CAdminActivityLog[] @relation("CAdminActivityLogs")
 
   @@map("cadmins")
 }
+
+// ============================================
+// CADMIN ACTIVITY LOG (NEW)
+// ============================================
+
+model CAdminActivityLog {
+  id              String   @id @default(uuid()) @db.Uuid
+
+  cadmin_id       String   @db.Uuid
+  performed_by_id String?  @db.Uuid
+
+  action          String   @db.VarChar(50)
+  description     String?  @db.Text
+  changes         Json?
+  meta            Json?
+
+  ip_address      String?  @db.Text
+  user_agent      String?  @db.Text
+
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  cadmin          CAdmin   @relation("CAdminActivityLogs", fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
+
+  @@index([cadmin_id])
+  @@index([action])
+  @@index([created_at])
+  @@map("cadmin_activity_logs")
+}
+
+
+
+
+
+
+
+
+
+
 
 // ============================================
 // CURELI-USERS
@@ -87,6 +142,47 @@ model PendingUser {
   @@map("pending_users")
 }
 
+// ============================================
+// USER SESSION (NEW)
+// ============================================
+
+model UserSession {
+  id              String   @id @default(uuid()) @db.Uuid
+  user_id         String   @db.Uuid
+  
+  // Session identifier (hashed, stored in JWT)
+  session_token   String   @unique @db.Text
+  
+  // Device/Browser info for display
+  device_info     String?  @db.Text  // "Chrome on Windows 10"
+  ip_address      String?  @db.Text
+  
+  // Session state
+  is_active       Boolean  @default(true)
+  
+  // Timestamps
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  last_active_at  DateTime @default(now()) @db.Timestamptz(6)
+  expires_at      DateTime @db.Timestamptz(6)
+  
+  // How session ended (null if still active)
+  ended_at        DateTime? @db.Timestamptz(6)
+  ended_reason    String?   @db.Text  // "replaced" | "logout" | "expired" | "admin_force"
+  
+  // Relation
+  user            User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  
+  @@index([user_id])
+  @@index([session_token])
+  @@index([is_active])
+  @@index([expires_at])
+  @@map("user_sessions")
+}
+
+// ============================================
+// UPDATE User model - Add relation
+// ============================================
+
 model User {
   user_id                        String  @id @default(uuid()) @db.Uuid
   shop_id                        String? @db.Uuid
@@ -117,15 +213,16 @@ model User {
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime  @updatedAt @db.Timestamptz(6)
 
+  // Relations
   shops_owned  Shop[]        @relation("OwnerOfShop")
   branch       Branch?       @relation(fields: [branch_id], references: [branch_id])
   shop         Shop?         @relation("UsersInShop", fields: [shop_id], references: [shop_id])
   shopFiles    ShopFile[]
   activityLogs ActivityLog[]
+  sessions     UserSession[] // ← NEW RELATION
 
   @@map("users")
 }
-
 // ============================================
 // CURELI-SHOPS
 // ============================================
@@ -421,3 +518,4 @@ model ActivityLog {
   @@index([user_id])
   @@map("activity_logs")
 }
+
