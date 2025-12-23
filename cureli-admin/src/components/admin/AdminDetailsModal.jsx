@@ -1,3 +1,4 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\components\admin\AdminDetailsModal.jsx
 import { useEffect, useState } from "react";
 import {
   X,

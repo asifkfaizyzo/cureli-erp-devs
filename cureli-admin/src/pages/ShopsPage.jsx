@@ -28,9 +28,9 @@ const ShopsPage = () => {
 
   // Filters
   const [searchText, setSearchText] = useState("");
-  const [verificationFilter, setVerificationFilter] = useState("");
-  const [subscriptionFilter, setSubscriptionFilter] = useState("");
-  const [activeFilter, setActiveFilter] = useState("");
+  const [verificationFilter, setVerificationFilter] = useState("verified");
+  const [subscriptionFilter, setSubscriptionFilter] = useState("active");
+  const [activeFilter, setActiveFilter] = useState("Active");
   const [dateFilter, setDateFilter] = useState("");
 
   // Sort

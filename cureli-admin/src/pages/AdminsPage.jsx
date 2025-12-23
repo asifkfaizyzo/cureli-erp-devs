@@ -1,3 +1,4 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\pages\AdminsPage.jsx
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AdminHeader from "../components/Admin/AdminHeader";
 import AdminTable from "../components/Admin/AdminTable";

@@ -14,10 +14,13 @@ const uuid = () => randomUUID();
 
 const randomFrom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomBetween = (min, max) =>
+  Math.floor(Math.random() * (max - min + 1)) + min;
 
 const randomDate = (start, end) => {
-  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+  return new Date(
+    start.getTime() + Math.random() * (end.getTime() - start.getTime())
+  );
 };
 
 const daysAgo = (days) => {
@@ -71,18 +74,81 @@ const INDIAN_CITIES = [
 ];
 
 const FIRST_NAMES = [
-  "Rahul", "Priya", "Amit", "Sneha", "Vikram", "Anjali", "Rajesh", "Deepika",
-  "Suresh", "Kavita", "Arun", "Meera", "Kiran", "Pooja", "Sanjay", "Neha",
-  "Manoj", "Ritu", "Ashok", "Swati", "Ravi", "Sunita", "Prakash", "Geeta",
-  "Vijay", "Lakshmi", "Mohan", "Savita", "Dinesh", "Anita", "Ramesh", "Kamala",
-  "Sunil", "Usha", "Gopal", "Rekha", "Anil", "Shanti", "Mukesh", "Padma",
+  "Rahul",
+  "Priya",
+  "Amit",
+  "Sneha",
+  "Vikram",
+  "Anjali",
+  "Rajesh",
+  "Deepika",
+  "Suresh",
+  "Kavita",
+  "Arun",
+  "Meera",
+  "Kiran",
+  "Pooja",
+  "Sanjay",
+  "Neha",
+  "Manoj",
+  "Ritu",
+  "Ashok",
+  "Swati",
+  "Ravi",
+  "Sunita",
+  "Prakash",
+  "Geeta",
+  "Vijay",
+  "Lakshmi",
+  "Mohan",
+  "Savita",
+  "Dinesh",
+  "Anita",
+  "Ramesh",
+  "Kamala",
+  "Sunil",
+  "Usha",
+  "Gopal",
+  "Rekha",
+  "Anil",
+  "Shanti",
+  "Mukesh",
+  "Padma",
 ];
 
 const LAST_NAMES = [
-  "Sharma", "Patel", "Kumar", "Singh", "Gupta", "Reddy", "Nair", "Joshi",
-  "Mehta", "Verma", "Desai", "Iyer", "Kulkarni", "Pillai", "Rao", "Saxena",
-  "Tiwari", "Bose", "Chatterjee", "Menon", "Patil", "Shinde", "Jadhav", "More",
-  "Pawar", "Sawant", "Gaikwad", "Bhosale", "Chavan", "Kale", "Agarwal", "Bansal",
+  "Sharma",
+  "Patel",
+  "Kumar",
+  "Singh",
+  "Gupta",
+  "Reddy",
+  "Nair",
+  "Joshi",
+  "Mehta",
+  "Verma",
+  "Desai",
+  "Iyer",
+  "Kulkarni",
+  "Pillai",
+  "Rao",
+  "Saxena",
+  "Tiwari",
+  "Bose",
+  "Chatterjee",
+  "Menon",
+  "Patil",
+  "Shinde",
+  "Jadhav",
+  "More",
+  "Pawar",
+  "Sawant",
+  "Gaikwad",
+  "Bhosale",
+  "Chavan",
+  "Kale",
+  "Agarwal",
+  "Bansal",
 ];
 
 const SHOP_NAMES = [
@@ -104,9 +170,21 @@ const SHOP_NAMES = [
 ];
 
 const STREET_NAMES = [
-  "MG Road", "Station Road", "Main Street", "Market Lane", "Commercial Complex",
-  "Link Road", "Highway Junction", "Industrial Area", "City Center", "Mall Road",
-  "Gandhi Nagar", "Nehru Street", "Park Avenue", "Civil Lines", "Sector 15",
+  "MG Road",
+  "Station Road",
+  "Main Street",
+  "Market Lane",
+  "Commercial Complex",
+  "Link Road",
+  "Highway Junction",
+  "Industrial Area",
+  "City Center",
+  "Mall Road",
+  "Gandhi Nagar",
+  "Nehru Street",
+  "Park Avenue",
+  "Civil Lines",
+  "Sector 15",
 ];
 
 // ============================================
@@ -186,7 +264,8 @@ async function main() {
     data: {
       plan_id: uuid(),
       name: "Free Trial",
-      description: "Perfect for trying out Cureli with basic features for 14 days",
+      description:
+        "Perfect for trying out Cureli with basic features for 14 days",
       type: "PRE_MADE",
       price: BigInt(0),
       max_branches: 1,
@@ -309,7 +388,8 @@ async function main() {
     data: {
       plan_id: uuid(),
       name: "Enterprise",
-      description: "Complete solution for large pharmacy chains with custom requirements",
+      description:
+        "Complete solution for large pharmacy chains with custom requirements",
       type: "PRE_MADE",
       price: BigInt(49990), // ₹49,990
       max_branches: 20,
@@ -460,7 +540,9 @@ async function main() {
     ],
   });
 
-  console.log("✅ Created 6 PRE-MADE plans (3 ACTIVE, 1 DEPRECATED, 2 SUSPENDED)\n");
+  console.log(
+    "✅ Created 6 PRE-MADE plans (3 ACTIVE, 1 DEPRECATED, 2 SUSPENDED)\n"
+  );
 
   // Store plans for later reference
   const preMadePlans = {
@@ -575,7 +657,7 @@ async function main() {
 
   console.log(`✅ Created ${pendingUsers.length} Pending Users\n`);
 
-    // ============================================
+  // ============================================
   // 4. CREATE SHOPS AND OWNERS (15 shops)
   // ============================================
   console.log("🏪 Creating Shops and Owners...");
@@ -586,41 +668,131 @@ async function main() {
   // Shop configurations with their expected states
   const shopConfigs = [
     // Shops 1-3: Verified with Custom Plans
-    { name: "HealthMax Pharmacy", verification: "verified", subscriptionType: "custom", userStatus: "verified" },
-    { name: "PharmaCorp Stores", verification: "verified", subscriptionType: "custom", userStatus: "verified" },
-    { name: "MediChain Pharma", verification: "verified", subscriptionType: "custom", userStatus: "verified" },
-    
+    {
+      name: "HealthMax Pharmacy",
+      verification: "verified",
+      subscriptionType: "custom",
+      userStatus: "verified",
+      shopActive: true,
+    },
+    {
+      name: "PharmaCorp Stores",
+      verification: "verified",
+      subscriptionType: "custom",
+      userStatus: "verified",
+      shopActive: true,
+    },
+    {
+      name: "MediChain Pharma",
+      verification: "verified",
+      subscriptionType: "custom",
+      userStatus: "verified",
+      shopActive: true,
+    },
+
     // Shops 4-5: Verified with Active Pre-made Plans
-    { name: "Apollo Medicals", verification: "verified", subscriptionType: "professional", userStatus: "verified" },
-    { name: "LifeCare Pharmacy", verification: "verified", subscriptionType: "starter", userStatus: "verified" },
-    
+    {
+      name: "Apollo Medicals",
+      verification: "verified",
+      subscriptionType: "professional",
+      userStatus: "verified",
+      shopActive: true,
+    },
+    {
+      name: "LifeCare Pharmacy",
+      verification: "verified",
+      subscriptionType: "starter",
+      userStatus: "verified",
+      shopActive: true,
+    },
+
     // Shop 6: Verified with Trial
-    { name: "Wellness Chemist", verification: "verified", subscriptionType: "trial", userStatus: "verified" },
-    
-    // Shop 7: Verified with Expired Subscription
-    { name: "CureWell Drugs", verification: "verified", subscriptionType: "expired", userStatus: "verified" },
-    
-    // Shop 8: Verified with Cancelled Subscription
-    { name: "MediPlus Store", verification: "verified", subscriptionType: "cancelled", userStatus: "verified" },
-    
+    {
+      name: "Wellness Chemist",
+      verification: "verified",
+      subscriptionType: "trial",
+      userStatus: "verified",
+      shopActive: true,
+    },
+
+    // Shop 7: Verified with Expired Subscription - SUSPENDED
+    {
+      name: "CureWell Drugs",
+      verification: "verified",
+      subscriptionType: "expired",
+      userStatus: "verified",
+      shopActive: false,
+    },
+
+    // Shop 8: Verified with Cancelled Subscription - SUSPENDED
+    {
+      name: "MediPlus Store",
+      verification: "verified",
+      subscriptionType: "cancelled",
+      userStatus: "verified",
+      shopActive: false,
+    },
+
     // Shop 9: Verified but No Subscription
-    { name: "Remedy Pharmacy", verification: "verified", subscriptionType: "none", userStatus: "verified" },
-    
+    {
+      name: "Remedy Pharmacy",
+      verification: "verified",
+      subscriptionType: "none",
+      userStatus: "verified",
+      shopActive: true,
+    },
+
     // Shop 10: Pending Review (docs submitted)
-    { name: "VitalHealth Chemist", verification: "pending_review", subscriptionType: "pending", userStatus: "pending_verification" },
-    
-    // Shop 11: Partially Rejected
-    { name: "PharmaZone", verification: "partially_rejected", subscriptionType: "none", userStatus: "pending_verification" },
-    
+    {
+      name: "VitalHealth Chemist",
+      verification: "pending_review",
+      subscriptionType: "pending",
+      userStatus: "pending_verification",
+      shopActive: true,
+    },
+
+    // Shop 11: Partially Rejected - SUSPENDED
+    {
+      name: "PharmaZone",
+      verification: "partially_rejected",
+      subscriptionType: "none",
+      userStatus: "pending_verification",
+      shopActive: false,
+    },
+
     // Shop 12: Fully Rejected
-    { name: "QuickMeds", verification: "rejected", subscriptionType: "none", userStatus: "pending_verification" },
-    
+    {
+      name: "QuickMeds",
+      verification: "rejected",
+      subscriptionType: "none",
+      userStatus: "pending_verification",
+      shopActive: true,
+    },
+
     // Shop 13: Just Created (pending, no docs)
-    { name: "NewStart Pharmacy", verification: "pending", subscriptionType: "none", userStatus: "pending_setup" },
-    
+    {
+      name: "NewStart Pharmacy",
+      verification: "pending",
+      subscriptionType: "none",
+      userStatus: "pending_setup",
+      shopActive: true,
+    },
+
     // Shops 14-15: Verified with Deprecated Enterprise Plan (grandfathered)
-    { name: "Heritage Medicals", verification: "verified", subscriptionType: "enterprise", userStatus: "verified" },
-    { name: "OldTimer Chemist", verification: "verified", subscriptionType: "enterprise", userStatus: "verified" },
+    {
+      name: "Heritage Medicals",
+      verification: "verified",
+      subscriptionType: "enterprise",
+      userStatus: "verified",
+      shopActive: true,
+    },
+    {
+      name: "OldTimer Chemist",
+      verification: "verified",
+      subscriptionType: "enterprise",
+      userStatus: "verified",
+      shopActive: true,
+    },
   ];
 
   let nameIndex = 0;
@@ -648,7 +820,9 @@ async function main() {
         last_name: lastName,
         full_name: `${firstName} ${lastName}`,
         username: `${firstName.toLowerCase()}${lastName.toLowerCase()}${i + 1}`,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i + 1}@example.com`,
+        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${
+          i + 1
+        }@example.com`,
         phone_number: `+9198${String(70000000 + i * 1111111).slice(0, 8)}`,
         password_hash: passwordHash,
         login_provider: i % 4 === 0 ? "google" : "password",
@@ -657,8 +831,12 @@ async function main() {
         status: config.userStatus,
         is_active: true,
         onboarding_step: onboardingStep,
-        first_login_after_verification: config.userStatus === "verified" ? (i % 3 === 0) : false,
-        last_login_at: config.userStatus === "verified" ? randomDate(daysAgo(7), new Date()) : null,
+        first_login_after_verification:
+          config.userStatus === "verified" ? i % 3 === 0 : false,
+        last_login_at:
+          config.userStatus === "verified"
+            ? randomDate(daysAgo(7), new Date())
+            : null,
         created_at: randomDate(daysAgo(120), daysAgo(30)),
       },
     });
@@ -671,17 +849,23 @@ async function main() {
         owner_user_id: owner.user_id,
         business_name: config.name,
         legal_name: `${config.name} Pvt. Ltd.`,
-        gst_number: config.verification !== "pending" 
-          ? `${location.state.slice(0, 2).toUpperCase()}${String(10 + i).padStart(2, "0")}ABCD${1234 + i}E${i + 1}Z${i + 5}`
-          : null,
+        gst_number:
+          config.verification !== "pending"
+            ? `${location.state.slice(0, 2).toUpperCase()}${String(
+                10 + i
+              ).padStart(2, "0")}ABCD${1234 + i}E${i + 1}Z${i + 5}`
+            : null,
         business_type: BUSINESS_TYPES[i % BUSINESS_TYPES.length],
-        address_line_1: `${100 + i * 10}, ${STREET_NAMES[i % STREET_NAMES.length]}`,
-        address_line_2: i % 3 === 0 ? "Ground Floor" : i % 3 === 1 ? "Near Bus Stand" : null,
+        address_line_1: `${100 + i * 10}, ${
+          STREET_NAMES[i % STREET_NAMES.length]
+        }`,
+        address_line_2:
+          i % 3 === 0 ? "Ground Floor" : i % 3 === 1 ? "Near Bus Stand" : null,
         city: location.city,
         state: location.state,
         pincode: location.pincode,
         verification_status: config.verification,
-        is_active: true,
+        is_active: config.shopActive,
         created_at: owner.created_at,
       },
     });
@@ -694,7 +878,9 @@ async function main() {
     });
   }
 
-  console.log(`✅ Created ${shops.length} Shops with ${owners.length} Owners\n`);
+  console.log(
+    `✅ Created ${shops.length} Shops with ${owners.length} Owners\n`
+  );
 
   // ============================================
   // 5. CREATE CUSTOM PLANS (3 plans for first 3 shops)
@@ -731,7 +917,11 @@ async function main() {
         cadmin_id: cadmin.cadmin_id,
         action: "created",
         to_status: "DRAFT",
-        meta: { name: customPlan1.name, type: "CUSTOM", shop_id: shops[0].shop_id },
+        meta: {
+          name: customPlan1.name,
+          type: "CUSTOM",
+          shop_id: shops[0].shop_id,
+        },
         created_at: daysAgo(61),
       },
       {
@@ -774,7 +964,11 @@ async function main() {
         cadmin_id: cadmin.cadmin_id,
         action: "created",
         to_status: "DRAFT",
-        meta: { name: customPlan2.name, type: "CUSTOM", shop_id: shops[1].shop_id },
+        meta: {
+          name: customPlan2.name,
+          type: "CUSTOM",
+          shop_id: shops[1].shop_id,
+        },
         created_at: daysAgo(46),
       },
       {
@@ -817,7 +1011,11 @@ async function main() {
         cadmin_id: cadmin.cadmin_id,
         action: "created",
         to_status: "DRAFT",
-        meta: { name: customPlan3.name, type: "CUSTOM", shop_id: shops[2].shop_id },
+        meta: {
+          name: customPlan3.name,
+          type: "CUSTOM",
+          shop_id: shops[2].shop_id,
+        },
         created_at: daysAgo(31),
       },
       {
@@ -844,7 +1042,7 @@ async function main() {
   for (let shopIndex = 0; shopIndex < shops.length; shopIndex++) {
     const shop = shops[shopIndex];
     const location = INDIAN_CITIES[shopIndex % INDIAN_CITIES.length];
-    
+
     // Determine number of branches based on shop index
     let branchCount;
     if (shopIndex < 5) {
@@ -857,7 +1055,10 @@ async function main() {
 
     for (let b = 0; b < branchCount; b++) {
       const isMain = b === 0;
-      const branchLocation = b === 0 ? location : INDIAN_CITIES[(shopIndex + b) % INDIAN_CITIES.length];
+      const branchLocation =
+        b === 0
+          ? location
+          : INDIAN_CITIES[(shopIndex + b) % INDIAN_CITIES.length];
 
       const branch = await prisma.branch.create({
         data: {
@@ -867,13 +1068,19 @@ async function main() {
             ? `${shop.business_name} - Main`
             : `${shop.business_name} - Branch ${b}`,
           branch_type: isMain ? "main" : "sub",
-          address_line_1: `${200 + b * 50}, ${STREET_NAMES[(shopIndex + b) % STREET_NAMES.length]}`,
+          address_line_1: `${200 + b * 50}, ${
+            STREET_NAMES[(shopIndex + b) % STREET_NAMES.length]
+          }`,
           address_line_2: b % 2 === 0 ? "Shop No. " + (b + 1) : null,
           city: branchLocation.city,
           state: branchLocation.state,
           pincode: branchLocation.pincode,
-          contact_number: `+9198${String(60000000 + shopIndex * 100000 + b * 10000).slice(0, 8)}`,
-          alternate_number: isMain ? `+9197${String(60000000 + shopIndex * 100000).slice(0, 8)}` : null,
+          contact_number: `+9198${String(
+            60000000 + shopIndex * 100000 + b * 10000
+          ).slice(0, 8)}`,
+          alternate_number: isMain
+            ? `+9197${String(60000000 + shopIndex * 100000).slice(0, 8)}`
+            : null,
           is_active: true,
           created_at: randomDate(shop.created_at, daysAgo(10)),
         },
@@ -903,9 +1110,11 @@ async function main() {
   console.log("👨‍💼 Creating Branch Admins...");
 
   const branchAdmins = [];
-  
+
   // Get sub-branches that need admins (first 10 sub-branches)
-  const subBranches = branches.filter((b) => b.branch_type === "sub").slice(0, 10);
+  const subBranches = branches
+    .filter((b) => b.branch_type === "sub")
+    .slice(0, 10);
 
   for (let i = 0; i < subBranches.length; i++) {
     const branch = subBranches[i];
@@ -926,7 +1135,9 @@ async function main() {
         last_name: lastName,
         full_name: `${firstName} ${lastName}`,
         username: `ba_${firstName.toLowerCase()}${i + 1}`,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}.ba@${shop.business_name.toLowerCase().replace(/\s+/g, "")}.com`,
+        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}.ba@${shop.business_name
+          .toLowerCase()
+          .replace(/\s+/g, "")}.com`,
         phone_number: `+9199${String(10000000 + i * 1111111).slice(0, 8)}`,
         password_hash: passwordHash,
         login_provider: "password",
@@ -934,7 +1145,10 @@ async function main() {
         status: ownerStatus,
         is_active: true,
         onboarding_step: 12,
-        last_login_at: ownerStatus === "verified" ? randomDate(daysAgo(14), new Date()) : null,
+        last_login_at:
+          ownerStatus === "verified"
+            ? randomDate(daysAgo(14), new Date())
+            : null,
         created_at: randomDate(daysAgo(90), daysAgo(15)),
       },
     });
@@ -1014,25 +1228,62 @@ async function main() {
     // Determine file statuses based on shop verification
     let fileStatuses;
     if (config.verification === "verified") {
-      fileStatuses = ["verified", "verified", "verified", "verified", "verified", "verified"];
+      fileStatuses = [
+        "verified",
+        "verified",
+        "verified",
+        "verified",
+        "verified",
+        "verified",
+      ];
     } else if (config.verification === "pending_review") {
-      fileStatuses = ["uploaded", "uploaded", "uploaded", "uploaded", "uploaded", "uploaded"];
+      fileStatuses = [
+        "uploaded",
+        "uploaded",
+        "uploaded",
+        "uploaded",
+        "uploaded",
+        "uploaded",
+      ];
     } else if (config.verification === "partially_rejected") {
       // 4 verified, 2 rejected
-      fileStatuses = ["verified", "verified", "verified", "verified", "rejected", "rejected"];
+      fileStatuses = [
+        "verified",
+        "verified",
+        "verified",
+        "verified",
+        "rejected",
+        "rejected",
+      ];
     } else if (config.verification === "rejected") {
-      fileStatuses = ["rejected", "rejected", "rejected", "rejected", "rejected", "rejected"];
+      fileStatuses = [
+        "rejected",
+        "rejected",
+        "rejected",
+        "rejected",
+        "rejected",
+        "rejected",
+      ];
     } else {
-      fileStatuses = ["uploaded", "uploaded", "uploaded", "uploaded", "uploaded", "uploaded"];
+      fileStatuses = [
+        "uploaded",
+        "uploaded",
+        "uploaded",
+        "uploaded",
+        "uploaded",
+        "uploaded",
+      ];
     }
 
     for (let f = 0; f < FILE_TYPES.length; f++) {
       const fileType = FILE_TYPES[f];
       const status = fileStatuses[f];
-      
+
       const uploadedAt = randomDate(daysAgo(60), daysAgo(20));
-      const verifiedAt = status === "verified" ? randomDate(uploadedAt, daysAgo(5)) : null;
-      const rejectedAt = status === "rejected" ? randomDate(uploadedAt, daysAgo(5)) : null;
+      const verifiedAt =
+        status === "verified" ? randomDate(uploadedAt, daysAgo(5)) : null;
+      const rejectedAt =
+        status === "rejected" ? randomDate(uploadedAt, daysAgo(5)) : null;
 
       const rejectionReasons = [
         "Document is expired. Please upload a valid document.",
@@ -1048,18 +1299,28 @@ async function main() {
           file_id: uuid(),
           shop_id: shop.shop_id,
           file_type: fileType,
-          storage_key: `shops/${shop.shop_id}/${fileType}_${Date.now()}_${f}.pdf`,
-          original_name: `${fileType.replace(/_/g, "-")}-${shop.business_name.toLowerCase().replace(/\s+/g, "-")}.pdf`,
+          storage_key: `shops/${
+            shop.shop_id
+          }/${fileType}_${Date.now()}_${f}.pdf`,
+          original_name: `${fileType.replace(/_/g, "-")}-${shop.business_name
+            .toLowerCase()
+            .replace(/\s+/g, "-")}.pdf`,
           mime_type: "application/pdf",
           file_size: Math.floor(Math.random() * 500000) + 100000,
           status: status,
-          verification_notes: status === "rejected" ? rejectionReasons[f % rejectionReasons.length] : null,
+          verification_notes:
+            status === "rejected"
+              ? rejectionReasons[f % rejectionReasons.length]
+              : null,
           resubmission_count: status === "rejected" ? randomBetween(0, 2) : 0,
           uploaded_by: owner.user_id,
           uploaded_at: uploadedAt,
           verified_at: verifiedAt,
           rejected_at: rejectedAt,
-          last_resubmitted_at: status === "rejected" && Math.random() > 0.5 ? randomDate(rejectedAt, daysAgo(3)) : null,
+          last_resubmitted_at:
+            status === "rejected" && Math.random() > 0.5
+              ? randomDate(rejectedAt, daysAgo(3))
+              : null,
         },
       });
       allShopFiles.push(shopFile);
@@ -1128,7 +1389,7 @@ async function main() {
   }
 
   console.log(`✅ Created ${verificationLogCount} File Verification Logs\n`);
-    // ============================================
+  // ============================================
   // 11. CREATE SUBSCRIPTIONS
   // ============================================
   console.log("💳 Creating Subscriptions...");
@@ -1253,12 +1514,10 @@ async function main() {
     subscriptions.push({ ...subscription, shopIndex, plan });
 
     // Update shop with current subscription if active
-    if (isActive) {
-      await prisma.shop.update({
-        where: { shop_id: shop.shop_id },
-        data: { current_subscription_id: subscription.subscription_id },
-      });
-    }
+    await prisma.shop.update({
+      where: { shop_id: shop.shop_id },
+      data: { current_subscription_id: subscription.subscription_id },
+    });
   }
 
   console.log(`✅ Created ${subscriptions.length} Subscriptions\n`);
@@ -1275,7 +1534,7 @@ async function main() {
 
   for (const shopIndex of shopsWithHistory) {
     const shop = shops[shopIndex];
-    
+
     // Previous subscription (expired/upgraded)
     const historicalSub = await prisma.shopSubscription.create({
       data: {
@@ -1338,7 +1597,8 @@ async function main() {
         subscription_id: sub.subscription_id,
         provider: "razorpay",
         provider_order_id: `order_${uuid().slice(0, 14)}`,
-        provider_payment_id: txnStatus === "captured" ? `pay_${uuid().slice(0, 14)}` : null,
+        provider_payment_id:
+          txnStatus === "captured" ? `pay_${uuid().slice(0, 14)}` : null,
         amount: amount,
         currency: "INR",
         status: txnStatus,
@@ -1358,7 +1618,7 @@ async function main() {
 
   for (const shopIndex of shopsWithFailedPayments) {
     const shop = shops[shopIndex];
-    
+
     await prisma.paymentTransaction.create({
       data: {
         transaction_id: uuid(),
@@ -1385,7 +1645,7 @@ async function main() {
   // Add historical payments for upgraded shops
   for (const shopIndex of shopsWithHistory) {
     const shop = shops[shopIndex];
-    
+
     await prisma.paymentTransaction.create({
       data: {
         transaction_id: uuid(),
@@ -1452,7 +1712,10 @@ async function main() {
           user_id: user.user_id,
           action: actionData.action,
           description: actionData.description,
-          ip_address: `192.168.${randomBetween(1, 255)}.${randomBetween(1, 255)}`,
+          ip_address: `192.168.${randomBetween(1, 255)}.${randomBetween(
+            1,
+            255
+          )}`,
           user_agent: randomFrom(userAgents),
           created_at: randomDate(daysAgo(30), new Date()),
         },
@@ -1492,7 +1755,7 @@ async function main() {
 
   for (let i = 0; i < 3; i++) {
     const reasonData = deletionReasons[i];
-    
+
     await prisma.deletionLog.create({
       data: {
         id: uuid(),
@@ -1500,7 +1763,10 @@ async function main() {
         email: `deleted_user_${i + 1}@example.com`,
         username: `deleted_user_${i + 1}`,
         reason: reasonData.reason,
-        onboarding_step: reasonData.reason === "incomplete_onboarding" ? randomBetween(1, 3) : null,
+        onboarding_step:
+          reasonData.reason === "incomplete_onboarding"
+            ? randomBetween(1, 3)
+            : null,
         days_inactive: reasonData.days,
         files_deleted: randomBetween(0, 6),
         deleted_at: randomDate(daysAgo(90), daysAgo(10)),
@@ -1540,8 +1806,12 @@ async function main() {
           last_name: lastName,
           full_name: `${firstName} ${lastName}`,
           username: `extra_${firstName.toLowerCase()}${additionalUsers + 1}`,
-          email: `extra.${firstName.toLowerCase()}${additionalUsers + 1}@staff.example.com`,
-          phone_number: `+9192${String(10000000 + additionalUsers * 1111111).slice(0, 8)}`,
+          email: `extra.${firstName.toLowerCase()}${
+            additionalUsers + 1
+          }@staff.example.com`,
+          phone_number: `+9192${String(
+            10000000 + additionalUsers * 1111111
+          ).slice(0, 8)}`,
           password_hash: passwordHash,
           login_provider: "password",
           role: "staff",
@@ -1561,14 +1831,18 @@ async function main() {
   // ============================================
   // FINAL COUNTS & SUMMARY
   // ============================================
-  
+
   const finalCounts = {
     cadmins: 1,
     pendingUsers: pendingUsers.length,
     owners: owners.length,
     branchAdmins: branchAdmins.length,
     staff: staffMembers.length + additionalUsers,
-    totalUsers: owners.length + branchAdmins.length + staffMembers.length + additionalUsers,
+    totalUsers:
+      owners.length +
+      branchAdmins.length +
+      staffMembers.length +
+      additionalUsers,
     shops: shops.length,
     branches: branches.length,
     preMadePlans: 6,
@@ -1586,7 +1860,7 @@ async function main() {
   console.log("🎉 SEED COMPLETED SUCCESSFULLY!");
   console.log("═".repeat(60));
   console.log("\n📊 SUMMARY:\n");
-  
+
   console.log("👤 USERS:");
   console.log(`   • CAdmin: ${finalCounts.cadmins}`);
   console.log(`   • Pending Users: ${finalCounts.pendingUsers}`);
@@ -1594,11 +1868,11 @@ async function main() {
   console.log(`   • Branch Admins: ${finalCounts.branchAdmins}`);
   console.log(`   • Staff Members: ${finalCounts.staff}`);
   console.log(`   • Total in User table: ${finalCounts.totalUsers}`);
-  
+
   console.log("\n🏪 SHOPS & BRANCHES:");
   console.log(`   • Shops: ${finalCounts.shops}`);
   console.log(`   • Branches: ${finalCounts.branches}`);
-  
+
   console.log("\n📦 PLANS:");
   console.log(`   • PRE-MADE Plans: ${finalCounts.preMadePlans}`);
   console.log(`     - ACTIVE: 3 (Free Trial, Starter, Professional)`);
@@ -1606,11 +1880,11 @@ async function main() {
   console.log(`     - SUSPENDED: 2 (Basic Old, Legacy Pro)`);
   console.log(`   • CUSTOM Plans: ${finalCounts.customPlans}`);
   console.log(`   • Total Plans: ${finalCounts.totalPlans}`);
-  
+
   console.log("\n💳 SUBSCRIPTIONS & PAYMENTS:");
   console.log(`   • Subscriptions: ${finalCounts.subscriptions}`);
   console.log(`   • Payment Transactions: ${finalCounts.payments}`);
-  
+
   console.log("\n📄 FILES & LOGS:");
   console.log(`   • Shop Files: ${finalCounts.shopFiles}`);
   console.log(`   • File Verification Logs: ${finalCounts.verificationLogs}`);
@@ -1643,7 +1917,9 @@ async function main() {
   console.log("\n📋 USER STATUS DISTRIBUTION:");
   console.log("═".repeat(60));
   console.log("   ✅ verified: Owners of verified shops + their staff");
-  console.log("   ⏳ pending_verification: Owners with docs under review/rejected");
+  console.log(
+    "   ⏳ pending_verification: Owners with docs under review/rejected"
+  );
   console.log("   📝 pending_setup: Owner of new shop (no docs)");
   console.log("═".repeat(60));
 
