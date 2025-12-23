@@ -44,8 +44,9 @@ const MENU_ITEMS = [
   { id: "verification", label: "verification", icon: ShieldCheck, path: "/verification" },
   { id: "subscriptions", label: "Subscriptions", icon: Podcast, path: "/subscriptions" },
   { id: "audits", label: "Audits", icon: ListChecks, path: "/audits" },
-  { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
   { id: "admins", label: "Admins", icon: UserStar, path: "/admins" },
+  { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
+  
 ];
 
 // ═══════════════════════════════════════════════════════════════════
