@@ -1,3 +1,4 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\components\admin\AdminTable.jsx
 import { useState } from "react";
 import {
   Eye,

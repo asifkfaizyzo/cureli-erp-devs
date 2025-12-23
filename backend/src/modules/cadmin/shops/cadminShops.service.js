@@ -280,6 +280,7 @@ export async function uploadShopDocument({
 /**
  * List shops with filters, sorting, and pagination
  */
+
 export async function listShops({
   page = 1,
   limit = 10,
@@ -346,41 +347,61 @@ export async function listShops({
       where.created_at.gte = new Date(date_start);
     }
     if (date_end) {
-      // Include the entire end date
       const endDate = new Date(date_end);
       endDate.setHours(23, 59, 59, 999);
       where.created_at.lte = endDate;
     }
   }
 
-  // Subscription status filter
+  // ✅ FIX: Subscription status filter - use AND array for complex conditions
   if (subscription_status) {
     if (subscription_status === "active") {
-      where.currentSubscription = {
-        isNot: null,
-        is_active: true,
-        end_date: { gte: new Date() },
-      };
+      // Must have a current subscription that is active
+      where.AND = [
+        ...(where.AND || []),
+        { current_subscription_id: { not: null } },
+        {
+          currentSubscription: {
+            status: { in: ["active", "trial"] }, // Include trial as active
+            is_active: true,
+            end_date: { gte: new Date() },
+          },
+        },
+      ];
     } else if (subscription_status === "expired") {
-      where.currentSubscription = {
-        isNot: null,
-        end_date: { lt: new Date() },
-      };
+      // Has subscription but it's expired/cancelled OR end_date passed
+      where.AND = [
+        ...(where.AND || []),
+        { current_subscription_id: { not: null } },
+        {
+          OR: [
+            { currentSubscription: { status: "expired" } },
+            { currentSubscription: { status: { in: ["expired", "cancelled"] } } },
+            { currentSubscription: { end_date: { lt: new Date() } } },
+            { currentSubscription: { is_active: false } },
+          ],
+        },
+      ];
     } else if (subscription_status === "none") {
       where.current_subscription_id = null;
     }
   }
 
-  // Build orderBy
-  const orderBy = {};
+  // ✅ FIX: Build orderBy - suspended shops at end when not specifically filtering for inactive
+  let orderBy = [];
 
-  // Handle special sort fields
+  // If not filtering by is_active, push inactive to end
+  if (is_active === undefined) {
+    orderBy.push({ is_active: "desc" }); // active (true) first, then inactive (false)
+  }
+
+  // Then apply user's sort preference
   if (sort_by === "owner") {
-    orderBy.owner = { full_name: sort_order };
+    orderBy.push({ owner: { full_name: sort_order } });
   } else if (sort_by === "subscription") {
-    orderBy.currentSubscription = { plan: { name: sort_order } };
+    orderBy.push({ currentSubscription: { plan: { name: sort_order } } });
   } else {
-    orderBy[sort_by] = sort_order;
+    orderBy.push({ [sort_by]: sort_order });
   }
 
   // Execute queries
@@ -439,7 +460,7 @@ export async function listShops({
     prisma.shop.count({ where }),
   ]);
 
-  // Format response - ✅ Consistent field names for frontend
+  // Format response
   const formattedShops = shops.map((shop) => ({
     shop_id: shop.shop_id,
     business_name: shop.business_name,
@@ -457,8 +478,8 @@ export async function listShops({
     owner: shop.owner
       ? {
           user_id: shop.owner.user_id,
-          name: shop.owner.full_name, // ✅ "name" for list view
-          full_name: shop.owner.full_name, // ✅ Also include full_name for compatibility
+          name: shop.owner.full_name,
+          full_name: shop.owner.full_name,
           email: shop.owner.email,
           username: shop.owner.username,
           is_active: shop.owner.is_active,
