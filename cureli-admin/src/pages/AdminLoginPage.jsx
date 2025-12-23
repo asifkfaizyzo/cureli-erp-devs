@@ -4,7 +4,6 @@ import CAdminLoginForm from "../components/CAdminLoginForm";
 import CAdminOtpForm from "../components/CAdminOtpForm";
 import { AUTH_CONFIG } from "../config/modules/authConfig.js";
 
-
 import bgImage from "../assets/images/login-background.jpg";
 import logo from "../assets/icons/cureli.svg";
 
@@ -27,7 +26,6 @@ const AdminLoginPage = () => {
 
   return (
     <div className="relative flex flex-col md:flex-row min-h-screen w-full overflow-hidden font-poppins">
-
       {/* LEFT SIDE */}
       <div className="relative w-full md:w-3/5 h-56 md:h-auto">
         <img
@@ -37,14 +35,26 @@ const AdminLoginPage = () => {
         />
         <div className="absolute inset-0 bg-[#000060A3]" />
 
-        <img src={logo} className="absolute top-6 left-6 w-32 z-20" alt="Logo" />
+        {/* Logo */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 md:left-6 lg:left-8 md:translate-x-0 z-20 transition-all">
+          <div className="flex items-center gap-2">
+            <img
+              src={logo}
+              alt="Cureli ERP"
+              className="h-8 sm:h-10 md:h-12 w-auto"
+            />
+            <span className="hidden sm:inline-block text-lg md:text-xl lg:text-2xl font-bold text-white font-manrope drop-shadow-md">
+              Cureli Admin Panel
+            </span>
+          </div>
+        </div>
 
         <div className="hidden md:block absolute z-10 text-white px-12 mt-24">
-          <h1 className="text-4xl lg:text-5xl font-semibold mb-6">
-            Cureli Admin Panel
-          </h1>
+        
           <p className="text-lg lg:text-2xl font-light leading-relaxed opacity-90">
-            Secure access for<br />authorized Cureli administrators.
+            Secure access for
+            <br />
+            authorized Cureli administrators.
           </p>
         </div>
       </div>

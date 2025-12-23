@@ -9,10 +9,25 @@ import CAdminForgotPassword from "./pages/CAdminForgotPassword";
 import CAdminResetPassword from "./pages/CAdminResetPassword";
 import VerificationPage from "./pages/VerificationPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
- import ShopsPage from "./pages/ShopsPage";
- import AdminsPage from "./pages/AdminsPage";
+import ShopsPage from "./pages/ShopsPage";
+import AdminsPage from "./pages/AdminsPage";
+
 // Layout
 import AppLayout from "./components/layout/AppLayout";
+
+// Auth Provider
+import { AuthProvider } from "./context/AuthContext";
+
+// ══════════════════════════════════════════════════════
+// Protected Layout - Wraps AppLayout with AuthProvider
+// ══════════════════════════════════════════════════════
+const ProtectedLayout = () => {
+  return (
+    <AuthProvider>
+      <AppLayout />
+    </AuthProvider>
+  );
+};
 
 function App() {
   useEffect(() => {
@@ -60,17 +75,17 @@ function App() {
         <Route path="/reset-password" element={<CAdminResetPassword />} />
 
         {/* ══════════════════════════════════════════════════════
-            PROTECTED ROUTES (With AppLayout)
+            PROTECTED ROUTES (With AppLayout + AuthProvider)
         ══════════════════════════════════════════════════════ */}
-        <Route element={<AppLayout />}>
+        <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<AdminDashboard />} />
           <Route path="/users" element={<UserPage />} />
           <Route path="/shops" element={<ShopsPage />} />
-           <Route path="/verification" element={<VerificationPage />} />
-          <Route path="/subscriptions" element={<SubscriptionPage/>} />
+          <Route path="/verification" element={<VerificationPage />} />
+          <Route path="/subscriptions" element={<SubscriptionPage />} />
           <Route path="/audits" element={<div>Audits Page</div>} />
           <Route path="/settings" element={<div>Settings Page</div>} />
-          <Route path="admins" element={<AdminsPage/>} />
+          <Route path="/admins" element={<AdminsPage />} />
         </Route>
 
         {/* ══════════════════════════════════════════════════════

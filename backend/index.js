@@ -26,7 +26,7 @@ import cadminUserRoutes from "./src/modules/cadmin/users/cadminUser.routes.js";
 import cadminShopsRoutes from "./src/modules/cadmin/shops/cadminShops.routes.js";
 import cadminPlansRoutes from "./src/modules/cadmin/plans/cadminPlans.routes.js";
 import cadminAdminRoutes from "./src/modules/cadmin/admins/cadminAdmin.routes.js";
-
+import cadminProfileRoutes from "./src/modules/cadmin/profile/cadminProfile.routes.js";
 
 // Add to API Routes section (after subscription routes)
 import { initializeCronJobs } from "./src/cron/jobs.js";
@@ -195,6 +195,7 @@ app.use("/cadmin", cadminUserRoutes);
 app.use("/cadmin", cadminShopsRoutes);
 app.use("/cadmin", cadminPlansRoutes);
 app.use("/cadmin",cadminAdminRoutes);
+app.use("/cadmin", cadminProfileRoutes);
 // ============================================
 // Health Check
 // ============================================
