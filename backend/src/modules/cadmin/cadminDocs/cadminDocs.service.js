@@ -45,18 +45,8 @@ export async function listShopsForVerification(query = {}) {
     }
   }
 
-  const orderBy = {};
-  if (query.sort_by === "business_name") {
-    orderBy.business_name = query.sort_order || "desc";
-  } else if (query.sort_by === "owner_name") {
-    orderBy.owner = { full_name: query.sort_order || "desc" };
-  } else if (query.sort_by === "verification_status") {
-    orderBy.verification_status = query.sort_order || "desc";
-  } else {
-    orderBy.created_at = query.sort_order || "desc";
-  }
-
-  const shops = await prisma.shop.findMany({
+  // Fetch ALL matching shops first (we'll sort & paginate in memory)
+  const allShops = await prisma.shop.findMany({
     where,
     include: {
       owner: {
@@ -75,14 +65,10 @@ export async function listShopsForVerification(query = {}) {
         },
       },
     },
-    orderBy,
-    skip,
-    take: limit,
   });
 
-  const totalBeforeFilter = await prisma.shop.count({ where });
-
-  let data = shops.map((shop) => {
+  // Transform data
+  let data = allShops.map((shop) => {
     const files = shop.shopFiles || [];
     const filesApproved = files.filter((f) => f.status === "verified").length;
     const filesRejected = files.filter((f) => f.status === "rejected").length;
@@ -109,24 +95,73 @@ export async function listShopsForVerification(query = {}) {
     };
   });
 
+  // Apply resubmission filter
   const resubMinFilter = Number(query.resubmissionCountMin);
   if (!isNaN(resubMinFilter) && resubMinFilter > 0) {
     data = data.filter((shop) => shop.resubmission_count >= resubMinFilter);
   }
 
-  if (query.sort_by === "resubmission_count") {
+  // Status priority: pending_review=0, partially_rejected=1, rejected=2, verified=3
+  const STATUS_PRIORITY = {
+    pending_review: 0,
+    partially_rejected: 1,
+    rejected: 2,
+    verified: 3,
+  };
+
+  // Check if user wants custom sort or default sort
+  const useDefaultSort = !query.sort_by || query.sort_by === "default" || query.sort_by === "created_at";
+
+  if (useDefaultSort) {
+    // DEFAULT: pending_review (latest, then most resub) → partially_rejected → rejected → verified
+    data.sort((a, b) => {
+      const priorityA = STATUS_PRIORITY[a.verification_status] ?? 99;
+      const priorityB = STATUS_PRIORITY[b.verification_status] ?? 99;
+
+      // 1. Sort by status priority (ascending - pending first)
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+
+      // 2. Within same status: sort by created_at DESC (latest first)
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      if (dateA !== dateB) {
+        return dateB - dateA; // DESC
+      }
+
+      // 3. If same date: sort by resubmission_count DESC (most resub first)
+      return b.resubmission_count - a.resubmission_count;
+    });
+  } else if (query.sort_by === "resubmission_count") {
     data.sort((a, b) => {
       const diff = a.resubmission_count - b.resubmission_count;
       return query.sort_order === "asc" ? diff : -diff;
     });
+  } else if (query.sort_by === "business_name") {
+    data.sort((a, b) => {
+      const cmp = a.business_name.localeCompare(b.business_name);
+      return query.sort_order === "asc" ? cmp : -cmp;
+    });
+  } else if (query.sort_by === "owner_name") {
+    data.sort((a, b) => {
+      const cmp = a.owner_name.localeCompare(b.owner_name);
+      return query.sort_order === "asc" ? cmp : -cmp;
+    });
+  } else if (query.sort_by === "verification_status") {
+    data.sort((a, b) => {
+      const cmp = a.verification_status.localeCompare(b.verification_status);
+      return query.sort_order === "asc" ? cmp : -cmp;
+    });
   }
 
-  const filteredTotal = (!isNaN(resubMinFilter) && resubMinFilter > 0)
-    ? data.length
-    : totalBeforeFilter;
+  const filteredTotal = data.length;
+
+  // Paginate in memory
+  const paginatedData = data.slice(skip, skip + limit);
 
   return {
-    data,
+    data: paginatedData,
     meta: {
       total: filteredTotal,
       page,
