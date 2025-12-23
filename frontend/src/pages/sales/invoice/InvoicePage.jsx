@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { toast } from 'react-toastify';
 import InvoiceFilters from "./components/InvoiceFilters";
 import InvoiceTable from "./components/InvoiceTable";
 import InvoicePagination from "./components/InvoicePagination";
 import ViewInvoiceModal from "./components/ViewInvoiceModal";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 import { invoiceData } from "../../../components/data/invoices";
 
@@ -23,6 +25,9 @@ const InvoicePage = () => {
   const [selectedBill, setSelectedBill] = useState(null);
   const [modalMode, setModalMode] = useState("view");
 
+  // ✅ Confirmation state
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
   const rowsPerPage = useDynamicRowCount();
 
   const handleFilterChange = (field, value) => {
@@ -42,7 +47,7 @@ const InvoicePage = () => {
       const matchDate = (!fromDate || invoiceDate >= fromDate) && (!toDate || invoiceDate <= toDate);
       return matchName && matchBill && matchPhone && matchDate;
     });
-  }, [filters, invoices]); // ✅ Added invoices dependency
+  }, [filters, invoices]);
 
   // --------------------- PAGINATION ---------------------
   useEffect(() => {
@@ -61,14 +66,12 @@ const InvoicePage = () => {
 
   // --------------------- HANDLERS ---------------------
   const handleView = (invoice) => {
-    // console.log("📋 View clicked:", invoice);
-    
     const fullInvoice = {
       billNo: invoice.billNo,
       date: invoice.date,
       billedBy: "Admin User",
       time: "11:22 AM",
-      items: [], // Empty = will use DUMMY_ITEMS in modal
+      items: [],
       customer: { 
         id: invoice.id, 
         name: invoice.name, 
@@ -92,10 +95,8 @@ const InvoicePage = () => {
   };
 
   const handleEdit = (invoice) => {
-    // console.log("✏️ Edit clicked:", invoice);
-    
     const fullInvoice = {
-      id: invoice.id, // ✅ Include ID for deletion
+      id: invoice.id,
       billNo: invoice.billNo,
       date: invoice.date,
       billedBy: "Admin User",
@@ -123,112 +124,43 @@ const InvoicePage = () => {
     setOpenViewModal(true);
   };
 
-  // ✅ REAL DELETE FUNCTIONALITY
+  // ✅ DELETE WITH CONFIRM DIALOG
   const handleDelete = (invoice) => {
-    // console.log("🗑️ Delete clicked:", invoice);
-    
-    if (confirm(`Delete invoice #${invoice.billNo}?`)) {
-      // Remove from state
-      setInvoices(prev => prev.filter(inv => inv.id !== invoice.id));
-      
-      // console.log("✅ Invoice deleted successfully!");
-      
-      // Show success message
-      const successAlert = document.createElement('div');
-      successAlert.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[100] animate-fade-in';
-      successAlert.innerHTML = `
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-          </svg>
-          <span>Invoice #${invoice.billNo} deleted successfully!</span>
-        </div>
-      `;
-      document.body.appendChild(successAlert);
-      
-      // Remove after 3 seconds
-      setTimeout(() => {
-        successAlert.remove();
-      }, 3000);
-    }
+    setConfirmDelete(invoice);
   };
 
   // ✅ Handle save from modal
   const handleSave = (updatedBill) => {
-    // console.log("💾 Save from modal:", updatedBill);
-    
-    // Update invoice in state
-    setInvoices(prev => prev.map(inv => 
-      inv.id === updatedBill.id ? { ...inv, ...updatedBill } : inv
-    ));
-    
-    setOpenViewModal(false);
-    
-    // Show success message
-    const successAlert = document.createElement('div');
-    successAlert.className = 'fixed top-4 right-4 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg z-[100]';
-    successAlert.innerHTML = `
-      <div class="flex items-center gap-2">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-        </svg>
-        <span>Invoice #${updatedBill.billNo} saved successfully!</span>
-      </div>
-    `;
-    document.body.appendChild(successAlert);
-    setTimeout(() => successAlert.remove(), 3000);
+    try {
+      setInvoices(prev => prev.map(inv => 
+        inv.id === updatedBill.id ? { ...inv, ...updatedBill } : inv
+      ));
+      
+      setOpenViewModal(false);
+      toast.success(`Invoice #${updatedBill.billNo} saved successfully!`);
+    } catch (error) {
+      toast.error("Failed to save invoice. Please try again.");
+      console.error("Save error:", error);
+    }
   };
 
   // ✅ Handle delete from modal
   const handleDeleteFromModal = (bill) => {
-    console.log("🗑️ Delete from modal:", bill);
-    
-    if (confirm(`Delete invoice #${bill.billNo}?`)) {
-      // Remove from state
-      setInvoices(prev => prev.filter(inv => inv.id !== bill.id));
-      
-      setOpenViewModal(false);
-      
-      // console.log("✅ Invoice deleted from modal!");
-      
-      // Show success message
-      const successAlert = document.createElement('div');
-      successAlert.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[100]';
-      successAlert.innerHTML = `
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-          </svg>
-          <span>Invoice #${bill.billNo} deleted successfully!</span>
-        </div>
-      `;
-      document.body.appendChild(successAlert);
-      setTimeout(() => successAlert.remove(), 3000);
-    }
+    setConfirmDelete(bill);
+    setOpenViewModal(false);
   };
 
   // ✅ Handle print from modal
   const handlePrint = (bill) => {
-    // console.log("🖨️ Print clicked:", bill);
-    
-    // Show printing message
-    const printAlert = document.createElement('div');
-    printAlert.className = 'fixed top-4 right-4 bg-indigo-500 text-white px-6 py-3 rounded-lg shadow-lg z-[100]';
-    printAlert.innerHTML = `
-      <div class="flex items-center gap-2">
-        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span>Preparing invoice #${bill.billNo} for printing...</span>
-      </div>
-    `;
-    document.body.appendChild(printAlert);
-    
-    setTimeout(() => {
-      printAlert.remove();
-      window.print();
-    }, 1000);
+    try {
+      toast.info("Preparing invoice for print...", { autoClose: 2000 });
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    } catch (error) {
+      toast.error("Failed to print invoice");
+      console.error("Print error:", error);
+    }
   };
 
   return (
@@ -265,7 +197,6 @@ const InvoicePage = () => {
       <ViewInvoiceModal
         open={openViewModal}
         onClose={() => {
-          // console.log("❌ Modal closed");
           setOpenViewModal(false);
         }}
         bill={selectedBill}
@@ -273,6 +204,27 @@ const InvoicePage = () => {
         onSave={handleSave}
         onDelete={handleDeleteFromModal}
         onPrint={handlePrint}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDelete !== null}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          try {
+            setInvoices(prev => prev.filter(inv => inv.id !== confirmDelete.id));
+            toast.success(`Invoice #${confirmDelete.billNo} deleted successfully!`);
+            setConfirmDelete(null);
+          } catch (error) {
+            toast.error("Failed to delete invoice. Please try again.");
+            console.error("Delete error:", error);
+          }
+        }}
+        title="Delete Invoice"
+        message={`Are you sure you want to delete invoice #${confirmDelete?.billNo}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
       />
     </div>
   );

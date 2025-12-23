@@ -1,5 +1,5 @@
 // src/components/purchase/PurchaseRowFixed.jsx
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, memo, useEffect } from "react";
 
 const EMPTY_ARRAY = [];
 
@@ -13,6 +13,11 @@ const PurchaseRowFixed = memo(({
 }) => {
   const stableProductMaster = productMaster || EMPTY_ARRAY;
   const [nameQuery, setNameQuery] = useState(() => item.name || "");
+
+  // ✅ FIX: Sync nameQuery with item.name when it changes (CSV import)
+  useEffect(() => {
+    setNameQuery(item.name || "");
+  }, [item.name]);
 
   const suggestions = useMemo(() => {
     const q = (nameQuery ?? "").toLowerCase().trim();
