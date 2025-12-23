@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogOut, Loader2 } from "lucide-react";
-import logo from "../../assets/icons/cureli.png";
+import logo from "../../assets/icons/cureli-white.svg";
 
 const OnboardingHeader = ({ userName }) => {
   const navigate = useNavigate();

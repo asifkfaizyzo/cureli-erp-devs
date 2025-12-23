@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
-import success from "../../assets/icons/cureli.png";
+import success from "../../assets/icons/cureli.svg";
 
 const AdminHeader = () => {
   const [time, setTime] = useState("");

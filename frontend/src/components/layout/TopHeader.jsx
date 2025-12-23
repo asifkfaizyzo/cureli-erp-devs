@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { FiBell, FiChevronDown } from "react-icons/fi";
-import success from "../../assets/icons/cureli.png";
+import success from "../../assets/icons/cureli.svg";
 
 const TopHeader = () => {
   const [time, setTime] = useState("");
