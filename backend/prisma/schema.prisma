@@ -23,16 +23,31 @@ enum PlanType {
 }
 
 // ============================================
-// CURELI-ADMIN
+// CADMIN ROLE ENUM (NEW)
+// ============================================
+
+enum CAdminRole {
+  SUPER_ADMIN
+  ANALYST
+  ACCOUNTING
+}
+
+// ============================================
+// CURELI-ADMIN (UPDATED)
 // ============================================
 
 model CAdmin {
   cadmin_id       String   @id @default(uuid()) @db.Uuid
 
+  // Profile
+  name            String   @db.Text
   username        String   @unique @db.Text
   email           String?  @unique @db.Text
   phone_number    String   @db.Text
   password_hash   String   @db.Text
+  
+  // Access control
+  role            CAdminRole @default(SUPER_ADMIN)
   is_active       Boolean  @default(true)
 
   // MessageCentral OTP
@@ -43,16 +58,56 @@ model CAdmin {
   reset_token         String?   @db.VarChar(500)
   reset_token_expires DateTime? @db.Timestamptz(6)
 
+  // Timestamps
   last_login_at   DateTime?
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @updatedAt @db.Timestamptz(6)
 
-  // -------- Relations (NEW) --------
-  createdPlans     Plan[]            @relation("PlanCreator")
-  planActivities   PlanActivityLog[] @relation("PlanActivityByCAdmin")
+  // Relations
+  createdPlans     Plan[]              @relation("PlanCreator")
+  planActivities   PlanActivityLog[]   @relation("PlanActivityByCAdmin")
+  activityLogs     CAdminActivityLog[] @relation("CAdminActivityLogs")
 
   @@map("cadmins")
 }
+
+// ============================================
+// CADMIN ACTIVITY LOG (NEW)
+// ============================================
+
+model CAdminActivityLog {
+  id              String   @id @default(uuid()) @db.Uuid
+
+  cadmin_id       String   @db.Uuid
+  performed_by_id String?  @db.Uuid
+
+  action          String   @db.VarChar(50)
+  description     String?  @db.Text
+  changes         Json?
+  meta            Json?
+
+  ip_address      String?  @db.Text
+  user_agent      String?  @db.Text
+
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  cadmin          CAdmin   @relation("CAdminActivityLogs", fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
+
+  @@index([cadmin_id])
+  @@index([action])
+  @@index([created_at])
+  @@map("cadmin_activity_logs")
+}
+
+
+
+
+
+
+
+
+
+
 
 // ============================================
 // CURELI-USERS
@@ -421,3 +476,4 @@ model ActivityLog {
   @@index([user_id])
   @@map("activity_logs")
 }
+

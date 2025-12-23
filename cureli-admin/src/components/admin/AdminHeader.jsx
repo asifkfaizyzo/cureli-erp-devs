@@ -1,30 +1,26 @@
-//Q:\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\components\admin\AdminHeader.jsx
-import { Search, Plus, X, Download, FileSpreadsheet } from "lucide-react";
+import { Search, Plus, X, Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import StyledSelect from "../common/StyledSelect";
-import StyledDateFilter from "../common/StyledDateFilter";
 
 const AdminHeader = ({
   searchText,
   setSearchText,
   statusFilter,
   setStatusFilter,
-  dateFilter,
-  setDateFilter,
+  roleFilter,
+  setRoleFilter,
   admins = [],
   totalItems = 0,
   onAddAdmin,
+  loading = false,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef(null);
 
-  // close export menu on outside click
+  // Close export menu on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (
-        exportMenuRef.current &&
-        !exportMenuRef.current.contains(e.target)
-      ) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
         setShowExportMenu(false);
       }
     };
@@ -32,18 +28,15 @@ const AdminHeader = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const hasActiveFilters =
-    !!searchText || !!statusFilter || !!dateFilter;
+  const hasActiveFilters = !!searchText || !!statusFilter || !!roleFilter;
 
   const clearFilters = () => {
     setSearchText("");
     setStatusFilter("");
-    setDateFilter("");
+    setRoleFilter("");
   };
 
-  // -----------------------------
   // CSV EXPORT
-  // -----------------------------
   const generateCSV = (data) => {
     if (!data || data.length === 0) return null;
 
@@ -53,6 +46,7 @@ const AdminHeader = ({
       "Username",
       "Phone",
       "Email",
+      "Role",
       "Status",
       "Last Login",
       "Created At",
@@ -64,6 +58,7 @@ const AdminHeader = ({
       a.username ?? "",
       a.phone ?? "",
       a.email ?? "",
+      a.role ?? "",
       a.status ?? "",
       a.lastLogin ?? "",
       a.createdAt ?? "",
@@ -71,7 +66,7 @@ const AdminHeader = ({
 
     const csv = [
       headers.join(","),
-      ...rows.map((r) => r.map((c) => `"${String(c)}"`).join(",")),
+      ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")),
     ].join("\n");
 
     return new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -83,9 +78,7 @@ const AdminHeader = ({
 
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `admins_export_${new Date()
-      .toISOString()
-      .split("T")[0]}.csv`;
+    link.download = `admins_export_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     setShowExportMenu(false);
   };
@@ -96,9 +89,7 @@ const AdminHeader = ({
       <div className="flex items-end gap-3">
         {/* SEARCH */}
         <div className="flex flex-col gap-1.5 min-w-[230px]">
-          <label className="text-xs text-gray-500 font-medium">
-            Search
-          </label>
+          <label className="text-xs text-gray-500 font-medium">Search</label>
           <div className="relative">
             <Search
               size={16}
@@ -139,14 +130,19 @@ const AdminHeader = ({
           ]}
         />
 
-        {/* LAST LOGIN DATE */}
-        <div className="min-w-[160px]">
-          <StyledDateFilter
-            label="Last Login"
-            date={dateFilter}
-            setDate={setDateFilter}
-          />
-        </div>
+        {/* ROLE FILTER (NEW) */}
+        <StyledSelect
+          label="Role"
+          value={roleFilter}
+          onChange={setRoleFilter}
+          placeholder="All Roles"
+          options={[
+            { value: "", label: "All Roles" },
+            { value: "Super Admin", label: "Super Admin" },
+            { value: "Analyst", label: "Analyst" },
+            { value: "Accounting", label: "Accounting" },
+          ]}
+        />
 
         {/* CLEAR FILTERS */}
         {hasActiveFilters && (
@@ -160,25 +156,41 @@ const AdminHeader = ({
             <span>Clear</span>
           </button>
         )}
+
+        {/* LOADING INDICATOR */}
+        {loading && (
+          <div className="h-10 flex items-center px-2">
+            <Loader2 size={16} className="text-indigo-600 animate-spin" />
+          </div>
+        )}
       </div>
 
       {/* RIGHT — ACTIONS */}
       <div className="flex items-center gap-2 self-center">
+        {/* TOTAL COUNT */}
+        <span className="text-sm text-gray-500 mr-2">
+          {loading ? "..." : `${totalItems} admin${totalItems !== 1 ? "s" : ""}`}
+        </span>
+
         {/* EXPORT */}
         <div className="relative" ref={exportMenuRef}>
           <button
             onClick={() => setShowExportMenu(!showExportMenu)}
+            disabled={loading || admins.length === 0}
             className="h-10 px-4 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium 
-                       flex items-center gap-2 hover:bg-gray-200 transition-all"
+                       flex items-center gap-2 hover:bg-gray-200 transition-all
+                       disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download size={16} />
             <span>Export CSV</span>
           </button>
 
           {showExportMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white 
+            <div
+              className="absolute right-0 top-full mt-2 w-56 bg-white 
                             border border-gray-200 rounded-xl shadow-xl 
-                            z-50 overflow-hidden">
+                            z-50 overflow-hidden"
+            >
               <button
                 onClick={exportVisibleAdmins}
                 className="w-full px-4 py-3 text-left text-sm text-gray-700 
@@ -187,9 +199,7 @@ const AdminHeader = ({
                 <FileSpreadsheet size={16} className="text-blue-600" />
                 <div>
                   <div className="font-medium">Export Visible</div>
-                  <div className="text-xs text-gray-400">
-                    {admins.length} admins
-                  </div>
+                  <div className="text-xs text-gray-400">{admins.length} admins</div>
                 </div>
               </button>
             </div>
