@@ -37,6 +37,8 @@ import About from "./pages/landingPages/about/About.jsx";
 import Contact from "./pages/landingPages/contact/Contact.jsx";
 import Pricing from "./pages/landingPages/pricing/Pricing.jsx";
 import VerificationPage from "./pages/VerificationPage.jsx";
+import ScrollToTop from "./pages/landingPages/component/ScrollToTop.jsx";
+
 
 import "./index.css";
 
@@ -77,8 +79,10 @@ const App = () => {
     };
   }, []);
 
+
   return (
     <Router>
+     <ScrollToTop />   {/*for automatic pahe up */}
       <Routes>
         {/* ============================================ */}
         {/* LANDING PAGES */}
