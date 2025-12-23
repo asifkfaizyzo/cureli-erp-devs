@@ -6,7 +6,7 @@ import { AUTH_CONFIG } from "../config/modules/authConfig.js";
 
 
 import bgImage from "../assets/images/login-background.jpg";
-import logo from "../assets/icons/logo.png";
+import logo from "../assets/icons/cureli.svg";
 
 const AdminLoginPage = () => {
   const [step, setStep] = useState("login"); // login | otp
