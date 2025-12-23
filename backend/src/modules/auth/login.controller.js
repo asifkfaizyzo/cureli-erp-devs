@@ -1,4 +1,5 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\auth\login.controller.js
+// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\auth\login.controller.js
+
 import prisma from "../../config/prisma.js";
 import { comparePassword } from "../../utils/hash.js";
 import jwt from "jsonwebtoken";
@@ -11,6 +12,11 @@ import {
 } from "../../config/jwt.js";
 import { fail, success } from "../../utils/response.js";
 import { sendLoginOtp, verifyLoginOtp } from "./login.service.js";
+import { createUserSession, invalidateUserSession, validateUserSession } from "../../utils/session.js";
+
+// ============================================
+// ONBOARDING CONTROLLERS
+// ============================================
 
 export async function getOnboardingStatusController(req, res) {
   try {
@@ -52,12 +58,10 @@ export async function updateOnboardingStepController(req, res) {
     const user_id = req.user.user_id;
     const { step } = req.body;
 
-    // Validate step is a number between 4 and 12
     if (typeof step !== "number" || step < 4 || step > 12) {
       return fail(res, "Invalid step value", 400);
     }
 
-    // Get current step to prevent going backwards
     const user = await prisma.user.findUnique({
       where: { user_id },
       select: { onboarding_step: true },
@@ -67,12 +71,10 @@ export async function updateOnboardingStepController(req, res) {
       return fail(res, "User not found", 404);
     }
 
-    // Only allow moving forward, not backward
     if (step <= user.onboarding_step) {
       return success(res, { onboarding_step: user.onboarding_step }, "Step already completed");
     }
 
-    // Update the step
     await prisma.user.update({
       where: { user_id },
       data: { onboarding_step: step },
@@ -84,6 +86,26 @@ export async function updateOnboardingStepController(req, res) {
     return fail(res, "Failed to update onboarding step", 500);
   }
 }
+
+export async function completeOnboardingController(req, res) {
+  try {
+    const user_id = req.user.user_id;
+
+    await prisma.user.update({
+      where: { user_id },
+      data: { first_login_after_verification: true },
+    });
+
+    return success(res, {}, "Onboarding completed");
+  } catch (err) {
+    console.error(err);
+    return fail(res, "Failed to complete onboarding", 500);
+  }
+}
+
+// ============================================
+// LOGIN CONTROLLERS
+// ============================================
 
 export async function loginController(req, res) {
   try {
@@ -124,14 +146,14 @@ export async function loginController(req, res) {
       return fail(res, "Invalid credentials", 401);
     }
 
-    // ✅ Password correct → Send OTP
+    // Password correct → Send OTP
     await sendLoginOtp(user.user_id);
 
     // Generate temporary token (only for OTP verification)
     const tempToken = jwt.sign(
       { user_id: user.user_id, purpose: "login_otp" },
       TEMP_TOKEN_SECRET,
-      { expiresIn: "10m" } // 10 minutes to complete OTP
+      { expiresIn: "10m" }
     );
 
     return success(
@@ -147,11 +169,11 @@ export async function loginController(req, res) {
     );
   } catch (err) {
     console.error(err);
-    
+
     if (err.code === "NO_PHONE") {
       return fail(res, "No phone number registered. Please contact support.", 400);
     }
-    
+
     if (err.code === "OTP_COOLDOWN") {
       return fail(res, err.message, 429);
     }
@@ -159,11 +181,6 @@ export async function loginController(req, res) {
     return fail(res, "Login failed", 500);
   }
 }
-
-// backend/src/modules/auth/auth.controller.js
-
-
-// backend/src/modules/auth/login.controller.js
 
 export async function verifyLoginOtpController(req, res) {
   try {
@@ -181,7 +198,7 @@ export async function verifyLoginOtpController(req, res) {
       return fail(res, "Invalid token", 401);
     }
 
-    // Verify OTP
+    // Verify OTP with MessageCentral
     await verifyLoginOtp(decoded.user_id, otp);
 
     // Get user details WITH shop info
@@ -200,20 +217,28 @@ export async function verifyLoginOtpController(req, res) {
       return fail(res, "User not found", 404);
     }
 
-    // Generate real tokens
+    // ✅ Create session (invalidates any existing sessions automatically)
+    const sessionToken = await createUserSession(user.user_id, req);
+
+    // Generate access token with session_id
     const accessToken = jwt.sign(
       {
         user_id: user.user_id,
         shop_id: user.shop_id,
         role: user.role,
         status: user.status,
+        session_id: sessionToken,
       },
       ACCESS_SECRET,
       { expiresIn: ACCESS_EXPIRES }
     );
 
+    // Generate refresh token with session_id
     const refreshToken = jwt.sign(
-      { user_id: user.user_id },
+      {
+        user_id: user.user_id,
+        session_id: sessionToken,
+      },
       REFRESH_SECRET,
       { expiresIn: REFRESH_EXPIRES }
     );
@@ -223,12 +248,11 @@ export async function verifyLoginOtpController(req, res) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    // ✅ FIXED: Determine next step based on user + shop status
+    // Determine next step based on user + shop status
     let nextStep = -1; // Default: dashboard
-    
     const shopStatus = user.shop?.verification_status;
 
     console.log("🔍 LOGIN DEBUG:", {
@@ -238,34 +262,28 @@ export async function verifyLoginOtpController(req, res) {
       first_login_after_verification: user.first_login_after_verification,
     });
 
-    // CASE 1: Still in onboarding (hasn't completed document upload)
+    // CASE 1: Still in onboarding
     if (user.status === "pending_setup") {
       nextStep = user.onboarding_step || 4;
       console.log("📋 User in onboarding, step:", nextStep);
     }
-
     // CASE 2: Documents submitted, waiting for verification
     else if (user.status === "pending_verification") {
       if (shopStatus === "partially_rejected" || shopStatus === "rejected") {
-        // Has rejected files → show resubmission page
-        nextStep = 14;
+        nextStep = 14; // Resubmission page
         console.log("❌ Documents rejected, showing resubmission page");
       } else {
-        // pending_review or other → show pending page
-        nextStep = 12;
+        nextStep = 12; // Pending page
         console.log("⏳ Documents under review, showing pending page");
       }
     }
-
     // CASE 3: Fully verified
     else if (user.status === "verified") {
       if (!user.first_login_after_verification) {
-        // First login after verification → show success page
-        nextStep = 15; // ✅ FIXED: Changed from 13 to 15
+        nextStep = 15; // Success page
         console.log("🎉 First login after verification, showing success");
       } else {
-        // Already seen success → go to dashboard
-        nextStep = -1;
+        nextStep = -1; // Dashboard
         console.log("✅ Verified user, going to dashboard");
       }
     }
@@ -282,7 +300,6 @@ export async function verifyLoginOtpController(req, res) {
       },
       "Login successful"
     );
-
   } catch (err) {
     console.error(err);
 
@@ -302,57 +319,97 @@ export async function verifyLoginOtpController(req, res) {
   }
 }
 
-// Keep existing controllers
+// ============================================
+// TOKEN REFRESH CONTROLLER
+// ============================================
+
 export async function refreshTokenController(req, res) {
   try {
     const refreshToken = req.cookies.refresh_token;
-    
+
     if (!refreshToken) {
       return fail(res, "No refresh token", 401);
     }
-    
-    const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
-    
+
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, REFRESH_SECRET);
+    } catch (err) {
+      return fail(res, "Invalid refresh token", 401);
+    }
+
+    // ✅ Validate session is still active
+    if (decoded.session_id) {
+      const session = await validateUserSession(decoded.user_id, decoded.session_id);
+
+      if (!session) {
+        // Clear the invalid cookie
+        res.clearCookie("refresh_token", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+        });
+
+        return fail(
+          res,
+          "Session expired or logged in from another device",
+          401,
+          { code: "SESSION_INVALIDATED" }
+        );
+      }
+    }
+
     const user = await prisma.user.findUnique({
       where: { user_id: decoded.user_id },
     });
-    
+
     if (!user || !user.is_active) {
       return fail(res, "Invalid user", 401);
     }
-    
+
+    // Generate new access token (preserve session_id)
     const accessToken = jwt.sign(
       {
         user_id: user.user_id,
         shop_id: user.shop_id,
         role: user.role,
         status: user.status,
+        session_id: decoded.session_id,
       },
       ACCESS_SECRET,
       { expiresIn: ACCESS_EXPIRES }
     );
-    
+
     return success(res, { access_token: accessToken });
-    
   } catch (err) {
     console.error(err);
     return fail(res, "Invalid refresh token", 401);
   }
 }
 
-export async function completeOnboardingController(req, res) {
-  try {
-    const user_id = req.user.user_id;
+// ============================================
+// LOGOUT CONTROLLER
+// ============================================
 
-    await prisma.user.update({
-      where: { user_id },
-      data: { first_login_after_verification: true },
+export async function logoutController(req, res) {
+  try {
+    const { user_id, session_id } = req.user;
+
+    // Invalidate session in database
+    if (session_id) {
+      await invalidateUserSession(user_id, session_id, "logout");
+    }
+
+    // Clear refresh token cookie
+    res.clearCookie("refresh_token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     });
 
-    return success(res, {}, "Onboarding completed");
-    
+    return success(res, {}, "Logged out successfully");
   } catch (err) {
     console.error(err);
-    return fail(res, "Failed to complete onboarding", 500);
+    return fail(res, "Logout failed", 500);
   }
 }
