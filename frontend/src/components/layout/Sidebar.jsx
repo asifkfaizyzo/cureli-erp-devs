@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom"; // ✅ added useLocation
 import {
   LayoutGrid,
   Layers,
@@ -70,12 +70,10 @@ const MenuItem = ({
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-        {/* icon */}
         <div className="absolute left-0 w-[56px] flex justify-center">
           <Icon size={20} />
         </div>
 
-        {/* label, only visible when expanded */}
         <motion.span
           className="absolute left-[44px] text-sm font-medium whitespace-nowrap"
           animate={{
@@ -87,7 +85,6 @@ const MenuItem = ({
           {item.label}
         </motion.span>
 
-        {/* chevron for parents */}
         {isParent && (
           <motion.div
             className="absolute right-3"
@@ -101,7 +98,6 @@ const MenuItem = ({
         )}
       </motion.button>
 
-      {/* submenu: visible only when sidebar is expanded AND this parent is open */}
       <AnimatePresence>
         {isExpanded && isParent && isOpen && (
           <motion.div
@@ -154,8 +150,8 @@ const Sidebar = () => {
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
 
   const navigate = useNavigate();
+  const location = useLocation(); // ✅ added
 
-  // expanded ONLY while hovered
   const isExpanded = hovered;
 
   /* ───────────── menu data ───────────── */
@@ -201,7 +197,7 @@ const Sidebar = () => {
     { id: "settings", label: "Settings", icon: Settings, path: "/settings", breadcrumbs: ["Settings"] },
   ];
 
-  /* ───────────── handlers ───────────── */
+  /* ───────────── navigation handler ───────────── */
   const handleNavigation = useCallback(
     (item) => {
       navigate(item.path);
@@ -215,13 +211,49 @@ const Sidebar = () => {
     setOpenMenuId((prev) => (prev === id ? "" : id));
   };
 
-  /* auto-open parent when child active */
+  /* 1️⃣ ROUTE → SIDEBAR SYNC (manual URL typing fix) */
+  useEffect(() => {
+    const currentPath = location.pathname;
+
+    for (const item of menuItems) {
+      if (item.path === currentPath) {
+        setActiveMenu(item.id);
+        setBreadcrumbs(item.breadcrumbs);
+        return;
+      }
+
+      if (item.submenu) {
+        const sub = item.submenu.find((s) => s.path === currentPath);
+        if (sub) {
+          setActiveMenu(sub.id);
+          setBreadcrumbs(sub.breadcrumbs);
+          return;
+        }
+      }
+    }
+  }, [location.pathname]);
+
+  /* 2️⃣ AUTO-OPEN PARENT WHEN CHILD ACTIVE */
   useEffect(() => {
     const parent = menuItems.find((m) =>
       m.submenu?.some((s) => s.id === activeMenu)
     );
-    if (parent) {
-      setOpenMenuId(parent.id);
+    if (parent) setOpenMenuId(parent.id);
+  }, [activeMenu]);
+
+  /* 3️⃣ DASHBOARD FALLBACK (primary focus rule) */
+  useEffect(() => {
+    const isValid =
+      menuItems.some((m) => m.id === activeMenu) ||
+      menuItems.some((m) =>
+        m.submenu?.some((s) => s.id === activeMenu)
+      );
+
+    if (!isValid) {
+      const dashboard = menuItems.find((m) => m.id === "dashboard");
+      setActiveMenu(dashboard.id);
+      setBreadcrumbs(dashboard.breadcrumbs);
+      navigate(dashboard.path);
     }
   }, [activeMenu]);
 
