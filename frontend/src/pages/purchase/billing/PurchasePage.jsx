@@ -1,46 +1,107 @@
 // src/pages/PurchasePage.jsx
 import { useState, useMemo, useEffect } from "react";
+import * as XLSX from "xlsx";
 import PurchaseHeader from "./components/PurchaseHeader";
 import PurchaseTable from "./components/PurchaseTable";
 import SupplierDetailsCard from "./components/SupplierDetailsCard";
 import PurchaseSummaryCard from "./components/PurchaseSummaryCard";
-import { toast } from 'react-toastify';
+import { toast } from "react-toastify";
 
+/* --------------------------------
+   ROW CALCULATION (INVOICE LOGIC)
+-------------------------------- */
+const calculateRow = (row) => {
+  const qty = Number(row.qty) || 0;
+  const price = Number(row.price) || 0;
+
+  const gross = qty * price;
+
+  const schPct = Number(row.schemePercent) || 0;
+  const schemeAmount = +(gross * schPct / 100).toFixed(2);
+  const afterScheme = gross - schemeAmount;
+
+  const discPct = Number(row.discountPercent) || 0;
+  const discountAmount = +(afterScheme * discPct / 100).toFixed(2);
+
+  const taxableValue = +(afterScheme - discountAmount).toFixed(2);
+
+  const cgstPct = Number(row.cgstPercent) || 0;
+  const sgstPct = Number(row.sgstPercent) || 0;
+
+  const cgstAmount = +(taxableValue * cgstPct / 100).toFixed(2);
+  const sgstAmount = +(taxableValue * sgstPct / 100).toFixed(2);
+
+  const amount = +(taxableValue + cgstAmount + sgstAmount).toFixed(2);
+
+  return {
+    ...row,
+    schemeAmount,
+    discountAmount,
+    taxableValue,
+    cgstAmount,
+    sgstAmount,
+    amount,
+  };
+};
+
+/* --------------------------------
+   EMPTY ROW MODEL
+-------------------------------- */
 const makeEmptyPurchaseRow = () => ({
-  name: "", batch: "", rate: 0, qty: "", pack: "", exp: "", type: "", category: "", rack: "", tax: 0, disc: 0, mrp: 0, free: "",
-});
+  mfac: "",
+  rack: "",
+  name: "",
+  hsn: "",
+  pack: "",
+  batch: "",
+  exp: "",
+  qty: "",
+  sch: "",
+  mrp: "",
+  price: "",
 
-// Dummy Master Data
-const PRODUCT_MASTER_DATA = [
-  { id: 1, name: "Paracetamol 500mg", type: "Tablet", category: "Pain Relief" },
-  { id: 2, name: "Amoxicillin 250mg", type: "Capsule", category: "Antibiotic" },
-  { id: 3, name: "Omeprazole 20mg", type: "Capsule", category: "Gastric" },
-  { id: 4, name: "Metformin 500mg", type: "Tablet", category: "Diabetes" },
-  { id: 5, name: "Atorvastatin 10mg", type: "Tablet", category: "Cholesterol" },
-];
+  schemePercent: "",
+  schemeAmount: "",
+
+  discountPercent: "",
+  discountAmount: "",
+
+  taxableValue: "",
+
+  cgstPercent: "",
+  cgstAmount: "",
+
+  sgstPercent: "",
+  sgstAmount: "",
+
+  amount: "",
+});
 
 const PurchasePage = () => {
   const [targetRowCount, setTargetRowCount] = useState(8);
   const [rows, setRows] = useState([]);
+  const [productMaster, setProductMaster] = useState([]);
 
   const [supplier, setSupplier] = useState({
-    purchaseId: "123456", invoiceNo: "", supplierGST: "", receivedOn: "", address: "", amountPaid: "", balance: "",
+    purchaseId: "123456",
+    invoiceNo: "",
+    supplierGST: "",
+    receivedOn: "",
+    address: "",
+    amountPaid: "",
+    balance: "",
   });
 
-  const productMaster = useMemo(() => PRODUCT_MASTER_DATA, []);
-
-  // 1. RESPONSIVE LOGIC
+  /* --------------------------------
+     RESPONSIVE ROW COUNT
+  -------------------------------- */
   useEffect(() => {
     const updateLayout = () => {
-      const width = window.innerWidth;
+      const w = window.innerWidth;
       let count = 6;
-
-      if (width >= 2560) count = 18;
-      else if (width >= 1920) count = 16;
-      else if (width >= 1440) count = 10;
-      else if (width >= 1366) count = 6;
-      else count = 6;
-
+      if (w >= 2560) count = 18;
+      else if (w >= 1920) count = 16;
+      else if (w >= 1440) count = 10;
       setTargetRowCount(count);
     };
 
@@ -49,171 +110,241 @@ const PurchasePage = () => {
     return () => window.removeEventListener("resize", updateLayout);
   }, []);
 
-  // 2. Sync Rows with Target Count
+  /* --------------------------------
+     ENSURE ROW COUNT
+  -------------------------------- */
   useEffect(() => {
     setRows((prev) => {
       if (prev.length < targetRowCount) {
-        const needed = targetRowCount - prev.length;
-        return [...prev, ...Array.from({ length: needed }).map(makeEmptyPurchaseRow)];
+        return [
+          ...prev,
+          ...Array.from({ length: targetRowCount - prev.length }).map(
+            makeEmptyPurchaseRow
+          ),
+        ];
       }
-      return prev.length > 0 ? prev : Array.from({ length: targetRowCount }).map(makeEmptyPurchaseRow);
+      return prev.length
+        ? prev
+        : Array.from({ length: targetRowCount }).map(makeEmptyPurchaseRow);
     });
   }, [targetRowCount]);
 
+  /* --------------------------------
+     SUMMARY (MATCHES INVOICE)
+  -------------------------------- */
   const summary = useMemo(() => {
-    const subTotal = rows.reduce((sum, r) => sum + (Number(r.mrp) || 0), 0);
-    const sgst = +(subTotal * 0.05).toFixed(2);
-    const cgst = +(subTotal * 0.05).toFixed(2);
-    return { subTotal: +subTotal.toFixed(2), sgst, cgst, total: +(subTotal + sgst + cgst).toFixed(2) };
+    const taxable = rows.reduce(
+      (s, r) => s + (Number(r.taxableValue) || 0),
+      0
+    );
+    const cgst = rows.reduce(
+      (s, r) => s + (Number(r.cgstAmount) || 0),
+      0
+    );
+    const sgst = rows.reduce(
+      (s, r) => s + (Number(r.sgstAmount) || 0),
+      0
+    );
+
+    return {
+      subTotal: +taxable.toFixed(2),
+      cgst: +cgst.toFixed(2),
+      sgst: +sgst.toFixed(2),
+      total: +(taxable + cgst + sgst).toFixed(2),
+    };
   }, [rows]);
 
-  const handleSave = () => {
-    toast.success("Purchase Saved Successfully!", {
-      position: "top-right",
-      autoClose: 3000,
-    });
-  };
-
+  const handleSave = () => toast.success("Purchase Saved");
   const handleSavePrint = () => {
     handleSave();
     setTimeout(() => window.print(), 500);
   };
 
-  // CSV Import Handler
+  /* --------------------------------
+     CSV / EXCEL HEADER MAP
+  -------------------------------- */
+  const mapHeaderToKey = (h) => {
+  const key = h.toLowerCase().trim();
+
+  const map = {
+    // MFAC / RACK
+    mfac: "mfac",
+    rack: "rack",
+
+    // PRODUCT
+    description: "name",
+    "description of goods": "name",
+    product: "name",
+
+    // HSN
+    hsn: "hsn",
+    "hsn/sac": "hsn",
+
+    // PACK
+    pack: "pack",
+
+    // ✅ BATCH (FIX)
+    batch: "batch",
+    "batch no": "batch",
+    "batch no.": "batch",
+
+    // EXPIRY
+    exp: "exp",
+    expiry: "exp",
+
+    // QTY
+    qty: "qty",
+
+    // ✅ SCH (OPTIONAL)
+    sch: "sch",
+
+    // PRICE
+    mrp: "mrp",
+    price: "price",
+
+    // SCHEME
+    "sch %": "schemePercent",
+    "scheme %": "schemePercent",
+
+    // DISCOUNT
+    "disc %": "discountPercent",
+    "discount %": "discountPercent",
+
+    // GST
+    "cgst %": "cgstPercent",
+    "sgst %": "sgstPercent",
+  };
+
+  return map[key] || null;
+};
+
+
+  const parseRowData = (headers, values) => {
+  const row = makeEmptyPurchaseRow();
+
+  headers.forEach((h, i) => {
+    const key = mapHeaderToKey(h);
+    if (key) row[key] = String(values[i] ?? "").trim();
+  });
+
+  // ✅ DEFAULT SCH
+  if (!row.sch) row.sch = "0";
+
+  return calculateRow(row);
+};
+
+
+  /* --------------------------------
+     CSV IMPORT
+  -------------------------------- */
   const handleImportCSV = (file) => {
     const reader = new FileReader();
-    
     reader.onload = (e) => {
-      try {
-        const text = e.target.result;
-        const lines = text.split("\n").filter(line => line.trim());
-        
-        if (lines.length < 2) {
-          toast.error("CSV file is empty or invalid!");
-          return;
-        }
+      const lines = e.target.result
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
 
-        // Parse header
-        const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-        
-        // Parse data rows
-        const parsedRows = [];
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(",").map(v => v.trim());
-          const row = makeEmptyPurchaseRow();
-          
-          headers.forEach((header, index) => {
-            const value = values[index] || "";
-            
-            // Map CSV headers to row keys
-            switch(header) {
-              case "name":
-              case "product name":
-                row.name = value;
-                break;
-              case "batch":
-                row.batch = value;
-                break;
-              case "rate":
-                row.rate = value;
-                break;
-              case "qty":
-              case "quantity":
-                row.qty = value;
-                break;
-              case "pack":
-                row.pack = value;
-                break;
-              case "exp":
-              case "expiry":
-                row.exp = value;
-                break;
-              case "type":
-                row.type = value;
-                break;
-              case "category":
-                row.category = value;
-                break;
-              case "rack":
-                row.rack = value;
-                break;
-              case "tax":
-              case "tax%":
-                row.tax = value;
-                break;
-              case "packrate":
-              case "pack rate":
-                row.packRate = value;
-                break;
-              case "disc":
-              case "disc%":
-              case "discount":
-                row.disc = value;
-                break;
-              case "mrp":
-                row.mrp = value;
-                break;
-              case "free":
-                row.free = value;
-                break;
-            }
+      const headers = lines[0].split(",");
+      const parsed = [];
+      const master = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseRowData(headers, lines[i].split(","));
+        parsed.push(row);
+
+        if (row.name) {
+          master.push({
+            id: i,
+            name: row.name,
+            hsn: row.hsn,
+            pack: row.pack,
+            rack: row.rack,
+            cgstPercent: row.cgstPercent,
+            sgstPercent: row.sgstPercent,
           });
-          
-          parsedRows.push(row);
         }
-
-        // Fill remaining rows
-        while (parsedRows.length < targetRowCount) {
-          parsedRows.push(makeEmptyPurchaseRow());
-        }
-
-        setRows(parsedRows);
-        toast.success(`Successfully imported ${lines.length - 1} items from CSV!`, {
-          autoClose: 4000,
-        });
-        
-      } catch (err) {
-        console.error("CSV parsing error:", err);
-        toast.error("Error parsing CSV file. Please check the format.");
       }
-    };
 
-    reader.onerror = () => {
-      toast.error("Error reading file!");
-    };
+      while (parsed.length < targetRowCount)
+        parsed.push(makeEmptyPurchaseRow());
 
+      setRows(parsed);
+      setProductMaster((p) => [...p, ...master]);
+      toast.success("CSV imported");
+    };
     reader.readAsText(file);
   };
 
-  return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1 gap-1 font-sans">
+  /* --------------------------------
+     EXCEL IMPORT
+  -------------------------------- */
+  const handleImportExcel = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const wb = XLSX.read(new Uint8Array(e.target.result), {
+        type: "array",
+      });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-      {/* HEADER */}
-      <div className="shrink-0">
-        <PurchaseHeader 
-          onSave={handleSave} 
-          onSavePrint={handleSavePrint}
-          onImportCSV={handleImportCSV}
+      const headers = data[0];
+      const parsed = [];
+      const master = [];
+
+      for (let i = 1; i < data.length; i++) {
+        const row = parseRowData(headers, data[i]);
+        parsed.push(row);
+
+        if (row.name) {
+          master.push({
+            id: i,
+            name: row.name,
+            hsn: row.hsn,
+            pack: row.pack,
+            rack: row.rack,
+            cgstPercent: row.cgstPercent,
+            sgstPercent: row.sgstPercent,
+          });
+        }
+      }
+
+      while (parsed.length < targetRowCount)
+        parsed.push(makeEmptyPurchaseRow());
+
+      setRows(parsed);
+      setProductMaster((p) => [...p, ...master]);
+      toast.success("Excel imported");
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleImportFile = (file) => {
+    if (file.name.endsWith(".csv")) handleImportCSV(file);
+    else handleImportExcel(file);
+  };
+
+  return (
+    <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1 gap-1">
+      <PurchaseHeader
+        onSave={handleSave}
+        onSavePrint={handleSavePrint}
+        onImportFile={handleImportFile}
+      />
+
+      <div className="flex-1 overflow-hidden bg-white rounded-lg  shadow-sm">
+        <PurchaseTable
+          rows={rows}
+          setRows={setRows}
+          productMaster={productMaster}
+          calculateRow={calculateRow}
         />
       </div>
 
-      {/* TABLE */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm min-h-0 relative">
-        <div className="flex-1 overflow-y-auto">
-          <PurchaseTable 
-            rows={rows} 
-            setRows={setRows} 
-            productMaster={productMaster} 
-          />
-        </div>
-      </div>
-
-      {/* FOOTER */}
       <div className="shrink-0 flex gap-2 h-[170px] 2xl:h-[200px]">
         <SupplierDetailsCard supplier={supplier} setSupplier={setSupplier} />
         <PurchaseSummaryCard summary={summary} />
       </div>
-
     </div>
   );
 };

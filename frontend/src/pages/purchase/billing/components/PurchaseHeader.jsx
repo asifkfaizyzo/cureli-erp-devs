@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Save, Printer, Clock, Calendar, User, Upload } from "lucide-react";
 
-const PurchaseHeader = ({ onSave, onSavePrint, onImportCSV }) => {
+const PurchaseHeader = ({ onSave, onSavePrint, onImportFile }) => {
   const purchaseId = "123456";
   const billedBy = "Manager";
   const [time, setTime] = useState("");
@@ -35,8 +35,7 @@ const PurchaseHeader = ({ onSave, onSavePrint, onImportCSV }) => {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      onImportCSV(file);
-      // Reset input so same file can be uploaded again
+      onImportFile(file);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -70,20 +69,20 @@ const PurchaseHeader = ({ onSave, onSavePrint, onImportCSV }) => {
 
       {/* RIGHT */}
       <div className="flex items-center gap-2">
-        {/* CSV Import Button */}
+        {/* File Import Button */}
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv"
+          accept=".csv,.xlsx,.xls"
           onChange={handleFileChange}
           className="hidden"
-          id="csv-upload"
+          id="file-upload"
         />
         <label
-          htmlFor="csv-upload"
+          htmlFor="file-upload"
           className="flex items-center gap-1 bg-emerald-600 text-white border border-transparent text-xs font-semibold px-3 py-1.5 rounded-md shadow-sm hover:bg-emerald-700 transition-all cursor-pointer"
         >
-          <Upload size={14} /> <span>Import CSV</span>
+          <Upload size={14} /> <span>Import CSV/xlxs</span>
         </label>
 
         <button 
