@@ -37,16 +37,8 @@ const IdentityForm = ({ pending_id, onContinue, onNext }) => {
 
   const usernameRef = useRef(null);
 
-  // Get name from localStorage (similar to OnboardingHeader)
-  const getNameFromStorage = useCallback(() => {
-
-    const fullName = localStorage.getItem("user_name")
-                     
-
-    // If we have firstName/lastName, use them
-    if (firstName) {
-      return { firstName, lastName };
-    }
+const getNameFromStorage = useCallback(() => {
+    const fullName = localStorage.getItem("user_name");
 
     // If we have fullName, split it
     if (fullName) {
@@ -58,9 +50,9 @@ const IdentityForm = ({ pending_id, onContinue, onNext }) => {
     }
 
     return { firstName: "", lastName: "" };
-  }, []);
+}, []);
 
-  const { firstName, lastName } = getNameFromStorage();
+const { firstName, lastName } = getNameFromStorage();
 
   // Generate username variations from name
   const generateUsernameVariations = useCallback((first, last) => {
