@@ -220,7 +220,7 @@ const DetailRow = ({
 
   return (
     <div className="flex flex-col gap-1 py-2 group">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-0">
         {/* Label */}
         <label className="w-36 text-sm font-medium text-gray-500 flex-shrink-0 flex items-center gap-1">
           {label}

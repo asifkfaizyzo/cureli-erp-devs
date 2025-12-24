@@ -85,21 +85,29 @@ export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
   const isStaff = user.role === "Staff";
 
   // Determine if role is editable
-  // Super Admin role cannot be changed, and no one can become Super Admin
   const isRoleEditable = !isOwner;
 
   // Get available role options based on current role
   const getRoleOptions = () => {
     if (isOwner) {
-      // Super Admin sees only their role (locked)
       return [{ value: "super_admin", label: "Super Admin" }];
     }
-    // Branch Admin and Staff can switch between each other
-    // Note: super_admin is NOT included - no one can be promoted to Super Admin
     return [
       { value: "branch_admin", label: "Branch Admin" },
       { value: "staff", label: "Staff" },
     ];
+  };
+
+  // Get the current full_name value (for editing or display)
+  const getFullNameValue = () => {
+    if (isEditing) {
+      return formData.full_name ?? "";
+    }
+    return (
+      user.full_name ||
+      `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+      "Not set"
+    );
   };
 
   return (
@@ -117,20 +125,38 @@ export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-          <DetailRow
-            label="First Name"
-            value={isEditing ? formData.first_name : user.first_name}
-            isEditing={isEditing}
-            fieldName="first_name"
-            onChange={(val) => onFormChange?.("first_name", val)}
-          />
-          <DetailRow
-            label="Last Name"
-            value={isEditing ? formData.last_name : user.last_name}
-            isEditing={isEditing}
-            fieldName="last_name"
-            onChange={(val) => onFormChange?.("last_name", val)}
-          />
+          {/* For Super Admin: Show First Name and Last Name separately */}
+          {isOwner && (
+            <>
+              <DetailRow
+                label="First Name"
+                value={isEditing ? formData.first_name : user.first_name}
+                isEditing={isEditing}
+                fieldName="first_name"
+                onChange={(val) => onFormChange?.("first_name", val)}
+              />
+              <DetailRow
+                label="Last Name"
+                value={isEditing ? formData.last_name : user.last_name}
+                isEditing={isEditing}
+                fieldName="last_name"
+                onChange={(val) => onFormChange?.("last_name", val)}
+              />
+            </>
+          )}
+
+          {/* For Branch Admin & Staff: Show combined Full Name (NOW EDITABLE) */}
+          {(isBranchAdmin || isStaff) && (
+            <DetailRow
+              label="Name"
+              value={getFullNameValue()}
+              isEditing={isEditing}
+              fieldName="full_name"
+              onChange={(val) => onFormChange?.("full_name", val)}
+              placeholder="Enter full name"
+            />
+          )}
+
           <DetailRow
             label="Username"
             value={isEditing ? formData.username : user.username || "Not set"}
@@ -150,20 +176,18 @@ export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
             />
           )}
 
-          {/* Phone Number - Only for Super Admin, editable */}
-          {isOwner && (
-            <DetailRow
-              label="Phone Number"
-              value={
-                isEditing
-                  ? formData.phone_number
-                  : user.phone_number || "Not provided"
-              }
-              isEditing={isEditing}
-              fieldName="phone_number"
-              onChange={(val) => onFormChange?.("phone_number", val)}
-            />
-          )}
+          {/* Phone Number */}
+          <DetailRow
+            label="Phone Number"
+            value={
+              isEditing
+                ? formData.phone_number
+                : user.phone_number || "Not provided"
+            }
+            isEditing={isEditing}
+            fieldName="phone_number"
+            onChange={(val) => onFormChange?.("phone_number", val)}
+          />
 
           <DetailRow
             label="Role"
@@ -198,24 +222,28 @@ export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
             isEditing={false}
             type="status"
           />
-          <DetailRow
-            label="Onboarding Status"
-            value={getOnboardingStatusLabel(user.status)}
-            isEditing={false}
-            type="onboarding"
-          />
+          {isOwner && (
+            <DetailRow
+              label="Onboarding Status"
+              value={getOnboardingStatusLabel(user.status)}
+              isEditing={false}
+              type="onboarding"
+            />
+          )}
           <DetailRow
             label="Login Method"
             value={
-              user.login_provider === "google" ? "Google" : "Email/Password"
+              user.login_provider === "google" ? "Google" : "Phone & Password"
             }
             isEditing={false}
           />
-          <DetailRow
-            label="Onboarding Step"
-            value={`${user.onboarding_step || 0}/4`}
-            isEditing={false}
-          />
+          {isOwner && (
+            <DetailRow
+              label="Onboarding Step"
+              value={`${user.onboarding_step || 0}/4`}
+              isEditing={false}
+            />
+          )}
           <DetailRow
             label="Created At"
             value={formatDate(user.created_at)}
@@ -242,28 +270,28 @@ export const ProfileDetails = ({ user, isEditing, formData, onFormChange }) => {
             Assignment
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8">
             <DetailRow
-              label="Assigned Shop"
+              label="Assigned Shop:"
               value={user.shop?.business_name || "Not assigned"}
               isEditing={false}
             />
             <DetailRow
-              label="Assigned Branch"
+              label="Assigned Branch:"
               value={user.branch?.branch_name || "Not assigned"}
               isEditing={false}
             />
-            {user.branch?.branch_type && (
-              <DetailRow
-                label="Branch Type"
-                value={
-                  user.branch.branch_type === "main"
+            <DetailRow
+              label="Branch Type:"
+              value={
+                user.branch?.branch_type
+                  ? user.branch.branch_type === "main"
                     ? "Main Branch"
                     : "Sub Branch"
-                }
-                isEditing={false}
-              />
-            )}
+                  : "N/A"
+              }
+              isEditing={false}
+            />
           </div>
         </div>
       )}
@@ -368,17 +396,6 @@ export const ShopDetails = ({ user }) => {
               value={branch.contact_number}
               isEditing={false}
             />
-            <DetailRow
-              label="Alternate Number"
-              value={branch.alternate_number || "N/A"}
-              isEditing={false}
-            />
-            <DetailRow
-              label="Status"
-              value={branch.is_active ? "Active" : "Inactive"}
-              isEditing={false}
-              type="status"
-            />
           </div>
         </div>
 
@@ -394,11 +411,7 @@ export const ShopDetails = ({ user }) => {
               value={branch.address_line_1}
               isEditing={false}
             />
-            <DetailRow
-              label="Address Line 2"
-              value={branch.address_line_2 || "N/A"}
-              isEditing={false}
-            />
+
             <DetailRow label="City" value={branch.city} isEditing={false} />
             <DetailRow label="State" value={branch.state} isEditing={false} />
             <DetailRow
@@ -478,11 +491,7 @@ export const ShopDetails = ({ user }) => {
               value={shop.address_line_1}
               isEditing={false}
             />
-            <DetailRow
-              label="Address Line 2"
-              value={shop.address_line_2 || "N/A"}
-              isEditing={false}
-            />
+
             <DetailRow label="City" value={shop.city} isEditing={false} />
             <DetailRow label="State" value={shop.state} isEditing={false} />
             <DetailRow label="Pincode" value={shop.pincode} isEditing={false} />
