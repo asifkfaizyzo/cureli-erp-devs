@@ -2,7 +2,8 @@ import express from "express";
 import { validateBody } from "../../middleware/validate.js";
 import {
   pendingSignupSchema,
-  usernameSchema
+  usernameSchema,
+  checkUsernameSchema 
 } from "./pending.schema.js";
 
 import {
@@ -14,7 +15,8 @@ import {
   chooseUsernameController,
   completePendingSignupController,
   googleSetPasswordController,
-  googleSignupController
+  googleSignupController,
+  checkUsernameController 
 } from "./pending.controller.js";
 
 const router = express.Router();
@@ -34,5 +36,6 @@ router.post("/signup/verify-sms", verifySmsOtpController);
 // Username selection — now requires BOTH email && phone verified
 router.post("/signup/username", validateBody(usernameSchema), chooseUsernameController);
 router.post("/signup/complete", completePendingSignupController);
+router.post("/signup/check-username", validateBody(checkUsernameSchema), checkUsernameController);
 
 export default router;

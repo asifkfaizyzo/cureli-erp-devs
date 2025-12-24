@@ -477,7 +477,104 @@ export async function setUsername(pending_id, username) {
 
   return true;
 }
+// Add this service function to your existing pending.service.js
 
+/**
+ * Check if a username is available and generate suggestions if taken
+ */
+export async function checkUsernameAvailabilityWithSuggestions(username) {
+  const normalizedUsername = username.toLowerCase().trim();
+
+  // Check in User table
+  const existingUser = await prisma.user.findUnique({
+    where: { username: normalizedUsername },
+    select: { user_id: true },
+  });
+
+  // Check in PendingUser table
+  const existingPending = await prisma.pendingUser.findFirst({
+    where: { username: normalizedUsername },
+    select: { pending_id: true },
+  });
+
+  const isTaken = !!(existingUser || existingPending);
+
+  if (!isTaken) {
+    return {
+      available: true,
+      username: normalizedUsername,
+      suggestions: [],
+    };
+  }
+
+  // Generate suggestions if username is taken
+  const suggestions = await generateAvailableUsernames(normalizedUsername, 4);
+
+  return {
+    available: false,
+    username: normalizedUsername,
+    suggestions,
+  };
+}
+
+/**
+ * Generate available username suggestions based on a base username
+ */
+async function generateAvailableUsernames(baseUsername, count = 4) {
+  const suggestions = [];
+  const maxAttempts = 20; // Prevent infinite loop
+  let attempts = 0;
+
+  // Different suffix patterns to try
+  const generateVariations = (base) => {
+    const variations = [];
+    
+    // Add random 2-digit numbers
+    for (let i = 0; i < 5; i++) {
+      variations.push(`${base}${Math.floor(Math.random() * 90 + 10)}`);
+    }
+    
+    // Add random 3-digit numbers
+    for (let i = 0; i < 5; i++) {
+      variations.push(`${base}${Math.floor(Math.random() * 900 + 100)}`);
+    }
+    
+    // Add underscore + random numbers
+    for (let i = 0; i < 5; i++) {
+      variations.push(`${base}_${Math.floor(Math.random() * 90 + 10)}`);
+    }
+    
+    // Add timestamp-based suffix
+    const timestamp = Date.now().toString().slice(-4);
+    variations.push(`${base}_${timestamp}`);
+    
+    return variations;
+  };
+
+  const variations = generateVariations(baseUsername);
+
+  for (const variation of variations) {
+    if (suggestions.length >= count || attempts >= maxAttempts) break;
+    attempts++;
+
+    // Check if variation is available
+    const existsInUsers = await prisma.user.findUnique({
+      where: { username: variation },
+      select: { user_id: true },
+    });
+
+    const existsInPending = await prisma.pendingUser.findFirst({
+      where: { username: variation },
+      select: { pending_id: true },
+    });
+
+    if (!existsInUsers && !existsInPending && !suggestions.includes(variation)) {
+      suggestions.push(variation);
+    }
+  }
+
+  return suggestions;
+}
 export async function finalizePendingSignup(pending_id) {
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },

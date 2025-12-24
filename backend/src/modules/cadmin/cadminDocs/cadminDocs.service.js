@@ -656,6 +656,7 @@ export async function createVerificationLog({
   });
 }
 
+
 async function updateOwnerStatusToVerified(shop_id) {
   try {
     const shop = await prisma.shop.findUnique({
@@ -667,18 +668,29 @@ async function updateOwnerStatusToVerified(shop_id) {
 
     const user = await prisma.user.findUnique({
       where: { user_id: shop.owner_user_id },
-      select: { status: true },
+      select: { status: true, first_verified_at: true },
     });
 
     if (!user || user.status === "verified") return;
 
+    // Build update data
+    const updateData = {
+      status: "verified",
+      onboarding_step: 12,
+      first_login_after_verification: false,
+    };
+
+    // Only set first_verified_at if this is the FIRST time being verified
+    if (!user.first_verified_at) {
+      updateData.first_verified_at = new Date();
+      console.log("🎉 First-time verification for user:", shop.owner_user_id);
+    } else {
+      console.log("🔄 Re-verification for user:", shop.owner_user_id);
+    }
+
     await prisma.user.update({
       where: { user_id: shop.owner_user_id },
-      data: {
-        status: "verified",
-        onboarding_step: 12,
-        first_login_after_verification: false,
-      },
+      data: updateData,
     });
 
     console.log("✅ User status updated to verified:", shop.owner_user_id);

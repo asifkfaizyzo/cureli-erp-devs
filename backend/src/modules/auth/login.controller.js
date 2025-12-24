@@ -132,8 +132,13 @@ export async function loginController(req, res) {
     }
 
     // Check if active
-    if (!user.is_active) {
-      return fail(res, "Account disabled", 403);
+        if (!user.is_active) {
+      return fail(
+        res, 
+        "Your account has been suspended. Please contact Cureli support for assistance.",
+        403,
+        { code: "ACCOUNT_SUSPENDED" }
+      );
     }
 
     // Verify password

@@ -21,9 +21,9 @@ const VerificationPage = () => {
   const [currentStep, setCurrentStep] = useState(initialStep || 12);
   const [error, setError] = useState(null);
   const [userName, setUserName] = useState("");
+  const [isFirstVerification, setIsFirstVerification] = useState(true);
 
   useEffect(() => {
-    // Get user name from localStorage
     setUserName(localStorage.getItem("user_name") || "");
     initializeVerification();
   }, []);
@@ -32,10 +32,31 @@ const VerificationPage = () => {
     if (initialStep && [12, 14, 15].includes(initialStep)) {
       console.log("✅ Using navigation step:", initialStep);
       setCurrentStep(initialStep);
+
+      // Still fetch status to get isFirstVerification flag for success page
+      if (initialStep === 15) {
+        await fetchVerificationFlag();
+      }
       setLoading(false);
       return;
     }
     await fetchStatus();
+  };
+
+  // Separate function to just get the first verification flag
+  const fetchVerificationFlag = async () => {
+    try {
+      const resp = await getVerificationStatus();
+      const data = resp.data?.data;
+      setIsFirstVerification(data?.is_first_verification ?? true);
+
+      if (data?.user_name) {
+        setUserName(data.user_name);
+        localStorage.setItem("user_name", data.user_name);
+      }
+    } catch (e) {
+      console.warn("Could not fetch verification flag:", e);
+    }
   };
 
   const fetchStatus = async () => {
@@ -49,13 +70,21 @@ const VerificationPage = () => {
       const userStatus = data?.user_status;
       const firstLogin = data?.first_login_after_verification;
 
+      // Set first verification flag
+      setIsFirstVerification(data?.is_first_verification ?? true);
+
       // Update username if available
       if (data?.user_name) {
         setUserName(data.user_name);
         localStorage.setItem("user_name", data.user_name);
       }
 
-      console.log("🔍 Status check:", { shopStatus, userStatus, firstLogin });
+      console.log("🔍 Status check:", {
+        shopStatus,
+        userStatus,
+        firstLogin,
+        isFirstVerification: data?.is_first_verification,
+      });
 
       let step = 12;
 
@@ -112,7 +141,8 @@ const VerificationPage = () => {
       case 14:
         return <DocumentResubmission refreshStatus={handleStatusRefresh} />;
       case 15:
-        return <VerificationSuccess />;
+        // Pass isFirstVerification prop to VerificationSuccess
+        return <VerificationSuccess isFirstVerification={isFirstVerification} />;
       default:
         return <VerificationPending onRefresh={handleStatusRefresh} />;
     }
@@ -156,7 +186,7 @@ const VerificationPage = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-0 w-full flex flex-col items-center  overflow-y-auto px-4 py-4">
+      <div className="flex-1 min-h-0 w-full flex flex-col items-center overflow-y-auto px-4 py-4">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}

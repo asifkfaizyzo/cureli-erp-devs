@@ -14,6 +14,18 @@ export const pendingSignupSchema = z.object({
   
 });
 
+export const checkUsernameSchema = z.object({
+  username: z
+    .string()
+    .min(4, "Username must be at least 4 characters")
+    .max(30, "Username cannot exceed 30 characters")
+    .regex(
+      /^[a-z0-9_]+$/,
+      "Username can only contain lowercase letters, numbers, and underscores"
+    ),
+});
+
+
 export const usernameSchema = z.object({
   pending_id: z.string().uuid(),
   username: z

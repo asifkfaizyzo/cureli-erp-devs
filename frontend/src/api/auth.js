@@ -15,6 +15,10 @@ export const verifyLoginOtp = (data) =>
 export const saveUsername = (data) =>
   API.post("/pending/signup/username", data);
 
+// Check username availability
+export const checkUsernameAvailability = (username) =>
+  API.post("/pending/signup/check-username", { username });
+
 // FINALIZE SUPERADMIN SIGNUP
 export const completeSignup = (data) =>
   API.post("/pending/signup/complete", data);

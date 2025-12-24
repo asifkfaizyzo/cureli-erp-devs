@@ -1,8 +1,11 @@
+// src/components/LoginForm.jsx
+
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaUser, FaLock } from "react-icons/fa";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
+import { AlertTriangle, ArrowRight } from "lucide-react";
 import { loginUser } from "../api/auth";
 import LoginOtpVerification from "./onboarding/LoginOtpVerification";
 
@@ -13,10 +16,13 @@ const LoginForm = ({ onRegisterClick }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // ✅ OTP Step
+  // OTP Step
   const [showOtpScreen, setShowOtpScreen] = useState(false);
   const [tempToken, setTempToken] = useState("");
   const [phoneHint, setPhoneHint] = useState("");
+
+  // ✅ NEW: Suspended state
+  const [isSuspended, setIsSuspended] = useState(false);
 
   const passwordRef = useRef(null);
   const navigate = useNavigate();
@@ -36,20 +42,30 @@ const LoginForm = ({ onRegisterClick }) => {
 
     setLoading(true);
     setErrors({});
+    setIsSuspended(false); // Reset suspended state
 
     try {
       const res = await loginUser({ username, password });
       const { temp_token, phone_hint } = res.data.data;
 
-      // ✅ Show OTP screen
+      // Show OTP screen
       setTempToken(temp_token);
       setPhoneHint(phone_hint);
       setShowOtpScreen(true);
     } catch (err) {
       console.error(err);
-      setErrors({
-        general: err?.response?.data?.message || "Invalid username or password",
-      });
+
+      const response = err?.response?.data;
+      const errorCode = response?.data?.code;
+
+      // ✅ NEW: Check if account is suspended
+      if (errorCode === "ACCOUNT_SUSPENDED" || err?.response?.status === 403) {
+        setIsSuspended(true);
+      } else {
+        setErrors({
+          general: response?.message || "Invalid username or password",
+        });
+      }
     }
 
     setLoading(false);
@@ -62,7 +78,15 @@ const LoginForm = ({ onRegisterClick }) => {
     setPassword("");
   };
 
-  // ✅ Show OTP screen if needed
+  // ✅ NEW: Reset from suspended state
+  const handleBackFromSuspended = () => {
+    setIsSuspended(false);
+    setUsername("");
+    setPassword("");
+    setErrors({});
+  };
+
+  // Show OTP screen if needed
   if (showOtpScreen) {
     return (
       <AnimatePresence mode="wait">
@@ -75,6 +99,75 @@ const LoginForm = ({ onRegisterClick }) => {
     );
   }
 
+  // ✅ NEW: Suspended Account View
+  if (isSuspended) {
+    return (
+      <motion.div
+        className="relative z-10 w-full max-w-sm font-poppins"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+      >
+        <div className="bg-white rounded-2xl shadow-xl p-8 border border-red-100">
+          {/* Warning Icon */}
+          <div className="flex justify-center mb-6">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
+              <AlertTriangle className="w-10 h-10 text-red-600" />
+            </div>
+          </div>
+
+          {/* Title */}
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-3">
+            Account Suspended
+          </h2>
+
+          {/* Message */}
+          <p className="text-gray-600 text-center mb-8 leading-relaxed">
+            Your account has been suspended. Please contact Cureli support for
+            more information about your account status.
+          </p>
+
+          {/* Contact Support Button */}
+          <button
+            onClick={() => navigate("/contact")}
+            className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-[#000060] text-white rounded-xl font-semibold hover:bg-[#000080] transition-colors"
+          >
+            Contact Support
+            <ArrowRight size={18} />
+          </button>
+
+          {/* Back to Login */}
+          <button
+            onClick={handleBackFromSuspended}
+            className="w-full mt-4 py-3 text-gray-600 hover:text-[#000060] font-medium transition-colors"
+          >
+            ← Back to Login
+          </button>
+        </div>
+
+        {/* Footer */}
+        <p className="text-center text-[13px] text-gray-400 mt-8">
+          This site is protected by reCAPTCHA and the <br />
+          <span
+            onClick={() => navigate("/privacy")}
+            className="text-[#000060] underline cursor-pointer hover:font-semibold"
+          >
+            Google Privacy
+          </span>{" "}
+          policy and{" "}
+          <span
+            onClick={() => navigate("/terms")}
+            className="text-[#000060] underline cursor-pointer hover:font-semibold"
+          >
+            Terms of Service
+          </span>{" "}
+          apply.
+        </p>
+      </motion.div>
+    );
+  }
+
+  // Normal Login Form
   return (
     <form
       onSubmit={(e) => {
