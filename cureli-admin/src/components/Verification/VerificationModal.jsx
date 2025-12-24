@@ -17,7 +17,10 @@ import DocumentCard from "./DocumentCard";
 import VerificationDetailsTop from "./VerificationDetailsTop";
 import ConfirmDialog from "../common/ConfirmDialog";
 // ✅ CHANGED: Import batchUpdateFiles instead of verifyFile, rejectFile
-import { getShopVerificationDetail, batchUpdateFiles } from "../../api/cadminDocs";
+import {
+  getShopVerificationDetail,
+  batchUpdateFiles,
+} from "../../api/cadminDocs";
 
 const VerificationModal = ({ shop, onClose }) => {
   const [activeTab, setActiveTab] = useState("details");
@@ -64,10 +67,17 @@ const VerificationModal = ({ shop, onClose }) => {
         file_id: f.file_id,
         name: f.original_name || f.file_type || "Document",
         file_type: f.file_type,
-        date: f.uploaded_at ? new Date(f.uploaded_at).toLocaleDateString() : "N/A",
+        date: f.uploaded_at
+          ? new Date(f.uploaded_at).toLocaleDateString()
+          : "N/A",
         uploader: "Shop Owner",
         size: f.file_size ? `${(f.file_size / 1024).toFixed(0)} KB` : "N/A",
-        status: f.status === "verified" ? "approved" : f.status === "rejected" ? "failed" : "normal",
+        status:
+          f.status === "verified"
+            ? "approved"
+            : f.status === "rejected"
+            ? "failed"
+            : "normal",
         originalStatus: f.status,
         reason: f.verification_notes || "",
         resubmission_count: f.resubmission_count || 0,
@@ -80,7 +90,11 @@ const VerificationModal = ({ shop, onClose }) => {
       setOriginalDocuments(JSON.parse(JSON.stringify(mappedDocs)));
     } catch (err) {
       console.error("Failed to fetch shop detail:", err);
-      setError(err.response?.data?.message || err.message || "Failed to load shop details");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to load shop details"
+      );
       setShopData(null);
       setDocuments([]);
     } finally {
@@ -118,7 +132,9 @@ const VerificationModal = ({ shop, onClose }) => {
     if (!hasUnsavedChanges) return false;
 
     // ✅ Must review ALL documents
-    const allReviewed = documents.every((d) => d.status === "approved" || d.status === "failed");
+    const allReviewed = documents.every(
+      (d) => d.status === "approved" || d.status === "failed"
+    );
     if (!allReviewed) return false;
 
     // ✅ All rejected must have reasons
@@ -131,12 +147,15 @@ const VerificationModal = ({ shop, onClose }) => {
   }, [documents, hasUnsavedChanges]);
 
   // Get summary stats
-  const stats = useMemo(() => ({
-    total: documents.length,
-    approved: documents.filter((d) => d.status === "approved").length,
-    rejected: documents.filter((d) => d.status === "failed").length,
-    pending: documents.filter((d) => d.status === "normal").length,
-  }), [documents]);
+  const stats = useMemo(
+    () => ({
+      total: documents.length,
+      approved: documents.filter((d) => d.status === "approved").length,
+      rejected: documents.filter((d) => d.status === "failed").length,
+      pending: documents.filter((d) => d.status === "normal").length,
+    }),
+    [documents]
+  );
 
   // Handlers
   const handleApprove = (file_id) => {
@@ -201,11 +220,15 @@ const VerificationModal = ({ shop, onClose }) => {
         if (!original) return;
 
         // Check if this document changed
-        const hasChanged = doc.status !== original.status || doc.reason !== original.reason;
+        const hasChanged =
+          doc.status !== original.status || doc.reason !== original.reason;
         if (!hasChanged) return;
 
         // Collect verify IDs
-        if (doc.status === "approved" && original.originalStatus !== "verified") {
+        if (
+          doc.status === "approved" &&
+          original.originalStatus !== "verified"
+        ) {
           verifyIds.push(doc.file_id);
         }
         // Collect reject items with reasons
@@ -226,14 +249,19 @@ const VerificationModal = ({ shop, onClose }) => {
       onClose(true);
     } catch (err) {
       console.error("Failed to save changes:", err);
-      alert(err.response?.data?.message || "Failed to save changes. Please try again.");
+      alert(
+        err.response?.data?.message ||
+          "Failed to save changes. Please try again."
+      );
       setIsSaving(false);
     }
   };
 
   const handleClose = () => {
     if (hasUnsavedChanges) {
-      const confirm = window.confirm("You have unsaved changes. Are you sure you want to close?");
+      const confirm = window.confirm(
+        "You have unsaved changes. Are you sure you want to close?"
+      );
       if (!confirm) return;
     }
     onClose(false);
@@ -242,15 +270,37 @@ const VerificationModal = ({ shop, onClose }) => {
   // Get verification status badge
   const getVerificationBadge = (status) => {
     const config = {
-      verified: { bg: "bg-emerald-500/20", text: "text-emerald-300", label: "Verified" },
-      rejected: { bg: "bg-red-500/20", text: "text-red-300", label: "Rejected" },
-      partially_rejected: { bg: "bg-orange-500/20", text: "text-orange-300", label: "Partially Rejected" },
-      pending_review: { bg: "bg-yellow-500/20", text: "text-yellow-300", label: "Pending Review" },
-      pending: { bg: "bg-blue-500/20", text: "text-blue-300", label: "Pending" },
+      verified: {
+        bg: "bg-emerald-500/20",
+        text: "text-emerald-300",
+        label: "Verified",
+      },
+      rejected: {
+        bg: "bg-red-500/20",
+        text: "text-red-300",
+        label: "Rejected",
+      },
+      partially_rejected: {
+        bg: "bg-orange-500/20",
+        text: "text-orange-300",
+        label: "Partially Rejected",
+      },
+      pending_review: {
+        bg: "bg-yellow-500/20",
+        text: "text-yellow-300",
+        label: "Pending Review",
+      },
+      pending: {
+        bg: "bg-blue-500/20",
+        text: "text-blue-300",
+        label: "Pending",
+      },
     };
     const c = config[status] || config.pending;
     return (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
+      <span
+        className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}
+      >
         {c.label}
       </span>
     );
@@ -259,13 +309,21 @@ const VerificationModal = ({ shop, onClose }) => {
   // Tabs configuration
   const tabs = [
     { id: "details", label: "Shop Details", icon: Building2 },
-    { id: "documents", label: "Documents", icon: FileText, count: documents.length },
+    {
+      id: "documents",
+      label: "Documents",
+      icon: FileText,
+      count: documents.length,
+    },
   ];
 
   // Loading state
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => onClose(false)}>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={() => onClose(false)}
+      >
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
         <div className="relative bg-white rounded-2xl p-8 flex flex-col items-center gap-3">
           <Loader2 size={32} className="animate-spin text-[#05015A]" />
@@ -278,7 +336,10 @@ const VerificationModal = ({ shop, onClose }) => {
   // Error state
   if (error) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => onClose(false)}>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={() => onClose(false)}
+      >
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
         <div
           className="relative bg-white rounded-2xl p-8 flex flex-col items-center gap-3 max-w-sm"
@@ -287,7 +348,9 @@ const VerificationModal = ({ shop, onClose }) => {
           <div className="w-14 h-14 bg-red-50 text-red-500 rounded-full flex items-center justify-center">
             <AlertTriangle size={28} />
           </div>
-          <h3 className="text-gray-800 font-semibold text-lg">Failed to Load</h3>
+          <h3 className="text-gray-800 font-semibold text-lg">
+            Failed to Load
+          </h3>
           <p className="text-gray-600 text-sm text-center">{error}</p>
           <div className="flex gap-2 mt-2">
             <button
@@ -310,7 +373,10 @@ const VerificationModal = ({ shop, onClose }) => {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={handleClose}>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={handleClose}
+      >
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
         <div
@@ -324,7 +390,8 @@ const VerificationModal = ({ shop, onClose }) => {
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                   <span className="text-white text-lg font-bold">
-                    {shopData?.business_name?.substring(0, 2).toUpperCase() || "SH"}
+                    {shopData?.business_name?.substring(0, 2).toUpperCase() ||
+                      "SH"}
                   </span>
                 </div>
                 <div>
@@ -332,7 +399,8 @@ const VerificationModal = ({ shop, onClose }) => {
                     <h2 className="text-white text-lg font-semibold">
                       {shopData?.business_name || "Shop"}
                     </h2>
-                    {shopData?.verification_status && getVerificationBadge(shopData.verification_status)}
+                    {shopData?.verification_status &&
+                      getVerificationBadge(shopData.verification_status)}
                   </div>
                   <div className="flex items-center gap-2 text-white/70 text-sm">
                     <User size={14} />
@@ -351,9 +419,10 @@ const VerificationModal = ({ shop, onClose }) => {
                     disabled={!canSave || isSaving}
                     className={`
                       flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                      ${canSave && !isSaving
-                        ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                        : "bg-white/20 text-white/50 cursor-not-allowed"
+                      ${
+                        canSave && !isSaving
+                          ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                          : "bg-white/20 text-white/50 cursor-not-allowed"
                       }
                     `}
                   >
@@ -395,9 +464,10 @@ const VerificationModal = ({ shop, onClose }) => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`
                     flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-md transition-all whitespace-nowrap
-                    ${isActive
-                      ? "text-[#05015A] border-b-2 border-[#05015A] bg-white"
-                      : "text-gray-500 hover:text-gray-700"
+                    ${
+                      isActive
+                        ? "text-[#05015A] border-b-2 border-[#05015A] bg-white"
+                        : "text-gray-500 hover:text-gray-700"
                     }
                   `}
                 >
@@ -420,7 +490,9 @@ const VerificationModal = ({ shop, onClose }) => {
                 {shopData ? (
                   <VerificationDetailsTop shop={shopData} />
                 ) : (
-                  <p className="text-gray-500 text-center py-8">No shop details available</p>
+                  <p className="text-gray-500 text-center py-8">
+                    No shop details available
+                  </p>
                 )}
               </div>
             )}
@@ -433,50 +505,46 @@ const VerificationModal = ({ shop, onClose }) => {
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-emerald-500" />
                       <span className="text-sm text-gray-600">
-                        Approved: <strong className="text-gray-900">{stats.approved}</strong>
+                        Approved:{" "}
+                        <strong className="text-gray-900">
+                          {stats.approved}
+                        </strong>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-red-500" />
                       <span className="text-sm text-gray-600">
-                        Rejected: <strong className="text-gray-900">{stats.rejected}</strong>
+                        Rejected:{" "}
+                        <strong className="text-gray-900">
+                          {stats.rejected}
+                        </strong>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-yellow-500" />
                       <span className="text-sm text-gray-600">
-                        Pending: <strong className="text-gray-900">{stats.pending}</strong>
+                        Pending:{" "}
+                        <strong className="text-gray-900">
+                          {stats.pending}
+                        </strong>
                       </span>
                     </div>
                   </div>
 
                   <div className="text-sm text-gray-500">
-                    Total: <strong className="text-gray-900">{stats.total}</strong> documents
+                    Total:{" "}
+                    <strong className="text-gray-900">{stats.total}</strong>{" "}
+                    documents
                   </div>
                 </div>
-
-                {/* Validation Warning */}
-                {hasUnsavedChanges && !canSave && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-                    <AlertTriangle size={20} className="text-amber-600 mt-0.5 shrink-0" />
-                    <div className="text-sm text-amber-800">
-                      <p className="font-semibold mb-1">Cannot save yet:</p>
-                      <ul className="list-disc list-inside space-y-0.5 text-amber-700">
-                        {stats.pending > 0 && (
-                          <li>Review all documents (approve or reject each one)</li>
-                        )}
-                        {documents.some((d) => d.status === "failed" && !d.reason.trim()) && (
-                          <li>Add rejection reasons for all rejected documents</li>
-                        )}
-                      </ul>
-                    </div>
-                  </div>
-                )}
 
                 {/* Documents Grid */}
                 {documents.length === 0 ? (
                   <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                    <FileText size={48} className="mx-auto text-gray-300 mb-3" />
+                    <FileText
+                      size={48}
+                      className="mx-auto text-gray-300 mb-3"
+                    />
                     <p className="text-gray-500">No documents uploaded yet</p>
                   </div>
                 ) : (
@@ -492,6 +560,22 @@ const VerificationModal = ({ shop, onClose }) => {
                     ))}
                   </div>
                 )}
+
+                {/* Validation Warning */}
+                {hasUnsavedChanges && !canSave && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-2 flex items-start gap-3">
+                    <AlertTriangle
+                      size={20}
+                      className="text-amber-600 mt-0.5 shrink-0"
+                    />
+                    <p className="text-sm text-amber-800">
+                      <span className="font-semibold">Cannot save yet:</span>
+                      <span className="ml-1 text-amber-700">
+                        Review all documents (approve or reject each one)
+                      </span>
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -500,8 +584,10 @@ const VerificationModal = ({ shop, onClose }) => {
           <div className="px-6 py-4 bg-white border-t border-gray-100">
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-400">
-                Shop ID: {shopData?.shop_id} • 
-                Created: {shopData?.created_at ? new Date(shopData.created_at).toLocaleDateString() : "N/A"}
+                Shop ID: {shopData?.shop_id} • Created:{" "}
+                {shopData?.created_at
+                  ? new Date(shopData.created_at).toLocaleDateString()
+                  : "N/A"}
               </p>
 
               {shopData?.owner?.email && (
@@ -522,7 +608,10 @@ const VerificationModal = ({ shop, onClose }) => {
         title="Reject Document?"
         message={
           <div className="space-y-3">
-            <p className="text-gray-600">Please provide a reason for rejection. This will be shown to the shop owner.</p>
+            <p className="text-gray-600">
+              Please provide a reason for rejection. This will be shown to the
+              shop owner.
+            </p>
             <textarea
               className="w-full h-24 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 
                          focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 resize-none"
