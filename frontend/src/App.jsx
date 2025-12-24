@@ -23,6 +23,7 @@ import InvoicePage from "./pages/sales/invoice/InvoicePage.jsx";
 import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.jsx";
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
+import InventoryPage from "./pages/inventory/InventoryPage.jsx";
 
 // Setup Pages (3-step wizard)
 import SetupLayout from "./components/setup/SetupLayout.jsx";
@@ -128,6 +129,7 @@ const App = () => {
           <Route path="purchase-billing" element={<PurchasePage />} />
           <Route path="suppliers" element={<SupplierPage />} />
           <Route path="reports-sales" element={<ReportPage />} />
+          <Route path="inventory" element={<InventoryPage />} />
         </Route>
 
         {/* ============================================ */}
