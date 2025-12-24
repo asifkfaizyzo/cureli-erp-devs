@@ -9,6 +9,7 @@ import {
   createPendingUserFromGoogle,
   setPasswordForPending,
   cleanupExpiredPendingUsers,
+  checkUsernameAvailabilityWithSuggestions
 } from "./pending.service.js";
 import { success, fail } from "../../utils/response.js";
 import { jwtDecode } from "jwt-decode";
@@ -222,6 +223,25 @@ export async function chooseUsernameController(req, res) {
 
     console.error(err);
     return fail(res, "Failed to save username", 500);
+  }
+}
+// Add this controller to your existing pending.controller.js
+
+
+/**
+ * POST /pending/signup/check-username
+ * Check if a username is available and provide suggestions if not
+ */
+export async function checkUsernameController(req, res) {
+  try {
+    const { username } = req.validated;
+
+    const result = await checkUsernameAvailabilityWithSuggestions(username);
+
+    return success(res, result);
+  } catch (err) {
+    console.error("checkUsernameController error:", err);
+    return fail(res, "Failed to check username availability", 500);
   }
 }
 

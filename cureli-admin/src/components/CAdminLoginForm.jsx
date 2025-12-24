@@ -154,7 +154,7 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
               <motion.div
                 initial={{ width: "0%" }}
                 animate={{ width: "100%" }}
-                transition={{ duration: 1.5, delay: 0.6, ease: "easeInOut" }}
+                transition={{ duration: 1.0, delay: 0.6, ease: "easeInOut" }}
                 className="h-full bg-[#000060] rounded-full"
               />
             </motion.div>

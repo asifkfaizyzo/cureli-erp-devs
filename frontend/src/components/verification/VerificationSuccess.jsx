@@ -1,4 +1,5 @@
 // src/components/verification/VerificationSuccess.jsx
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -7,7 +8,7 @@ import { completeOnboarding } from "../../api/auth";
 import { getMySubscription } from "../../api/subscription";
 import { getSetupStatus } from "../../api/setup";
 
-// Scaled up animated checkmark (2x)
+// Full animated checkmark for first-time users
 const AnimatedCheckmark = () => {
   return (
     <div className="relative w-40 h-40 flex-shrink-0">
@@ -77,15 +78,48 @@ const AnimatedCheckmark = () => {
   );
 };
 
-const VerificationSuccess = () => {
+// Simpler checkmark for returning users
+const SimpleCheckmark = () => {
+  return (
+    <div className="relative w-24 h-24 flex-shrink-0">
+      <motion.div
+        className="absolute inset-0 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600"
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ duration: 0.4, type: "spring", stiffness: 200 }}
+      />
+      <motion.svg
+        className="absolute inset-0 w-full h-full p-6"
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <motion.path
+          d="M4 12.5L9.5 18L20 6"
+          stroke="white"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
+        />
+      </motion.svg>
+    </div>
+  );
+};
+
+const VerificationSuccess = ({ isFirstVerification = true }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowFeatures(true), 800);
-    return () => clearTimeout(timer);
-  }, []);
+    // Only show features animation for first-time users
+    if (isFirstVerification) {
+      const timer = setTimeout(() => setShowFeatures(true), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isFirstVerification]);
 
   /**
    * Determine where to navigate after verification
@@ -105,7 +139,6 @@ const VerificationSuccess = () => {
       const hasActive = subRes.data?.data?.has_active_subscription === true;
 
       if (!hasActive) {
-        // No subscription - go to plan selection
         console.log("📍 No active subscription → /plan-selection");
         navigate("/plan-selection", { replace: true });
         return;
@@ -117,23 +150,18 @@ const VerificationSuccess = () => {
         const setupData = setupRes.data?.data;
 
         if (setupData?.is_complete) {
-          // Setup complete - go to dashboard
           console.log("📍 Setup complete → /dashboard");
           navigate("/dashboard", { replace: true });
         } else {
-          // Setup incomplete - go to setup wizard
           console.log("📍 Setup incomplete → /setup");
           navigate("/setup", { replace: true });
         }
       } catch (setupErr) {
-        // If setup status check fails, default to setup
         console.warn("Setup status check failed, defaulting to /setup", setupErr);
         navigate("/setup", { replace: true });
       }
-
     } catch (err) {
       console.error("Failed to complete onboarding:", err);
-      // On error, try to go to plan selection as fallback
       navigate("/plan-selection", { replace: true });
     } finally {
       setLoading(false);
@@ -146,6 +174,113 @@ const VerificationSuccess = () => {
     { icon: BarChart3, title: "Analytics", desc: "Business insights" },
   ];
 
+  // ═══════════════════════════════════════════════════════════════
+  // RETURNING USER VIEW (Re-verification)
+  // ═══════════════════════════════════════════════════════════════
+  if (!isFirstVerification) {
+    return (
+      <div className="w-full h-full flex items-center justify-center px-6 font-poppins">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="relative w-full max-w-xl bg-white rounded-3xl overflow-hidden text-center"
+          style={{ boxShadow: "0px 8px 60px rgba(0,0,0,0.1)" }}
+        >
+          {/* Top gradient line */}
+          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-emerald-400 via-[#000060] to-emerald-400" />
+
+          <div className="flex flex-col items-center gap-6 p-10 lg:p-12">
+            {/* Checkmark */}
+            <SimpleCheckmark />
+
+            {/* Badge */}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="inline-flex items-center gap-3 bg-emerald-50 border-2 border-emerald-200 px-5 py-2 rounded-full"
+            >
+              <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-base font-semibold text-emerald-700">
+                Re-Verified
+              </span>
+            </motion.div>
+
+            {/* Title */}
+            <motion.h2
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="text-3xl lg:text-4xl font-bold text-[#000060]"
+            >
+              Welcome Back!
+            </motion.h2>
+
+            {/* Subtitle */}
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="text-gray-500 text-lg max-w-md"
+            >
+              Your documents have been re-verified successfully. You're all set
+              to continue using Cureli.
+            </motion.p>
+
+            {/* CTA Button */}
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              onClick={handleGetStarted}
+              disabled={loading}
+              whileHover={{ scale: loading ? 1 : 1.02 }}
+              whileTap={{ scale: loading ? 1 : 0.98 }}
+              className={`
+                flex items-center justify-center gap-3 mt-4 px-10 py-4 rounded-2xl font-bold text-lg
+                transition-all duration-200
+                ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-[#000060] hover:bg-[#000080] text-white shadow-xl shadow-[#000060]/25"
+                }
+              `}
+            >
+              {loading ? (
+                <>
+                  <motion.div
+                    className="w-6 h-6 border-3 border-white border-t-transparent rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  Continue to Dashboard
+                  <motion.div
+                    animate={{ x: [0, 6, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    <ArrowRight size={24} />
+                  </motion.div>
+                </>
+              )}
+            </motion.button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // FIRST-TIME USER VIEW (Original)
+  // ═══════════════════════════════════════════════════════════════
   return (
     <div className="w-full h-full flex items-center justify-center px-6 font-poppins">
       <motion.div

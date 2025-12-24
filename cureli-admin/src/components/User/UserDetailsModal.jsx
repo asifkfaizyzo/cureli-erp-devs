@@ -13,6 +13,7 @@ import {
   Users,
   History,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import {
   ProfileDetails,
@@ -41,6 +42,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
   // Form data for editing
   const [formData, setFormData] = useState({});
+  const [originalFormData, setOriginalFormData] = useState({}); // Track original for comparison
 
   // Confirm dialogs state
   const [showSuspendConfirm, setShowSuspendConfirm] = useState(false);
@@ -51,6 +53,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
   // Save loading state
   const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   // Fetch full user details when modal opens
   useEffect(() => {
@@ -62,19 +65,25 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   const fetchUserDetails = async (userId) => {
     setLoadingUser(true);
     setFetchError(null);
+    setSaveError(null);
     try {
       const response = await getCAdminUserById(userId);
       const userData = response.data?.data || response.data;
       setUser(userData);
-      // Initialize form data - include email and phone for Super Admin
-      setFormData({
+      
+      // Initialize form data - include all editable fields
+      const initialFormData = {
         first_name: userData.first_name || "",
         last_name: userData.last_name || "",
+        full_name: userData.full_name || `${userData.first_name || ""} ${userData.last_name || ""}`.trim() || "",
         username: userData.username || "",
         email: userData.email || "",
         phone_number: userData.phone_number || "",
-        role: userData.raw_role || userData.role || "",
-      });
+        role: userData.raw_role || userData.role?.toLowerCase().replace(" ", "_") || "",
+      };
+      
+      setFormData(initialFormData);
+      setOriginalFormData(initialFormData); // Save original for comparison
     } catch (err) {
       console.error("Failed to fetch user details:", err);
       setFetchError(err.response?.data?.message || "Failed to load user details");
@@ -90,7 +99,9 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       setIsEditing(false);
       setUser(null);
       setFormData({});
+      setOriginalFormData({});
       setFetchError(null);
+      setSaveError(null);
     }
   }, [isOpen]);
 
@@ -102,7 +113,16 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   // Handle escape key
   useEffect(() => {
     const handleEsc = (e) => {
-      if (e.key === "Escape") onClose(false);
+      if (e.key === "Escape") {
+        if (isEditing && hasChanges()) {
+          // Confirm before closing if there are unsaved changes
+          if (window.confirm("You have unsaved changes. Are you sure you want to close?")) {
+            onClose(false);
+          }
+        } else {
+          onClose(false);
+        }
+      }
     };
     if (isOpen) {
       document.addEventListener("keydown", handleEsc);
@@ -112,7 +132,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       document.removeEventListener("keydown", handleEsc);
       document.body.style.overflow = "unset";
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isEditing]);
 
   if (!isOpen) return null;
 
@@ -123,6 +143,13 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
   // Check if Reset Password should be shown (only for Super Admin)
   const canResetPassword = isOwner;
+
+  // Check if there are unsaved changes
+  const hasChanges = () => {
+    return Object.keys(formData).some(
+      (key) => formData[key] !== originalFormData[key]
+    );
+  };
 
   // Dynamic tabs based on role
   const getTabs = () => {
@@ -165,20 +192,24 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
     return is_active ? "Active" : "Inactive";
   };
 
-  // Get onboarding status label
-  const getOnboardingStatusLabel = (status) => {
-    if (!status) return "Unknown";
-    return status
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (l) => l.toUpperCase());
-  };
-
   // ═══════════════════════════════════════════════════════════
   // HANDLERS
   // ═══════════════════════════════════════════════════════════
   
   const handleFormChange = (field, value) => {
+    setSaveError(null); // Clear any previous save errors
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleCancelEdit = () => {
+    if (hasChanges()) {
+      if (!window.confirm("You have unsaved changes. Are you sure you want to cancel?")) {
+        return;
+      }
+    }
+    setFormData(originalFormData);
+    setIsEditing(false);
+    setSaveError(null);
   };
 
   const handleSuspendConfirm = async () => {
@@ -217,40 +248,139 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
   const handleSaveChanges = async () => {
     if (!user) return;
+    
+    // Check if there are any changes
+    if (!hasChanges()) {
+      setIsEditing(false);
+      return;
+    }
+
+    // Validate required fields
+    const validationErrors = validateForm();
+    if (validationErrors) {
+      setSaveError(validationErrors);
+      return;
+    }
+
     setSaveLoading(true);
+    setSaveError(null);
+
     try {
-      // Prepare payload with only changed fields
       const payload = {};
-      if (formData.first_name !== user.first_name) payload.first_name = formData.first_name;
-      if (formData.last_name !== user.last_name) payload.last_name = formData.last_name;
-      if (formData.username !== user.username) payload.username = formData.username;
       
-      // Only include email and phone for Super Admin
+      // For Super Admin: use first_name and last_name
       if (isOwner) {
-        if (formData.email !== user.email) payload.email = formData.email;
-        if (formData.phone_number !== user.phone_number) payload.phone_number = formData.phone_number;
+        if (formData.first_name !== originalFormData.first_name) {
+          payload.first_name = formData.first_name.trim();
+        }
+        if (formData.last_name !== originalFormData.last_name) {
+          payload.last_name = formData.last_name.trim();
+        }
+        if (formData.email !== originalFormData.email) {
+          payload.email = formData.email.trim();
+        }
+      } else {
+        // For Branch Admin & Staff: use full_name
+        if (formData.full_name !== originalFormData.full_name) {
+          payload.full_name = formData.full_name.trim();
+        }
+      }
+      
+      // Common fields
+      if (formData.username !== originalFormData.username) {
+        payload.username = formData.username.trim().toLowerCase();
+      }
+      if (formData.phone_number !== originalFormData.phone_number) {
+        payload.phone_number = formData.phone_number.replace(/\D/g, "");
       }
       
       // Only include role if it's editable (not Super Admin) and changed
-      if (!isOwner && formData.role !== user.raw_role) {
+      if (!isOwner && formData.role !== originalFormData.role) {
         payload.role = formData.role;
       }
 
+      // If no actual changes after processing
       if (Object.keys(payload).length === 0) {
         setIsEditing(false);
         return;
       }
 
-      await updateCAdminUser(user.user_id, payload);
+      console.log("Saving changes:", payload); // Debug log
+
+      const response = await updateCAdminUser(user.user_id, payload);
       
-      setIsEditing(false);
-      onClose(true); // Close and refresh
+      // Check if update was successful
+      if (response.status === 200 || response.data?.success) {
+        // Update local user state with response data if available
+        const updatedUser = response.data?.data || response.data?.user;
+        if (updatedUser) {
+          setUser((prev) => ({ ...prev, ...updatedUser }));
+          // Update original form data to reflect saved state
+          setOriginalFormData(formData);
+        }
+        
+        setIsEditing(false);
+        onClose(true); // Close and refresh parent
+      } else {
+        throw new Error(response.data?.message || "Update failed");
+      }
     } catch (error) {
       console.error("Save failed:", error);
-      alert(error.response?.data?.message || "Failed to save changes");
+      
+      // Handle specific error cases
+      if (error.response?.status === 400) {
+        setSaveError(error.response.data?.message || "Invalid data provided");
+      } else if (error.response?.status === 409) {
+        setSaveError("Username or phone number already exists");
+      } else if (error.response?.status === 403) {
+        setSaveError("You don't have permission to edit this user");
+      } else {
+        setSaveError(error.response?.data?.message || error.message || "Failed to save changes");
+      }
     } finally {
       setSaveLoading(false);
     }
+  };
+
+  const validateForm = () => {
+    // Name validation
+    if (isOwner) {
+      if (!formData.first_name?.trim()) {
+        return "First name is required";
+      }
+    } else if (isBranchAdmin || isStaff) {
+      if (!formData.full_name?.trim()) {
+        return "Name is required";
+      }
+      if (formData.full_name.trim().length < 2) {
+        return "Name must be at least 2 characters";
+      }
+    }
+
+    // Username validation
+    if (formData.username && formData.username.length < 3) {
+      return "Username must be at least 3 characters";
+    }
+    if (formData.username && !/^[a-z0-9_]+$/.test(formData.username.toLowerCase())) {
+      return "Username can only contain lowercase letters, numbers, and underscores";
+    }
+
+    // Phone validation
+    if (formData.phone_number) {
+      const cleanPhone = formData.phone_number.replace(/\D/g, "");
+      if (cleanPhone && !/^[0-9]{10}$/.test(cleanPhone)) {
+        return "Invalid phone number (must be 10 digits)";
+      }
+    }
+
+    // Email validation (for Super Admin)
+    if (isOwner && formData.email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        return "Invalid email address";
+      }
+    }
+
+    return null; // No errors
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -318,7 +448,15 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
     <>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        onClick={() => onClose(false)}
+        onClick={() => {
+          if (isEditing && hasChanges()) {
+            if (window.confirm("You have unsaved changes. Are you sure you want to close?")) {
+              onClose(false);
+            }
+          } else {
+            onClose(false);
+          }
+        }}
       >
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -363,6 +501,13 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
                     >
                       {getActiveStatusLabel(displayIsActive)}
                     </span>
+                    {/* Unsaved Changes Indicator */}
+                    {isEditing && hasChanges() && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-200 flex items-center gap-1">
+                        <AlertCircle size={10} />
+                        Unsaved
+                      </span>
+                    )}
                   </div>
                   <p className="text-white/70 text-sm">@{displayUsername}</p>
                 </div>
@@ -370,41 +515,60 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
               {/* Header Actions */}
               <div className="flex items-center gap-2">
-                {/* Edit / Save Toggle - Only for Profile tab */}
+                {/* Edit / Save / Cancel Buttons - Only for Profile tab */}
                 {activeTab === "profile" && !loadingUser && user && (
-                  <button
-                    onClick={() => {
-                      if (isEditing) {
-                        handleSaveChanges();
-                      } else {
-                        setIsEditing(true);
-                      }
-                    }}
-                    disabled={saveLoading}
-                    className={`
-                      flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                      ${
-                        isEditing
-                          ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                          : "bg-white/20 text-white hover:bg-white/30"
-                      }
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                    `}
-                  >
-                    {saveLoading ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : isEditing ? (
-                      <Save size={16} />
+                  <>
+                    {isEditing ? (
+                      <>
+                        <button
+                          onClick={handleCancelEdit}
+                          disabled={saveLoading}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                                     bg-white/20 text-white hover:bg-white/30 transition-all
+                                     disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <X size={16} />
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveChanges}
+                          disabled={saveLoading || !hasChanges()}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                                     bg-emerald-500 text-white hover:bg-emerald-600 transition-all
+                                     disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {saveLoading ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Save size={16} />
+                          )}
+                          {saveLoading ? "Saving..." : "Save Changes"}
+                        </button>
+                      </>
                     ) : (
-                      <Pencil size={16} />
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                                   bg-white/20 text-white hover:bg-white/30 transition-all"
+                      >
+                        <Pencil size={16} />
+                        Edit Details
+                      </button>
                     )}
-                    {saveLoading ? "Saving..." : isEditing ? "Save Changes" : "Edit Details"}
-                  </button>
+                  </>
                 )}
 
                 {/* Close */}
                 <button
-                  onClick={() => onClose(false)}
+                  onClick={() => {
+                    if (isEditing && hasChanges()) {
+                      if (window.confirm("You have unsaved changes. Are you sure you want to close?")) {
+                        onClose(false);
+                      }
+                    } else {
+                      onClose(false);
+                    }
+                  }}
                   className="p-2 rounded-lg bg-white/20 text-white hover:bg-red-500/30 transition-all"
                 >
                   <X size={20} className="text-red-200" />
@@ -412,6 +576,20 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
               </div>
             </div>
           </div>
+
+          {/* Save Error Banner */}
+          {saveError && (
+            <div className="px-6 py-3 bg-red-50 border-b border-red-200 flex items-center gap-2 text-red-700 text-sm">
+              <AlertCircle size={16} />
+              {saveError}
+              <button
+                onClick={() => setSaveError(null)}
+                className="ml-auto text-red-500 hover:text-red-700"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
 
           {/* ═══════════════════════════════════════════════════════
               TABS
@@ -424,6 +602,14 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
                 <button
                   key={tab.id}
                   onClick={() => {
+                    // Warn about unsaved changes when switching tabs
+                    if (isEditing && hasChanges() && tab.id !== "profile") {
+                      if (!window.confirm("You have unsaved changes. Switch tab anyway?")) {
+                        return;
+                      }
+                      setIsEditing(false);
+                      setFormData(originalFormData);
+                    }
                     setActiveTab(tab.id);
                     if (tab.id !== "profile") {
                       setIsEditing(false);

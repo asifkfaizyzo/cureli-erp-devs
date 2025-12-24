@@ -4,7 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { Loader2, ChevronDown } from "lucide-react";
 
 // Import loaders
-import { loadPincodeMap, getPincodeData } from "../../utils/address/loadPincodeMap";
+import {
+  loadPincodeMap,
+  getPincodeData,
+} from "../../utils/address/loadPincodeMap";
 import { loadCityList, searchCities } from "../../utils/address/loadCityList";
 import { loadStateList, searchStates } from "../../utils/address/loadStateList";
 
@@ -200,7 +203,8 @@ const BusinessInfo = ({ onContinue }) => {
   // ✅ Keyboard navigation for dropdowns
   const handleKeyDown = (e, type) => {
     const suggestions = type === "city" ? citySuggestions : stateSuggestions;
-    const setShow = type === "city" ? setShowCityDropdown : setShowStateDropdown;
+    const setShow =
+      type === "city" ? setShowCityDropdown : setShowStateDropdown;
 
     if (!suggestions.length) return;
 
@@ -228,7 +232,8 @@ const BusinessInfo = ({ onContinue }) => {
     let newErrors = {};
 
     if (!form.name.trim()) newErrors.name = "Business name is required";
-    if (!form.address1.trim()) newErrors.address1 = "Address Line 1 is required";
+    if (!form.address1.trim())
+      newErrors.address1 = "Address Line 1 is required";
     if (!form.city.trim()) newErrors.city = "City is required";
     if (!form.state.trim()) newErrors.state = "State is required";
     if (!/^[0-9]{6}$/.test(form.pincode))
@@ -271,7 +276,9 @@ const BusinessInfo = ({ onContinue }) => {
       </h2>
 
       {/* BUSINESS NAME */}
-      <label className="text-xs font-bold text-[#000060]">Business Name *</label>
+      <label className="text-xs font-bold text-[#000060]">
+        Business Name *
+      </label>
       <input
         ref={nameRef}
         type="text"
@@ -287,7 +294,9 @@ const BusinessInfo = ({ onContinue }) => {
       )}
 
       {/* ADDRESS LINE 1 */}
-      <label className="text-xs font-bold text-[#000060] mt-3 block">Address *</label>
+      <label className="text-xs font-bold text-[#000060] mt-3 block">
+        Address *
+      </label>
       <input
         type="text"
         value={form.address1}
@@ -303,7 +312,25 @@ const BusinessInfo = ({ onContinue }) => {
 
       {/* CITY - STATE - PINCODE */}
       <div className="grid grid-cols-3 gap-3 mt-3">
-        
+        {/* PINCODE */}
+        <div>
+          <label className="text-xs font-bold text-[#000060]">Pincode *</label>
+          <input
+            type="text"
+            value={form.pincode}
+            maxLength={6}
+            placeholder="Pincode"
+            onChange={(e) => handlePincodeChange(e.target.value)}
+            onFocus={ensurePincodeLoaded}
+            className={`w-full mt-1 px-3 py-2 bg-white border rounded-lg ${
+              errors.pincode ? "border-red-500" : "border-gray-300"
+            } focus:ring-2 focus:ring-[#000060] transition`}
+          />
+          {errors.pincode && (
+            <p className="text-red-500 text-xs mt-1">{errors.pincode}</p>
+          )}
+        </div>
+
         {/* CITY with Autocomplete */}
         <div className="relative">
           <label className="text-xs font-bold text-[#000060]">City *</label>
@@ -362,9 +389,7 @@ const BusinessInfo = ({ onContinue }) => {
                 errors.state ? "border-red-500" : "border-gray-300"
               } focus:ring-2 focus:ring-[#000060] transition`}
             />
-            <ChevronDown
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 mt-0.5 h-4 w-4 text-gray-400 pointer-events-none"
-            />
+            <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 mt-0.5 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
           {errors.state && (
             <p className="text-red-500 text-xs mt-1">{errors.state}</p>
@@ -388,25 +413,6 @@ const BusinessInfo = ({ onContinue }) => {
                 </li>
               ))}
             </ul>
-          )}
-        </div>
-
-        {/* PINCODE */}
-        <div>
-          <label className="text-xs font-bold text-[#000060]">Pincode *</label>
-          <input
-            type="text"
-            value={form.pincode}
-            maxLength={6}
-            placeholder="Pincode"
-            onChange={(e) => handlePincodeChange(e.target.value)}
-            onFocus={ensurePincodeLoaded}
-            className={`w-full mt-1 px-3 py-2 bg-white border rounded-lg ${
-              errors.pincode ? "border-red-500" : "border-gray-300"
-            } focus:ring-2 focus:ring-[#000060] transition`}
-          />
-          {errors.pincode && (
-            <p className="text-red-500 text-xs mt-1">{errors.pincode}</p>
           )}
         </div>
       </div>

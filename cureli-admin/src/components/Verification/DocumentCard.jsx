@@ -310,7 +310,7 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
   return (
     <>
       <div
-        className={`group rounded-lg border border-l-4 ${config.border} ${config.bg} hover:shadow-md transition-all duration-200`}
+        className={`group rounded-lg border  border-l-4 ${config.border} ${config.bg} border-black/20 hover:shadow-md transition-all duration-200`}
       >
         <div className="p-3">
           {/* Top Row: Icon, Title, Status */}
