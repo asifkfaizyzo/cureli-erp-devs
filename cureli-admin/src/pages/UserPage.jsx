@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import UserHeader from "../components/User/UserHeader";
 import UserTable from "../components/User/UserTable";
 import { getCAdminUsers } from "../api/cadminUsers";
 
 const UserPage = () => {
+  // Get search params from URL
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // pagination + rows per page
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -25,8 +29,11 @@ const UserPage = () => {
     return () => window.removeEventListener("resize", updateRows);
   }, []);
 
+  // Initialize search text from URL params
+  const initialSearch = searchParams.get("search") || "";
+
   // filters / sort
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState("Active");
   const [roleFilter, setRoleFilter] = useState("Super Admin");
   const [dateFilter, setDateFilter] = useState("");
@@ -36,6 +43,18 @@ const UserPage = () => {
   const [users, setUsers] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // Update search text when URL params change
+  useEffect(() => {
+    const searchFromUrl = searchParams.get("search");
+    if (searchFromUrl) {
+      setSearchText(searchFromUrl);
+      // Clear status and role filters when searching from URL to show all results
+      setStatusFilter("");
+      setRoleFilter("");
+      setCurrentPage(1);
+    }
+  }, [searchParams]);
 
   // Fetch function
   const fetchUsers = useCallback(async () => {
@@ -94,12 +113,33 @@ const UserPage = () => {
   };
 
   const handleFilterChange = ({ search, status, role, date }) => {
-    if (search !== undefined) setSearchText(search);
+    if (search !== undefined) {
+      setSearchText(search);
+      // Update URL params when search changes
+      if (search) {
+        setSearchParams({ search });
+      } else {
+        // Remove search param if empty
+        searchParams.delete("search");
+        setSearchParams(searchParams);
+      }
+    }
     if (status !== undefined) setStatusFilter(status);
     if (role !== undefined) setRoleFilter(role);
     if (date !== undefined) setDateFilter(date);
     setCurrentPage(1);
   };
+
+  // Clear search from URL when user clears search
+  const handleClearSearch = useCallback(() => {
+    setSearchText("");
+    searchParams.delete("search");
+    setSearchParams(searchParams);
+    // Restore default filters
+    setStatusFilter("Active");
+    setRoleFilter("Super Admin");
+    setCurrentPage(1);
+  }, [searchParams, setSearchParams]);
 
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
@@ -114,6 +154,7 @@ const UserPage = () => {
         setDateFilter={(v) => handleFilterChange({ date: v })}
         users={users}
         totalItems={totalItems}
+        onClearSearch={handleClearSearch}
       />
 
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">

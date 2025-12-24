@@ -16,22 +16,63 @@ const ShopUsersTab = ({ shop }) => {
     });
   };
 
-  const getRoleBadgeStyle = (role) => {
+  // Format role from snake_case to Display Name
+  const formatRole = (role) => {
     switch (role) {
+      case "super_admin":
       case "Super Admin":
-        return "bg-purple-100 text-purple-700";
+        return "Super Admin";
+      case "branch_admin":
       case "Branch Admin":
-        return "bg-blue-100 text-blue-700";
+        return "Branch Admin";
+      case "staff":
       case "Staff":
+        return "Staff";
+      default:
+        return role
+          ?.replace(/_/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase()) || "Unknown";
+    }
+  };
+
+  // Get role priority for sorting (lower number = higher priority)
+  const getRolePriority = (role) => {
+    const normalizedRole = role?.toLowerCase().replace(/\s+/g, "_");
+    switch (normalizedRole) {
+      case "super_admin":
+        return 1;
+      case "branch_admin":
+        return 2;
+      case "staff":
+        return 3;
+      default:
+        return 4;
+    }
+  };
+
+  // Get badge style based on role (handles both formats)
+  const getRoleBadgeStyle = (role) => {
+    const normalizedRole = role?.toLowerCase().replace(/\s+/g, "_");
+    switch (normalizedRole) {
+      case "super_admin":
+        return "bg-purple-100 text-purple-700";
+      case "branch_admin":
+        return "bg-blue-100 text-blue-700";
+      case "staff":
         return "bg-slate-100 text-slate-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
   };
 
-  const handleUserClick = (userId) => {
-    // Navigate to users page with search
-    navigate(`/users?search=${userId}`);
+  // Sort users by role priority: Super Admin > Branch Admin > Staff
+  const sortedUsers = [...users].sort((a, b) => {
+    return getRolePriority(a.role) - getRolePriority(b.role);
+  });
+
+  const handleUserClick = (username) => {
+    // Navigate to users page with username as search
+    navigate(`/users?search=${encodeURIComponent(username)}`);
   };
 
   if (users.length === 0) {
@@ -68,20 +109,20 @@ const ShopUsersTab = ({ shop }) => {
               </tr>
             </thead>
             <tbody>
-              {users.map((user, index) => (
+              {sortedUsers.map((user, index) => (
                 <tr
                   key={user.user_id}
                   className={`border-b border-gray-50 hover:bg-indigo-50 transition-colors cursor-pointer ${
                     index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
                   }`}
-                  onClick={() => handleUserClick(user.user_id)}
+                  onClick={() => handleUserClick(user.username)}
                 >
                   <td className="p-4 font-medium text-gray-900">{user.full_name}</td>
                   <td className="p-4 text-gray-600">{user.email || "N/A"}</td>
                   <td className="p-4 text-gray-600">@{user.username || "N/A"}</td>
                   <td className="p-4 text-center">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadgeStyle(user.role)}`}>
-                      {user.role}
+                      {formatRole(user.role)}
                     </span>
                   </td>
                   <td className="p-4 text-gray-600">{user.branch?.branch_name || "N/A"}</td>
@@ -102,7 +143,7 @@ const ShopUsersTab = ({ shop }) => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleUserClick(user.user_id);
+                        handleUserClick(user.username);
                       }}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
                       title="View User"
