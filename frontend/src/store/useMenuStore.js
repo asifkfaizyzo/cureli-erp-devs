@@ -1,3 +1,4 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\store\useMenuStore.js
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
