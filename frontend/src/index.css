@@ -40,4 +40,66 @@ input[type="number"] {
   animation: fadeOverlay 120ms ease-out;
 }
 
+/* src/styles/purchase-table.css */
 
+/* Sticky first column styles */
+.purchase-table td:first-child,
+.purchase-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+}
+
+.purchase-table thead th:first-child {
+  z-index: 25;
+}
+
+/* Row number badge animation */
+.row-number-badge {
+  transition: all 0.2s ease;
+}
+
+.row-number-badge.has-data {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #4338ca;
+}
+
+/* Remove number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Custom scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Row focus indicator */
+tr:focus-within td:first-child {
+  box-shadow: inset 3px 0 0 0 #6366f1;
+}
+
+/* Hover effect for row numbers */
+tr:hover td:first-child .row-number-badge {
+  transform: scale(1.1);
+}
