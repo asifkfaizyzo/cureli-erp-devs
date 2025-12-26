@@ -23,7 +23,6 @@ import {
   Package,
   RefreshCw,
   Layers,
-  MapPin,
 } from "lucide-react";
 import logo from "../../assets/icons/cureli.svg";
 
@@ -74,7 +73,6 @@ const TopHeader = () => {
   const [isSwitchingBranch, setIsSwitchingBranch] = useState(false);
 
   const [branches, setBranches] = useState([]);
-  // null = All Branches, otherwise specific branch_id
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [notificationError, setNotificationError] = useState(null);
@@ -127,16 +125,32 @@ const TopHeader = () => {
     });
   }, [branches]);
 
-  // Find selected branch from list
+  // Find selected branch from list (for Super Admin)
   const selectedBranch = selectedBranchId
     ? branches.find((b) => b.branch_id === selectedBranchId)
     : null;
 
-  // Display names
-  const isAllBranches = selectedBranchId === null;
-  const displayBranchName = isAllBranches
-    ? "All Branches"
-    : selectedBranch?.branch_name || branchName || "Select Branch";
+  // ============================================
+  // FIXED: Display names based on role
+  // ============================================
+  
+  // For Super Admin: Show "All Branches" or selected branch
+  // For Branch Admin/Staff: Show their assigned branch from store
+  const isAllBranches = isSuperAdmin && selectedBranchId === null;
+
+  const displayBranchName = useMemo(() => {
+    if (isSuperAdmin) {
+      // Super Admin can see "All Branches" or a specific branch
+      if (isAllBranches) {
+        return "All Branches";
+      }
+      return selectedBranch?.branch_name || branchName || "Select Branch";
+    } else {
+      // Branch Admin / Staff - always show their assigned branch
+      return branchName || "My Branch";
+    }
+  }, [isSuperAdmin, isAllBranches, selectedBranch, branchName]);
+
   const displayShopName = shopName || "My Business";
 
   const unreadCount = notifications.filter((n) => n.unread).length;
@@ -254,10 +268,8 @@ const TopHeader = () => {
   // Initialize with "All Branches" (null) for Super Admin
   useEffect(() => {
     if (isSuperAdmin && branchId) {
-      // If coming from store with a specific branch, use it
       setSelectedBranchId(branchId);
     }
-    // Otherwise keep null (All Branches) as default
   }, [isSuperAdmin, branchId]);
 
   useEffect(() => {
@@ -483,7 +495,7 @@ const TopHeader = () => {
 
         {/* ==================== RIGHT SECTION ==================== */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* ==================== SLEEK BRANCH SELECTOR ==================== */}
+          {/* ==================== BRANCH SELECTOR (Super Admin Only) ==================== */}
           {canSwitchBranches && (
             <div className="relative" ref={branchRef}>
               <button
@@ -520,7 +532,7 @@ const TopHeader = () => {
                 />
               </button>
 
-              {/* ==================== SLEEK BRANCH DROPDOWN ==================== */}
+              {/* Branch Dropdown */}
               {showBranchSelector && (
                 <div className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden z-50">
                   {/* Header */}
@@ -568,11 +580,7 @@ const TopHeader = () => {
                           <div
                             className={`
                             w-8 h-8 rounded-md flex items-center justify-center
-                            ${
-                              isAllBranches
-                                ? "bg-[#000060]/10"
-                                : "bg-gray-100"
-                            }
+                            ${isAllBranches ? "bg-[#000060]/10" : "bg-gray-100"}
                           `}
                           >
                             <Layers
@@ -677,20 +685,22 @@ const TopHeader = () => {
                               </div>
 
                               {isSelected && (
-                                <Check size={14} className="text-[#000060] flex-shrink-0" />
+                                <Check
+                                  size={14}
+                                  className="text-[#000060] flex-shrink-0"
+                                />
                               )}
                             </button>
                           );
                         })}
 
-                        {sortedBranches.length === 0 &&
-                          !isBranchesLoading && (
-                            <div className="px-3 py-4 text-center">
-                              <p className="text-xs text-gray-400">
-                                No branches found
-                              </p>
-                            </div>
-                          )}
+                        {sortedBranches.length === 0 && !isBranchesLoading && (
+                          <div className="px-3 py-4 text-center">
+                            <p className="text-xs text-gray-400">
+                              No branches found
+                            </p>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -712,11 +722,12 @@ const TopHeader = () => {
             </div>
           )}
 
-          {/* Non-SA Branch Display */}
-          {!canSwitchBranches && branchName && (
+          {/* ==================== FIXED: Non-SA Branch Display ==================== */}
+          {/* Branch Admin & Staff - Show their assigned branch (no dropdown) */}
+          {!canSwitchBranches && (
             <div className="hidden sm:flex items-center gap-2 h-10 px-3 rounded-lg bg-gray-50 border border-gray-100">
               <Building2 size={14} className="text-[#000060]" />
-              <span className="text-sm font-medium text-gray-600 max-w-[100px] truncate">
+              <span className="text-sm font-medium text-gray-600 max-w-[120px] truncate">
                 {displayBranchName}
               </span>
             </div>
@@ -724,7 +735,7 @@ const TopHeader = () => {
 
           <div className="w-px h-8 bg-gray-200" />
 
-          {/* Notifications */}
+          {/* ==================== NOTIFICATIONS ==================== */}
           <div className="relative" ref={notificationRef}>
             <button
               onClick={() => {
@@ -869,7 +880,7 @@ const TopHeader = () => {
 
           <div className="w-px h-8 bg-gray-200" />
 
-          {/* Profile Section */}
+          {/* ==================== PROFILE SECTION ==================== */}
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}

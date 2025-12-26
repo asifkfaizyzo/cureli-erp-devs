@@ -3,41 +3,39 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { IoArrowBackOutline } from "react-icons/io5";
-import { verifyLoginOtp } from "../../api/auth";
+import { verifyLoginOtp, resendLoginOtp } from "../../api/auth";
 import { getMySubscription } from "../../api/subscription";
 import { getSetupStatus } from "../../api/setup";
 import { useNavigate } from "react-router-dom";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
-// ============================================
-// NEW: Import auth store
-// ============================================
 import { useAuthStore } from "../../store/useAuthStore";
 
-const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
-  const navigate = useNavigate();
+// Constants
+const RESEND_TIMER_SECONDS = 60; // Changed from 30 to 60
 
-  // ============================================
-  // NEW: Get setAuth from store
-  // ============================================
+const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) => {
+  const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
 
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [timer, setTimer] = useState(30);
+  const [resending, setResending] = useState(false);
+  const [timer, setTimer] = useState(RESEND_TIMER_SECONDS); // Use constant
   const [shake, setShake] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [currentTempToken, setCurrentTempToken] = useState(tempToken);
+  const [currentPhoneHint, setCurrentPhoneHint] = useState(phoneHint);
 
   const inputsRef = useRef([]);
 
-  // Auto focus first input
   useEffect(() => {
     const t = setTimeout(() => inputsRef.current[0]?.focus(), 100);
     return () => clearTimeout(t);
   }, []);
 
-  // Countdown timer
   useEffect(() => {
     if (timer > 0) {
       const interval = setInterval(() => setTimer((t) => t - 1), 1000);
@@ -45,7 +43,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     }
   }, [timer]);
 
-  // Auto-submit when 4 digits filled
   useEffect(() => {
     const code = otp.join("");
     if (
@@ -56,7 +53,16 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     ) {
       handleVerify(code);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp]);
+
+  useEffect(() => {
+    setCurrentTempToken(tempToken);
+  }, [tempToken]);
+
+  useEffect(() => {
+    setCurrentPhoneHint(phoneHint);
+  }, [phoneHint]);
 
   const handleChange = (value, index) => {
     if (!/^\d?$/.test(value)) return;
@@ -66,6 +72,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     updated[index] = value;
     setOtp(updated);
     setError("");
+    setResendSuccess(false);
 
     if (value && index < 3) {
       inputsRef.current[index + 1]?.focus();
@@ -104,17 +111,12 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     setTimeout(() => setShake(false), 500);
   };
 
-  /**
-   * Determine navigation destination for fully verified users
-   */
   const determineDestination = async (role) => {
-    // Staff and Branch Admin always go to dashboard
     if (role === "staff" || role === "branch_admin") {
       console.log(`📍 ${role} → /dashboard`);
       return "/dashboard";
     }
 
-    // Super Admin - check subscription and setup
     try {
       const subRes = await getMySubscription();
       const hasActive = subRes.data?.data?.has_active_subscription === true;
@@ -136,38 +138,29 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
           return "/setup";
         }
       } catch (setupErr) {
-        console.warn(
-          "Setup status check failed, defaulting to /setup",
-          setupErr
-        );
+        console.warn("Setup status check failed, defaulting to /setup", setupErr);
         return "/setup";
       }
     } catch (err) {
-      console.warn(
-        "Subscription check failed, defaulting to /plan-selection",
-        err
-      );
+      console.warn("Subscription check failed, defaulting to /plan-selection", err);
       return "/plan-selection";
     }
   };
 
-  // Verify OTP
   const handleVerify = async (otpCode = null) => {
     const code = otpCode || otp.join("");
     if (code.length !== 4 || loading || success) return;
 
     setLoading(true);
     setError("");
+    setResendSuccess(false);
 
     try {
       const res = await verifyLoginOtp({
-        temp_token: tempToken,
+        temp_token: currentTempToken,
         otp: code,
       });
 
-      // ============================================
-      // FIXED: Extract ALL fields including shop_name
-      // ============================================
       const {
         access_token,
         next_step,
@@ -175,38 +168,31 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         user_id,
         branch_id,
         branch_name,
-        shop_name, // <-- ADDED
+        shop_name,
         role,
         user_name,
       } = res.data.data;
 
-      // Show success state
       setSuccess(true);
 
-      // ============================================
-      // FIXED: Pass shop_name to setAuth
-      // ============================================
       setAuth({
         access_token,
         user_id,
         shop_id,
         branch_id,
         branch_name,
-        shop_name, // <-- ADDED
+        shop_name,
         role,
         user_name,
       });
 
-      // Brief delay to show success animation
       setTimeout(async () => {
-        // CASE 1 — Fully verified user (next_step === -1)
         if (next_step === -1) {
           const destination = await determineDestination(role);
           navigate(destination, { replace: true });
           return;
         }
 
-        // CASE 2 — Verification Flow (document verification)
         if ([12, 14, 15].includes(next_step)) {
           navigate("/verification", {
             state: { resume_step: next_step },
@@ -215,7 +201,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
           return;
         }
 
-        // CASE 3 — Normal Onboarding Flow
         navigate("/onboarding", {
           state: { resume_step: next_step },
           replace: true,
@@ -223,8 +208,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       }, 600);
     } catch (err) {
       console.error("OTP verification error:", err);
-      const msg =
-        err?.response?.data?.message || "Invalid OTP. Please try again.";
+      const msg = err?.response?.data?.message || "Invalid OTP. Please try again.";
 
       setError(msg);
       triggerShake();
@@ -237,9 +221,81 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       setLoading(false);
     }
   };
-  const handleResend = () => {
-    if (timer > 0) return;
-    alert("Please go back and login again to receive a new OTP");
+
+  const handleResend = async () => {
+    if (timer > 0 || resending) return;
+
+    setResending(true);
+    setError("");
+    setOtp(["", "", "", ""]);
+    setSuccess(false);
+    setResendSuccess(false);
+
+    try {
+      const res = await resendLoginOtp({
+        temp_token: currentTempToken,
+      });
+
+      const { temp_token: newToken, phone_hint: newPhoneHint } = res.data.data;
+
+      // Update the token with the new one
+      setCurrentTempToken(newToken);
+      if (newPhoneHint) {
+        setCurrentPhoneHint(newPhoneHint);
+      }
+
+      // Notify parent component if callback provided
+      if (onTokenUpdate) {
+        onTokenUpdate(newToken, newPhoneHint);
+      }
+
+      // Show success message
+      setResendSuccess(true);
+      setTimeout(() => setResendSuccess(false), 3000);
+
+      // Reset timer to 60 seconds
+      setTimer(RESEND_TIMER_SECONDS);
+
+      // Focus first input
+      setTimeout(() => {
+        inputsRef.current[0]?.focus();
+      }, 100);
+
+    } catch (err) {
+      console.error("Resend OTP error:", err);
+      
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message || "Failed to resend OTP";
+      const waitTime = err?.response?.data?.data?.waitTime;
+
+      // Handle specific error cases
+      if (status === 401) {
+        // Token expired - user needs to login again
+        setError("Session expired. Please login again.");
+        setTimeout(() => {
+          onBack?.();
+        }, 2000);
+      } else if (status === 429) {
+        // Rate limited - sync timer with backend's waitTime
+        setError(msg);
+        if (waitTime && waitTime > 0) {
+          setTimer(waitTime);
+        } else {
+          // Try to extract from message
+          const waitMatch = msg.match(/(\d+)\s*seconds/);
+          if (waitMatch) {
+            setTimer(parseInt(waitMatch[1]));
+          } else {
+            // Default fallback to 60 seconds
+            setTimer(RESEND_TIMER_SECONDS);
+          }
+        }
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setResending(false);
+    }
   };
 
   const getInputClassName = (idx) => {
@@ -258,108 +314,164 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     return `${base} border-gray-300 focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/20`;
   };
 
+  // Format timer display (handles times over 59 seconds)
+  const formatTimer = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins > 0) {
+      return `${mins}:${secs < 10 ? `0${secs}` : secs}`;
+    }
+    return `00:${secs < 10 ? `0${secs}` : secs}`;
+  };
+
   return (
-    <motion.div
-      className="w-full h-screen flex flex-col items-center justify-start pt-20 font-poppins"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
+    <div className="w-full h-screen font-poppins relative">
       {/* Back button */}
-      <div
-        className="absolute top-8 left-6 flex items-center gap-2 text-[#000060] cursor-pointer hover:opacity-70 transition"
+      <button
+        type="button"
         onClick={onBack}
+        disabled={loading || resending}
+        className="absolute top-8 left-6 flex items-center gap-2 text-[#000060] cursor-pointer hover:opacity-70 transition-opacity z-10 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <IoArrowBackOutline className="text-xl" />
         <span className="text-lg font-medium">Back</span>
-      </div>
-
-      <h1 className="text-3xl font-semibold text-[#000060] mt-10">
-        Verify Your Identity
-      </h1>
-
-      <p className="mt-4 text-gray-600 text-center">
-        Enter 4-digit code sent to <br />
-        <span className="font-medium">{phoneHint || "+91 ******0000"}</span>
-      </p>
-
-      {/* OTP Inputs */}
-      <div
-        className={`flex gap-4 mt-10 ${shake ? "animate-shake" : ""}`}
-        onPaste={handlePaste}
-      >
-        {otp.map((digit, index) => (
-          <input
-            key={index}
-            ref={(el) => (inputsRef.current[index] = el)}
-            type="text"
-            inputMode="numeric"
-            maxLength="1"
-            value={digit}
-            onChange={(e) => handleChange(e.target.value, index)}
-            onKeyDown={(e) => handleKeyDown(e, index)}
-            disabled={loading || success}
-            className={`${getInputClassName(
-              index
-            )} disabled:cursor-not-allowed`}
-          />
-        ))}
-
-        {success && (
-          <div className="flex items-center ml-2 animate-scale-in">
-            <CheckCircle2 className="w-10 h-10 text-green-500" />
-          </div>
-        )}
-      </div>
-
-      {error && (
-        <p className="text-red-600 text-sm mt-4 text-center animate-slide-down">
-          {error}
-        </p>
-      )}
-
-      <button
-        onClick={() => handleVerify()}
-        disabled={loading || otp.join("").length !== 4 || success}
-        className={`w-[300px] py-3 rounded-xl font-semibold mt-10 transition-all duration-300
-          ${
-            success
-              ? "bg-green-500 text-white"
-              : "bg-[#000060] text-white hover:bg-[#000060d1] disabled:bg-gray-400"
-          } disabled:cursor-not-allowed`}
-      >
-        {loading ? (
-          <div className="flex items-center justify-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Verifying...
-          </div>
-        ) : success ? (
-          <div className="flex items-center justify-center gap-2">
-            <CheckCircle2 className="h-5 w-5" />
-            Success!
-          </div>
-        ) : (
-          "Continue"
-        )}
       </button>
 
-      <p className="mt-4 text-sm text-gray-600">
-        {timer > 0 ? (
-          <>
-            Re-send code in{" "}
-            <span className="font-medium text-[#000060]">
-              00:{timer < 10 ? `0${timer}` : timer}
-            </span>
-          </>
-        ) : (
-          <span
-            onClick={handleResend}
-            className="text-[#000060] font-medium cursor-pointer hover:underline"
+      {/* Animated content */}
+      <motion.div
+        className="w-full h-full flex flex-col items-center justify-start pt-20"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <motion.div
+          className="flex flex-col items-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        >
+          <h1 className="text-3xl font-semibold text-[#000060] mt-10">
+            Verify Your Identity
+          </h1>
+
+          <p className="mt-4 text-gray-600 text-center">
+            Enter 4-digit code sent to <br />
+            <span className="font-medium">{currentPhoneHint || "+91 ******0000"}</span>
+          </p>
+
+          {/* OTP Inputs */}
+          <div
+            className={`flex gap-4 mt-10 ${shake ? "animate-shake" : ""}`}
+            onPaste={handlePaste}
           >
-            Resend OTP
-          </span>
-        )}
-      </p>
+            {otp.map((digit, index) => (
+              <input
+                key={index}
+                ref={(el) => (inputsRef.current[index] = el)}
+                type="text"
+                inputMode="numeric"
+                maxLength="1"
+                value={digit}
+                onChange={(e) => handleChange(e.target.value, index)}
+                onKeyDown={(e) => handleKeyDown(e, index)}
+                disabled={loading || success || resending}
+                className={`${getInputClassName(index)} disabled:cursor-not-allowed disabled:opacity-60`}
+              />
+            ))}
+
+            {success && (
+              <div className="flex items-center ml-2 animate-scale-in">
+                <CheckCircle2 className="w-10 h-10 text-green-500" />
+              </div>
+            )}
+          </div>
+
+          {/* Messages area - fixed height to prevent layout shift */}
+          <div className="h-12 mt-4 flex items-center justify-center">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 text-red-600 text-sm"
+              >
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{error}</span>
+              </motion.div>
+            )}
+            
+            {resendSuccess && !error && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 text-green-600 text-sm"
+              >
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                <span>New code sent to your phone!</span>
+              </motion.div>
+            )}
+          </div>
+
+          <button
+            onClick={() => handleVerify()}
+            disabled={loading || otp.join("").length !== 4 || success || resending}
+            className={`w-[300px] py-3 rounded-xl font-semibold mt-4 transition-all duration-300
+              ${
+                success
+                  ? "bg-green-500 text-white"
+                  : "bg-[#000060] text-white hover:bg-[#000060d1] disabled:bg-gray-400"
+              } disabled:cursor-not-allowed`}
+          >
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Verifying...
+              </div>
+            ) : success ? (
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle2 className="h-5 w-5" />
+                Success!
+              </div>
+            ) : (
+              "Continue"
+            )}
+          </button>
+
+          {/* Timer / Resend */}
+          <div className="mt-4 text-sm text-gray-600">
+            {timer > 0 ? (
+              <p>
+                Re-send code in{" "}
+                <span className="font-medium text-[#000060]">
+                  {formatTimer(timer)}
+                </span>
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resending}
+                className="text-[#000060] font-medium cursor-pointer hover:underline bg-transparent border-none disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              >
+                {resending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Resend OTP"
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Hint text */}
+          {!success && (
+            <p className="text-xs text-gray-400 text-center mt-3">
+              Didn't receive it? Check your phone signal or try resending
+            </p>
+          )}
+        </motion.div>
+      </motion.div>
 
       <style>{`
         @keyframes shake {
@@ -374,15 +486,10 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
           50% { transform: scale(1.2); }
           100% { transform: scale(1); opacity: 1; }
         }
-        @keyframes slide-down {
-          0% { transform: translateY(-10px); opacity: 0; }
-          100% { transform: translateY(0); opacity: 1; }
-        }
         .animate-shake { animation: shake 0.4s ease-in-out; }
         .animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
-        .animate-slide-down { animation: slide-down 0.2s ease-out forwards; }
       `}</style>
-    </motion.div>
+    </div>
   );
 };
 

@@ -6,7 +6,21 @@ import { mcValidateOtp } from "../../providers/messageCentral/validateOtp.js";
 /**
  * Send login OTP to user's registered phone
  */
-export async function sendLoginOtp(user_id) {
+// Update the sendLoginOtp function in login.service.js
+
+/**
+ * Send login OTP to user's registered phone
+ * @param {string} user_id 
+ * @param {boolean} isResend - If true, skip cooldown check or use shorter cooldown
+ */
+// Update sendLoginOtp in login.service.js
+
+/**
+ * Send login OTP to user's registered phone
+ * @param {string} user_id 
+ * @param {boolean} isResend - If true, this is a resend request
+ */
+export async function sendLoginOtp(user_id, isResend = false) {
   const user = await prisma.user.findUnique({ where: { user_id } });
 
   if (!user) {
@@ -21,14 +35,55 @@ export async function sendLoginOtp(user_id) {
     throw err;
   }
 
-  // Check cooldown (prevent OTP spam)
-  if (
-    user.login_otp_expires &&
-    new Date(user.login_otp_expires) > new Date()
-  ) {
-    const err = new Error("OTP already sent. Please wait before requesting again.");
-    err.code = "OTP_COOLDOWN";
-    throw err;
+  const now = new Date();
+
+  // Check if there's an existing OTP that hasn't expired yet
+  if (user.login_otp_expires && user.login_verification_id) {
+    const expiresAt = new Date(user.login_otp_expires);
+    
+    // If OTP is still valid (not expired)
+    if (expiresAt > now) {
+      // MessageCentral doesn't allow resending while previous OTP is active
+      // We need to wait until it expires OR use their resend mechanism
+      
+      // Calculate time remaining
+      const secondsRemaining = Math.ceil((expiresAt - now) / 1000);
+      
+      // For resend requests, we have two options:
+      // Option 1: Tell user to wait (safer, prevents spam)
+      // Option 2: Use MessageCentral's resend API if available
+      
+      if (isResend) {
+        // Allow resend only after 30 seconds from original send
+        // We store the send time by calculating back from expiry
+        const otpValiditySeconds = 300; // 5 minutes default
+        const otpSentAt = new Date(expiresAt.getTime() - otpValiditySeconds * 1000);
+        const secondsSinceSent = Math.floor((now - otpSentAt) / 1000);
+        
+        if (secondsSinceSent < 30) {
+          const waitTime = 30 - secondsSinceSent;
+          const err = new Error(`Please wait ${waitTime} seconds before requesting a new OTP.`);
+          err.code = "OTP_COOLDOWN";
+          err.waitTime = waitTime;
+          throw err;
+        }
+        
+        // After 30 seconds, we can try to send a new OTP
+        // But MessageCentral might still reject it - we'll handle that below
+      } else {
+        // Initial login attempt - if OTP was sent recently, use that
+        const otpValiditySeconds = 300;
+        const otpSentAt = new Date(expiresAt.getTime() - otpValiditySeconds * 1000);
+        const secondsSinceSent = Math.floor((now - otpSentAt) / 1000);
+        
+        if (secondsSinceSent < 60) {
+          const err = new Error("OTP already sent. Please check your phone or wait to resend.");
+          err.code = "OTP_COOLDOWN";
+          err.waitTime = 30 - Math.min(secondsSinceSent, 30);
+          throw err;
+        }
+      }
+    }
   }
 
   // Get MessageCentral token
@@ -37,32 +92,67 @@ export async function sendLoginOtp(user_id) {
     process.env.MC_PASSWORD
   );
 
-  // Send OTP via MessageCentral
-  const data = await mcSendOtp({
-    authToken,
-    customerId: process.env.MC_CUSTOMER,
-    mobileNumber: user.phone_number,
-    otpLength: Number(process.env.SMS_OTP_LENGTH || 4),
-    countryCode: process.env.MC_COUNTRY || "91",
-  });
+  try {
+    // Send OTP via MessageCentral
+    const data = await mcSendOtp({
+      authToken,
+      customerId: process.env.MC_CUSTOMER,
+      mobileNumber: user.phone_number,
+      otpLength: Number(process.env.SMS_OTP_LENGTH || 4),
+      countryCode: process.env.MC_COUNTRY || "91",
+    });
 
-  const verificationId =
-    data?.verificationId || data?.verificationID || data?.verification_id;
-  const timeout = Number(data?.timeout || data?.time || 300);
+    const verificationId =
+      data?.verificationId || data?.verificationID || data?.verification_id;
+    const timeout = Number(data?.timeout || data?.time || 300);
 
-  // Save verification ID
-  await prisma.user.update({
-    where: { user_id },
-    data: {
-      login_verification_id: verificationId,
-      login_otp_expires: new Date(Date.now() + timeout * 1000),
-      login_otp_attempts: 0, // Reset attempts
-    },
-  });
+    // Save verification ID
+    await prisma.user.update({
+      where: { user_id },
+      data: {
+        login_verification_id: verificationId,
+        login_otp_expires: new Date(Date.now() + timeout * 1000),
+        login_otp_attempts: 0,
+      },
+    });
 
-  return { success: true };
+    return { success: true, timeout };
+    
+  } catch (providerError) {
+    console.error("MessageCentral error:", providerError);
+    
+    // Handle MessageCentral specific errors
+    const responseCode = providerError?.response?.data?.responseCode;
+    const message = providerError?.response?.data?.message;
+    
+    if (responseCode === 506 || message === "REQUEST_ALREADY_EXISTS") {
+      // OTP already exists and is still active on MessageCentral's side
+      // Calculate remaining time based on our stored expiry
+      if (user.login_otp_expires) {
+        const expiresAt = new Date(user.login_otp_expires);
+        const secondsRemaining = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+        
+        // If there's still time, return the remaining time as cooldown
+        if (secondsRemaining > 0) {
+          // Use the existing OTP - don't throw error, just inform user
+          const err = new Error(`OTP already sent. Please wait ${Math.min(secondsRemaining, 30)} seconds or check your phone.`);
+          err.code = "OTP_COOLDOWN";
+          err.waitTime = Math.min(secondsRemaining, 30);
+          throw err;
+        }
+      }
+      
+      // If we can't determine the time, use a default
+      const err = new Error("Please wait 30 seconds before requesting a new OTP.");
+      err.code = "OTP_COOLDOWN";
+      err.waitTime = 30;
+      throw err;
+    }
+    
+    // Re-throw other errors
+    throw providerError;
+  }
 }
-
 /**
  * Verify login OTP
  */

@@ -1,6 +1,9 @@
+// src/components/onboarding/EmailOTP.jsx
+
 import { useState, useRef, useEffect } from "react";
 import { sendSignupOtp, verifySignupOtp } from "../../api/otp";
-import { Loader2, CheckCircle2, Mail } from "lucide-react";
+import { Loader2, CheckCircle2, Mail, AlertCircle } from "lucide-react";
+import { motion } from "framer-motion";
 
 const EmailOTP = ({ pending_id, email, onContinue }) => {
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -10,6 +13,7 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
   const [resending, setResending] = useState(false);
   const [shake, setShake] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   const inputsRef = useRef([]);
 
@@ -32,6 +36,7 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
     if (code.length === 4 && otp.every((d) => d !== "") && !loading && !success) {
       handleSubmit(code);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp]);
 
   const handleChange = (value, index) => {
@@ -42,6 +47,7 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
     newOtp[index] = value;
     setOtp(newOtp);
     setError("");
+    setResendSuccess(false);
 
     if (value && index < 3) {
       inputsRef.current[index + 1]?.focus();
@@ -84,20 +90,53 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
   };
 
   const handleResend = async () => {
-    if (timer !== 0 || resending) return;
+    if (timer > 0 || resending) return;
+
+    setResending(true);
+    setError("");
+    setOtp(["", "", "", ""]);
+    setSuccess(false);
+    setResendSuccess(false);
 
     try {
-      setResending(true);
-      setOtp(["", "", "", ""]);
-      setError("");
-      setSuccess(false);
+      await sendSignupOtp({ pending_id, isResend: true });
 
-      await sendSignupOtp({ pending_id });
+      // Show success message briefly
+      setResendSuccess(true);
+      setTimeout(() => setResendSuccess(false), 3000);
 
+      // Reset timer
       setTimer(30);
-      inputsRef.current[0]?.focus();
+
+      // Focus first input
+      setTimeout(() => {
+        inputsRef.current[0]?.focus();
+      }, 100);
+
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to resend OTP.");
+      console.error("Resend Email OTP error:", err);
+      
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message || "Failed to resend OTP";
+      const waitTime = err?.response?.data?.data?.waitTime;
+
+      if (status === 429) {
+        // Rate limited - extract wait time
+        setError(msg);
+        if (waitTime) {
+          setTimer(waitTime);
+        } else {
+          // Try to extract from message
+          const waitMatch = msg.match(/(\d+)\s*seconds/);
+          if (waitMatch) {
+            setTimer(parseInt(waitMatch[1]));
+          }
+        }
+      } else if (status === 404) {
+        setError("Session expired. Please start signup again.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setResending(false);
     }
@@ -109,6 +148,7 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
 
     setLoading(true);
     setError("");
+    setResendSuccess(false);
 
     try {
       await verifySignupOtp({ pending_id, otp: fullOtp });
@@ -121,7 +161,8 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
       }, 600);
 
     } catch (err) {
-      setError(err?.response?.data?.message || "Invalid OTP.");
+      const msg = err?.response?.data?.message || "Invalid OTP. Please try again.";
+      setError(msg);
       triggerShake();
 
       setTimeout(() => {
@@ -154,7 +195,8 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
     if (!email) return "";
     const [name, domain] = email.split("@");
     if (name.length <= 2) return email;
-    return `${name[0]}${"*".repeat(name.length - 2)}${name.slice(-1)}@${domain}`;
+    const maskedLength = Math.min(name.length - 2, 6);
+    return `${name[0]}${"*".repeat(maskedLength)}${name.slice(-1)}@${domain}`;
   };
 
   return (
@@ -190,8 +232,8 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
             value={digit}
             onChange={(e) => handleChange(e.target.value, i)}
             onKeyDown={(e) => handleKeyDown(e, i)}
-            disabled={loading || success}
-            className={`${getInputClassName(i)} disabled:cursor-not-allowed`}
+            disabled={loading || success || resending}
+            className={`${getInputClassName(i)} disabled:cursor-not-allowed disabled:opacity-60`}
           />
         ))}
 
@@ -204,47 +246,79 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
       </div>
 
       {/* Timer / Resend */}
-      <p className="text-center text-sm text-[#7A3AFF] mt-3">
-        <span
-          className={`cursor-pointer hover:underline transition ${
-            timer !== 0 || resending ? "opacity-50 pointer-events-none" : ""
-          }`}
-          onClick={handleResend}
-        >
-          {resending ? (
-            <span className="flex items-center justify-center gap-1">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Sending...
+      <div className="text-center mt-3">
+        {timer > 0 ? (
+          <p className="text-sm text-gray-600">
+            Resend code in{" "}
+            <span className="font-medium text-[#000060]">
+              00:{timer < 10 ? `0${timer}` : timer}
             </span>
-          ) : (
-            "Resend Code"
-          )}
-        </span>{" "}
-        {timer > 0 && (
-          <span className="text-gray-500">
-            : 00:{timer < 10 ? `0${timer}` : timer}
-          </span>
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resending}
+            className="text-[#7A3AFF] text-sm font-medium cursor-pointer hover:underline 
+                       bg-transparent border-none disabled:opacity-50 disabled:cursor-not-allowed
+                       inline-flex items-center gap-2"
+          >
+            {resending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              "Resend Code"
+            )}
+          </button>
         )}
-      </p>
+      </div>
 
-      {/* Error message */}
-      {error && (
-        <p className="text-red-600 text-sm mt-2 animate-slide-down">{error}</p>
-      )}
+      {/* Messages area - fixed height to prevent layout shift */}
+      <div className="h-12 mt-2 flex items-start justify-center">
+        {/* Error message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 text-red-600 text-sm"
+          >
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
+          </motion.div>
+        )}
 
-      {/* Success message */}
-      {success && (
-        <p className="text-green-600 text-sm mt-2 font-medium animate-slide-down flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" />
-          Email verified successfully!
-        </p>
-      )}
+        {/* Resend success message */}
+        {resendSuccess && !error && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 text-green-600 text-sm"
+          >
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <span>New code sent to your email!</span>
+          </motion.div>
+        )}
+
+        {/* Verification success message */}
+        {success && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 text-green-600 text-sm font-medium"
+          >
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <span>Email verified successfully!</span>
+          </motion.div>
+        )}
+      </div>
 
       {/* Submit button */}
       <button
         onClick={() => handleSubmit()}
-        disabled={loading || otp.some((v) => v === "") || success}
-        className={`w-full py-3 rounded-xl mt-6 font-medium transition-all duration-300
+        disabled={loading || otp.some((v) => v === "") || success || resending}
+        className={`w-full py-3 rounded-xl mt-4 font-medium transition-all duration-300
           ${success
             ? "bg-green-500 text-white"
             : "bg-[#000060] text-white hover:bg-[#000060d1] disabled:bg-gray-400"
@@ -268,7 +342,7 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
       {/* Check spam hint */}
       {!success && (
         <p className="text-xs text-gray-400 text-center mt-3">
-          Didn't receive it? Check your spam folder
+          Didn't receive it? Check your spam folder or try resending
         </p>
       )}
 
@@ -288,14 +362,8 @@ const EmailOTP = ({ pending_id, email, onContinue }) => {
           100% { transform: scale(1); opacity: 1; }
         }
         
-        @keyframes slide-down {
-          0% { transform: translateY(-10px); opacity: 0; }
-          100% { transform: translateY(0); opacity: 1; }
-        }
-        
         .animate-shake { animation: shake 0.4s ease-in-out; }
         .animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
-        .animate-slide-down { animation: slide-down 0.2s ease-out forwards; }
       `}</style>
     </div>
   );

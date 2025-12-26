@@ -18,3 +18,4 @@ export function fail(res, message = "Failed", status = 400, data = {}) {
     data,
   });
 }
+

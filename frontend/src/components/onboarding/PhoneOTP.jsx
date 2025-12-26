@@ -1,14 +1,19 @@
+// src/components/onboarding/PhoneOtp.jsx
+
 import { useState, useRef, useEffect } from "react";
 import { verifySmsOtp, sendSmsOtp } from "../../api/otp";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, Phone, AlertCircle } from "lucide-react";
+import { motion } from "framer-motion";
 
 const PhoneOtp = ({ pending_id, phone, onContinue }) => {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [timer, setTimer] = useState(30);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [shake, setShake] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   const inputsRef = useRef([]);
 
@@ -31,6 +36,7 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
     if (code.length === 4 && otp.every((d) => d !== "") && !loading && !success) {
       handleSubmit(code);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp]);
 
   const handleChange = (value, index) => {
@@ -41,6 +47,7 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
     newOtp[index] = value;
     setOtp(newOtp);
     setError("");
+    setResendSuccess(false);
 
     if (value && index < 3) {
       inputsRef.current[index + 1]?.focus();
@@ -88,6 +95,7 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
 
     setLoading(true);
     setError("");
+    setResendSuccess(false);
 
     try {
       await verifySmsOtp({ pending_id, code: fullOtp });
@@ -100,32 +108,63 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
       }, 600);
 
     } catch (err) {
-      setError(err?.response?.data?.message || "Invalid OTP. Try again.");
+      const msg = err?.response?.data?.message || "Invalid OTP. Please try again.";
+      setError(msg);
       triggerShake();
 
       setTimeout(() => {
         setOtp(["", "", "", ""]);
         inputsRef.current[0]?.focus();
       }, 300);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleResend = async () => {
-    if (timer !== 0) return;
+    if (timer > 0 || resending) return;
+
+    setResending(true);
+    setError("");
+    setOtp(["", "", "", ""]);
+    setSuccess(false);
+    setResendSuccess(false);
 
     try {
-      setOtp(["", "", "", ""]);
-      setTimer(30);
-      setError("");
-      setSuccess(false);
-
       await sendSmsOtp({ pending_id, phone });
 
-      inputsRef.current[0]?.focus();
+      // Show success message briefly
+      setResendSuccess(true);
+      setTimeout(() => setResendSuccess(false), 3000);
+
+      // Reset timer
+      setTimer(30);
+
+      // Focus first input
+      setTimeout(() => {
+        inputsRef.current[0]?.focus();
+      }, 100);
+
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to resend OTP.");
+      console.error("Resend SMS OTP error:", err);
+      
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message || "Failed to resend OTP";
+
+      if (status === 429) {
+        // Rate limited - extract wait time
+        setError(msg);
+        const waitMatch = msg.match(/(\d+)\s*seconds/);
+        if (waitMatch) {
+          setTimer(parseInt(waitMatch[1]));
+        }
+      } else if (status === 404) {
+        setError("Session expired. Please start signup again.");
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setResending(false);
     }
   };
 
@@ -145,6 +184,12 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
     return `${base} border-gray-300 focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/20`;
   };
 
+  // Mask phone for privacy
+  const maskPhone = (phone) => {
+    if (!phone || phone.length < 4) return phone;
+    return `******${phone.slice(-4)}`;
+  };
+
   return (
     <div
       className="w-full max-w-sm font-poppins px-3 mt-10"
@@ -152,9 +197,12 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
     >
       <h2 className="text-[26px] font-bold text-[#000006]">Verify Your Phone</h2>
 
-      <p className="text-gray-500 text-sm leading-relaxed mt-1 mb-4">
-        Enter the 4-digit code we sent to <b>{phone}</b>
-      </p>
+      <div className="flex items-center gap-2 mt-2 mb-4">
+        <Phone className="w-4 h-4 text-gray-500" />
+        <p className="text-gray-500 text-sm">
+          Code sent to <b className="text-[#000060]">+91 {maskPhone(phone)}</b>
+        </p>
+      </div>
 
       <div className="w-full h-[1px] bg-gray-300 mb-5" />
 
@@ -175,8 +223,8 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
             value={digit}
             onChange={(e) => handleChange(e.target.value, i)}
             onKeyDown={(e) => handleKeyDown(e, i)}
-            disabled={loading || success}
-            className={`${getInputClassName(i)} disabled:cursor-not-allowed`}
+            disabled={loading || success || resending}
+            className={`${getInputClassName(i)} disabled:cursor-not-allowed disabled:opacity-60`}
           />
         ))}
 
@@ -189,40 +237,79 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
       </div>
 
       {/* Timer / Resend */}
-      <p className="text-center text-sm text-[#7A3AFF] mt-3">
-        <span
-          className={`cursor-pointer hover:underline transition ${
-            timer !== 0 ? "opacity-50 pointer-events-none" : ""
-          }`}
-          onClick={handleResend}
-        >
-          Resend Code
-        </span>{" "}
-        {timer > 0 && (
-          <span className="text-gray-500">
-            : 00:{timer < 10 ? `0${timer}` : timer}
-          </span>
+      <div className="text-center mt-3">
+        {timer > 0 ? (
+          <p className="text-sm text-gray-600">
+            Resend code in{" "}
+            <span className="font-medium text-[#000060]">
+              00:{timer < 10 ? `0${timer}` : timer}
+            </span>
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resending}
+            className="text-[#7A3AFF] text-sm font-medium cursor-pointer hover:underline 
+                       bg-transparent border-none disabled:opacity-50 disabled:cursor-not-allowed
+                       inline-flex items-center gap-2"
+          >
+            {resending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              "Resend Code"
+            )}
+          </button>
         )}
-      </p>
+      </div>
 
-      {/* Error message */}
-      {error && (
-        <p className="text-red-600 text-sm mt-2 animate-slide-down">{error}</p>
-      )}
+      {/* Messages area - fixed height to prevent layout shift */}
+      <div className="h-12 mt-2 flex items-start justify-center">
+        {/* Error message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 text-red-600 text-sm"
+          >
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
+          </motion.div>
+        )}
 
-      {/* Success message */}
-      {success && (
-        <p className="text-green-600 text-sm mt-2 font-medium animate-slide-down flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" />
-          Phone verified successfully!
-        </p>
-      )}
+        {/* Resend success message */}
+        {resendSuccess && !error && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 text-green-600 text-sm"
+          >
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <span>New code sent to your phone!</span>
+          </motion.div>
+        )}
+
+        {/* Verification success message */}
+        {success && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 text-green-600 text-sm font-medium"
+          >
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <span>Phone verified successfully!</span>
+          </motion.div>
+        )}
+      </div>
 
       {/* Submit button */}
       <button
         onClick={() => handleSubmit()}
-        disabled={loading || otp.some((v) => v === "") || success}
-        className={`w-full py-3 rounded-xl mt-6 font-medium transition-all duration-300
+        disabled={loading || otp.some((v) => v === "") || success || resending}
+        className={`w-full py-3 rounded-xl mt-4 font-medium transition-all duration-300
           ${success
             ? "bg-green-500 text-white"
             : "bg-[#000060] text-white hover:bg-[#000060d1] disabled:bg-gray-400"
@@ -243,6 +330,13 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
         )}
       </button>
 
+      {/* Hint text */}
+      {!success && (
+        <p className="text-xs text-gray-400 text-center mt-3">
+          Didn't receive it? Check your phone signal or try resending
+        </p>
+      )}
+
       {/* Animations */}
       <style>{`
         @keyframes shake {
@@ -259,14 +353,8 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
           100% { transform: scale(1); opacity: 1; }
         }
         
-        @keyframes slide-down {
-          0% { transform: translateY(-10px); opacity: 0; }
-          100% { transform: translateY(0); opacity: 1; }
-        }
-        
         .animate-shake { animation: shake 0.4s ease-in-out; }
         .animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
-        .animate-slide-down { animation: slide-down 0.2s ease-out forwards; }
       `}</style>
     </div>
   );

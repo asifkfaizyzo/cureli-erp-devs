@@ -112,16 +112,17 @@ export async function googleSignupController(req, res) {
   }
 }
 
+
 export async function requestEmailOtp(req, res) {
   try {
-    const { pending_id } = req.body;
+    const { pending_id, isResend } = req.body;
 
-    await sendEmailOtp(pending_id);
+    await sendEmailOtp(pending_id, isResend === true);
 
     return success(res, {}, "OTP sent to email");
   } catch (err) {
     if (err.code === "OTP_COOLDOWN") {
-      return fail(res, err.message, 429);
+      return fail(res, err.message, 429, { waitTime: err.waitTime });
     }
     if (err.code === "NOT_FOUND") {
       return fail(res, err.message, 404);

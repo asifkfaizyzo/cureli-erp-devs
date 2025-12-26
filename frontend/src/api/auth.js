@@ -15,6 +15,10 @@ export const loginUser = (data) =>
 export const verifyLoginOtp = (data) =>
   API.post("/auth/verify-login-otp", data);
 
+// NEW: Resend Login OTP
+export const resendLoginOtp = (data) =>
+  API.post("/auth/resend-login-otp", data);
+
 export const saveUsername = (data) =>
   API.post("/pending/signup/username", data);
 
@@ -45,16 +49,8 @@ export const updateOnboardingStep = (step) =>
 export const getOnboardingStatus = () =>
   API.get("/auth/onboarding-status");
 
-// ============================================
-// NEW: Get user permissions
-// ============================================
-
-
 export const getUserPermissions = () =>
   API.get("/auth/permissions");
 
-/**
- * Logout current user
- */
 export const logoutUser = () =>
   API.post("/auth/logout");
