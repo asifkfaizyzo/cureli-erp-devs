@@ -14,6 +14,7 @@ import { useAuthStore } from "./store/useAuthStore";
 import AuthGuard from "./guards/AuthGuard";
 import SetupGuard from "./guards/SetupGuard";
 import PermissionGuard from "./guards/PermissionGuard";
+import OnboardingGuard from "./guards/OnboardingGuard"; // ← NEW
 
 // ============================================
 // PERMISSIONS CONFIG
@@ -23,7 +24,7 @@ import { PERMISSIONS } from "./config/permissions";
 // ============================================
 // PUBLIC PAGES
 // ============================================
-import NotFoundPage from "./components/common/NotFoundPage.jsx";  
+import NotFoundPage from "./components/common/NotFoundPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
@@ -89,22 +90,15 @@ const AuthInitializer = ({ children }) => {
 // ============================================
 const App = () => {
   useEffect(() => {
-    // Disable Ctrl + Scroll Zoom
+    // Zoom prevention code...
     const disableZoomScroll = (e) => {
       if (e.ctrlKey) e.preventDefault();
     };
-
-    // Disable Ctrl + (+, -, 0) keys
     const disableKeyZoom = (e) => {
-      if (
-        e.ctrlKey &&
-        (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")
-      ) {
+      if (e.ctrlKey && (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")) {
         e.preventDefault();
       }
     };
-
-    // Disable touchpad pinch zoom
     const disablePinch = (e) => {
       e.preventDefault();
     };
@@ -148,15 +142,22 @@ const App = () => {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* ============================================ */}
-          {/* AUTH REQUIRED - ONBOARDING ROUTES */}
-          {/* These need auth but NOT setup completion */}
+          {/* ONBOARDING ROUTES (Special guard) */}
+          {/* Handles both PendingUser (no token) and Real User (has token) */}
           {/* ============================================ */}
-          <Route element={<AuthGuard />}>
+          <Route element={<OnboardingGuard />}>
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/verification" element={<VerificationPage />} />
-            <Route path="/plan-selection" element={<PlanSelectionPage />} />
+          </Route>
 
-            {/* Setup Routes - Auth required, but not setup guard */}
+          {/* ============================================ */}
+          {/* POST-VERIFICATION ROUTES (Token required) */}
+          {/* User exists but may not have completed setup */}
+          {/* ============================================ */}
+          <Route element={<AuthGuard />}>
+            <Route path="/plan-selection" element={<PlanSelectionPage />} />
+            
+            {/* Setup Routes */}
             <Route path="/setup" element={<SetupRouter />} />
             <Route element={<SetupLayout />}>
               <Route path="/setup/branches" element={<SetupBranchesPage />} />
@@ -167,13 +168,13 @@ const App = () => {
 
           {/* ============================================ */}
           {/* PROTECTED ERP ROUTES */}
-          {/* Auth + Setup required + Permission checks */}
+          {/* Full auth + Setup required + Permission checks */}
           {/* ============================================ */}
           <Route element={<AuthGuard />}>
             <Route element={<SetupGuard />}>
               <Route element={<AppLayout />}>
                 
-                {/* Dashboard - Everyone with dashboard:view */}
+                {/* Dashboard */}
                 <Route
                   path="/dashboard"
                   element={
@@ -183,9 +184,7 @@ const App = () => {
                   }
                 />
 
-                {/* ============================================ */}
-                {/* SALES ROUTES */}
-                {/* ============================================ */}
+                {/* Sales Routes */}
                 <Route
                   path="/Salesbilling"
                   element={
@@ -203,9 +202,7 @@ const App = () => {
                   }
                 />
 
-                {/* ============================================ */}
-                {/* PURCHASE ROUTES */}
-                {/* ============================================ */}
+                {/* Purchase Routes */}
                 <Route
                   path="/purchase-billing"
                   element={
@@ -223,9 +220,7 @@ const App = () => {
                   }
                 />
 
-                {/* ============================================ */}
-                {/* INVENTORY ROUTES */}
-                {/* ============================================ */}
+                {/* Inventory */}
                 <Route
                   path="/inventory"
                   element={
@@ -235,9 +230,7 @@ const App = () => {
                   }
                 />
 
-                {/* ============================================ */}
-                {/* SUPPLIERS */}
-                {/* ============================================ */}
+                {/* Suppliers */}
                 <Route
                   path="/suppliers"
                   element={
@@ -247,9 +240,7 @@ const App = () => {
                   }
                 />
 
-                {/* ============================================ */}
-                {/* REPORTS */}
-                {/* ============================================ */}
+                {/* Reports */}
                 <Route
                   path="/reports-sales"
                   element={
@@ -259,9 +250,7 @@ const App = () => {
                   }
                 />
 
-                {/* ============================================ */}
-                {/* USER MANAGEMENT (Super Admin only) */}
-                {/* ============================================ */}
+                {/* User Management */}
                 <Route
                   path="/pending-users"
                   element={
