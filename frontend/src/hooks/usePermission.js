@@ -106,18 +106,33 @@ export function usePermission() {
  * 
  * Returns visibility/disabled state for menu items.
  * Used by Sidebar component.
+ * 
+ * Permission Structure:
+ * - visible: Whether the item should be rendered
+ * - disabled: Whether the user lacks permission (used to filter out inaccessible items)
  */
 
 export function useMenuPermissions() {
-  const { hasPermission, hasAnyPermission } = usePermission();
+  const { hasPermission, hasAnyPermission, isSuperAdmin, isBranchAdmin } = usePermission();
+
+  // ════════════════════════════════════════════════════════════
+  // Helper: Check if user can access "Add" menu items
+  // Super Admin & Branch Admin have access
+  // ════════════════════════════════════════════════════════════
+  const canAccessAddMenu = isSuperAdmin || isBranchAdmin;
 
   return useMemo(() => ({
+    // ════════════════════════════════════════════════════════════
+    // DASHBOARD
+    // ════════════════════════════════════════════════════════════
     dashboard: {
-      visible: true, // Everyone can see dashboard
+      visible: true,
       disabled: !hasPermission("dashboard:view"),
     },
     
-    // Sales
+    // ════════════════════════════════════════════════════════════
+    // SALES
+    // ════════════════════════════════════════════════════════════
     salesBilling: {
       visible: true,
       disabled: !hasPermission("billing:create"),
@@ -127,7 +142,9 @@ export function useMenuPermissions() {
       disabled: !hasPermission("billing:view"),
     },
     
-    // Purchase
+    // ════════════════════════════════════════════════════════════
+    // PURCHASE
+    // ════════════════════════════════════════════════════════════
     purchaseBilling: {
       visible: true,
       disabled: !hasPermission("purchase:create"),
@@ -137,19 +154,25 @@ export function useMenuPermissions() {
       disabled: !hasPermission("purchase:view"),
     },
     
-    // Inventory
+    // ════════════════════════════════════════════════════════════
+    // INVENTORY
+    // ════════════════════════════════════════════════════════════
     inventory: {
       visible: true,
       disabled: !hasPermission("inventory:view"),
     },
     
-    // Suppliers
+    // ════════════════════════════════════════════════════════════
+    // SUPPLIERS
+    // ════════════════════════════════════════════════════════════
     suppliers: {
       visible: true,
       disabled: !hasPermission("suppliers:view"),
     },
     
-    // Reports
+    // ════════════════════════════════════════════════════════════
+    // REPORTS
+    // ════════════════════════════════════════════════════════════
     salesReport: {
       visible: true,
       disabled: !hasPermission("reports:sales"),
@@ -167,18 +190,34 @@ export function useMenuPermissions() {
       disabled: !hasPermission("reports:financial"),
     },
     
-    // Users (SA only)
+    // ════════════════════════════════════════════════════════════
+    // ADD MENU (Super Admin & Branch Admin Only)
+    // ════════════════════════════════════════════════════════════
+    addUser: {
+      visible: true,
+      disabled: !canAccessAddMenu, // ✅ Super Admin & Branch Admin can add users
+    },
+    addBranch: {
+      visible: true,
+      disabled: !canAccessAddMenu, // ✅ Super Admin & Branch Admin can add branches
+    },
+    
+    // ════════════════════════════════════════════════════════════
+    // USERS MANAGEMENT
+    // ════════════════════════════════════════════════════════════
     pendingUsers: {
       visible: true,
       disabled: !hasPermission("users:manage"),
     },
     
-    // Settings
+    // ════════════════════════════════════════════════════════════
+    // SETTINGS
+    // ════════════════════════════════════════════════════════════
     settings: {
       visible: true,
       disabled: !hasPermission("settings:view"),
     },
-  }), [hasPermission, hasAnyPermission]);
+  }), [hasPermission, hasAnyPermission, canAccessAddMenu]);
 }
 
 export default usePermission;
