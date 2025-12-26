@@ -1,11 +1,26 @@
-// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\frontend\src\api\axios.js
+// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\api\axios.js
 
 import axios from "axios";
+import { useAuthStore } from "../store/useAuthStore";
 
 const API = axios.create({
   baseURL: "http://localhost:5000/api",
-  withCredentials: true, // Required for refresh token cookie
+  withCredentials: true,
 });
+
+// ============================================
+// HELPER: Clear auth state
+// ============================================
+const clearAuthAndRedirect = (reason) => {
+  // Get the logout function from the store
+  const logout = useAuthStore.getState().logout;
+  
+  // Call logout to clear store state
+  logout();
+  
+  // Redirect to login
+  window.location.href = `/login?reason=${reason}`;
+};
 
 // ============================================
 // REQUEST INTERCEPTOR - Attach access token
@@ -32,12 +47,7 @@ API.interceptors.response.use(
     // ✅ Handle session invalidation (logged in from another device)
     if (error.response?.data?.data?.code === "SESSION_INVALIDATED") {
       console.warn("🔒 Session invalidated - logged in from another device");
-      
-      // Clear local storage
-      localStorage.removeItem("access_token");
-      
-      // Redirect to login with message
-      window.location.href = "/login?reason=session_replaced";
+      clearAuthAndRedirect("session_replaced");
       return Promise.reject(error);
     }
 
@@ -61,6 +71,10 @@ API.interceptors.response.use(
         
         if (newToken) {
           localStorage.setItem("access_token", newToken);
+          
+          // ✅ Also update the store
+          useAuthStore.getState().updateToken(newToken);
+          
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return API(originalRequest);
         }
@@ -69,11 +83,9 @@ API.interceptors.response.use(
 
         // Check if refresh failed due to session invalidation
         if (refreshError.response?.data?.data?.code === "SESSION_INVALIDATED") {
-          localStorage.removeItem("access_token");
-          window.location.href = "/login?reason=session_replaced";
+          clearAuthAndRedirect("session_replaced");
         } else {
-          localStorage.removeItem("access_token");
-          window.location.href = "/login?reason=session_expired";
+          clearAuthAndRedirect("session_expired");
         }
         
         return Promise.reject(refreshError);

@@ -28,6 +28,7 @@ async function resolveShopId(user) {
  * Returns verification status for the current user's shop
  */
 
+
 export async function getVerificationStatusController(req, res) {
   try {
     const user_id = req.user.user_id;
@@ -56,34 +57,38 @@ export async function getVerificationStatusController(req, res) {
       return fail(res, "Shop not found", 404);
     }
 
-    // Get user status including first_verified_at
+    // Get user status
     const user = await prisma.user.findUnique({
       where: { user_id },
       select: {
         status: true,
         first_login_after_verification: true,
-        first_verified_at: true,  // ← NEW
+        first_verified_at: true,
         first_name: true,
         last_name: true,
       },
     });
 
-    console.log("Shop verification_status:", shop.verification_status);
-    console.log("User status:", user?.status);
-    console.log("First verified at:", user?.first_verified_at);
+    const isFirstVerification = !user?.first_verified_at;
+
+    console.log("=== IS_FIRST_VERIFICATION DEBUG ===");
+    console.log("user_id:", user_id);
+    console.log("first_verified_at:", user?.first_verified_at);
+    console.log("first_login_after_verification:", user?.first_login_after_verification);
+    console.log("is_first_verification:", isFirstVerification);
     console.log("=== END DEBUG ===");
 
     return success(res, {
       verification_status: shop.verification_status,
       user_status: user?.status,
       first_login_after_verification: user?.first_login_after_verification,
-      first_verified_at: user?.first_verified_at,  // ← NEW
-      is_first_verification: !user?.first_verified_at,  // ← NEW (convenience flag)
+      first_verified_at: user?.first_verified_at,
+      // ✅ FIXED: Use first_verified_at to determine first-time vs returning
+      is_first_verification: isFirstVerification,
       shop_id: shop.shop_id,
       business_name: shop.business_name,
       user_name: `${user?.first_name || ""} ${user?.last_name || ""}`.trim(),
     });
-
   } catch (err) {
     console.error("shopFiles.getVerificationStatus", err);
     return fail(res, "Failed to get verification status", 500);
@@ -229,7 +234,11 @@ export async function messageController(req, res) {
   } catch (err) {
     console.error("shopFiles.message", err);
     if (err.code === "FORBIDDEN") {
-      return fail(res, "You do not have permission to message on this file", 403);
+      return fail(
+        res,
+        "You do not have permission to message on this file",
+        403
+      );
     }
     return fail(res, "Failed to send message", 500);
   }

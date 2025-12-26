@@ -673,16 +673,14 @@ async function updateOwnerStatusToVerified(shop_id) {
 
     if (!user || user.status === "verified") return;
 
-    // Build update data
     const updateData = {
       status: "verified",
       onboarding_step: 12,
       first_login_after_verification: false,
     };
 
-    // Only set first_verified_at if this is the FIRST time being verified
+    // Log for debugging
     if (!user.first_verified_at) {
-      updateData.first_verified_at = new Date();
       console.log("🎉 First-time verification for user:", shop.owner_user_id);
     } else {
       console.log("🔄 Re-verification for user:", shop.owner_user_id);
@@ -698,7 +696,6 @@ async function updateOwnerStatusToVerified(shop_id) {
     console.error("❌ Failed to update owner status:", err);
   }
 }
-
 async function updateOwnerStatusAfterRejection(shop_id) {
   try {
     const shop = await prisma.shop.findUnique({

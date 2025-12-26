@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { saveUsername, completeSignup, checkUsernameAvailability } from "../../api/auth";
 import { Loader2, Check, AlertCircle, Sparkles, RefreshCw } from "lucide-react";
-
+import { useAuthStore } from "../../store/useAuthStore";
 // Debounce hook
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -25,6 +25,7 @@ const IdentityForm = ({ pending_id, onContinue, onNext }) => {
   const [usernameSaved, setUsernameSaved] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const setAuth = useAuthStore((state) => state.setAuth);
 
   // Username suggestions state
   const [suggestions, setSuggestions] = useState([]);
@@ -257,9 +258,15 @@ const { firstName, lastName } = getNameFromStorage();
 
       const { user, shop, access_token } = res.data.data;
 
-      localStorage.setItem("access_token", access_token);
-      localStorage.setItem("shop_id", shop.shop_id);
-      localStorage.setItem("user_id", user.user_id);
+      setAuth({
+        access_token,
+        user_id: user.user_id,
+        shop_id: shop.shop_id,
+        branch_id: null, // Super admin has no branch yet
+        role: user.role, // "super_admin"
+        user_name: `${user.first_name} ${user.last_name}`.trim(),
+        branch_name: null,
+      });
 
       onNext();
     } catch (err) {

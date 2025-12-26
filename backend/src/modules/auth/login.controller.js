@@ -95,13 +95,35 @@ export async function updateOnboardingStepController(req, res) {
   }
 }
 
+
+
 export async function completeOnboardingController(req, res) {
   try {
     const user_id = req.user.user_id;
 
+    // ✅ Get current user to check if this is first-time verification
+    const user = await prisma.user.findUnique({
+      where: { user_id },
+      select: { first_verified_at: true },
+    });
+
+    // Build update data
+    const updateData = {
+      first_login_after_verification: true,
+    };
+
+    // ✅ NEW: Only set first_verified_at if this is the FIRST time
+    // This preserves the original date for returning users
+    if (!user?.first_verified_at) {
+      updateData.first_verified_at = new Date();
+      console.log("📅 First-time verification complete for user:", user_id);
+    } else {
+      console.log("🔄 Returning user verification complete for user:", user_id);
+    }
+
     await prisma.user.update({
       where: { user_id },
-      data: { first_login_after_verification: true },
+      data: updateData,
     });
 
     return success(res, {}, "Onboarding completed");
