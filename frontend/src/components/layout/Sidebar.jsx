@@ -1,6 +1,6 @@
 // src/components/layout/Sidebar.jsx
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -13,13 +13,8 @@ import {
   BarChart2,
   Settings,
   ChevronDown,
-  Lock,
 } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
-
-// ============================================
-// NEW: Import permission hook
-// ============================================
 import { useMenuPermissions } from "../../hooks/usePermission";
 
 /* ───────────────── constants ───────────────── */
@@ -50,7 +45,6 @@ const MenuItem = ({
   openMenuId,
   onToggle,
   onNavigate,
-  permissions,
 }) => {
   const Icon = item.icon;
   const isParent = item.submenu?.length > 0;
@@ -59,26 +53,8 @@ const MenuItem = ({
   const isActive = activeMenu === item.id || isChildActive;
   const isOpen = openMenuId === item.id;
 
-  // ============================================
-  // NEW: Check if item is disabled
-  // ============================================
-  const itemPermission = permissions[item.permissionKey];
-  const isDisabled = itemPermission?.disabled ?? false;
-
-  // For parent items, check if ALL children are disabled
-  const allChildrenDisabled = isParent
-    ? item.submenu.every((sub) => permissions[sub.permissionKey]?.disabled)
-    : false;
-
-  const effectivelyDisabled = isDisabled || allChildrenDisabled;
-
   const handleClick = (e) => {
     e.preventDefault();
-
-    if (effectivelyDisabled) {
-      // Don't navigate, maybe show tooltip
-      return;
-    }
 
     if (isParent) {
       onToggle(item.id);
@@ -95,27 +71,22 @@ const MenuItem = ({
           relative flex items-center w-full h-11 rounded-xl
           transition-colors duration-200
           ${
-            effectivelyDisabled
-              ? "text-gray-300 cursor-not-allowed"
-              : isActive
+            isActive
               ? "bg-[#05015A] text-white shadow-lg shadow-blue-900/20"
               : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }
         `}
-        whileHover={effectivelyDisabled ? {} : { scale: 1.02 }}
-        whileTap={effectivelyDisabled ? {} : { scale: 0.98 }}
-        title={effectivelyDisabled ? "You don't have permission to access this" : ""}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
       >
         <div className="absolute left-0 w-[56px] flex justify-center">
-          <Icon size={20} className={effectivelyDisabled ? "opacity-40" : ""} />
+          <Icon size={20} />
         </div>
 
         <motion.span
-          className={`absolute left-[44px] text-sm font-medium whitespace-nowrap ${
-            effectivelyDisabled ? "opacity-40" : ""
-          }`}
+          className="absolute left-[44px] text-sm font-medium whitespace-nowrap"
           animate={{
-            opacity: isExpanded ? (effectivelyDisabled ? 0.4 : 1) : 0,
+            opacity: isExpanded ? 1 : 0,
             x: isExpanded ? 0 : -12,
           }}
           transition={SIDEBAR_TRANSITION}
@@ -123,19 +94,7 @@ const MenuItem = ({
           {item.label}
         </motion.span>
 
-        {/* Lock icon for disabled items */}
-        {effectivelyDisabled && isExpanded && (
-          <motion.div
-            className="absolute right-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.4 }}
-          >
-            <Lock size={14} />
-          </motion.div>
-        )}
-
-        {/* Chevron for parent items (only if not disabled) */}
-        {isParent && !effectivelyDisabled && (
+        {isParent && (
           <motion.div
             className="absolute right-3"
             animate={{
@@ -148,9 +107,8 @@ const MenuItem = ({
         )}
       </motion.button>
 
-      {/* Submenu */}
       <AnimatePresence>
-        {isExpanded && isParent && isOpen && !effectivelyDisabled && (
+        {isExpanded && isParent && isOpen && (
           <motion.div
             variants={SUBMENU_VARIANTS}
             initial="hidden"
@@ -161,43 +119,26 @@ const MenuItem = ({
             {item.submenu.map((sub) => {
               const SubIcon = sub.icon;
               const isSubActive = activeMenu === sub.id;
-              
-              // Check sub-item permission
-              const subPermission = permissions[sub.permissionKey];
-              const isSubDisabled = subPermission?.disabled ?? false;
 
               return (
                 <motion.button
                   key={sub.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!isSubDisabled) {
-                      onNavigate(sub);
-                    }
+                    onNavigate(sub);
                   }}
                   className={`
                     flex items-center h-9 px-3 rounded-lg text-sm
                     ${
-                      isSubDisabled
-                        ? "text-gray-300 cursor-not-allowed"
-                        : isSubActive
+                      isSubActive
                         ? "bg-blue-50 text-[#05015A]"
                         : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                     }
                   `}
-                  whileHover={isSubDisabled ? {} : { x: 4 }}
-                  title={isSubDisabled ? "You don't have permission" : ""}
+                  whileHover={{ x: 4 }}
                 >
-                  <SubIcon
-                    size={16}
-                    className={`mr-2 ${isSubDisabled ? "opacity-40" : "opacity-70"}`}
-                  />
-                  <span className={isSubDisabled ? "opacity-40" : ""}>
-                    {sub.label}
-                  </span>
-                  {isSubDisabled && (
-                    <Lock size={12} className="ml-auto opacity-40" />
-                  )}
+                  <SubIcon size={16} className="mr-2 opacity-70" />
+                  <span>{sub.label}</span>
                 </motion.button>
               );
             })}
@@ -212,6 +153,9 @@ const MenuItem = ({
 const Sidebar = () => {
   const [hovered, setHovered] = useState(false);
   const [openMenuId, setOpenMenuId] = useState("");
+  
+  // ✅ NEW: Track if user manually toggled a menu
+  const isManualToggle = useRef(false);
 
   const activeMenu = useMenuStore((s) => s.activeMenu);
   const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
@@ -220,9 +164,6 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ============================================
-  // NEW: Get permissions for menu items
-  // ============================================
   const permissions = useMenuPermissions();
 
   const isExpanded = hovered;
@@ -241,7 +182,7 @@ const Sidebar = () => {
       id: "sales",
       label: "Sales",
       icon: Layers,
-      permissionKey: "salesBilling", // Parent uses first child's permission
+      permissionKey: "salesBilling",
       submenu: [
         {
           id: "sales-billing",
@@ -351,6 +292,37 @@ const Sidebar = () => {
     },
   ];
 
+  /* ───────────── Filter menu items based on permissions ───────────── */
+  const accessibleMenuItems = useMemo(() => {
+    return menuItems
+      .map((item) => {
+        if (item.submenu?.length > 0) {
+          const accessibleSubmenu = item.submenu.filter((sub) => {
+            const subPermission = permissions[sub.permissionKey];
+            return !subPermission?.disabled;
+          });
+
+          if (accessibleSubmenu.length === 0) {
+            return null;
+          }
+
+          return {
+            ...item,
+            submenu: accessibleSubmenu,
+          };
+        }
+
+        const itemPermission = permissions[item.permissionKey];
+
+        if (itemPermission?.disabled) {
+          return null;
+        }
+
+        return item;
+      })
+      .filter(Boolean);
+  }, [permissions]);
+
   /* ───────────── navigation handler ───────────── */
   const handleNavigation = useCallback(
     (item) => {
@@ -361,15 +333,22 @@ const Sidebar = () => {
     [navigate, setActiveMenu, setBreadcrumbs]
   );
 
-  const handleToggleSubmenu = (id) => {
+  // ✅ FIXED: Updated toggle handler
+  const handleToggleSubmenu = useCallback((id) => {
+    isManualToggle.current = true;
     setOpenMenuId((prev) => (prev === id ? "" : id));
-  };
+    
+    // Reset manual toggle flag after a short delay
+    setTimeout(() => {
+      isManualToggle.current = false;
+    }, 100);
+  }, []);
 
-  /* 1️⃣ ROUTE → SIDEBAR SYNC */
+  /* 1️⃣ ROUTE → SIDEBAR SYNC + AUTO-OPEN PARENT */
   useEffect(() => {
     const currentPath = location.pathname;
 
-    for (const item of menuItems) {
+    for (const item of accessibleMenuItems) {
       if (item.path === currentPath) {
         setActiveMenu(item.id);
         setBreadcrumbs(item.breadcrumbs);
@@ -381,35 +360,56 @@ const Sidebar = () => {
         if (sub) {
           setActiveMenu(sub.id);
           setBreadcrumbs(sub.breadcrumbs);
+          // ✅ Auto-open parent only on route change
+          setOpenMenuId(item.id);
           return;
         }
       }
     }
-  }, [location.pathname]);
+  }, [location.pathname, accessibleMenuItems, setActiveMenu, setBreadcrumbs]);
 
-  /* 2️⃣ AUTO-OPEN PARENT WHEN CHILD ACTIVE */
+  /* 2️⃣ AUTO-OPEN PARENT WHEN CHILD ACTIVE (only if not manual toggle) */
   useEffect(() => {
-    const parent = menuItems.find((m) =>
+    // ✅ Skip if user manually toggled
+    if (isManualToggle.current) {
+      return;
+    }
+
+    const parent = accessibleMenuItems.find((m) =>
       m.submenu?.some((s) => s.id === activeMenu)
     );
-    if (parent) setOpenMenuId(parent.id);
-  }, [activeMenu]);
+    
+    if (parent && openMenuId !== parent.id) {
+      setOpenMenuId(parent.id);
+    }
+  }, [activeMenu, accessibleMenuItems]);
 
   /* 3️⃣ DASHBOARD FALLBACK */
   useEffect(() => {
     const isValid =
-      menuItems.some((m) => m.id === activeMenu) ||
-      menuItems.some((m) => m.submenu?.some((s) => s.id === activeMenu));
+      accessibleMenuItems.some((m) => m.id === activeMenu) ||
+      accessibleMenuItems.some((m) =>
+        m.submenu?.some((s) => s.id === activeMenu)
+      );
 
-    if (!isValid) {
-      const dashboard = menuItems.find((m) => m.id === "dashboard");
-      if (dashboard) {
-        setActiveMenu(dashboard.id);
-        setBreadcrumbs(dashboard.breadcrumbs);
-        navigate(dashboard.path);
+    if (!isValid && accessibleMenuItems.length > 0) {
+      const dashboard = accessibleMenuItems.find((m) => m.id === "dashboard");
+      const fallbackItem = dashboard || accessibleMenuItems[0];
+
+      if (fallbackItem) {
+        if (fallbackItem.submenu?.length > 0) {
+          const firstSub = fallbackItem.submenu[0];
+          setActiveMenu(firstSub.id);
+          setBreadcrumbs(firstSub.breadcrumbs);
+          navigate(firstSub.path);
+        } else {
+          setActiveMenu(fallbackItem.id);
+          setBreadcrumbs(fallbackItem.breadcrumbs);
+          navigate(fallbackItem.path);
+        }
       }
     }
-  }, [activeMenu]);
+  }, [activeMenu, accessibleMenuItems, navigate, setActiveMenu, setBreadcrumbs]);
 
   return (
     <motion.aside
@@ -420,7 +420,7 @@ const Sidebar = () => {
       transition={SIDEBAR_TRANSITION}
     >
       <nav className="pt-6 px-2 flex flex-col gap-2">
-        {menuItems.map((item) => (
+        {accessibleMenuItems.map((item) => (
           <MenuItem
             key={item.id}
             item={item}
@@ -429,7 +429,6 @@ const Sidebar = () => {
             openMenuId={openMenuId}
             onToggle={handleToggleSubmenu}
             onNavigate={handleNavigation}
-            permissions={permissions}
           />
         ))}
       </nav>
