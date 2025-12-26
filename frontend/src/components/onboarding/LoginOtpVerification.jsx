@@ -1,4 +1,5 @@
 // src/components/onboarding/LoginOtpVerification.jsx
+
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { IoArrowBackOutline } from "react-icons/io5";
@@ -8,8 +9,19 @@ import { getSetupStatus } from "../../api/setup";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle2 } from "lucide-react";
 
+// ============================================
+// NEW: Import auth store
+// ============================================
+import { useAuthStore } from "../../store/useAuthStore";
+
 const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   const navigate = useNavigate();
+  
+  // ============================================
+  // NEW: Get setAuth from store
+  // ============================================
+  const setAuth = useAuthStore((state) => state.setAuth);
+  
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,12 +75,10 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   const handleKeyDown = (e, index) => {
     if (loading || success) return;
 
-    // Backspace navigation
     if (e.key === "Backspace" && index > 0 && !otp[index]) {
       inputsRef.current[index - 1]?.focus();
     }
 
-    // Enter to submit
     if (e.key === "Enter") {
       const code = otp.join("");
       if (code.length === 4) {
@@ -77,7 +87,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
     }
   };
 
-  // Paste 4-digit OTP
   const handlePaste = (e) => {
     e.preventDefault();
     if (loading || success) return;
@@ -97,14 +106,16 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
 
   /**
    * Determine navigation destination for fully verified users
-   * Priority:
-   * 1. No subscription → /plan-selection
-   * 2. Has subscription but setup incomplete → /setup
-   * 3. Has subscription and setup complete → /dashboard
    */
-  const determineDestination = async () => {
+  const determineDestination = async (role) => {
+    // Staff and Branch Admin always go to dashboard
+    if (role === "staff" || role === "branch_admin") {
+      console.log(`📍 ${role} → /dashboard`);
+      return "/dashboard";
+    }
+
+    // Super Admin - check subscription and setup
     try {
-      // Check subscription
       const subRes = await getMySubscription();
       const hasActive = subRes.data?.data?.has_active_subscription === true;
 
@@ -113,7 +124,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         return "/plan-selection";
       }
 
-      // Check setup status
       try {
         const setupRes = await getSetupStatus();
         const setupData = setupRes.data?.data;
@@ -149,44 +159,60 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         otp: code,
       });
 
-      const { access_token, next_step, shop_id, user_id, user_name } = res.data.data;
+      // ============================================
+      // UPDATED: Extract all fields from response
+      // ============================================
+      const {
+        access_token,
+        next_step,
+        shop_id,
+        user_id,
+        branch_id,      // NEW
+        branch_name,    // NEW
+        role,           // NEW
+        user_name,
+      } = res.data.data;
 
       // Show success state
       setSuccess(true);
 
-      // Store tokens
-      localStorage.setItem("access_token", access_token);
-      localStorage.setItem("shop_id", shop_id);
-      localStorage.setItem("user_id", user_id);
-      if (user_name) {
-        localStorage.setItem("user_name", user_name);
-      }
+      // ============================================
+      // NEW: Set auth in store (replaces manual localStorage)
+      // ============================================
+      setAuth({
+        access_token,
+        user_id,
+        shop_id,
+        branch_id,
+        branch_name,
+        role,
+        user_name,
+      });
 
       // Brief delay to show success animation
       setTimeout(async () => {
         // CASE 1 — Fully verified user (next_step === -1)
         if (next_step === -1) {
-          const destination = await determineDestination();
+          const destination = await determineDestination(role);
           navigate(destination, { replace: true });
           return;
         }
 
         // CASE 2 — Verification Flow (document verification)
         if ([12, 14, 15].includes(next_step)) {
-          navigate("/verification", { 
+          navigate("/verification", {
             state: { resume_step: next_step },
-            replace: true 
+            replace: true,
           });
           return;
         }
 
         // CASE 3 — Normal Onboarding Flow
-        navigate("/onboarding", { 
+        navigate("/onboarding", {
           state: { resume_step: next_step },
-          replace: true 
+          replace: true,
         });
       }, 600);
-
     } catch (err) {
       console.error("OTP verification error:", err);
       const msg =
@@ -199,7 +225,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         setOtp(["", "", "", ""]);
         inputsRef.current[0]?.focus();
       }, 300);
-      
+
       setLoading(false);
     }
   };
@@ -266,13 +292,10 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
             onChange={(e) => handleChange(e.target.value, index)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             disabled={loading || success}
-            className={`${getInputClassName(
-              index
-            )} disabled:cursor-not-allowed`}
+            className={`${getInputClassName(index)} disabled:cursor-not-allowed`}
           />
         ))}
 
-        {/* Success indicator */}
         {success && (
           <div className="flex items-center ml-2 animate-scale-in">
             <CheckCircle2 className="w-10 h-10 text-green-500" />
@@ -280,14 +303,12 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         )}
       </div>
 
-      {/* Error message */}
       {error && (
         <p className="text-red-600 text-sm mt-4 text-center animate-slide-down">
           {error}
         </p>
       )}
 
-      {/* Submit button */}
       <button
         onClick={() => handleVerify()}
         disabled={loading || otp.join("").length !== 4 || success}
@@ -313,7 +334,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         )}
       </button>
 
-      {/* Timer / Resend */}
       <p className="mt-4 text-sm text-gray-600">
         {timer > 0 ? (
           <>
@@ -332,7 +352,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         )}
       </p>
 
-      {/* Animations */}
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
@@ -341,18 +360,15 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
           60% { transform: translateX(-8px); }
           80% { transform: translateX(8px); }
         }
-        
         @keyframes scale-in {
           0% { transform: scale(0); opacity: 0; }
           50% { transform: scale(1.2); }
           100% { transform: scale(1); opacity: 1; }
         }
-        
         @keyframes slide-down {
           0% { transform: translateY(-10px); opacity: 0; }
           100% { transform: translateY(0); opacity: 1; }
         }
-        
         .animate-shake { animation: shake 0.4s ease-in-out; }
         .animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
         .animate-slide-down { animation: slide-down 0.2s ease-out forwards; }

@@ -19,6 +19,7 @@ import {
 } from "./auth.schema.js";
 import { forgotPasswordController, resetPasswordController } from "./auth.controller.js";
 import { requireAuth } from "../../middleware/auth.js";
+import { getUserPermissionsHandler } from "../../middleware/rbac.js"; // ← NEW
 
 const router = express.Router();
 
@@ -26,12 +27,10 @@ const router = express.Router();
 // PUBLIC ROUTES
 // ============================================
 
-// Login flow
 router.post("/login", validateBody(loginSchema), loginController);
 router.post("/verify-login-otp", validateBody(verifyLoginOtpSchema), verifyLoginOtpController);
 router.post("/refresh", refreshTokenController);
 
-// Password reset
 router.post("/forgot-password", validateBody(forgotPasswordSchema), forgotPasswordController);
 router.post("/reset-password", validateBody(resetPasswordSchema), resetPasswordController);
 
@@ -39,12 +38,15 @@ router.post("/reset-password", validateBody(resetPasswordSchema), resetPasswordC
 // PROTECTED ROUTES
 // ============================================
 
-// Logout
 router.post("/logout", requireAuth, logoutController);
 
-// Onboarding
 router.get("/onboarding-status", requireAuth, getOnboardingStatusController);
 router.post("/onboarding-step", requireAuth, updateOnboardingStepController);
 router.post("/complete-onboarding", requireAuth, completeOnboardingController);
+
+// ============================================
+// NEW: Get user permissions for frontend
+// ============================================
+router.get("/permissions", requireAuth, getUserPermissionsHandler);
 
 export default router;

@@ -12,7 +12,11 @@ import {
 } from "../../config/jwt.js";
 import { fail, success } from "../../utils/response.js";
 import { sendLoginOtp, verifyLoginOtp } from "./login.service.js";
-import { createUserSession, invalidateUserSession, validateUserSession } from "../../utils/session.js";
+import {
+  createUserSession,
+  invalidateUserSession,
+  validateUserSession,
+} from "../../utils/session.js";
 
 // ============================================
 // ONBOARDING CONTROLLERS
@@ -72,7 +76,11 @@ export async function updateOnboardingStepController(req, res) {
     }
 
     if (step <= user.onboarding_step) {
-      return success(res, { onboarding_step: user.onboarding_step }, "Step already completed");
+      return success(
+        res,
+        { onboarding_step: user.onboarding_step },
+        "Step already completed"
+      );
     }
 
     await prisma.user.update({
@@ -104,18 +112,16 @@ export async function completeOnboardingController(req, res) {
 }
 
 // ============================================
-// LOGIN CONTROLLERS
+// LOGIN CONTROLLER
 // ============================================
 
 export async function loginController(req, res) {
   try {
     const { username, password } = req.validated;
 
-    // Find user
     const user = await prisma.user.findUnique({ where: { username } });
 
     if (!user) {
-      // Check if pending user
       const pending = await prisma.pendingUser.findFirst({
         where: { email: username },
       });
@@ -131,17 +137,15 @@ export async function loginController(req, res) {
       return fail(res, "Invalid credentials", 401);
     }
 
-    // Check if active
-        if (!user.is_active) {
+    if (!user.is_active) {
       return fail(
-        res, 
+        res,
         "Your account has been suspended. Please contact Cureli support for assistance.",
         403,
         { code: "ACCOUNT_SUSPENDED" }
       );
     }
 
-    // Verify password
     if (!user.password_hash) {
       return fail(res, "This account requires Google login", 400);
     }
@@ -151,10 +155,8 @@ export async function loginController(req, res) {
       return fail(res, "Invalid credentials", 401);
     }
 
-    // Password correct → Send OTP
     await sendLoginOtp(user.user_id);
 
-    // Generate temporary token (only for OTP verification)
     const tempToken = jwt.sign(
       { user_id: user.user_id, purpose: "login_otp" },
       TEMP_TOKEN_SECRET,
@@ -176,7 +178,11 @@ export async function loginController(req, res) {
     console.error(err);
 
     if (err.code === "NO_PHONE") {
-      return fail(res, "No phone number registered. Please contact support.", 400);
+      return fail(
+        res,
+        "No phone number registered. Please contact support.",
+        400
+      );
     }
 
     if (err.code === "OTP_COOLDOWN") {
@@ -186,6 +192,10 @@ export async function loginController(req, res) {
     return fail(res, "Login failed", 500);
   }
 }
+
+// ============================================
+// VERIFY LOGIN OTP — UPDATED WITH branch_id
+// ============================================
 
 export async function verifyLoginOtpController(req, res) {
   try {
@@ -206,13 +216,21 @@ export async function verifyLoginOtpController(req, res) {
     // Verify OTP with MessageCentral
     await verifyLoginOtp(decoded.user_id, otp);
 
-    // Get user details WITH shop info
+    // ============================================
+    // UPDATED: Fetch user WITH branch relation
+    // ============================================
     const user = await prisma.user.findUnique({
       where: { user_id: decoded.user_id },
       include: {
         shop: {
           select: {
             verification_status: true,
+          },
+        },
+        branch: {
+          select: {
+            branch_id: true,
+            branch_name: true,
           },
         },
       },
@@ -222,26 +240,30 @@ export async function verifyLoginOtpController(req, res) {
       return fail(res, "User not found", 404);
     }
 
-    // ✅ Create session (invalidates any existing sessions automatically)
+    // Create session (invalidates existing sessions)
     const sessionToken = await createUserSession(user.user_id, req);
 
-    // Generate access token with session_id
-    const accessToken = jwt.sign(
-      {
-        user_id: user.user_id,
-        shop_id: user.shop_id,
-        role: user.role,
-        status: user.status,
-        session_id: sessionToken,
-      },
-      ACCESS_SECRET,
-      { expiresIn: ACCESS_EXPIRES }
-    );
+    // ============================================
+    // UPDATED: JWT payload now includes branch_id
+    // ============================================
+    const jwtPayload = {
+      user_id: user.user_id,
+      shop_id: user.shop_id,
+      branch_id: user.branch_id || null, // NEW: branch context
+      role: user.role,
+      status: user.status,
+      session_id: sessionToken,
+    };
 
-    // Generate refresh token with session_id
+    const accessToken = jwt.sign(jwtPayload, ACCESS_SECRET, {
+      expiresIn: ACCESS_EXPIRES,
+    });
+
+    // Refresh token also includes branch_id for token refresh
     const refreshToken = jwt.sign(
       {
         user_id: user.user_id,
+        branch_id: user.branch_id || null, // NEW
         session_id: sessionToken,
       },
       REFRESH_SECRET,
@@ -256,52 +278,67 @@ export async function verifyLoginOtpController(req, res) {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    // Determine next step based on user + shop status
+    // ============================================
+    // UPDATED: Role-aware next_step logic
+    // ============================================
     let nextStep = -1; // Default: dashboard
     const shopStatus = user.shop?.verification_status;
 
     console.log("🔍 LOGIN DEBUG:", {
-      user_status: user.status,
+      user_id: user.user_id,
+      role: user.role,
+      status: user.status,
+      branch_id: user.branch_id,
       shop_verification_status: shopStatus,
       onboarding_step: user.onboarding_step,
-      first_login_after_verification: user.first_login_after_verification,
     });
 
-    // CASE 1: Still in onboarding
-    if (user.status === "pending_setup") {
-      nextStep = user.onboarding_step || 4;
-      console.log("📋 User in onboarding, step:", nextStep);
+    // Staff and Branch Admin: Created verified, go straight to dashboard
+    if (user.role === "staff" || user.role === "branch_admin") {
+      nextStep = -1;
+      console.log(`✅ ${user.role} → dashboard`);
     }
-    // CASE 2: Documents submitted, waiting for verification
-    else if (user.status === "pending_verification") {
-      if (shopStatus === "partially_rejected" || shopStatus === "rejected") {
-        nextStep = 14; // Resubmission page
-        console.log("❌ Documents rejected, showing resubmission page");
-      } else {
-        nextStep = 12; // Pending page
-        console.log("⏳ Documents under review, showing pending page");
-      }
-    }
-    // CASE 3: Fully verified
-    else if (user.status === "verified") {
-      if (!user.first_login_after_verification) {
-        nextStep = 15; // Success page
-        console.log("🎉 First login after verification, showing success");
-      } else {
-        nextStep = -1; // Dashboard
-        console.log("✅ Verified user, going to dashboard");
+    // Super Admin: May still be in onboarding
+    else if (user.role === "super_admin") {
+      if (user.status === "pending_setup") {
+        // Still in onboarding wizard
+        nextStep = user.onboarding_step || 4;
+        console.log("📋 super_admin in onboarding, step:", nextStep);
+      } else if (user.status === "pending_verification") {
+        // Documents submitted, awaiting review
+        if (shopStatus === "partially_rejected" || shopStatus === "rejected") {
+          nextStep = 14; // Resubmission page
+        } else {
+          nextStep = 12; // Pending review page
+        }
+        console.log("⏳ super_admin pending verification, step:", nextStep);
+      } else if (user.status === "verified" || user.status === "active") {
+        // Fully verified
+        if (!user.first_login_after_verification) {
+          nextStep = 15; // Success/welcome page
+        } else {
+          nextStep = -1; // Dashboard
+        }
+        console.log("✅ super_admin verified, step:", nextStep);
       }
     }
 
     console.log("📍 FINAL next_step:", nextStep);
 
+    // ============================================
+    // UPDATED: Response includes branch info
+    // ============================================
     return success(
       res,
       {
         access_token: accessToken,
         next_step: nextStep,
-        shop_id: user.shop_id,
         user_id: user.user_id,
+        shop_id: user.shop_id,
+        branch_id: user.branch_id || null, // NEW
+        branch_name: user.branch?.branch_name || null, // NEW
+        role: user.role, // NEW
+        user_name: `${user.first_name} ${user.last_name || ""}`.trim(),
       },
       "Login successful"
     );
@@ -311,11 +348,9 @@ export async function verifyLoginOtpController(req, res) {
     if (err.code === "INVALID_OTP") {
       return fail(res, err.message, 400);
     }
-
     if (err.code === "OTP_EXPIRED") {
       return fail(res, err.message, 400);
     }
-
     if (err.code === "TOO_MANY_ATTEMPTS") {
       return fail(res, err.message, 429);
     }
@@ -325,7 +360,7 @@ export async function verifyLoginOtpController(req, res) {
 }
 
 // ============================================
-// TOKEN REFRESH CONTROLLER
+// TOKEN REFRESH — UPDATED WITH branch_id
 // ============================================
 
 export async function refreshTokenController(req, res) {
@@ -343,12 +378,14 @@ export async function refreshTokenController(req, res) {
       return fail(res, "Invalid refresh token", 401);
     }
 
-    // ✅ Validate session is still active
+    // Validate session is still active
     if (decoded.session_id) {
-      const session = await validateUserSession(decoded.user_id, decoded.session_id);
+      const session = await validateUserSession(
+        decoded.user_id,
+        decoded.session_id
+      );
 
       if (!session) {
-        // Clear the invalid cookie
         res.clearCookie("refresh_token", {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
@@ -364,19 +401,33 @@ export async function refreshTokenController(req, res) {
       }
     }
 
+    // ============================================
+    // UPDATED: Fetch fresh user data including branch_id
+    // ============================================
     const user = await prisma.user.findUnique({
       where: { user_id: decoded.user_id },
+      select: {
+        user_id: true,
+        shop_id: true,
+        branch_id: true, // NEW
+        role: true,
+        status: true,
+        is_active: true,
+      },
     });
 
     if (!user || !user.is_active) {
       return fail(res, "Invalid user", 401);
     }
 
-    // Generate new access token (preserve session_id)
+    // ============================================
+    // UPDATED: New access token includes branch_id
+    // ============================================
     const accessToken = jwt.sign(
       {
         user_id: user.user_id,
         shop_id: user.shop_id,
+        branch_id: user.branch_id || null, // NEW
         role: user.role,
         status: user.status,
         session_id: decoded.session_id,
@@ -393,19 +444,17 @@ export async function refreshTokenController(req, res) {
 }
 
 // ============================================
-// LOGOUT CONTROLLER
+// LOGOUT CONTROLLER (unchanged)
 // ============================================
 
 export async function logoutController(req, res) {
   try {
     const { user_id, session_id } = req.user;
 
-    // Invalidate session in database
     if (session_id) {
       await invalidateUserSession(user_id, session_id, "logout");
     }
 
-    // Clear refresh token cookie
     res.clearCookie("refresh_token", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

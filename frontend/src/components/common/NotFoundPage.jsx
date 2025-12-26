@@ -1,3 +1,4 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\components\common\NotFoundPage .jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react'; // Assuming you are using lucide-react or similar icons

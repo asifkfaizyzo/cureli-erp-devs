@@ -1,9 +1,29 @@
 // src/App.jsx
+
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
-// Public Pages
-import NotFoundPage from "./components/common/NotFoundPage .jsx";
+// ============================================
+// AUTH INITIALIZATION
+// ============================================
+import { useAuthStore } from "./store/useAuthStore";
+
+// ============================================
+// GUARDS
+// ============================================
+import AuthGuard from "./guards/AuthGuard";
+import SetupGuard from "./guards/SetupGuard";
+import PermissionGuard from "./guards/PermissionGuard";
+
+// ============================================
+// PERMISSIONS CONFIG
+// ============================================
+import { PERMISSIONS } from "./config/permissions";
+
+// ============================================
+// PUBLIC PAGES
+// ============================================
+import NotFoundPage from "./components/common/NotFoundPage.jsx";  
 import LoginPage from "./pages/LoginPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import ErrorPage from "./pages/ErrorPage.jsx";
@@ -12,10 +32,11 @@ import PrivacyPage from "./pages/PrivacyPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import PlanSelectionPage from "./pages/PlanSelectionPage.jsx";
-import PendingUsersPage from "./pages/PendingUsersPage.jsx";
-import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
+import VerificationPage from "./pages/VerificationPage.jsx";
 
-// Protected Pages (ERP)
+// ============================================
+// PROTECTED PAGES (ERP)
+// ============================================
 import AppLayout from "./components/layout/AppLayout.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import BillingPage from "./pages/sales/billing/BillingPage.jsx";
@@ -24,25 +45,48 @@ import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.js
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 import InventoryPage from "./pages/inventory/InventoryPage.jsx";
+import PendingUsersPage from "./pages/PendingUsersPage.jsx";
+import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
 
-// Setup Pages (3-step wizard)
+// ============================================
+// SETUP PAGES (3-step wizard)
+// ============================================
 import SetupLayout from "./components/setup/SetupLayout.jsx";
 import SetupRouter from "./pages/setup/SetupRouter.jsx";
 import SetupBranchesPage from "./pages/setup/SetupBranchesPage.jsx";
 import SetupUsersPage from "./pages/setup/SetupUsersPage.jsx";
 import SetupReviewPage from "./pages/setup/SetupReviewPage.jsx";
 
-// Landing pages
+// ============================================
+// LANDING PAGES
+// ============================================
 import Home from "./pages/landingPages/home/Home.jsx";
 import About from "./pages/landingPages/about/About.jsx";
 import Contact from "./pages/landingPages/contact/Contact.jsx";
 import Pricing from "./pages/landingPages/pricing/Pricing.jsx";
-import VerificationPage from "./pages/VerificationPage.jsx";
 import ScrollToTop from "./pages/landingPages/component/ScrollToTop.jsx";
-
 
 import "./index.css";
 
+// ============================================
+// AUTH INITIALIZER COMPONENT
+// ============================================
+const AuthInitializer = ({ children }) => {
+  const initialize = useAuthStore((state) => state.initialize);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      initialize();
+    }
+  }, [initialize, isInitialized]);
+
+  return children;
+};
+
+// ============================================
+// MAIN APP COMPONENT
+// ============================================
 const App = () => {
   useEffect(() => {
     // Disable Ctrl + Scroll Zoom
@@ -80,64 +124,164 @@ const App = () => {
     };
   }, []);
 
-
   return (
     <Router>
-     <ScrollToTop />   {/*for automatic pahe up */}
-      <Routes>
-        {/* ============================================ */}
-        {/* LANDING PAGES */}
-        {/* ============================================ */}
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/pricing" element={<Pricing />} />
+      <AuthInitializer>
+        <ScrollToTop />
 
-        {/* ============================================ */}
-        {/* PUBLIC ROUTES */}
-        {/* ============================================ */}
-        <Route path="/plan-selection" element={<PlanSelectionPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/onboarding" element={<OnboardingPage />} />
-        <Route path="/verification" element={<VerificationPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/privacy" element={<PrivacyPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Routes>
+          {/* ============================================ */}
+          {/* LANDING PAGES (Public) */}
+          {/* ============================================ */}
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/pricing" element={<Pricing />} />
 
-        {/* ============================================ */}
-        {/* SETUP ROUTES (3 Steps) */}
-        {/* Post-plan setup wizard with its own layout */}
-        {/* Step 1: Branches, Step 2: Users, Step 3: Review */}
-        {/* ============================================ */}
-        <Route path="/setup" element={<SetupRouter />} />
-        <Route element={<SetupLayout />}>
-          <Route path="/setup/branches" element={<SetupBranchesPage />} />
-          <Route path="/setup/users" element={<SetupUsersPage />} />
-          <Route path="/setup/review" element={<SetupReviewPage />} />
-        </Route>
+          {/* ============================================ */}
+          {/* PUBLIC ROUTES (No auth required) */}
+          {/* ============================================ */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* ============================================ */}
-        {/* PROTECTED ERP ROUTES (with AppLayout) */}
-        {/* ============================================ */}
-        <Route path="/" element={<AppLayout />}>
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="Salesbilling" element={<BillingPage />} />
-          <Route path="Salesinvoice" element={<InvoicePage />} />
-          <Route path="purchase-invoices" element={<PurchaseInvoicePage />} />
-          <Route path="pending-users" element={<PendingUsersPage />} />
-          <Route path="purchase-billing" element={<PurchasePage />} />
-          <Route path="suppliers" element={<SupplierPage />} />
-          <Route path="reports-sales" element={<ReportPage />} />
-          <Route path="inventory" element={<InventoryPage />} />
-        </Route>
+          {/* ============================================ */}
+          {/* AUTH REQUIRED - ONBOARDING ROUTES */}
+          {/* These need auth but NOT setup completion */}
+          {/* ============================================ */}
+          <Route element={<AuthGuard />}>
+            <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route path="/verification" element={<VerificationPage />} />
+            <Route path="/plan-selection" element={<PlanSelectionPage />} />
 
-        {/* ============================================ */}
-        {/* ERROR PAGES */}
-        {/* ============================================ */}
-        <Route path="/error" element={<ErrorPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+            {/* Setup Routes - Auth required, but not setup guard */}
+            <Route path="/setup" element={<SetupRouter />} />
+            <Route element={<SetupLayout />}>
+              <Route path="/setup/branches" element={<SetupBranchesPage />} />
+              <Route path="/setup/users" element={<SetupUsersPage />} />
+              <Route path="/setup/review" element={<SetupReviewPage />} />
+            </Route>
+          </Route>
+
+          {/* ============================================ */}
+          {/* PROTECTED ERP ROUTES */}
+          {/* Auth + Setup required + Permission checks */}
+          {/* ============================================ */}
+          <Route element={<AuthGuard />}>
+            <Route element={<SetupGuard />}>
+              <Route element={<AppLayout />}>
+                
+                {/* Dashboard - Everyone with dashboard:view */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.DASHBOARD_VIEW}>
+                      <DashboardPage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* ============================================ */}
+                {/* SALES ROUTES */}
+                {/* ============================================ */}
+                <Route
+                  path="/Salesbilling"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.BILLING_CREATE}>
+                      <BillingPage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/Salesinvoice"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.BILLING_VIEW}>
+                      <InvoicePage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* ============================================ */}
+                {/* PURCHASE ROUTES */}
+                {/* ============================================ */}
+                <Route
+                  path="/purchase-billing"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.PURCHASE_CREATE}>
+                      <PurchasePage />
+                    </PermissionGuard>
+                  }
+                />
+                <Route
+                  path="/purchase-invoices"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.PURCHASE_VIEW}>
+                      <PurchaseInvoicePage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* ============================================ */}
+                {/* INVENTORY ROUTES */}
+                {/* ============================================ */}
+                <Route
+                  path="/inventory"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.INVENTORY_VIEW}>
+                      <InventoryPage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* ============================================ */}
+                {/* SUPPLIERS */}
+                {/* ============================================ */}
+                <Route
+                  path="/suppliers"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.SUPPLIERS_VIEW}>
+                      <SupplierPage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* ============================================ */}
+                {/* REPORTS */}
+                {/* ============================================ */}
+                <Route
+                  path="/reports-sales"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
+                      <ReportPage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* ============================================ */}
+                {/* USER MANAGEMENT (Super Admin only) */}
+                {/* ============================================ */}
+                <Route
+                  path="/pending-users"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.USERS_MANAGE}>
+                      <PendingUsersPage />
+                    </PermissionGuard>
+                  }
+                />
+
+              </Route>
+            </Route>
+          </Route>
+
+          {/* ============================================ */}
+          {/* ERROR PAGES */}
+          {/* ============================================ */}
+          <Route path="/error" element={<ErrorPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </AuthInitializer>
     </Router>
   );
 };

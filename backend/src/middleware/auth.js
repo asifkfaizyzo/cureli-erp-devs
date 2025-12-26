@@ -5,6 +5,22 @@ import { ACCESS_SECRET } from "../config/jwt.js";
 import { fail } from "../utils/response.js";
 import { validateUserSession } from "../utils/session.js";
 
+/**
+ * Require authentication middleware
+ * 
+ * Validates JWT token and active session.
+ * Attaches user context to req.user for downstream use.
+ * 
+ * req.user shape after this middleware:
+ * {
+ *   user_id: string,
+ *   shop_id: string | null,
+ *   branch_id: string | null,   ← NEW in Phase 1
+ *   role: "super_admin" | "branch_admin" | "staff",
+ *   status: string,
+ *   session_id: string
+ * }
+ */
 export const requireAuth = async (req, res, next) => {
   const auth = req.headers.authorization;
 
@@ -17,9 +33,12 @@ export const requireAuth = async (req, res, next) => {
   try {
     const payload = jwt.verify(token, ACCESS_SECRET);
 
-    // ✅ Validate session is still active in database
+    // Validate session is still active in database
     if (payload.session_id) {
-      const session = await validateUserSession(payload.user_id, payload.session_id);
+      const session = await validateUserSession(
+        payload.user_id,
+        payload.session_id
+      );
 
       if (!session) {
         return fail(
@@ -31,10 +50,13 @@ export const requireAuth = async (req, res, next) => {
       }
     }
 
-    // Attach user info to request
+    // ============================================
+    // UPDATED: Attach user info including branch_id
+    // ============================================
     req.user = {
       user_id: payload.user_id,
       shop_id: payload.shop_id,
+      branch_id: payload.branch_id || null, // NEW
       role: payload.role,
       status: payload.status,
       session_id: payload.session_id,
@@ -50,7 +72,10 @@ export const requireAuth = async (req, res, next) => {
 };
 
 /**
- * Optional auth - doesn't fail if no token, just sets req.user to null
+ * Optional auth middleware
+ * 
+ * Doesn't fail if no token present, just sets req.user to null.
+ * Useful for routes that behave differently for authenticated vs anonymous users.
  */
 export const optionalAuth = async (req, res, next) => {
   const auth = req.headers.authorization;
@@ -66,16 +91,23 @@ export const optionalAuth = async (req, res, next) => {
     const payload = jwt.verify(token, ACCESS_SECRET);
 
     if (payload.session_id) {
-      const session = await validateUserSession(payload.user_id, payload.session_id);
+      const session = await validateUserSession(
+        payload.user_id,
+        payload.session_id
+      );
       if (!session) {
         req.user = null;
         return next();
       }
     }
 
+    // ============================================
+    // UPDATED: Include branch_id
+    // ============================================
     req.user = {
       user_id: payload.user_id,
       shop_id: payload.shop_id,
+      branch_id: payload.branch_id || null, // NEW
       role: payload.role,
       status: payload.status,
       session_id: payload.session_id,
