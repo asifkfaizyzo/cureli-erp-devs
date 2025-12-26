@@ -39,8 +39,7 @@ const initialState = {
   isLoading: true,
   user: null,
   permissions: [],
-
-  // Additional user info (from login response)
+  shopName: null,
   branchName: null,
 };
 
@@ -60,7 +59,6 @@ export const useAuthStore = create(
       initialize: () => {
         const token = localStorage.getItem("access_token");
 
-        
         if (token && !isTokenExpired(token)) {
           const user = getUserFromToken(token);
 
@@ -74,6 +72,7 @@ export const useAuthStore = create(
                 name: localStorage.getItem("user_name") || "",
               },
               branchName: localStorage.getItem("branch_name") || null,
+              shopName: localStorage.getItem("shop_name") || null,
             });
 
             console.log("🔐 Auth initialized from token:", user.role);
@@ -88,6 +87,7 @@ export const useAuthStore = create(
           isLoading: false,
           user: null,
           permissions: [],
+          shopName: null,  
         });
 
         console.log("🔓 Auth initialized: No valid token");
@@ -108,6 +108,7 @@ export const useAuthStore = create(
           shop_id,
           branch_id,
           branch_name,
+          shop_name,  
           role,
           user_name,
         } = data;
@@ -118,6 +119,7 @@ export const useAuthStore = create(
         if (shop_id) localStorage.setItem("shop_id", shop_id);
         if (user_name) localStorage.setItem("user_name", user_name);
         if (branch_name) localStorage.setItem("branch_name", branch_name);
+        if (shop_name) localStorage.setItem("shop_name", shop_name);
 
         // Get user from token for complete info
         const tokenUser = getUserFromToken(access_token);
@@ -135,6 +137,7 @@ export const useAuthStore = create(
             name: user_name || "",
           },
           branchName: branch_name || null,
+          shopName: shop_name || null,
         });
 
         console.log("🔐 Auth set:", role);
@@ -158,6 +161,7 @@ export const useAuthStore = create(
         localStorage.removeItem("shop_id");
         localStorage.removeItem("user_name");
         localStorage.removeItem("branch_name");
+        localStorage.removeItem("shop_name");
 
         // Reset state
         set({
@@ -166,6 +170,7 @@ export const useAuthStore = create(
           user: null,
           permissions: [],
           branchName: null,
+          shopName: null,
         });
 
         console.log("🔓 Logged out");
@@ -338,6 +343,7 @@ export const useAuthStore = create(
         isAuthenticated: state.isAuthenticated,
         user: state.user,
         branchName: state.branchName,
+        shopName: state.shopName,
       }),
     }
   )
@@ -354,3 +360,4 @@ export const selectUser = (state) => state.user;
 export const selectUserRole = (state) => state.user?.role;
 export const selectBranchId = (state) => state.user?.branch_id;
 export const selectIsSuperAdmin = (state) => state.user?.role === "super_admin";
+export const selectShopName = (state) => state.shopName;

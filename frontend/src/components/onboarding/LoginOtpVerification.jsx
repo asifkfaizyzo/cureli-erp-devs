@@ -16,12 +16,12 @@ import { useAuthStore } from "../../store/useAuthStore";
 
 const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
   const navigate = useNavigate();
-  
+
   // ============================================
   // NEW: Get setAuth from store
   // ============================================
   const setAuth = useAuthStore((state) => state.setAuth);
-  
+
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -136,11 +136,17 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
           return "/setup";
         }
       } catch (setupErr) {
-        console.warn("Setup status check failed, defaulting to /setup", setupErr);
+        console.warn(
+          "Setup status check failed, defaulting to /setup",
+          setupErr
+        );
         return "/setup";
       }
     } catch (err) {
-      console.warn("Subscription check failed, defaulting to /plan-selection", err);
+      console.warn(
+        "Subscription check failed, defaulting to /plan-selection",
+        err
+      );
       return "/plan-selection";
     }
   };
@@ -160,16 +166,17 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       });
 
       // ============================================
-      // UPDATED: Extract all fields from response
+      // FIXED: Extract ALL fields including shop_name
       // ============================================
       const {
         access_token,
         next_step,
         shop_id,
         user_id,
-        branch_id,      // NEW
-        branch_name,    // NEW
-        role,           // NEW
+        branch_id,
+        branch_name,
+        shop_name, // <-- ADDED
+        role,
         user_name,
       } = res.data.data;
 
@@ -177,7 +184,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       setSuccess(true);
 
       // ============================================
-      // NEW: Set auth in store (replaces manual localStorage)
+      // FIXED: Pass shop_name to setAuth
       // ============================================
       setAuth({
         access_token,
@@ -185,6 +192,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
         shop_id,
         branch_id,
         branch_name,
+        shop_name, // <-- ADDED
         role,
         user_name,
       });
@@ -229,7 +237,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
       setLoading(false);
     }
   };
-
   const handleResend = () => {
     if (timer > 0) return;
     alert("Please go back and login again to receive a new OTP");
@@ -292,7 +299,9 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack }) => {
             onChange={(e) => handleChange(e.target.value, index)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             disabled={loading || success}
-            className={`${getInputClassName(index)} disabled:cursor-not-allowed`}
+            className={`${getInputClassName(
+              index
+            )} disabled:cursor-not-allowed`}
           />
         ))}
 

@@ -247,6 +247,7 @@ export async function verifyLoginOtpController(req, res) {
         shop: {
           select: {
             verification_status: true,
+             business_name: true,
           },
         },
         branch: {
@@ -359,6 +360,7 @@ export async function verifyLoginOtpController(req, res) {
         shop_id: user.shop_id,
         branch_id: user.branch_id || null, // NEW
         branch_name: user.branch?.branch_name || null, // NEW
+        shop_name: user.shop?.business_name || null,
         role: user.role, // NEW
         user_name: `${user.first_name} ${user.last_name || ""}`.trim(),
       },
