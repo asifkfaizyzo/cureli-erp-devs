@@ -1,50 +1,21 @@
 // frontend/src/pages/tickets/TicketsPage.jsx
 
 import { useState, useEffect, useCallback } from "react";
-import { 
-  Ticket, 
-  Plus, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle, 
-  XCircle 
-} from "lucide-react";
-import { getTickets, getTicketStats } from "../../api/tickets";
-import { useAuthStore } from "../../store/useAuthStore";
-import TicketFilters from "./components/TicketFilters";
+import { Plus, Search, X } from "lucide-react";
+import { getTickets } from "../../api/tickets";
 import TicketListTable from "./components/TicketListTable";
 import CreateTicketModal from "./components/CreateTicketModal";
 import ViewTicketModal from "./components/ViewTicketModal";
 import CancelTicketModal from "./components/CancelTicketModal";
 
 const TicketsPage = () => {
-  const { user } = useAuthStore();
-
-  // Stats
-  const [stats, setStats] = useState({
-    total: 0,
-    recent_7_days: 0,
-    by_status: {
-      OPEN: 0,
-      IN_PROGRESS: 0,
-      RESOLVED: 0,
-      CANCELLED: 0,
-      CLOSED: 0,
-    },
-  });
-
   // Tickets data
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalItems, setTotalItems] = useState(0);
 
-  // Filters
+  // Simple search
   const [searchText, setSearchText] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [branchFilter, setBranchFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -78,16 +49,6 @@ const TicketsPage = () => {
     return () => window.removeEventListener("resize", updateRows);
   }, []);
 
-  // Fetch stats
-  const fetchStats = useCallback(async () => {
-    try {
-      const resp = await getTicketStats();
-      setStats(resp.data?.data?.stats || {});
-    } catch (err) {
-      console.error("Failed to fetch stats:", err);
-    }
-  }, []);
-
   // Fetch tickets
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -96,11 +57,6 @@ const TicketsPage = () => {
         page: currentPage,
         limit: rowsPerPage,
         search: searchText || undefined,
-        status: statusFilter || undefined,
-        category: categoryFilter || undefined,
-        branch_id: branchFilter || undefined,
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined,
         sort_by: sortConfig.sortBy,
         sort_order: sortConfig.order,
       };
@@ -115,23 +71,9 @@ const TicketsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [
-    currentPage,
-    rowsPerPage,
-    searchText,
-    statusFilter,
-    categoryFilter,
-    branchFilter,
-    dateFrom,
-    dateTo,
-    sortConfig,
-  ]);
+  }, [currentPage, rowsPerPage, searchText, sortConfig]);
 
   // Initial fetch
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
-
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
@@ -145,9 +87,10 @@ const TicketsPage = () => {
     setCurrentPage(1);
   };
 
-  const handleRefresh = () => {
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setCurrentPage(1);
     fetchTickets();
-    fetchStats();
   };
 
   const handleViewTicket = (ticket) => {
@@ -162,119 +105,76 @@ const TicketsPage = () => {
 
   const handleTicketCreated = () => {
     setIsCreateModalOpen(false);
-    handleRefresh();
+    fetchTickets();
   };
 
   const handleTicketCancelled = () => {
     setIsCancelModalOpen(false);
-    handleRefresh();
+    fetchTickets();
   };
 
   return (
-    <div className="h-full flex flex-col gap-4 p-6 bg-gray-50 overflow-auto">
-      {/* Page Header */}
+    <div className="h-full flex flex-col gap-4 p-6 bg-gray-50">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-            <Ticket size={24} className="text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
-            <p className="text-sm text-gray-500">
-              Manage and track your support requests
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {totalItems} {totalItems === 1 ? "ticket" : "tickets"} found
+          </p>
         </div>
 
         <button
           onClick={() => setIsCreateModalOpen(true)}
           className="px-4 py-2.5 bg-[#05015A] text-white rounded-lg text-sm font-medium 
-                     flex items-center gap-2 hover:bg-[#06027a] transition-all"
+                     flex items-center gap-2 hover:bg-[#06027a] transition-all shadow-sm"
         >
           <Plus size={18} />
           <span>Create Ticket</span>
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-500">Total Tickets</p>
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Ticket size={20} className="text-blue-600" />
-            </div>
+      {/* Search Bar */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <form onSubmit={handleSearch} className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="text"
+              placeholder="Search by ticket number or subject..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="w-full h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
+                         bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 
+                         focus:border-indigo-500 transition-all"
+            />
+            {searchText && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchText("");
+                  setCurrentPage(1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded
+                           text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {stats.recent_7_days} in last 7 days
-          </p>
-        </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-500">Open</p>
-            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Clock size={20} className="text-yellow-600" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {stats.by_status?.OPEN || 0}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">Awaiting response</p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-500">In Progress</p>
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <TrendingUp size={20} className="text-blue-600" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {stats.by_status?.IN_PROGRESS || 0}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">Being worked on</p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-500">Resolved</p>
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <CheckCircle size={20} className="text-green-600" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {stats.by_status?.RESOLVED || 0}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">Successfully closed</p>
-        </div>
+          <button
+            type="submit"
+            className="px-6 h-11 bg-indigo-600 text-white rounded-lg text-sm font-medium
+                       hover:bg-indigo-700 transition-all shadow-sm"
+          >
+            Search
+          </button>
+        </form>
       </div>
-
-      {/* Filters */}
-      <TicketFilters
-        searchText={searchText}
-        setSearchText={setSearchText}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        categoryFilter={categoryFilter}
-        setCategoryFilter={setCategoryFilter}
-        branchFilter={branchFilter}
-        setBranchFilter={setBranchFilter}
-        dateFrom={dateFrom}
-        setDateFrom={setDateFrom}
-        dateTo={dateTo}
-        setDateTo={setDateTo}
-        onClear={() => {
-          setSearchText("");
-          setStatusFilter("");
-          setCategoryFilter("");
-          setBranchFilter("");
-          setDateFrom("");
-          setDateTo("");
-          setCurrentPage(1);
-        }}
-      />
 
       {/* Table */}
       <div className="flex-1 min-h-0">
@@ -289,7 +189,7 @@ const TicketsPage = () => {
           onSortChange={handleSortChange}
           onViewTicket={handleViewTicket}
           onCancelTicket={handleCancelTicket}
-          onRefresh={handleRefresh}
+          onRefresh={fetchTickets}
         />
       </div>
 
@@ -308,7 +208,7 @@ const TicketsPage = () => {
         }}
         ticket={selectedTicket}
         onCancelClick={handleCancelTicket}
-        onRefresh={handleRefresh}
+        onRefresh={fetchTickets}
       />
 
       <CancelTicketModal

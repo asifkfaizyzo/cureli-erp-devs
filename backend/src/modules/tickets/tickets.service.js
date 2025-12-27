@@ -74,7 +74,7 @@ export async function createTicket({
       description,
       other_category_text: category === "OTHER" ? other_category_text : null,
       preferred_slot,
-      status: "OPEN",
+      status: "PENDING", // ✅ Changed from "OPEN"
       // Connect attachments if provided
       ...(attachment_ids && attachment_ids.length > 0
         ? {
@@ -431,7 +431,7 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
   const updatedTicket = await prisma.ticket.update({
     where: { ticket_id },
     data: {
-      status: "OPEN",
+      status: "PENDING", // ✅ Changed from "OPEN"
       reopened_at: new Date(),
       reopened_by_id: user_id,
       reopen_count: { increment: 1 },
@@ -513,7 +513,7 @@ export async function getTicketStats(shop_id, requester_role, requester_branch_i
 
   // Transform to object
   const byStatus = {
-    OPEN: 0,
+    PENDING: 0,        // ✅ Changed from OPEN: 0
     IN_PROGRESS: 0,
     RESOLVED: 0,
     CANCELLED: 0,

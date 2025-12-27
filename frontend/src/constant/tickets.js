@@ -1,4 +1,4 @@
-// frontend/src/constants/tickets.js
+// frontend/src/constant/tickets.js (or constants/tickets.js)
 
 /**
  * ============================================
@@ -27,7 +27,7 @@ export const TICKET_CATEGORY_OPTIONS = [
  * ============================================
  */
 export const TICKET_STATUSES = {
-  OPEN: "Open",
+  PENDING: "Pending",        // ✅ Changed from OPEN
   IN_PROGRESS: "In Progress",
   RESOLVED: "Resolved",
   CANCELLED: "Cancelled",
@@ -35,7 +35,7 @@ export const TICKET_STATUSES = {
 };
 
 export const TICKET_STATUS_OPTIONS = [
-  { value: "OPEN", label: "Open" },
+  { value: "PENDING", label: "Pending" },        // ✅ Changed from OPEN
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "RESOLVED", label: "Resolved" },
   { value: "CANCELLED", label: "Cancelled" },
@@ -64,15 +64,15 @@ export const TIME_SLOTS = [
  * ============================================
  */
 export const STATUS_COLORS = {
-  OPEN: {
-    bg: "bg-blue-100",
-    text: "text-blue-700",
-    border: "border-blue-200",
-  },
-  IN_PROGRESS: {
+  PENDING: {                                    // ✅ Changed from OPEN
     bg: "bg-yellow-100",
     text: "text-yellow-700",
     border: "border-yellow-200",
+  },
+  IN_PROGRESS: {
+    bg: "bg-blue-100",
+    text: "text-blue-700",
+    border: "border-blue-200",
   },
   RESOLVED: {
     bg: "bg-green-100",

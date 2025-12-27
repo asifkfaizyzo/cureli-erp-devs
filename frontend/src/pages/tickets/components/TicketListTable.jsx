@@ -61,16 +61,21 @@ const TicketListTable = ({
   };
 
   const StatusBadge = ({ status }) => {
-    const colors = STATUS_COLORS[status] || STATUS_COLORS.OPEN;
-    return (
-      <span
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium 
-                    ${colors.bg} ${colors.text} border ${colors.border}`}
-      >
-        {TICKET_STATUSES[status] || status}
-      </span>
-    );
-  };
+  const colors = STATUS_COLORS[status] || {
+    bg: "bg-gray-100",
+    text: "text-gray-700",
+    border: "border-gray-200",
+  }; // ✅ Fallback if status not found
+
+  return (
+    <span
+      className={`px-2.5 py-1 rounded-full text-xs font-medium border
+                  ${colors.bg} ${colors.text} ${colors.border}`}
+    >
+      {TICKET_STATUSES[status] || status}
+    </span>
+  );
+};
 
   const CategoryBadge = ({ category, otherText }) => {
     const colors = CATEGORY_COLORS[category] || CATEGORY_COLORS.OTHER;
@@ -208,16 +213,16 @@ const TicketListTable = ({
                         <Eye size={16} />
                       </button>
 
-                      {(ticket.status === "OPEN" || ticket.status === "IN_PROGRESS") && (
-                        <button
-                          onClick={() => onCancelTicket(ticket)}
-                          className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 
-                                     hover:bg-red-50 transition-all"
-                          title="Cancel Ticket"
-                        >
-                          <XCircle size={16} />
-                        </button>
-                      )}
+                      {(ticket.status === "PENDING" || ticket.status === "IN_PROGRESS") && ( // ✅ Changed OPEN to PENDING
+  <button
+    onClick={() => onCancelTicket(ticket)}
+    className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 
+               hover:bg-red-50 transition-all"
+    title="Cancel Ticket"
+  >
+    <XCircle size={16} />
+  </button>
+)}
                     </div>
                   </td>
                 </tr>

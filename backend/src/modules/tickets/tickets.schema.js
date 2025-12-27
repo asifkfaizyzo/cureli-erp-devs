@@ -114,7 +114,7 @@ export const reopenTicketSchema = z.object({
 // ============================================
 export const getTicketsQuerySchema = z.object({
   status: z
-    .enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CANCELLED", "CLOSED"])
+    .enum(["PENDING", "IN_PROGRESS", "RESOLVED", "CANCELLED", "CLOSED"]) // ✅ Changed OPEN to PENDING
     .optional(),
 
   category: z.enum(TICKET_CATEGORIES).optional(),

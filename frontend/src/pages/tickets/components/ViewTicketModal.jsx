@@ -50,7 +50,7 @@ const ViewTicketModal = ({ isOpen, onClose, ticket, onCancelClick, onRefresh }) 
     );
   };
 
-  const canCancel = ticket.status === "OPEN" || ticket.status === "IN_PROGRESS";
+  const canCancel = ticket.status === "PENDING" || ticket.status === "IN_PROGRESS";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
