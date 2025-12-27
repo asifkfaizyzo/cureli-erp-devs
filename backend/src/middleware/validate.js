@@ -31,3 +31,19 @@ export const validate = (schema, source = "body") => (req, res, next) => {
     return fail(res, "Validation failed", 400, err.errors);
   }
 };
+
+export function validateQuery(schema) {
+  return async (req, res, next) => {
+    try {
+      const validated = await schema.parseAsync(req.query);
+      req.validated = { ...req.validated, ...validated };
+      next();
+    } catch (error) {
+      if (error.errors) {
+        const messages = error.errors.map((e) => e.message).join(", ");
+        return fail(res, messages, 400);
+      }
+      return fail(res, "Invalid query parameters", 400);
+    }
+  };
+}

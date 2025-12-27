@@ -2,17 +2,29 @@
 
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth.js";
-import { requirePermission } from "../../middleware/rbac.js";
-import { validate } from "../../middleware/validate.js";
+import { requirePermission, requireRole } from "../../middleware/rbac.js";
+import { validateBody } from "../../middleware/validate.js";
 import { PERMISSIONS } from "../../config/permissions.js";
+
 import {
   getBranchesController,
   getBranchesDropdownController,
   getBranchController,
   switchBranchController,
   getCurrentBranchController,
+  getBranchLimitsController,
+  createBranchController,
+  updateBranchController,
+  deleteBranchController,
+  getBranchUsersController,
+  getReassignmentOptionsController,
 } from "./branches.controller.js";
-import { switchBranchSchema } from "./branches.schema.js";
+
+import {
+  switchBranchSchema,
+  createBranchSchema,
+  updateBranchSchema,
+} from "./branches.schema.js";
 
 const router = Router();
 
@@ -27,6 +39,16 @@ router.get(
   "/",
   requirePermission(PERMISSIONS.BRANCHES_VIEW),
   getBranchesController
+);
+
+/**
+ * GET /api/branches/limits
+ * Get current branch count vs plan limits (SA only)
+ */
+router.get(
+  "/limits",
+  requireRole("super_admin"),
+  getBranchLimitsController
 );
 
 /**
@@ -52,8 +74,19 @@ router.get("/current", getCurrentBranchController);
 router.post(
   "/switch",
   requirePermission(PERMISSIONS.BRANCHES_SWITCH),
-  validate(switchBranchSchema),
+  validateBody(switchBranchSchema),
   switchBranchController
+);
+
+/**
+ * POST /api/branches
+ * Create new branch (Super Admin only)
+ */
+router.post(
+  "/",
+  requireRole("super_admin"),
+  validateBody(createBranchSchema),
+  createBranchController
 );
 
 /**
@@ -64,6 +97,49 @@ router.get(
   "/:branch_id",
   requirePermission(PERMISSIONS.BRANCHES_VIEW),
   getBranchController
+);
+
+/**
+ * PUT /api/branches/:branch_id
+ * Update branch
+ * - SA: any branch
+ * - BA: own branch only (enforced in controller)
+ */
+router.put(
+  "/:branch_id",
+  requirePermission(PERMISSIONS.BRANCHES_EDIT),
+  validateBody(updateBranchSchema),
+  updateBranchController
+);
+
+/**
+ * DELETE /api/branches/:branch_id
+ * Deactivate branch (Super Admin only)
+ */
+router.delete(
+  "/:branch_id",
+  requireRole("super_admin"),
+  deleteBranchController
+);
+
+/**
+ * GET /api/branches/:branch_id/users
+ * Get active users in branch (for reassignment UI)
+ */
+router.get(
+  "/:branch_id/users",
+  requireRole("super_admin"),
+  getBranchUsersController
+);
+
+/**
+ * GET /api/branches/:branch_id/reassignment-options
+ * Get other branches for user reassignment
+ */
+router.get(
+  "/:branch_id/reassignment-options",
+  requireRole("super_admin"),
+  getReassignmentOptionsController
 );
 
 export default router;

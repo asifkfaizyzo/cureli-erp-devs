@@ -6,7 +6,19 @@ import {
   getBranchById,
   getBranchesForDropdown,
   canAccessBranch,
+  getBranchLimits,
+  createBranch,
+  updateBranch,
+  deleteBranch,
+  getBranchActiveUsers,
+  getBranchesForReassignment,
 } from "./branches.service.js";
+
+/**
+ * ============================================
+ * EXISTING CONTROLLERS (keep as-is)
+ * ============================================
+ */
 
 /**
  * GET /api/branches
@@ -114,19 +126,16 @@ export async function switchBranchController(req, res) {
     const { branch_id } = req.validated || req.body;
     const { user_id, shop_id, role } = req.user;
 
-    // Only super admin can switch branches
     if (role !== "super_admin") {
       return fail(res, "Only Super Admin can switch branches", 403);
     }
 
-    // Validate branch access
     const hasAccess = await canAccessBranch(user_id, branch_id, shop_id);
 
     if (!hasAccess) {
       return fail(res, "Cannot access this branch", 403);
     }
 
-    // Get branch details
     const branch = await getBranchById(branch_id, shop_id);
 
     if (!branch) {
@@ -173,5 +182,206 @@ export async function getCurrentBranchController(req, res) {
   } catch (error) {
     console.error("Get current branch error:", error);
     return fail(res, "Failed to fetch current branch", 500);
+  }
+}
+
+/**
+ * ============================================
+ * NEW CONTROLLERS
+ * ============================================
+ */
+
+/**
+ * GET /api/branches/limits
+ * Get current branch count vs plan limits
+ */
+export async function getBranchLimitsController(req, res) {
+  try {
+    const { shop_id } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    const limits = await getBranchLimits(shop_id);
+
+    return success(res, limits);
+  } catch (err) {
+    console.error("getBranchLimitsController error:", err);
+    return fail(res, "Failed to fetch branch limits", 500);
+  }
+}
+
+/**
+ * POST /api/branches
+ * Create new branch (Super Admin only)
+ */
+export async function createBranchController(req, res) {
+  try {
+    const { shop_id, role } = req.user;
+    const data = req.validated;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    // Only super admin can create branches
+    if (role !== "super_admin") {
+      return fail(res, "Only Super Admin can create branches", 403);
+    }
+
+    const branch = await createBranch(shop_id, data);
+
+    return success(res, { branch }, "Branch created successfully", 201);
+  } catch (err) {
+    console.error("createBranchController error:", err);
+
+    if (err.code === "BRANCH_LIMIT_EXCEEDED") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "BRANCH_NAME_EXISTS") {
+      return fail(res, err.message, 400);
+    }
+
+    return fail(res, "Failed to create branch", 500);
+  }
+}
+
+/**
+ * PUT /api/branches/:branch_id
+ * Update existing branch
+ * - SA: can update any branch
+ * - BA: can only update their own branch
+ */
+export async function updateBranchController(req, res) {
+  try {
+    const { branch_id } = req.params;
+    const { shop_id, role, branch_id: userBranchId } = req.user;
+    const data = req.validated;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    // Branch admin can only edit their own branch
+    if (role === "branch_admin" && branch_id !== userBranchId) {
+      return fail(res, "You can only edit your own branch", 403);
+    }
+
+    const branch = await updateBranch(branch_id, shop_id, data);
+
+    return success(res, { branch }, "Branch updated successfully");
+  } catch (err) {
+    console.error("updateBranchController error:", err);
+
+    if (err.code === "BRANCH_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+    if (err.code === "BRANCH_NAME_EXISTS") {
+      return fail(res, err.message, 400);
+    }
+
+    return fail(res, "Failed to update branch", 500);
+  }
+}
+
+/**
+ * DELETE /api/branches/:branch_id
+ * Deactivate branch (Super Admin only)
+ */
+export async function deleteBranchController(req, res) {
+  try {
+    const { branch_id } = req.params;
+    const { shop_id, role } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    // Only super admin can delete branches
+    if (role !== "super_admin") {
+      return fail(res, "Only Super Admin can delete branches", 403);
+    }
+
+    await deleteBranch(branch_id, shop_id);
+
+    return success(res, null, "Branch deactivated successfully");
+  } catch (err) {
+    console.error("deleteBranchController error:", err);
+
+    if (err.code === "BRANCH_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+    if (err.code === "CANNOT_DELETE_MAIN") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "BRANCH_HAS_USERS") {
+      return fail(res, err.message, 400, {
+        code: err.code,
+        user_count: err.user_count,
+      });
+    }
+
+    return fail(res, "Failed to delete branch", 500);
+  }
+}
+
+/**
+ * GET /api/branches/:branch_id/users
+ * Get active users in a branch (for reassignment UI)
+ */
+export async function getBranchUsersController(req, res) {
+  try {
+    const { branch_id } = req.params;
+    const { shop_id, role } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    // Only super admin can view this
+    if (role !== "super_admin") {
+      return fail(res, "Access denied", 403);
+    }
+
+    // Verify branch belongs to shop
+    const branch = await getBranchById(branch_id, shop_id);
+    if (!branch) {
+      return fail(res, "Branch not found", 404);
+    }
+
+    const users = await getBranchActiveUsers(branch_id);
+
+    return success(res, { users, count: users.length });
+  } catch (err) {
+    console.error("getBranchUsersController error:", err);
+    return fail(res, "Failed to fetch branch users", 500);
+  }
+}
+
+/**
+ * GET /api/branches/:branch_id/reassignment-options
+ * Get branches available for user reassignment
+ */
+export async function getReassignmentOptionsController(req, res) {
+  try {
+    const { branch_id } = req.params;
+    const { shop_id, role } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    // Only super admin can view this
+    if (role !== "super_admin") {
+      return fail(res, "Access denied", 403);
+    }
+
+    const branches = await getBranchesForReassignment(shop_id, branch_id);
+
+    return success(res, { branches });
+  } catch (err) {
+    console.error("getReassignmentOptionsController error:", err);
+    return fail(res, "Failed to fetch reassignment options", 500);
   }
 }

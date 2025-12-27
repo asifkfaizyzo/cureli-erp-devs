@@ -14,7 +14,7 @@ import { useAuthStore } from "./store/useAuthStore";
 import AuthGuard from "./guards/AuthGuard";
 import SetupGuard from "./guards/SetupGuard";
 import PermissionGuard from "./guards/PermissionGuard";
-import OnboardingGuard from "./guards/OnboardingGuard"; // ← NEW
+import OnboardingGuard from "./guards/OnboardingGuard";
 
 // ============================================
 // PERMISSIONS CONFIG
@@ -48,6 +48,14 @@ import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 import InventoryPage from "./pages/inventory/InventoryPage.jsx";
 import PendingUsersPage from "./pages/PendingUsersPage.jsx";
 import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
+
+// ============================================
+// SETTINGS PAGES
+// ============================================
+import UsersPage from "./pages/settings/UsersPage.jsx";
+import BranchesPage from "./pages/settings/BranchesPage.jsx";
+import ProfilePage from "./pages/settings/ProfilePage.jsx";
+import UpgradePlanPage from "./pages/settings/UpgradePlanPage.jsx";
 
 // ============================================
 // SETUP PAGES (3-step wizard)
@@ -143,7 +151,6 @@ const App = () => {
 
           {/* ============================================ */}
           {/* ONBOARDING ROUTES (Special guard) */}
-          {/* Handles both PendingUser (no token) and Real User (has token) */}
           {/* ============================================ */}
           <Route element={<OnboardingGuard />}>
             <Route path="/onboarding" element={<OnboardingPage />} />
@@ -152,7 +159,6 @@ const App = () => {
 
           {/* ============================================ */}
           {/* POST-VERIFICATION ROUTES (Token required) */}
-          {/* User exists but may not have completed setup */}
           {/* ============================================ */}
           <Route element={<AuthGuard />}>
             <Route path="/plan-selection" element={<PlanSelectionPage />} />
@@ -250,15 +256,54 @@ const App = () => {
                   }
                 />
 
-                {/* User Management */}
+                {/* ============================================ */}
+                {/* SETTINGS ROUTES */}
+                {/* ============================================ */}
+                
+                {/* Settings > Users (SA + BA) */}
                 <Route
+                  path="/settings/users"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.USERS_VIEW}>
+                      <UsersPage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* Settings > Branches (SA only) */}
+                <Route
+                  path="/settings/branches"
+                  element={
+                    <PermissionGuard permission={PERMISSIONS.BRANCHES_VIEW}>
+                      <BranchesPage />
+                    </PermissionGuard>
+                  }
+                />
+
+                {/* Settings > Profile (All roles) */}
+                <Route
+                  path="/settings/profile"
+                  element={<ProfilePage />}
+                />
+
+                {/* Settings > Upgrade Plan (SA only) */}
+                <Route
+                  path="/settings/upgrade"
+                  element={<UpgradePlanPage />}
+                />
+
+                {/* LEGACY ROUTES (to be deprecated) */}
+                {/* ============================================ */}
+                
+                {/* User Management (Legacy - redirect to new) */}
+                {/* <Route
                   path="/pending-users"
                   element={
                     <PermissionGuard permission={PERMISSIONS.USERS_MANAGE}>
                       <PendingUsersPage />
                     </PermissionGuard>
                   }
-                />
+                /> */}
 
               </Route>
             </Route>

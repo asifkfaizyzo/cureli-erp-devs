@@ -57,14 +57,20 @@ export const PERMISSIONS = {
   // USER MANAGEMENT
   // ============================================
   USERS_VIEW: "users:view",             // View user list
-  USERS_MANAGE: "users:manage",         // Add/edit/deactivate users
+  USERS_CREATE: "users:create",         // Create new users
+  USERS_EDIT: "users:edit",             // Edit existing users
+  USERS_DELETE: "users:delete",         // Deactivate/delete users
+  USERS_MANAGE: "users:manage",         // Legacy: full user management (SA only)
   USERS_RESET_PASSWORD: "users:reset_password", // Reset other users' passwords
 
   // ============================================
   // BRANCH MANAGEMENT
   // ============================================
   BRANCHES_VIEW: "branches:view",       // View branch list
-  BRANCHES_MANAGE: "branches:manage",   // Add/edit branches
+  BRANCHES_CREATE: "branches:create",   // Create new branches
+  BRANCHES_EDIT: "branches:edit",       // Edit branch details
+  BRANCHES_DELETE: "branches:delete",   // Deactivate/delete branches
+  BRANCHES_MANAGE: "branches:manage",   // Legacy: full branch management
   BRANCHES_SWITCH: "branches:switch",   // Switch between branches (SA only)
 
   // ============================================
@@ -88,7 +94,10 @@ export const PERMISSIONS = {
  * Roles:
  * - super_admin: Shop owner, full access to everything across all branches
  * - branch_admin: Branch manager, full access within their assigned branch
+ *                 Can create/edit STAFF only (not other branch_admins)
+ *                 Can reset password for staff in own branch only
  * - staff: Limited access, primarily billing within their branch
+ *          No user/branch management access
  * 
  * Special values:
  * - "*" means ALL permissions (wildcard)
@@ -130,17 +139,23 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.SUPPLIERS_VIEW,
     PERMISSIONS.SUPPLIERS_MANAGE,
 
-    // Reports - view all
+    // Reports - view all except financial
     PERMISSIONS.REPORTS_SALES,
     PERMISSIONS.REPORTS_PURCHASE,
     PERMISSIONS.REPORTS_INVENTORY,
     // Note: No REPORTS_FINANCIAL for branch_admin
 
-    // Users - view only (can't manage)
+    // Users - can view, create staff, edit staff, reset staff password
+    // NOTE: Backend enforces "staff only" and "own branch only" restrictions
     PERMISSIONS.USERS_VIEW,
+    PERMISSIONS.USERS_CREATE,         // Can only create 'staff' role
+    PERMISSIONS.USERS_EDIT,           // Can only edit staff in own branch
+    PERMISSIONS.USERS_RESET_PASSWORD, // Can only reset staff passwords in own branch
 
-    // Branches - view only
+    // Branches - view all, edit own only
+    // NOTE: Backend enforces "own branch only" for edit
     PERMISSIONS.BRANCHES_VIEW,
+    PERMISSIONS.BRANCHES_EDIT,        // Can only edit own branch
 
     // Settings - view only
     PERMISSIONS.SETTINGS_VIEW,
@@ -173,6 +188,10 @@ export const ROLE_PERMISSIONS = {
 
     // Dashboard - view only
     PERMISSIONS.DASHBOARD_VIEW,
+
+    // Note: No user management permissions
+    // Note: No branch management permissions
+    // Note: No settings permissions
   ],
 };
 
@@ -250,20 +269,46 @@ export function getPermissionsForRole(role) {
  * 
  * Maps frontend routes to required permissions.
  * Used for sidebar visibility and frontend guards.
- * 
- * Export this for frontend to consume via an API endpoint if needed.
  */
 
 export const ROUTE_PERMISSIONS = {
+  // Dashboard
   "/dashboard": [PERMISSIONS.DASHBOARD_VIEW],
+  
+  // Sales
   "/Salesbilling": [PERMISSIONS.BILLING_CREATE],
   "/Salesinvoice": [PERMISSIONS.BILLING_VIEW],
+  
+  // Purchase
   "/purchase-billing": [PERMISSIONS.PURCHASE_CREATE],
   "/purchase-invoices": [PERMISSIONS.PURCHASE_VIEW],
+  
+  // Inventory
+  "/inventory": [PERMISSIONS.INVENTORY_VIEW],
+  
+  // Suppliers
   "/suppliers": [PERMISSIONS.SUPPLIERS_VIEW],
+  
+  // Reports
   "/reports-sales": [PERMISSIONS.REPORTS_SALES],
+  "/reports-purchase": [PERMISSIONS.REPORTS_PURCHASE],
+  "/reports-inventory": [PERMISSIONS.REPORTS_INVENTORY],
+  "/reports-finance": [PERMISSIONS.REPORTS_FINANCIAL],
+  
+  // Settings - Users (SA + BA)
+  "/settings/users": [PERMISSIONS.USERS_VIEW],
+  
+  // Settings - Branches (SA only for full access, BA for view)
+  "/settings/branches": [PERMISSIONS.BRANCHES_VIEW],
+  
+  // Settings - Profile (no specific permission, just auth)
+  "/settings/profile": [],
+  
+  // Settings - Upgrade (SA only - handled by role check)
+  "/settings/upgrade": [],
+  
+  // Legacy routes
   "/pending-users": [PERMISSIONS.USERS_MANAGE],
-  // Add more routes as needed
 };
 
 /**

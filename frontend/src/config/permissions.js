@@ -57,6 +57,9 @@ export const PERMISSIONS = {
   // USER MANAGEMENT
   // ============================================
   USERS_VIEW: "users:view",
+  USERS_CREATE: "users:create",
+  USERS_EDIT: "users:edit",
+  USERS_DELETE: "users:delete",
   USERS_MANAGE: "users:manage",
   USERS_RESET_PASSWORD: "users:reset_password",
 
@@ -64,6 +67,9 @@ export const PERMISSIONS = {
   // BRANCH MANAGEMENT
   // ============================================
   BRANCHES_VIEW: "branches:view",
+  BRANCHES_CREATE: "branches:create",
+  BRANCHES_EDIT: "branches:edit",
+  BRANCHES_DELETE: "branches:delete",
   BRANCHES_MANAGE: "branches:manage",
   BRANCHES_SWITCH: "branches:switch",
 
@@ -90,33 +96,57 @@ export const PERMISSIONS = {
  */
 
 export const ROLE_PERMISSIONS = {
+  // Super Admin - full access
   super_admin: ["*"],
 
+  // Branch Admin - branch-level access
   branch_admin: [
+    // Billing
     PERMISSIONS.BILLING_CREATE,
     PERMISSIONS.BILLING_VIEW,
     PERMISSIONS.BILLING_EDIT,
     PERMISSIONS.BILLING_DELETE,
     PERMISSIONS.BILLING_REFUND,
+    
+    // Purchase
     PERMISSIONS.PURCHASE_CREATE,
     PERMISSIONS.PURCHASE_VIEW,
     PERMISSIONS.PURCHASE_EDIT,
     PERMISSIONS.PURCHASE_DELETE,
+    
+    // Inventory
     PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.INVENTORY_ADJUST,
     PERMISSIONS.INVENTORY_TRANSFER,
+    
+    // Suppliers
     PERMISSIONS.SUPPLIERS_VIEW,
     PERMISSIONS.SUPPLIERS_MANAGE,
+    
+    // Reports (no financial)
     PERMISSIONS.REPORTS_SALES,
     PERMISSIONS.REPORTS_PURCHASE,
     PERMISSIONS.REPORTS_INVENTORY,
+    
+    // Users (staff in own branch only - enforced by backend)
     PERMISSIONS.USERS_VIEW,
+    PERMISSIONS.USERS_CREATE,
+    PERMISSIONS.USERS_EDIT,
+    PERMISSIONS.USERS_RESET_PASSWORD,
+    
+    // Branches (own branch only - enforced by backend)
     PERMISSIONS.BRANCHES_VIEW,
+    PERMISSIONS.BRANCHES_EDIT,
+    
+    // Settings
     PERMISSIONS.SETTINGS_VIEW,
+    
+    // Dashboard
     PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.DASHBOARD_ANALYTICS,
   ],
 
+  // Staff - limited access
   staff: [
     PERMISSIONS.BILLING_CREATE,
     PERMISSIONS.BILLING_VIEW,
@@ -138,13 +168,36 @@ export const ROLE_PERMISSIONS = {
  */
 
 export const ROUTE_PERMISSIONS = {
+  // Dashboard
   "/dashboard": [PERMISSIONS.DASHBOARD_VIEW],
+  
+  // Sales
   "/Salesbilling": [PERMISSIONS.BILLING_CREATE],
   "/Salesinvoice": [PERMISSIONS.BILLING_VIEW],
+  
+  // Purchase
   "/purchase-billing": [PERMISSIONS.PURCHASE_CREATE],
   "/purchase-invoices": [PERMISSIONS.PURCHASE_VIEW],
+  
+  // Inventory
+  "/inventory": [PERMISSIONS.INVENTORY_VIEW],
+  
+  // Suppliers
   "/suppliers": [PERMISSIONS.SUPPLIERS_VIEW],
+  
+  // Reports
   "/reports-sales": [PERMISSIONS.REPORTS_SALES],
+  "/reports-purchase": [PERMISSIONS.REPORTS_PURCHASE],
+  "/reports-inventory": [PERMISSIONS.REPORTS_INVENTORY],
+  "/reports-finance": [PERMISSIONS.REPORTS_FINANCIAL],
+  
+  // Settings
+  "/settings/users": [PERMISSIONS.USERS_VIEW],
+  "/settings/branches": [PERMISSIONS.BRANCHES_VIEW],
+  "/settings/profile": [],
+  "/settings/upgrade": [],
+  
+  // Legacy
   "/pending-users": [PERMISSIONS.USERS_MANAGE],
 };
 
