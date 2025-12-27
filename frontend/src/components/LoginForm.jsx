@@ -21,7 +21,7 @@ const LoginForm = ({ onRegisterClick }) => {
   const [tempToken, setTempToken] = useState("");
   const [phoneHint, setPhoneHint] = useState("");
 
-  // ✅ NEW: Suspended state
+  // Suspended state
   const [isSuspended, setIsSuspended] = useState(false);
 
   const passwordRef = useRef(null);
@@ -42,7 +42,7 @@ const LoginForm = ({ onRegisterClick }) => {
 
     setLoading(true);
     setErrors({});
-    setIsSuspended(false); // Reset suspended state
+    setIsSuspended(false);
 
     try {
       const res = await loginUser({ username, password });
@@ -58,7 +58,6 @@ const LoginForm = ({ onRegisterClick }) => {
       const response = err?.response?.data;
       const errorCode = response?.data?.code;
 
-      // ✅ NEW: Check if account is suspended
       if (errorCode === "ACCOUNT_SUSPENDED" || err?.response?.status === 403) {
         setIsSuspended(true);
       } else {
@@ -78,7 +77,15 @@ const LoginForm = ({ onRegisterClick }) => {
     setPassword("");
   };
 
-  // ✅ NEW: Reset from suspended state
+  // NEW: Handle token update from OTP component (after resend)
+  const handleTokenUpdate = (newToken, newPhoneHint) => {
+    console.log("Token updated after resend");
+    setTempToken(newToken);
+    if (newPhoneHint) {
+      setPhoneHint(newPhoneHint);
+    }
+  };
+
   const handleBackFromSuspended = () => {
     setIsSuspended(false);
     setUsername("");
@@ -94,12 +101,13 @@ const LoginForm = ({ onRegisterClick }) => {
           tempToken={tempToken}
           phoneHint={phoneHint}
           onBack={handleBackToLogin}
+          onTokenUpdate={handleTokenUpdate}  // NEW: Pass the callback
         />
       </AnimatePresence>
     );
   }
 
-  // ✅ NEW: Suspended Account View
+  // Suspended Account View
   if (isSuspended) {
     return (
       <motion.div
@@ -109,25 +117,21 @@ const LoginForm = ({ onRegisterClick }) => {
         transition={{ duration: 0.4, ease: "easeOut" }}
       >
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-red-100">
-          {/* Warning Icon */}
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
               <AlertTriangle className="w-10 h-10 text-red-600" />
             </div>
           </div>
 
-          {/* Title */}
           <h2 className="text-2xl font-bold text-gray-900 text-center mb-3">
             Account Suspended
           </h2>
 
-          {/* Message */}
           <p className="text-gray-600 text-center mb-8 leading-relaxed">
             Your account has been suspended. Please contact Cureli support for
             more information about your account status.
           </p>
 
-          {/* Contact Support Button */}
           <button
             onClick={() => navigate("/contact")}
             className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-[#000060] text-white rounded-xl font-semibold hover:bg-[#000080] transition-colors"
@@ -136,7 +140,6 @@ const LoginForm = ({ onRegisterClick }) => {
             <ArrowRight size={18} />
           </button>
 
-          {/* Back to Login */}
           <button
             onClick={handleBackFromSuspended}
             className="w-full mt-4 py-3 text-gray-600 hover:text-[#000060] font-medium transition-colors"
@@ -145,7 +148,6 @@ const LoginForm = ({ onRegisterClick }) => {
           </button>
         </div>
 
-        {/* Footer */}
         <p className="text-center text-[13px] text-gray-400 mt-8">
           This site is protected by reCAPTCHA and the <br />
           <span
@@ -185,7 +187,6 @@ const LoginForm = ({ onRegisterClick }) => {
           Log in
         </h2>
 
-        {/* GENERAL ERROR */}
         {errors.general && (
           <p className="text-red-600 text-center text-sm mb-4">
             {errors.general}

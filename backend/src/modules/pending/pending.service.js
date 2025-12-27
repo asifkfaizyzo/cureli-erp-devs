@@ -31,9 +31,6 @@ export async function cleanupExpiredPendingUsers(expiryMinutes = 10) {
   }
 }
 
-
-
-
 export async function createPendingUser({
   first_name,
   last_name,
@@ -88,7 +85,9 @@ export async function createPendingUserFromGoogle({
     });
 
     if (existingGoogleUser) {
-      const err = new Error("This Google account is already registered. Please login instead.");
+      const err = new Error(
+        "This Google account is already registered. Please login instead."
+      );
       err.code = "GOOGLE_ID_EXISTS";
       throw err;
     }
@@ -166,49 +165,67 @@ export async function setPasswordForPending(pending_id, password) {
   return true;
 }
 
-export async function sendEmailOtp(pending_id) {
+export async function sendEmailOtp(pending_id, isResend = false) {
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
   });
+
   if (!pending) {
     const err = new Error("Pending user not found");
     err.code = "NOT_FOUND";
     throw err;
   }
 
-  // Prevent OTP spam (minimum 60 seconds)
-  if (
-    pending.email_otp_expires &&
-    new Date(pending.email_otp_expires) > new Date()
-  ) {
-    const err = new Error(
-      "OTP already sent. Please wait before requesting again."
-    );
-    err.code = "OTP_COOLDOWN";
-    throw err;
+  // Check cooldown - prevent OTP spam
+  if (pending.email_otp_expires) {
+    const expiresAt = new Date(pending.email_otp_expires);
+    const now = new Date();
+
+    // OTP validity is 5 minutes, so we can calculate when it was sent
+    const otpSentAt = new Date(expiresAt.getTime() - 5 * 60 * 1000);
+    const secondsSinceSent = (now - otpSentAt) / 1000;
+
+    // For resend, allow after 30 seconds
+    // For initial send (during signup flow), allow after 60 seconds
+    const cooldownSeconds = isResend ? 30 : 60;
+
+    if (secondsSinceSent < cooldownSeconds) {
+      const waitTime = Math.ceil(cooldownSeconds - secondsSinceSent);
+      const err = new Error(
+        `Please wait ${waitTime} seconds before requesting a new OTP.`
+      );
+      err.code = "OTP_COOLDOWN";
+      err.waitTime = waitTime;
+      throw err;
+    }
   }
 
-  const otp = generateOtp(); // "123456"
-  const hash = await hashOtp(otp); // hashed version
+  const otp = generateOtp(); // "1234" (4 digits)
+  const hash = await hashOtp(otp);
 
   await prisma.pendingUser.update({
     where: { pending_id },
     data: {
       email_otp_hash: hash,
-      email_otp_expires: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+      email_otp_expires: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes validity
     },
   });
 
   const html = `
-    <h2>Your Cureli Email Verification Code</h2>
-    <p>Your OTP is:</p>
-    <h1>${otp}</h1>
-    <p>This code will expire in 5 minutes.</p>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #000060;">Your Cureli Email Verification Code</h2>
+      <p>Your verification code is:</p>
+      <div style="background: #f5f5f5; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px;">
+        <h1 style="color: #000060; letter-spacing: 8px; margin: 0;">${otp}</h1>
+      </div>
+      <p style="color: #666;">This code will expire in 5 minutes.</p>
+      <p style="color: #999; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
+    </div>
   `;
 
-  await sendMail(pending.email, "Your Cureli OTP Code", html);
+  await sendMail(pending.email, "Your Cureli Verification Code", html);
 
-  return true;
+  return { success: true };
 }
 
 export async function verifyEmailOtp(pending_id, otp) {
@@ -256,43 +273,53 @@ export async function verifyEmailOtp(pending_id, otp) {
   return true;
 }
 
-
 export async function sendSmsOtp(pending_id, phone) {
   console.log("📱 sendSmsOtp called with:", { pending_id, phone });
 
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
   });
-  
+
   console.log("📋 Pending user found:", pending ? "Yes" : "No");
-  
+
   if (!pending) {
     const err = new Error("Pending user not found");
     err.code = "NOT_FOUND";
     throw err;
   }
 
-  // Prevent OTP spam (minimum 60 seconds)
-  if (
-    pending.sms_otp_expires &&
-    new Date(pending.sms_otp_expires) > new Date()
-  ) {
-    console.log("⏰ OTP cooldown active, expires:", pending.sms_otp_expires);
-    const err = new Error(
-      "OTP already sent. Please wait before requesting again."
-    );
-    err.code = "OTP_COOLDOWN";
-    throw err;
+  // Check cooldown - prevent OTP spam
+  if (pending.sms_otp_expires) {
+    const expiresAt = new Date(pending.sms_otp_expires);
+    const now = new Date();
+
+    // Default SMS OTP validity from provider (usually 300 seconds = 5 min)
+    const otpValiditySeconds = 300;
+    const otpSentAt = new Date(expiresAt.getTime() - otpValiditySeconds * 1000);
+    const secondsSinceSent = (now - otpSentAt) / 1000;
+
+    // For resend, allow after 30 seconds
+    // For initial send, allow after 60 seconds
+    const cooldownSeconds = isResend ? 30 : 60;
+
+    if (secondsSinceSent < cooldownSeconds) {
+      const waitTime = Math.ceil(cooldownSeconds - secondsSinceSent);
+      const err = new Error(
+        `Please wait ${waitTime} seconds before requesting a new OTP.`
+      );
+      err.code = "OTP_COOLDOWN";
+      throw err;
+    }
   }
 
   console.log("🔑 Getting MC auth token...");
-  
+
   // Get MessageCentral token
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
     process.env.MC_PASSWORD
   );
-  
+
   console.log("✅ Auth token received:", authToken ? "Yes" : "No");
 
   console.log("📤 Calling mcSendOtp with:", {
@@ -335,7 +362,6 @@ export async function sendSmsOtp(pending_id, phone) {
 
   return { verificationId, transactionId, timeout };
 }
-
 
 export async function verifySmsOtp(pending_id, code) {
   const pending = await prisma.pendingUser.findUnique({
@@ -425,7 +451,6 @@ export async function verifySmsOtp(pending_id, code) {
   err.code = "INVALID_OTP";
   throw err;
 }
-
 
 export async function setUsername(pending_id, username) {
   // Check if pending user exists
@@ -528,26 +553,26 @@ async function generateAvailableUsernames(baseUsername, count = 4) {
   // Different suffix patterns to try
   const generateVariations = (base) => {
     const variations = [];
-    
+
     // Add random 2-digit numbers
     for (let i = 0; i < 5; i++) {
       variations.push(`${base}${Math.floor(Math.random() * 90 + 10)}`);
     }
-    
+
     // Add random 3-digit numbers
     for (let i = 0; i < 5; i++) {
       variations.push(`${base}${Math.floor(Math.random() * 900 + 100)}`);
     }
-    
+
     // Add underscore + random numbers
     for (let i = 0; i < 5; i++) {
       variations.push(`${base}_${Math.floor(Math.random() * 90 + 10)}`);
     }
-    
+
     // Add timestamp-based suffix
     const timestamp = Date.now().toString().slice(-4);
     variations.push(`${base}_${timestamp}`);
-    
+
     return variations;
   };
 
@@ -568,7 +593,11 @@ async function generateAvailableUsernames(baseUsername, count = 4) {
       select: { pending_id: true },
     });
 
-    if (!existsInUsers && !existsInPending && !suggestions.includes(variation)) {
+    if (
+      !existsInUsers &&
+      !existsInPending &&
+      !suggestions.includes(variation)
+    ) {
       suggestions.push(variation);
     }
   }
@@ -605,28 +634,28 @@ export async function finalizePendingSignup(pending_id) {
   }
 
   // Build user data conditionally
-const userData = {
-  first_name: pending.first_name,
-  last_name: pending.last_name,
-  full_name: pending.first_name + " " + pending.last_name,
-  email: pending.email,
-  username: pending.username,
-  phone_number: pending.phone,
-  password_hash: pending.password_hash || null,
-  login_provider: pending.login_provider || "password",
-  role: "super_admin",
-  status: "pending_setup",
-  is_active: true,
-};
+  const userData = {
+    first_name: pending.first_name,
+    last_name: pending.last_name,
+    full_name: pending.first_name + " " + pending.last_name,
+    email: pending.email,
+    username: pending.username,
+    phone_number: pending.phone,
+    password_hash: pending.password_hash || null,
+    login_provider: pending.login_provider || "password",
+    role: "super_admin",
+    status: "pending_setup",
+    is_active: true,
+  };
 
-// Only add google_id if it actually exists
-if (pending.google_id) {
-  userData.google_id = pending.google_id;
-}
+  // Only add google_id if it actually exists
+  if (pending.google_id) {
+    userData.google_id = pending.google_id;
+  }
 
-const user = await prisma.user.create({
-  data: userData,
-});
+  const user = await prisma.user.create({
+    data: userData,
+  });
 
   // NOW create the shop row linked to this user
   const shop = await prisma.shop.create({

@@ -31,3 +31,7 @@ export const verifyLoginOtpSchema = z.object({
   temp_token: z.string().min(1, "Session token required"),
   otp: z.string().length(4, "OTP must be 4 digits"),
 });
+
+export const resendLoginOtpSchema = z.object({
+  temp_token: z.string().min(1, "Token is required"),
+});

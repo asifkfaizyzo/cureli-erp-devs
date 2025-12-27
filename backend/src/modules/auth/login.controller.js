@@ -215,6 +215,78 @@ export async function loginController(req, res) {
   }
 }
 
+
+// ============================================
+// RESEND LOGIN OTP CONTROLLER
+// ============================================
+
+
+export async function resendLoginOtpController(req, res) {
+  try {
+    const { temp_token } = req.validated;
+
+    // Verify temp token
+    let decoded;
+    try {
+      decoded = jwt.verify(temp_token, TEMP_TOKEN_SECRET);
+    } catch (err) {
+      return fail(res, "Invalid or expired session. Please login again.", 401);
+    }
+
+    if (decoded.purpose !== "login_otp") {
+      return fail(res, "Invalid token", 401);
+    }
+
+    // Resend OTP
+    await sendLoginOtp(decoded.user_id, true); // true = isResend
+
+    // Get user for phone hint
+    const user = await prisma.user.findUnique({
+      where: { user_id: decoded.user_id },
+      select: { phone_number: true },
+    });
+
+    // Issue a new temp token with fresh expiry
+    const newTempToken = jwt.sign(
+      { user_id: decoded.user_id, purpose: "login_otp" },
+      TEMP_TOKEN_SECRET,
+      { expiresIn: "10m" }
+    );
+
+    return success(
+      res,
+      {
+        temp_token: newTempToken,
+        phone_hint: user?.phone_number
+          ? `***${user.phone_number.slice(-4)}`
+          : null,
+        message: "OTP resent successfully",
+      },
+      "OTP resent"
+    );
+  } catch (err) {
+    console.error("Resend OTP error:", err);
+
+    if (err.code === "NO_PHONE") {
+      return fail(
+        res,
+        "No phone number registered. Please contact support.",
+        400
+      );
+    }
+
+    if (err.code === "OTP_COOLDOWN") {
+      // Return with waitTime so frontend can sync timer
+      return fail(res, err.message, 429, { waitTime: err.waitTime || 30 });
+    }
+
+    if (err.code === "NOT_FOUND") {
+      return fail(res, "User not found", 404);
+    }
+
+    return fail(res, "Failed to resend OTP", 500);
+  }
+}
 // ============================================
 // VERIFY LOGIN OTP — UPDATED WITH branch_id
 // ============================================
