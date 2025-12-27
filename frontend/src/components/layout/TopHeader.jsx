@@ -8,9 +8,8 @@ import {
   LogOut,
   Clock,
   Calendar,
-  Settings,
   User,
-  HelpCircle,
+  Ticket ,
   Shield,
   Building2,
   Store,
@@ -987,12 +986,17 @@ const TopHeader = () => {
                     )} */}
 
                     <button
-                      onClick={() => handleProfileNavigation("/help")}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      <HelpCircle size={16} className="text-gray-400" />
-                      <span className="text-sm">Help & Support</span>
-                    </button>
+  onClick={() => {
+    navigate("/tickets");
+    setShowProfileMenu(false); // Close dropdown
+  }}
+  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 
+             flex items-center gap-3 transition-colors"
+>
+  <Ticket size={16} className="text-gray-500" />
+  <span>Support Tickets</span>
+</button>
+
                   </div>
 
                   <div className="border-t border-gray-100 p-2">

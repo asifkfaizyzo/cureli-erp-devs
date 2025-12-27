@@ -14,186 +14,158 @@
  * 3. Use in routes with requirePermission("permission:name")
  */
 
+// src/config/permissions.js
+
 export const PERMISSIONS = {
   // ============================================
   // BILLING / SALES
   // ============================================
-  BILLING_CREATE: "billing:create",     // Create new sales bills
-  BILLING_VIEW: "billing:view",         // View sales history/invoices
-  BILLING_EDIT: "billing:edit",         // Edit/modify existing bills
-  BILLING_DELETE: "billing:delete",     // Delete/cancel bills
-  BILLING_REFUND: "billing:refund",     // Process refunds
+  BILLING_CREATE: "billing:create",
+  BILLING_VIEW: "billing:view",
+  BILLING_EDIT: "billing:edit",
+  BILLING_DELETE: "billing:delete",
+  BILLING_REFUND: "billing:refund",
 
   // ============================================
   // PURCHASE
   // ============================================
-  PURCHASE_CREATE: "purchase:create",   // Create purchase orders
-  PURCHASE_VIEW: "purchase:view",       // View purchase history
-  PURCHASE_EDIT: "purchase:edit",       // Edit purchase orders
-  PURCHASE_DELETE: "purchase:delete",   // Delete purchase orders
+  PURCHASE_CREATE: "purchase:create",
+  PURCHASE_VIEW: "purchase:view",
+  PURCHASE_EDIT: "purchase:edit",
+  PURCHASE_DELETE: "purchase:delete",
 
   // ============================================
   // INVENTORY
   // ============================================
-  INVENTORY_VIEW: "inventory:view",     // View stock levels
-  INVENTORY_ADJUST: "inventory:adjust", // Manual stock adjustments
-  INVENTORY_TRANSFER: "inventory:transfer", // Transfer between branches
+  INVENTORY_VIEW: "inventory:view",
+  INVENTORY_ADJUST: "inventory:adjust",
+  INVENTORY_TRANSFER: "inventory:transfer",
 
   // ============================================
   // SUPPLIERS
   // ============================================
-  SUPPLIERS_VIEW: "suppliers:view",     // View supplier list
-  SUPPLIERS_MANAGE: "suppliers:manage", // Add/edit/delete suppliers
+  SUPPLIERS_VIEW: "suppliers:view",
+  SUPPLIERS_MANAGE: "suppliers:manage",
 
   // ============================================
   // REPORTS
   // ============================================
-  REPORTS_SALES: "reports:sales",       // View sales reports
-  REPORTS_PURCHASE: "reports:purchase", // View purchase reports
-  REPORTS_INVENTORY: "reports:inventory", // View inventory reports
-  REPORTS_FINANCIAL: "reports:financial", // View financial reports
+  REPORTS_SALES: "reports:sales",
+  REPORTS_PURCHASE: "reports:purchase",
+  REPORTS_INVENTORY: "reports:inventory",
+  REPORTS_FINANCIAL: "reports:financial",
 
   // ============================================
   // USER MANAGEMENT
   // ============================================
-  USERS_VIEW: "users:view",             // View user list
-  USERS_CREATE: "users:create",         // Create new users
-  USERS_EDIT: "users:edit",             // Edit existing users
-  USERS_DELETE: "users:delete",         // Deactivate/delete users
-  USERS_MANAGE: "users:manage",         // Legacy: full user management (SA only)
-  USERS_RESET_PASSWORD: "users:reset_password", // Reset other users' passwords
+  USERS_VIEW: "users:view",
+  USERS_CREATE: "users:create",
+  USERS_EDIT: "users:edit",
+  USERS_DELETE: "users:delete",
+  USERS_MANAGE: "users:manage",
+  USERS_RESET_PASSWORD: "users:reset_password",
 
   // ============================================
   // BRANCH MANAGEMENT
   // ============================================
-  BRANCHES_VIEW: "branches:view",       // View branch list
-  BRANCHES_CREATE: "branches:create",   // Create new branches
-  BRANCHES_EDIT: "branches:edit",       // Edit branch details
-  BRANCHES_DELETE: "branches:delete",   // Deactivate/delete branches
-  BRANCHES_MANAGE: "branches:manage",   // Legacy: full branch management
-  BRANCHES_SWITCH: "branches:switch",   // Switch between branches (SA only)
+  BRANCHES_VIEW: "branches:view",
+  BRANCHES_CREATE: "branches:create",
+  BRANCHES_EDIT: "branches:edit",
+  BRANCHES_DELETE: "branches:delete",
+  BRANCHES_MANAGE: "branches:manage",
+  BRANCHES_SWITCH: "branches:switch",
 
   // ============================================
   // SETTINGS
   // ============================================
-  SETTINGS_VIEW: "settings:view",       // View settings
-  SETTINGS_MANAGE: "settings:manage",   // Modify settings
+  SETTINGS_VIEW: "settings:view",
+  SETTINGS_MANAGE: "settings:manage",
 
   // ============================================
   // DASHBOARD
   // ============================================
-  DASHBOARD_VIEW: "dashboard:view",     // View dashboard
-  DASHBOARD_ANALYTICS: "dashboard:analytics", // View detailed analytics
+  DASHBOARD_VIEW: "dashboard:view",
+  DASHBOARD_ANALYTICS: "dashboard:analytics",
+
+  // ============================================
+  // TICKETS (NEW)
+  // ============================================
+  TICKETS_VIEW: "tickets:view",
+  TICKETS_CREATE: "tickets:create",
+  TICKETS_CANCEL: "tickets:cancel",
+  TICKETS_REOPEN: "tickets:reopen",
 };
 
-/**
- * ============================================
- * ROLE → PERMISSIONS MAPPING
- * ============================================
- * 
- * Roles:
- * - super_admin: Shop owner, full access to everything across all branches
- * - branch_admin: Branch manager, full access within their assigned branch
- *                 Can create/edit STAFF only (not other branch_admins)
- *                 Can reset password for staff in own branch only
- * - staff: Limited access, primarily billing within their branch
- *          No user/branch management access
- * 
- * Special values:
- * - "*" means ALL permissions (wildcard)
- * - Array of specific permissions for granular control
- * 
- * To modify permissions:
- * Just edit the arrays below. Changes take effect immediately.
- */
-
 export const ROLE_PERMISSIONS = {
-  // ============================================
-  // SUPER ADMIN — Full access to everything
-  // ============================================
-  super_admin: ["*"], // Wildcard: all permissions granted
+  // Super Admin - full access
+  super_admin: ["*"],
 
-  // ============================================
-  // BRANCH ADMIN — Full access within branch
-  // ============================================
+  // Branch Admin - branch-level access
   branch_admin: [
-    // Billing - full access
+    // Billing
     PERMISSIONS.BILLING_CREATE,
     PERMISSIONS.BILLING_VIEW,
     PERMISSIONS.BILLING_EDIT,
     PERMISSIONS.BILLING_DELETE,
     PERMISSIONS.BILLING_REFUND,
 
-    // Purchase - full access
+    // Purchase
     PERMISSIONS.PURCHASE_CREATE,
     PERMISSIONS.PURCHASE_VIEW,
     PERMISSIONS.PURCHASE_EDIT,
     PERMISSIONS.PURCHASE_DELETE,
 
-    // Inventory - full access
+    // Inventory
     PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.INVENTORY_ADJUST,
     PERMISSIONS.INVENTORY_TRANSFER,
 
-    // Suppliers - full access
+    // Suppliers
     PERMISSIONS.SUPPLIERS_VIEW,
     PERMISSIONS.SUPPLIERS_MANAGE,
 
-    // Reports - view all except financial
+    // Reports (no financial)
     PERMISSIONS.REPORTS_SALES,
     PERMISSIONS.REPORTS_PURCHASE,
     PERMISSIONS.REPORTS_INVENTORY,
-    // Note: No REPORTS_FINANCIAL for branch_admin
 
-    // Users - can view, create staff, edit staff, reset staff password
-    // NOTE: Backend enforces "staff only" and "own branch only" restrictions
+    // Users
     PERMISSIONS.USERS_VIEW,
-    PERMISSIONS.USERS_CREATE,         // Can only create 'staff' role
-    PERMISSIONS.USERS_EDIT,           // Can only edit staff in own branch
-    PERMISSIONS.USERS_RESET_PASSWORD, // Can only reset staff passwords in own branch
+    PERMISSIONS.USERS_CREATE,
+    PERMISSIONS.USERS_EDIT,
+    PERMISSIONS.USERS_RESET_PASSWORD,
 
-    // Branches - view all, edit own only
-    // NOTE: Backend enforces "own branch only" for edit
+    // Branches
     PERMISSIONS.BRANCHES_VIEW,
-    PERMISSIONS.BRANCHES_EDIT,        // Can only edit own branch
+    PERMISSIONS.BRANCHES_EDIT,
 
-    // Settings - view only
+    // Settings
     PERMISSIONS.SETTINGS_VIEW,
 
-    // Dashboard - full
+    // Dashboard
     PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.DASHBOARD_ANALYTICS,
+
+    // Tickets (NEW)
+    PERMISSIONS.TICKETS_VIEW,
+    PERMISSIONS.TICKETS_CREATE,
+    PERMISSIONS.TICKETS_CANCEL,
+    PERMISSIONS.TICKETS_REOPEN,
   ],
 
-  // ============================================
-  // STAFF — Limited access (billing focused)
-  // ============================================
+  // Staff - limited access (NO TICKETS)
   staff: [
-    // Billing - create and view only
     PERMISSIONS.BILLING_CREATE,
     PERMISSIONS.BILLING_VIEW,
-    // Note: No edit, delete, or refund
-
-    // Purchase - view only
     PERMISSIONS.PURCHASE_VIEW,
-
-    // Inventory - view only
     PERMISSIONS.INVENTORY_VIEW,
-
-    // Suppliers - view only
     PERMISSIONS.SUPPLIERS_VIEW,
-
-    // Reports - sales only
     PERMISSIONS.REPORTS_SALES,
-
-    // Dashboard - view only
     PERMISSIONS.DASHBOARD_VIEW,
-
-    // Note: No user management permissions
-    // Note: No branch management permissions
-    // Note: No settings permissions
   ],
 };
+
+// ... rest of the file remains the same (helper functions)
 
 /**
  * ============================================
@@ -319,3 +291,4 @@ export const ROUTE_PERMISSIONS = {
 export function getRoutePermissions(route) {
   return ROUTE_PERMISSIONS[route] || [];
 }
+

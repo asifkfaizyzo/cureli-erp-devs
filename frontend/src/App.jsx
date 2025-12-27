@@ -46,7 +46,6 @@ import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.js
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 import InventoryPage from "./pages/inventory/InventoryPage.jsx";
-import PendingUsersPage from "./pages/PendingUsersPage.jsx";
 import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
 
 // ============================================
@@ -56,6 +55,11 @@ import UsersPage from "./pages/settings/UsersPage.jsx";
 import BranchesPage from "./pages/settings/BranchesPage.jsx";
 import ProfilePage from "./pages/settings/ProfilePage.jsx";
 import UpgradePlanPage from "./pages/settings/UpgradePlanPage.jsx";
+
+// ============================================
+// SUPPORT PAGES
+// ============================================
+import TicketsPage from "./pages/tickets/TicketsPage.jsx";
 
 // ============================================
 // SETUP PAGES (3-step wizard)
@@ -292,18 +296,19 @@ const App = () => {
                   element={<UpgradePlanPage />}
                 />
 
-                {/* LEGACY ROUTES (to be deprecated) */}
+                {/* ============================================ */}
+                {/* SUPPORT ROUTES */}
                 {/* ============================================ */}
                 
-                {/* User Management (Legacy - redirect to new) */}
-                {/* <Route
-                  path="/pending-users"
+                {/* Support > Tickets (SA + BA only) */}
+                <Route
+                  path="/tickets"
                   element={
-                    <PermissionGuard permission={PERMISSIONS.USERS_MANAGE}>
-                      <PendingUsersPage />
+                    <PermissionGuard permission={PERMISSIONS.TICKETS_VIEW}>
+                      <TicketsPage />
                     </PermissionGuard>
                   }
-                /> */}
+                />
 
               </Route>
             </Route>

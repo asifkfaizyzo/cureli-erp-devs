@@ -29,6 +29,7 @@ import cadminShopsRoutes from "./src/modules/cadmin/shops/cadminShops.routes.js"
 import cadminPlansRoutes from "./src/modules/cadmin/plans/cadminPlans.routes.js";
 import cadminAdminRoutes from "./src/modules/cadmin/admins/cadminAdmin.routes.js";
 import cadminProfileRoutes from "./src/modules/cadmin/profile/cadminProfile.routes.js";
+import ticketRoutes from "./src/modules/tickets/tickets.routes.js";
 
 // Add to API Routes section (after subscription routes)
 import { initializeCronJobs } from "./src/cron/jobs.js";
@@ -190,6 +191,7 @@ app.use("/api/plans", plansRoutes);
 app.use("/api/setup", setupRoutes);
 app.use("/api/branches", branchesRoutes);
 app.use("/api/users", usersRoutes);
+app.use("/api/tickets", ticketRoutes);
 // ============================================
 // API Routes - CAdmin
 // ============================================

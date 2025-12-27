@@ -219,7 +219,14 @@ model User {
   shop         Shop?         @relation("UsersInShop", fields: [shop_id], references: [shop_id])
   shopFiles    ShopFile[]
   activityLogs ActivityLog[]
-  sessions     UserSession[] // ← NEW RELATION
+  sessions     UserSession[]
+  
+  // ============================================
+  // NEW: Ticket relations
+  // ============================================
+  ticketsCreated   Ticket[] @relation("TicketCreator")
+  ticketsCancelled Ticket[] @relation("TicketCanceller")
+  ticketsReopened  Ticket[] @relation("TicketReopener")
 
   @@map("users")
 }
@@ -255,8 +262,13 @@ model Shop {
   shopFiles           ShopFile[]
   paymentTransactions PaymentTransaction[] @relation("ShopPayments")
   subscriptions       ShopSubscription[]   @relation("ShopSubscriptions")
-  customPlans         Plan[]  @relation("CustomPlanShop")
+  customPlans         Plan[]               @relation("CustomPlanShop")
   currentSubscription ShopSubscription?    @relation("CurrentSubscription", fields: [current_subscription_id], references: [subscription_id])
+  
+  // ============================================
+  // NEW: Ticket relation
+  // ============================================
+  tickets             Ticket[]             @relation("ShopTickets")
 
   @@map("shops")
 }
@@ -281,8 +293,13 @@ model Branch {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  shop  Shop   @relation(fields: [shop_id], references: [shop_id])
+   shop  Shop   @relation(fields: [shop_id], references: [shop_id])
   users User[]
+  
+  // ============================================
+  // NEW: Ticket relation
+  // ============================================
+  tickets Ticket[] @relation("BranchTickets")
 
   @@map("branches")
 }
@@ -519,3 +536,105 @@ model ActivityLog {
   @@map("activity_logs")
 }
 
+
+// ============================================
+// TICKET ENUMS
+// ============================================
+
+enum TicketCategory {
+  TECHNICAL_ISSUE
+  BILLING_ISSUE
+  FEATURE_REQUEST
+  ACCOUNT_ISSUE
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+  CLOSED
+}
+
+// ============================================
+// TICKET MODEL
+// ============================================
+
+model Ticket {
+  ticket_id           String          @id @default(uuid()) @db.Uuid
+  ticket_number       String          @unique @db.VarChar(30)  // TKT-ABCD-00001
+  
+  // Shop & Branch context
+  shop_id             String          @db.Uuid
+  branch_id           String          @db.Uuid
+  
+  // Creator info
+  created_by_user_id  String          @db.Uuid
+  
+  // Contact Info (may differ from user's phone)
+  contact_number      String          @db.VarChar(15)
+  
+  // Issue Details
+  category            TicketCategory
+  subject             String          @db.VarChar(200)
+  description         String?         @db.Text
+  other_category_text String?         @db.VarChar(100)  // When category is OTHER
+  
+  // Preferred contact slot (e.g., "09:00-10:00")
+  preferred_slot      String          @db.VarChar(20)
+  
+  // Status
+  status              TicketStatus    @default(OPEN)
+  
+  // Cancellation details
+  cancelled_at        DateTime?       @db.Timestamptz(6)
+  cancelled_by_id     String?         @db.Uuid
+  cancellation_reason String?         @db.Text
+  
+  // Reopening
+  reopened_at         DateTime?       @db.Timestamptz(6)
+  reopened_by_id      String?         @db.Uuid
+  reopen_count        Int             @default(0)
+  
+  // Timestamps
+  created_at          DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime        @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  shop                Shop            @relation("ShopTickets", fields: [shop_id], references: [shop_id])
+  branch              Branch          @relation("BranchTickets", fields: [branch_id], references: [branch_id])
+  created_by          User            @relation("TicketCreator", fields: [created_by_user_id], references: [user_id])
+  cancelled_by        User?           @relation("TicketCanceller", fields: [cancelled_by_id], references: [user_id])
+  reopened_by         User?           @relation("TicketReopener", fields: [reopened_by_id], references: [user_id])
+  attachments         TicketAttachment[]
+  
+  @@index([shop_id])
+  @@index([branch_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([created_by_user_id])
+  @@index([ticket_number])
+  @@map("tickets")
+}
+
+// ============================================
+// TICKET ATTACHMENT MODEL
+// ============================================
+
+model TicketAttachment {
+  attachment_id   String    @id @default(uuid()) @db.Uuid
+  ticket_id       String    @db.Uuid
+  
+  storage_key     String    @db.Text      // File path on disk
+  original_name   String    @db.VarChar(255)
+  mime_type       String    @db.VarChar(100)
+  file_size       Int                     // In bytes
+  
+  uploaded_at     DateTime  @default(now()) @db.Timestamptz(6)
+  
+  ticket          Ticket    @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+  
+  @@index([ticket_id])
+  @@map("ticket_attachments")
+}
