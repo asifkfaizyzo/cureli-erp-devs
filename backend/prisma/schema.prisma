@@ -567,7 +567,7 @@ model Ticket {
   
   // Shop & Branch context
   shop_id             String          @db.Uuid
-  branch_id           String          @db.Uuid
+  branch_id           String?         @db.Uuid  // ✅ Made optional with ?
   
   // Creator info
   created_by_user_id  String          @db.Uuid
@@ -603,7 +603,7 @@ model Ticket {
   
   // Relations
   shop                Shop            @relation("ShopTickets", fields: [shop_id], references: [shop_id])
-  branch              Branch          @relation("BranchTickets", fields: [branch_id], references: [branch_id])
+  branch              Branch?         @relation("BranchTickets", fields: [branch_id], references: [branch_id])  // ✅ Made optional
   created_by          User            @relation("TicketCreator", fields: [created_by_user_id], references: [user_id])
   cancelled_by        User?           @relation("TicketCanceller", fields: [cancelled_by_id], references: [user_id])
   reopened_by         User?           @relation("TicketReopener", fields: [reopened_by_id], references: [user_id])
@@ -617,6 +617,7 @@ model Ticket {
   @@index([ticket_number])
   @@map("tickets")
 }
+
 
 // ============================================
 // TICKET ATTACHMENT MODEL

@@ -1,4 +1,4 @@
-// src/modules/tickets/tickets.service.js
+// backend/src/modules/tickets/tickets.service.js
 
 import prisma from "../../config/prisma.js";
 
@@ -31,7 +31,7 @@ async function generateTicketNumber(shop_id) {
  */
 export async function createTicket({
   shop_id,
-  branch_id,
+  branch_id, // ✅ Now optional
   user_id,
   contact_number,
   category,
@@ -41,19 +41,21 @@ export async function createTicket({
   preferred_slot,
   attachment_ids,
 }) {
-  // Validate branch belongs to shop
-  const branch = await prisma.branch.findFirst({
-    where: {
-      branch_id,
-      shop_id,
-      is_active: true,
-    },
-  });
+  // ✅ Only validate branch if provided
+  if (branch_id) {
+    const branch = await prisma.branch.findFirst({
+      where: {
+        branch_id,
+        shop_id,
+        is_active: true,
+      },
+    });
 
-  if (!branch) {
-    const err = new Error("Branch not found or inactive");
-    err.code = "INVALID_BRANCH";
-    throw err;
+    if (!branch) {
+      const err = new Error("Branch not found or inactive");
+      err.code = "INVALID_BRANCH";
+      throw err;
+    }
   }
 
   // Generate ticket number
@@ -64,7 +66,7 @@ export async function createTicket({
     data: {
       ticket_number,
       shop_id,
-      branch_id,
+      branch_id: branch_id || null, // ✅ Can be null
       created_by_user_id: user_id,
       contact_number,
       category,
@@ -139,9 +141,12 @@ export async function getTickets({
     if (branch_id) {
       where.branch_id = branch_id;
     }
-  } else {
-    // BA can only see their own branch tickets
-    where.branch_id = requester_branch_id;
+  } else if (requester_role === "branch_admin") {
+    // BA can only see their own branch tickets (including null branch_id tickets)
+    where.OR = [
+      { branch_id: requester_branch_id },
+      { branch_id: null }, // ✅ Include tickets without branch
+    ];
   }
 
   // Status filter
@@ -470,9 +475,12 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
 export async function getTicketStats(shop_id, requester_role, requester_branch_id) {
   const where = { shop_id };
 
-  // BA can only see their branch stats
-  if (requester_role !== "super_admin") {
-    where.branch_id = requester_branch_id;
+  // BA can only see their branch stats (including null branch tickets)
+  if (requester_role === "branch_admin") {
+    where.OR = [
+      { branch_id: requester_branch_id },
+      { branch_id: null }, // ✅ Include tickets without branch
+    ];
   }
 
   // Get counts by status
@@ -557,8 +565,8 @@ export async function canAccessTicket(ticket_id, shop_id, requester_role, reques
   // Super Admin can access all
   if (requester_role === "super_admin") return true;
 
-  // Branch Admin can only access their branch tickets
-  return ticket.branch_id === requester_branch_id;
+  // Branch Admin can access their branch tickets or tickets without branch
+  return ticket.branch_id === requester_branch_id || ticket.branch_id === null;
 }
 
 /**
@@ -572,7 +580,7 @@ function transformTicket(ticket) {
     ticket_number: ticket.ticket_number,
     shop_id: ticket.shop_id,
     branch_id: ticket.branch_id,
-    branch_name: ticket.branch?.branch_name || null,
+    branch_name: ticket.branch?.branch_name || null, // ✅ Handle null branch
     
     // Creator info
     created_by_user_id: ticket.created_by_user_id,

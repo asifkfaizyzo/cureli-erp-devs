@@ -102,7 +102,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
       newErrors.category = "Category is required";
     }
 
-    if (formData.category === "OTHER" && !formData.other_category_text) {
+    if (formData.category === "OTHER" && !formData.other_category_text?.trim()) {
       newErrors.other_category_text = "Please specify the category";
     }
 
@@ -118,52 +118,75 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  
   // Handle submit
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (!validate()) return;
+    if (!validate()) return;
 
-  setLoading(true);
-  try {
-    // TODO: Upload attachments first (Phase 3)
-    // For now, we'll submit without attachments
-    const attachment_ids = [];
+    setLoading(true);
+    try {
+      // TODO: Upload attachments first (Phase 3)
+      const attachment_ids = [];
 
-    // ✅ Prepare payload with branch_id
-    const payload = {
-      contact_number: formData.contact_number,
-      category: formData.category,
-      subject: formData.subject.trim(),
-      description: formData.description?.trim() || undefined,
-      other_category_text: formData.other_category_text?.trim() || undefined,
-      preferred_slot: formData.preferred_slot,
-      attachment_ids, // Empty array for now
-    };
+      // ✅ Build clean payload
+      const payload = {
+        contact_number: formData.contact_number,
+        category: formData.category,
+        subject: formData.subject.trim(),
+        preferred_slot: formData.preferred_slot,
+        attachment_ids,
+      };
 
-    // ✅ Add branch_id if user has one
-    if (user?.branch_id) {
-      payload.branch_id = user.branch_id;
+      // ✅ Add optional fields only if they have values
+      if (formData.description?.trim()) {
+        payload.description = formData.description.trim();
+      }
+
+      if (formData.category === "OTHER" && formData.other_category_text?.trim()) {
+        payload.other_category_text = formData.other_category_text.trim();
+      }
+
+      // ✅ Add branch_id if user has one (optional)
+      if (user?.branch_id) {
+        payload.branch_id = user.branch_id;
+      }
+
+      console.log("📤 Sending ticket payload:", payload);
+
+      const response = await createTicket(payload);
+      
+      console.log("✅ Ticket created successfully:", response.data);
+
+      // Success!
+      onSuccess();
+      onClose();
+    } catch (err) {
+      console.error("❌ Failed to create ticket:", err);
+      console.error("📋 Error details:", err.response?.data);
+
+      // Extract error message
+      let errorMessage = "Failed to create ticket. Please try again.";
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.response?.data?.errors) {
+        // Handle Zod validation errors
+        const zodErrors = err.response.data.errors;
+        if (Array.isArray(zodErrors) && zodErrors.length > 0) {
+          errorMessage = zodErrors.map(e => e.message).join(", ");
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setErrors({ submit: errorMessage });
+    } finally {
+      setLoading(false);
     }
-
-    console.log("Sending ticket payload:", payload); // ✅ Debug log
-
-    await createTicket(payload);
-
-    onSuccess();
-    onClose();
-  } catch (err) {
-    console.error("Failed to create ticket:", err);
-    console.error("Error response:", err.response?.data); // ✅ Debug log
-    setErrors({
-      submit: err.response?.data?.message || "Failed to create ticket",
-    });
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   if (!isOpen) return null;
 
@@ -177,7 +200,8 @@ const handleSubmit = async (e) => {
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            disabled={loading}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
           >
             <X size={20} />
           </button>
@@ -198,7 +222,9 @@ const handleSubmit = async (e) => {
                   setFormData({ ...formData, contact_number: e.target.value })
                 }
                 placeholder="10-digit mobile number"
+                maxLength={10}
                 className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 
+                           focus:border-indigo-500 transition-all
                            ${errors.contact_number ? "border-red-500" : "border-gray-300"}`}
               />
               {errors.contact_number && (
@@ -217,6 +243,7 @@ const handleSubmit = async (e) => {
                   setFormData({ ...formData, category: e.target.value })
                 }
                 className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 
+                           focus:border-indigo-500 transition-all
                            ${errors.category ? "border-red-500" : "border-gray-300"}`}
               >
                 <option value="">Select category</option>
@@ -247,7 +274,9 @@ const handleSubmit = async (e) => {
                     })
                   }
                   placeholder="What type of issue is this?"
+                  maxLength={100}
                   className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 
+                             focus:border-indigo-500 transition-all
                              ${errors.other_category_text ? "border-red-500" : "border-gray-300"}`}
                 />
                 {errors.other_category_text && (
@@ -270,12 +299,21 @@ const handleSubmit = async (e) => {
                   setFormData({ ...formData, subject: e.target.value })
                 }
                 placeholder="Brief summary of your issue"
+                maxLength={200}
                 className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 
+                           focus:border-indigo-500 transition-all
                            ${errors.subject ? "border-red-500" : "border-gray-300"}`}
               />
-              {errors.subject && (
-                <p className="text-xs text-red-500 mt-1">{errors.subject}</p>
-              )}
+              <div className="flex items-center justify-between mt-1">
+                {errors.subject ? (
+                  <p className="text-xs text-red-500">{errors.subject}</p>
+                ) : (
+                  <span></span>
+                )}
+                <p className="text-xs text-gray-400">
+                  {formData.subject.length}/200
+                </p>
+              </div>
             </div>
 
             {/* Description */}
@@ -289,10 +327,15 @@ const handleSubmit = async (e) => {
                   setFormData({ ...formData, description: e.target.value })
                 }
                 rows={4}
+                maxLength={2000}
                 placeholder="Provide additional details about your issue"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg 
-                           focus:ring-2 focus:ring-indigo-500/20 resize-none"
+                           focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 
+                           transition-all resize-none"
               />
+              <p className="text-xs text-gray-400 text-right mt-1">
+                {formData.description.length}/2000
+              </p>
             </div>
 
             {/* Preferred Time Slot */}
@@ -306,6 +349,7 @@ const handleSubmit = async (e) => {
                   setFormData({ ...formData, preferred_slot: e.target.value })
                 }
                 className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 
+                           focus:border-indigo-500 transition-all
                            ${errors.preferred_slot ? "border-red-500" : "border-gray-300"}`}
               >
                 <option value="">Select time slot</option>
@@ -345,15 +389,16 @@ const handleSubmit = async (e) => {
                     accept={ATTACHMENT_CONFIG.ALLOWED_TYPES.join(",")}
                     onChange={handleFileSelect}
                     className="hidden"
+                    disabled={loading}
                   />
                 </label>
               )}
 
               {/* Upload Error */}
               {uploadError && (
-                <div className="flex items-center gap-2 mt-2 text-xs text-red-600">
-                  <AlertCircle size={14} />
-                  <span>{uploadError}</span>
+                <div className="flex items-center gap-2 mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                  <AlertCircle size={14} className="text-red-600" />
+                  <span className="text-xs text-red-600">{uploadError}</span>
                 </div>
               )}
 
@@ -363,7 +408,7 @@ const handleSubmit = async (e) => {
                   {attachments.map((file, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
@@ -376,7 +421,9 @@ const handleSubmit = async (e) => {
                       <button
                         type="button"
                         onClick={() => handleRemoveFile(index)}
-                        className="ml-3 p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        disabled={loading}
+                        className="ml-3 p-1.5 text-red-500 hover:bg-red-50 rounded-lg 
+                                   transition-colors disabled:opacity-50"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -388,8 +435,8 @@ const handleSubmit = async (e) => {
 
             {/* Submit Error */}
             {errors.submit && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <AlertCircle size={18} className="text-red-500 flex-shrink-0" />
+              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-red-700">{errors.submit}</p>
               </div>
             )}
@@ -401,8 +448,9 @@ const handleSubmit = async (e) => {
           <button
             type="button"
             onClick={onClose}
+            disabled={loading}
             className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg 
-                       hover:bg-gray-50 transition-all"
+                       hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
@@ -411,7 +459,7 @@ const handleSubmit = async (e) => {
             disabled={loading}
             className="px-4 py-2.5 bg-[#05015A] text-white rounded-lg 
                        hover:bg-[#06027a] transition-all disabled:opacity-50 
-                       disabled:cursor-not-allowed flex items-center gap-2"
+                       disabled:cursor-not-allowed flex items-center gap-2 min-w-[140px] justify-center"
           >
             {loading ? (
               <>

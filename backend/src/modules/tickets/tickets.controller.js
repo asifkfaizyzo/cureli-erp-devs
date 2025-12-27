@@ -1,4 +1,4 @@
-// src/modules/tickets/tickets.controller.js
+// backend/src/modules/tickets/tickets.controller.js
 
 import { success, fail } from "../../utils/response.js";
 import {
@@ -32,18 +32,22 @@ export async function createTicketController(req, res) {
       return fail(res, "Shop not found", 400);
     }
 
-    if (!branch_id) {
-      return fail(res, "Branch not found", 400);
-    }
+    // ✅ REMOVED branch_id check - it's now optional
+    // if (!branch_id) {
+    //   return fail(res, "Branch not found", 400);
+    // }
 
     // Only super_admin and branch_admin can create tickets
     if (role !== "super_admin" && role !== "branch_admin") {
       return fail(res, "You do not have permission to create tickets", 403);
     }
 
+    // ✅ Use branch_id from validated data OR user (can be null)
+    const finalBranchId = req.validated.branch_id || branch_id || null;
+
     const ticket = await createTicket({
       shop_id,
-      branch_id,
+      branch_id: finalBranchId, // ✅ Can be null now
       user_id,
       contact_number,
       category,
