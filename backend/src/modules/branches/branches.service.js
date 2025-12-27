@@ -159,12 +159,6 @@ export async function canAccessBranch(user_id, branch_id, shop_id) {
 }
 
 /**
- * ============================================
- * NEW FUNCTIONS
- * ============================================
- */
-
-/**
  * Get branch limits (usage vs plan)
  */
 export async function getBranchLimits(shop_id) {
@@ -492,4 +486,48 @@ export async function getBranchesForReassignment(shop_id, exclude_branch_id) {
     ...b,
     is_main: b.branch_type === "main",
   }));
+}
+
+
+export async function reactivateBranch(branch_id, shop_id) {
+  const branch = await prisma.branch.findFirst({
+    where: {
+      branch_id,
+      shop_id,
+    },
+  });
+
+  if (!branch) {
+    const err = new Error("Branch not found");
+    err.code = "BRANCH_NOT_FOUND";
+    throw err;
+  }
+
+  if (branch.is_active) {
+    const err = new Error("Branch is already active");
+    err.code = "ALREADY_ACTIVE";
+    throw err;
+  }
+
+  // Check plan limits
+  const limits = await getBranchLimits(shop_id);
+  if (!limits.can_add) {
+    const err = new Error(
+      `Cannot reactivate. Branch limit reached (${limits.max_allowed} branches).`
+    );
+    err.code = "BRANCH_LIMIT_EXCEEDED";
+    throw err;
+  }
+
+  const updatedBranch = await prisma.branch.update({
+    where: { branch_id },
+    data: { is_active: true },
+    select: {
+      branch_id: true,
+      branch_name: true,
+      is_active: true,
+    },
+  });
+
+  return updatedBranch;
 }

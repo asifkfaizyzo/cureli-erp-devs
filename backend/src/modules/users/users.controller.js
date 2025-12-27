@@ -8,6 +8,7 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  reactivateUser,
   resetUserPassword,
   checkUsernameAvailability,
   checkPhoneAvailability,
@@ -20,8 +21,13 @@ import {
  */
 export async function getUsersController(req, res) {
   try {
-    const { shop_id, role: requester_role, branch_id: requester_branch_id } = req.user;
-    const { branch_id, role, status, search, page, limit, sort_by, sort_order } = req.validated;
+    const {
+      shop_id,
+      role: requester_role,
+      branch_id: requester_branch_id,
+    } = req.user;
+    const { branch_id, role, status, search, page, limit, sort_by, sort_order } =
+      req.validated;
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
@@ -76,7 +82,11 @@ export async function getUserLimitsController(req, res) {
 export async function getUserController(req, res) {
   try {
     const { user_id } = req.params;
-    const { shop_id, role: requester_role, branch_id: requester_branch_id } = req.user;
+    const {
+      shop_id,
+      role: requester_role,
+      branch_id: requester_branch_id,
+    } = req.user;
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
@@ -89,7 +99,10 @@ export async function getUserController(req, res) {
     }
 
     // BA can only view users in their branch
-    if (requester_role !== "super_admin" && user.branch_id !== requester_branch_id) {
+    if (
+      requester_role !== "super_admin" &&
+      user.branch_id !== requester_branch_id
+    ) {
       return fail(res, "Access denied. User not in your branch.", 403);
     }
 
@@ -106,8 +119,13 @@ export async function getUserController(req, res) {
  */
 export async function createUserController(req, res) {
   try {
-    const { shop_id, role: requester_role, branch_id: requester_branch_id } = req.user;
-    const { full_name, phone_number, username, password, role, branch_id, email } = req.validated;
+    const {
+      shop_id,
+      role: requester_role,
+      branch_id: requester_branch_id,
+    } = req.user;
+    const { full_name, phone_number, username, password, role, branch_id, email } =
+      req.validated;
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
@@ -119,22 +137,16 @@ export async function createUserController(req, res) {
     if (requester_role === "branch_admin") {
       // BA can only create 'staff' role
       if (role !== "staff") {
-        return fail(
-          res,
-          "Branch admins can only create staff members",
-          403,
-          { code: "ROLE_RESTRICTED" }
-        );
+        return fail(res, "Branch admins can only create staff members", 403, {
+          code: "ROLE_RESTRICTED",
+        });
       }
 
       // BA can only create users in their own branch
       if (branch_id !== requester_branch_id) {
-        return fail(
-          res,
-          "You can only create users in your own branch",
-          403,
-          { code: "BRANCH_RESTRICTED" }
-        );
+        return fail(res, "You can only create users in your own branch", 403, {
+          code: "BRANCH_RESTRICTED",
+        });
       }
     }
 
@@ -167,6 +179,9 @@ export async function createUserController(req, res) {
     if (err.code === "PHONE_TAKEN") {
       return fail(res, err.message, 400);
     }
+    if (err.code === "BRANCH_ADMIN_EXISTS") {
+      return fail(res, err.message, 400);
+    }
 
     return fail(res, "Failed to create user", 500);
   }
@@ -179,7 +194,11 @@ export async function createUserController(req, res) {
 export async function updateUserController(req, res) {
   try {
     const { user_id } = req.params;
-    const { shop_id, role: requester_role, branch_id: requester_branch_id } = req.user;
+    const {
+      shop_id,
+      role: requester_role,
+      branch_id: requester_branch_id,
+    } = req.user;
     const updates = req.validated;
 
     if (!shop_id) {
@@ -199,48 +218,33 @@ export async function updateUserController(req, res) {
     if (requester_role === "branch_admin") {
       // BA can only edit users in their own branch
       if (targetUser.branch_id !== requester_branch_id) {
-        return fail(
-          res,
-          "You can only edit users in your own branch",
-          403,
-          { code: "BRANCH_RESTRICTED" }
-        );
+        return fail(res, "You can only edit users in your own branch", 403, {
+          code: "BRANCH_RESTRICTED",
+        });
       }
 
       // BA can only edit staff, not other BAs
       if (targetUser.role !== "staff") {
-        return fail(
-          res,
-          "You can only edit staff members",
-          403,
-          { code: "ROLE_RESTRICTED" }
-        );
+        return fail(res, "You can only edit staff members", 403, {
+          code: "ROLE_RESTRICTED",
+        });
       }
 
       // BA cannot change role, branch, or active status
       if (updates.role !== undefined) {
-        return fail(
-          res,
-          "You cannot change user roles",
-          403,
-          { code: "FIELD_RESTRICTED" }
-        );
+        return fail(res, "You cannot change user roles", 403, {
+          code: "FIELD_RESTRICTED",
+        });
       }
       if (updates.branch_id !== undefined) {
-        return fail(
-          res,
-          "You cannot change user branch",
-          403,
-          { code: "FIELD_RESTRICTED" }
-        );
+        return fail(res, "You cannot change user branch", 403, {
+          code: "FIELD_RESTRICTED",
+        });
       }
       if (updates.is_active !== undefined) {
-        return fail(
-          res,
-          "You cannot change user status",
-          403,
-          { code: "FIELD_RESTRICTED" }
-        );
+        return fail(res, "You cannot change user status", 403, {
+          code: "FIELD_RESTRICTED",
+        });
       }
     }
 
@@ -264,6 +268,9 @@ export async function updateUserController(req, res) {
       return fail(res, err.message, 400);
     }
     if (err.code === "INVALID_BRANCH") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "BRANCH_ADMIN_EXISTS") {
       return fail(res, err.message, 400);
     }
 
@@ -308,13 +315,60 @@ export async function deleteUserController(req, res) {
 }
 
 /**
+ * POST /api/users/:user_id/reactivate
+ * Reactivate a deactivated user
+ * SA only
+ */
+export async function reactivateUserController(req, res) {
+  try {
+    const { user_id } = req.params;
+    const { shop_id, role } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    // Only super admin can reactivate
+    if (role !== "super_admin") {
+      return fail(res, "Only Super Admin can reactivate users", 403);
+    }
+
+    const user = await reactivateUser(user_id, shop_id);
+
+    return success(res, { user }, "User reactivated successfully");
+  } catch (err) {
+    console.error("reactivateUserController error:", err);
+
+    if (err.code === "USER_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+    if (err.code === "ALREADY_ACTIVE") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "BRANCH_ADMIN_EXISTS") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "USER_LIMIT_EXCEEDED") {
+      return fail(res, err.message, 400);
+    }
+
+    return fail(res, "Failed to reactivate user", 500);
+  }
+}
+
+/**
  * POST /api/users/:user_id/reset-password
  * Reset user's password
  */
 export async function resetPasswordController(req, res) {
   try {
     const { user_id } = req.params;
-    const { shop_id, role: requester_role, branch_id: requester_branch_id, user_id: requester_user_id } = req.user;
+    const {
+      shop_id,
+      role: requester_role,
+      branch_id: requester_branch_id,
+      user_id: requester_user_id,
+    } = req.user;
     const { new_password } = req.validated;
 
     if (!shop_id) {
@@ -354,12 +408,9 @@ export async function resetPasswordController(req, res) {
 
       // BA can only reset staff passwords, not other BAs
       if (targetUser.role !== "staff") {
-        return fail(
-          res,
-          "You can only reset staff passwords",
-          403,
-          { code: "ROLE_RESTRICTED" }
-        );
+        return fail(res, "You can only reset staff passwords", 403, {
+          code: "ROLE_RESTRICTED",
+        });
       }
     }
 

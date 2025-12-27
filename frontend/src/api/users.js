@@ -177,3 +177,14 @@ export function getStatusBadgeClasses(isActive) {
     ? "bg-emerald-100 text-emerald-700"
     : "bg-red-100 text-red-600";
 }
+
+
+/**
+ * Reactivate a deactivated user
+ * SA only
+ * @param {string} userId
+ */
+export async function reactivateUser(userId) {
+  const response = await api.post(`/users/${userId}/reactivate`);
+  return response.data;
+}

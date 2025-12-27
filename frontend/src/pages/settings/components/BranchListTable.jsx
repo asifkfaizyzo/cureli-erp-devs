@@ -8,6 +8,7 @@ import {
   MoreVertical,
   Edit2,
   Trash2,
+  Power,
   MapPin,
   Phone,
   Users,
@@ -15,10 +16,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-import { deleteBranch } from "../../../api/branches";
+import { deleteBranch, reactivateBranch } from "../../../api/branches";
 
 /**
- * ActionMenu Component - Rendered via Portal
+ * ActionMenu Component
  */
 const ActionMenu = ({
   branch,
@@ -26,29 +27,26 @@ const ActionMenu = ({
   onClose,
   onEdit,
   onDelete,
+  onReactivate,
 }) => {
   const menuRef = useRef(null);
 
-  // Close on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         onClose();
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onClose]);
 
-  // Close on scroll
   useEffect(() => {
     const handleScroll = () => onClose();
     window.addEventListener("scroll", handleScroll, true);
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [onClose]);
 
-  // Close on escape
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === "Escape") onClose();
@@ -66,7 +64,7 @@ const ActionMenu = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.1 }}
-      className="fixed w-40 bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] py-1"
+      className="fixed w-44 bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] py-1"
       style={{
         top: position.top,
         left: position.left,
@@ -84,7 +82,24 @@ const ActionMenu = ({
         Edit Branch
       </button>
 
-      {/* Delete (not for main branch) */}
+      {/* Reactivate (for inactive branches) */}
+      {!branch.is_active && (
+        <>
+          <div className="border-t border-gray-100 my-1" />
+          <button
+            onClick={() => {
+              onClose();
+              onReactivate(branch);
+            }}
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
+          >
+            <Power size={14} />
+            Reactivate
+          </button>
+        </>
+      )}
+
+      {/* Deactivate (not for main branch, only for active) */}
       {!branch.is_main && branch.is_active && (
         <>
           <div className="border-t border-gray-100 my-1" />
@@ -102,9 +117,9 @@ const ActionMenu = ({
       )}
 
       {/* Info for main branch */}
-      {branch.is_main && (
+      {branch.is_main && branch.is_active && (
         <p className="px-4 py-2 text-xs text-gray-400 italic">
-          Main branch cannot be deleted
+          Main branch cannot be deactivated
         </p>
       )}
     </motion.div>,
@@ -114,7 +129,6 @@ const ActionMenu = ({
 
 /**
  * BranchListTable
- * Displays branches in a table/card view with actions
  */
 const BranchListTable = ({
   branches,
@@ -126,34 +140,28 @@ const BranchListTable = ({
     branchId: null,
     position: null,
   });
-  const [deletingBranchId, setDeletingBranchId] = useState(null);
-  const [deleteError, setDeleteError] = useState(null);
+  const [processingBranchId, setProcessingBranchId] = useState(null);
+  const [error, setError] = useState(null);
   const actionButtonRefs = useRef({});
 
-  // Calculate dropdown position
   const calculateMenuPosition = useCallback((branchId) => {
     const buttonEl = actionButtonRefs.current[branchId];
     if (!buttonEl) return null;
 
     const rect = buttonEl.getBoundingClientRect();
-    const menuWidth = 160; // w-40 = 10rem = 160px
-    const menuHeight = 100; // Approximate height
+    const menuWidth = 176; // w-44
+    const menuHeight = 120;
     const padding = 8;
 
     let top = rect.bottom + padding;
     let left = rect.right - menuWidth;
 
-    // Check if menu would go below viewport
     if (top + menuHeight > window.innerHeight) {
       top = rect.top - menuHeight - padding;
     }
-
-    // Check if menu would go off left side
     if (left < padding) {
       left = padding;
     }
-
-    // Check if menu would go off right side
     if (left + menuWidth > window.innerWidth - padding) {
       left = window.innerWidth - menuWidth - padding;
     }
@@ -168,7 +176,7 @@ const BranchListTable = ({
       const position = calculateMenuPosition(branchId);
       setActionMenuState({ branchId, position });
     }
-    setDeleteError(null);
+    setError(null);
   };
 
   const handleCloseMenu = () => {
@@ -176,40 +184,49 @@ const BranchListTable = ({
   };
 
   const handleDelete = async (branch) => {
-    // Confirm deletion
-    if (!confirm(`Are you sure you want to deactivate "${branch.branch_name}"? This action can be undone by support.`)) {
+    if (!confirm(`Are you sure you want to deactivate "${branch.branch_name}"?`)) {
       return;
     }
 
-    setDeletingBranchId(branch.branch_id);
-    setDeleteError(null);
+    setProcessingBranchId(branch.branch_id);
+    setError(null);
 
     try {
       await deleteBranch(branch.branch_id);
       onRefresh();
     } catch (err) {
-      console.error("Failed to delete branch:", err);
-      
-      const errorData = err.response?.data;
-      
-      if (errorData?.data?.code === "BRANCH_HAS_USERS") {
-        setDeleteError({
-          branchId: branch.branch_id,
-          message: errorData.message,
-          userCount: errorData.data?.user_count,
-        });
-      } else {
-        setDeleteError({
-          branchId: branch.branch_id,
-          message: errorData?.message || "Failed to deactivate branch",
-        });
-      }
+      console.error("Failed to deactivate branch:", err);
+      setError({
+        branchId: branch.branch_id,
+        message: err.response?.data?.message || "Failed to deactivate branch",
+      });
     } finally {
-      setDeletingBranchId(null);
+      setProcessingBranchId(null);
     }
   };
 
-  // Format address
+  const handleReactivate = async (branch) => {
+    if (!confirm(`Are you sure you want to reactivate "${branch.branch_name}"?`)) {
+      return;
+    }
+
+    setProcessingBranchId(branch.branch_id);
+    setError(null);
+
+    try {
+      await reactivateBranch(branch.branch_id);
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to reactivate branch:", err);
+      setError({
+        branchId: branch.branch_id,
+        message: err.response?.data?.message || "Failed to reactivate branch",
+      });
+    } finally {
+      setProcessingBranchId(null);
+    }
+  };
+
   const formatAddress = (branch) => {
     const parts = [
       branch.address_line_1,
@@ -220,7 +237,6 @@ const BranchListTable = ({
     return parts.join(", ") || "No address";
   };
 
-  // Loading state
   if (loading && branches.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white rounded-xl border border-gray-200">
@@ -232,7 +248,6 @@ const BranchListTable = ({
     );
   }
 
-  // Empty state
   if (!loading && branches.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white rounded-xl border border-gray-200">
@@ -272,18 +287,18 @@ const BranchListTable = ({
       {/* Table Body */}
       <div className="divide-y divide-gray-100">
         {branches.map((branch) => {
-          const isDeleting = deletingBranchId === branch.branch_id;
-          const hasDeleteError = deleteError?.branchId === branch.branch_id;
+          const isProcessing = processingBranchId === branch.branch_id;
+          const hasError = error?.branchId === branch.branch_id;
 
           return (
             <motion.div
               key={branch.branch_id}
               initial={{ opacity: 0 }}
-              animate={{ opacity: isDeleting ? 0.5 : 1 }}
+              animate={{ opacity: isProcessing ? 0.5 : 1 }}
               className="relative"
             >
-              {/* Delete Error Banner */}
-              {hasDeleteError && (
+              {/* Error Banner */}
+              {hasError && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
@@ -291,9 +306,9 @@ const BranchListTable = ({
                 >
                   <div className="flex items-center gap-2 text-sm text-red-700">
                     <AlertCircle size={14} />
-                    <span>{deleteError.message}</span>
+                    <span>{error.message}</span>
                     <button
-                      onClick={() => setDeleteError(null)}
+                      onClick={() => setError(null)}
                       className="ml-auto text-xs font-medium hover:underline"
                     >
                       Dismiss
@@ -303,18 +318,30 @@ const BranchListTable = ({
               )}
 
               {/* Row Content */}
-              <div className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors items-center">
+              <div className={`grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors items-center ${
+                !branch.is_active ? "bg-gray-50/50" : ""
+              }`}>
                 {/* Branch Info */}
                 <div className="col-span-4 flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    branch.is_main ? "bg-emerald-100" : "bg-[#000060]/10"
+                    !branch.is_active
+                      ? "bg-gray-200"
+                      : branch.is_main
+                      ? "bg-emerald-100"
+                      : "bg-[#000060]/10"
                   }`}>
                     <Building2 size={20} className={
-                      branch.is_main ? "text-emerald-600" : "text-[#000060]"
+                      !branch.is_active
+                        ? "text-gray-400"
+                        : branch.is_main
+                        ? "text-emerald-600"
+                        : "text-[#000060]"
                     } />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">{branch.branch_name}</p>
+                    <p className={`font-medium ${branch.is_active ? "text-gray-900" : "text-gray-500"}`}>
+                      {branch.branch_name}
+                    </p>
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                       branch.is_main
                         ? "bg-emerald-100 text-emerald-700"
@@ -366,7 +393,7 @@ const BranchListTable = ({
 
                 {/* Actions */}
                 <div className="col-span-1 flex justify-end">
-                  {isDeleting ? (
+                  {isProcessing ? (
                     <Loader2 size={18} className="animate-spin text-gray-400" />
                   ) : (
                     <button
@@ -393,6 +420,7 @@ const BranchListTable = ({
             onClose={handleCloseMenu}
             onEdit={onEdit}
             onDelete={handleDelete}
+            onReactivate={handleReactivate}
           />
         )}
       </AnimatePresence>

@@ -207,7 +207,7 @@ export async function getUserLimits(shop_id) {
   }
 
   const subscription = shop.currentSubscription;
-  
+
   if (!subscription) {
     return {
       current_count: shop._count.users,
@@ -219,10 +219,11 @@ export async function getUserLimits(shop_id) {
 
   const maxAllowed = subscription.user_limit_snapshot;
   const currentCount = shop._count.users;
-  
+
   // -1 means unlimited
   const canAdd = maxAllowed === -1 || currentCount < maxAllowed;
-  const remaining = maxAllowed === -1 ? -1 : Math.max(0, maxAllowed - currentCount);
+  const remaining =
+    maxAllowed === -1 ? -1 : Math.max(0, maxAllowed - currentCount);
 
   return {
     current_count: currentCount,
@@ -237,7 +238,10 @@ export async function getUserLimits(shop_id) {
  * CHECK USERNAME AVAILABILITY
  * ============================================
  */
-export async function checkUsernameAvailability(username, exclude_user_id = null) {
+export async function checkUsernameAvailability(
+  username,
+  exclude_user_id = null
+) {
   const where = {
     username: username.toLowerCase(),
   };
@@ -262,7 +266,10 @@ export async function checkUsernameAvailability(username, exclude_user_id = null
  * CHECK PHONE AVAILABILITY
  * ============================================
  */
-export async function checkPhoneAvailability(phone_number, exclude_user_id = null) {
+export async function checkPhoneAvailability(
+  phone_number,
+  exclude_user_id = null
+) {
   const where = {
     phone_number,
   };
@@ -280,6 +287,31 @@ export async function checkPhoneAvailability(phone_number, exclude_user_id = nul
     available: !existingUser,
     phone_number,
   };
+}
+
+/**
+ * ============================================
+ * CHECK IF BRANCH HAS BRANCH ADMIN
+ * ============================================
+ * Returns the existing BA if found, null otherwise
+ */
+export async function branchHasBranchAdmin(branch_id, exclude_user_id = null) {
+  const where = {
+    branch_id,
+    role: "branch_admin",
+    is_active: true,
+  };
+
+  if (exclude_user_id) {
+    where.user_id = { not: exclude_user_id };
+  }
+
+  const existingBA = await prisma.user.findFirst({
+    where,
+    select: { user_id: true, full_name: true },
+  });
+
+  return existingBA;
 }
 
 /**
@@ -320,6 +352,20 @@ export async function createUser({
     );
     err.code = "USER_LIMIT_EXCEEDED";
     throw err;
+  }
+
+  // ============================================
+  // CHECK: Only one Branch Admin per branch
+  // ============================================
+  if (role === "branch_admin") {
+    const existingBA = await branchHasBranchAdmin(branch_id);
+    if (existingBA) {
+      const err = new Error(
+        `This branch already has a Branch Admin (${existingBA.full_name}). Only one Branch Admin is allowed per branch.`
+      );
+      err.code = "BRANCH_ADMIN_EXISTS";
+      throw err;
+    }
   }
 
   // Check username availability
@@ -419,8 +465,14 @@ export async function updateUser(user_id, shop_id, updates) {
   }
 
   // Phone update
-  if (updates.phone_number && updates.phone_number !== existingUser.phone_number) {
-    const phoneCheck = await checkPhoneAvailability(updates.phone_number, user_id);
+  if (
+    updates.phone_number &&
+    updates.phone_number !== existingUser.phone_number
+  ) {
+    const phoneCheck = await checkPhoneAvailability(
+      updates.phone_number,
+      user_id
+    );
     if (!phoneCheck.available) {
       const err = new Error("Phone number is already registered");
       err.code = "PHONE_TAKEN";
@@ -431,7 +483,10 @@ export async function updateUser(user_id, shop_id, updates) {
 
   // Username update
   if (updates.username && updates.username !== existingUser.username) {
-    const usernameCheck = await checkUsernameAvailability(updates.username, user_id);
+    const usernameCheck = await checkUsernameAvailability(
+      updates.username,
+      user_id
+    );
     if (!usernameCheck.available) {
       const err = new Error("Username is already taken");
       err.code = "USERNAME_TAKEN";
@@ -445,13 +500,27 @@ export async function updateUser(user_id, shop_id, updates) {
     updateData.email = updates.email || null;
   }
 
-  // Role update (SA only - enforced in controller)
-  if (updates.role) {
+  // ============================================
+  // Role update (SA only - with BA limit check)
+  // ============================================
+  if (updates.role && updates.role !== existingUser.role) {
+    // If changing TO branch_admin, check if branch already has one
+    if (updates.role === "branch_admin") {
+      const targetBranchId = updates.branch_id || existingUser.branch_id;
+      const existingBA = await branchHasBranchAdmin(targetBranchId, user_id);
+      if (existingBA) {
+        const err = new Error(
+          `This branch already has a Branch Admin (${existingBA.full_name}). Only one Branch Admin is allowed per branch.`
+        );
+        err.code = "BRANCH_ADMIN_EXISTS";
+        throw err;
+      }
+    }
     updateData.role = updates.role;
   }
 
-  // Branch update (SA only - enforced in controller)
-  if (updates.branch_id) {
+  // Branch update (SA only)
+  if (updates.branch_id && updates.branch_id !== existingUser.branch_id) {
     // Validate branch
     const branch = await prisma.branch.findFirst({
       where: {
@@ -467,12 +536,32 @@ export async function updateUser(user_id, shop_id, updates) {
       throw err;
     }
 
+    // If user is/will be branch_admin, check target branch
+    const finalRole = updates.role || existingUser.role;
+    if (finalRole === "branch_admin") {
+      const existingBA = await branchHasBranchAdmin(updates.branch_id, user_id);
+      if (existingBA) {
+        const err = new Error(
+          `Target branch already has a Branch Admin (${existingBA.full_name}). Only one Branch Admin is allowed per branch.`
+        );
+        err.code = "BRANCH_ADMIN_EXISTS";
+        throw err;
+      }
+    }
+
     updateData.branch_id = updates.branch_id;
   }
 
-  // Active status update (SA only - enforced in controller)
+  // Active status update (SA only)
   if (updates.is_active !== undefined) {
     updateData.is_active = updates.is_active;
+
+    // If reactivating, set status back to verified
+    if (updates.is_active === true) {
+      updateData.status = "verified";
+    } else {
+      updateData.status = "inactive";
+    }
   }
 
   // Perform update
@@ -578,6 +667,69 @@ export async function deleteUser(user_id, shop_id, requester_user_id) {
 
 /**
  * ============================================
+ * REACTIVATE USER
+ * ============================================
+ */
+export async function reactivateUser(user_id, shop_id) {
+  const user = await prisma.user.findFirst({
+    where: {
+      user_id,
+      shop_id,
+    },
+  });
+
+  if (!user) {
+    const err = new Error("User not found");
+    err.code = "USER_NOT_FOUND";
+    throw err;
+  }
+
+  if (user.is_active) {
+    const err = new Error("User is already active");
+    err.code = "ALREADY_ACTIVE";
+    throw err;
+  }
+
+  // If user is branch_admin, check if branch already has one
+  if (user.role === "branch_admin") {
+    const existingBA = await branchHasBranchAdmin(user.branch_id, user_id);
+    if (existingBA) {
+      const err = new Error(
+        `Cannot reactivate. Branch already has a Branch Admin (${existingBA.full_name}).`
+      );
+      err.code = "BRANCH_ADMIN_EXISTS";
+      throw err;
+    }
+  }
+
+  // Check plan limits
+  const limits = await getUserLimits(shop_id);
+  if (!limits.can_add) {
+    const err = new Error(
+      `Cannot reactivate. User limit reached (${limits.max_allowed} users).`
+    );
+    err.code = "USER_LIMIT_EXCEEDED";
+    throw err;
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { user_id },
+    data: {
+      is_active: true,
+      status: "verified",
+    },
+    select: {
+      user_id: true,
+      full_name: true,
+      is_active: true,
+    },
+  });
+
+  return updatedUser;
+}
+
+/**
+ * ============================================
  * RESET PASSWORD
  * ============================================
  */
@@ -598,7 +750,9 @@ export async function resetUserPassword(user_id, shop_id, new_password) {
 
   // Cannot reset super_admin password through this endpoint
   if (user.role === "super_admin") {
-    const err = new Error("Cannot reset super admin password through this endpoint");
+    const err = new Error(
+      "Cannot reset super admin password through this endpoint"
+    );
     err.code = "CANNOT_RESET_SA";
     throw err;
   }

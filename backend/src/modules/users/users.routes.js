@@ -16,6 +16,7 @@ import {
   resetPasswordController,
   checkUsernameController,
   checkPhoneController,
+  reactivateUserController,
 } from "./users.controller.js";
 
 import {
@@ -138,6 +139,12 @@ router.post(
   requirePermission(PERMISSIONS.USERS_RESET_PASSWORD),
   validateBody(resetPasswordSchema),
   resetPasswordController
+);
+
+router.post(
+  "/:user_id/reactivate",
+  requireRole("super_admin"),
+  reactivateUserController
 );
 
 export default router;

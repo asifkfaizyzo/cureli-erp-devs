@@ -11,6 +11,7 @@ import {
   updateBranch,
   deleteBranch,
   getBranchActiveUsers,
+  reactivateBranch,
   getBranchesForReassignment,
 } from "./branches.service.js";
 
@@ -87,6 +88,44 @@ export async function getBranchesDropdownController(req, res) {
   } catch (error) {
     console.error("Get branches dropdown error:", error);
     return fail(res, "Failed to fetch branches", 500);
+  }
+}
+
+/**
+ * POST /api/branches/:branch_id/reactivate
+ * Reactivate a deactivated branch
+ * SA only
+ */
+export async function reactivateBranchController(req, res) {
+  try {
+    const { branch_id } = req.params;
+    const { shop_id, role } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    if (role !== "super_admin") {
+      return fail(res, "Only Super Admin can reactivate branches", 403);
+    }
+
+    const branch = await reactivateBranch(branch_id, shop_id);
+
+    return success(res, { branch }, "Branch reactivated successfully");
+  } catch (err) {
+    console.error("reactivateBranchController error:", err);
+
+    if (err.code === "BRANCH_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+    if (err.code === "ALREADY_ACTIVE") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "BRANCH_LIMIT_EXCEEDED") {
+      return fail(res, err.message, 400);
+    }
+
+    return fail(res, "Failed to reactivate branch", 500);
   }
 }
 

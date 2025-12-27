@@ -312,45 +312,45 @@ const Sidebar = () => {
     // SETTINGS (with submenu)
     // ════════════════════════════════════════════════════════════
     {
-      id: "settings",
-      label: "Settings",
-      icon: Settings,
-      permissionKey: "settings",
-      submenu: [
-        {
-          id: "settings-users",
-          label: "Users",
-          icon: Users,
-          path: "/settings/users",
-          breadcrumbs: ["Settings", "Users"],
-          permissionKey: "settingsUsers",
-        },
-        {
-          id: "settings-branches",
-          label: "Branches",
-          icon: Building2,
-          path: "/settings/branches",
-          breadcrumbs: ["Settings", "Branches"],
-          permissionKey: "settingsBranches",
-        },
-        {
-          id: "settings-profile",
-          label: "Profile",
-          icon: UserCircle,
-          path: "/settings/profile",
-          breadcrumbs: ["Settings", "Profile"],
-          permissionKey: "settingsProfile",
-        },
-        {
-          id: "settings-upgrade",
-          label: "Upgrade Plan",
-          icon: CreditCard,
-          path: "/settings/upgrade",
-          breadcrumbs: ["Settings", "Upgrade Plan"],
-          permissionKey: "settingsUpgrade",
-        },
-      ],
+  id: "settings",
+  label: "Settings",
+  icon: Settings,
+  permissionKey: "settings",
+  submenu: [
+    {
+      id: "settings-users",
+      label: "Users",
+      icon: Users,
+      path: "/settings/users",
+      breadcrumbs: ["Settings", "Users"],
+      permissionKey: "settingsUsers",
     },
+    {
+      id: "settings-branches",
+      label: "Branches",
+      icon: Building2,
+      path: "/settings/branches",
+      breadcrumbs: ["Settings", "Branches"],
+      permissionKey: "settingsBranches",
+    },
+    {
+      id: "settings-profile",
+      label: "Profile",
+      icon: UserCircle,
+      path: "/settings/profile",
+      breadcrumbs: ["Settings", "Profile"],
+      permissionKey: "settingsProfile",
+    },
+    {
+      id: "settings-upgrade",
+      label: "Upgrade Plan",
+      icon: CreditCard,
+      path: "/settings/upgrade",
+      breadcrumbs: ["Settings", "Upgrade Plan"],
+      permissionKey: "settingsUpgrade",
+    },
+  ],
+},
   ], []);
 
   /* ───────────── Filter menu items based on permissions ───────────── */

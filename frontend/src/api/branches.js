@@ -175,3 +175,14 @@ export function getBranchStatusBadgeClasses(isActive) {
     ? "bg-emerald-100 text-emerald-700"
     : "bg-red-100 text-red-600";
 }
+
+
+/**
+ * Reactivate a deactivated branch
+ * SA only
+ * @param {string} branchId
+ */
+export async function reactivateBranch(branchId) {
+  const response = await api.post(`/branches/${branchId}/reactivate`);
+  return response.data;
+}

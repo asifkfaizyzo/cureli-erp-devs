@@ -17,6 +17,7 @@ import {
   updateBranchController,
   deleteBranchController,
   getBranchUsersController,
+  reactivateBranchController,
   getReassignmentOptionsController,
 } from "./branches.controller.js";
 
@@ -50,7 +51,16 @@ router.get(
   requireRole("super_admin"),
   getBranchLimitsController
 );
-
+/**
+ * POST /api/branches/:branch_id/reactivate
+ * Reactivate a deactivated branch
+ * SA only
+ */
+router.post(
+  "/:branch_id/reactivate",
+  requireRole("super_admin"),
+  reactivateBranchController
+);
 /**
  * GET /api/branches/dropdown
  * Get branches for dropdown (Super Admin only)

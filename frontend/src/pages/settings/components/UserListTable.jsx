@@ -10,6 +10,7 @@ import {
   Edit2,
   Key,
   UserX,
+  UserCheck,
   ChevronUp,
   ChevronDown,
   ChevronLeft,
@@ -21,7 +22,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { deleteUser } from "../../../api/users";
+import { deleteUser, reactivateUser } from "../../../api/users";
 import { formatRole, getRoleBadgeClasses, getStatusBadgeClasses } from "../../../api/users";
 
 /**
@@ -34,32 +35,30 @@ const ActionMenu = ({
   onEdit,
   onResetPassword,
   onDeactivate,
+  onReactivate,
   canEdit,
   canResetPassword,
   canDeactivate,
+  canReactivate,
 }) => {
   const menuRef = useRef(null);
 
-  // Close on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         onClose();
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onClose]);
 
-  // Close on scroll
   useEffect(() => {
     const handleScroll = () => onClose();
     window.addEventListener("scroll", handleScroll, true);
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [onClose]);
 
-  // Close on escape
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === "Escape") onClose();
@@ -69,6 +68,8 @@ const ActionMenu = ({
   }, [onClose]);
 
   if (!position) return null;
+
+  const hasAnyAction = canEdit || canResetPassword || canDeactivate || canReactivate;
 
   return createPortal(
     <motion.div
@@ -111,6 +112,23 @@ const ActionMenu = ({
         </button>
       )}
 
+      {/* Reactivate */}
+      {canReactivate && (
+        <>
+          {(canEdit || canResetPassword) && <div className="border-t border-gray-100 my-1" />}
+          <button
+            onClick={() => {
+              onClose();
+              onReactivate(user);
+            }}
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
+          >
+            <UserCheck size={14} />
+            Reactivate
+          </button>
+        </>
+      )}
+
       {/* Deactivate */}
       {canDeactivate && (
         <>
@@ -129,7 +147,7 @@ const ActionMenu = ({
       )}
 
       {/* No actions available */}
-      {!canEdit && !canResetPassword && !canDeactivate && (
+      {!hasAnyAction && (
         <p className="px-4 py-2 text-sm text-gray-400 italic">
           No actions available
         </p>
@@ -141,7 +159,6 @@ const ActionMenu = ({
 
 /**
  * UserListTable
- * Displays users in a table with actions
  */
 const UserListTable = ({
   users,
@@ -161,10 +178,10 @@ const UserListTable = ({
     userId: null,
     position: null,
   });
-  const [deletingUserId, setDeletingUserId] = useState(null);
+  const [processingUserId, setProcessingUserId] = useState(null);
   const actionButtonRefs = useRef({});
 
-  // Check if current user can edit a specific user
+  // Permission checks
   const canEditUser = (user) => {
     if (isSuperAdmin) return true;
     if (isBranchAdmin) {
@@ -173,8 +190,8 @@ const UserListTable = ({
     return false;
   };
 
-  // Check if current user can reset password for a specific user
   const canResetPassword = (user) => {
+    if (!user.is_active) return false; // Can't reset password for inactive user
     if (isSuperAdmin) return true;
     if (isBranchAdmin) {
       return user.branch_id === currentBranchId && user.role === "staff";
@@ -182,35 +199,33 @@ const UserListTable = ({
     return false;
   };
 
-  // Check if current user can deactivate a specific user
   const canDeactivateUser = (user) => {
     return isSuperAdmin && user.is_active;
   };
 
-  // Calculate dropdown position
+  const canReactivateUser = (user) => {
+    return isSuperAdmin && !user.is_active;
+  };
+
+  // Position calculation
   const calculateMenuPosition = useCallback((userId) => {
     const buttonEl = actionButtonRefs.current[userId];
     if (!buttonEl) return null;
 
     const rect = buttonEl.getBoundingClientRect();
-    const menuWidth = 192; // w-48 = 12rem = 192px
-    const menuHeight = 150; // Approximate height
+    const menuWidth = 192;
+    const menuHeight = 150;
     const padding = 8;
 
     let top = rect.bottom + padding;
     let left = rect.right - menuWidth;
 
-    // Check if menu would go below viewport
     if (top + menuHeight > window.innerHeight) {
       top = rect.top - menuHeight - padding;
     }
-
-    // Check if menu would go off left side
     if (left < padding) {
       left = padding;
     }
-
-    // Check if menu would go off right side
     if (left + menuWidth > window.innerWidth - padding) {
       left = window.innerWidth - menuWidth - padding;
     }
@@ -236,7 +251,7 @@ const UserListTable = ({
       return;
     }
 
-    setDeletingUserId(user.user_id);
+    setProcessingUserId(user.user_id);
 
     try {
       await deleteUser(user.user_id);
@@ -245,7 +260,25 @@ const UserListTable = ({
       console.error("Failed to deactivate user:", err);
       alert(err.response?.data?.message || "Failed to deactivate user");
     } finally {
-      setDeletingUserId(null);
+      setProcessingUserId(null);
+    }
+  };
+
+  const handleReactivate = async (user) => {
+    if (!confirm(`Are you sure you want to reactivate "${user.full_name}"?`)) {
+      return;
+    }
+
+    setProcessingUserId(user.user_id);
+
+    try {
+      await reactivateUser(user.user_id);
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to reactivate user:", err);
+      alert(err.response?.data?.message || "Failed to reactivate user");
+    } finally {
+      setProcessingUserId(null);
     }
   };
 
@@ -261,7 +294,6 @@ const UserListTable = ({
     );
   };
 
-  // Sortable header
   const SortableHeader = ({ column, children, className = "" }) => (
     <th
       onClick={() => onSortChange(column)}
@@ -274,7 +306,6 @@ const UserListTable = ({
     </th>
   );
 
-  // Loading state
   if (loading && users.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white rounded-xl border border-gray-200">
@@ -286,7 +317,6 @@ const UserListTable = ({
     );
   }
 
-  // Empty state
   if (!loading && users.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white rounded-xl border border-gray-200">
@@ -301,7 +331,6 @@ const UserListTable = ({
 
   return (
     <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 overflow-hidden">
-      {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full">
           <thead className="bg-gray-50 sticky top-0 z-10">
@@ -326,31 +355,35 @@ const UserListTable = ({
           <tbody className="divide-y divide-gray-100">
             {users.map((user) => {
               const RoleIcon = user.role === "branch_admin" ? Shield : User;
-              const isDeleting = deletingUserId === user.user_id;
+              const isProcessing = processingUserId === user.user_id;
 
               return (
                 <motion.tr
                   key={user.user_id}
                   initial={{ opacity: 0 }}
-                  animate={{ opacity: isDeleting ? 0.5 : 1 }}
-                  className="hover:bg-gray-50 transition-colors"
+                  animate={{ opacity: isProcessing ? 0.5 : 1 }}
+                  className={`hover:bg-gray-50 transition-colors ${!user.is_active ? "bg-gray-50/50" : ""}`}
                 >
-                  {/* User Info */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-[#000060]/10 rounded-full flex items-center justify-center">
-                        <span className="text-[#000060] font-semibold text-sm">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        user.is_active ? "bg-[#000060]/10" : "bg-gray-200"
+                      }`}>
+                        <span className={`font-semibold text-sm ${
+                          user.is_active ? "text-[#000060]" : "text-gray-400"
+                        }`}>
                           {user.full_name.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{user.full_name}</p>
+                        <p className={`font-medium ${user.is_active ? "text-gray-900" : "text-gray-500"}`}>
+                          {user.full_name}
+                        </p>
                         <p className="text-xs text-gray-500">@{user.username}</p>
                       </div>
                     </div>
                   </td>
 
-                  {/* Role */}
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getRoleBadgeClasses(user.role)}`}>
                       <RoleIcon size={12} />
@@ -358,7 +391,6 @@ const UserListTable = ({
                     </span>
                   </td>
 
-                  {/* Branch */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 text-sm text-gray-600">
                       <Building2 size={14} className="text-gray-400" />
@@ -366,7 +398,6 @@ const UserListTable = ({
                     </div>
                   </td>
 
-                  {/* Contact */}
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-0.5 text-sm">
                       <div className="flex items-center gap-1 text-gray-600">
@@ -382,14 +413,12 @@ const UserListTable = ({
                     </div>
                   </td>
 
-                  {/* Status */}
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClasses(user.is_active)}`}>
                       {user.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
 
-                  {/* Last Login */}
                   <td className="px-4 py-3 text-sm text-gray-600">
                     {user.last_login_at
                       ? new Date(user.last_login_at).toLocaleDateString("en-IN", {
@@ -401,10 +430,9 @@ const UserListTable = ({
                     }
                   </td>
 
-                  {/* Actions */}
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end">
-                      {isDeleting ? (
+                      {isProcessing ? (
                         <Loader2 size={18} className="animate-spin text-gray-400" />
                       ) : (
                         <button
@@ -465,9 +493,11 @@ const UserListTable = ({
             onEdit={onEdit}
             onResetPassword={onResetPassword}
             onDeactivate={handleDeactivate}
+            onReactivate={handleReactivate}
             canEdit={canEditUser(users.find((u) => u.user_id === actionMenuState.userId))}
             canResetPassword={canResetPassword(users.find((u) => u.user_id === actionMenuState.userId))}
             canDeactivate={canDeactivateUser(users.find((u) => u.user_id === actionMenuState.userId))}
+            canReactivate={canReactivateUser(users.find((u) => u.user_id === actionMenuState.userId))}
           />
         )}
       </AnimatePresence>

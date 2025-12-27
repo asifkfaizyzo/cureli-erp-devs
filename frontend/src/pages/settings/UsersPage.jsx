@@ -158,10 +158,10 @@ const UsersPage = () => {
   // HANDLERS
   // ============================================
 
-  const handleRefresh = () => {
-    setRefreshKey((k) => k + 1);
-    loadLimits();
-  };
+const handleRefresh = () => {
+  window.location.reload();
+};
+
 
   const handlePageChange = (newPage) => {
     setPagination((prev) => ({ ...prev, page: newPage }));
