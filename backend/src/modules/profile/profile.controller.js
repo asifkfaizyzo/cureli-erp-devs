@@ -11,8 +11,10 @@ import {
   initiateEmailChangeService,
   verifyEmailChangeService,
   initiatePhoneChangeOldService,
+  verifyPhoneChangeOldOtpService,
   initiatePhoneChangeNewService,
   verifyPhoneChangeNewService,
+  initiatePhoneChangeWithPasswordService,
 } from "./profile.service.js";
 
 // ============================================
@@ -107,7 +109,7 @@ export async function verifyEmailChange(req, res) {
 }
 
 // ============================================
-// PHONE CHANGE - STEP 1
+// PHONE CHANGE - OTP METHOD - STEP 1: SEND OTP TO OLD
 // ============================================
 export async function initiatePhoneChangeOld(req, res) {
   try {
@@ -130,12 +132,32 @@ export async function initiatePhoneChangeOld(req, res) {
 }
 
 // ============================================
-// PHONE CHANGE - STEP 2
+// PHONE CHANGE - OTP METHOD - STEP 1b: VERIFY OLD OTP
+// ============================================
+export async function verifyPhoneChangeOldOtp(req, res) {
+  try {
+    const { otp } = req.body;
+    await verifyPhoneChangeOldOtpService(req.user.user_id, otp);
+    return success(res, { 
+      message: "Current phone verified successfully",
+    });
+  } catch (err) {
+    console.error("verifyPhoneChangeOldOtp error:", err);
+    
+    if (["INVALID_OTP", "OTP_EXPIRED", "NO_OTP_REQUEST"].includes(err.code)) {
+      return fail(res, err.message, 400);
+    }
+    return fail(res, err.message, 500);
+  }
+}
+
+// ============================================
+// PHONE CHANGE - OTP METHOD - STEP 2: SEND OTP TO NEW
 // ============================================
 export async function initiatePhoneChangeNew(req, res) {
   try {
-    const { otp, new_phone } = req.body;
-    const result = await initiatePhoneChangeNewService(req.user.user_id, otp, new_phone);
+    const { new_phone } = req.body;
+    const result = await initiatePhoneChangeNewService(req.user.user_id, new_phone);
     return success(res, { 
       message: "OTP sent to your new phone",
       timeout: result.timeout,
@@ -144,7 +166,7 @@ export async function initiatePhoneChangeNew(req, res) {
   } catch (err) {
     console.error("initiatePhoneChangeNew error:", err);
     
-    if (["INVALID_OTP", "OTP_EXPIRED", "NO_OTP_REQUEST", "SAME_PHONE", "PHONE_EXISTS"].includes(err.code)) {
+    if (["OLD_NOT_VERIFIED", "SAME_PHONE", "PHONE_EXISTS"].includes(err.code)) {
       return fail(res, err.message, 400);
     }
     return fail(res, err.message, 500);
@@ -152,7 +174,7 @@ export async function initiatePhoneChangeNew(req, res) {
 }
 
 // ============================================
-// PHONE CHANGE - STEP 3
+// PHONE CHANGE - STEP 3: VERIFY NEW PHONE OTP
 // ============================================
 export async function verifyPhoneChangeNew(req, res) {
   try {
@@ -167,6 +189,35 @@ export async function verifyPhoneChangeNew(req, res) {
     
     if (["INVALID_OTP", "OTP_EXPIRED", "INCOMPLETE_FLOW"].includes(err.code)) {
       return fail(res, err.message, 400);
+    }
+    return fail(res, err.message, 500);
+  }
+}
+
+// ============================================
+// PHONE CHANGE - PASSWORD METHOD
+// ============================================
+export async function initiatePhoneChangeWithPassword(req, res) {
+  try {
+    const { current_password, new_phone } = req.body;
+    const result = await initiatePhoneChangeWithPasswordService(
+      req.user.user_id,
+      current_password,
+      new_phone
+    );
+    return success(res, { 
+      message: "OTP sent to your new phone",
+      timeout: result.timeout,
+      phone: result.phone,
+    });
+  } catch (err) {
+    console.error("initiatePhoneChangeWithPassword error:", err);
+    
+    if (["INVALID_PASSWORD", "SAME_PHONE", "PHONE_EXISTS"].includes(err.code)) {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "OTP_COOLDOWN") {
+      return fail(res, err.message, 429, { waitTime: err.waitTime });
     }
     return fail(res, err.message, 500);
   }

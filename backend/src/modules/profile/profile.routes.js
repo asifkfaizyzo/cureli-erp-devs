@@ -11,8 +11,10 @@ import {
   initiateEmailChange,
   verifyEmailChange,
   initiatePhoneChangeOld,
+  verifyPhoneChangeOldOtp,
   initiatePhoneChangeNew,
   verifyPhoneChangeNew,
+  initiatePhoneChangeWithPassword,
   getSessions,
   logoutSession,
   logoutOtherSessions,
@@ -22,8 +24,10 @@ import {
   changePasswordSchema,
   initiateEmailChangeSchema,
   verifyEmailChangeSchema,
+  verifyOldPhoneOtpSchema,
   initiatePhoneChangeNewSchema,
   verifyPhoneChangeNewSchema,
+  initiatePhoneChangeWithPasswordSchema,
 } from "./profile.schema.js";
 
 const router = Router();
@@ -54,11 +58,28 @@ router.post("/email/initiate", validate(initiateEmailChangeSchema), initiateEmai
 router.post("/email/verify", validate(verifyEmailChangeSchema), verifyEmailChange);
 
 // ============================================
-// PHONE CHANGE (3-step)
+// PHONE CHANGE - OTP METHOD (3-step)
 // ============================================
+// Step 1: Send OTP to old phone
 router.post("/phone/verify-old", initiatePhoneChangeOld);
+
+// Step 1b: Verify old phone OTP
+router.post("/phone/verify-old-otp", validate(verifyOldPhoneOtpSchema), verifyPhoneChangeOldOtp);
+
+// Step 2: Send OTP to new phone
 router.post("/phone/initiate-new", validate(initiatePhoneChangeNewSchema), initiatePhoneChangeNew);
+
+// Step 3: Verify new phone OTP
 router.post("/phone/verify-new", validate(verifyPhoneChangeNewSchema), verifyPhoneChangeNew);
+
+// ============================================
+// PHONE CHANGE - PASSWORD METHOD (2-step)
+// ============================================
+router.post(
+  "/phone/change-with-password",
+  validate(initiatePhoneChangeWithPasswordSchema),
+  initiatePhoneChangeWithPassword
+);
 
 // ============================================
 // SESSIONS

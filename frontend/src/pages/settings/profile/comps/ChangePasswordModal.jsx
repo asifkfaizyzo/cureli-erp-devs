@@ -1,4 +1,4 @@
-// src/pages/settings/components/ChangePasswordModal.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\ChangePasswordModal.jsx
 
 import { useState } from "react";
 import { motion } from "framer-motion";

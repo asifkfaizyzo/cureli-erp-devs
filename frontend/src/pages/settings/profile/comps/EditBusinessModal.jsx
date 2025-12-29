@@ -1,4 +1,4 @@
-// src/pages/settings/components/EditBusinessModal.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\EditBusinessModal.jsx
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";

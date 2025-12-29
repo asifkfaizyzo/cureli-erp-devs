@@ -1,4 +1,4 @@
-// src/pages/settings/components/ChangeEmailModal.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\ChangeEmailModal.jsx
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";

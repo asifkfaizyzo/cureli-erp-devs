@@ -1,4 +1,4 @@
-// src/pages/settings/components/PersonalInfoCard.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\PersonalInfoCard.jsx
 
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -9,6 +9,7 @@ import {
   Lock,
   Calendar,
   Edit3,
+  AtSign,
 } from "lucide-react";
 
 import ChangeEmailModal from "./ChangeEmailModal";
@@ -17,7 +18,7 @@ import ChangePasswordModal from "./ChangePasswordModal";
 
 /**
  * PersonalInfoCard
- * Displays personal information with edit options
+ * Displays personal information with edit options - Horizontal Layout
  */
 const PersonalInfoCard = ({ user, onUpdate }) => {
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -35,7 +36,6 @@ const PersonalInfoCard = ({ user, onUpdate }) => {
 
   const formatPhone = (phone) => {
     if (!phone) return "Not set";
-    // Format as +91 98765 43210
     return `+91 ${phone.slice(0, 5)} ${phone.slice(5)}`;
   };
 
@@ -48,108 +48,97 @@ const PersonalInfoCard = ({ user, onUpdate }) => {
     }
   };
 
+  // Info item component for consistent styling
+  const InfoItem = ({ icon: Icon, label, value, editable, onEdit }) => (
+    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="w-10 h-10 bg-[#000060]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+          <Icon size={18} className="text-[#000060]" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs text-gray-500 font-medium">{label}</p>
+          <p className="text-sm font-semibold text-gray-900 truncate">{value}</p>
+        </div>
+      </div>
+      {editable && (
+        <button
+          onClick={onEdit}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#000060] bg-[#000060]/5 hover:bg-[#000060]/10 rounded-lg transition-colors flex-shrink-0 ml-3"
+        >
+          <Edit3 size={12} />
+          Change
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
-      >
+      <div className="h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
-          <div className="flex items-center gap-2">
+        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
             <User size={20} className="text-[#000060]" />
-            <h2 className="text-lg font-semibold text-gray-900">Personal Information</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Personal Information</h2>
+              <p className="text-xs text-gray-500">{user.full_name} • @{user.username}</p>
+            </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Content - Horizontal Grid */}
+        <div className="p-6 flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Full Name - View Only */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-500">Full Name</label>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <User size={18} className="text-gray-400" />
-                <span className="text-gray-900 font-medium">{user.full_name}</span>
-              </div>
-            </div>
+            <InfoItem
+              icon={User}
+              label="Full Name"
+              value={user.full_name}
+            />
 
             {/* Username - View Only */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-500">Username</label>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <span className="text-gray-400">@</span>
-                <span className="text-gray-900 font-medium">{user.username}</span>
-              </div>
-            </div>
+            <InfoItem
+              icon={AtSign}
+              label="Username"
+              value={user.username}
+            />
 
             {/* Email - Editable */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-500">Email Address</label>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group hover:bg-gray-100 transition-colors">
-                <div className="flex items-center gap-3">
-                  <Mail size={18} className="text-gray-400" />
-                  <span className="text-gray-900">{user.email || "Not set"}</span>
-                </div>
-                <button
-                  onClick={() => setShowEmailModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#000060] hover:bg-[#000060]/10 rounded-lg transition-colors"
-                >
-                  <Edit3 size={14} />
-                  Change
-                </button>
-              </div>
-            </div>
+            <InfoItem
+              icon={Mail}
+              label="Email Address"
+              value={user.email || "Not set"}
+              editable
+              onEdit={() => setShowEmailModal(true)}
+            />
 
             {/* Phone - Editable */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-500">Phone Number</label>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group hover:bg-gray-100 transition-colors">
-                <div className="flex items-center gap-3">
-                  <Phone size={18} className="text-gray-400" />
-                  <span className="text-gray-900">{formatPhone(user.phone_number)}</span>
-                </div>
-                <button
-                  onClick={() => setShowPhoneModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#000060] hover:bg-[#000060]/10 rounded-lg transition-colors"
-                >
-                  <Edit3 size={14} />
-                  Change
-                </button>
-              </div>
-            </div>
+            <InfoItem
+              icon={Phone}
+              label="Phone Number"
+              value={formatPhone(user.phone_number)}
+              editable
+              onEdit={() => setShowPhoneModal(true)}
+            />
 
             {/* Password - Editable */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-500">Password</label>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group hover:bg-gray-100 transition-colors">
-                <div className="flex items-center gap-3">
-                  <Lock size={18} className="text-gray-400" />
-                  <span className="text-gray-900">••••••••••••</span>
-                </div>
-                <button
-                  onClick={() => setShowPasswordModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#000060] hover:bg-[#000060]/10 rounded-lg transition-colors"
-                >
-                  <Edit3 size={14} />
-                  Change
-                </button>
-              </div>
-            </div>
+            <InfoItem
+              icon={Lock}
+              label="Password"
+              value="••••••••••••"
+              editable
+              onEdit={() => setShowPasswordModal(true)}
+            />
 
             {/* Member Since - View Only */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-500">Member Since</label>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <Calendar size={18} className="text-gray-400" />
-                <span className="text-gray-900">{formatDate(user.created_at)}</span>
-              </div>
-            </div>
+            <InfoItem
+              icon={Calendar}
+              label="Member Since"
+              value={formatDate(user.created_at)}
+            />
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Modals */}
       {showEmailModal && (

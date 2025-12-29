@@ -83,21 +83,40 @@ export const verifyEmailChangeSchema = z.object({
 });
 
 // ============================================
-// PHONE CHANGE
+// PHONE CHANGE - OTP METHOD
 // ============================================
-export const initiatePhoneChangeNewSchema = z.object({
+
+// Step 1b: Verify old phone OTP
+export const verifyOldPhoneOtpSchema = z.object({
   otp: z
     .string()
     .min(4, "OTP is required")
     .max(6, "OTP too long"),
+});
+
+// Step 2: Send OTP to new phone (after old verified)
+export const initiatePhoneChangeNewSchema = z.object({
   new_phone: z
     .string()
     .regex(/^[0-9]{10}$/, "Phone must be 10 digits"),
 });
 
+// Step 3: Verify new phone OTP
 export const verifyPhoneChangeNewSchema = z.object({
   otp: z
     .string()
     .min(4, "OTP is required")
     .max(6, "OTP too long"),
+});
+
+// ============================================
+// PHONE CHANGE - PASSWORD METHOD
+// ============================================
+
+// Step 1: Verify password + send OTP to new phone
+export const initiatePhoneChangeWithPasswordSchema = z.object({
+  current_password: z.string().min(1, "Password is required"),
+  new_phone: z
+    .string()
+    .regex(/^[0-9]{10}$/, "Phone must be 10 digits"),
 });

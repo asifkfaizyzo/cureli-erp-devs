@@ -44,7 +44,7 @@ export async function getProfileData(user_id) {
     throw err;
   }
 
-  // Get shop details (NO user count here)
+  // Get shop details
   const shop = await prisma.shop.findUnique({
     where: { shop_id: user.shop_id },
     select: {
@@ -66,7 +66,7 @@ export async function getProfileData(user_id) {
     },
   });
 
-  // ✅ Correct user count (MATCHES getUserLimits)
+  // Correct user count
   const usersUsed = await prisma.user.count({
     where: {
       shop_id: user.shop_id,
@@ -118,7 +118,7 @@ export async function getProfileData(user_id) {
         branch_limit: sub.branch_limit_snapshot,
         user_limit: sub.user_limit_snapshot,
         branches_used: shop._count.branches,
-        users_used: usersUsed, // ✅ aligned with getUserLimits
+        users_used: usersUsed,
       };
     }
   }
@@ -153,7 +153,6 @@ export async function getProfileData(user_id) {
   };
 }
 
-
 // ============================================
 // GET SESSIONS
 // ============================================
@@ -176,7 +175,6 @@ export async function getUserSessions(user_id, currentSessionToken) {
     },
   });
 
-  // Hash the current session token to compare
   const currentHashedToken = currentSessionToken ? hashSessionToken(currentSessionToken) : null;
 
   return sessions.map((session) => ({
@@ -217,7 +215,6 @@ export async function updateBusinessInfo(user_id, data) {
     },
   });
 
-  // Log activity
   await prisma.activityLog.create({
     data: {
       user_id,
@@ -250,7 +247,6 @@ export async function changeUserPassword(user_id, current_password, new_password
     throw err;
   }
 
-  // Verify current password
   const isValid = await comparePassword(current_password, user.password_hash);
   if (!isValid) {
     const err = new Error("Current password is incorrect");
@@ -258,10 +254,8 @@ export async function changeUserPassword(user_id, current_password, new_password
     throw err;
   }
 
-  // Hash new password
   const newHash = await hashPassword(new_password);
 
-  // Update password
   await prisma.user.update({
     where: { user_id },
     data: {
@@ -270,7 +264,6 @@ export async function changeUserPassword(user_id, current_password, new_password
     },
   });
 
-  // Log activity
   await prisma.activityLog.create({
     data: {
       user_id,
@@ -279,7 +272,6 @@ export async function changeUserPassword(user_id, current_password, new_password
     },
   });
 
-  // Send notification email
   if (user.email) {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -301,7 +293,6 @@ export async function changeUserPassword(user_id, current_password, new_password
 // LOGOUT SESSION
 // ============================================
 export async function logoutUserSession(user_id, session_id, currentSessionToken) {
-  // Check if trying to logout current session
   const session = await prisma.userSession.findUnique({
     where: { id: session_id },
     select: { user_id: true, session_token: true, is_active: true },
@@ -319,7 +310,6 @@ export async function logoutUserSession(user_id, session_id, currentSessionToken
     throw err;
   }
 
-  // Check if this is the current session
   const currentHashedToken = currentSessionToken ? hashSessionToken(currentSessionToken) : null;
   if (currentHashedToken === session.session_token) {
     const err = new Error("Cannot logout current session. Use logout instead.");
@@ -358,7 +348,6 @@ export async function logoutAllOtherSessions(user_id, currentSessionToken) {
     },
   });
 
-  // Log activity
   await prisma.activityLog.create({
     data: {
       user_id,
@@ -385,7 +374,6 @@ export async function initiateEmailChangeService(user_id, current_password, new_
     throw err;
   }
 
-  // Verify password
   const isValid = await comparePassword(current_password, user.password_hash);
   if (!isValid) {
     const err = new Error("Incorrect password");
@@ -393,14 +381,12 @@ export async function initiateEmailChangeService(user_id, current_password, new_
     throw err;
   }
 
-  // Check if new email is same as current
   if (user.email?.toLowerCase() === new_email.toLowerCase()) {
     const err = new Error("New email is same as current email");
     err.code = "SAME_EMAIL";
     throw err;
   }
 
-  // Check if new email already exists
   const existingUser = await prisma.user.findUnique({
     where: { email: new_email },
   });
@@ -411,12 +397,10 @@ export async function initiateEmailChangeService(user_id, current_password, new_
     throw err;
   }
 
-  // Generate OTP
-  const otp = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit OTP
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
   const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-  // Save change request
   await prisma.user.update({
     where: { user_id },
     data: {
@@ -426,7 +410,6 @@ export async function initiateEmailChangeService(user_id, current_password, new_
     },
   });
 
-  // Send OTP to new email
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #000060;">Verify Your New Email</h2>
@@ -469,16 +452,13 @@ export async function verifyEmailChangeService(user_id, otp) {
     throw err;
   }
 
-  // Check if change was initiated
   if (!user.email_change_new_email || !user.email_change_otp_hash) {
     const err = new Error("No email change request found");
     err.code = "NO_CHANGE_REQUEST";
     throw err;
   }
 
-  // Check expiry
   if (new Date() > new Date(user.email_change_expires)) {
-    // Clear expired data
     await prisma.user.update({
       where: { user_id },
       data: {
@@ -493,7 +473,6 @@ export async function verifyEmailChangeService(user_id, otp) {
     throw err;
   }
 
-  // Verify OTP
   const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
   if (otpHash !== user.email_change_otp_hash) {
     const err = new Error("Invalid OTP");
@@ -504,7 +483,6 @@ export async function verifyEmailChangeService(user_id, otp) {
   const oldEmail = user.email;
   const newEmail = user.email_change_new_email;
 
-  // Update email and clear change data
   await prisma.user.update({
     where: { user_id },
     data: {
@@ -516,7 +494,6 @@ export async function verifyEmailChangeService(user_id, otp) {
     },
   });
 
-  // Log activity
   await prisma.activityLog.create({
     data: {
       user_id,
@@ -525,7 +502,6 @@ export async function verifyEmailChangeService(user_id, otp) {
     },
   });
 
-  // Send notification to OLD email
   if (oldEmail) {
     const htmlOld = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -540,7 +516,6 @@ export async function verifyEmailChangeService(user_id, otp) {
     await sendMail(oldEmail, "Email Address Changed - Cureli", htmlOld).catch(console.error);
   }
 
-  // Send welcome to NEW email
   const htmlNew = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #000060;">Email Verified Successfully</h2>
@@ -557,7 +532,7 @@ export async function verifyEmailChangeService(user_id, otp) {
 }
 
 // ============================================
-// PHONE CHANGE - STEP 1: VERIFY OLD PHONE
+// PHONE CHANGE - OTP METHOD - STEP 1: SEND OTP TO OLD
 // ============================================
 export async function initiatePhoneChangeOldService(user_id) {
   const user = await prisma.user.findUnique({
@@ -581,7 +556,6 @@ export async function initiatePhoneChangeOldService(user_id) {
   if (user.phone_change_expires && new Date() < new Date(user.phone_change_expires)) {
     const secondsRemaining = Math.ceil((new Date(user.phone_change_expires) - new Date()) / 1000);
     if (secondsRemaining > 240) {
-      // Within 1 minute of last request
       const err = new Error("Please wait before requesting a new OTP");
       err.code = "OTP_COOLDOWN";
       err.waitTime = 300 - secondsRemaining;
@@ -589,13 +563,11 @@ export async function initiatePhoneChangeOldService(user_id) {
     }
   }
 
-  // Get MessageCentral token
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
     process.env.MC_PASSWORD
   );
 
-  // Send OTP to old phone
   const data = await mcSendOtp({
     authToken,
     customerId: process.env.MC_CUSTOMER,
@@ -607,7 +579,6 @@ export async function initiatePhoneChangeOldService(user_id) {
   const verificationId = data?.verificationId || data?.verificationID || data?.verification_id;
   const timeout = Number(data?.timeout || data?.time || 300);
 
-  // Save verification state
   await prisma.user.update({
     where: { user_id },
     data: {
@@ -622,9 +593,9 @@ export async function initiatePhoneChangeOldService(user_id) {
 }
 
 // ============================================
-// PHONE CHANGE - STEP 2: VERIFY OLD OTP & SEND TO NEW
+// PHONE CHANGE - OTP METHOD - STEP 1b: VERIFY OLD OTP
 // ============================================
-export async function initiatePhoneChangeNewService(user_id, otp, new_phone) {
+export async function verifyPhoneChangeOldOtpService(user_id, otp) {
   const user = await prisma.user.findUnique({
     where: { user_id },
     select: {
@@ -641,17 +612,94 @@ export async function initiatePhoneChangeNewService(user_id, otp, new_phone) {
     throw err;
   }
 
-  // Check if step 1 was done
   if (!user.phone_change_verification_id) {
     const err = new Error("Please request OTP first");
     err.code = "NO_OTP_REQUEST";
     throw err;
   }
 
-  // Check expiry
   if (new Date() > new Date(user.phone_change_expires)) {
     await clearPhoneChangeState(user_id);
     const err = new Error("OTP expired. Please start again.");
+    err.code = "OTP_EXPIRED";
+    throw err;
+  }
+
+  const authToken = await getMCAuthToken(
+    process.env.MC_CUSTOMER,
+    process.env.MC_PASSWORD
+  );
+
+  const result = await mcValidateOtp({
+    authToken,
+    verificationId: user.phone_change_verification_id,
+    code: otp,
+    mobileNumber: user.phone_number,
+  });
+
+  if (result?.verificationStatus !== "VERIFICATION_COMPLETED") {
+    const respCode = Number(result?.responseCode || result?.response_code || 0);
+
+    if (respCode === 702) {
+      const err = new Error("Invalid OTP");
+      err.code = "INVALID_OTP";
+      throw err;
+    }
+    if (respCode === 705) {
+      await clearPhoneChangeState(user_id);
+      const err = new Error("OTP expired");
+      err.code = "OTP_EXPIRED";
+      throw err;
+    }
+
+    const err = new Error("OTP verification failed");
+    err.code = "VERIFICATION_FAILED";
+    throw err;
+  }
+
+  // Mark old phone as verified
+  await prisma.user.update({
+    where: { user_id },
+    data: {
+      phone_change_old_verified: true,
+      phone_change_verification_id: null, // Clear old verification ID
+      phone_change_expires: new Date(Date.now() + 10 * 60 * 1000), // 10 min to enter new phone
+    },
+  });
+
+  return { success: true };
+}
+
+// ============================================
+// PHONE CHANGE - OTP METHOD - STEP 2: SEND OTP TO NEW
+// ============================================
+export async function initiatePhoneChangeNewService(user_id, new_phone) {
+  const user = await prisma.user.findUnique({
+    where: { user_id },
+    select: {
+      phone_number: true,
+      phone_change_old_verified: true,
+      phone_change_expires: true,
+    },
+  });
+
+  if (!user) {
+    const err = new Error("User not found");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  // Check if old phone was verified
+  if (!user.phone_change_old_verified) {
+    const err = new Error("Please verify your current phone first");
+    err.code = "OLD_NOT_VERIFIED";
+    throw err;
+  }
+
+  // Check if verification window expired
+  if (new Date() > new Date(user.phone_change_expires)) {
+    await clearPhoneChangeState(user_id);
+    const err = new Error("Session expired. Please start again.");
     err.code = "OTP_EXPIRED";
     throw err;
   }
@@ -677,41 +725,13 @@ export async function initiatePhoneChangeNewService(user_id, otp, new_phone) {
     throw err;
   }
 
-  // Verify OTP with MessageCentral
+  // Send OTP to new phone
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
     process.env.MC_PASSWORD
   );
 
-  const result = await mcValidateOtp({
-    authToken,
-    verificationId: user.phone_change_verification_id,
-    code: otp,
-    mobileNumber: user.phone_number,
-  });
-
-  if (result?.verificationStatus !== "VERIFICATION_COMPLETED") {
-    const respCode = Number(result?.responseCode || result?.response_code || 0);
-    
-    if (respCode === 702) {
-      const err = new Error("Invalid OTP");
-      err.code = "INVALID_OTP";
-      throw err;
-    }
-    if (respCode === 705) {
-      await clearPhoneChangeState(user_id);
-      const err = new Error("OTP expired");
-      err.code = "OTP_EXPIRED";
-      throw err;
-    }
-
-    const err = new Error("OTP verification failed");
-    err.code = "VERIFICATION_FAILED";
-    throw err;
-  }
-
-  // Old OTP verified! Now send OTP to new phone
-  const newData = await mcSendOtp({
+  const data = await mcSendOtp({
     authToken,
     customerId: process.env.MC_CUSTOMER,
     mobileNumber: new_phone,
@@ -719,15 +739,103 @@ export async function initiatePhoneChangeNewService(user_id, otp, new_phone) {
     countryCode: process.env.MC_COUNTRY || "91",
   });
 
-  const newVerificationId = newData?.verificationId || newData?.verificationID || newData?.verification_id;
-  const timeout = Number(newData?.timeout || newData?.time || 300);
+  const verificationId = data?.verificationId || data?.verificationID || data?.verification_id;
+  const timeout = Number(data?.timeout || data?.time || 300);
 
-  // Update state
   await prisma.user.update({
     where: { user_id },
     data: {
-      phone_change_verification_id: newVerificationId,
-      phone_change_old_verified: true,
+      phone_change_verification_id: verificationId,
+      phone_change_new_number: new_phone,
+      phone_change_expires: new Date(Date.now() + timeout * 1000),
+    },
+  });
+
+  return { success: true, timeout, phone: new_phone };
+}
+
+// ============================================
+// PHONE CHANGE - PASSWORD METHOD: VERIFY PASSWORD & SEND OTP TO NEW
+// ============================================
+export async function initiatePhoneChangeWithPasswordService(user_id, current_password, new_phone) {
+  const user = await prisma.user.findUnique({
+    where: { user_id },
+    select: {
+      password_hash: true,
+      phone_number: true,
+      phone_change_expires: true,
+    },
+  });
+
+  if (!user) {
+    const err = new Error("User not found");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  // Verify password
+  const isValid = await comparePassword(current_password, user.password_hash);
+  if (!isValid) {
+    const err = new Error("Incorrect password");
+    err.code = "INVALID_PASSWORD";
+    throw err;
+  }
+
+  // Check if new phone is same as current
+  if (user.phone_number === new_phone) {
+    const err = new Error("New phone is same as current phone");
+    err.code = "SAME_PHONE";
+    throw err;
+  }
+
+  // Check if new phone already exists
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      phone_number: new_phone,
+      user_id: { not: user_id },
+    },
+  });
+
+  if (existingUser) {
+    const err = new Error("Phone number already in use");
+    err.code = "PHONE_EXISTS";
+    throw err;
+  }
+
+  // Check cooldown
+  if (user.phone_change_expires && new Date() < new Date(user.phone_change_expires)) {
+    const secondsRemaining = Math.ceil((new Date(user.phone_change_expires) - new Date()) / 1000);
+    if (secondsRemaining > 240) {
+      const err = new Error("Please wait before requesting a new OTP");
+      err.code = "OTP_COOLDOWN";
+      err.waitTime = 300 - secondsRemaining;
+      throw err;
+    }
+  }
+
+  // Send OTP to new phone
+  const authToken = await getMCAuthToken(
+    process.env.MC_CUSTOMER,
+    process.env.MC_PASSWORD
+  );
+
+  const data = await mcSendOtp({
+    authToken,
+    customerId: process.env.MC_CUSTOMER,
+    mobileNumber: new_phone,
+    otpLength: Number(process.env.SMS_OTP_LENGTH || 4),
+    countryCode: process.env.MC_COUNTRY || "91",
+  });
+
+  const verificationId = data?.verificationId || data?.verificationID || data?.verification_id;
+  const timeout = Number(data?.timeout || data?.time || 300);
+
+  // Save state - mark old as verified since password was used
+  await prisma.user.update({
+    where: { user_id },
+    data: {
+      phone_change_verification_id: verificationId,
+      phone_change_old_verified: true, // Password verification counts
       phone_change_new_number: new_phone,
       phone_change_expires: new Date(Date.now() + timeout * 1000),
     },
@@ -744,6 +852,8 @@ export async function verifyPhoneChangeNewService(user_id, otp) {
     where: { user_id },
     select: {
       phone_number: true,
+      full_name: true,
+      email: true,
       phone_change_verification_id: true,
       phone_change_old_verified: true,
       phone_change_new_number: true,
@@ -757,14 +867,12 @@ export async function verifyPhoneChangeNewService(user_id, otp) {
     throw err;
   }
 
-  // Check if step 2 was completed
   if (!user.phone_change_old_verified || !user.phone_change_new_number) {
     const err = new Error("Please complete previous steps first");
     err.code = "INCOMPLETE_FLOW";
     throw err;
   }
 
-  // Check expiry
   if (new Date() > new Date(user.phone_change_expires)) {
     await clearPhoneChangeState(user_id);
     const err = new Error("OTP expired. Please start again.");
@@ -772,7 +880,6 @@ export async function verifyPhoneChangeNewService(user_id, otp) {
     throw err;
   }
 
-  // Verify OTP
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
     process.env.MC_PASSWORD
@@ -787,7 +894,7 @@ export async function verifyPhoneChangeNewService(user_id, otp) {
 
   if (result?.verificationStatus !== "VERIFICATION_COMPLETED") {
     const respCode = Number(result?.responseCode || result?.response_code || 0);
-    
+
     if (respCode === 702) {
       const err = new Error("Invalid OTP");
       err.code = "INVALID_OTP";
@@ -829,6 +936,21 @@ export async function verifyPhoneChangeNewService(user_id, otp) {
       description: `Phone changed from ${oldPhone} to ${newPhone}`,
     },
   });
+
+  // Send email notification if email exists
+  if (user.email) {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #000060;">Phone Number Changed</h2>
+        <p>Hi ${user.full_name},</p>
+        <p>Your phone number has been changed from <strong>${oldPhone}</strong> to <strong>${newPhone}</strong>.</p>
+        <p>If you did not make this change, please contact support immediately.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;"/>
+        <p style="color: #999; font-size: 12px;">Cureli ERP - Pharmacy Management System</p>
+      </div>
+    `;
+    await sendMail(user.email, "Phone Number Changed - Cureli", html).catch(console.error);
+  }
 
   return { success: true, new_phone: newPhone };
 }

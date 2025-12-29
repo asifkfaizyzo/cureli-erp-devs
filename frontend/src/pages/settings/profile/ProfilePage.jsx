@@ -1,8 +1,8 @@
-// src/pages/settings/ProfilePage.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\ProfilePage.jsx
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw, User, Building2, CreditCard, Shield } from "lucide-react";
 
 import PersonalInfoCard from "./comps/PersonalInfoCard";
 import BusinessInfoCard from "./comps/BusinessInfoCard";
@@ -13,12 +13,13 @@ import { getProfile } from "../../../api/profile";
 
 /**
  * ProfilePage
- * Super Admin profile settings page
+ * Super Admin profile settings page - Horizontal Layout
  */
 const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [profileData, setProfileData] = useState(null);
+  const [activeTab, setActiveTab] = useState("personal");
 
   // Fetch profile data
   const fetchProfile = async () => {
@@ -39,6 +40,14 @@ const ProfilePage = () => {
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  // Tab configuration
+  const tabs = [
+    { id: "personal", label: "Personal", icon: User },
+    { id: "business", label: "Business", icon: Building2 },
+    { id: "subscription", label: "Plan & Usage", icon: CreditCard },
+    { id: "sessions", label: "Sessions", icon: Shield },
+  ];
 
   // Loading state
   if (loading) {
@@ -79,32 +88,78 @@ const ProfilePage = () => {
   const { user, shop, subscription, sessions } = profileData;
 
   return (
-    <div className="h-full overflow-auto p-1">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="max-w-4xl mx-auto space-y-6"
-      >
-        {/* Page Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-[#000060]">Profile Settings</h1>
-          <p className="text-gray-500 mt-1">
-            Manage your account, business information, and security settings
-          </p>
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Header Bar */}
+      <div className="flex-shrink-0  border-gray-200 px-1 py-3">
+        <div className="flex items-center justify-between">
+          {/* Title & Tabs Container */}
+          <div className="flex items-center gap-8">
+            <div>
+              <h1 className="text-xl font-bold text-[#000060]">Profile Settings</h1>
+              <p className="text-xs text-gray-500">
+                Manage your account and business
+              </p>
+            </div>
+
+            {/* Horizontal Tabs */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      isActive
+                        ? "bg-white text-[#000060] shadow-sm"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Icon size={16} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Refresh Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={fetchProfile}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={18} />
+          </motion.button>
         </div>
+      </div>
 
-        {/* Personal Information */}
-        <PersonalInfoCard user={user} onUpdate={fetchProfile} />
-
-        {/* Business Information */}
-        <BusinessInfoCard shop={shop} onUpdate={fetchProfile} />
-
-        {/* Subscription & Plan */}
-        <SubscriptionCard subscription={subscription} />
-
-        {/* Active Sessions */}
-        <SessionsCard sessions={sessions} onUpdate={fetchProfile} />
-      </motion.div>
+      {/* Content Area - Full Height */}
+      <div className="flex-1 overflow-auto p-4">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.2 }}
+          className="h-full"
+        >
+          {activeTab === "personal" && (
+            <PersonalInfoCard user={user} onUpdate={fetchProfile} />
+          )}
+          {activeTab === "business" && (
+            <BusinessInfoCard shop={shop} onUpdate={fetchProfile} />
+          )}
+          {activeTab === "subscription" && (
+            <SubscriptionCard subscription={subscription} />
+          )}
+          {activeTab === "sessions" && (
+            <SessionsCard sessions={sessions} onUpdate={fetchProfile} />
+          )}
+        </motion.div>
+      </div>
     </div>
   );
 };
