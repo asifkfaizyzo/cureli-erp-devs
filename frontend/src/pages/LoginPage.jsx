@@ -6,10 +6,10 @@ import { useSearchParams } from "react-router-dom";
 import bgImage from "../assets/images/login-background.jpg";
 import logo from "../assets/icons/cureli-white.svg";
 
-import LoginForm from "../components/LoginForm";
-import CreateAccount from "../components/CreateAccount";
-import OtpVerify from "../components/onboarding/OtpVerify";
-import ReCaptchaWrapper from "../components/ReCaptchaWrapper";
+import LoginForm from "../components/onboarding/phase1/LoginForm";
+import CreateAccount from "../components/onboarding/phase1/CreateAccount";
+import OtpVerify from "../components/onboarding/phase1/OtpVerify";
+import ReCaptchaWrapper from "../components/common/ReCaptchaWrapper";
 
 const LoginPage = () => {
   const [showOtp, setShowOtp] = useState(false);

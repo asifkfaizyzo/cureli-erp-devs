@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { saveUsername, completeSignup, checkUsernameAvailability } from "../../api/auth";
+import { saveUsername, completeSignup, checkUsernameAvailability } from "../../../api/auth";
 import { Loader2, Check, AlertCircle, Sparkles, RefreshCw } from "lucide-react";
-import { useAuthStore } from "../../store/useAuthStore";
+import { useAuthStore } from "../../../store/useAuthStore";
 // Debounce hook
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);

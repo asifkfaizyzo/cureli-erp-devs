@@ -51,10 +51,10 @@ import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
 // ============================================
 // SETTINGS PAGES
 // ============================================
-import UsersPage from "./pages/settings/UsersPage.jsx";
-import BranchesPage from "./pages/settings/BranchesPage.jsx";
-import ProfilePage from "./pages/settings/ProfilePage.jsx";
-import UpgradePlanPage from "./pages/settings/UpgradePlanPage.jsx";
+import UsersPage from "./pages/settings/users/UsersPage.jsx";
+import BranchesPage from "./pages/settings/branches/BranchesPage.jsx";
+import ProfilePage from "./pages/settings/profile/ProfilePage.jsx";
+import UpgradePlanPage from "./pages/settings/plans/UpgradePlanPage.jsx";
 
 // ============================================
 // SUPPORT PAGES

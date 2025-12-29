@@ -10,16 +10,16 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-import { usePermission } from "../../hooks/usePermission";
+import { usePermission } from "../../../hooks/usePermission";
 import {
   fetchBranches,
   fetchBranchLimits,
-} from "../../api/branches";
+} from "../../../api/branches";
 
 // Components
-import BranchLimitBanner from "./components/BranchLimitBanner";
-import BranchListTable from "./components/BranchListTable";
-import AddEditBranchModal from "./components/AddEditBranchModal";
+import BranchLimitBanner from "./BranchLimitBanner";
+import BranchListTable from "./BranchListTable";
+import AddEditBranchModal from "./AddEditBranchModal";
 
 /**
  * BranchesPage

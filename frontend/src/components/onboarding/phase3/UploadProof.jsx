@@ -1,9 +1,9 @@
 import { useState, useRef } from "react";
 import { IoCloudUploadOutline } from "react-icons/io5";
-import { uploadShopFile } from "../../api/shopFiles";
+import { uploadShopFile } from "../../../api/shopFiles";
 import { Loader2 } from "lucide-react";
 
-const UploadAddressProof = ({ onContinue }) => {
+const UploadProof = ({ onContinue }) => {
     const [file, setFile] = useState(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -52,11 +52,12 @@ const UploadAddressProof = ({ onContinue }) => {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            formData.append("file_type", "address_proof");
+            formData.append("file_type", "business_registration_proof");
 
             await uploadShopFile(formData);
 
             
+
             onContinue();
         } catch (err) {
             setError(err?.response?.data?.message || "Failed to upload file");
@@ -66,12 +67,12 @@ const UploadAddressProof = ({ onContinue }) => {
     };
 
     return (
-        <div 
+        <div
             className="w-full max-w-2xl font-poppins"
             style={{ marginTop: "30px" }}
         >
             <h2 className="text-[30px] font-semibold text-[#000006]">
-                Upload Your Address Proof
+                Upload Your Business Registration Proof
             </h2>
 
             <p className="text-gray-500 text-xs mt-1 mb-4">
@@ -93,7 +94,7 @@ const UploadAddressProof = ({ onContinue }) => {
                             {file.name}
                         </span>
                     ) : (
-                        "*Upload verified Address Proof*"
+                        "*Upload verified Business Registration Proof*"
                     )}
                 </p>
 
@@ -106,15 +107,13 @@ const UploadAddressProof = ({ onContinue }) => {
                 />
             </div>
 
-            {error && (
-                <p className="text-red-600 text-sm mt-2">{error}</p>
-            )}
+            {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
 
-            {/* BUTTON WITH LOADER */}
+            {/* 🔥 UPDATED BUTTON WITH SPINNER */}
             <button
                 onClick={handleSubmit}
                 disabled={!file || loading}
-                className={`w-[470px] bg-[#000060] text-white py-3 rounded-xl mt-8
+                className={`w-[470px] bg-[#000060] text-white py-3 rounded-xl mt-8 
                            hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed
                            ${!file ? "opacity-60 cursor-not-allowed" : ""}`}
             >
@@ -131,4 +130,4 @@ const UploadAddressProof = ({ onContinue }) => {
     );
 };
 
-export default UploadAddressProof;
+export default UploadProof;

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
-import { googleSetPassword } from "../../api/auth";
+import { googleSetPassword } from "../../../api/auth";
 import { Loader2 } from "lucide-react";
 
 const CreatePassword = ({ pending_id, onContinue }) => {

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { sendSmsOtp } from "../../api/otp";
+import { sendSmsOtp } from "../../../api/otp";
 import { Loader2 } from "lucide-react";
 
 const PhoneDetails = ({ pending_id, onContinue }) => {

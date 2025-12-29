@@ -6,8 +6,8 @@ import { FaUser, FaLock } from "react-icons/fa";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowRight } from "lucide-react";
-import { loginUser } from "../api/auth";
-import LoginOtpVerification from "./onboarding/LoginOtpVerification";
+import { loginUser } from "../../../api/auth";
+import LoginOtpVerification from "./LoginOtpVerification";
 
 const LoginForm = ({ onRegisterClick }) => {
   const [username, setUsername] = useState("");

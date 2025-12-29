@@ -1,11 +1,11 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
-import { googleSignup, signupUser } from "../api/auth";
+import { googleSignup, signupUser } from "../../../api/auth";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
-import api from "../api/axios";
+
 
 const CreateAccount = ({ onLoginClick }) => {
   const navigate = useNavigate();

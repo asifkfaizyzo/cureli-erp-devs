@@ -10,19 +10,18 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-import { usePermission } from "../../hooks/usePermission";
+import { usePermission } from "../../../hooks/usePermission";
 import {
   fetchUsers,
   fetchUserLimits,
-} from "../../api/users";
-import { fetchBranchesDropdown } from "../../api/branches";
+} from "../../../api/users";
+import { fetchBranchesDropdown } from "../../../api/branches";
 
 // Components
-import UserLimitBanner from "./components/UserLimitBanner";
-import UserFilters from "./components/UserFilters";
-import UserListTable from "./components/UserListTable";
-import AddEditUserModal from "./components/AddEditUserModal";
-import ResetPasswordModal from "./components/ResetPasswordModal";
+import UserLimitBanner from "./UserLimitBanner";
+import UserFilters from "./UserFilters";
+import UserListTable from "./UserListTable";
+import AddEditUserModal from "./AddEditUserModal";
 
 /**
  * UsersPage

@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 
-import PersonalInfoCard from "./components/PersonalInfoCard";
-import BusinessInfoCard from "./components/BusinessInfoCard";
-import SubscriptionCard from "./components/SubscriptionCard";
-import SessionsCard from "./components/SessionsCard";
+import PersonalInfoCard from "./PersonalInfoCard";
+import BusinessInfoCard from "./BusinessInfoCard";
+import SubscriptionCard from "./SubscriptionCard";
+import SessionsCard from "./SessionsCard";
 
-import { getProfile } from "../../api/profile";
+import { getProfile } from "../../../api/profile";
 
 /**
  * ProfilePage

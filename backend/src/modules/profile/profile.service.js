@@ -44,7 +44,7 @@ export async function getProfileData(user_id) {
     throw err;
   }
 
-  // Get shop details
+  // Get shop details (NO user count here)
   const shop = await prisma.shop.findUnique({
     where: { shop_id: user.shop_id },
     select: {
@@ -61,14 +61,23 @@ export async function getProfileData(user_id) {
       _count: {
         select: {
           branches: true,
-          users: true,
         },
       },
     },
   });
 
+  // ✅ Correct user count (MATCHES getUserLimits)
+  const usersUsed = await prisma.user.count({
+    where: {
+      shop_id: user.shop_id,
+      is_active: true,
+      role: { in: ["staff", "branch_admin"] },
+    },
+  });
+
   // Get subscription details
   let subscription = null;
+
   if (shop.current_subscription_id) {
     const sub = await prisma.shopSubscription.findUnique({
       where: { subscription_id: shop.current_subscription_id },
@@ -92,7 +101,10 @@ export async function getProfileData(user_id) {
     if (sub) {
       const now = new Date();
       const endDate = new Date(sub.end_date);
-      const daysRemaining = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
+      const daysRemaining = Math.max(
+        0,
+        Math.ceil((endDate - now) / (1000 * 60 * 60 * 24))
+      );
 
       subscription = {
         subscription_id: sub.subscription_id,
@@ -106,7 +118,7 @@ export async function getProfileData(user_id) {
         branch_limit: sub.branch_limit_snapshot,
         user_limit: sub.user_limit_snapshot,
         branches_used: shop._count.branches,
-        users_used: shop._count.users,
+        users_used: usersUsed, // ✅ aligned with getUserLimits
       };
     }
   }
@@ -140,6 +152,7 @@ export async function getProfileData(user_id) {
     subscription,
   };
 }
+
 
 // ============================================
 // GET SESSIONS

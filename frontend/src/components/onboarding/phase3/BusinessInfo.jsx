@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { updateShopInfo } from "../../api/shop";
+import { updateShopInfo } from "../../../api/shop";
 import { useNavigate } from "react-router-dom";
 import { Loader2, ChevronDown } from "lucide-react";
 
@@ -7,9 +7,15 @@ import { Loader2, ChevronDown } from "lucide-react";
 import {
   loadPincodeMap,
   getPincodeData,
-} from "../../utils/address/loadPincodeMap";
-import { loadCityList, searchCities } from "../../utils/address/loadCityList";
-import { loadStateList, searchStates } from "../../utils/address/loadStateList";
+} from "../../../utils/address/loadPincodeMap";
+import {
+  loadCityList,
+  searchCities,
+} from "../../../utils/address/loadCityList";
+import {
+  loadStateList,
+  searchStates,
+} from "../../../utils/address/loadStateList";
 
 const BusinessInfo = ({ onContinue }) => {
   const [form, setForm] = useState({

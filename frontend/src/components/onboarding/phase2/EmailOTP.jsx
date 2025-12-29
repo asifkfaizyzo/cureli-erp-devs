@@ -1,11 +1,11 @@
-// src/components/onboarding/PhoneOtp.jsx
+// src/components/onboarding/EmailOTP.jsx
 
 import { useState, useRef, useEffect } from "react";
-import { verifySmsOtp, sendSmsOtp } from "../../api/otp";
-import { Loader2, CheckCircle2, Phone, AlertCircle } from "lucide-react";
+import { sendSignupOtp, verifySignupOtp } from "../../../api/otp";
+import { Loader2, CheckCircle2, Mail, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
-const PhoneOtp = ({ pending_id, phone, onContinue }) => {
+const EmailOTP = ({ pending_id, email, onContinue }) => {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [timer, setTimer] = useState(30);
   const [error, setError] = useState("");
@@ -89,6 +89,59 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
     setTimeout(() => setShake(false), 500);
   };
 
+  const handleResend = async () => {
+    if (timer > 0 || resending) return;
+
+    setResending(true);
+    setError("");
+    setOtp(["", "", "", ""]);
+    setSuccess(false);
+    setResendSuccess(false);
+
+    try {
+      await sendSignupOtp({ pending_id, isResend: true });
+
+      // Show success message briefly
+      setResendSuccess(true);
+      setTimeout(() => setResendSuccess(false), 3000);
+
+      // Reset timer
+      setTimer(30);
+
+      // Focus first input
+      setTimeout(() => {
+        inputsRef.current[0]?.focus();
+      }, 100);
+
+    } catch (err) {
+      console.error("Resend Email OTP error:", err);
+      
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message || "Failed to resend OTP";
+      const waitTime = err?.response?.data?.data?.waitTime;
+
+      if (status === 429) {
+        // Rate limited - extract wait time
+        setError(msg);
+        if (waitTime) {
+          setTimer(waitTime);
+        } else {
+          // Try to extract from message
+          const waitMatch = msg.match(/(\d+)\s*seconds/);
+          if (waitMatch) {
+            setTimer(parseInt(waitMatch[1]));
+          }
+        }
+      } else if (status === 404) {
+        setError("Session expired. Please start signup again.");
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setResending(false);
+    }
+  };
+
   const handleSubmit = async (otpCode = null) => {
     const fullOtp = otpCode || otp.join("");
     if (fullOtp.length !== 4 || loading || success) return;
@@ -98,7 +151,7 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
     setResendSuccess(false);
 
     try {
-      await verifySmsOtp({ pending_id, code: fullOtp });
+      await verifySignupOtp({ pending_id, otp: fullOtp });
 
       setSuccess(true);
 
@@ -121,53 +174,6 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
     }
   };
 
-  const handleResend = async () => {
-    if (timer > 0 || resending) return;
-
-    setResending(true);
-    setError("");
-    setOtp(["", "", "", ""]);
-    setSuccess(false);
-    setResendSuccess(false);
-
-    try {
-      await sendSmsOtp({ pending_id, phone });
-
-      // Show success message briefly
-      setResendSuccess(true);
-      setTimeout(() => setResendSuccess(false), 3000);
-
-      // Reset timer
-      setTimer(30);
-
-      // Focus first input
-      setTimeout(() => {
-        inputsRef.current[0]?.focus();
-      }, 100);
-
-    } catch (err) {
-      console.error("Resend SMS OTP error:", err);
-      
-      const status = err?.response?.status;
-      const msg = err?.response?.data?.message || "Failed to resend OTP";
-
-      if (status === 429) {
-        // Rate limited - extract wait time
-        setError(msg);
-        const waitMatch = msg.match(/(\d+)\s*seconds/);
-        if (waitMatch) {
-          setTimer(parseInt(waitMatch[1]));
-        }
-      } else if (status === 404) {
-        setError("Session expired. Please start signup again.");
-      } else {
-        setError(msg);
-      }
-    } finally {
-      setResending(false);
-    }
-  };
-
   const getInputClassName = (idx) => {
     const base = `w-12 h-14 text-center text-xl font-semibold border-2 rounded-lg
                   outline-none transition-all duration-200`;
@@ -184,10 +190,13 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
     return `${base} border-gray-300 focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/20`;
   };
 
-  // Mask phone for privacy
-  const maskPhone = (phone) => {
-    if (!phone || phone.length < 4) return phone;
-    return `******${phone.slice(-4)}`;
+  // Mask email for privacy
+  const maskEmail = (email) => {
+    if (!email) return "";
+    const [name, domain] = email.split("@");
+    if (name.length <= 2) return email;
+    const maskedLength = Math.min(name.length - 2, 6);
+    return `${name[0]}${"*".repeat(maskedLength)}${name.slice(-1)}@${domain}`;
   };
 
   return (
@@ -195,12 +204,12 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
       className="w-full max-w-sm font-poppins px-3 mt-10"
       style={{ marginLeft: "-25%" }}
     >
-      <h2 className="text-[26px] font-bold text-[#000006]">Verify Your Phone</h2>
+      <h2 className="text-[26px] font-bold text-[#000006]">Verify Your Email</h2>
 
       <div className="flex items-center gap-2 mt-2 mb-4">
-        <Phone className="w-4 h-4 text-gray-500" />
+        <Mail className="w-4 h-4 text-gray-500" />
         <p className="text-gray-500 text-sm">
-          Code sent to <b className="text-[#000060]">+91 {maskPhone(phone)}</b>
+          Code sent to <b className="text-[#000060]">{maskEmail(email)}</b>
         </p>
       </div>
 
@@ -288,7 +297,7 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
             className="flex items-center gap-2 text-green-600 text-sm"
           >
             <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-            <span>New code sent to your phone!</span>
+            <span>New code sent to your email!</span>
           </motion.div>
         )}
 
@@ -300,7 +309,7 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
             className="flex items-center gap-2 text-green-600 text-sm font-medium"
           >
             <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-            <span>Phone verified successfully!</span>
+            <span>Email verified successfully!</span>
           </motion.div>
         )}
       </div>
@@ -330,10 +339,10 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
         )}
       </button>
 
-      {/* Hint text */}
+      {/* Check spam hint */}
       {!success && (
         <p className="text-xs text-gray-400 text-center mt-3">
-          Didn't receive it? Check your phone signal or try resending
+          Didn't receive it? Check your spam folder or try resending
         </p>
       )}
 
@@ -360,4 +369,4 @@ const PhoneOtp = ({ pending_id, phone, onContinue }) => {
   );
 };
 
-export default PhoneOtp;
+export default EmailOTP;

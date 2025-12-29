@@ -5,21 +5,21 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import OnboardingHeader from "../components/layout/OnboardingHeader";
-import OnboardStepper from "../components/onboarding/CustomStepper";
+import OnboardStepper from "../components/layout/CustomStepper";
 
-import IdentityForm from "../components/onboarding/IdentityForm";
-import EmailOTP from "../components/onboarding/EmailOTP";
-import PhoneDetails from "../components/onboarding/PhoneDetails";
-import PhoneOTP from "../components/onboarding/PhoneOTP";
-import BusinessInfo from "../components/onboarding/BusinessInfo";
-import BusinessTypeAndGST from "../components/onboarding/BusinessTypeAndGST";
-import UploadDrugLicense from "../components/onboarding/UploadDrugLicense";
-import UploadRegistration from "../components/onboarding/UploadRegistration";
-import UploadProof from "../components/onboarding/UploadProof";
-import UploadEALisence from "../components/onboarding/UploadEALisence";
-import UploadBPan from "../components/onboarding/UploadBPan";
-import UploadAddressProof from "../components/onboarding/UploadAddressProof";
-import CreatePassword from "../components/onboarding/CreatePassword";
+import IdentityForm from "../components/onboarding/phase2/IdentityForm";
+import EmailOTP from "../components/onboarding/phase2/EmailOTP";
+import PhoneDetails from "../components/onboarding/phase2/PhoneDetails";
+import PhoneOTP from "../components/onboarding/phase2/PhoneOTP";
+import BusinessInfo from "../components/onboarding/phase3/BusinessInfo";
+import BusinessTypeAndGST from "../components/onboarding/phase3/BusinessTypeAndGST";
+import UploadDrugLicense from "../components/onboarding/phase3/UploadDrugLicense";
+import UploadRegistration from "../components/onboarding/phase3/UploadRegistration";
+import UploadProof from "../components/onboarding/phase3/UploadProof";
+import UploadEALisence from "../components/onboarding/phase3/UploadEALisence";
+import UploadBPan from "../components/onboarding/phase3/UploadBPan";
+import UploadAddressProof from "../components/onboarding/phase3/UploadAddressProof";
+import CreatePassword from "../components/onboarding/phase2/CreatePassword";
 import { getOnboardingStatus, updateOnboardingStep } from "../api/auth";
 
 const OnboardingPage = () => {
@@ -98,7 +98,10 @@ const OnboardingPage = () => {
         }
 
         // If user is past onboarding, redirect appropriately
-        if (userStatus === "pending_verification" || userStatus === "verified") {
+        if (
+          userStatus === "pending_verification" ||
+          userStatus === "verified"
+        ) {
           navigate("/verification", { replace: true });
           return;
         }

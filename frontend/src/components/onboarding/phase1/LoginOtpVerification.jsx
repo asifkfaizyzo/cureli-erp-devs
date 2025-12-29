@@ -3,13 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { IoArrowBackOutline } from "react-icons/io5";
-import { verifyLoginOtp, resendLoginOtp } from "../../api/auth";
-import { getMySubscription } from "../../api/subscription";
-import { getSetupStatus } from "../../api/setup";
+import { verifyLoginOtp, resendLoginOtp } from "../../../api/auth";
+import { getMySubscription } from "../../../api/subscription";
+import { getSetupStatus } from "../../../api/setup";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
-import { useAuthStore } from "../../store/useAuthStore";
+import { useAuthStore } from "../../../store/useAuthStore";
 
 // Constants
 const RESEND_TIMER_SECONDS = 60; // Changed from 30 to 60
