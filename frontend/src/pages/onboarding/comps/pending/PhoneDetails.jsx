@@ -1,3 +1,5 @@
+// PhoneDetails.jsx
+
 import { useState, useRef, useEffect } from "react";
 import { sendSmsOtp } from "../../../../api/otp";
 import { Loader2 } from "lucide-react";
@@ -26,14 +28,25 @@ const PhoneDetails = ({ pending_id, onContinue }) => {
     if (!validatePhone()) return;
 
     setLoading(true);
+    setError(""); // Clear previous errors
 
     try {
       await sendSmsOtp({ pending_id, phone });
-
-      // Move to next page
       onContinue();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to send SMS OTP.");
+      const message = err.response?.data?.message;
+      const status = err.response?.status;
+
+      // ✅ Handle specific error cases
+      if (status === 409) {
+        // Phone already exists
+        setError(message || "This phone number is already registered.");
+      } else if (status === 429) {
+        // Cooldown
+        setError(message || "Please wait before requesting another OTP.");
+      } else {
+        setError(message || "Failed to send SMS OTP. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -63,7 +76,12 @@ const PhoneDetails = ({ pending_id, onContinue }) => {
         type="tel"
         placeholder="Enter your phone number"
         value={phone}
-        onChange={(e) => setPhone(e.target.value)}
+        onChange={(e) => {
+          // Only allow digits
+          const value = e.target.value.replace(/\D/g, "").slice(0, 10);
+          setPhone(value);
+          if (error) setError(""); // Clear error on input change
+        }}
         onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
         className={`w-full mt-2 px-4 py-2 bg-white border rounded-lg
           focus:outline-none focus:ring-2 focus:ring-[#000060] transition
@@ -72,10 +90,9 @@ const PhoneDetails = ({ pending_id, onContinue }) => {
 
       {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
 
-      {/* UPDATED BUTTON WITH SPINNER */}
       <button
         onClick={handleSubmit}
-        disabled={loading}
+        disabled={loading || phone.length !== 10}
         className="w-full bg-[#000060] text-white py-2 rounded-xl mt-4
                    hover:bg-[#000060d1] transition font-medium
                    disabled:bg-gray-400 disabled:cursor-not-allowed"

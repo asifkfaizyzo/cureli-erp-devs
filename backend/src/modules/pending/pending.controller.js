@@ -154,33 +154,34 @@ export async function verifyEmailOtpController(req, res) {
  * SMS: request send
  * body: { pending_id, phone }
  */
+
 export async function requestSmsOtp(req, res) {
   try {
-    const { pending_id, phone } = req.body;
+    const { pending_id, phone, isResend } = req.body;
     
     console.log("📞 requestSmsOtp called:", { pending_id, phone });
 
-    // Basic phone sanity check (server-side)
     if (!phone || typeof phone !== "string") {
       return fail(res, "Invalid phone number", 400);
     }
 
-    const result = await sendSmsOtp(pending_id, phone);
+    const result = await sendSmsOtp(pending_id, phone, isResend === true);
     console.log("✅ sendSmsOtp completed:", result);
 
     return success(res, {}, "OTP sent to phone");
   } catch (err) {
     console.error("❌ requestSmsOtp error:", err);
-    console.error("❌ Error code:", err.code);
-    console.error("❌ Error message:", err.message);
     
     if (err.code === "OTP_COOLDOWN") return fail(res, err.message, 429);
     if (err.code === "NOT_FOUND") return fail(res, err.message, 404);
     
+    // ✅ NEW: Handle phone already exists
+    if (err.code === "PHONE_EXISTS") return fail(res, err.message, 409);
+    if (err.code === "PHONE_PENDING_EXISTS") return fail(res, err.message, 409);
+    
     return fail(res, "Failed to send SMS OTP", 500);
   }
 }
-
 /**
  * SMS: verify
  * body: { pending_id, code }

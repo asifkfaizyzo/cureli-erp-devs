@@ -273,7 +273,7 @@ export async function verifyEmailOtp(pending_id, otp) {
   return true;
 }
 
-export async function sendSmsOtp(pending_id, phone) {
+export async function sendSmsOtp(pending_id, phone, isResend = false) {
   console.log("📱 sendSmsOtp called with:", { pending_id, phone });
 
   const pending = await prisma.pendingUser.findUnique({
@@ -288,18 +288,43 @@ export async function sendSmsOtp(pending_id, phone) {
     throw err;
   }
 
+  // ✅ CHECK 1: Phone already registered in User table
+  const existingUser = await prisma.user.findFirst({
+    where: { phone_number: phone },
+    select: { user_id: true },
+  });
+
+  if (existingUser) {
+    const err = new Error("This phone number is already registered. Please login or use a different number.");
+    err.code = "PHONE_EXISTS";
+    throw err;
+  }
+
+  // ✅ CHECK 2: Phone already used by another pending signup
+  const existingPending = await prisma.pendingUser.findFirst({
+    where: {
+      phone,
+      sms_verified: true, // Only block if they've already verified it
+      NOT: { pending_id }, // Exclude current user
+    },
+    select: { pending_id: true },
+  });
+
+  if (existingPending) {
+    const err = new Error("This phone number is already in use by another signup.");
+    err.code = "PHONE_PENDING_EXISTS";
+    throw err;
+  }
+
   // Check cooldown - prevent OTP spam
   if (pending.sms_otp_expires) {
     const expiresAt = new Date(pending.sms_otp_expires);
     const now = new Date();
 
-    // Default SMS OTP validity from provider (usually 300 seconds = 5 min)
     const otpValiditySeconds = 300;
     const otpSentAt = new Date(expiresAt.getTime() - otpValiditySeconds * 1000);
     const secondsSinceSent = (now - otpSentAt) / 1000;
 
-    // For resend, allow after 30 seconds
-    // For initial send, allow after 60 seconds
     const cooldownSeconds = isResend ? 30 : 60;
 
     if (secondsSinceSent < cooldownSeconds) {
@@ -314,7 +339,6 @@ export async function sendSmsOtp(pending_id, phone) {
 
   console.log("🔑 Getting MC auth token...");
 
-  // Get MessageCentral token
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
     process.env.MC_PASSWORD
@@ -322,14 +346,6 @@ export async function sendSmsOtp(pending_id, phone) {
 
   console.log("✅ Auth token received:", authToken ? "Yes" : "No");
 
-  console.log("📤 Calling mcSendOtp with:", {
-    customerId: process.env.MC_CUSTOMER,
-    mobileNumber: phone,
-    otpLength: Number(process.env.SMS_OTP_LENGTH || 4),
-    countryCode: process.env.MC_COUNTRY || "91",
-  });
-
-  // Call provider
   const data = await mcSendOtp({
     authToken,
     customerId: process.env.MC_CUSTOMER,
@@ -347,7 +363,6 @@ export async function sendSmsOtp(pending_id, phone) {
 
   console.log("📝 Extracted:", { verificationId, transactionId, timeout });
 
-  // Save verificationId + phone + expiry
   await prisma.pendingUser.update({
     where: { pending_id },
     data: {
