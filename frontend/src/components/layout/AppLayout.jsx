@@ -8,6 +8,7 @@ import Breadcrumb from "../common/Breadcrumb";
 import { useMenuStore } from "../../store/useMenuStore";
 
 const AppLayout = () => {
+  
   const location = useLocation();
 
   const pageVariants = {
@@ -43,7 +44,6 @@ const AppLayout = () => {
                 mt-2
                 w-[96%] sm:w-[100%] md:w-[100%] lg:w-[100%] xl:w-[100%] 2xl:w-[100%]
                 mx-auto
-                
               "
               // ✅ Removed h-full and overflow-hidden
             >
