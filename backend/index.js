@@ -21,6 +21,8 @@ import plansRoutes from "./src/modules/plans/plans.routes.js";
 import setupRoutes from "./src/modules/setup/setup.routes.js";
 import branchesRoutes from "./src/modules/branches/branches.routes.js";
 import usersRoutes from "./src/modules/users/users.routes.js";
+import profileRoutes from "./src/modules/profile/profile.routes.js";
+import ticketRoutes from "./src/modules/tickets/tickets.routes.js";
 
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
 import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
@@ -29,7 +31,7 @@ import cadminShopsRoutes from "./src/modules/cadmin/shops/cadminShops.routes.js"
 import cadminPlansRoutes from "./src/modules/cadmin/plans/cadminPlans.routes.js";
 import cadminAdminRoutes from "./src/modules/cadmin/admins/cadminAdmin.routes.js";
 import cadminProfileRoutes from "./src/modules/cadmin/profile/cadminProfile.routes.js";
-import ticketRoutes from "./src/modules/tickets/tickets.routes.js";
+
 
 // Add to API Routes section (after subscription routes)
 import { initializeCronJobs } from "./src/cron/jobs.js";
@@ -192,6 +194,7 @@ app.use("/api/setup", setupRoutes);
 app.use("/api/branches", branchesRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/tickets", ticketRoutes);
+app.use("/api/profile", profileRoutes);
 // ============================================
 // API Routes - CAdmin
 // ============================================

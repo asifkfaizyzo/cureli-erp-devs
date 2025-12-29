@@ -204,6 +204,17 @@ model User {
   first_verified_at              DateTime? @db.Timestamptz(6)
   reset_token         String?   @db.VarChar(500)
   reset_token_expires DateTime? @db.Timestamptz(6)
+  // Phone change temp state
+phone_change_new_number      String?   @db.Text
+phone_change_verification_id String?   @db.Text
+phone_change_old_verified    Boolean   @default(false)
+phone_change_expires         DateTime? @db.Timestamptz(6)
+
+// Email change temp state
+email_change_new_email       String?   @db.Text
+email_change_verification_id String?   @db.Text
+email_change_otp_hash        String?   @db.Text
+email_change_expires         DateTime? @db.Timestamptz(6)
 
   login_verification_id String?   @db.Text
   login_otp_expires     DateTime? @db.Timestamptz(6)
