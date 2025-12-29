@@ -1,12 +1,18 @@
 // frontend/src/pages/tickets/TicketsPage.jsx
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Search, X } from "lucide-react";
+import { Plus, Search, X, Filter, Calendar } from "lucide-react";
 import { getTickets } from "../../api/tickets";
 import TicketListTable from "./components/TicketListTable";
 import CreateTicketModal from "./components/CreateTicketModal";
 import ViewTicketModal from "./components/ViewTicketModal";
 import CancelTicketModal from "./components/CancelTicketModal";
+import StyledSelect from "../../components/common/StyledSelect";
+import {
+  TICKET_STATUSES,
+  TICKET_CATEGORIES,
+} from "../../constant/tickets";
+import { format } from "date-fns";
 
 const TicketsPage = () => {
   // Tickets data
@@ -14,8 +20,13 @@ const TicketsPage = () => {
   const [loading, setLoading] = useState(false);
   const [totalItems, setTotalItems] = useState(0);
 
-  // Simple search
+  // Search & Filters
   const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -32,6 +43,32 @@ const TicketsPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
+
+  // Status options for filter
+  const statusOptions = [
+    { label: "All Status", value: "" },
+    ...Object.entries(TICKET_STATUSES).map(([key, label]) => ({
+      label,
+      value: key,
+    })),
+  ];
+
+  // Category options for filter
+  const categoryOptions = [
+    { label: "All Categories", value: "" },
+    ...Object.entries(TICKET_CATEGORIES).map(([key, label]) => ({
+      label,
+      value: key,
+    })),
+  ];
+
+  // Count active filters
+  const activeFiltersCount = [
+    statusFilter,
+    categoryFilter,
+    dateFrom,
+    dateTo,
+  ].filter(Boolean).length;
 
   // Responsive rows per page
   useEffect(() => {
@@ -57,6 +94,10 @@ const TicketsPage = () => {
         page: currentPage,
         limit: rowsPerPage,
         search: searchText || undefined,
+        status: statusFilter || undefined,
+        category: categoryFilter || undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
         sort_by: sortConfig.sortBy,
         sort_order: sortConfig.order,
       };
@@ -71,7 +112,16 @@ const TicketsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, rowsPerPage, searchText, sortConfig]);
+  }, [
+    currentPage,
+    rowsPerPage,
+    searchText,
+    statusFilter,
+    categoryFilter,
+    dateFrom,
+    dateTo,
+    sortConfig,
+  ]);
 
   // Initial fetch
   useEffect(() => {
@@ -91,6 +141,14 @@ const TicketsPage = () => {
     e.preventDefault();
     setCurrentPage(1);
     fetchTickets();
+  };
+
+  const handleClearFilters = () => {
+    setStatusFilter("");
+    setCategoryFilter("");
+    setDateFrom("");
+    setDateTo("");
+    setCurrentPage(1);
   };
 
   const handleViewTicket = (ticket) => {
@@ -119,9 +177,9 @@ const TicketsPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          {/* <p className="text-sm text-gray-500 mt-1">
             {totalItems} {totalItems === 1 ? "ticket" : "tickets"} found
-          </p>
+          </p> */}
         </div>
 
         <button
@@ -134,8 +192,9 @@ const TicketsPage = () => {
         </button>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      {/* Search & Filters */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
+        {/* Search Bar */}
         <form onSubmit={handleSearch} className="flex items-center gap-3">
           <div className="relative flex-1">
             <Search
@@ -168,12 +227,131 @@ const TicketsPage = () => {
 
           <button
             type="submit"
-            className="px-6 h-11 bg-indigo-600 text-white rounded-lg text-sm font-medium
-                       hover:bg-indigo-700 transition-all shadow-sm"
+            className="px-6 h-11 bg-[#000060] text-white rounded-lg text-sm font-medium
+                       hover:bg-indigo-900 transition-all shadow-sm"
           >
             Search
           </button>
+
+          {/* Toggle Filters Button */}
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className={`px-4 h-11 rounded-lg text-sm font-medium flex items-center gap-2
+                       transition-all shadow-sm relative
+                       ${
+                         showFilters || activeFiltersCount > 0
+                           ? "bg-indigo-50 text-indigo-700 border-2 border-indigo-200"
+                           : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                       }`}
+          >
+            <Filter size={18} />
+            <span>Filters</span>
+            {activeFiltersCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
+                               text-xs font-bold rounded-full flex items-center justify-center">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
         </form>
+
+        
+        {/* Filter Options */}
+{showFilters && (
+  <div className="pt-4 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
+    <div className="flex items-center gap-3 px-4 py-2  text-sm font-medium">
+      {/* Status Filter */}
+      <StyledSelect
+        label="Status"
+        value={statusFilter}
+        onChange={(value) => {
+          setStatusFilter(value);
+          setCurrentPage(1);
+        }}
+        options={statusOptions}
+        placeholder="All Status"
+      />
+
+      {/* Category Filter */}
+      <StyledSelect
+        label="Category"
+        value={categoryFilter}
+        onChange={(value) => {
+          setCategoryFilter(value);
+          setCurrentPage(1);
+        }}
+        options={categoryOptions}
+        placeholder="All Categories"
+      />
+
+      {/* Date From */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
+          <Calendar size={12} />
+          Date From
+        </label>
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(e) => {
+            setDateFrom(e.target.value);
+            setCurrentPage(1);
+          }}
+          max={dateTo || undefined}
+          className={`h-10 px-3 border rounded-lg text-sm shadow-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                     transition-all
+                     ${
+                       dateFrom
+                         ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
+                         : "bg-white border-gray-200 text-gray-700"
+                     }`}
+        />
+      </div>
+
+      {/* Date To */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
+          <Calendar size={12} />
+          Date To
+        </label>
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(e) => {
+            setDateTo(e.target.value);
+            setCurrentPage(1);
+          }}
+          min={dateFrom || undefined}
+          className={`h-10 px-3 border rounded-lg text-sm shadow-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                     transition-all
+                     ${
+                       dateTo
+                         ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
+                         : "bg-white border-gray-200 text-gray-700"
+                     }`}
+        />
+      </div>
+    </div>
+
+    {/* Clear Filters Button */}
+    {activeFiltersCount > 0 && (
+      <div className="mt-3 flex items-center justify-end">
+        <button
+          onClick={handleClearFilters}
+          className="px-4 py-2 text-sm text-red-600 hover:text-red-700 
+                     hover:bg-red-50 rounded-lg transition-all flex items-center gap-2"
+        >
+          <X size={16} />
+          Clear all filters
+        </button>
+      </div>
+    )}
+  </div>
+)}
+
       </div>
 
       {/* Table */}

@@ -31,6 +31,7 @@ import cadminShopsRoutes from "./src/modules/cadmin/shops/cadminShops.routes.js"
 import cadminPlansRoutes from "./src/modules/cadmin/plans/cadminPlans.routes.js";
 import cadminAdminRoutes from "./src/modules/cadmin/admins/cadminAdmin.routes.js";
 import cadminProfileRoutes from "./src/modules/cadmin/profile/cadminProfile.routes.js";
+import cadminTicketsRoutes from "./src/modules/cadmin/tickets/cadminTickets.routes.js";
 
 
 // Add to API Routes section (after subscription routes)
@@ -205,6 +206,7 @@ app.use("/cadmin", cadminShopsRoutes);
 app.use("/cadmin", cadminPlansRoutes);
 app.use("/cadmin",cadminAdminRoutes);
 app.use("/cadmin", cadminProfileRoutes);
+app.use("/cadmin/tickets", cadminTicketsRoutes);
 // ============================================
 // Health Check
 // ============================================

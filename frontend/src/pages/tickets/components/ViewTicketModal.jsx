@@ -1,7 +1,8 @@
 // frontend/src/pages/tickets/components/ViewTicketModal.jsx
 
-import { X, Download, Calendar, Phone, User, Building2, Clock, Tag } from "lucide-react";
+import { X, Download, Phone, User, Building2, Clock, Paperclip } from "lucide-react";
 import { format } from "date-fns";
+import api from "../../../api/axios";
 import {
   STATUS_COLORS,
   CATEGORY_COLORS,
@@ -11,6 +12,12 @@ import {
 
 const ViewTicketModal = ({ isOpen, onClose, ticket, onCancelClick, onRefresh }) => {
   if (!isOpen || !ticket) return null;
+
+  // ✅ Get attachment URL using axios base URL
+  const getAttachmentUrl = (storageKey) => {
+  const baseURL = import.meta.env.VITE_API_URL;
+  return `${baseURL}/uploads/${storageKey}`;
+};
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
@@ -22,7 +29,7 @@ const ViewTicketModal = ({ isOpen, onClose, ticket, onCancelClick, onRefresh }) 
   };
 
   const StatusBadge = ({ status }) => {
-    const colors = STATUS_COLORS[status] || STATUS_COLORS.OPEN;
+    const colors = STATUS_COLORS[status] || STATUS_COLORS.PENDING;
     return (
       <span
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium 
@@ -152,35 +159,73 @@ const ViewTicketModal = ({ isOpen, onClose, ticket, onCancelClick, onRefresh }) 
               </div>
             </div>
 
-            {/* Attachments */}
+            {/* ✅ Attachments with Image Preview */}
             {ticket.attachments && ticket.attachments.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Paperclip size={16} />
                   Attachments ({ticket.attachments.length})
                 </h4>
-                <div className="space-y-2">
-                  {ticket.attachments.map((attachment) => (
-                    <div
-                      key={attachment.attachment_id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg 
-                                 hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {attachment.original_name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {(attachment.file_size / 1024).toFixed(1)} KB
-                        </p>
-                      </div>
-                      <button
-                        className="ml-3 p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                        title="Download"
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {ticket.attachments.map((attachment) => {
+                    const imageUrl = getAttachmentUrl(attachment.storage_key);
+                    const isImage = attachment.mime_type?.startsWith("image/");
+
+                    return (
+                      <div
+                        key={attachment.attachment_id}
+                        className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                       >
-                        <Download size={16} />
-                      </button>
-                    </div>
-                  ))}
+                        {isImage ? (
+                          <a
+                            href={imageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            <img
+                              src={imageUrl}
+                              alt={attachment.original_name}
+                              className="w-full h-32 object-cover"
+                              onError={(e) => {
+                                console.error("❌ Image load error:", imageUrl);
+                                e.target.style.display = "none";
+                                e.target.parentElement.innerHTML = `
+                                  <div class="w-full h-32 flex items-center justify-center bg-gray-100">
+                                    <span class="text-xs text-gray-400">Failed to load</span>
+                                  </div>
+                                `;
+                              }}
+                            />
+                            <div className="p-2 bg-gray-50">
+                              <p className="text-xs font-medium text-gray-900 truncate">
+                                {attachment.original_name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {(attachment.file_size / 1024).toFixed(1)} KB
+                              </p>
+                            </div>
+                          </a>
+                        ) : (
+                          <a
+                            href={imageUrl}
+                            download={attachment.original_name}
+                            className="block p-3 hover:bg-gray-50"
+                          >
+                            <div className="flex items-center justify-center h-24 bg-gray-100 rounded mb-2">
+                              <Download size={24} className="text-gray-400" />
+                            </div>
+                            <p className="text-xs font-medium text-gray-900 truncate">
+                              {attachment.original_name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {(attachment.file_size / 1024).toFixed(1)} KB
+                            </p>
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
