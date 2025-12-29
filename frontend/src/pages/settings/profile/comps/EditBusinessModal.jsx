@@ -12,7 +12,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-import { updateBusiness } from "../../../api/profile";
+import { updateBusiness } from "../../../../api/profile";
 
 // Import your existing address utilities if you have them
 // import { loadStateList } from "../../../utils/address/loadStateList";

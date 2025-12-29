@@ -22,8 +22,8 @@ import {
   Users,
 } from "lucide-react";
 
-import { deleteUser, reactivateUser } from "../../../api/users";
-import { formatRole, getRoleBadgeClasses, getStatusBadgeClasses } from "../../../api/users";
+import { deleteUser, reactivateUser } from "../../../../api/users";
+import { formatRole, getRoleBadgeClasses, getStatusBadgeClasses } from "../../../../api/users";
 
 /**
  * ActionMenu Component - Rendered via Portal

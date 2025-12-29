@@ -15,7 +15,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
-import { initiateEmailChange, verifyEmailChange } from "../../../api/profile";
+import { initiateEmailChange, verifyEmailChange } from "../../../../api/profile";
 
 /**
  * ChangeEmailModal

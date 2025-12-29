@@ -17,7 +17,7 @@ import {
   initiatePhoneVerifyOld,
   initiatePhoneNew,
   verifyPhoneNew,
-} from "../../../api/profile";
+} from "../../../../api/profile";
 
 /**
  * ChangePhoneModal

@@ -2,24 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import {
-  Building2,
-  Plus,
-  AlertCircle,
-  Loader2,
-  RefreshCw,
-} from "lucide-react";
+import { Building2, Plus, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 
 import { usePermission } from "../../../hooks/usePermission";
-import {
-  fetchBranches,
-  fetchBranchLimits,
-} from "../../../api/branches";
+import { fetchBranches, fetchBranchLimits } from "../../../api/branches";
 
 // Components
-import BranchLimitBanner from "./BranchLimitBanner";
-import BranchListTable from "./BranchListTable";
-import AddEditBranchModal from "./AddEditBranchModal";
+import BranchLimitBanner from "./comps/BranchLimitBanner";
+import BranchListTable from "./comps/BranchListTable";
+import AddEditBranchModal from "./comps/AddEditBranchModal";
 
 /**
  * BranchesPage
@@ -31,7 +22,7 @@ const BranchesPage = () => {
   // ============================================
   // STATE
   // ============================================
-  
+
   // Data
   const [branches, setBranches] = useState([]);
   const [limits, setLimits] = useState(null);
@@ -52,7 +43,7 @@ const BranchesPage = () => {
   // Fetch branch limits (SA only)
   const loadLimits = useCallback(async () => {
     if (!isSuperAdmin) return;
-    
+
     try {
       const response = await fetchBranchLimits();
       if (response.success) {
@@ -109,7 +100,7 @@ const BranchesPage = () => {
   const handleModalClose = (shouldRefresh = false) => {
     setShowAddEditModal(false);
     setSelectedBranch(null);
-    
+
     if (shouldRefresh) {
       handleRefresh();
     }
@@ -129,9 +120,7 @@ const BranchesPage = () => {
             <Building2 size={24} />
             Branch Information
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            View your branch details
-          </p>
+          <p className="text-sm text-gray-500 mt-1">View your branch details</p>
         </div>
 
         {/* BA Branch Info Card */}
@@ -141,8 +130,8 @@ const BranchesPage = () => {
               <Loader2 size={32} className="animate-spin text-gray-400" />
             </div>
           ) : branches.length > 0 ? (
-            <BranchInfoCard 
-              branch={branches[0]} 
+            <BranchInfoCard
+              branch={branches[0]}
               onEdit={() => handleEditBranch(branches[0])}
             />
           ) : (
@@ -208,9 +197,7 @@ const BranchesPage = () => {
       </div>
 
       {/* Limit Banner */}
-      {limits && (
-        <BranchLimitBanner limits={limits} />
-      )}
+      {limits && <BranchLimitBanner limits={limits} />}
 
       {/* Error State */}
       {error && (
@@ -268,12 +255,16 @@ const BranchInfoCard = ({ branch, onEdit }) => {
             <Building2 size={28} className="text-[#000060]" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">{branch.branch_name}</h2>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-              branch.is_main
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-blue-100 text-blue-700"
-            }`}>
+            <h2 className="text-xl font-bold text-gray-900">
+              {branch.branch_name}
+            </h2>
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                branch.is_main
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-blue-100 text-blue-700"
+              }`}
+            >
               {branch.is_main ? "Main Branch" : "Branch"}
             </span>
           </div>
@@ -300,7 +291,9 @@ const BranchInfoCard = ({ branch, onEdit }) => {
               branch.city,
               branch.state,
               branch.pincode,
-            ].filter(Boolean).join(", ") || "Not provided"}
+            ]
+              .filter(Boolean)
+              .join(", ") || "Not provided"}
           </p>
         </div>
 
@@ -319,7 +312,9 @@ const BranchInfoCard = ({ branch, onEdit }) => {
 
         {/* User Count */}
         <div>
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Team Members</h3>
+          <h3 className="text-sm font-medium text-gray-500 mb-2">
+            Team Members
+          </h3>
           <p className="text-gray-900">
             {branch.user_count || 0} user{branch.user_count !== 1 ? "s" : ""}
           </p>
@@ -328,11 +323,13 @@ const BranchInfoCard = ({ branch, onEdit }) => {
         {/* Status */}
         <div>
           <h3 className="text-sm font-medium text-gray-500 mb-2">Status</h3>
-          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-            branch.is_active
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-red-100 text-red-600"
-          }`}>
+          <span
+            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+              branch.is_active
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-red-100 text-red-600"
+            }`}
+          >
             {branch.is_active ? "Active" : "Inactive"}
           </span>
         </div>

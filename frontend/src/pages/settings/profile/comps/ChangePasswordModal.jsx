@@ -12,7 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-import { changePassword } from "../../../api/profile";
+import { changePassword } from "../../../../api/profile";
 
 /**
  * ChangePasswordModal

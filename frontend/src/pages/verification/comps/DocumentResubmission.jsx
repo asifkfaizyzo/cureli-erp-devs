@@ -15,7 +15,7 @@ import {
   Send,
   Eye,
 } from "lucide-react";
-import { getRejectedFiles, resubmitFile } from "../../api/shopFiles";
+import { getRejectedFiles, resubmitFile } from "../../../api/shopFiles";
 
 const FILE_TYPE_LABELS = {
   drug_license: "Drug License",

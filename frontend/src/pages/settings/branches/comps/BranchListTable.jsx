@@ -16,7 +16,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-import { deleteBranch, reactivateBranch } from "../../../api/branches";
+import { deleteBranch, reactivateBranch } from "../../../../api/branches";
 
 /**
  * ActionMenu Component

@@ -33,7 +33,7 @@ import PrivacyPage from "./pages/PrivacyPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import PlanSelectionPage from "./pages/PlanSelectionPage.jsx";
-import VerificationPage from "./pages/VerificationPage.jsx";
+import VerificationPage from "./pages/verification/VerificationPage.jsx";
 
 // ============================================
 // PROTECTED PAGES (ERP)
@@ -107,7 +107,10 @@ const App = () => {
       if (e.ctrlKey) e.preventDefault();
     };
     const disableKeyZoom = (e) => {
-      if (e.ctrlKey && (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")) {
+      if (
+        e.ctrlKey &&
+        (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")
+      ) {
         e.preventDefault();
       }
     };
@@ -166,7 +169,7 @@ const App = () => {
           {/* ============================================ */}
           <Route element={<AuthGuard />}>
             <Route path="/plan-selection" element={<PlanSelectionPage />} />
-            
+
             {/* Setup Routes */}
             <Route path="/setup" element={<SetupRouter />} />
             <Route element={<SetupLayout />}>
@@ -183,7 +186,6 @@ const App = () => {
           <Route element={<AuthGuard />}>
             <Route element={<SetupGuard />}>
               <Route element={<AppLayout />}>
-                
                 {/* Dashboard */}
                 <Route
                   path="/dashboard"
@@ -263,7 +265,7 @@ const App = () => {
                 {/* ============================================ */}
                 {/* SETTINGS ROUTES */}
                 {/* ============================================ */}
-                
+
                 {/* Settings > Users (SA + BA) */}
                 <Route
                   path="/settings/users"
@@ -285,21 +287,15 @@ const App = () => {
                 />
 
                 {/* Settings > Profile (All roles) */}
-                <Route
-                  path="/settings/profile"
-                  element={<ProfilePage />}
-                />
+                <Route path="/settings/profile" element={<ProfilePage />} />
 
                 {/* Settings > Upgrade Plan (SA only) */}
-                <Route
-                  path="/settings/upgrade"
-                  element={<UpgradePlanPage />}
-                />
+                <Route path="/settings/upgrade" element={<UpgradePlanPage />} />
 
                 {/* ============================================ */}
                 {/* SUPPORT ROUTES */}
                 {/* ============================================ */}
-                
+
                 {/* Support > Tickets (SA + BA only) */}
                 <Route
                   path="/tickets"
@@ -309,7 +305,6 @@ const App = () => {
                     </PermissionGuard>
                   }
                 />
-
               </Route>
             </Route>
           </Route>

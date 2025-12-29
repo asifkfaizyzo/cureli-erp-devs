@@ -13,7 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-import { resetUserPassword } from "../../../api/users";
+import { resetUserPassword } from "../../../../api/users";
 
 /**
  * ResetPasswordModal

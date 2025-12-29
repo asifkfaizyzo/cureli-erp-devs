@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, ArrowRight, Package, Receipt, BarChart3 } from "lucide-react";
-import { completeOnboarding } from "../../api/auth";
-import { getMySubscription } from "../../api/subscription";
-import { getSetupStatus } from "../../api/setup";
+import { completeOnboarding } from "../../../api/auth";
+import { getMySubscription } from "../../../api/subscription";
+import { getSetupStatus } from "../../../api/setup";
 
 // Full animated checkmark for first-time users
 const AnimatedCheckmark = () => {
@@ -157,7 +157,10 @@ const VerificationSuccess = ({ isFirstVerification = true }) => {
           navigate("/setup", { replace: true });
         }
       } catch (setupErr) {
-        console.warn("Setup status check failed, defaulting to /setup", setupErr);
+        console.warn(
+          "Setup status check failed, defaulting to /setup",
+          setupErr
+        );
         navigate("/setup", { replace: true });
       }
     } catch (err) {

@@ -12,8 +12,8 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-import { logoutSession, logoutOtherSessions } from "../../../api/profile";
-import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import { logoutSession, logoutOtherSessions } from "../../../../api/profile";
+import ConfirmDialog from "../../../../components/common/ConfirmDialog";
 
 /**
  * SessionsCard

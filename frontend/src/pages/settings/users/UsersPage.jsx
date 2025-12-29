@@ -18,10 +18,11 @@ import {
 import { fetchBranchesDropdown } from "../../../api/branches";
 
 // Components
-import UserLimitBanner from "./UserLimitBanner";
-import UserFilters from "./UserFilters";
-import UserListTable from "./UserListTable";
-import AddEditUserModal from "./AddEditUserModal";
+import UserLimitBanner from "./comps/UserLimitBanner";
+import UserFilters from "./comps/UserFilters";
+import UserListTable from "./comps/UserListTable";
+import AddEditUserModal from "./comps/AddEditUserModal";
+import ResetPasswordModal from "./comps/ResetPasswordModal";
 
 /**
  * UsersPage

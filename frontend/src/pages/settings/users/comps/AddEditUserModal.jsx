@@ -25,8 +25,8 @@ import {
   updateUser,
   checkUsernameAvailability,
   checkPhoneAvailability,
-} from "../../../api/users";
-import { fetchBranchesDropdown } from "../../../api/branches";
+} from "../../../../api/users";
+import { fetchBranchesDropdown } from "../../../../api/branches";
 
 // Debounce hook
 const useDebounce = (value, delay) => {

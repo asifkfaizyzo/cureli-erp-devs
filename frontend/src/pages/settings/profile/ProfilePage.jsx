@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 
-import PersonalInfoCard from "./PersonalInfoCard";
-import BusinessInfoCard from "./BusinessInfoCard";
-import SubscriptionCard from "./SubscriptionCard";
-import SessionsCard from "./SessionsCard";
+import PersonalInfoCard from "./comps/PersonalInfoCard";
+import BusinessInfoCard from "./comps/BusinessInfoCard";
+import SubscriptionCard from "./comps/SubscriptionCard";
+import SessionsCard from "./comps/SessionsCard";
 
 import { getProfile } from "../../../api/profile";
 

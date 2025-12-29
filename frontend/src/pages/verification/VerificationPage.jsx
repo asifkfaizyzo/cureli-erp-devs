@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import OnboardingHeader from "../components/layout/OnboardingHeader";
-import VerificationStepper from "../components/verification/VerificationStepper";
-import VerificationPending from "../components/verification/VerificationPending";
-import DocumentResubmission from "../components/verification/DocumentResubmission";
-import VerificationSuccess from "../components/verification/VerificationSuccess";
-import { getVerificationStatus } from "../api/shopFiles";
+import OnboardingHeader from "../../components/layout/OnboardingHeader";
+import VerificationStepper from "./comps/VerificationStepper";
+import VerificationPending from "./comps/VerificationPending";
+import DocumentResubmission from "./comps/DocumentResubmission";
+import VerificationSuccess from "./comps/VerificationSuccess";
+import { getVerificationStatus } from "../../api/shopFiles";
 
 const VerificationPage = () => {
   const location = useLocation();
@@ -97,7 +97,10 @@ const VerificationPage = () => {
           console.log("→ Verified, showing success");
           step = 15;
         }
-      } else if (shopStatus === "rejected" || shopStatus === "partially_rejected") {
+      } else if (
+        shopStatus === "rejected" ||
+        shopStatus === "partially_rejected"
+      ) {
         console.log("→ Has rejections, showing resubmission");
         step = 14;
       } else if (shopStatus === "pending_review" || shopStatus === "pending") {
@@ -142,7 +145,9 @@ const VerificationPage = () => {
         return <DocumentResubmission refreshStatus={handleStatusRefresh} />;
       case 15:
         // Pass isFirstVerification prop to VerificationSuccess
-        return <VerificationSuccess isFirstVerification={isFirstVerification} />;
+        return (
+          <VerificationSuccess isFirstVerification={isFirstVerification} />
+        );
       default:
         return <VerificationPending onRefresh={handleStatusRefresh} />;
     }
