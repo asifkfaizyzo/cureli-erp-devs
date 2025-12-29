@@ -1,3 +1,4 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\backend\src\utils\email.js
 import nodemailer from "nodemailer";
 
 export const mailer = nodemailer.createTransport({
