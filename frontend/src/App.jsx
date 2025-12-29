@@ -25,21 +25,21 @@ import { PERMISSIONS } from "./config/permissions";
 // PUBLIC PAGES
 // ============================================
 import NotFoundPage from "./components/common/NotFoundPage.jsx";
-import LoginPage from "./pages/LoginPage.jsx";
-import OnboardingPage from "./pages/OnboardingPage.jsx";
-import ErrorPage from "./pages/ErrorPage.jsx";
-import TermsPage from "./pages/TermsPage.jsx";
-import PrivacyPage from "./pages/PrivacyPage.jsx";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
-import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
-import PlanSelectionPage from "./pages/PlanSelectionPage.jsx";
+import LoginPage from "./pages/login/LoginPage.jsx";
+import OnboardingPage from "./pages/onboarding/OnboardingPage.jsx";
+import ErrorPage from "./pages/error/ErrorPage.jsx";
+import TermsPage from "./pages/common/TermsPage.jsx";
+import PrivacyPage from "./pages/common/PrivacyPage.jsx";
+import ForgotPasswordPage from "./pages/login/comps/ForgotPasswordPage.jsx";
+import ResetPasswordPage from "./pages/login/comps/ResetPasswordPage.jsx";
+import PlanSelectionPage from "./pages/plan-selection/PlanSelectionPage.jsx";
 import VerificationPage from "./pages/verification/VerificationPage.jsx";
 
 // ============================================
 // PROTECTED PAGES (ERP)
 // ============================================
 import AppLayout from "./components/layout/AppLayout.jsx";
-import DashboardPage from "./pages/DashboardPage.jsx";
+import DashboardPage from "./pages/dashboard/DashboardPage.jsx";
 import BillingPage from "./pages/sales/billing/BillingPage.jsx";
 import InvoicePage from "./pages/sales/invoice/InvoicePage.jsx";
 import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.jsx";
@@ -64,7 +64,7 @@ import TicketsPage from "./pages/tickets/TicketsPage.jsx";
 // ============================================
 // SETUP PAGES (3-step wizard)
 // ============================================
-import SetupLayout from "./components/setup/SetupLayout.jsx";
+import SetupLayout from "./pages/setup/comps/SetupLayout.jsx";
 import SetupRouter from "./pages/setup/SetupRouter.jsx";
 import SetupBranchesPage from "./pages/setup/SetupBranchesPage.jsx";
 import SetupUsersPage from "./pages/setup/SetupUsersPage.jsx";
