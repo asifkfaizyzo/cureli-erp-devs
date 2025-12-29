@@ -1,6 +1,6 @@
 // frontend/src/api/tickets.js
 
-import apiClient from "./apiClient";
+import api from "./axios";
 
 /**
  * ============================================
@@ -34,7 +34,7 @@ export const getTickets = async (params = {}) => {
   queryParams.append("sort_by", sort_by);
   queryParams.append("sort_order", sort_order);
 
-  return apiClient.get(`/tickets?${queryParams.toString()}`);
+  return api.get(`/tickets?${queryParams.toString()}`);
 };
 
 /**
@@ -43,7 +43,7 @@ export const getTickets = async (params = {}) => {
  * ============================================
  */
 export const getTicketStats = async () => {
-  return apiClient.get("/tickets/stats");
+  return api.get("/tickets/stats");
 };
 
 /**
@@ -52,7 +52,7 @@ export const getTicketStats = async () => {
  * ============================================
  */
 export const getTicketById = async (ticket_id) => {
-  return apiClient.get(`/tickets/${ticket_id}`);
+  return api.get(`/tickets/${ticket_id}`);
 };
 
 /**
@@ -61,7 +61,7 @@ export const getTicketById = async (ticket_id) => {
  * ============================================
  */
 export const createTicket = async (ticketData) => {
-  return apiClient.post("/tickets", ticketData);
+  return api.post("/tickets", ticketData);
 };
 
 /**
@@ -70,7 +70,7 @@ export const createTicket = async (ticketData) => {
  * ============================================
  */
 export const cancelTicket = async (ticket_id, reason) => {
-  return apiClient.post(`/tickets/${ticket_id}/cancel`, { reason });
+  return api.post(`/tickets/${ticket_id}/cancel`, { reason });
 };
 
 /**
@@ -79,7 +79,7 @@ export const cancelTicket = async (ticket_id, reason) => {
  * ============================================
  */
 export const reopenTicket = async (ticket_id, reason) => {
-  return apiClient.post(`/tickets/${ticket_id}/reopen`, { reason });
+  return api.post(`/tickets/${ticket_id}/reopen`, { reason });
 };
 
 /**
@@ -91,7 +91,7 @@ export const uploadTicketAttachment = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  return apiClient.post("/tickets/attachments/upload", formData, {
+  return api.post("/tickets/attachments/upload", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -104,5 +104,5 @@ export const uploadTicketAttachment = async (file) => {
  * ============================================
  */
 export const deleteTicketAttachment = async (attachment_id) => {
-  return apiClient.delete(`/tickets/attachments/${attachment_id}`);
+  return api.delete(`/tickets/attachments/${attachment_id}`);
 };
