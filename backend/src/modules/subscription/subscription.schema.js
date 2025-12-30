@@ -17,7 +17,6 @@ export const confirmPaymentSchema = z.object({
 export const changePlanSchema = z.object({
   plan_id: z.string().uuid("Invalid plan ID"),
   
-  // Optional: For downgrades with compliance requirements
   users_to_disable: z
     .array(z.string().uuid("Invalid user ID"))
     .optional()
@@ -25,6 +24,18 @@ export const changePlanSchema = z.object({
   
   branches_to_deactivate: z
     .array(z.string().uuid("Invalid branch ID"))
+    .optional()
+    .default([]),
+  
+  // NEW: User reassignments
+  user_reassignments: z
+    .array(
+      z.object({
+        userId: z.string().uuid("Invalid user ID"),
+        fromBranchId: z.string().uuid("Invalid branch ID"),
+        toBranchId: z.string().uuid("Invalid branch ID"),
+      })
+    )
     .optional()
     .default([]),
 });

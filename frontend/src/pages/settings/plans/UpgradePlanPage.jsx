@@ -165,7 +165,7 @@ const UpgradePlanPage = () => {
     
     try {
       const response = await changePlan({ plan_id: selectedPlan.plan_id });
-      const data = response.data;
+      const data = response.data.data;
       
       if (data.requires_payment) {
         // Open Razorpay
@@ -276,7 +276,7 @@ const UpgradePlanPage = () => {
         branches_to_deactivate: complianceData.branchesToDeactivate,
       });
       
-      const data = response.data;
+      const data = response.data.data;
       
       let message = "Plan changed successfully!";
       if (data.disabled_users > 0 || data.deactivated_branches > 0) {
@@ -418,7 +418,7 @@ const UpgradePlanPage = () => {
       <div className="flex-1">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Plans</h2>
         
-        <div className="flex flex-wrap gap-6">
+        <div className="flex flex-wrap justify-center  gap-6">
           {plans.map((plan) => (
             <PlanCard
               key={plan.plan_id}

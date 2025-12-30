@@ -11,7 +11,6 @@ import {
   AlertCircle,
   Users,
   Building2,
-  Calendar,
   TrendingDown,
   Shield,
   XCircle,
@@ -46,7 +45,7 @@ const FinalConfirmationModal = ({
 
   // Determine which acknowledgements are required
   const requiredAcks = [];
-  
+
   if (usersToDisable.length > 0) {
     requiredAcks.push("disabledUsers");
   }
@@ -87,6 +86,33 @@ const FinalConfirmationModal = ({
     });
   };
 
+  // Build acknowledgement items for inline display
+  const ackItems = [];
+  if (usersToDisable.length > 0) {
+    ackItems.push({
+      key: "disabledUsers",
+      icon: XCircle,
+      iconColor: "text-red-500",
+      label: `${usersToDisable.length} user${usersToDisable.length > 1 ? "s" : ""} will lose access`,
+    });
+  }
+  if (branchesToDeactivate.length > 0) {
+    ackItems.push({
+      key: "deactivatedBranches",
+      icon: Lock,
+      iconColor: "text-orange-500",
+      label: `${branchesToDeactivate.length} branch${branchesToDeactivate.length > 1 ? "es" : ""} become read-only`,
+    });
+  }
+  if (hasImpact) {
+    ackItems.push({
+      key: "noAutoRestore",
+      icon: RefreshCw,
+      iconColor: "text-blue-500",
+      label: "No auto-restore on re-upgrade",
+    });
+  }
+
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
@@ -95,7 +121,7 @@ const FinalConfirmationModal = ({
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white w-full max-w-lg rounded-2xl shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto"
+        className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl relative overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Accent */}
@@ -110,227 +136,175 @@ const FinalConfirmationModal = ({
           <X size={16} />
         </button>
 
-        <div className="p-6">
-          {/* Header */}
-          <div className="text-center mb-5">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle size={32} className="text-red-600" />
+        <div className="p-5">
+          {/* Header - Inline */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-11 h-11 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={22} className="text-red-600" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">
-              Confirm Downgrade
-            </h2>
-            <p className="text-gray-500 text-sm mt-1">
-              This action takes effect immediately
-            </p>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Confirm Downgrade</h2>
+              <p className="text-gray-500 text-sm">This action takes effect immediately</p>
+            </div>
           </div>
 
-          {/* Summary Card */}
-          <div className="bg-gray-50 rounded-xl p-4 mb-5 border border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Summary of Changes
-            </h3>
-
-            {/* Plan Change */}
-            <div className="flex items-center justify-between py-2 border-b border-gray-200">
-              <span className="text-sm text-gray-600">Plan</span>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500">{currentPlan?.name}</span>
-                <TrendingDown size={14} className="text-orange-500" />
-                <span className="font-semibold text-orange-600">{targetPlan.name}</span>
-              </div>
-            </div>
-
-            {/* Price Change */}
-            <div className="flex items-center justify-between py-2 border-b border-gray-200">
-              <span className="text-sm text-gray-600">Price</span>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500">{formatPrice(currentPlan?.price || 0)}</span>
-                <TrendingDown size={14} className="text-emerald-500" />
-                <span className="font-semibold text-emerald-600">{formatPrice(targetPlan.price)}</span>
-              </div>
-            </div>
-
-            {/* New Subscription Period */}
-            <div className="flex items-center justify-between py-2 border-b border-gray-200">
-              <span className="text-sm text-gray-600">New Period</span>
-              <span className="text-sm font-medium text-gray-900">
-                {formatDate(startDate)} - {formatDate(endDate)}
-              </span>
-            </div>
-
-            {/* Users to Disable */}
-            {usersToDisable.length > 0 && (
-              <div className="flex items-center justify-between py-2 border-b border-gray-200">
-                <div className="flex items-center gap-2">
-                  <Users size={14} className="text-red-500" />
-                  <span className="text-sm text-gray-600">Users to Disable</span>
+          {/* Summary - Full Width, 4 Columns */}
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 mb-3">
+            <div className="grid grid-cols-4 gap-4 text-xs">
+              {/* Plan Change */}
+              <div>
+                <span className="text-gray-500">Plan</span>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-gray-600">{currentPlan?.name}</span>
+                  <TrendingDown size={10} className="text-orange-500" />
+                  <span className="font-semibold text-orange-600">{targetPlan.name}</span>
                 </div>
-                <span className="text-sm font-semibold text-red-600">
-                  {usersToDisable.length}
-                </span>
               </div>
-            )}
 
-            {/* Branches to Deactivate */}
-            {branchesToDeactivate.length > 0 && (
-              <div className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-2">
-                  <Building2 size={14} className="text-red-500" />
-                  <span className="text-sm text-gray-600">Branches to Deactivate</span>
+              {/* Price Change */}
+              <div>
+                <span className="text-gray-500">Price</span>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-gray-600">{formatPrice(currentPlan?.price || 0)}</span>
+                  <TrendingDown size={10} className="text-emerald-500" />
+                  <span className="font-semibold text-emerald-600">{formatPrice(targetPlan.price)}</span>
                 </div>
-                <span className="text-sm font-semibold text-red-600">
-                  {branchesToDeactivate.length}
-                </span>
+              </div>
+
+              {/* Start Date */}
+              <div>
+                <span className="text-gray-500">Start Date</span>
+                <p className="font-medium text-gray-900 mt-1">{formatDate(startDate)}</p>
+              </div>
+
+              {/* End Date */}
+              <div>
+                <span className="text-gray-500">Valid Until</span>
+                <p className="font-medium text-gray-900 mt-1">{formatDate(endDate)}</p>
+              </div>
+            </div>
+
+            {/* Impact Stats */}
+            {(usersToDisable.length > 0 || branchesToDeactivate.length > 0) && (
+              <div className="border-t border-gray-200 mt-3 pt-3 flex gap-3">
+                {usersToDisable.length > 0 && (
+                  <div className="flex items-center gap-2 bg-red-50 rounded-lg px-3 py-1.5">
+                    <Users size={12} className="text-red-500" />
+                    <span className="text-xs text-red-700">
+                      <strong>{usersToDisable.length}</strong> user{usersToDisable.length > 1 ? "s" : ""} to disable
+                    </span>
+                  </div>
+                )}
+                {branchesToDeactivate.length > 0 && (
+                  <div className="flex items-center gap-2 bg-orange-50 rounded-lg px-3 py-1.5">
+                    <Building2 size={12} className="text-orange-500" />
+                    <span className="text-xs text-orange-700">
+                      <strong>{branchesToDeactivate.length}</strong> branch{branchesToDeactivate.length > 1 ? "es" : ""} to deactivate
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Acknowledgement Checkboxes */}
-          <div className="space-y-3 mb-5">
-            {usersToDisable.length > 0 && (
-              <AcknowledgementCheckbox
-                checked={acknowledgements.disabledUsers}
-                onChange={() => handleAckChange("disabledUsers")}
-                disabled={loading}
-                icon={XCircle}
-                iconColor="text-red-500"
-                title="Disabled users cannot log in"
-                description={`${usersToDisable.length} user${usersToDisable.length > 1 ? "s" : ""} will immediately lose access to the system`}
-              />
-            )}
-
-            {branchesToDeactivate.length > 0 && (
-              <AcknowledgementCheckbox
-                checked={acknowledgements.deactivatedBranches}
-                onChange={() => handleAckChange("deactivatedBranches")}
-                disabled={loading}
-                icon={Lock}
-                iconColor="text-orange-500"
-                title="Deactivated branches become read-only"
-                description={`${branchesToDeactivate.length} branch${branchesToDeactivate.length > 1 ? "es" : ""} will be accessible in read-only mode only`}
-              />
-            )}
-
-            {hasImpact && (
-              <AcknowledgementCheckbox
-                checked={acknowledgements.noAutoRestore}
-                onChange={() => handleAckChange("noAutoRestore")}
-                disabled={loading}
-                icon={RefreshCw}
-                iconColor="text-blue-500"
-                title="No automatic restoration"
-                description="Re-upgrading later will NOT automatically re-enable disabled users or branches"
-              />
-            )}
-
-            <AcknowledgementCheckbox
-              checked={acknowledgements.finalConfirm}
-              onChange={() => handleAckChange("finalConfirm")}
-              disabled={loading}
-              icon={Shield}
-              iconColor="text-gray-500"
-              title="I confirm this downgrade"
-              description="I understand all implications and wish to proceed with the plan change"
-              highlight
-            />
+          {/* Warning */}
+          <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg mb-3 border border-amber-200">
+            <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
+            <span>This action is immediate and cannot be undone. Contact support if you need assistance after downgrading.</span>
           </div>
 
-          {/* Error Display */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-              <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-red-700 text-sm">{error}</p>
+          {/* Acknowledgements - Inline Row */}
+          {ackItems.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {ackItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <label
+                    key={item.key}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all text-xs border ${
+                      acknowledgements[item.key]
+                        ? "bg-gray-100 border-gray-300"
+                        : "bg-gray-50 border-gray-200 hover:border-gray-300"
+                    } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={acknowledgements[item.key]}
+                      onChange={() => handleAckChange(item.key)}
+                      disabled={loading}
+                      className="w-3.5 h-3.5 text-gray-600 border-gray-300 rounded focus:ring-1 focus:ring-gray-500"
+                    />
+                    <Icon size={12} className={item.iconColor} />
+                    <span className="text-gray-700">{item.label}</span>
+                  </label>
+                );
+              })}
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              onClick={onBack}
-              disabled={loading}
-              className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-lg font-semibold border-2 border-gray-200 text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50"
-            >
-              <ArrowLeft size={16} />
-              Back
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={!allAcknowledged || loading}
-              className="flex-[2] py-2.5 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Check size={16} />
-                  Confirm Downgrade
-                </>
-              )}
-            </button>
-          </div>
+          {/* Error Display */}
+          {error && (
+            <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+              <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-red-700 text-xs">{error}</p>
+            </div>
+          )}
 
-          {/* Final Warning */}
-          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-xs text-amber-800 text-center">
-              ⚠️ This action is immediate and cannot be undone automatically.
-              Contact support if you need assistance after downgrading.
-            </p>
+          {/* Bottom Row - Final Confirm Checkbox + Actions */}
+          <div className="flex items-center gap-3 pt-3 border-t border-gray-200">
+            {/* Final Confirmation Checkbox */}
+            <label
+              className={`flex items-center gap-2 flex-1 px-3 py-2 rounded-lg cursor-pointer transition-all border ${
+                acknowledgements.finalConfirm
+                  ? "bg-red-50 border-red-300"
+                  : "bg-gray-50 border-gray-200 hover:border-red-300"
+              } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
+            >
+              <input
+                type="checkbox"
+                checked={acknowledgements.finalConfirm}
+                onChange={() => handleAckChange("finalConfirm")}
+                disabled={loading}
+                className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-1 focus:ring-red-500"
+              />
+              <Shield size={14} className="text-red-500" />
+              <span className="text-sm text-red-900 font-medium">
+                I confirm this downgrade and understand all implications
+              </span>
+            </label>
+
+            {/* Buttons */}
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={onBack}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50 text-sm"
+              >
+                <ArrowLeft size={14} />
+                Back
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={!allAcknowledged || loading}
+                className="px-5 py-2 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 text-sm"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    Confirm Downgrade
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>
     </div>
-  );
-};
-
-/**
- * AcknowledgementCheckbox Component
- */
-const AcknowledgementCheckbox = ({
-  checked,
-  onChange,
-  disabled,
-  icon: Icon,
-  iconColor,
-  title,
-  description,
-  highlight = false,
-}) => {
-  return (
-    <label
-      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all ${
-        highlight
-          ? checked
-            ? "bg-red-50 border-2 border-red-300"
-            : "bg-gray-50 border-2 border-gray-200 hover:border-red-300"
-          : checked
-            ? "bg-gray-100 border border-gray-300"
-            : "bg-gray-50 border border-gray-200 hover:border-gray-300"
-      } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-        className={`mt-0.5 w-4 h-4 border-gray-300 rounded focus:ring-2 ${
-          highlight
-            ? "text-red-600 focus:ring-red-500"
-            : "text-gray-600 focus:ring-gray-500"
-        }`}
-      />
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <Icon size={14} className={iconColor} />
-          <span className={`text-sm font-medium ${highlight ? "text-red-900" : "text-gray-900"}`}>
-            {title}
-          </span>
-        </div>
-        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
-      </div>
-    </label>
   );
 };
 

@@ -1,6 +1,10 @@
 //Q:\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\subscription\subscription.service.js
 import prisma from "../../config/prisma.js";
-import { razorpay, RAZORPAY_CURRENCY, verifyPaymentSignature } from "../../config/razorpay.js";
+import {
+  razorpay,
+  RAZORPAY_CURRENCY,
+  verifyPaymentSignature,
+} from "../../config/razorpay.js";
 
 /**
  * Get plans available for customer selection
@@ -8,15 +12,12 @@ import { razorpay, RAZORPAY_CURRENCY, verifyPaymentSignature } from "../../confi
  */
 export async function getVisiblePlans() {
   return prisma.plan.findMany({
-    where: { 
+    where: {
       status: "ACTIVE",
       type: "PRE_MADE",
       deleted_at: null,
     },
-    orderBy: [
-      { price: "asc" },
-      { name: "asc" },
-    ],
+    orderBy: [{ price: "asc" }, { name: "asc" }],
     select: {
       plan_id: true,
       name: true,
@@ -26,7 +27,7 @@ export async function getVisiblePlans() {
       max_branches: true,
       is_highlighted: true,
       is_customizable: true,
-    }
+    },
   });
 }
 
@@ -43,7 +44,7 @@ export async function getUserDetails(user_id) {
       full_name: true,
       email: true,
       phone_number: true,
-    }
+    },
   });
 
   if (!user) {
@@ -60,7 +61,7 @@ export async function getUserDetails(user_id) {
  */
 export async function getActivePlan(plan_id) {
   const plan = await prisma.plan.findFirst({
-    where: { 
+    where: {
       plan_id,
       status: "ACTIVE",
       deleted_at: null,
@@ -114,7 +115,7 @@ export async function createFreeSubscription({ shop_id, plan }) {
  */
 export async function createPaidSubscription({ shop_id, plan, user }) {
   const now = new Date();
-  
+
   // Create subscription in pending state
   const subscription = await prisma.shopSubscription.create({
     data: {
@@ -134,7 +135,7 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
   // Create Razorpay order
   // Price is in paisa, Razorpay expects amount in smallest currency unit (paisa for INR)
   const razorpayOrder = await razorpay.orders.create({
-    amount: Number(plan.price)*100, // Already in paisa
+    amount: Number(plan.price) * 100, // Already in paisa
     currency: RAZORPAY_CURRENCY,
     receipt: subscription.subscription_id,
     notes: {
@@ -166,7 +167,7 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
     subscription,
     razorpay_order_id: razorpayOrder.id,
     razorpay_key: process.env.RAZORPAY_KEY_ID,
-    amount: Number(plan.price)*100,
+    amount: Number(plan.price) * 100,
     currency: RAZORPAY_CURRENCY,
     user_name: user.full_name,
     user_email: user.email,
@@ -265,10 +266,10 @@ export async function verifyAndActivateSubscription({
  */
 export async function getSubscriptionStatus(shop_id) {
   if (!shop_id) return null;
-  
+
   return prisma.shopSubscription.findFirst({
-    where: { 
-      shop_id, 
+    where: {
+      shop_id,
       is_active: true,
       end_date: { gte: new Date() },
     },
@@ -282,7 +283,7 @@ export async function getSubscriptionStatus(shop_id) {
  */
 export async function getSubscriptionHistory(shop_id) {
   if (!shop_id) return [];
-  
+
   return prisma.shopSubscription.findMany({
     where: { shop_id },
     include: { plan: true },
@@ -354,7 +355,7 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
 
   // Determine direction
   const normalizeLimit = (val) => (val === -1 ? Infinity : val);
-  
+
   const currentMaxUsers = normalizeLimit(currentPlan.max_users);
   const currentMaxBranches = normalizeLimit(currentPlan.max_branches);
   const targetMaxUsers = normalizeLimit(targetPlan.max_users);
@@ -365,12 +366,14 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
   const isDowngrade = userDecrease || branchDecrease;
 
   if (isDowngrade) {
-    const excessUsers = targetPlan.max_users !== -1
-      ? Math.max(0, activeUsers - targetPlan.max_users)
-      : 0;
-    const excessBranches = targetPlan.max_branches !== -1
-      ? Math.max(0, activeBranches - targetPlan.max_branches)
-      : 0;
+    const excessUsers =
+      targetPlan.max_users !== -1
+        ? Math.max(0, activeUsers - targetPlan.max_users)
+        : 0;
+    const excessBranches =
+      targetPlan.max_branches !== -1
+        ? Math.max(0, activeBranches - targetPlan.max_branches)
+        : 0;
 
     return {
       direction: "downgrade",
@@ -454,10 +457,7 @@ export async function getComplianceDataService(shop_id, target_plan_id) {
         },
       },
     },
-    orderBy: [
-      { role: "asc" },
-      { full_name: "asc" },
-    ],
+    orderBy: [{ role: "asc" }, { full_name: "asc" }],
   });
 
   // Get active branches
@@ -478,10 +478,7 @@ export async function getComplianceDataService(shop_id, target_plan_id) {
         },
       },
     },
-    orderBy: [
-      { branch_type: "asc" },
-      { branch_name: "asc" },
-    ],
+    orderBy: [{ branch_type: "asc" }, { branch_name: "asc" }],
   });
 
   return {
@@ -523,6 +520,7 @@ export async function changePlanService({
   target_plan_id,
   users_to_disable = [],
   branches_to_deactivate = [],
+  user_reassignments = [],
 }) {
   // Analyze the change first
   const analysis = await analyzePlanChangeService(shop_id, target_plan_id);
@@ -567,7 +565,8 @@ export async function changePlanService({
     targetPlan,
     analysis,
     users_to_disable,
-    branches_to_deactivate
+    branches_to_deactivate,
+    user_reassignments
   );
 }
 
@@ -653,7 +652,8 @@ async function executeDowngrade(
   targetPlan,
   analysis,
   users_to_disable,
-  branches_to_deactivate
+  branches_to_deactivate,
+  user_reassignments = [] // NEW parameter
 ) {
   // Get shop owner
   const shop = await prisma.shop.findUnique({
@@ -671,7 +671,7 @@ async function executeDowngrade(
   // Validate: Must keep at least 1 branch
   const activeBranches = analysis.usage.activeBranches;
   const remainingBranches = activeBranches - branches_to_deactivate.length;
-  
+
   if (remainingBranches < 1) {
     const err = new Error("Must keep at least one active branch");
     err.code = "MUST_KEEP_ONE_BRANCH";
@@ -713,16 +713,79 @@ async function executeDowngrade(
     }
   }
 
+  // NEW: Validate user reassignments
+  if (user_reassignments.length > 0) {
+    // Check all target branches exist and are not being deactivated
+    const targetBranchIds = [
+      ...new Set(user_reassignments.map((r) => r.toBranchId)),
+    ];
+
+    const invalidTargets = targetBranchIds.filter((id) =>
+      branches_to_deactivate.includes(id)
+    );
+
+    if (invalidTargets.length > 0) {
+      const err = new Error(
+        "Cannot reassign users to a branch being deactivated"
+      );
+      err.code = "INVALID_REASSIGNMENT_TARGET";
+      throw err;
+    }
+
+    const validTargetBranches = await prisma.branch.count({
+      where: {
+        branch_id: { in: targetBranchIds },
+        shop_id,
+        is_active: true,
+      },
+    });
+
+    if (validTargetBranches !== targetBranchIds.length) {
+      const err = new Error(
+        "Some target branches for reassignment are invalid"
+      );
+      err.code = "INVALID_TARGET_BRANCH";
+      throw err;
+    }
+
+    // Check users being reassigned exist
+    const reassignUserIds = user_reassignments.map((r) => r.userId);
+    const validReassignUsers = await prisma.user.count({
+      where: {
+        user_id: { in: reassignUserIds },
+        shop_id,
+        is_active: true,
+      },
+    });
+
+    if (validReassignUsers !== reassignUserIds.length) {
+      const err = new Error("Some users for reassignment are invalid");
+      err.code = "INVALID_REASSIGN_USER";
+      throw err;
+    }
+  }
+
+  // Remove reassigned users from disable list
+  const reassignedUserIds = new Set(user_reassignments.map((r) => r.userId));
+  const finalUsersToDisable = users_to_disable.filter(
+    (id) => !reassignedUserIds.has(id)
+  );
+
   // Check final compliance
-  const finalActiveUsers = analysis.usage.activeUsers - users_to_disable.length;
+  const finalActiveUsers =
+    analysis.usage.activeUsers - finalUsersToDisable.length;
   const finalActiveBranches = activeBranches - branches_to_deactivate.length;
 
-  const userLimit = targetPlan.max_users === -1 ? Infinity : targetPlan.max_users;
-  const branchLimit = targetPlan.max_branches === -1 ? Infinity : targetPlan.max_branches;
+  const userLimit =
+    targetPlan.max_users === -1 ? Infinity : targetPlan.max_users;
+  const branchLimit =
+    targetPlan.max_branches === -1 ? Infinity : targetPlan.max_branches;
 
   if (finalActiveUsers > userLimit) {
     const err = new Error(
-      `Still ${finalActiveUsers - userLimit} users over the limit. Please disable more users.`
+      `Still ${
+        finalActiveUsers - userLimit
+      } users over the limit. Please disable more users.`
     );
     err.code = "NOT_COMPLIANT";
     err.details = { type: "users", excess: finalActiveUsers - userLimit };
@@ -731,10 +794,15 @@ async function executeDowngrade(
 
   if (finalActiveBranches > branchLimit) {
     const err = new Error(
-      `Still ${finalActiveBranches - branchLimit} branches over the limit. Please deactivate more branches.`
+      `Still ${
+        finalActiveBranches - branchLimit
+      } branches over the limit. Please deactivate more branches.`
     );
     err.code = "NOT_COMPLIANT";
-    err.details = { type: "branches", excess: finalActiveBranches - branchLimit };
+    err.details = {
+      type: "branches",
+      excess: finalActiveBranches - branchLimit,
+    };
     throw err;
   }
 
@@ -747,9 +815,9 @@ async function executeDowngrade(
 
   const result = await prisma.$transaction(async (tx) => {
     // 1. Disable users
-    if (users_to_disable.length > 0) {
+    if (finalUsersToDisable.length > 0) {
       await tx.user.updateMany({
-        where: { user_id: { in: users_to_disable } },
+        where: { user_id: { in: finalUsersToDisable } },
         data: {
           is_active: false,
           status: "inactive",
@@ -759,7 +827,7 @@ async function executeDowngrade(
       // Invalidate their sessions
       await tx.userSession.updateMany({
         where: {
-          user_id: { in: users_to_disable },
+          user_id: { in: finalUsersToDisable },
           is_active: true,
         },
         data: {
@@ -770,7 +838,17 @@ async function executeDowngrade(
       });
     }
 
-    // 2. Deactivate branches
+    // 2. NEW: Reassign users to new branches
+    if (user_reassignments.length > 0) {
+      for (const reassignment of user_reassignments) {
+        await tx.user.update({
+          where: { user_id: reassignment.userId },
+          data: { branch_id: reassignment.toBranchId },
+        });
+      }
+    }
+
+    // 3. Deactivate branches
     if (branches_to_deactivate.length > 0) {
       await tx.branch.updateMany({
         where: { branch_id: { in: branches_to_deactivate } },
@@ -778,7 +856,7 @@ async function executeDowngrade(
       });
     }
 
-    // 3. Deactivate old subscription
+    // 4. Deactivate old subscription
     const oldSubscription = await tx.shop.findUnique({
       where: { shop_id },
       select: { current_subscription_id: true },
@@ -794,13 +872,13 @@ async function executeDowngrade(
       });
     }
 
-    // 4. Create new subscription
+    // 5. Create new subscription
     const newSubscription = await tx.shopSubscription.create({
       data: {
         shop_id,
         plan_id: targetPlan.plan_id,
         status: "active",
-        payment_status: "paid", // Downgrade doesn't require payment
+        payment_status: "paid",
         billing_cycle: "yearly",
         start_date: now,
         end_date: endDate,
@@ -811,7 +889,7 @@ async function executeDowngrade(
       },
     });
 
-    // 5. Update shop's current subscription
+    // 6. Update shop's current subscription
     await tx.shop.update({
       where: { shop_id },
       data: { current_subscription_id: newSubscription.subscription_id },
@@ -829,15 +907,19 @@ async function executeDowngrade(
       end_date: result.end_date,
     },
     plan: formatPlanForResponse(targetPlan),
-    disabled_users: users_to_disable.length,
+    disabled_users: finalUsersToDisable.length,
     deactivated_branches: branches_to_deactivate.length,
+    reassigned_users: user_reassignments.length,
   };
 }
 
 /**
  * Cancel pending subscription
  */
-export async function cancelPendingSubscriptionService(subscription_id, shop_id) {
+export async function cancelPendingSubscriptionService(
+  subscription_id,
+  shop_id
+) {
   const subscription = await prisma.shopSubscription.findFirst({
     where: {
       subscription_id,

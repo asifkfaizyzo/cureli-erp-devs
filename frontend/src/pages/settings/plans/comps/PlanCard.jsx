@@ -95,7 +95,7 @@ const PlanCard = ({ plan, currentPlan, usage, onSelect, disabled }) => {
         ${!isCurrent ? theme.hoverGradient : ""}
         ${isCurrent ? "border-[#000060] ring-2 ring-[#000060]/20" : theme.borderAccent}
         ${!isCurrent ? "hover:shadow-xl" : ""}
-        w-[280px] h-[390px]
+        w-[265px] h-[390px]
         ${disabled ? "opacity-60 pointer-events-none" : ""}
       `}
     >
