@@ -119,74 +119,80 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
   };
 
   // Handle submit
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Handle submit
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (!validate()) return;
+  if (!validate()) return;
 
-    setLoading(true);
-    try {
-      // TODO: Upload attachments first (Phase 3)
-      const attachment_ids = [];
+  setLoading(true);
+  try {
+    // ✅ Build payload with attachments
+    const payload = {
+      contact_number: formData.contact_number,
+      category: formData.category,
+      subject: formData.subject.trim(),
+      preferred_slot: formData.preferred_slot,
+    };
 
-      // ✅ Build clean payload
-      const payload = {
-        contact_number: formData.contact_number,
-        category: formData.category,
-        subject: formData.subject.trim(),
-        preferred_slot: formData.preferred_slot,
-        attachment_ids,
-      };
-
-      // ✅ Add optional fields only if they have values
-      if (formData.description?.trim()) {
-        payload.description = formData.description.trim();
-      }
-
-      if (formData.category === "OTHER" && formData.other_category_text?.trim()) {
-        payload.other_category_text = formData.other_category_text.trim();
-      }
-
-      // ✅ Add branch_id if user has one (optional)
-      if (user?.branch_id) {
-        payload.branch_id = user.branch_id;
-      }
-
-      console.log("📤 Sending ticket payload:", payload);
-
-      const response = await createTicket(payload);
-      
-      console.log("✅ Ticket created successfully:", response.data);
-
-      // Success!
-      onSuccess();
-      onClose();
-    } catch (err) {
-      console.error("❌ Failed to create ticket:", err);
-      console.error("📋 Error details:", err.response?.data);
-
-      // Extract error message
-      let errorMessage = "Failed to create ticket. Please try again.";
-      
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      } else if (err.response?.data?.errors) {
-        // Handle Zod validation errors
-        const zodErrors = err.response.data.errors;
-        if (Array.isArray(zodErrors) && zodErrors.length > 0) {
-          errorMessage = zodErrors.map(e => e.message).join(", ");
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      setErrors({ submit: errorMessage });
-    } finally {
-      setLoading(false);
+    // ✅ Add optional fields only if they have values
+    if (formData.description?.trim()) {
+      payload.description = formData.description.trim();
     }
-  };
+
+    if (formData.category === "OTHER" && formData.other_category_text?.trim()) {
+      payload.other_category_text = formData.other_category_text.trim();
+    }
+
+    // ✅ Add branch_id if user has one (optional)
+    if (user?.branch_id) {
+      payload.branch_id = user.branch_id;
+    }
+
+    // ✅ Add attachments array (File objects)
+    if (attachments.length > 0) {
+      payload.attachments = attachments;
+    }
+
+    console.log("📤 Sending ticket payload:", {
+      ...payload,
+      attachments: attachments.map(f => ({ name: f.name, size: f.size, type: f.type }))
+    });
+
+    const response = await createTicket(payload);
+    
+    console.log("✅ Ticket created successfully:", response.data);
+
+    // Success!
+    onSuccess();
+    onClose();
+  } catch (err) {
+    console.error("❌ Failed to create ticket:", err);
+    console.error("📋 Error details:", err.response?.data);
+
+    // Extract error message
+    let errorMessage = "Failed to create ticket. Please try again.";
+    
+    if (err.response?.data?.message) {
+      errorMessage = err.response.data.message;
+    } else if (err.response?.data?.error) {
+      errorMessage = err.response.data.error;
+    } else if (err.response?.data?.errors) {
+      // Handle Zod validation errors
+      const zodErrors = err.response.data.errors;
+      if (Array.isArray(zodErrors) && zodErrors.length > 0) {
+        errorMessage = zodErrors.map(e => e.message).join(", ");
+      }
+    } else if (err.message) {
+      errorMessage = err.message;
+    }
+
+    setErrors({ submit: errorMessage });
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   if (!isOpen) return null;
 
