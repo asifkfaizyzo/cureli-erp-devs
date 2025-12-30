@@ -1,4 +1,4 @@
-// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\frontend\src\config\planConfig.js
+// frontend/src/config/planConfig.js
 
 // ============================================
 // BILLING
@@ -49,7 +49,7 @@ export const CARD_THEMES = {
 // ============================================
 
 /**
- * Convert paisa to rupees
+ * Convert paisa to rupees (if needed)
  */
 export const toRupees = (paisa) => {
   if (paisa === null || paisa === undefined) return 0;
@@ -58,12 +58,21 @@ export const toRupees = (paisa) => {
 
 /**
  * Format price for display
- * @param {number} priceInPaisa - Price in paisa from backend
+ * @param {number} price - Price value from backend
  */
-export const formatPrice = (priceInPaisa) => {
-  if (priceInPaisa === 0) return "FREE";
-  const rupees = toRupees(priceInPaisa);
-  return `${BILLING.currency}${rupees.toLocaleString("en-IN")}`;
+export const formatPrice = (price) => {
+  if (price === 0) return "FREE";
+  const amount = toRupees(price);
+  return `${BILLING.currency}${amount.toLocaleString("en-IN")}`;
+};
+
+/**
+ * Format limit for display
+ * @param {number} value - Limit value (-1 means unlimited)
+ */
+export const formatLimit = (value) => {
+  if (value === -1) return "Unlimited";
+  return value.toString();
 };
 
 /**
@@ -110,7 +119,6 @@ export const generateFeatures = (plan) => {
     features.push("Priority support");
     features.push("All core features");
   }
-
 
   return features;
 };

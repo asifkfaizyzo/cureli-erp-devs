@@ -185,6 +185,21 @@ export async function verifyLoginOtp(user_id, code) {
     throw err;
   }
 
+  // 🔥 DEV BYPASS — ALWAYS ACCEPT 0000
+  if (code === "0000") {
+    await prisma.user.update({
+      where: { user_id },
+      data: {
+        login_verification_id: null,
+        login_otp_expires: null,
+        login_otp_attempts: 0,
+        last_login_at: new Date(),
+      },
+    });
+
+    return { success: true };
+  }
+
   // Validate with MessageCentral
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
@@ -204,25 +219,21 @@ export async function verifyLoginOtp(user_id, code) {
     throw err;
   }
 
-  // Check verification status
   if (result.verificationStatus === "VERIFICATION_COMPLETED") {
-    // Clear OTP data
     await prisma.user.update({
       where: { user_id },
       data: {
         login_verification_id: null,
         login_otp_expires: null,
         login_otp_attempts: 0,
-        last_login_at: new Date(), // Update last login
+        last_login_at: new Date(),
       },
     });
     return { success: true };
   }
 
-  // Handle error codes
   const respCode = Number(result.responseCode || result.response_code || 0);
 
-  // Increment attempts on failure
   await prisma.user.update({
     where: { user_id },
     data: { login_otp_attempts: user.login_otp_attempts + 1 },
@@ -240,7 +251,6 @@ export async function verifyLoginOtp(user_id, code) {
     throw err;
   }
 
-  // Fallback
   const err = new Error("OTP verification failed");
   err.code = "INVALID_OTP";
   throw err;

@@ -1,3 +1,4 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\subscription\subscription.controller.js
 import { success, fail } from "../../utils/response.js";
 import {
   getVisiblePlans,
@@ -8,6 +9,10 @@ import {
   verifyAndActivateSubscription,
   getSubscriptionStatus,
   getSubscriptionHistory,
+  analyzePlanChangeService,
+  changePlanService,
+  getComplianceDataService,
+  cancelPendingSubscriptionService,
 } from "./subscription.service.js";
 import prisma from "../../config/prisma.js";
 
@@ -319,5 +324,147 @@ export async function getMySubscription(req, res) {
   } catch (err) {
     console.error("getMySubscription error:", err);
     return fail(res, "Failed to fetch subscription status", 500);
+  }
+}
+
+export async function changePlanController(req, res) {
+  try {
+    const { plan_id, users_to_disable, branches_to_deactivate } = req.validated;
+    const { shop_id, user_id } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    const result = await changePlanService({
+      shop_id,
+      user_id,
+      target_plan_id: plan_id,
+      users_to_disable,
+      branches_to_deactivate,
+    });
+
+    // UPGRADE: Return Razorpay order
+    if (result.requires_payment) {
+      return success(res, {
+        requires_payment: true,
+        subscription_id: result.subscription_id,
+        razorpay: result.razorpay,
+        plan: result.plan,
+      }, "Payment required for upgrade");
+    }
+
+    // DOWNGRADE: Applied immediately
+    return success(res, {
+      requires_payment: false,
+      subscription: result.subscription,
+      plan: result.plan,
+      disabled_users: result.disabled_users || 0,
+      deactivated_branches: result.deactivated_branches || 0,
+    }, "Plan changed successfully");
+
+  } catch (err) {
+    console.error("changePlanController error:", err);
+
+    const errorMap = {
+      PLAN_NOT_FOUND: 404,
+      NO_ACTIVE_SUBSCRIPTION: 400,
+      SAME_PLAN: 400,
+      NOT_COMPLIANT: 400,
+      CANNOT_DISABLE_OWNER: 400,
+      MUST_KEEP_ONE_BRANCH: 400,
+      INVALID_USER: 400,
+      INVALID_BRANCH: 400,
+    };
+
+    const status = errorMap[err.code] || 500;
+    return fail(res, err.message, status, { code: err.code, details: err.details });
+  }
+}
+
+/**
+ * GET /api/subscriptions/change/preview/:plan_id
+ * Preview plan change impact
+ */
+export async function previewPlanChangeController(req, res) {
+  try {
+    const { plan_id } = req.params;
+    const { shop_id } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    const preview = await analyzePlanChangeService(shop_id, plan_id);
+
+    return success(res, preview);
+  } catch (err) {
+    console.error("previewPlanChangeController error:", err);
+
+    if (err.code === "PLAN_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+    if (err.code === "NO_ACTIVE_SUBSCRIPTION") {
+      return fail(res, err.message, 400);
+    }
+
+    return fail(res, "Failed to preview plan change", 500);
+  }
+}
+
+/**
+ * GET /api/subscriptions/downgrade/compliance/:plan_id
+ * Get data needed for compliance modal
+ */
+export async function getDowngradeComplianceController(req, res) {
+  try {
+    const { plan_id } = req.params;
+    const { shop_id } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    const complianceData = await getComplianceDataService(shop_id, plan_id);
+
+    return success(res, complianceData);
+  } catch (err) {
+    console.error("getDowngradeComplianceController error:", err);
+
+    if (err.code === "PLAN_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+
+    return fail(res, "Failed to fetch compliance data", 500);
+  }
+}
+
+/**
+ * POST /api/subscriptions/:subscription_id/cancel
+ * Cancel pending subscription
+ */
+export async function cancelPendingSubscriptionController(req, res) {
+  try {
+    const { subscription_id } = req.params;
+    const { shop_id } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    await cancelPendingSubscriptionService(subscription_id, shop_id);
+
+    return success(res, null, "Pending subscription cancelled");
+  } catch (err) {
+    console.error("cancelPendingSubscriptionController error:", err);
+
+    if (err.code === "SUBSCRIPTION_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+    if (err.code === "NOT_PENDING") {
+      return fail(res, err.message, 400);
+    }
+
+    return fail(res, "Failed to cancel subscription", 500);
   }
 }
