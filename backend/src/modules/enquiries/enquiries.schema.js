@@ -1,3 +1,5 @@
+// enquiries.schema.js
+
 import { z } from "zod";
 
 export const createEnquirySchema = z.object({
@@ -13,22 +15,22 @@ export const createEnquirySchema = z.object({
       .max(255, "Email must be less than 255 characters")
       .toLowerCase()
       .trim(),
-    phone: z
-      .string()
-      .regex(/^[0-9]{10}$/, "Phone must be 10 digits")
-      .optional()
-      .or(z.literal(""))
-      .nullable(),  // ✅ FIX: Added nullable()
+    // ✅ FIXED: Use union type for phone
+    phone: z.union([
+      z.string().regex(/^[0-9]{10}$/, "Phone must be 10 digits"),
+      z.string().length(0),  // Allow empty string
+      z.null(),
+      z.undefined(),
+    ]).optional(),
     message: z
       .string()
       .min(10, "Message must be at least 10 characters")
       .max(2000, "Message must be less than 2000 characters")
       .trim(),
-    recaptchaToken: z.string().optional().nullable(),  // ✅ FIX: Made truly optional
+    recaptchaToken: z.string().optional().nullable(),
   }),
 });
 
-// Keep all your other schema exports below...
 export const replyEnquirySchema = z.object({
   params: z.object({
     enquiryId: z.string().uuid("Invalid enquiry ID"),

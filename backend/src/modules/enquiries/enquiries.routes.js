@@ -24,7 +24,7 @@ const router = Router();
 // ============================================
 
 // POST /api/enquiries - Submit new enquiry
-router.post("/", validate(createEnquirySchema), submitEnquiry);
+router.post("/",validate(createEnquirySchema),  submitEnquiry);
 
 // ============================================
 // ADMIN ROUTES (Requires CAdmin Auth)

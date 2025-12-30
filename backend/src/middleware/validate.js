@@ -1,4 +1,5 @@
 // Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\middleware\validate.js
+
 import { fail } from "../utils/response.js";
 
 export const validateBody = (schema) => (req, res, next) => {
@@ -11,24 +12,41 @@ export const validateBody = (schema) => (req, res, next) => {
   }
 };
 
-// New flexible validate function that can validate body, query, or params
-export const validate = (schema, source = "body") => (req, res, next) => {
+// ✅ FIXED: Handle nested schema structure (body, query, params)
+export const validate = (schema) => (req, res, next) => {
   try {
-    const data = req[source];
-    const parsed = schema.parse(data);
-    
-    // Store validated data appropriately
-    if (source === "body") {
-      req.validated = parsed;
-    } else if (source === "query") {
-      req.validatedQuery = parsed;
-    } else if (source === "params") {
-      req.validatedParams = parsed;
+    // Parse the full request object against the schema
+    const parsed = schema.parse({
+      body: req.body,
+      query: req.query,
+      params: req.params,
+    });
+
+    // Store validated data back on request
+    if (parsed.body) {
+      req.body = parsed.body;
+      req.validated = parsed.body;
     }
-    
+    if (parsed.query) {
+      req.query = parsed.query;
+      req.validatedQuery = parsed.query;
+    }
+    if (parsed.params) {
+      req.params = parsed.params;
+      req.validatedParams = parsed.params;
+    }
+
     return next();
   } catch (err) {
-    return fail(res, "Validation failed", 400, err.errors);
+    console.error("Validation error:", JSON.stringify(err.errors, null, 2));
+    
+    // Format error messages nicely
+    const messages = err.errors?.map((e) => {
+      const path = e.path.join(".");
+      return `${path}: ${e.message}`;
+    }).join(", ") || "Validation failed";
+    
+    return fail(res, messages, 400, err.errors);
   }
 };
 

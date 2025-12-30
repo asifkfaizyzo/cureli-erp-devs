@@ -11,11 +11,12 @@ import * as enquiryService from "./enquiries.service.js";
 export const submitEnquiry = async (req, res) => {
 
   
-  console.log("========== ENQUIRY SUBMISSION ==========");
-  console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
+console.log("========== ENQUIRY SUBMISSION ==========");
+  console.log("📥 Raw request body:", req.body);
+  console.log("📥 Validated body:", req.validated);
   
   try {
-    const { name, email, phone, message, recaptchaToken } = req.body;
+    const { name, email, phone, message, recaptchaToken } =req.validated || req.body;
 
     // Validate required fields
     if (!name || !email || !message) {
