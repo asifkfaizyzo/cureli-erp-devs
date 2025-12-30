@@ -12,6 +12,7 @@ import {
   getTicketController,
   getTicketStatsController,
   cancelTicketController,
+  reopenTicketController
 } from "./tickets.controller.js";
 
 import {
@@ -70,6 +71,12 @@ router.post(
   "/:ticket_id/cancel",
   cancelTicketController
 );
+
+/**
+ * POST /api/tickets/:ticket_id/reopen
+ * Reopen a resolved or closed ticket
+ */
+router.post("/:ticket_id/reopen", reopenTicketController); // ✅ Add reopen route
 
 export default router;
 

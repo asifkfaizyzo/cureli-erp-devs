@@ -596,7 +596,8 @@ model Ticket {
   preferred_slot      String          @db.VarChar(20)
   
   // Status
-  status              TicketStatus    @default(PENDING)  // ✅ Changed from OPEN to PENDING
+  status              TicketStatus    @default(PENDING) 
+  admin_notes         String?  @db.Text 
   
   // Cancellation details
   cancelled_at        DateTime?       @db.Timestamptz(6)
@@ -607,6 +608,7 @@ model Ticket {
   reopened_at         DateTime?       @db.Timestamptz(6)
   reopened_by_id      String?         @db.Uuid
   reopen_count        Int             @default(0)
+  reopen_reason       String?  @db.Text // ✅ ADD THIS
   
   // Timestamps
   created_at          DateTime        @default(now()) @db.Timestamptz(6)

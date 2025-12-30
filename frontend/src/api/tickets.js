@@ -110,6 +110,11 @@ export const cancelTicket = async (ticket_id, reason) => {
 };
 
 
+export const reopenTicket = (ticket_id, data) =>
+  api.post(`/tickets/${ticket_id}/reopen`, data);
+
+
+
 // // frontend/src/api/tickets.js
 
 // import api from "./axios";

@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Search, X, Filter, Calendar } from "lucide-react";
-import { getTickets } from "../../api/tickets";
+import { getTickets, reopenTicket } from "../../api/tickets";
 import TicketListTable from "./components/TicketListTable";
 import CreateTicketModal from "./components/CreateTicketModal";
 import ViewTicketModal from "./components/ViewTicketModal";
 import CancelTicketModal from "./components/CancelTicketModal";
 import StyledSelect from "../../components/common/StyledSelect";
+import toast from "react-hot-toast";
 import {
   TICKET_STATUSES,
   TICKET_CATEGORIES,
@@ -109,6 +110,7 @@ const TicketsPage = () => {
       setTotalItems(data?.pagination?.total || 0);
     } catch (err) {
       console.error("Failed to fetch tickets:", err);
+      toast.error("Failed to load tickets");
     } finally {
       setLoading(false);
     }
@@ -161,6 +163,20 @@ const TicketsPage = () => {
     setIsCancelModalOpen(true);
   };
 
+  // ✅ New: Handle ticket reopen
+  const handleReopenTicket = async (ticket, reason) => {
+    try {
+      await reopenTicket(ticket.ticket_id, { reason });
+      toast.success("Ticket reopened successfully");
+      setIsViewModalOpen(false);
+      setSelectedTicket(null);
+      fetchTickets();
+    } catch (error) {
+      console.error("Failed to reopen ticket:", error);
+      toast.error(error.response?.data?.message || "Failed to reopen ticket");
+    }
+  };
+
   const handleTicketCreated = () => {
     setIsCreateModalOpen(false);
     fetchTickets();
@@ -168,6 +184,7 @@ const TicketsPage = () => {
 
   const handleTicketCancelled = () => {
     setIsCancelModalOpen(false);
+    setSelectedTicket(null);
     fetchTickets();
   };
 
@@ -256,102 +273,100 @@ const TicketsPage = () => {
           </button>
         </form>
 
-        
         {/* Filter Options */}
-{showFilters && (
-  <div className="pt-4 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
-    <div className="flex items-center gap-3 px-4 py-2  text-sm font-medium">
-      {/* Status Filter */}
-      <StyledSelect
-        label="Status"
-        value={statusFilter}
-        onChange={(value) => {
-          setStatusFilter(value);
-          setCurrentPage(1);
-        }}
-        options={statusOptions}
-        placeholder="All Status"
-      />
+        {showFilters && (
+          <div className="pt-4 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-3 px-4 py-2 text-sm font-medium">
+              {/* Status Filter */}
+              <StyledSelect
+                label="Status"
+                value={statusFilter}
+                onChange={(value) => {
+                  setStatusFilter(value);
+                  setCurrentPage(1);
+                }}
+                options={statusOptions}
+                placeholder="All Status"
+              />
 
-      {/* Category Filter */}
-      <StyledSelect
-        label="Category"
-        value={categoryFilter}
-        onChange={(value) => {
-          setCategoryFilter(value);
-          setCurrentPage(1);
-        }}
-        options={categoryOptions}
-        placeholder="All Categories"
-      />
+              {/* Category Filter */}
+              <StyledSelect
+                label="Category"
+                value={categoryFilter}
+                onChange={(value) => {
+                  setCategoryFilter(value);
+                  setCurrentPage(1);
+                }}
+                options={categoryOptions}
+                placeholder="All Categories"
+              />
 
-      {/* Date From */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
-          <Calendar size={12} />
-          Date From
-        </label>
-        <input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => {
-            setDateFrom(e.target.value);
-            setCurrentPage(1);
-          }}
-          max={dateTo || undefined}
-          className={`h-10 px-3 border rounded-lg text-sm shadow-sm
-                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                     transition-all
-                     ${
-                       dateFrom
-                         ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
-                         : "bg-white border-gray-200 text-gray-700"
-                     }`}
-        />
-      </div>
+              {/* Date From */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                  <Calendar size={12} />
+                  Date From
+                </label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    setDateFrom(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  max={dateTo || undefined}
+                  className={`h-10 px-3 border rounded-lg text-sm shadow-sm
+                             focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                             transition-all
+                             ${
+                               dateFrom
+                                 ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
+                                 : "bg-white border-gray-200 text-gray-700"
+                             }`}
+                />
+              </div>
 
-      {/* Date To */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
-          <Calendar size={12} />
-          Date To
-        </label>
-        <input
-          type="date"
-          value={dateTo}
-          onChange={(e) => {
-            setDateTo(e.target.value);
-            setCurrentPage(1);
-          }}
-          min={dateFrom || undefined}
-          className={`h-10 px-3 border rounded-lg text-sm shadow-sm
-                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                     transition-all
-                     ${
-                       dateTo
-                         ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
-                         : "bg-white border-gray-200 text-gray-700"
-                     }`}
-        />
-      </div>
-    </div>
+              {/* Date To */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                  <Calendar size={12} />
+                  Date To
+                </label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    setDateTo(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  min={dateFrom || undefined}
+                  className={`h-10 px-3 border rounded-lg text-sm shadow-sm
+                             focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                             transition-all
+                             ${
+                               dateTo
+                                 ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
+                                 : "bg-white border-gray-200 text-gray-700"
+                             }`}
+                />
+              </div>
+            </div>
 
-    {/* Clear Filters Button */}
-    {activeFiltersCount > 0 && (
-      <div className="mt-3 flex items-center justify-end">
-        <button
-          onClick={handleClearFilters}
-          className="px-4 py-2 text-sm text-red-600 hover:text-red-700 
-                     hover:bg-red-50 rounded-lg transition-all flex items-center gap-2"
-        >
-          <X size={16} />
-          Clear all filters
-        </button>
-      </div>
-    )}
-  </div>
-)}
-
+            {/* Clear Filters Button */}
+            {activeFiltersCount > 0 && (
+              <div className="mt-3 flex items-center justify-end">
+                <button
+                  onClick={handleClearFilters}
+                  className="px-4 py-2 text-sm text-red-600 hover:text-red-700 
+                             hover:bg-red-50 rounded-lg transition-all flex items-center gap-2"
+                >
+                  <X size={16} />
+                  Clear all filters
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -386,6 +401,7 @@ const TicketsPage = () => {
         }}
         ticket={selectedTicket}
         onCancelClick={handleCancelTicket}
+        onReopenClick={handleReopenTicket} // ✅ Pass reopen handler
         onRefresh={fetchTickets}
       />
 

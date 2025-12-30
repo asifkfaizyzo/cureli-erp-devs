@@ -1,6 +1,6 @@
 // cureli-admin/src/pages/Tickets/components/TicketDetailsModal.jsx
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Calendar,
@@ -17,8 +17,9 @@ import {
   ExternalLink,
   Loader2,
   CheckCircle,
-  XCircle,
   Info,
+  RotateCcw,
+  AlertCircle,
 } from "lucide-react";
 import { updateTicketStatus } from "../../../api/cadminTickets";
 import { format } from "date-fns";
@@ -136,8 +137,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
   };
 
   const currentStatus = statusConfig[ticket.status] || statusConfig.PENDING;
-
-  // Check if can save
   const canSave = newStatus && newStatus !== ticket.status;
 
   // Tabs configuration
@@ -178,7 +177,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
         {/* HEADER */}
         <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4">
           <div className="flex items-center justify-between">
-            {/* Ticket Info */}
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                 <FileText className="text-white" size={24} />
@@ -189,6 +187,13 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
                     {ticket.ticket_number}
                   </h2>
                   {getStatusBadge(ticket.status)}
+                  {/* ✅ Reopen Count Badge */}
+                  {ticket.reopen_count > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-500/20 text-orange-300 flex items-center gap-1">
+                      <RotateCcw size={12} />
+                      Reopened {ticket.reopen_count}x
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-white/70 text-sm">
                   <Calendar size={14} />
@@ -273,6 +278,46 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
           {/* Details Tab */}
           {activeTab === "details" && (
             <div className="space-y-6">
+              {/* ✅ Reopen Alert - Show prominently if reopened */}
+              {ticket.reopen_count > 0 && (
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                      <RotateCcw size={20} className="text-orange-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-orange-900">
+                          Ticket Reopened {ticket.reopen_count} {ticket.reopen_count === 1 ? 'Time' : 'Times'}
+                        </h3>
+                      </div>
+                      {ticket.reopen_reason && (
+                        <div className="bg-white/50 rounded-lg p-3 mb-3">
+                          <p className="text-xs font-semibold text-orange-700 uppercase tracking-wider mb-1">
+                            Reopen Reason
+                          </p>
+                          <p className="text-sm text-orange-900 whitespace-pre-wrap">
+                            {ticket.reopen_reason}
+                          </p>
+                        </div>
+                      )}
+                      {ticket.reopened_at && (
+                        <div className="flex items-center gap-4 text-xs text-orange-700">
+                          <span className="flex items-center gap-1">
+                            <User size={12} />
+                            {ticket.reopened_by_name || "Unknown"}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            {formatDate(ticket.reopened_at)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Info Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Shop Info Card */}
@@ -349,7 +394,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
                 </div>
 
                 <div className="space-y-4">
-                  {/* Subject */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                       Subject
@@ -361,7 +405,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
                     </div>
                   </div>
 
-                  {/* Description */}
                   {ticket.description && (
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -379,14 +422,14 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
 
               {/* Previous Admin Notes */}
               {ticket.admin_notes && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                      <FileText size={16} className="text-amber-600" />
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                      <FileText size={16} className="text-indigo-600" />
                     </div>
-                    <h3 className="font-semibold text-amber-900">Previous Admin Notes</h3>
+                    <h3 className="font-semibold text-indigo-900">Admin Notes</h3>
                   </div>
-                  <pre className="text-sm text-amber-800 whitespace-pre-wrap font-sans leading-relaxed">
+                  <pre className="text-sm text-indigo-800 whitespace-pre-wrap font-sans leading-relaxed">
                     {ticket.admin_notes}
                   </pre>
                 </div>
@@ -397,7 +440,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
           {/* Attachments Tab */}
           {activeTab === "attachments" && (
             <div className="space-y-4">
-              {/* Stats Bar */}
               <div className="flex items-center justify-between bg-white rounded-xl border border-gray-100 p-4">
                 <div className="flex items-center gap-2">
                   <Paperclip size={18} className="text-[#05015A]" />
@@ -407,7 +449,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
                 </div>
               </div>
 
-              {/* Attachments Grid */}
               {!ticket.attachments || ticket.attachments.length === 0 ? (
                 <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
                   <Paperclip size={48} className="mx-auto text-gray-300 mb-3" />
@@ -430,22 +471,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
           {/* Update Status Tab */}
           {activeTab === "update" && (
             <div className="max-w-2xl mx-auto space-y-6">
-              {/* Current Status Card */}
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
-                    <CheckCircle size={20} className="text-[#05015A]" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900">Current Status</h3>
-                </div>
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <div className={`w-3 h-3 rounded-full ${currentStatus.dot}`} />
-                  <span className="text-sm font-semibold text-gray-900">
-                    {currentStatus.label}
-                  </span>
-                </div>
-              </div>
-
               {/* Update Form */}
               <div className="bg-white rounded-xl border border-gray-100 p-6">
                 <div className="flex items-center gap-3 mb-6">
@@ -456,7 +481,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
                 </div>
 
                 <div className="space-y-5">
-                  {/* New Status */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                       New Status
@@ -477,7 +501,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
                     </select>
                   </div>
 
-                  {/* Admin Note */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                       Admin Note
@@ -495,7 +518,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
                     />
                   </div>
 
-                  {/* Error Message */}
                   {error && (
                     <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
                       <AlertTriangle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
@@ -503,7 +525,6 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
                     </div>
                   )}
 
-                  {/* Action Buttons - Mobile/Tablet View */}
                   <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-100">
                     <button
                       onClick={handleUpdateStatus}
@@ -580,7 +601,6 @@ const AttachmentCard = ({ attachment, getUrl }) => {
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-      {/* Preview */}
       <a
         href={url}
         target="_blank"
@@ -602,7 +622,6 @@ const AttachmentCard = ({ attachment, getUrl }) => {
         )}
       </a>
 
-      {/* Info */}
       <div className="p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">

@@ -91,28 +91,33 @@ export async function updateTicketStatusController(req, res) {
   try {
     const { ticket_id } = req.params;
     const { status, admin_notes } = req.body;
-    const cadmin_id = req.cadmin.cadmin_id; // ✅ Fixed: Use req.cadmin instead of req.user
 
-    const ticket = await updateTicketStatus({
+    console.log("📥 Update status request:", {
       ticket_id,
       status,
-      admin_notes,
-      cadmin_id,
+      has_notes: !!admin_notes,
     });
 
-    if (!ticket) {
-      return fail(res, "Ticket not found", 404);
+    if (!status) {
+      return fail(res, "Status is required", 400);
     }
+
+    // ✅ FIXED: Pass as separate arguments, not as object
+    const ticket = await updateTicketStatus(ticket_id, status, admin_notes);
 
     return success(res, { ticket }, "Ticket status updated successfully");
   } catch (err) {
-    console.error("updateTicketStatusController error:", err);
+    console.error("❌ updateTicketStatusController error:", err);
 
-    if (err.code === "INVALID_STATUS_TRANSITION") {
+    if (err.code === "TICKET_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+
+    if (err.code === "INVALID_STATUS") {
       return fail(res, err.message, 400);
     }
 
-    return fail(res, "Failed to update ticket status", 500);
+    return fail(res, err.message || "Failed to update ticket status", 500);
   }
 }
 
@@ -124,21 +129,23 @@ export async function addAdminNoteController(req, res) {
   try {
     const { ticket_id } = req.params;
     const { note } = req.body;
-    const cadmin_id = req.cadmin.cadmin_id; // ✅ Fixed: Use req.cadmin instead of req.user
+    const cadmin_id = req.cadmin.cadmin_id;
 
-    const ticket = await addAdminNote({
-      ticket_id,
-      note,
-      cadmin_id,
-    });
-
-    if (!ticket) {
-      return fail(res, "Ticket not found", 404);
+    if (!note || note.trim() === "") {
+      return fail(res, "Note is required", 400);
     }
+
+    // ✅ FIXED: Pass as separate arguments, not as object
+    const ticket = await addAdminNote(ticket_id, note, cadmin_id);
 
     return success(res, { ticket }, "Admin note added successfully");
   } catch (err) {
-    console.error("addAdminNoteController error:", err);
+    console.error("❌ addAdminNoteController error:", err);
+
+    if (err.code === "TICKET_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+
     return fail(res, "Failed to add admin note", 500);
   }
 }
