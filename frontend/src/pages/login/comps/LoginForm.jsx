@@ -277,8 +277,6 @@ const LoginForm = ({ onRegisterClick }) => {
         {/* STAY LOGGED IN + FORGOT */}
         <div className="flex items-center justify-between text-sm my-4">
           <label className="flex items-center gap-2 text-gray-600">
-            <input type="checkbox" className="w-4 h-4" />
-            Stay logged in
           </label>
 
           <span
