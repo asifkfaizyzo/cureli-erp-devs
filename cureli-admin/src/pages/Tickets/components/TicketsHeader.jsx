@@ -50,6 +50,13 @@ const TicketsHeader = ({ stats, onRefresh }) => {
       color: "bg-gray-50 text-gray-600",
       borderColor: "border-gray-200",
     },
+    {
+      label: "Cancelled",
+      value: cancelledCount,
+      icon: XCircle,
+      color: "bg-red-50 text-red-600",
+      borderColor: "border-red-200",
+    },
   ];
 
   return (
