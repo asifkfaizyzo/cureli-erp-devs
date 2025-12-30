@@ -1,4 +1,4 @@
-// src/pages/settings/UpgradePlanPage.jsx
+// frontend\src\pages\settings\plans\UpgradePlanPage.jsx
 
 import { motion } from "framer-motion";
 import { CreditCard, Zap, TrendingUp, Shield } from "lucide-react";
