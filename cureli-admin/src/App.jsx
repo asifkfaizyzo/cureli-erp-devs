@@ -12,6 +12,7 @@ import SubscriptionPage from "./pages/SubscriptionPage";
 import ShopsPage from "./pages/ShopsPage";
 import AdminsPage from "./pages/AdminsPage";
 import TicketsPage from "./pages/Tickets/TicketsPage";
+import EnquiriesPage from "./pages/Enquiries/EnquiriesPage";
 
 // Layout
 import AppLayout from "./components/layout/AppLayout";
@@ -88,6 +89,7 @@ function App() {
           <Route path="/settings" element={<div>Settings Page</div>} />
           <Route path="/admins" element={<AdminsPage />} />
           <Route path="/tickets" element={<TicketsPage />} />
+          <Route path="/enquires" element={<EnquiriesPage />} />
         </Route>
 
         {/* ══════════════════════════════════════════════════════

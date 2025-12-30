@@ -54,7 +54,7 @@ const MENU_ITEMS = [
     icon: MoreHorizontal,
     submenu: [
       { id: "tickets", label: "Tickets", icon: Ticket, path: "/tickets" },
-      { id: "enquiry", label: "Enquiry", icon: Mail, path: "/enquiry" },
+      { id: "enquiry", label: "Enquiry", icon: Mail, path: "/enquires" },
     ],
   },
 ];

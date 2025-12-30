@@ -23,6 +23,7 @@ import branchesRoutes from "./src/modules/branches/branches.routes.js";
 import usersRoutes from "./src/modules/users/users.routes.js";
 import profileRoutes from "./src/modules/profile/profile.routes.js";
 import ticketRoutes from "./src/modules/tickets/tickets.routes.js";
+import enquiriesRoutes from "./src/modules/enquiries/enquiries.routes.js";
 
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
 import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
@@ -196,6 +197,8 @@ app.use("/api/branches", branchesRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/enquiries", enquiriesRoutes);
+
 // ============================================
 // API Routes - CAdmin
 // ============================================

@@ -4,6 +4,7 @@ import ContactFormCard from "./components/ContactFormCard";
 import MapSection from "./components/MapSection";
 import Navbar from "../about/components/Navbar";
 import Footer from "../home/components/Footer";
+import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 
 const Contact = () => {
   return (
@@ -16,9 +17,21 @@ const Contact = () => {
         <ContactHero />
         
         {/* Overlapping Form Card - Responsive Margins */}
-        <div className="relative -mt-20 xs:-mt-24 sm:-mt-32 md:-mt-40 lg:-mt-48 xl:-mt-56 z-10 px-4 sm:px-6 lg:px-22">
+         <GoogleReCaptchaProvider
+      reCaptchaKey={import.meta.env.VITE_GOOGLE_CAPTCHA_ID}
+      scriptProps={{
+        async: true,
+        defer: true,
+        appendTo: "head",
+      }}
+    >
+      <div className="relative -mt-20 xs:-mt-24 sm:-mt-32 md:-mt-40 lg:-mt-48 xl:-mt-56 z-10 px-4 sm:px-6 lg:px-22">
           <ContactFormCard />
         </div>
+
+    </GoogleReCaptchaProvider>
+        
+        
       </div>
       
       {/* White Space Below - Responsive Padding */}

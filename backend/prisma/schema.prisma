@@ -67,6 +67,7 @@ model CAdmin {
   createdPlans     Plan[]              @relation("PlanCreator")
   planActivities   PlanActivityLog[]   @relation("PlanActivityByCAdmin")
   activityLogs     CAdminActivityLog[] @relation("CAdminActivityLogs")
+  enquiryReplies   EnquiryReply[]  @relation("EnquiryRepliedBy")
 
   @@map("cadmins")
 }
@@ -651,4 +652,77 @@ model TicketAttachment {
   
   @@index([ticket_id])
   @@map("ticket_attachments")
+}
+
+// ============================================
+// ENQUIRY ENUMS
+// ============================================
+
+enum EnquiryStatus {
+  PENDING
+  IN_PROGRESS
+  REPLIED
+  CLOSED
+}
+
+// ============================================
+// ENQUIRY MODEL
+// ============================================
+
+model Enquiry {
+  enquiry_id      String          @id @default(uuid()) @db.Uuid
+  enquiry_number  String          @unique @db.VarChar(30)
+  
+  // Contact Info
+  name            String          @db.VarChar(100)
+  email           String          @db.VarChar(255)
+  phone           String?         @db.VarChar(20)
+  message         String          @db.Text
+  
+  // Status
+  status          EnquiryStatus   @default(PENDING)
+  
+  // Timestamps
+  created_at      DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime        @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  replies         EnquiryReply[]
+  
+  @@index([status])
+  @@index([created_at])
+  @@index([email])
+  @@map("enquiries")
+}
+
+// ============================================
+// ENQUIRY REPLY MODEL
+// ============================================
+
+model EnquiryReply {
+  reply_id        String          @id @default(uuid()) @db.Uuid
+  enquiry_id      String          @db.Uuid
+  
+  // Admin who replied
+  replied_by_id   String          @db.Uuid
+  
+  // Reply content
+  subject         String          @db.VarChar(200)
+  message         String          @db.Text
+  
+  // Email tracking
+  email_sent      Boolean         @default(false)
+  email_sent_at   DateTime?       @db.Timestamptz(6)
+  email_error     String?         @db.Text
+  
+  // Timestamp
+  created_at      DateTime        @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  enquiry         Enquiry         @relation(fields: [enquiry_id], references: [enquiry_id], onDelete: Cascade)
+  replied_by      CAdmin          @relation("EnquiryRepliedBy", fields: [replied_by_id], references: [cadmin_id])
+  
+  @@index([enquiry_id])
+  @@index([replied_by_id])
+  @@map("enquiry_replies")
 }

@@ -1,12 +1,133 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
-import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import { 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Facebook, 
+  Twitter, 
+  Instagram, 
+  Linkedin, 
+  Loader2, 
+  CheckCircle,
+  AlertCircle 
+} from "lucide-react";
+import { submitEnquiry } from "../../../../api/enquiries";
 
 const ContactFormCard = () => {
+  const { executeRecaptcha } = useGoogleReCaptcha();
+  
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    message: "",
+  });
+  
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
+  const [submitMessage, setSubmitMessage] = useState("");
+
   useEffect(() => {
     AOS.init({ duration: 900, once: true });
   }, []);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const handleSubmit = useCallback(async (e) => {
+    e.preventDefault();
+    
+    // ✅ Validate form (moved inside handleSubmit to avoid dependency issues)
+  const validateForm = () => {
+  const newErrors = {};
+  
+  if (!formData.name.trim()) {
+    newErrors.name = "Name is required";
+  } else if (formData.name.trim().length < 2) {
+    newErrors.name = "Name must be at least 2 characters";
+  }
+  
+  // ✅ Fixed email regex
+  if (!formData.email.trim()) {
+    newErrors.email = "Email is required";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    newErrors.email = "Invalid email address";
+  }
+  
+  // ✅ Fixed phone regex
+  if (formData.phone && !/^[0-9]{10}$/.test(formData.phone)) {
+    newErrors.phone = "Phone must be 10 digits";
+  }
+  
+  if (!formData.message.trim()) {
+    newErrors.message = "Message is required";
+  } else if (formData.message.trim().length < 10) {
+    newErrors.message = "Message must be at least 10 characters";
+  }
+  
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
+
+
+
+    if (!validateForm()) return;
+
+    // Check if reCAPTCHA is ready
+    if (!executeRecaptcha) {
+      setSubmitStatus("error");
+      setSubmitMessage("reCAPTCHA not loaded. Please refresh the page.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitStatus(null);
+
+    try {
+      // Get reCAPTCHA v3 token with action name
+      const recaptchaToken = await executeRecaptcha("contact_form_submit");
+
+      if (!recaptchaToken) {
+        throw new Error("Failed to get reCAPTCHA token");
+      }
+
+      const response = await submitEnquiry({
+        ...formData,
+        recaptchaToken,
+      });
+
+      setSubmitStatus("success");
+      setSubmitMessage(response.message || "Message sent successfully!");
+      
+      // ✅ Reset form (removed debug console.log)
+      setFormData({ name: "", email: "", phone: "", message: "" });
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setSubmitStatus(null);
+        setSubmitMessage("");
+      }, 5000);
+      
+    } catch (error) {
+      setSubmitStatus("error");
+      setSubmitMessage(
+        error.response?.data?.message || "Failed to send message. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [executeRecaptcha, formData]); // ✅ Correct dependencies
 
   return (
     <section className="w-full px-4 sm:px-6 lg:px-8">
@@ -29,7 +150,23 @@ const ContactFormCard = () => {
           rounded-2xl sm:rounded-3xl 
           md:rounded-r-none
         ">
-          <form className="space-y-5 xs:space-y-6 sm:space-y-7">
+          {/* Success Message */}
+          {submitStatus === "success" && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+              <p className="text-green-700 font-manrope text-sm">{submitMessage}</p>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {submitStatus === "error" && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <p className="text-red-700 font-manrope text-sm">{submitMessage}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5 xs:space-y-6 sm:space-y-7">
             
             {/* Name */}
             <div>
@@ -41,14 +178,18 @@ const ContactFormCard = () => {
                 text-gray-800 
                 mb-1.5 sm:mb-2
               ">
-                Your Name
+                Your Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
                 placeholder="Enter your name"
-                className="
+                disabled={isSubmitting}
+                className={`
                   w-full 
-                  border-b-2 border-gray-300 
+                  border-b-2 ${errors.name ? 'border-red-500' : 'border-gray-300'}
                   px-1 py-2 sm:py-2.5 
                   font-manrope 
                   text-xs xs:text-sm 
@@ -57,8 +198,12 @@ const ContactFormCard = () => {
                   focus:border-[#000060] 
                   transition-colors 
                   bg-transparent
-                "
+                  disabled:opacity-50
+                `}
               />
+              {errors.name && (
+                <p className="text-red-500 text-xs mt-1 font-manrope">{errors.name}</p>
+              )}
             </div>
 
             {/* Email & Phone */}
@@ -72,14 +217,18 @@ const ContactFormCard = () => {
                   text-gray-800 
                   mb-1.5 sm:mb-2
                 ">
-                  Your Email
+                  Your Email <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
                   placeholder="Enter your email"
-                  className="
+                  disabled={isSubmitting}
+                  className={`
                     w-full 
-                    border-b-2 border-gray-300 
+                    border-b-2 ${errors.email ? 'border-red-500' : 'border-gray-300'}
                     px-1 py-2 sm:py-2.5 
                     font-manrope 
                     text-xs xs:text-sm 
@@ -88,8 +237,12 @@ const ContactFormCard = () => {
                     focus:border-[#000060] 
                     transition-colors 
                     bg-transparent
-                  "
+                    disabled:opacity-50
+                  `}
                 />
+                {errors.email && (
+                  <p className="text-red-500 text-xs mt-1 font-manrope">{errors.email}</p>
+                )}
               </div>
 
               <div>
@@ -105,10 +258,14 @@ const ContactFormCard = () => {
                 </label>
                 <input
                   type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
                   placeholder="Enter your number"
-                  className="
+                  disabled={isSubmitting}
+                  className={`
                     w-full 
-                    border-b-2 border-gray-300 
+                    border-b-2 ${errors.phone ? 'border-red-500' : 'border-gray-300'}
                     px-1 py-2 sm:py-2.5 
                     font-manrope 
                     text-xs xs:text-sm 
@@ -117,8 +274,12 @@ const ContactFormCard = () => {
                     focus:border-[#000060] 
                     transition-colors 
                     bg-transparent
-                  "
+                    disabled:opacity-50
+                  `}
                 />
+                {errors.phone && (
+                  <p className="text-red-500 text-xs mt-1 font-manrope">{errors.phone}</p>
+                )}
               </div>
             </div>
 
@@ -132,14 +293,18 @@ const ContactFormCard = () => {
                 text-gray-800 
                 mb-1.5 sm:mb-2
               ">
-                Your Message
+                Your Message <span className="text-red-500">*</span>
               </label>
               <textarea
+                name="message"
+                value={formData.message}
+                onChange={handleChange}
                 rows="3"
                 placeholder="Enter your message"
-                className="
+                disabled={isSubmitting}
+                className={`
                   w-full 
-                  border-b-2 border-gray-300 
+                  border-b-2 ${errors.message ? 'border-red-500' : 'border-gray-300'}
                   px-1 py-2 sm:py-2.5 
                   font-manrope 
                   text-xs xs:text-sm 
@@ -149,13 +314,41 @@ const ContactFormCard = () => {
                   transition-colors 
                   resize-none 
                   bg-transparent
-                "
+                  disabled:opacity-50
+                `}
               />
+              {errors.message && (
+                <p className="text-red-500 text-xs mt-1 font-manrope">{errors.message}</p>
+              )}
             </div>
+
+            {/* reCAPTCHA v3 Badge Notice */}
+            <p className="text-xs text-gray-400 font-manrope">
+              This site is protected by reCAPTCHA and the Google{" "}
+              <a 
+                href="https://policies.google.com/privacy" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="underline hover:text-gray-600"
+              >
+                Privacy Policy
+              </a>{" "}
+              and{" "}
+              <a 
+                href="https://policies.google.com/terms" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="underline hover:text-gray-600"
+              >
+                Terms of Service
+              </a>{" "}
+              apply.
+            </p>
 
             {/* Submit Button */}
             <button
               type="submit"
+              disabled={isSubmitting || !executeRecaptcha}
               className="
                 w-full sm:w-auto
                 px-6 xs:px-8 
@@ -171,9 +364,19 @@ const ContactFormCard = () => {
                 duration-300 
                 shadow-md 
                 hover:shadow-lg
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+                flex items-center justify-center gap-2
               "
             >
-              SEND MESSAGE
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  SENDING...
+                </>
+              ) : (
+                "SEND MESSAGE"
+              )}
             </button>
           </form>
         </div>
@@ -212,7 +415,7 @@ const ContactFormCard = () => {
             mb-5 xs:mb-6 sm:mb-8 
             leading-relaxed
           ">
-            Fill up the form and our team will get back you within 24 hours
+            Fill up the form and our team will get back to you within 24 hours
           </p>
 
           <div className="space-y-4 xs:space-y-5 sm:space-y-6">
