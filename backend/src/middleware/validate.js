@@ -16,8 +16,7 @@ export const validate = (schema, source = "body") => (req, res, next) => {
   try {
     const data = req[source];
     const parsed = schema.parse(data);
-    console.log("data:",req);
-    console.log("parsed",parsed);
+
     
     
     
