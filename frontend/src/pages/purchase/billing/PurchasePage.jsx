@@ -7,7 +7,7 @@ import PurchaseTable from "./components/PurchaseTable";
 import SupplierDetailsCard from "./components/SupplierDetailsCard";
 import PurchaseSummaryCard from "./components/PurchaseSummaryCard";
 import PurchaseInvoicePrint from "./components/PurchaseInvoicePrint";
-import { toast } from "react-toastify";
+import { useToast } from "../../../components/common/Toast";
 
 // Import print styles
 
@@ -78,6 +78,7 @@ const makeEmptyPurchaseRow = () => ({
 });
 
 const PurchasePage = () => {
+  const toast = useToast();
   const [targetRowCount, setTargetRowCount] = useState(8);
   const [rows, setRows] = useState([]);
   const [productMaster, setProductMaster] = useState([]);
@@ -117,11 +118,11 @@ const PurchasePage = () => {
       return Promise.resolve();
     },
     onAfterPrint: () => {
-      toast.success("Invoice printed successfully");
+      toast.success("Print Complete", "Invoice printed successfully.");
     },
     onPrintError: (errorLocation, error) => {
       console.error("Print error:", errorLocation, error);
-      toast.error("Failed to print invoice");
+      toast.error("Print Failed", "Failed to print invoice.");
     },
     pageStyle: `
       @page {
@@ -210,10 +211,10 @@ const PurchasePage = () => {
   const handleSave = () => {
     const dataRows = rows.filter(r => r.name);
     if (dataRows.length === 0) {
-      toast.warning("Please add at least one item");
+      toast.warning("Missing Items", "Please add at least one item.");
       return false;
     }
-    toast.success("Purchase Saved Successfully");
+    toast.success("Purchase Saved", "Purchase saved successfully.");
     return true;
   };
 
@@ -343,7 +344,7 @@ const PurchasePage = () => {
         while (parsed.length < targetRowCount) parsed.push(makeEmptyPurchaseRow());
         setRows(parsed);
         setProductMaster((p) => [...p, ...master]);
-        toast.success(`CSV imported: ${parsed.filter(r => r.name).length} items`);
+        toast.success("CSV Imported", `${count} items imported successfully.`);
       } catch (error) {
         console.error("CSV import error:", error);
         toast.error("Failed to import CSV");

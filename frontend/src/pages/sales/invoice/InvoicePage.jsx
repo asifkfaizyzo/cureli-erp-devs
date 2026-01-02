@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { toast } from 'react-toastify';
 import InvoiceFilters from "./components/InvoiceFilters";
 import InvoiceTable from "./components/InvoiceTable";
 import InvoicePagination from "./components/InvoicePagination";
 import ViewInvoiceModal from "./components/ViewInvoiceModal";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import { useToast } from "../../../components/common/Toast";
 import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 import { invoiceData } from "../../../components/data/invoices";
 
 const InvoicePage = () => {
+  const toast = useToast();
+
   // ✅ Use state for invoices so we can delete
   const [invoices, setInvoices] = useState(invoiceData);
-  
+
   const [filters, setFilters] = useState({
     name: "",
     billNo: "",
@@ -38,13 +40,24 @@ const InvoicePage = () => {
   // --------------------- FILTER LOGIC ---------------------
   const filteredData = useMemo(() => {
     return invoices.filter((invoice) => {
-      const matchName = invoice.name.toLowerCase().includes(filters.name.toLowerCase());
-      const matchBill = invoice.billNo.toString().includes(filters.billNo.toString());
-      const matchPhone = invoice.phone.toString().includes(filters.phone.toString());
+      const matchName = invoice.name
+        .toLowerCase()
+        .includes(filters.name.toLowerCase());
+      const matchBill = invoice.billNo
+        .toString()
+        .includes(filters.billNo.toString());
+      const matchPhone = invoice.phone
+        .toString()
+        .includes(filters.phone.toString());
+
       const invoiceDate = new Date(invoice.date);
       const fromDate = filters.fromDate ? new Date(filters.fromDate) : null;
       const toDate = filters.toDate ? new Date(filters.toDate) : null;
-      const matchDate = (!fromDate || invoiceDate >= fromDate) && (!toDate || invoiceDate <= toDate);
+
+      const matchDate =
+        (!fromDate || invoiceDate >= fromDate) &&
+        (!toDate || invoiceDate <= toDate);
+
       return matchName && matchBill && matchPhone && matchDate;
     });
   }, [filters, invoices]);
@@ -60,9 +73,10 @@ const InvoicePage = () => {
   }, [rowsPerPage, filteredData.length, currentPage]);
 
   const startIndex = (currentPage - 1) * rowsPerPage;
-  const paginatedData = useMemo(() => {
-    return filteredData.slice(startIndex, startIndex + rowsPerPage);
-  }, [filteredData, startIndex, rowsPerPage]);
+  const paginatedData = useMemo(
+    () => filteredData.slice(startIndex, startIndex + rowsPerPage),
+    [filteredData, startIndex, rowsPerPage]
+  );
 
   // --------------------- HANDLERS ---------------------
   const handleView = (invoice) => {
@@ -72,23 +86,23 @@ const InvoicePage = () => {
       billedBy: "Admin User",
       time: "11:22 AM",
       items: [],
-      customer: { 
-        id: invoice.id, 
-        name: invoice.name, 
-        phone: invoice.phone, 
-        eway: invoice.eway || "EW12345", 
-        address: "Kochi, Kerala", 
-        docName: "Dr. Abraham", 
-        payment: "Cash" 
+      customer: {
+        id: invoice.id,
+        name: invoice.name,
+        phone: invoice.phone,
+        eway: invoice.eway || "EW12345",
+        address: "Kochi, Kerala",
+        docName: "Dr. Abraham",
+        payment: "Cash",
       },
-      summary: { 
-        subTotal: invoice.price - 40, 
-        sgst: 20, 
-        cgst: 20, 
-        total: invoice.price 
+      summary: {
+        subTotal: invoice.price - 40,
+        sgst: 20,
+        cgst: 20,
+        total: invoice.price,
       },
     };
-    
+
     setSelectedBill(fullInvoice);
     setModalMode("view");
     setOpenViewModal(true);
@@ -102,103 +116,105 @@ const InvoicePage = () => {
       billedBy: "Admin User",
       time: "11:22 AM",
       items: [],
-      customer: { 
-        id: invoice.id, 
-        name: invoice.name, 
-        phone: invoice.phone, 
-        eway: invoice.eway || "EW12345", 
-        address: "Kochi, Kerala", 
-        docName: "Dr. Abraham", 
-        payment: "Cash" 
+      customer: {
+        id: invoice.id,
+        name: invoice.name,
+        phone: invoice.phone,
+        eway: invoice.eway || "EW12345",
+        address: "Kochi, Kerala",
+        docName: "Dr. Abraham",
+        payment: "Cash",
       },
-      summary: { 
-        subTotal: invoice.price - 40, 
-        sgst: 20, 
-        cgst: 20, 
-        total: invoice.price 
+      summary: {
+        subTotal: invoice.price - 40,
+        sgst: 20,
+        cgst: 20,
+        total: invoice.price,
       },
     };
-    
+
     setSelectedBill(fullInvoice);
     setModalMode("edit");
     setOpenViewModal(true);
   };
 
-  // ✅ DELETE WITH CONFIRM DIALOG
+  // --------------------- DELETE ---------------------
   const handleDelete = (invoice) => {
     setConfirmDelete(invoice);
   };
 
-  // ✅ Handle save from modal
+  // --------------------- SAVE ---------------------
   const handleSave = (updatedBill) => {
     try {
-      setInvoices(prev => prev.map(inv => 
-        inv.id === updatedBill.id ? { ...inv, ...updatedBill } : inv
-      ));
-      
+      setInvoices((prev) =>
+        prev.map((inv) =>
+          inv.id === updatedBill.id ? { ...inv, ...updatedBill } : inv
+        )
+      );
+
       setOpenViewModal(false);
-      toast.success(`Invoice #${updatedBill.billNo} saved successfully!`);
+      toast.success(
+        "Invoice Saved",
+        `Invoice #${updatedBill.billNo} saved successfully.`
+      );
     } catch (error) {
-      toast.error("Failed to save invoice. Please try again.");
+      toast.error(
+        "Save Failed",
+        "Failed to save invoice. Please try again."
+      );
       console.error("Save error:", error);
     }
   };
 
-  // ✅ Handle delete from modal
+  // --------------------- DELETE FROM MODAL ---------------------
   const handleDeleteFromModal = (bill) => {
     setConfirmDelete(bill);
     setOpenViewModal(false);
   };
 
-  // ✅ Handle print from modal
-  const handlePrint = (bill) => {
+  // --------------------- PRINT ---------------------
+  const handlePrint = () => {
     try {
-      toast.info("Preparing invoice for print...", { autoClose: 2000 });
-      setTimeout(() => {
-        window.print();
-      }, 500);
+      toast.info("Print Started", "Preparing invoice for print.", 2000);
+      setTimeout(() => window.print(), 500);
     } catch (error) {
-      toast.error("Failed to print invoice");
+      toast.error("Print Failed", "Failed to print invoice.");
       console.error("Print error:", error);
     }
   };
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden font-poppins">
-      
-      {/* 1. Top Section: Filters (Fixed Height) */}
+      {/* Filters */}
       <div className="p-4 border-b border-gray-100">
         <InvoiceFilters filters={filters} onChange={handleFilterChange} />
       </div>
 
-      {/* 2. Middle Section: Table (Flex-Grow) */}
+      {/* Table */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-        <InvoiceTable 
-          invoices={paginatedData} 
-          onView={handleView} 
-          onEdit={handleEdit} 
+        <InvoiceTable
+          invoices={paginatedData}
+          onView={handleView}
+          onEdit={handleEdit}
           onDelete={handleDelete}
           rowsPerPage={rowsPerPage}
           startIndex={startIndex}
         >
-           {/* 3. Bottom Section: Pagination */}
-           <div className="mt-auto border-t border-gray-200 bg-white z-20">
-              <InvoicePagination
-                currentPage={currentPage}
-                setCurrentPage={setCurrentPage}
-                totalItems={filteredData.length}
-                rowsPerPage={rowsPerPage}
-              />
-           </div>
+          <div className="mt-auto border-t border-gray-200 bg-white z-20">
+            <InvoicePagination
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              totalItems={filteredData.length}
+              rowsPerPage={rowsPerPage}
+            />
+          </div>
         </InvoiceTable>
       </div>
 
       {/* Modal */}
       <ViewInvoiceModal
         open={openViewModal}
-        onClose={() => {
-          setOpenViewModal(false);
-        }}
+        onClose={() => setOpenViewModal(false)}
         bill={selectedBill}
         mode={modalMode}
         onSave={handleSave}
@@ -206,17 +222,25 @@ const InvoicePage = () => {
         onPrint={handlePrint}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       <ConfirmDialog
         isOpen={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}
         onConfirm={() => {
           try {
-            setInvoices(prev => prev.filter(inv => inv.id !== confirmDelete.id));
-            toast.success(`Invoice #${confirmDelete.billNo} deleted successfully!`);
+            setInvoices((prev) =>
+              prev.filter((inv) => inv.id !== confirmDelete.id)
+            );
+            toast.success(
+              "Invoice Deleted",
+              `Invoice #${confirmDelete.billNo} deleted successfully.`
+            );
             setConfirmDelete(null);
           } catch (error) {
-            toast.error("Failed to delete invoice. Please try again.");
+            toast.error(
+              "Delete Failed",
+              "Failed to delete invoice. Please try again."
+            );
             console.error("Delete error:", error);
           }
         }}

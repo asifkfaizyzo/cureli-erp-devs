@@ -1,7 +1,5 @@
-
-
 import React, { useState, useEffect, useMemo } from "react";
-import { toast } from "react-toastify";
+import { useToast } from "../../components/common/Toast";
 import InventoryFilters from "./components/InventoryFilters";
 import InventoryTable from "./components/InventoryTable";
 import InventoryPagination from "./components/InventoryPagination";
@@ -11,6 +9,8 @@ import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 import { inventoryData } from "../../components/data/inventory";
 
 const InventoryPage = () => {
+  const toast = useToast();
+
   const [items, setItems] = useState(inventoryData);
 
   const [filters, setFilters] = useState({
@@ -82,7 +82,10 @@ const InventoryPage = () => {
       prev.map((i) => (i.id === updated.id ? updated : i))
     );
     setOpenModal(false);
-    toast.success("Inventory item updated successfully");
+    toast.success(
+      "Inventory Updated",
+      "Inventory item updated successfully."
+    );
   };
 
   return (
@@ -130,7 +133,10 @@ const InventoryPage = () => {
           setItems((prev) =>
             prev.filter((i) => i.id !== confirmDelete.id)
           );
-          toast.success("Item deleted successfully");
+          toast.success(
+            "Item Deleted",
+            "Inventory item deleted successfully."
+          );
           setConfirmDelete(null);
         }}
         title="Delete Item"
