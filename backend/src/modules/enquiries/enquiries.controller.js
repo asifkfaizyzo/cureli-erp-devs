@@ -42,21 +42,41 @@ export const submitEnquiry = async (req, res) => {
 
 export const listEnquiries = async (req, res) => {
   try {
-    const { page, limit, status, search, sortBy, sortOrder } = req.validatedQuery;
+    const { page, limit, status, search, sortBy, sortOrder } = req.query;
+
+    console.log("📥 List Enquiries Request:", { page, limit, status, search, sortBy, sortOrder });
 
     const result = await enquiryService.listEnquiries({
-      page,
-      limit,
-      status,
-      search: search || "",
-      sortBy,
-      sortOrder,
+      page: parseInt(page) || 1,
+      limit: parseInt(limit) || 10,
+      status: status || "ALL",
+      search,
+      sortBy: sortBy || "created_at",
+      sortOrder: sortOrder || "desc",
+    });
+
+    console.log("📤 List Enquiries Response:", {
+      count: result.enquiries?.length,
+      pagination: result.pagination,
     });
 
     return success(res, result, "Enquiries fetched successfully");
   } catch (error) {
-    console.error("List enquiries error:", error);
+    console.error("❌ List enquiries error:", error);
     return fail(res, "Failed to fetch enquiries", 500);
+  }
+};
+
+export const getEnquiryStats = async (req, res) => {
+  try {
+    const stats = await enquiryService.getEnquiryStats();
+
+    console.log("📊 Enquiry Stats:", stats);
+
+    return success(res, { stats }, "Enquiry stats fetched successfully");
+  } catch (error) {
+    console.error("❌ Get enquiry stats error:", error);
+    return fail(res, "Failed to fetch enquiry stats", 500);
   }
 };
 
@@ -123,17 +143,6 @@ export const updateEnquiryStatus = async (req, res) => {
   } catch (error) {
     console.error("Update enquiry status error:", error);
     return fail(res, "Failed to update enquiry status", 500);
-  }
-};
-
-export const getEnquiryStats = async (req, res) => {
-  try {
-    const stats = await enquiryService.getEnquiryStats();
-
-    return success(res, { stats }, "Enquiry stats fetched successfully");
-  } catch (error) {
-    console.error("Get enquiry stats error:", error);
-    return fail(res, "Failed to fetch enquiry stats", 500);
   }
 };
 

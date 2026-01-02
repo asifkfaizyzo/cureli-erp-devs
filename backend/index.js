@@ -228,6 +228,11 @@ app.use("/cadmin", cadminPlansRoutes);
 app.use("/cadmin", cadminAdminRoutes);
 app.use("/cadmin", cadminProfileRoutes);
 app.use("/cadmin/tickets", cadminTicketsRoutes);
+app.use("/cadmin/enquiries", enquiriesRoutes);
+// ============================================
+// Health Check
+// ============================================
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // ============================================
 // 404 Handler
