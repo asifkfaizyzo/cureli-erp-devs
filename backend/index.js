@@ -1,4 +1,4 @@
-// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\index.js
+// backend/index.js
 
 import express from "express";
 import dotenv from "dotenv";
@@ -10,6 +10,11 @@ import helmet from "helmet";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+
+// ═══════════════════════════════════════════════════════════
+// MIDDLEWARE IMPORTS
+// ═══════════════════════════════════════════════════════════
+import maintenanceMiddleware from "./src/middleware/maintenance.js";
 
 // Route imports
 import authRoutes from "./src/modules/auth/auth.routes.js";
@@ -24,6 +29,7 @@ import usersRoutes from "./src/modules/users/users.routes.js";
 import profileRoutes from "./src/modules/profile/profile.routes.js";
 import ticketRoutes from "./src/modules/tickets/tickets.routes.js";
 import enquiriesRoutes from "./src/modules/enquiries/enquiries.routes.js";
+import maintenanceRoutes from "./src/modules/maintenance/maintenance.routes.js";
 
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
 import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
@@ -34,8 +40,6 @@ import cadminAdminRoutes from "./src/modules/cadmin/admins/cadminAdmin.routes.js
 import cadminProfileRoutes from "./src/modules/cadmin/profile/cadminProfile.routes.js";
 import cadminTicketsRoutes from "./src/modules/cadmin/tickets/cadminTickets.routes.js";
 
-
-// Add to API Routes section (after subscription routes)
 import { initializeCronJobs } from "./src/cron/jobs.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -55,27 +59,28 @@ app.use(
   cors({
     origin: allowedOrigins,
     credentials: true,
+    exposedHeaders: ["X-Maintenance-Mode"], // Expose custom header
   })
 );
 
 // ============================================
-// Helmet - Updated CSP for PDF viewing
+// Helmet - Security headers
 // ============================================
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    crossOriginEmbedderPolicy: false, // Allow embedding resources
+    crossOriginEmbedderPolicy: false,
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         imgSrc: ["'self'", "data:", "blob:", ...allowedOrigins],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // For PDF.js
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         connectSrc: ["'self'", ...allowedOrigins],
         frameSrc: ["'self'", "blob:", "data:"],
-        frameAncestors: ["'self'", ...allowedOrigins], // Allow framing from frontends
-        workerSrc: ["'self'", "blob:"], // For PDF.js web workers
-        objectSrc: ["'self'", "blob:", "data:"], // For PDF object/embed
+        frameAncestors: ["'self'", ...allowedOrigins],
+        workerSrc: ["'self'", "blob:"],
+        objectSrc: ["'self'", "blob:", "data:"],
       },
     },
   })
@@ -86,6 +91,12 @@ app.use(
 // ============================================
 app.use(express.json());
 app.use(cookieParser());
+
+// ============================================
+// MAINTENANCE MODE MIDDLEWARE
+// Must be AFTER body parsing, BEFORE routes
+// ============================================
+app.use(maintenanceMiddleware);
 
 // ============================================
 // Static Files - With proper headers for PDFs
@@ -99,11 +110,7 @@ app.use(
       res.setHeader("Access-Control-Allow-Credentials", "true");
     }
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-    
-    // ✅ Allow embedding in iframes from allowed origins
-    res.setHeader("X-Frame-Options", `ALLOW-FROM ${origin || allowedOrigins[0]}`);
-    res.removeHeader("X-Frame-Options"); // Remove X-Frame-Options, use CSP instead
-    
+    res.removeHeader("X-Frame-Options");
     next();
   },
   express.static(path.join(__dirname, "uploads"), {
@@ -112,7 +119,6 @@ app.use(
       if ([".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".pdf"].includes(ext)) {
         res.setHeader("Content-Disposition", "inline");
       }
-      // ✅ Special headers for PDFs
       if (ext === ".pdf") {
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Accept-Ranges", "bytes");
@@ -122,13 +128,12 @@ app.use(
 );
 
 // ============================================
-// PDF Proxy Endpoint - Streams PDF with correct headers
+// PDF Proxy Endpoint
 // ============================================
 app.get("/api/pdf/:folder/:filename", (req, res) => {
   const { folder, filename } = req.params;
   const filePath = path.join(__dirname, "uploads", folder, filename);
 
-  // Security: Prevent directory traversal
   const resolvedPath = path.resolve(filePath);
   const uploadsDir = path.resolve(path.join(__dirname, "uploads"));
 
@@ -143,7 +148,6 @@ app.get("/api/pdf/:folder/:filename", (req, res) => {
   const stat = fs.statSync(resolvedPath);
   const origin = req.headers.origin;
 
-  // Set all necessary headers for PDF viewing
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Length", stat.size);
   res.setHeader("Content-Disposition", "inline");
@@ -155,7 +159,6 @@ app.get("/api/pdf/:folder/:filename", (req, res) => {
     res.setHeader("Access-Control-Allow-Credentials", "true");
   }
 
-  // Stream the file
   const readStream = fs.createReadStream(resolvedPath);
   readStream.pipe(res);
 });
@@ -184,6 +187,21 @@ app.get("/api/download/:folder/:filename", (req, res) => {
 });
 
 // ============================================
+// Health Check (Always accessible)
+// ============================================
+app.get("/api/health", (_req, res) => {
+  res.json({ 
+    ok: true,
+    maintenance_mode: process.env.MAINTENANCE_MODE?.toLowerCase() === "true",
+  });
+});
+
+// ============================================
+// Maintenance Status (Always accessible)
+// ============================================
+app.use("/api/maintenance", maintenanceRoutes);
+
+// ============================================
 // API Routes - User
 // ============================================
 app.use("/api/auth", authRoutes);
@@ -200,20 +218,16 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/enquiries", enquiriesRoutes);
 
 // ============================================
-// API Routes - CAdmin
+// API Routes - CAdmin (Always accessible)
 // ============================================
 app.use("/cadmin", cadminAuthRoutes);
 app.use("/cadmin", cadminDocsRoutes);
 app.use("/cadmin", cadminUserRoutes);
 app.use("/cadmin", cadminShopsRoutes);
 app.use("/cadmin", cadminPlansRoutes);
-app.use("/cadmin",cadminAdminRoutes);
+app.use("/cadmin", cadminAdminRoutes);
 app.use("/cadmin", cadminProfileRoutes);
 app.use("/cadmin/tickets", cadminTicketsRoutes);
-// ============================================
-// Health Check
-// ============================================
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // ============================================
 // 404 Handler
@@ -238,5 +252,6 @@ app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`📁 Static files: ${path.join(__dirname, "uploads")}`);
   console.log(`🌐 Allowed origins: ${allowedOrigins.join(", ")}`);
+  console.log(`🔧 Maintenance mode: ${process.env.MAINTENANCE_MODE?.toLowerCase() === "true" ? "ON" : "OFF"}`);
   initializeCronJobs();
 });

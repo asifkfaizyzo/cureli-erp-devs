@@ -1,4 +1,4 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\api\axios.js
+// src/api/axios.js
 
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
@@ -12,14 +12,28 @@ const API = axios.create({
 // HELPER: Clear auth state
 // ============================================
 const clearAuthAndRedirect = (reason) => {
-  // Get the logout function from the store
   const logout = useAuthStore.getState().logout;
-  
-  // Call logout to clear store state
   logout();
-  
-  // Redirect to login
   window.location.href = `/login?reason=${reason}`;
+};
+
+// ============================================
+// HELPER: Handle maintenance mode
+// ============================================
+const handleMaintenanceMode = (data) => {
+  console.log("[Axios] Maintenance mode detected!");
+
+  // Store maintenance info in sessionStorage
+  sessionStorage.setItem("maintenance_mode", "true");
+  sessionStorage.setItem(
+    "maintenance_message",
+    data?.message || "System is under maintenance"
+  );
+
+  // Redirect to maintenance page (if not already there)
+  if (!window.location.pathname.includes("/maintenance")) {
+    window.location.replace("/maintenance");
+  }
 };
 
 // ============================================
@@ -40,9 +54,26 @@ API.interceptors.request.use(
 // RESPONSE INTERCEPTOR - Handle errors
 // ============================================
 API.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Check maintenance header even on successful responses
+    if (response.headers["x-maintenance-mode"] === "true") {
+      handleMaintenanceMode({ message: "System is under maintenance" });
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
+
+    // ✅ Handle maintenance mode (503)
+    if (error.response?.status === 503) {
+      const data = error.response.data;
+
+      if (data?.error === "maintenance" || data?.data?.maintenance_mode) {
+        handleMaintenanceMode(data);
+        // Return a pending promise to stop further processing
+        return new Promise(() => {});
+      }
+    }
 
     // ✅ Handle session invalidation (logged in from another device)
     if (error.response?.data?.data?.code === "SESSION_INVALIDATED") {
@@ -68,18 +99,24 @@ API.interceptors.response.use(
         );
 
         const newToken = res.data?.data?.access_token;
-        
+
         if (newToken) {
           localStorage.setItem("access_token", newToken);
-          
-          // ✅ Also update the store
           useAuthStore.getState().updateToken(newToken);
-          
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return API(originalRequest);
         }
       } catch (refreshError) {
         console.error("Token refresh failed:", refreshError);
+
+        // Check if refresh failed due to maintenance
+        if (
+          refreshError.response?.status === 503 &&
+          refreshError.response?.data?.error === "maintenance"
+        ) {
+          handleMaintenanceMode(refreshError.response.data);
+          return new Promise(() => {});
+        }
 
         // Check if refresh failed due to session invalidation
         if (refreshError.response?.data?.data?.code === "SESSION_INVALIDATED") {
@@ -87,7 +124,7 @@ API.interceptors.response.use(
         } else {
           clearAuthAndRedirect("session_expired");
         }
-        
+
         return Promise.reject(refreshError);
       }
     }

@@ -1,7 +1,7 @@
 // src/App.jsx
 
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 // ============================================
 // AUTH INITIALIZATION
@@ -34,6 +34,7 @@ import ForgotPasswordPage from "./pages/login/comps/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/login/comps/ResetPasswordPage.jsx";
 import PlanSelectionPage from "./pages/plan-selection/PlanSelectionPage.jsx";
 import VerificationPage from "./pages/verification/VerificationPage.jsx";
+import MaintenancePage from "./pages/maintenance/MaintenancePage.jsx";
 
 // ============================================
 // PROTECTED PAGES (ERP)
@@ -80,6 +81,79 @@ import Pricing from "./pages/landingPages/pricing/Pricing.jsx";
 import ScrollToTop from "./pages/landingPages/component/ScrollToTop.jsx";
 
 import "./index.css";
+
+// ============================================
+// MAINTENANCE CHECK COMPONENT
+// ============================================
+const MaintenanceCheck = ({ children }) => {
+  const [isChecking, setIsChecking] = useState(true);
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+
+  useEffect(() => {
+    const checkMaintenance = async () => {
+      // Skip check if already on maintenance page
+      if (window.location.pathname === "/maintenance") {
+        setIsChecking(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          "http://localhost:5000/api/maintenance/status"
+        );
+        const data = await response.json();
+
+        if (data.success && data.data.maintenance_mode) {
+          setIsMaintenanceMode(true);
+          sessionStorage.setItem("maintenance_mode", "true");
+          sessionStorage.setItem(
+            "maintenance_message",
+            data.data.message || ""
+          );
+          // Redirect to maintenance page
+          window.location.href = "/maintenance";
+          return;
+        } else {
+          setIsMaintenanceMode(false);
+          sessionStorage.removeItem("maintenance_mode");
+          sessionStorage.removeItem("maintenance_message");
+        }
+      } catch (error) {
+        console.error("Failed to check maintenance status:", error);
+        // If we can't reach the server, check if we have cached maintenance status
+        const cached = sessionStorage.getItem("maintenance_mode");
+        if (cached === "true") {
+          setIsMaintenanceMode(true);
+          window.location.href = "/maintenance";
+          return;
+        }
+      } finally {
+        setIsChecking(false);
+      }
+    };
+
+    checkMaintenance();
+  }, []);
+
+  // Show loading while checking
+  if (isChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#000060]"></div>
+          <p className="text-gray-500 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If redirecting to maintenance, show nothing
+  if (isMaintenanceMode) {
+    return null;
+  }
+
+  return children;
+};
 
 // ============================================
 // AUTH INITIALIZER COMPONENT
@@ -135,187 +209,234 @@ const App = () => {
 
   return (
     <Router>
-      <AuthInitializer>
-        <ScrollToTop />
+      <ScrollToTop />
+      <Routes>
+        {/* ============================================ */}
+        {/* MAINTENANCE PAGE (Always accessible - no check) */}
+        {/* ============================================ */}
+        <Route path="/maintenance" element={<MaintenancePage />} />
 
-        <Routes>
-          {/* ============================================ */}
-          {/* LANDING PAGES (Public) */}
-          {/* ============================================ */}
-          <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/pricing" element={<Pricing />} />
+        {/* ============================================ */}
+        {/* ALL OTHER ROUTES - Wrapped in MaintenanceCheck */}
+        {/* ============================================ */}
+        <Route
+          path="/*"
+          element={
+            <MaintenanceCheck>
+              <AuthInitializer>
+                <Routes>
+                  {/* ============================================ */}
+                  {/* LANDING PAGES (Public) */}
+                  {/* ============================================ */}
+                  <Route path="/" element={<Home />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/pricing" element={<Pricing />} />
 
-          {/* ============================================ */}
-          {/* PUBLIC ROUTES (No auth required) */}
-          {/* ============================================ */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+                  {/* ============================================ */}
+                  {/* PUBLIC ROUTES (No auth required) */}
+                  {/* ============================================ */}
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/terms" element={<TermsPage />} />
+                  <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route
+                    path="/forgot-password"
+                    element={<ForgotPasswordPage />}
+                  />
+                  <Route
+                    path="/reset-password"
+                    element={<ResetPasswordPage />}
+                  />
 
-          {/* ============================================ */}
-          {/* ONBOARDING ROUTES (Special guard) */}
-          {/* ============================================ */}
-          <Route element={<OnboardingGuard />}>
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/verification" element={<VerificationPage />} />
-          </Route>
+                  {/* ============================================ */}
+                  {/* ONBOARDING ROUTES (Special guard) */}
+                  {/* ============================================ */}
+                  <Route element={<OnboardingGuard />}>
+                    <Route path="/onboarding" element={<OnboardingPage />} />
+                    <Route path="/verification" element={<VerificationPage />} />
+                  </Route>
 
-          {/* ============================================ */}
-          {/* POST-VERIFICATION ROUTES (Token required) */}
-          {/* ============================================ */}
-          <Route element={<AuthGuard />}>
-            <Route path="/plan-selection" element={<PlanSelectionPage />} />
+                  {/* ============================================ */}
+                  {/* POST-VERIFICATION ROUTES (Token required) */}
+                  {/* ============================================ */}
+                  <Route element={<AuthGuard />}>
+                    <Route
+                      path="/plan-selection"
+                      element={<PlanSelectionPage />}
+                    />
 
-            {/* Setup Routes */}
-            <Route path="/setup" element={<SetupRouter />} />
-            <Route element={<SetupLayout />}>
-              <Route path="/setup/branches" element={<SetupBranchesPage />} />
-              <Route path="/setup/users" element={<SetupUsersPage />} />
-              <Route path="/setup/review" element={<SetupReviewPage />} />
-            </Route>
-          </Route>
+                    {/* Setup Routes */}
+                    <Route path="/setup" element={<SetupRouter />} />
+                    <Route element={<SetupLayout />}>
+                      <Route
+                        path="/setup/branches"
+                        element={<SetupBranchesPage />}
+                      />
+                      <Route
+                        path="/setup/users"
+                        element={<SetupUsersPage />}
+                      />
+                      <Route
+                        path="/setup/review"
+                        element={<SetupReviewPage />}
+                      />
+                    </Route>
+                  </Route>
 
-          {/* ============================================ */}
-          {/* PROTECTED ERP ROUTES */}
-          {/* Full auth + Setup required + Permission checks */}
-          {/* ============================================ */}
-          <Route element={<AuthGuard />}>
-            <Route element={<SetupGuard />}>
-              <Route element={<AppLayout />}>
-                {/* Dashboard */}
-                <Route
-                  path="/dashboard"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.DASHBOARD_VIEW}>
-                      <DashboardPage />
-                    </PermissionGuard>
-                  }
-                />
+                  {/* ============================================ */}
+                  {/* PROTECTED ERP ROUTES */}
+                  {/* ============================================ */}
+                  <Route element={<AuthGuard />}>
+                    <Route element={<SetupGuard />}>
+                      <Route element={<AppLayout />}>
+                        {/* Dashboard */}
+                        <Route
+                          path="/dashboard"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.DASHBOARD_VIEW}
+                            >
+                              <DashboardPage />
+                            </PermissionGuard>
+                          }
+                        />
 
-                {/* Sales Routes */}
-                <Route
-                  path="/Salesbilling"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.BILLING_CREATE}>
-                      <BillingPage />
-                    </PermissionGuard>
-                  }
-                />
-                <Route
-                  path="/Salesinvoice"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.BILLING_VIEW}>
-                      <InvoicePage />
-                    </PermissionGuard>
-                  }
-                />
+                        {/* Sales Routes */}
+                        <Route
+                          path="/Salesbilling"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_CREATE}
+                            >
+                              <BillingPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/Salesinvoice"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_VIEW}
+                            >
+                              <InvoicePage />
+                            </PermissionGuard>
+                          }
+                        />
 
-                {/* Purchase Routes */}
-                <Route
-                  path="/purchase-billing"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.PURCHASE_CREATE}>
-                      <PurchasePage />
-                    </PermissionGuard>
-                  }
-                />
-                <Route
-                  path="/purchase-invoices"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.PURCHASE_VIEW}>
-                      <PurchaseInvoicePage />
-                    </PermissionGuard>
-                  }
-                />
+                        {/* Purchase Routes */}
+                        <Route
+                          path="/purchase-billing"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.PURCHASE_CREATE}
+                            >
+                              <PurchasePage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/purchase-invoices"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.PURCHASE_VIEW}
+                            >
+                              <PurchaseInvoicePage />
+                            </PermissionGuard>
+                          }
+                        />
 
-                {/* Inventory */}
-                <Route
-                  path="/inventory"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.INVENTORY_VIEW}>
-                      <InventoryPage />
-                    </PermissionGuard>
-                  }
-                />
+                        {/* Inventory */}
+                        <Route
+                          path="/inventory"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.INVENTORY_VIEW}
+                            >
+                              <InventoryPage />
+                            </PermissionGuard>
+                          }
+                        />
 
-                {/* Suppliers */}
-                <Route
-                  path="/suppliers"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.SUPPLIERS_VIEW}>
-                      <SupplierPage />
-                    </PermissionGuard>
-                  }
-                />
+                        {/* Suppliers */}
+                        <Route
+                          path="/suppliers"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.SUPPLIERS_VIEW}
+                            >
+                              <SupplierPage />
+                            </PermissionGuard>
+                          }
+                        />
 
-                {/* Reports */}
-                <Route
-                  path="/reports-sales"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
-                      <ReportPage />
-                    </PermissionGuard>
-                  }
-                />
+                        {/* Reports */}
+                        <Route
+                          path="/reports-sales"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <ReportPage />
+                            </PermissionGuard>
+                          }
+                        />
 
-                {/* ============================================ */}
-                {/* SETTINGS ROUTES */}
-                {/* ============================================ */}
+                        {/* Settings Routes */}
+                        <Route
+                          path="/settings/users"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.USERS_VIEW}
+                            >
+                              <UsersPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/settings/branches"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.BRANCHES_VIEW}
+                            >
+                              <BranchesPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/settings/profile"
+                          element={<ProfilePage />}
+                        />
+                        <Route
+                          path="/settings/upgrade"
+                          element={<UpgradePlanPage />}
+                        />
 
-                {/* Settings > Users (SA + BA) */}
-                <Route
-                  path="/settings/users"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.USERS_VIEW}>
-                      <UsersPage />
-                    </PermissionGuard>
-                  }
-                />
+                        {/* Support Routes */}
+                        <Route
+                          path="/tickets"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.TICKETS_VIEW}
+                            >
+                              <TicketsPage />
+                            </PermissionGuard>
+                          }
+                        />
+                      </Route>
+                    </Route>
+                  </Route>
 
-                {/* Settings > Branches (SA only) */}
-                <Route
-                  path="/settings/branches"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.BRANCHES_VIEW}>
-                      <BranchesPage />
-                    </PermissionGuard>
-                  }
-                />
-
-                {/* Settings > Profile (All roles) */}
-                <Route path="/settings/profile" element={<ProfilePage />} />
-
-                {/* Settings > Upgrade Plan (SA only) */}
-                <Route path="/settings/upgrade" element={<UpgradePlanPage />} />
-
-                {/* ============================================ */}
-                {/* SUPPORT ROUTES */}
-                {/* ============================================ */}
-
-                {/* Support > Tickets (SA + BA only) */}
-                <Route
-                  path="/tickets"
-                  element={
-                    <PermissionGuard permission={PERMISSIONS.TICKETS_VIEW}>
-                      <TicketsPage />
-                    </PermissionGuard>
-                  }
-                />
-              </Route>
-            </Route>
-          </Route>
-
-          {/* ============================================ */}
-          {/* ERROR PAGES */}
-          {/* ============================================ */}
-          <Route path="/error" element={<ErrorPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </AuthInitializer>
+                  {/* ============================================ */}
+                  {/* ERROR PAGES */}
+                  {/* ============================================ */}
+                  <Route path="/error" element={<ErrorPage />} />
+                  <Route path="*" element={<NotFoundPage />} />
+                </Routes>
+              </AuthInitializer>
+            </MaintenanceCheck>
+          }
+        />
+      </Routes>
     </Router>
   );
 };
