@@ -8,7 +8,7 @@ import {
   Ban,
   CheckCircle,
 } from "lucide-react";
-import Pagination from "./Pagination";
+import Pagination from "../common/Pagination";
 import UserDetailsModal from "./UserDetailsModal";
 import ConfirmDialog from "../common/ConfirmDialog";
 import { toggleCAdminUserAccess } from "../../api/cadminUsers";
@@ -126,11 +126,15 @@ const UserTable = ({
           <div className="flex flex-col gap-0.5">
             <ChevronUp
               size={12}
-              className={`transition-colors ${isAsc ? "text-yellow-300" : "text-white/50"}`}
+              className={`transition-colors ${
+                isAsc ? "text-yellow-300" : "text-white/50"
+              }`}
             />
             <ChevronDown
               size={12}
-              className={`-mt-1 transition-colors ${isDesc ? "text-yellow-300" : "text-white/50"}`}
+              className={`-mt-1 transition-colors ${
+                isDesc ? "text-yellow-300" : "text-white/50"
+              }`}
             />
           </div>
         </div>
@@ -142,7 +146,10 @@ const UserTable = ({
     );
   };
 
-  const totalPages = Math.max(1, Math.ceil((totalItems || 0) / (rowsPerPage || 1)));
+  const totalPages = Math.max(
+    1,
+    Math.ceil((totalItems || 0) / (rowsPerPage || 1))
+  );
   const startIndex = (currentPage - 1) * rowsPerPage;
   const visibleUsers = users || [];
 
@@ -156,7 +163,7 @@ const UserTable = ({
     setSuspendLoading(true);
     try {
       const newIsActive = !userToSuspend.is_active;
-      
+
       await toggleCAdminUserAccess(userToSuspend.id, newIsActive);
 
       // Update the row locally
@@ -192,43 +199,91 @@ const UserTable = ({
   return (
     <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
       <div className="flex-1 overflow-auto">
-        <table className="w-full border-collapse text-sm" style={{ minWidth: "800px" }}>
+        <table
+          className="w-full border-collapse text-sm"
+          style={{ minWidth: "800px" }}
+        >
           <thead className="sticky top-0 z-10">
             <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white text-left">
-              <th style={{ width: columnWidths.slNo }} className="p-3 font-semibold">#</th>
-
-              <SortableHeader column="name" label="Full Name" width={columnWidths.name} />
-              <SortableHeader column="username" label="Username" width={columnWidths.username} />
-
-              <th style={{ width: columnWidths.email }} className="p-3 font-semibold relative group">
-                Email
-                <div onMouseDown={(e) => handleMouseDown("email", e)} className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-white/30" />
+              <th
+                style={{ width: columnWidths.slNo }}
+                className="p-3 font-semibold"
+              >
+                #
               </th>
 
-              <th style={{ width: columnWidths.role }} className="p-3 font-semibold text-center">Role</th>
-              <th style={{ width: columnWidths.status }} className="p-3 font-semibold text-center">Status</th>
+              <SortableHeader
+                column="name"
+                label="Full Name"
+                width={columnWidths.name}
+              />
+              <SortableHeader
+                column="username"
+                label="Username"
+                width={columnWidths.username}
+              />
 
-              <SortableHeader column="lastLogin" label="Last Login" width={columnWidths.lastLogin} />
+              <th
+                style={{ width: columnWidths.email }}
+                className="p-3 font-semibold relative group"
+              >
+                Email
+                <div
+                  onMouseDown={(e) => handleMouseDown("email", e)}
+                  className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-white/30"
+                />
+              </th>
 
-              <th style={{ width: columnWidths.actions, minWidth: 80 }} className="p-2 font-semibold text-center">Actions</th>
+              <th
+                style={{ width: columnWidths.role }}
+                className="p-3 font-semibold text-center"
+              >
+                Role
+              </th>
+              <th
+                style={{ width: columnWidths.status }}
+                className="p-3 font-semibold text-center"
+              >
+                Status
+              </th>
+
+              <SortableHeader
+                column="lastLogin"
+                label="Last Login"
+                width={columnWidths.lastLogin}
+              />
+
+              <th
+                style={{ width: columnWidths.actions, minWidth: 80 }}
+                className="p-2 font-semibold text-center"
+              >
+                Actions
+              </th>
             </tr>
           </thead>
 
           <tbody>
             {visibleUsers.length > 0 ? (
               visibleUsers.map((u, i) => (
-                <tr key={u.id ?? i} className={`
+                <tr
+                  key={u.id ?? i}
+                  className={`
                     border-b border-gray-100 transition-all duration-150
                     ${i % 2 === 0 ? "bg-gray-50" : "bg-white"}
                     ${!u.is_active ? "opacity-60" : ""}
                     hover:bg-indigo-50
-                  `}>
-                  <td className="p-3 text-gray-500 font-medium">{startIndex + i + 1}</td>
+                  `}
+                >
+                  <td className="p-3 text-gray-500 font-medium">
+                    {startIndex + i + 1}
+                  </td>
 
                   <td className="p-3 font-medium text-gray-900">
                     <div className="flex items-center gap-2">
                       {u.name}
-                      {!u.is_active && <Ban size={14} className="text-red-400" />}
+                      {!u.is_active && (
+                        <Ban size={14} className="text-red-400" />
+                      )}
                     </div>
                   </td>
 
@@ -236,54 +291,64 @@ const UserTable = ({
                   <td className="p-3 text-gray-600">{u.email}</td>
 
                   <td className="p-3 text-center">
-                    <span className={`
+                    <span
+                      className={`
                       inline-block px-3 py-1 rounded-full text-xs font-medium 
-                      whitespace-nowrap text-center min-w-[90px] ${getRoleBadgeStyle(u.role)}
-                    `}>
+                      whitespace-nowrap text-center min-w-[90px] ${getRoleBadgeStyle(
+                        u.role
+                      )}
+                    `}
+                    >
                       {u.role}
                     </span>
                   </td>
 
-                  <td className="p-3 text-center">{getStatusBadge(u.is_active)}</td>
+                  <td className="p-3 text-center">
+                    {getStatusBadge(u.is_active)}
+                  </td>
 
                   <td className="p-3 text-gray-500 text-sm">{u.lastLogin}</td>
 
                   <td className="p-2">
                     <div className="flex items-center justify-center gap-0.5 whitespace-nowrap">
-                      <button 
-                        onClick={() => { 
-                          setSelectedUser(u); 
-                          setIsModalOpen(true); 
-                          setModalMode("view"); 
-                        }} 
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-[#05015A] hover:bg-indigo-50 transition-all" 
+                      <button
+                        onClick={() => {
+                          setSelectedUser(u);
+                          setIsModalOpen(true);
+                          setModalMode("view");
+                        }}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-[#05015A] hover:bg-indigo-50 transition-all"
                         title="View Details"
                       >
                         <Eye size={15} />
                       </button>
 
-                      <button 
-                        onClick={() => { 
-                          setSelectedUser(u); 
-                          setIsModalOpen(true); 
-                          setModalMode("edit"); 
-                        }} 
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-amber-600 hover:bg-amber-50 transition-all" 
+                      <button
+                        onClick={() => {
+                          setSelectedUser(u);
+                          setIsModalOpen(true);
+                          setModalMode("edit");
+                        }}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-amber-600 hover:bg-amber-50 transition-all"
                         title="Edit User"
                       >
                         <Pencil size={15} />
                       </button>
 
-                      <button 
-                        onClick={() => handleSuspendClick(u)} 
+                      <button
+                        onClick={() => handleSuspendClick(u)}
                         className={`p-1.5 rounded-lg transition-all ${
-                          u.is_active 
-                            ? "text-gray-500 hover:text-orange-600 hover:bg-orange-50" 
+                          u.is_active
+                            ? "text-gray-500 hover:text-orange-600 hover:bg-orange-50"
                             : "text-gray-500 hover:text-emerald-600 hover:bg-emerald-50"
-                        }`} 
+                        }`}
                         title={u.is_active ? "Suspend User" : "Activate User"}
                       >
-                        {u.is_active ? <Ban size={15} /> : <CheckCircle size={15} />}
+                        {u.is_active ? (
+                          <Ban size={15} />
+                        ) : (
+                          <CheckCircle size={15} />
+                        )}
                       </button>
                     </div>
                   </td>
@@ -296,8 +361,12 @@ const UserTable = ({
                     <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
                       <Users size={32} className="text-gray-300" />
                     </div>
-                    <p className="text-lg font-medium text-gray-500 mb-1">No users found</p>
-                    <p className="text-sm text-gray-400">Try adjusting your search or filters</p>
+                    <p className="text-lg font-medium text-gray-500 mb-1">
+                      No users found
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Try adjusting your search or filters
+                    </p>
                   </div>
                 </td>
               </tr>
@@ -307,29 +376,27 @@ const UserTable = ({
       </div>
 
       <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-1.5 flex items-center justify-between">
-        <div className="text-sm text-gray-500">
-          Showing{" "}
-          <span className="font-medium text-gray-700">{totalItems > 0 ? startIndex + 1 : 0}</span>{" "}
-          to{" "}
-          <span className="font-medium text-gray-700">{Math.min(startIndex + rowsPerPage, totalItems)}</span>{" "}
-          of{" "}
-          <span className="font-medium text-gray-700">{totalItems}</span>{" "}
-          results
-        </div>
-
-        <Pagination totalPages={totalPages} currentPage={currentPage} setCurrentPage={setCurrentPage} />
+        <Pagination
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          totalItems={totalItems}
+          rowsPerPage={rowsPerPage}
+        />
       </div>
 
-      <UserDetailsModal 
-        isOpen={isModalOpen} 
-        onClose={handleModalClose} 
-        user={selectedUser} 
-        mode={modalMode} 
+      <UserDetailsModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        user={selectedUser}
+        mode={modalMode}
       />
 
       <ConfirmDialog
         isOpen={showSuspendConfirm}
-        onClose={() => { setShowSuspendConfirm(false); setUserToSuspend(null); }}
+        onClose={() => {
+          setShowSuspendConfirm(false);
+          setUserToSuspend(null);
+        }}
         onConfirm={handleSuspendConfirm}
         title={userToSuspend?.is_active ? "Suspend User?" : "Activate User?"}
         message={
