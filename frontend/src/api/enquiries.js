@@ -1,3 +1,4 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\api\enquiries.js
 import API from "./axios";
 
 // export const submitEnquiry = async (data) => {
