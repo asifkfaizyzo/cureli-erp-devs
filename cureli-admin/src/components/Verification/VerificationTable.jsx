@@ -1,8 +1,8 @@
 // cureli-admin/src/components/Verification/VerificationTable.jsx
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronUp, ChevronDown, ShieldCheck, FileText, Users, Calendar } from "lucide-react";
-import VerificationPagination from "./VerificationPagination";
+import { ChevronUp, ChevronDown, ShieldCheck, Calendar } from "lucide-react";
+import Pagination from "../common/Pagination"; // ✅ Use common Pagination
 
 const VerificationTable = ({
   data = [],
@@ -11,7 +11,6 @@ const VerificationTable = ({
   setCurrentPage,
   rowsPerPage,
   totalItems,
-  totalPages,
   sortField,
   sortOrder,
   onSortChange,
@@ -56,6 +55,9 @@ const VerificationTable = ({
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [resizing, handleMouseMove, handleMouseUp]);
+
+  // Calculate start index for row numbering
+  const startIndex = (currentPage - 1) * rowsPerPage;
 
   // Status badge configuration
   const getStatusConfig = (status) => {
@@ -168,9 +170,6 @@ const VerificationTable = ({
     </th>
   );
 
-  const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
-  const endIndex = Math.min(startIndex + rowsPerPage - 1, totalItems);
-
   // Loading State
   if (loading) {
     return (
@@ -185,7 +184,7 @@ const VerificationTable = ({
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm  ">
+    <div className="h-full w-full flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
       {/* Table Container */}
       <div className="flex-1 overflow-auto min-h-0">
         <table className="w-full border-collapse text-sm">
@@ -207,7 +206,7 @@ const VerificationTable = ({
             {data.length > 0 ? (
               data.map((shop, i) => {
                 const statusConfig = getStatusConfig(shop.verification_status);
-                const rowIndex = startIndex + i;
+                const rowIndex = startIndex + i + 1; // ✅ Fixed row numbering
 
                 return (
                   <tr
@@ -337,30 +336,13 @@ const VerificationTable = ({
         </table>
       </div>
 
-      {/* Footer */}
-      <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
-        <div className="text-sm text-gray-500">
-          {totalItems > 0 ? (
-            <>
-              Showing{" "}
-              <span className="font-semibold text-gray-700">{startIndex}</span>
-              {" "}to{" "}
-              <span className="font-semibold text-gray-700">{endIndex}</span>
-              {" "}of{" "}
-              <span className="font-semibold text-gray-700">{totalItems}</span>
-              {" "}shops
-            </>
-          ) : (
-            <span>No results</span>
-          )}
-        </div>
-
-        <VerificationPagination
-          totalPages={totalPages}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-        />
-      </div>
+      {/* ✅ UPDATED: Use common Pagination component */}
+      <Pagination
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        totalItems={totalItems}
+        rowsPerPage={rowsPerPage}
+      />
     </div>
   );
 };

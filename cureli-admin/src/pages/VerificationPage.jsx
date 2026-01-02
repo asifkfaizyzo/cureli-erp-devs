@@ -35,8 +35,8 @@ const VerificationPage = () => {
     const updateRows = () => {
       const w = window.innerWidth;
       const r =
-        w >= 2560 ? 14 :
-        w >= 1920 ? 12 :
+        w >= 2560 ? 10:
+        w >= 1920 ? 10 :
         w >= 1440 ? 10 :
         w >= 1366 ? 8 :
         6;

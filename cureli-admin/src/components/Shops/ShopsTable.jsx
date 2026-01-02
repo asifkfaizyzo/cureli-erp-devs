@@ -10,7 +10,7 @@ import {
   Ban,
   CheckCircle,
 } from "lucide-react";
-import Pagination from "./Pagination";
+import Pagination from "../../components/common/Pagination";
 import ShopDetailsModal from "./ShopDetailsModal";
 import ConfirmDialog from "../common/ConfirmDialog";
 import { toggleShopActive } from "../../api/cadminShops";
@@ -79,6 +79,9 @@ const ShopsTable = ({
       };
     }
   }, [resizing]);
+
+  // Calculate start index for row numbering
+  const startIndex = (currentPage - 1) * rowsPerPage;
 
   // Plan badge styling
   const getPlanBadge = (subscription) => {
@@ -193,13 +196,6 @@ const ShopsTable = ({
       </th>
     );
   };
-
-  // Pagination calculations
-  const totalPages = Math.max(
-    1,
-    Math.ceil((totalItems || 0) / (rowsPerPage || 1))
-  );
-  const startIndex = (currentPage - 1) * rowsPerPage;
 
   // Suspend handlers
   const handleSuspendClick = (shop) => {
@@ -417,27 +413,13 @@ const ShopsTable = ({
         </table>
       </div>
 
-      {/* Footer */}
-      <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-1.5 flex items-center justify-between">
-        <div className="text-sm text-gray-500">
-          Showing{" "}
-          <span className="font-medium text-gray-700">
-            {totalItems > 0 ? startIndex + 1 : 0}
-          </span>{" "}
-          to{" "}
-          <span className="font-medium text-gray-700">
-            {Math.min(startIndex + rowsPerPage, totalItems)}
-          </span>{" "}
-          of <span className="font-medium text-gray-700">{totalItems}</span>{" "}
-          results
-        </div>
-
-        <Pagination
-          totalPages={totalPages}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-        />
-      </div>
+      {/* ✅ UPDATED: Use Pagination component with correct props */}
+      <Pagination
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        totalItems={totalItems}
+        rowsPerPage={rowsPerPage}
+      />
 
       {/* Single Modal - handles both view and edit modes */}
       <ShopDetailsModal

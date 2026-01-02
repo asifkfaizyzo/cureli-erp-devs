@@ -1,3 +1,5 @@
+// cureli-admin/src/components/Admins/AdminTable.jsx
+
 import { useState } from "react";
 import {
   Eye,
@@ -9,6 +11,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
+import Pagination from "../common/Pagination"; // ✅ Import common Pagination
 import AdminDetailsModal from "./AdminDetailsModal";
 import ConfirmDialog from "../common/ConfirmDialog";
 import { toggleAdminAccess } from "../../api/cadminAdmins";
@@ -16,14 +19,18 @@ import { toggleAdminAccess } from "../../api/cadminAdmins";
 const AdminTable = ({
   admins = [],
   loading = false,
-  rowsPerPage = 6,
-  startIndex = 0,
+  currentPage,
+  setCurrentPage,
+  rowsPerPage = 10,
+  totalItems = 0,
   sortConfig,
   onSortChange,
   onAdminUpdate,
   onRefresh,
-  children,
 }) => {
+  // Calculate start index for row numbering
+  const startIndex = (currentPage - 1) * rowsPerPage;
+
   const [selectedAdminId, setSelectedAdminId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("view");
@@ -105,22 +112,26 @@ const AdminTable = ({
   // Sortable header component
   const SortHeader = ({ column, label, className = "" }) => {
     const isActive = sortConfig?.sortBy === column;
+    const isAsc = isActive && sortConfig?.order === "asc";
+    const isDesc = isActive && sortConfig?.order === "desc";
+
     return (
       <th
         className={`px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none ${className}`}
         onClick={() => onSortChange?.(column)}
       >
         <div className="flex items-center gap-1">
-          {label}
-          {isActive && (
-            <span className="ml-0.5">
-              {sortConfig.order === "asc" ? (
-                <ChevronUp size={12} />
-              ) : (
-                <ChevronDown size={12} />
-              )}
-            </span>
-          )}
+          <span>{label}</span>
+          <div className="flex flex-col">
+            <ChevronUp
+              size={10}
+              className={`-mb-0.5 ${isAsc ? "text-yellow-300" : "text-white/30"}`}
+            />
+            <ChevronDown
+              size={10}
+              className={`-mt-0.5 ${isDesc ? "text-yellow-300" : "text-white/30"}`}
+            />
+          </div>
         </div>
       </th>
     );
@@ -251,11 +262,13 @@ const AdminTable = ({
         </table>
       </div>
 
-      {/* FOOTER / PAGINATION SLOT */}
-      <div className="shrink-0 border-t border-gray-200 bg-gray-50/50 px-4 py-2.5 flex items-center justify-between">
-        <div className="text-[11px] text-gray-500" />
-        {children}
-      </div>
+      {/* ✅ UPDATED: Use common Pagination component */}
+      <Pagination
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        totalItems={totalItems}
+        rowsPerPage={rowsPerPage}
+      />
 
       {/* DETAILS MODAL */}
       {isModalOpen && selectedAdminId && (

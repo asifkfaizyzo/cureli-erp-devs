@@ -1,9 +1,9 @@
+// cureli-admin/src/pages/AdminsPage.jsx
+
 import { useState, useEffect, useCallback } from "react";
 import AdminHeader from "../components/Admin/AdminHeader";
 import AdminTable from "../components/Admin/AdminTable";
 import AddAdminModal from "../components/Admin/AddAdminModal";
-import Pagination from "../components/common/Pagination";
-import useDynamicRowCount from "../hooks/useDynamicRowCount";
 import { getAdmins } from "../api/cadminAdmins";
 
 const AdminsPage = () => {
@@ -30,7 +30,25 @@ const AdminsPage = () => {
 
   // PAGINATION
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = useDynamicRowCount();
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // ✅ Dynamic rows per page based on screen size
+  useEffect(() => {
+    const updateRows = () => {
+      const width = window.innerWidth;
+
+      if (width >= 2560) setRowsPerPage(14);
+      else if (width >= 1920) setRowsPerPage(12);
+      else if (width >= 1440) setRowsPerPage(9);
+      else if (width >= 1366) setRowsPerPage(8);
+      else setRowsPerPage(6);
+    };
+
+    updateRows();
+
+    window.addEventListener("resize", updateRows);
+    return () => window.removeEventListener("resize", updateRows);
+  }, []);
 
   // FETCH ADMINS FROM SERVER
   const fetchAdmins = useCallback(async () => {
@@ -89,6 +107,14 @@ const AdminsPage = () => {
     }));
   };
 
+  // Handler for filter changes
+  const handleFilterChange = ({ search, status, role }) => {
+    if (search !== undefined) setSearchText(search);
+    if (status !== undefined) setStatusFilter(status);
+    if (role !== undefined) setRoleFilter(role);
+    setCurrentPage(1);
+  };
+
   // Update admin in local state (optimistic update)
   const handleAdminUpdate = useCallback((adminId, updates) => {
     setAdmins((prev) =>
@@ -127,18 +153,16 @@ const AdminsPage = () => {
     [rowsPerPage]
   );
 
-  const startIndex = (currentPage - 1) * rowsPerPage;
-
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
       {/* HEADER */}
       <AdminHeader
         searchText={searchText}
-        setSearchText={setSearchText}
+        setSearchText={(v) => handleFilterChange({ search: v })}
         statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
+        setStatusFilter={(v) => handleFilterChange({ status: v })}
         roleFilter={roleFilter}
-        setRoleFilter={setRoleFilter}
+        setRoleFilter={(v) => handleFilterChange({ role: v })}
         admins={admins}
         totalItems={totalItems}
         onAddAdmin={handleOpenAddModal}
@@ -158,25 +182,20 @@ const AdminsPage = () => {
         </div>
       )}
 
-      {/* TABLE */}
+      {/* TABLE - ✅ Updated props */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <AdminTable
           admins={admins}
           loading={loading}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
           rowsPerPage={rowsPerPage}
-          startIndex={startIndex}
+          totalItems={totalItems}
           sortConfig={sortConfig}
           onSortChange={handleSortChange}
           onAdminUpdate={handleAdminUpdate}
           onRefresh={handleRefresh}
-        >
-          <Pagination
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            totalItems={totalItems}
-            rowsPerPage={rowsPerPage}
-          />
-        </AdminTable>
+        />
       </div>
 
       {/* ADD ADMIN MODAL */}
