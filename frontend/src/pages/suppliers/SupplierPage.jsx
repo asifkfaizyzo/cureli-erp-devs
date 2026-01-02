@@ -1,6 +1,6 @@
 // src/pages/SupplierPage.jsx
 import { useState, useMemo } from "react";
-import { toast } from 'react-toastify';
+import { useToast } from "../../components/common/Toast";
 import SupplierHeader from "./components/SupplierHeader";
 import SupplierTable from "./components/SupplierTable";
 import SupplierModal from "./components/SupplierModal";
@@ -9,11 +9,13 @@ import { suppliersData } from "../../components/data/suppliers";
 import usePagination from "../../hooks/usePagination";
 
 const SupplierPage = () => {
+  const toast = useToast();
+
   // 1. STATE: Manage Filters
   const [filters, setFilters] = useState({
     name: "",
     supplierId: "",
-    contact: ""
+    contact: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -21,7 +23,7 @@ const SupplierPage = () => {
 
   // MODAL STATE
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState(null); 
+  const [modalMode, setModalMode] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
 
   // ✅ CONFIRMATION STATE
@@ -43,13 +45,13 @@ const SupplierPage = () => {
   }, [filters, tableData]);
 
   // 3. PAGINATION (Using your custom hook)
-  const { 
-    currentPage, 
-    setCurrentPage, 
-    rowsPerPage, 
-    paginatedData: rawPaginatedData, 
-    totalPages, 
-    totalItems 
+  const {
+    currentPage,
+    setCurrentPage,
+    rowsPerPage,
+    paginatedData: rawPaginatedData,
+    totalPages,
+    totalItems,
   } = usePagination(filteredSuppliers);
 
   // 4. EMPTY ROWS LOGIC (Visual Fix)
@@ -77,7 +79,7 @@ const SupplierPage = () => {
 
   const handleResetFilters = () => {
     setFilters({ name: "", supplierId: "", contact: "" });
-    toast.info("Filters reset", { autoClose: 2000 });
+    toast.info("Filters Reset", "All filters have been cleared.", 2000);
   };
 
   // ✅ ACTIONS WITH TOAST & CONFIRM DIALOG
@@ -93,32 +95,47 @@ const SupplierPage = () => {
 
   const handleSave = (updatedSupplier) => {
     try {
-      const exists = tableData.some(s => s.supplierId === updatedSupplier.supplierId);
-      
+      const exists = tableData.some(
+        (s) => s.supplierId === updatedSupplier.supplierId
+      );
+
       if (exists) {
-        setTableData((prev) => prev.map((s) => 
-          s.supplierId === updatedSupplier.supplierId ? updatedSupplier : s
-        ));
-        toast.success(`Supplier ${updatedSupplier.name} updated successfully!`);
+        setTableData((prev) =>
+          prev.map((s) =>
+            s.supplierId === updatedSupplier.supplierId
+              ? updatedSupplier
+              : s
+          )
+        );
+        toast.success(
+          "Supplier Updated",
+          `Supplier ${updatedSupplier.name} updated successfully.`
+        );
       } else {
         setTableData((prev) => [updatedSupplier, ...prev]);
-        toast.success(`Supplier ${updatedSupplier.name} added successfully!`);
+        toast.success(
+          "Supplier Added",
+          `Supplier ${updatedSupplier.name} added successfully.`
+        );
       }
-      
+
       setModalOpen(false);
     } catch (error) {
-      toast.error("Failed to save supplier. Please try again.");
+      toast.error(
+        "Save Failed",
+        "Failed to save supplier. Please try again."
+      );
       console.error("Save error:", error);
     }
   };
 
   const handleAdd = () => {
-    setSelectedSupplier({ 
-      supplierId: "NEW", 
-      name: "", 
-      contact: "", 
-      email: "", 
-      gst: "" 
+    setSelectedSupplier({
+      supplierId: "NEW",
+      name: "",
+      contact: "",
+      email: "",
+      gst: "",
     });
     setModalMode("edit");
     setModalOpen(true);
@@ -164,13 +181,21 @@ const SupplierPage = () => {
         onClose={() => setConfirmDelete(null)}
         onConfirm={() => {
           try {
-            setTableData((prev) => 
-              prev.filter((s) => s.supplierId !== confirmDelete.supplierId)
+            setTableData((prev) =>
+              prev.filter(
+                (s) => s.supplierId !== confirmDelete.supplierId
+              )
             );
-            toast.success(`Supplier ${confirmDelete.name} deleted successfully!`);
+            toast.success(
+              "Supplier Deleted",
+              `Supplier ${confirmDelete.name} deleted successfully.`
+            );
             setConfirmDelete(null);
           } catch (error) {
-            toast.error("Failed to delete supplier. Please try again.");
+            toast.error(
+              "Delete Failed",
+              "Failed to delete supplier. Please try again."
+            );
             console.error("Delete error:", error);
           }
         }}
