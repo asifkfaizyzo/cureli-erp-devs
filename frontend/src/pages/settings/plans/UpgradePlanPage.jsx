@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   CreditCard,
   Loader2,
@@ -12,6 +13,7 @@ import {
   Check,
   Users,
   Building2,
+  ArrowLeft,
 } from "lucide-react";
 
 // API
@@ -37,6 +39,8 @@ import UpgradeConfirmModal from "./comps/UpgradeConfirmModal";
  * Handles upgrades (Razorpay) and downgrades (compliance flow)
  */
 const UpgradePlanPage = () => {
+  const navigate = useNavigate();
+  
   // ============================================
   // STATE
   // ============================================
@@ -317,6 +321,14 @@ const UpgradePlanPage = () => {
   };
 
   // ============================================
+  // NAVIGATION
+  // ============================================
+  
+  const handleBackToProfile = () => {
+    navigate("/settings/profile");
+  };
+
+  // ============================================
   // LOADING STATE
   // ============================================
   
@@ -344,13 +356,22 @@ const UpgradePlanPage = () => {
           </div>
           <h3 className="text-lg font-semibold text-gray-900">Failed to load plans</h3>
           <p className="text-gray-500">{error}</p>
-          <button
-            onClick={loadData}
-            className="flex items-center gap-2 px-4 py-2 bg-[#000060] text-white rounded-lg hover:bg-[#000080] transition-colors"
-          >
-            <RefreshCw size={16} />
-            Try Again
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleBackToProfile}
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Back to Profile
+            </button>
+            <button
+              onClick={loadData}
+              className="flex items-center gap-2 px-4 py-2 bg-[#000060] text-white rounded-lg hover:bg-[#000080] transition-colors"
+            >
+              <RefreshCw size={16} />
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -362,16 +383,30 @@ const UpgradePlanPage = () => {
   
   return (
     <div className="h-full flex flex-col gap-6 p-1 overflow-auto">
-      {/* Header */}
+      {/* Header - Clean with back button */}
       <div className="flex items-center justify-between flex-shrink-0">
-        <div>
-          <h1 className="text-xl font-bold text-[#000060] flex items-center gap-2">
-            <CreditCard size={24} />
-            Manage Subscription
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            View and manage your subscription plan
-          </p>
+        <div className="flex items-center gap-4">
+          {/* Back Button */}
+          <button
+            onClick={handleBackToProfile}
+            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-[#000060]/10 rounded-xl flex items-center justify-center">
+              <CreditCard size={24} className="text-[#000060]" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">
+                Manage Plans
+              </h1>
+              <p className="text-sm text-gray-500">
+                View and change your subscription plan
+              </p>
+            </div>
+          </div>
         </div>
         
         <motion.button
@@ -379,10 +414,11 @@ const UpgradePlanPage = () => {
           whileTap={{ scale: 0.95 }}
           onClick={loadData}
           disabled={loading}
-          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-3 py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
           title="Refresh"
         >
-          <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          <span className="text-sm">Refresh</span>
         </motion.button>
       </div>
       
@@ -418,7 +454,7 @@ const UpgradePlanPage = () => {
       <div className="flex-1">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Plans</h2>
         
-        <div className="flex flex-wrap justify-center  gap-6">
+        <div className="flex flex-wrap justify-center gap-6">
           {plans.map((plan) => (
             <PlanCard
               key={plan.plan_id}
@@ -518,7 +554,7 @@ function CustomPlanCard() {
         hover:from-amber-600 hover:to-orange-600
         border-amber-300 border-dashed
         hover:shadow-xl hover:-translate-y-1
-        w-[280px] h-[390px]
+        w-[265px] h-[390px]
       `}
     >
       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">

@@ -28,7 +28,11 @@ import { getDowngradeCompliance } from "../../../../api/subscription";
  */
 const StyledDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -40,10 +44,11 @@ const StyledDropdown = ({ value, onChange, options, placeholder }) => {
       const rect = buttonRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       const dropdownHeight = 160; // max-h-40 = 160px
-      
+
       // Determine if dropdown should open upward or downward
-      const openUpward = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
-      
+      const openUpward =
+        spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+
       setDropdownPosition({
         top: openUpward ? rect.top - dropdownHeight - 4 : rect.bottom + 4,
         left: rect.left,
@@ -56,7 +61,7 @@ const StyledDropdown = ({ value, onChange, options, placeholder }) => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        buttonRef.current && 
+        buttonRef.current &&
         !buttonRef.current.contains(event.target) &&
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target)
@@ -73,7 +78,7 @@ const StyledDropdown = ({ value, onChange, options, placeholder }) => {
 
     document.addEventListener("mousedown", handleClickOutside);
     window.addEventListener("scroll", handleScroll, true);
-    
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("scroll", handleScroll, true);
@@ -123,7 +128,10 @@ const StyledDropdown = ({ value, onChange, options, placeholder }) => {
           transition={{ duration: 0.2 }}
           className="flex-shrink-0"
         >
-          <ChevronDown size={14} className={isOpen ? "text-blue-500" : "text-gray-400"} />
+          <ChevronDown
+            size={14}
+            className={isOpen ? "text-blue-500" : "text-gray-400"}
+          />
         </motion.div>
       </button>
 
@@ -132,9 +140,17 @@ const StyledDropdown = ({ value, onChange, options, placeholder }) => {
         {isOpen && (
           <motion.div
             ref={dropdownRef}
-            initial={{ opacity: 0, y: dropdownPosition.openUpward ? 8 : -8, scale: 0.96 }}
+            initial={{
+              opacity: 0,
+              y: dropdownPosition.openUpward ? 8 : -8,
+              scale: 0.96,
+            }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: dropdownPosition.openUpward ? 8 : -8, scale: 0.96 }}
+            exit={{
+              opacity: 0,
+              y: dropdownPosition.openUpward ? 8 : -8,
+              scale: 0.96,
+            }}
             transition={{ duration: 0.15, ease: "easeOut" }}
             style={{
               position: "fixed",
@@ -169,15 +185,23 @@ const StyledDropdown = ({ value, onChange, options, placeholder }) => {
                         : "text-gray-700 hover:bg-gray-50"
                     }`}
                   >
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ${
-                      value === option.value ? "bg-blue-100" : "bg-gray-100"
-                    }`}>
+                    <div
+                      className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ${
+                        value === option.value ? "bg-blue-100" : "bg-gray-100"
+                      }`}
+                    >
                       <Building2
                         size={10}
-                        className={value === option.value ? "text-blue-600" : "text-gray-400"}
+                        className={
+                          value === option.value
+                            ? "text-blue-600"
+                            : "text-gray-400"
+                        }
                       />
                     </div>
-                    <span className="flex-1 truncate font-medium">{option.label}</span>
+                    <span className="flex-1 truncate font-medium">
+                      {option.label}
+                    </span>
                     {option.isMain && (
                       <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-semibold">
                         MAIN
@@ -227,9 +251,7 @@ const StatusBadge = ({ isCompliant, current, limit, label, hint }) => (
     >
       {current}/{limit === -1 ? "∞" : limit}
     </span>
-    {hint && (
-      <span className="text-xs text-red-500">{hint}</span>
-    )}
+    {hint && <span className="text-xs text-red-500">{hint}</span>}
   </div>
 );
 
@@ -370,7 +392,8 @@ const ComplianceModal = ({
     const activeBranchesAfter = counts.activeBranches - selectedBranches.length;
 
     const userLimit = counts.userLimit === -1 ? Infinity : counts.userLimit;
-    const branchLimit = counts.branchLimit === -1 ? Infinity : counts.branchLimit;
+    const branchLimit =
+      counts.branchLimit === -1 ? Infinity : counts.branchLimit;
 
     const usersCompliant = activeUsersAfter <= userLimit;
     const branchesCompliant =
@@ -395,7 +418,9 @@ const ComplianceModal = ({
       const user = users.find((u) => u.user_id === userId);
       if (!user) return false;
 
-      const userBranch = branches.find((b) => b.branch_name === user.branch_name);
+      const userBranch = branches.find(
+        (b) => b.branch_name === user.branch_name
+      );
       if (!userBranch) return false;
 
       return selectedBranches.includes(userBranch.branch_id);
@@ -409,7 +434,9 @@ const ComplianceModal = ({
       const user = users.find((u) => u.user_id === userId);
       if (!user) return false;
 
-      const userBranch = branches.find((b) => b.branch_name === user.branch_name);
+      const userBranch = branches.find(
+        (b) => b.branch_name === user.branch_name
+      );
       if (!userBranch) return false;
 
       if (!selectedBranches.includes(userBranch.branch_id)) return false;
@@ -448,7 +475,8 @@ const ComplianceModal = ({
     const isSelected = selectedBranches.includes(branchId);
 
     if (!isSelected) {
-      const activeBranchesAfter = counts.activeBranches - selectedBranches.length - 1;
+      const activeBranchesAfter =
+        counts.activeBranches - selectedBranches.length - 1;
       if (activeBranchesAfter < 1) {
         alert("You must keep at least one active branch.");
         return;
@@ -519,7 +547,9 @@ const ComplianceModal = ({
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
           <div className="w-12 h-12 border-3 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
-          <p className="text-gray-600 font-medium">Loading compliance data...</p>
+          <p className="text-gray-600 font-medium">
+            Loading compliance data...
+          </p>
         </div>
       </div>
     );
@@ -582,23 +612,27 @@ const ComplianceModal = ({
         className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl relative overflow-hidden max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header Accent */}
+        <div className="h-1.5 bg-gradient-to-r from-orange-500 to-red-500" />
         {/* Header - No animation */}
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4 text-white flex-shrink-0">
+        <div className="px-6 py-5 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <AlertTriangle size={20} />
+              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={24} className="text-amber-600" />
               </div>
               <div>
-                <h2 className="text-lg font-bold">Compliance Review</h2>
-                <p className="text-white/80 text-sm">
-                  Downgrading to {targetPlan?.name}
+                <h2 className="text-xl font-bold text-gray-900">
+                  Downgrade to {targetPlan?.name}
+                </h2>
+                <p className="text-gray-500 text-sm mt-0.5">
+                  Review and resolve the following items before proceeding
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"
+              className="w-9 h-9 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex items-center justify-center transition-all"
             >
               <X size={18} />
             </button>
@@ -615,7 +649,9 @@ const ComplianceModal = ({
               label="Users"
               hint={
                 !compliance.users
-                  ? `(disable ${compliance.activeUsersAfter - compliance.userLimit} more)`
+                  ? `(disable ${
+                      compliance.activeUsersAfter - compliance.userLimit
+                    } more)`
                   : null
               }
             />
@@ -631,7 +667,9 @@ const ComplianceModal = ({
 
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 rounded-full">
               <Info size={12} className="text-blue-500" />
-              <span className="text-xs text-blue-600 font-medium">Min 1 branch required</span>
+              <span className="text-xs text-blue-600 font-medium">
+                Min 1 branch required
+              </span>
             </div>
           </div>
 
@@ -667,7 +705,9 @@ const ComplianceModal = ({
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 text-sm">Users</h3>
-                  <p className="text-[10px] text-gray-500">{users.length} available</p>
+                  <p className="text-[10px] text-gray-500">
+                    {users.length} available
+                  </p>
                 </div>
               </div>
               {needsUserAction && (
@@ -687,24 +727,34 @@ const ComplianceModal = ({
                 </div>
               ) : (
                 users.map((user) => {
-                  const isDirectlySelected = selectedUsers.includes(user.user_id);
-                  const isFromDeactivatedBranch = isUserFromDeactivatedBranch(user.user_id);
-                  const isBranchSetToDisable = isUserBranchSetToDisable(user.user_id);
+                  const isDirectlySelected = selectedUsers.includes(
+                    user.user_id
+                  );
+                  const isFromDeactivatedBranch = isUserFromDeactivatedBranch(
+                    user.user_id
+                  );
+                  const isBranchSetToDisable = isUserBranchSetToDisable(
+                    user.user_id
+                  );
                   const isBeingReassigned = userReassignments.some(
                     (r) => r.userId === user.user_id
                   );
 
-                  const isMarkedForDisable = isDirectlySelected || isBranchSetToDisable;
+                  const isMarkedForDisable =
+                    isDirectlySelected || isBranchSetToDisable;
                   const canClick = !isBranchSetToDisable;
 
-                  let bgClass = "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm";
+                  let bgClass =
+                    "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm";
 
                   if (isBranchSetToDisable) {
-                    bgClass = "bg-gradient-to-r from-red-50 to-orange-50 border-red-200";
+                    bgClass =
+                      "bg-gradient-to-r from-red-50 to-orange-50 border-red-200";
                   } else if (isDirectlySelected) {
                     bgClass = "bg-red-50 border-red-200";
                   } else if (isBeingReassigned) {
-                    bgClass = "bg-blue-50 border-blue-200 hover:border-blue-300";
+                    bgClass =
+                      "bg-blue-50 border-blue-200 hover:border-blue-300";
                   }
 
                   return (
@@ -747,7 +797,9 @@ const ComplianceModal = ({
                         >
                           {user.full_name}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">{user.branch_name}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {user.branch_name}
+                        </p>
                       </div>
 
                       {/* Status badges */}
@@ -763,11 +815,13 @@ const ComplianceModal = ({
                             auto
                           </span>
                         )}
-                        {isDirectlySelected && isFromDeactivatedBranch && !isBranchSetToDisable && (
-                          <span className="text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
-                            manual
-                          </span>
-                        )}
+                        {isDirectlySelected &&
+                          isFromDeactivatedBranch &&
+                          !isBranchSetToDisable && (
+                            <span className="text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
+                              manual
+                            </span>
+                          )}
                       </div>
                     </div>
                   );
@@ -808,8 +862,12 @@ const ComplianceModal = ({
                   <Building2 size={14} className="text-gray-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 text-sm">Branches</h3>
-                  <p className="text-[10px] text-gray-500">{branches.length} available</p>
+                  <h3 className="font-semibold text-gray-900 text-sm">
+                    Branches
+                  </h3>
+                  <p className="text-[10px] text-gray-500">
+                    {branches.length} available
+                  </p>
                 </div>
               </div>
               {needsBranchAction && (
@@ -829,9 +887,12 @@ const ComplianceModal = ({
                 </div>
               ) : (
                 branches.map((branch) => {
-                  const isSelected = selectedBranches.includes(branch.branch_id);
+                  const isSelected = selectedBranches.includes(
+                    branch.branch_id
+                  );
                   const canDeactivate =
-                    (counts?.activeBranches || 0) - selectedBranches.length > 1 || isSelected;
+                    (counts?.activeBranches || 0) - selectedBranches.length >
+                      1 || isSelected;
                   const branchUsers = getUsersForBranch(branch.branch_id);
                   const hasUsers = branchUsers.length > 0;
                   const currentAction = branchUserActions[branch.branch_id];
@@ -839,18 +900,22 @@ const ComplianceModal = ({
                     selectedUsers.includes(u.user_id)
                   ).length;
 
-                  let bgClass = "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm";
+                  let bgClass =
+                    "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm";
 
                   if (!canDeactivate && !isSelected) {
                     bgClass = "bg-gray-50 border-gray-200 opacity-50";
                   } else if (isSelected) {
-                    bgClass = "bg-gradient-to-r from-red-50 to-orange-50 border-red-200";
+                    bgClass =
+                      "bg-gradient-to-r from-red-50 to-orange-50 border-red-200";
                   }
 
                   return (
                     <div
                       key={branch.branch_id}
-                      onClick={() => canDeactivate && toggleBranch(branch.branch_id)}
+                      onClick={() =>
+                        canDeactivate && toggleBranch(branch.branch_id)
+                      }
                       className={`p-3 rounded-xl border transition-all ${bgClass} ${
                         canDeactivate ? "cursor-pointer" : "cursor-not-allowed"
                       }`}
@@ -863,14 +928,18 @@ const ComplianceModal = ({
                         >
                           <Building2
                             size={14}
-                            className={isSelected ? "text-red-600" : "text-gray-500"}
+                            className={
+                              isSelected ? "text-red-600" : "text-gray-500"
+                            }
                           />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p
                               className={`font-medium text-sm truncate ${
-                                isSelected ? "text-red-700 line-through" : "text-gray-900"
+                                isSelected
+                                  ? "text-red-700 line-through"
+                                  : "text-gray-900"
                               }`}
                             >
                               {branch.branch_name}
@@ -882,7 +951,8 @@ const ComplianceModal = ({
                             )}
                           </div>
                           <p className="text-xs text-gray-500">
-                            {branch.user_count} user{branch.user_count !== 1 ? "s" : ""}
+                            {branch.user_count} user
+                            {branch.user_count !== 1 ? "s" : ""}
                           </p>
                         </div>
                         {isSelected && hasUsers && (
@@ -935,8 +1005,12 @@ const ComplianceModal = ({
                 <AlertTriangle size={16} className="text-amber-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900 text-sm">Branch Users</h3>
-                <p className="text-[10px] text-gray-500">Configure what happens to users</p>
+                <h3 className="font-semibold text-gray-900 text-sm">
+                  Branch Users
+                </h3>
+                <p className="text-[10px] text-gray-500">
+                  Configure what happens to users
+                </p>
               </div>
             </div>
 
@@ -946,171 +1020,199 @@ const ComplianceModal = ({
                   <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-3">
                     <UserMinus size={24} className="opacity-50" />
                   </div>
-                  <p className="text-sm font-medium">Select a branch with users</p>
+                  <p className="text-sm font-medium">
+                    Select a branch with users
+                  </p>
                   <p className="text-xs mt-1">to configure user actions</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {selectedBranchesWithUsers.map(({ branch, users: branchUsers, action }) => {
-                    const manuallyDisabledUsers = branchUsers.filter((u) =>
-                      selectedUsers.includes(u.user_id)
-                    );
+                  {selectedBranchesWithUsers.map(
+                    ({ branch, users: branchUsers, action }) => {
+                      const manuallyDisabledUsers = branchUsers.filter((u) =>
+                        selectedUsers.includes(u.user_id)
+                      );
 
-                    return (
-                      <div
-                        key={branch.branch_id}
-                        className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
-                      >
-                        {/* Header */}
-                        <div className="px-4 py-3 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-red-100 rounded-lg flex items-center justify-center">
-                              <Building2 size={12} className="text-red-600" />
+                      return (
+                        <div
+                          key={branch.branch_id}
+                          className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
+                        >
+                          {/* Header */}
+                          <div className="px-4 py-3 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-red-100 rounded-lg flex items-center justify-center">
+                                <Building2 size={12} className="text-red-600" />
+                              </div>
+                              <span className="text-sm font-semibold text-red-700">
+                                {branch.branch_name}
+                              </span>
                             </div>
-                            <span className="text-sm font-semibold text-red-700">
-                              {branch.branch_name}
+                            <span className="text-xs text-red-600 font-medium bg-red-100 px-2 py-0.5 rounded-full">
+                              {branchUsers.length} user
+                              {branchUsers.length > 1 ? "s" : ""}
                             </span>
                           </div>
-                          <span className="text-xs text-red-600 font-medium bg-red-100 px-2 py-0.5 rounded-full">
-                            {branchUsers.length} user{branchUsers.length > 1 ? "s" : ""}
-                          </span>
-                        </div>
 
-                        {/* Action Options */}
-                        <div className="p-3 space-y-2">
-                          {/* Disable Option */}
-                          <label
-                            className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                              action?.action === "disable"
-                                ? "border-red-300 bg-red-50"
-                                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name={`action-${branch.branch_id}`}
-                              checked={action?.action === "disable"}
-                              onChange={() => setBranchAction(branch.branch_id, "disable")}
-                              className="w-4 h-4 text-red-600 focus:ring-red-500"
-                            />
-                            <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                              <UserMinus size={14} className="text-red-600" />
-                            </div>
-                            <div className="flex-1">
-                              <span className="text-sm font-medium text-gray-900">
-                                Disable all users
-                              </span>
-                              <p className="text-xs text-gray-500">
-                                {branchUsers.length} user{branchUsers.length > 1 ? "s" : ""} will
-                                lose access
-                              </p>
-                            </div>
-                          </label>
-
-                          {/* Reassign Option */}
-                          {availableBranchesForReassign.length > 0 && (
-                            <div
-                              className={`rounded-xl border-2 transition-all overflow-visible ${
-                                action?.action === "reassign"
-                                  ? "border-blue-300 bg-blue-50"
-                                  : "border-gray-200"
+                          {/* Action Options */}
+                          <div className="p-3 space-y-2">
+                            {/* Disable Option */}
+                            <label
+                              className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                                action?.action === "disable"
+                                  ? "border-red-300 bg-red-50"
+                                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                               }`}
                             >
-                              <label className="flex items-center gap-3 p-3 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name={`action-${branch.branch_id}`}
-                                  checked={action?.action === "reassign"}
-                                  onChange={() => setBranchAction(branch.branch_id, "reassign")}
-                                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                                />
-                                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                  <ArrowRightLeft size={14} className="text-blue-600" />
-                                </div>
-                                <div className="flex-1">
-                                  <span className="text-sm font-medium text-gray-900">
-                                    Reassign to another branch
-                                  </span>
-                                  <p className="text-xs text-gray-500">
-                                    Move users to keep them active
-                                  </p>
-                                </div>
-                              </label>
-
-                              {action?.action === "reassign" && (
-                                <div className="px-3 pb-3 space-y-3">
-                                  <StyledDropdown
-                                    value={action.targetBranchId || ""}
-                                    onChange={(value) =>
-                                      setBranchAction(branch.branch_id, "reassign", value)
-                                    }
-                                    placeholder="Select target branch..."
-                                    options={availableBranchesForReassign.map((b) => ({
-                                      value: b.branch_id,
-                                      label: b.branch_name,
-                                      isMain: b.is_main,
-                                    }))}
-                                  />
-
-                                  {manuallyDisabledUsers.length > 0 && (
-                                    <div className="flex items-start gap-2 p-2.5 bg-amber-50 rounded-lg border border-amber-200">
-                                      <AlertTriangle
-                                        size={14}
-                                        className="text-amber-600 mt-0.5 flex-shrink-0"
-                                      />
-                                      <div className="text-xs text-amber-700">
-                                        <span className="font-medium">
-                                          {manuallyDisabledUsers.length} user
-                                          {manuallyDisabledUsers.length > 1 ? "s" : ""}
-                                        </span>{" "}
-                                        will be disabled instead
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  <p className="text-xs text-blue-600 flex items-center gap-1.5">
-                                    <Info size={12} />
-                                    Click users in left panel to disable individually
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Affected Users Preview */}
-                        <div className="px-3 pb-3">
-                          <p className="text-xs text-gray-500 mb-2 font-medium">Affected users:</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {branchUsers.slice(0, 4).map((user) => {
-                              const isManuallyDisabled = manuallyDisabledUsers.some(
-                                (u) => u.user_id === user.user_id
-                              );
-                              return (
-                                <span
-                                  key={user.user_id}
-                                  className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                                    isManuallyDisabled
-                                      ? "bg-red-100 text-red-700 line-through"
-                                      : action?.action === "reassign"
-                                      ? "bg-blue-100 text-blue-700"
-                                      : "bg-gray-100 text-gray-600"
-                                  }`}
-                                >
-                                  {user.full_name}
+                              <input
+                                type="radio"
+                                name={`action-${branch.branch_id}`}
+                                checked={action?.action === "disable"}
+                                onChange={() =>
+                                  setBranchAction(branch.branch_id, "disable")
+                                }
+                                className="w-4 h-4 text-red-600 focus:ring-red-500"
+                              />
+                              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                                <UserMinus size={14} className="text-red-600" />
+                              </div>
+                              <div className="flex-1">
+                                <span className="text-sm font-medium text-gray-900">
+                                  Disable all users
                                 </span>
-                              );
-                            })}
-                            {branchUsers.length > 4 && (
-                              <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full font-medium">
-                                +{branchUsers.length - 4} more
-                              </span>
+                                <p className="text-xs text-gray-500">
+                                  {branchUsers.length} user
+                                  {branchUsers.length > 1 ? "s" : ""} will lose
+                                  access
+                                </p>
+                              </div>
+                            </label>
+
+                            {/* Reassign Option */}
+                            {availableBranchesForReassign.length > 0 && (
+                              <div
+                                className={`rounded-xl border-2 transition-all overflow-visible ${
+                                  action?.action === "reassign"
+                                    ? "border-blue-300 bg-blue-50"
+                                    : "border-gray-200"
+                                }`}
+                              >
+                                <label className="flex items-center gap-3 p-3 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name={`action-${branch.branch_id}`}
+                                    checked={action?.action === "reassign"}
+                                    onChange={() =>
+                                      setBranchAction(
+                                        branch.branch_id,
+                                        "reassign"
+                                      )
+                                    }
+                                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <ArrowRightLeft
+                                      size={14}
+                                      className="text-blue-600"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <span className="text-sm font-medium text-gray-900">
+                                      Reassign to another branch
+                                    </span>
+                                    <p className="text-xs text-gray-500">
+                                      Move users to keep them active
+                                    </p>
+                                  </div>
+                                </label>
+
+                                {action?.action === "reassign" && (
+                                  <div className="px-3 pb-3 space-y-3">
+                                    <StyledDropdown
+                                      value={action.targetBranchId || ""}
+                                      onChange={(value) =>
+                                        setBranchAction(
+                                          branch.branch_id,
+                                          "reassign",
+                                          value
+                                        )
+                                      }
+                                      placeholder="Select target branch..."
+                                      options={availableBranchesForReassign.map(
+                                        (b) => ({
+                                          value: b.branch_id,
+                                          label: b.branch_name,
+                                          isMain: b.is_main,
+                                        })
+                                      )}
+                                    />
+
+                                    {manuallyDisabledUsers.length > 0 && (
+                                      <div className="flex items-start gap-2 p-2.5 bg-amber-50 rounded-lg border border-amber-200">
+                                        <AlertTriangle
+                                          size={14}
+                                          className="text-amber-600 mt-0.5 flex-shrink-0"
+                                        />
+                                        <div className="text-xs text-amber-700">
+                                          <span className="font-medium">
+                                            {manuallyDisabledUsers.length} user
+                                            {manuallyDisabledUsers.length > 1
+                                              ? "s"
+                                              : ""}
+                                          </span>{" "}
+                                          will be disabled instead
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    <p className="text-xs text-blue-600 flex items-center gap-1.5">
+                                      <Info size={12} />
+                                      Click users in left panel to disable
+                                      individually
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
+
+                          {/* Affected Users Preview */}
+                          <div className="px-3 pb-3">
+                            <p className="text-xs text-gray-500 mb-2 font-medium">
+                              Affected users:
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {branchUsers.slice(0, 4).map((user) => {
+                                const isManuallyDisabled =
+                                  manuallyDisabledUsers.some(
+                                    (u) => u.user_id === user.user_id
+                                  );
+                                return (
+                                  <span
+                                    key={user.user_id}
+                                    className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                                      isManuallyDisabled
+                                        ? "bg-red-100 text-red-700 line-through"
+                                        : action?.action === "reassign"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-gray-100 text-gray-600"
+                                    }`}
+                                  >
+                                    {user.full_name}
+                                  </span>
+                                );
+                              })}
+                              {branchUsers.length > 4 && (
+                                <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full font-medium">
+                                  +{branchUsers.length - 4} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    }
+                  )}
                 </div>
               )}
             </div>
@@ -1141,8 +1243,12 @@ const ComplianceModal = ({
             {!compliance.overall && (
               <span className="text-sm text-red-600 font-medium">
                 {!compliance.users
-                  ? `Disable ${compliance.activeUsersAfter - compliance.userLimit} more user${
-                      compliance.activeUsersAfter - compliance.userLimit > 1 ? "s" : ""
+                  ? `Disable ${
+                      compliance.activeUsersAfter - compliance.userLimit
+                    } more user${
+                      compliance.activeUsersAfter - compliance.userLimit > 1
+                        ? "s"
+                        : ""
                     }`
                   : !compliance.branches
                   ? "Deactivate more branches"

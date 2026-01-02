@@ -18,8 +18,6 @@ export const validate = (schema, source = "body") => (req, res, next) => {
     const parsed = schema.parse(data);
 
     
-    
-    
     // Store validated data appropriately
     if (source === "body") {
       req.validated = parsed;

@@ -171,7 +171,8 @@ const Sidebar = () => {
   const isExpanded = hovered;
 
   /* ───────────── menu data with permission keys ───────────── */
-  const menuItems = useMemo(() => [
+  // Full menu items including hidden ones (for route handling)
+  const allMenuItems = useMemo(() => [
     // ════════════════════════════════════════════════════════════
     // DASHBOARD
     // ════════════════════════════════════════════════════════════
@@ -312,60 +313,95 @@ const Sidebar = () => {
     // SETTINGS (with submenu)
     // ════════════════════════════════════════════════════════════
     {
-  id: "settings",
-  label: "Settings",
-  icon: Settings,
-  permissionKey: "settings",
-  submenu: [
-    {
-      id: "settings-users",
-      label: "Users",
-      icon: Users,
-      path: "/settings/users",
-      breadcrumbs: ["Settings", "Users"],
-      permissionKey: "settingsUsers",
+      id: "settings",
+      label: "Settings",
+      icon: Settings,
+      permissionKey: "settings",
+      submenu: [
+        {
+          id: "settings-users",
+          label: "Users",
+          icon: Users,
+          path: "/settings/users",
+          breadcrumbs: ["Settings", "Users"],
+          permissionKey: "settingsUsers",
+        },
+        {
+          id: "settings-branches",
+          label: "Branches",
+          icon: Building2,
+          path: "/settings/branches",
+          breadcrumbs: ["Settings", "Branches"],
+          permissionKey: "settingsBranches",
+        },
+        {
+          id: "settings-profile",
+          label: "Profile",
+          icon: UserCircle,
+          path: "/settings/profile",
+          breadcrumbs: ["Settings", "Profile"],
+          permissionKey: "settingsProfile",
+        },
+        
+        {
+          id: "settings-upgrade",
+          label: "Plans",
+          icon: CreditCard,
+          path: "/settings/upgrade",
+          breadcrumbs:  ["Settings", "Profile", "Plans"],
+          permissionKey: "settingsUpgrade",
+          hidden: true, 
+        },
+      ],
     },
-    {
-      id: "settings-branches",
-      label: "Branches",
-      icon: Building2,
-      path: "/settings/branches",
-      breadcrumbs: ["Settings", "Branches"],
-      permissionKey: "settingsBranches",
-    },
-    {
-      id: "settings-profile",
-      label: "Profile",
-      icon: UserCircle,
-      path: "/settings/profile",
-      breadcrumbs: ["Settings", "Profile"],
-      permissionKey: "settingsProfile",
-    },
-    {
-      id: "settings-upgrade",
-      label: "Upgrade Plan",
-      icon: CreditCard,
-      path: "/settings/upgrade",
-      breadcrumbs: ["Settings", "Upgrade Plan"],
-      permissionKey: "settingsUpgrade",
-    },
-  ],
-},
   ], []);
 
-  /* ───────────── Filter menu items based on permissions ───────────── */
-  const accessibleMenuItems = useMemo(() => {
-    return menuItems
+  /* ───────────── Filter menu items for DISPLAY (excludes hidden) ───────────── */
+  const visibleMenuItems = useMemo(() => {
+    return allMenuItems
       .map((item) => {
-        // Handle items with submenu
         if (item.submenu?.length > 0) {
-          const accessibleSubmenu = item.submenu.filter((sub) => {
+          const visibleSubmenu = item.submenu.filter((sub) => {
+            // Exclude hidden items
+            if (sub.hidden) return false;
+            
             const subPermission = permissions[sub.permissionKey];
-            // Show if visible and not disabled
             return subPermission?.visible !== false && !subPermission?.disabled;
           });
 
-          // If no accessible submenu items, hide the parent
+          if (visibleSubmenu.length === 0) {
+            return null;
+          }
+
+          return {
+            ...item,
+            submenu: visibleSubmenu,
+          };
+        }
+
+        // Exclude hidden items
+        if (item.hidden) return false;
+
+        const itemPermission = permissions[item.permissionKey];
+        if (itemPermission?.visible === false || itemPermission?.disabled) {
+          return null;
+        }
+
+        return item;
+      })
+      .filter(Boolean);
+  }, [allMenuItems, permissions]);
+
+  /* ───────────── All accessible items for ROUTING (includes hidden) ───────────── */
+  const allAccessibleItems = useMemo(() => {
+    return allMenuItems
+      .map((item) => {
+        if (item.submenu?.length > 0) {
+          const accessibleSubmenu = item.submenu.filter((sub) => {
+            const subPermission = permissions[sub.permissionKey];
+            return subPermission?.visible !== false && !subPermission?.disabled;
+          });
+
           if (accessibleSubmenu.length === 0) {
             return null;
           }
@@ -376,10 +412,7 @@ const Sidebar = () => {
           };
         }
 
-        // Handle single items
         const itemPermission = permissions[item.permissionKey];
-
-        // Hide if not visible or disabled
         if (itemPermission?.visible === false || itemPermission?.disabled) {
           return null;
         }
@@ -387,7 +420,7 @@ const Sidebar = () => {
         return item;
       })
       .filter(Boolean);
-  }, [menuItems, permissions]);
+  }, [allMenuItems, permissions]);
 
   /* ───────────── navigation handler ───────────── */
   const handleNavigation = useCallback(
@@ -409,10 +442,11 @@ const Sidebar = () => {
   }, []);
 
   /* 1️⃣ ROUTE → SIDEBAR SYNC + AUTO-OPEN PARENT */
+  // Uses allAccessibleItems to handle hidden routes too
   useEffect(() => {
     const currentPath = location.pathname;
 
-    for (const item of accessibleMenuItems) {
+    for (const item of allAccessibleItems) {
       if (item.path === currentPath) {
         setActiveMenu(item.id);
         setBreadcrumbs(item.breadcrumbs);
@@ -429,7 +463,7 @@ const Sidebar = () => {
         }
       }
     }
-  }, [location.pathname, accessibleMenuItems, setActiveMenu, setBreadcrumbs]);
+  }, [location.pathname, allAccessibleItems, setActiveMenu, setBreadcrumbs]);
 
   /* 2️⃣ AUTO-OPEN PARENT WHEN CHILD ACTIVE */
   useEffect(() => {
@@ -437,26 +471,26 @@ const Sidebar = () => {
       return;
     }
 
-    const parent = accessibleMenuItems.find((m) =>
+    const parent = allAccessibleItems.find((m) =>
       m.submenu?.some((s) => s.id === activeMenu)
     );
 
     if (parent && openMenuId !== parent.id) {
       setOpenMenuId(parent.id);
     }
-  }, [activeMenu, accessibleMenuItems, openMenuId]);
+  }, [activeMenu, allAccessibleItems, openMenuId]);
 
   /* 3️⃣ DASHBOARD FALLBACK */
   useEffect(() => {
     const isValid =
-      accessibleMenuItems.some((m) => m.id === activeMenu) ||
-      accessibleMenuItems.some((m) =>
+      allAccessibleItems.some((m) => m.id === activeMenu) ||
+      allAccessibleItems.some((m) =>
         m.submenu?.some((s) => s.id === activeMenu)
       );
 
-    if (!isValid && accessibleMenuItems.length > 0) {
-      const dashboard = accessibleMenuItems.find((m) => m.id === "dashboard");
-      const fallbackItem = dashboard || accessibleMenuItems[0];
+    if (!isValid && allAccessibleItems.length > 0) {
+      const dashboard = allAccessibleItems.find((m) => m.id === "dashboard");
+      const fallbackItem = dashboard || allAccessibleItems[0];
 
       if (fallbackItem) {
         if (fallbackItem.submenu?.length > 0) {
@@ -471,7 +505,7 @@ const Sidebar = () => {
         }
       }
     }
-  }, [activeMenu, accessibleMenuItems, navigate, setActiveMenu, setBreadcrumbs]);
+  }, [activeMenu, allAccessibleItems, navigate, setActiveMenu, setBreadcrumbs]);
 
   return (
     <motion.aside
@@ -482,7 +516,8 @@ const Sidebar = () => {
       transition={SIDEBAR_TRANSITION}
     >
       <nav className="pt-6 px-2 flex flex-col gap-2">
-        {accessibleMenuItems.map((item) => (
+        {/* Only render visible menu items */}
+        {visibleMenuItems.map((item) => (
           <MenuItem
             key={item.id}
             item={item}

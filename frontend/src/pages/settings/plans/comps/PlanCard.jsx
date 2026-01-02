@@ -7,12 +7,11 @@ import {
   Building2,
   Check,
   Sparkles,
-  TrendingUp,
-  TrendingDown,
+  ArrowRight,
   Loader2,
 } from "lucide-react";
 import { formatPrice, getCardTheme, generateFeatures, BILLING } from "../../../../config/planConfig";
-import { analyzePlanChange, getPlanActionText } from "../../../../utils/planChangeUtils";
+import { analyzePlanChange } from "../../../../utils/planChangeUtils";
 
 /**
  * PlanCard
@@ -42,7 +41,7 @@ const PlanCard = ({ plan, currentPlan, usage, onSelect, disabled }) => {
   const isCurrent = analysis.isCurrent;
   const direction = analysis.direction;
   
-  // Button text and style
+  // Button text and style - neutral for all non-current plans
   const getButtonConfig = () => {
     if (isCurrent) {
       return {
@@ -54,31 +53,21 @@ const PlanCard = ({ plan, currentPlan, usage, onSelect, disabled }) => {
     
     if (direction === "upgrade") {
       return {
-        text: "Upgrade",
+        text: "Upgrade Plan",
         className: "bg-emerald-600 hover:bg-emerald-700 text-white",
-        icon: TrendingUp,
         disabled: false,
       };
     }
     
-    if (direction === "downgrade") {
-      return {
-        text: "Downgrade",
-        className: "bg-orange-500 hover:bg-orange-600 text-white",
-        icon: TrendingDown,
-        disabled: false,
-      };
-    }
-    
+    // Neutral text for downgrade - doesn't indicate it's a downgrade
     return {
-      text: "Select Plan",
+      text: "Choose Plan",
       className: theme.buttonBg,
       disabled: false,
     };
   };
   
   const buttonConfig = getButtonConfig();
-  const ButtonIcon = buttonConfig.icon;
   
   const handleClick = () => {
     if (buttonConfig.disabled || disabled) return;
@@ -197,10 +186,10 @@ const PlanCard = ({ plan, currentPlan, usage, onSelect, disabled }) => {
           >
             {disabled ? (
               <Loader2 size={16} className="animate-spin" />
-            ) : ButtonIcon ? (
+            ) : !isCurrent ? (
               <>
-                <ButtonIcon size={16} />
                 {buttonConfig.text}
+                <ArrowRight size={16} />
               </>
             ) : (
               buttonConfig.text
@@ -208,21 +197,6 @@ const PlanCard = ({ plan, currentPlan, usage, onSelect, disabled }) => {
           </button>
         </div>
       </div>
-      
-      {/* Direction indicator for non-current plans */}
-      {!isCurrent && direction !== "no_change" && (
-        <div className={`absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center ${
-          direction === "upgrade" 
-            ? "bg-emerald-100 text-emerald-600" 
-            : "bg-orange-100 text-orange-600"
-        }`}>
-          {direction === "upgrade" ? (
-            <TrendingUp size={16} />
-          ) : (
-            <TrendingDown size={16} />
-          )}
-        </div>
-      )}
     </motion.div>
   );
 };
