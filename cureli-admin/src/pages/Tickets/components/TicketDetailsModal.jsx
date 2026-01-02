@@ -24,7 +24,8 @@ import {
 import { updateTicketStatus } from "../../../api/cadminTickets";
 import { format } from "date-fns";
 
-const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
+// ✅ Add `loading` to props
+const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => {
   const [activeTab, setActiveTab] = useState("details");
   const [updating, setUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState("");
@@ -58,7 +59,27 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
     };
   }, [isOpen]);
 
-  if (!isOpen || !ticket) return null;
+  // ✅ Early return if not open
+  if (!isOpen) return null;
+
+  // ✅ Show loading state while fetching ticket details
+  if (loading || !ticket) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+        <div
+          className="relative bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Loader2 size={40} className="animate-spin text-[#05015A]" />
+          <p className="text-gray-600">Loading ticket details...</p>
+        </div>
+      </div>
+    );
+  }
 
   const getAttachmentUrl = (storageKey) => {
     return `${import.meta.env.VITE_API_URL}/uploads/${storageKey}`;
@@ -88,6 +109,12 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
       text: "text-gray-300",
       label: "Closed",
       dot: "bg-gray-500",
+    },
+    CANCELLED: {
+      bg: "bg-red-500/20",
+      text: "text-red-300",
+      label: "Cancelled",
+      dot: "bg-red-500",
     },
   };
 
@@ -318,6 +345,40 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
                 </div>
               )}
 
+              {/* ✅ Cancellation Alert */}
+              {ticket.status === "CANCELLED" && ticket.cancellation_reason && (
+                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                      <X size={20} className="text-red-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-red-900 mb-2">Ticket Cancelled</h3>
+                      <div className="bg-white/50 rounded-lg p-3 mb-3">
+                        <p className="text-xs font-semibold text-red-700 uppercase tracking-wider mb-1">
+                          Cancellation Reason
+                        </p>
+                        <p className="text-sm text-red-900 whitespace-pre-wrap">
+                          {ticket.cancellation_reason}
+                        </p>
+                      </div>
+                      {ticket.cancelled_at && (
+                        <div className="flex items-center gap-4 text-xs text-red-700">
+                          <span className="flex items-center gap-1">
+                            <User size={12} />
+                            {ticket.cancelled_by_name || "Unknown"}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            {formatDate(ticket.cancelled_at)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Info Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Shop Info Card */}
@@ -493,11 +554,13 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, onRefresh }) => {
                                  focus:ring-[#05015A]/20 focus:border-[#05015A] transition-all cursor-pointer"
                     >
                       <option value="">Select new status...</option>
-                      {Object.entries(statusConfig).map(([value, config]) => (
-                        <option key={value} value={value}>
-                          {config.label}
-                        </option>
-                      ))}
+                      {Object.entries(statusConfig)
+                        .filter(([key]) => key !== "CANCELLED") // CAdmin cannot set CANCELLED
+                        .map(([value, config]) => (
+                          <option key={value} value={value}>
+                            {config.label}
+                          </option>
+                        ))}
                     </select>
                   </div>
 
@@ -596,6 +659,7 @@ const InfoRow = ({ label, value, icon }) => (
 
 // Attachment Card Component
 const AttachmentCard = ({ attachment, getUrl }) => {
+  const [imageError, setImageError] = useState(false);
   const isImage = attachment.mime_type?.startsWith("image/");
   const url = getUrl(attachment.storage_key);
 
@@ -607,12 +671,13 @@ const AttachmentCard = ({ attachment, getUrl }) => {
         rel="noopener noreferrer"
         className="block"
       >
-        {isImage ? (
+        {isImage && !imageError ? (
           <div className="h-32 bg-gray-100 overflow-hidden">
             <img
               src={url}
               alt={attachment.original_name}
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              onError={() => setImageError(true)}
             />
           </div>
         ) : (

@@ -1,15 +1,7 @@
 // backend/src/modules/tickets/tickets.controller.js
 
 import { success, fail } from "../../utils/response.js";
-import {
-  createTicket,
-  getTickets,
-  getTicketById,
-  cancelTicket,
-  reopenTicket,
-  getTicketStats,
-  canAccessTicket,
-} from "./tickets.service.js";
+import * as svc from "./tickets.service.js";
 
 /**
  * POST /api/tickets
@@ -17,7 +9,16 @@ import {
  */
 export async function createTicketController(req, res) {
   try {
-    const { shop_id, branch_id, user_id, role } = req.user;
+    const { shop_id, branch_id: userBranchId, user_id, role } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    if (role !== "super_admin" && role !== "branch_admin") {
+      return fail(res, "You do not have permission to create tickets", 403);
+    }
+
     const {
       contact_number,
       category,
@@ -25,28 +26,14 @@ export async function createTicketController(req, res) {
       description,
       other_category_text,
       preferred_slot,
-    } = req.body; // ✅ Changed from req.validated to req.body for multipart/form-data
+      branch_id,
+    } = req.body;
 
-    // ✅ Get uploaded files from multer
     const files = req.files || [];
 
-    console.log(`📝 Creating ticket with ${files.length} attachments`);
-
-    if (!shop_id) {
-      return fail(res, "Shop not found", 400);
-    }
-
-    // Only super_admin and branch_admin can create tickets
-    if (role !== "super_admin" && role !== "branch_admin") {
-      return fail(res, "You do not have permission to create tickets", 403);
-    }
-
-    // ✅ Use branch_id from body OR user (can be null)
-    const finalBranchId = req.body.branch_id || branch_id || null;
-
-    const ticket = await createTicket({
+    const ticket = await svc.createTicket({
       shop_id,
-      branch_id: finalBranchId,
+      branch_id: branch_id || userBranchId || null,
       user_id,
       contact_number,
       category,
@@ -54,7 +41,7 @@ export async function createTicketController(req, res) {
       description,
       other_category_text,
       preferred_slot,
-      files, // ✅ Pass files to service
+      files,
     });
 
     return success(res, { ticket }, "Ticket created successfully", 201);
@@ -75,48 +62,40 @@ export async function createTicketController(req, res) {
  */
 export async function getTicketsController(req, res) {
   try {
-    const { shop_id, role: requester_role, branch_id: requester_branch_id } = req.user;
-    const {
-      status,
-      category,
-      branch_id,
-      search,
-      date_from,
-      date_to,
-      page = 1,
-      limit = 10,
-      sort_by = "created_at",
-      sort_order = "desc",
-    } = req.query;
+    const { shop_id, role, branch_id: requesterBranchId } = req.user;
+
+    // ✅ Debug logging
+    console.log("=== GET TICKETS DEBUG ===");
+    console.log("shop_id:", shop_id);
+    console.log("role:", role);
+    console.log("requesterBranchId:", requesterBranchId);
+    console.log("query params:", req.query);
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
     }
 
-    // Only super_admin and branch_admin can view tickets
-    if (requester_role !== "super_admin" && requester_role !== "branch_admin") {
+    if (role !== "super_admin" && role !== "branch_admin") {
       return fail(res, "You do not have permission to view tickets", 403);
     }
 
-    const result = await getTickets({
+    const result = await svc.getTickets({
       shop_id,
-      branch_id,
-      status,
-      category,
-      search,
-      date_from,
-      date_to,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      sort_by,
-      sort_order,
-      requester_role,
-      requester_branch_id,
+      requester_role: role,
+      requester_branch_id: requesterBranchId,
+      ...req.query,
     });
+
+    console.log("=== RESULT ===");
+    console.log("tickets count:", result.tickets?.length);
+    console.log("pagination:", result.pagination);
 
     return success(res, result);
   } catch (err) {
-    console.error("getTicketsController error:", err);
+    // ✅ Better error logging
+    console.error("=== GET TICKETS ERROR ===");
+    console.error("Error message:", err.message);
+    console.error("Error stack:", err.stack);
     return fail(res, "Failed to fetch tickets", 500);
   }
 }
@@ -127,18 +106,17 @@ export async function getTicketsController(req, res) {
  */
 export async function getTicketStatsController(req, res) {
   try {
-    const { shop_id, role: requester_role, branch_id: requester_branch_id } = req.user;
+    const { shop_id, role, branch_id } = req.user;
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
     }
 
-    // Only super_admin and branch_admin can view stats
-    if (requester_role !== "super_admin" && requester_role !== "branch_admin") {
+    if (role !== "super_admin" && role !== "branch_admin") {
       return fail(res, "You do not have permission to view ticket stats", 403);
     }
 
-    const stats = await getTicketStats(shop_id, requester_role, requester_branch_id);
+    const stats = await svc.getTicketStats(shop_id, role, branch_id);
 
     return success(res, { stats });
   } catch (err) {
@@ -154,30 +132,23 @@ export async function getTicketStatsController(req, res) {
 export async function getTicketController(req, res) {
   try {
     const { ticket_id } = req.params;
-    const { shop_id, role: requester_role, branch_id: requester_branch_id } = req.user;
+    const { shop_id, role, branch_id } = req.user;
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
     }
 
-    // Only super_admin and branch_admin can view tickets
-    if (requester_role !== "super_admin" && requester_role !== "branch_admin") {
+    if (role !== "super_admin" && role !== "branch_admin") {
       return fail(res, "You do not have permission to view tickets", 403);
     }
 
-    // Check access
-    const hasAccess = await canAccessTicket(
-      ticket_id,
-      shop_id,
-      requester_role,
-      requester_branch_id
-    );
+    const hasAccess = await svc.canAccessTicket(ticket_id, shop_id, role, branch_id);
 
     if (!hasAccess) {
       return fail(res, "Ticket not found or access denied", 404);
     }
 
-    const ticket = await getTicketById(ticket_id, shop_id);
+    const ticket = await svc.getTicketById(ticket_id, shop_id);
 
     if (!ticket) {
       return fail(res, "Ticket not found", 404);
@@ -197,35 +168,28 @@ export async function getTicketController(req, res) {
 export async function cancelTicketController(req, res) {
   try {
     const { ticket_id } = req.params;
-    const { shop_id, user_id, role: requester_role, branch_id: requester_branch_id } = req.user;
+    const { shop_id, user_id, role, branch_id } = req.user;
     const { reason } = req.body;
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
     }
 
-    if (!reason) {
-      return fail(res, "Cancellation reason is required", 400);
+    if (!reason || reason.trim().length < 10) {
+      return fail(res, "Cancellation reason must be at least 10 characters", 400);
     }
 
-    // Only super_admin and branch_admin can cancel tickets
-    if (requester_role !== "super_admin" && requester_role !== "branch_admin") {
+    if (role !== "super_admin" && role !== "branch_admin") {
       return fail(res, "You do not have permission to cancel tickets", 403);
     }
 
-    // Check access
-    const hasAccess = await canAccessTicket(
-      ticket_id,
-      shop_id,
-      requester_role,
-      requester_branch_id
-    );
+    const hasAccess = await svc.canAccessTicket(ticket_id, shop_id, role, branch_id);
 
     if (!hasAccess) {
       return fail(res, "Ticket not found or access denied", 404);
     }
 
-    const ticket = await cancelTicket(ticket_id, shop_id, user_id, reason);
+    const ticket = await svc.cancelTicket(ticket_id, shop_id, user_id, reason.trim());
 
     return success(res, { ticket }, "Ticket cancelled successfully");
   } catch (err) {
@@ -234,10 +198,7 @@ export async function cancelTicketController(req, res) {
     if (err.code === "TICKET_NOT_FOUND") {
       return fail(res, err.message, 404);
     }
-    if (err.code === "ALREADY_CANCELLED") {
-      return fail(res, err.message, 400);
-    }
-    if (err.code === "INVALID_STATUS_TRANSITION") {
+    if (err.code === "ALREADY_CANCELLED" || err.code === "INVALID_STATUS_TRANSITION") {
       return fail(res, err.message, 400);
     }
 
@@ -245,41 +206,35 @@ export async function cancelTicketController(req, res) {
   }
 }
 
-/* POST /api/tickets/:ticket_id/reopen
+/**
+ * POST /api/tickets/:ticket_id/reopen
  * Reopen a resolved or closed ticket
  */
 export async function reopenTicketController(req, res) {
   try {
     const { ticket_id } = req.params;
-    const { shop_id, user_id, role: requester_role, branch_id: requester_branch_id } = req.user;
+    const { shop_id, user_id, role, branch_id } = req.user;
     const { reason } = req.body;
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
     }
 
-    if (!reason) {
-      return fail(res, "Reopen reason is required", 400);
+    if (!reason || reason.trim().length < 10) {
+      return fail(res, "Reopen reason must be at least 10 characters", 400);
     }
 
-    // Only super_admin and branch_admin can reopen tickets
-    if (requester_role !== "super_admin" && requester_role !== "branch_admin") {
+    if (role !== "super_admin" && role !== "branch_admin") {
       return fail(res, "You do not have permission to reopen tickets", 403);
     }
 
-    // Check access
-    const hasAccess = await canAccessTicket(
-      ticket_id,
-      shop_id,
-      requester_role,
-      requester_branch_id
-    );
+    const hasAccess = await svc.canAccessTicket(ticket_id, shop_id, role, branch_id);
 
     if (!hasAccess) {
       return fail(res, "Ticket not found or access denied", 404);
     }
 
-    const ticket = await reopenTicket(ticket_id, shop_id, user_id, reason);
+    const ticket = await svc.reopenTicket(ticket_id, shop_id, user_id, reason.trim());
 
     return success(res, { ticket }, "Ticket reopened successfully");
   } catch (err) {
@@ -288,10 +243,7 @@ export async function reopenTicketController(req, res) {
     if (err.code === "TICKET_NOT_FOUND") {
       return fail(res, err.message, 404);
     }
-    if (err.code === "INVALID_STATUS_FOR_REOPEN") {
-      return fail(res, err.message, 400);
-    }
-    if (err.code === "CANNOT_REOPEN_CANCELLED") {
+    if (err.code === "INVALID_STATUS_FOR_REOPEN" || err.code === "CANNOT_REOPEN_CANCELLED") {
       return fail(res, err.message, 400);
     }
 

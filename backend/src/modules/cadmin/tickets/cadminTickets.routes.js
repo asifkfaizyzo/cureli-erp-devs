@@ -2,20 +2,18 @@
 
 import { Router } from "express";
 import { validateBody, validateQuery } from "../../../middleware/validate.js";
-import {requireCAdmin} from "../../../middleware/requireCAdmin.js";
+import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
 
 import {
   getAllTicketsController,
   getTicketStatsController,
   getTicketByIdController,
   updateTicketStatusController,
-  addAdminNoteController,
 } from "./cadminTickets.controller.js";
 
 import {
   getTicketsQuerySchema,
   updateTicketStatusSchema,
-  addAdminNoteSchema,
 } from "./cadminTickets.schema.js";
 
 const router = Router();
@@ -49,16 +47,6 @@ router.patch(
   "/:ticket_id/status",
   validateBody(updateTicketStatusSchema),
   updateTicketStatusController
-);
-
-/**
- * POST /cadmin/tickets/:ticket_id/notes
- * Add admin note to ticket
- */
-router.post(
-  "/:ticket_id/notes",
-  validateBody(addAdminNoteSchema),
-  addAdminNoteController
 );
 
 export default router;

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   X,
+  CircleOff,
   Download,
   Phone,
   User,
@@ -12,21 +13,15 @@ import {
   MessageSquare,
   RotateCcw,
   Calendar,
-  Tag,
   FileText,
   ExternalLink,
   Info,
-  AlertTriangle,
   History,
+  ImageOff,
 } from "lucide-react";
 import { format } from "date-fns";
 import ReopenTicketModal from "./ReopenTicketModal";
-import {
-  STATUS_COLORS,
-  CATEGORY_COLORS,
-  TICKET_STATUSES,
-  TICKET_CATEGORIES,
-} from "../../../constant/tickets";
+import { TICKET_CATEGORIES, CATEGORY_COLORS } from "../../../constant/tickets";
 
 const ViewTicketModal = ({
   isOpen,
@@ -34,7 +29,6 @@ const ViewTicketModal = ({
   ticket,
   onCancelClick,
   onReopenClick,
-  onRefresh,
 }) => {
   const [activeTab, setActiveTab] = useState("details");
   const [showReopenModal, setShowReopenModal] = useState(false);
@@ -61,11 +55,10 @@ const ViewTicketModal = ({
       document.removeEventListener("keydown", handleEsc);
       document.body.style.overflow = "unset";
     };
-  }, [isOpen, showReopenModal]);
+  }, [isOpen, showReopenModal, onClose]);
 
   if (!isOpen || !ticket) return null;
 
-  // Get attachment URL
   const getAttachmentUrl = (storageKey) => {
     const baseURL = import.meta.env.VITE_API_URL;
     return `${baseURL}/uploads/${storageKey}`;
@@ -80,71 +73,57 @@ const ViewTicketModal = ({
     }
   };
 
-  // Status config for header badge
   const statusConfig = {
-    PENDING: { bg: "bg-yellow-500/20", text: "text-yellow-300", label: "Pending" },
-    IN_PROGRESS: { bg: "bg-blue-500/20", text: "text-blue-300", label: "In Progress" },
-    RESOLVED: { bg: "bg-emerald-500/20", text: "text-emerald-300", label: "Resolved" },
+    PENDING: {
+      bg: "bg-yellow-500/20",
+      text: "text-yellow-300",
+      label: "Pending",
+    },
+    IN_PROGRESS: {
+      bg: "bg-blue-500/20",
+      text: "text-blue-300",
+      label: "In Progress",
+    },
+    RESOLVED: {
+      bg: "bg-emerald-500/20",
+      text: "text-emerald-300",
+      label: "Resolved",
+    },
     CLOSED: { bg: "bg-gray-500/20", text: "text-gray-300", label: "Closed" },
-    CANCELLED: { bg: "bg-red-500/20", text: "text-red-300", label: "Cancelled" },
+    CANCELLED: {
+      bg: "bg-red-500/20",
+      text: "text-red-300",
+      label: "Cancelled",
+    },
   };
 
-  const currentStatus = statusConfig[ticket.status] || statusConfig.PENDING;
-
-  const canCancel = ticket.status === "PENDING" || ticket.status === "IN_PROGRESS";
+  const canCancel =
+    ticket.status === "PENDING" || ticket.status === "IN_PROGRESS";
   const canReopen = ticket.status === "RESOLVED" || ticket.status === "CLOSED";
 
-  // Tabs configuration
   const tabs = [
-    { id: "details", label: "Ticket Details", icon: Info },
+    { id: "details", label: "Details", icon: Info },
     {
       id: "attachments",
-      label: "Attachments",
+      label: "Files",
       icon: Paperclip,
       count: ticket.attachments?.length || 0,
     },
     { id: "timeline", label: "Timeline", icon: History },
   ];
 
-  const handleReopenClick = () => {
-    setShowReopenModal(true);
-  };
-
   const handleReopenConfirm = async (reason) => {
     await onReopenClick(ticket, reason);
     setShowReopenModal(false);
   };
 
-  const handleClose = () => {
-    onClose();
-  };
-
-  // Get status badge for header
   const getStatusBadge = (status) => {
     const config = statusConfig[status] || statusConfig.PENDING;
     return (
       <span
-        className={`px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
+        className={`px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
       >
         {config.label}
-      </span>
-    );
-  };
-
-  // Category Badge Component
-  const CategoryBadge = ({ category, otherText }) => {
-    const colors = CATEGORY_COLORS[category] || CATEGORY_COLORS.OTHER;
-    const label =
-      category === "OTHER" && otherText
-        ? otherText
-        : TICKET_CATEGORIES[category] || category;
-
-    return (
-      <span
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium 
-                    ${colors.bg} ${colors.text} border ${colors.border}`}
-      >
-        {label}
       </span>
     );
   };
@@ -153,21 +132,21 @@ const ViewTicketModal = ({
     <>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        onClick={handleClose}
+        onClick={onClose}
       >
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
+        {/* ✅ HORIZONTAL LAYOUT - Max width increased, fixed height */}
         <div
-          className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+          className="relative w-full max-w-6xl h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* HEADER */}
-          <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4">
+          {/* HEADER - Compact */}
+          <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-3 flex-shrink-0">
             <div className="flex items-center justify-between">
-              {/* Ticket Info */}
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                  <FileText className="text-white" size={24} />
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                  <FileText className="text-white" size={20} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -176,54 +155,31 @@ const ViewTicketModal = ({
                     </h2>
                     {getStatusBadge(ticket.status)}
                   </div>
-                  <div className="flex items-center gap-2 text-white/70 text-sm">
-                    <Calendar size={14} />
+                  <div className="flex items-center gap-2 text-white/70 text-xs">
+                    <Calendar size={12} />
                     <span>{formatDate(ticket.created_at)}</span>
                     <span className="text-white/40">•</span>
-                    <span>{TICKET_CATEGORIES[ticket.category] || ticket.category}</span>
+                    <span>
+                      {TICKET_CATEGORIES[ticket.category] || ticket.category}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Header Actions */}
               <div className="flex items-center gap-2">
-                {canReopen && (
-                  <button
-                    onClick={handleReopenClick}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium 
-                               bg-orange-500 text-white hover:bg-orange-600 transition-all"
-                  >
-                    <RotateCcw size={16} />
-                    Reopen
-                  </button>
-                )}
-
-                {canCancel && (
-                  <button
-                    onClick={() => {
-                      onClose();
-                      onCancelClick(ticket);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium 
-                               bg-red-500/80 text-white hover:bg-red-600 transition-all"
-                  >
-                    <X size={16} />
-                    Cancel
-                  </button>
-                )}
-
+              
                 <button
-                  onClick={handleClose}
-                  className="p-2 rounded-lg bg-white/20 text-white hover:bg-red-500/30 transition-all"
+                  onClick={onClose}
+                  className="p-1.5 rounded-lg bg-white/20 text-white hover:bg-red-500/30 transition-all"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
             </div>
           </div>
 
-          {/* TABS */}
-          <div className="flex gap-1 px-6 bg-white border-b border-gray-200 overflow-x-auto">
+          {/* TABS - Compact */}
+          <div className="flex gap-1 px-6 py-2 bg-gray-50 border-b border-gray-200 flex-shrink-0">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -231,16 +187,14 @@ const ViewTicketModal = ({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-md transition-all whitespace-nowrap
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-all
                     ${
                       isActive
-                        ? "text-[#05015A] border-b-2 border-[#05015A] bg-white"
-                        : "text-gray-500 hover:text-gray-700"
-                    }
-                  `}
+                        ? "bg-white text-[#05015A] shadow-sm"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+                    }`}
                 >
-                  <Icon size={16} />
+                  <Icon size={14} />
                   {tab.label}
                   {tab.count !== undefined && tab.count > 0 && (
                     <span className="bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">
@@ -252,183 +206,177 @@ const ViewTicketModal = ({
             })}
           </div>
 
-          {/* CONTENT */}
-          <div className="p-6 h-[60vh] overflow-auto bg-gray-50">
-            {/* Details Tab */}
+          {/* CONTENT - Flex grow with overflow */}
+          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+            {/* =============== DETAILS TAB - HORIZONTAL LAYOUT =============== */}
             {activeTab === "details" && (
-              <div className="space-y-6">
-                {/* Subject & Category Card */}
-                <div className="bg-white rounded-xl border border-gray-100 p-6">
-                  <div className="flex items-start justify-between gap-4 mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
-                        <MessageSquare size={20} className="text-[#05015A]" />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+                {/* Left Column - Ticket Content */}
+                <div className="lg:col-span-2 space-y-4">
+                  {/* Subject & Description Card */}
+                  <div className="bg-white rounded-xl border border-gray-100 p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
+                        <MessageSquare size={16} className="text-[#05015A]" />
                       </div>
-                      <h3 className="font-semibold text-gray-900">Ticket Content</h3>
+                      <h3 className="font-semibold text-gray-900">
+                        Ticket Content
+                      </h3>
+                      <CategoryBadge
+                        category={ticket.category}
+                        otherText={ticket.other_category_text}
+                      />
                     </div>
-                    <CategoryBadge
-                      category={ticket.category}
-                      otherText={ticket.other_category_text}
-                    />
-                  </div>
 
-                  <div className="space-y-4">
-                    {/* Subject */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                        Subject
-                      </label>
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm font-medium text-gray-900">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                          Subject
+                        </label>
+                        <p className="text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 rounded-lg p-3">
                           {ticket.subject}
                         </p>
                       </div>
-                    </div>
 
-                    {/* Description */}
-                    {ticket.description && (
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                          Description
-                        </label>
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                      {ticket.description && (
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                            Description
+                          </label>
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-32 overflow-auto">
                             {ticket.description}
                           </p>
                         </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Admin Notes */}
+                  {ticket.admin_notes && (
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MessageSquare size={14} className="text-indigo-600" />
+                        <h3 className="font-semibold text-indigo-900 text-sm">
+                          Admin Notes
+                        </h3>
+                      </div>
+                      <p className="text-sm text-indigo-800 whitespace-pre-wrap leading-relaxed">
+                        {ticket.admin_notes}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Status Cards - Cancellation/Reopen */}
+                  {ticket.status === "CANCELLED" &&
+                    ticket.cancellation_reason && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                        <div className="flex items-start gap-3">
+                          <X
+                            size={18}
+                            className="text-red-600 flex-shrink-0 mt-0.5"
+                          />
+                          <div>
+                            <h4 className="text-sm font-semibold text-red-900 mb-1">
+                              Ticket Cancelled
+                            </h4>
+                            <p className="text-sm text-red-700 mb-1">
+                              {ticket.cancellation_reason}
+                            </p>
+                            <p className="text-xs text-red-600">
+                              By {ticket.cancelled_by_name || "Unknown"} •{" "}
+                              {formatDate(ticket.cancelled_at)}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )}
-                  </div>
+
+                  {ticket.reopen_count > 0 && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                      <div className="flex items-start gap-3">
+                        <RotateCcw
+                          size={18}
+                          className="text-orange-600 flex-shrink-0 mt-0.5"
+                        />
+                        <div>
+                          <h4 className="text-sm font-semibold text-orange-900 mb-1">
+                            Reopened ({ticket.reopen_count}{" "}
+                            {ticket.reopen_count === 1 ? "time" : "times"})
+                          </h4>
+                          {ticket.reopen_reason && (
+                            <p className="text-sm text-orange-800 mb-1">
+                              {ticket.reopen_reason}
+                            </p>
+                          )}
+                          {ticket.reopened_at && (
+                            <p className="text-xs text-orange-600">
+                              By {ticket.reopened_by_name || "Unknown"} •{" "}
+                              {formatDate(ticket.reopened_at)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Admin Notes */}
-                {ticket.admin_notes && (
-                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                        <MessageSquare size={16} className="text-indigo-600" />
-                      </div>
-                      <h3 className="font-semibold text-indigo-900">Admin Notes</h3>
-                    </div>
-                    <p className="text-sm text-indigo-800 whitespace-pre-wrap leading-relaxed pl-11">
-                      {ticket.admin_notes}
-                    </p>
+                {/* Right Column - Info Cards */}
+                <div className="space-y-4">
+                  <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-4">
+                    <h3 className="font-semibold text-gray-900 text-sm border-b pb-2">
+                      Ticket Information
+                    </h3>
+
+                    <InfoRow
+                      icon={<Phone size={16} />}
+                      label="Contact"
+                      value={ticket.contact_number || "N/A"}
+                    />
+                    <InfoRow
+                      icon={<Clock size={16} />}
+                      label="Preferred Time"
+                      value={ticket.preferred_slot || "N/A"}
+                    />
+                    <InfoRow
+                      icon={<Building2 size={16} />}
+                      label="Branch"
+                      value={ticket.branch_name || "Main Branch"}
+                    />
+                    <InfoRow
+                      icon={<User size={16} />}
+                      label="Created By"
+                      value={ticket.created_by_name || "Unknown"}
+                    />
+                    <InfoRow
+                      icon={<Calendar size={16} />}
+                      label="Created At"
+                      value={formatDate(ticket.created_at)}
+                    />
                   </div>
-                )}
-
-                {/* Info Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Contact Number */}
-                  <InfoCard
-                    icon={<Phone size={20} />}
-                    iconBg="bg-blue-100"
-                    iconColor="text-blue-600"
-                    label="Contact Number"
-                    value={ticket.contact_number || "N/A"}
-                  />
-
-                  {/* Preferred Time */}
-                  <InfoCard
-                    icon={<Clock size={20} />}
-                    iconBg="bg-purple-100"
-                    iconColor="text-purple-600"
-                    label="Preferred Time"
-                    value={ticket.preferred_slot || "N/A"}
-                  />
-
-                  {/* Branch */}
-                  <InfoCard
-                    icon={<Building2 size={20} />}
-                    iconBg="bg-green-100"
-                    iconColor="text-green-600"
-                    label="Branch"
-                    value={ticket.branch_name || "N/A"}
-                  />
-
-                  {/* Created By */}
-                  <InfoCard
-                    icon={<User size={20} />}
-                    iconBg="bg-indigo-100"
-                    iconColor="text-indigo-600"
-                    label="Created By"
-                    value={ticket.created_by_name || "N/A"}
-                  />
                 </div>
-
-                {/* Cancellation Info */}
-                {ticket.status === "CANCELLED" && ticket.cancellation_reason && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                        <X size={20} className="text-red-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-red-900 mb-2">
-                          Ticket Cancelled
-                        </h4>
-                        <p className="text-sm text-red-700 mb-2">
-                          {ticket.cancellation_reason}
-                        </p>
-                        <p className="text-xs text-red-600">
-                          By {ticket.cancelled_by_name || "Unknown"} •{" "}
-                          {formatDate(ticket.cancelled_at)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Reopen Info */}
-                {ticket.reopen_count > 0 && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                        <RotateCcw size={20} className="text-orange-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-orange-900 mb-2">
-                          Ticket Reopened ({ticket.reopen_count}{" "}
-                          {ticket.reopen_count === 1 ? "time" : "times"})
-                        </h4>
-                        {ticket.reopen_reason && (
-                          <p className="text-sm text-orange-800 mb-2">
-                            {ticket.reopen_reason}
-                          </p>
-                        )}
-                        {ticket.reopened_at && (
-                          <p className="text-xs text-orange-600">
-                            By {ticket.reopened_by_name || "Unknown"} •{" "}
-                            {formatDate(ticket.reopened_at)}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
-            {/* Attachments Tab */}
+            {/* =============== ATTACHMENTS TAB =============== */}
             {activeTab === "attachments" && (
               <div className="space-y-4">
-                {/* Stats Bar */}
-                <div className="flex items-center justify-between bg-white rounded-xl border border-gray-100 p-4">
-                  <div className="flex items-center gap-2">
-                    <Paperclip size={18} className="text-[#05015A]" />
-                    <span className="text-sm font-medium text-gray-700">
-                      {ticket.attachments?.length || 0} Attachment(s)
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Paperclip size={16} className="text-[#05015A]" />
+                  <span>{ticket.attachments?.length || 0} Attachment(s)</span>
                 </div>
 
-                {/* Attachments Grid */}
                 {!ticket.attachments || ticket.attachments.length === 0 ? (
                   <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                    <Paperclip size={48} className="mx-auto text-gray-300 mb-3" />
-                    <p className="text-gray-500">No attachments for this ticket</p>
+                    <Paperclip
+                      size={40}
+                      className="mx-auto text-gray-300 mb-3"
+                    />
+                    <p className="text-gray-500">
+                      No attachments for this ticket
+                    </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {ticket.attachments.map((attachment) => (
                       <AttachmentCard
                         key={attachment.attachment_id}
@@ -441,30 +389,29 @@ const ViewTicketModal = ({
               </div>
             )}
 
-            {/* Timeline Tab */}
+            {/* =============== TIMELINE TAB =============== */}
             {activeTab === "timeline" && (
               <div className="bg-white rounded-xl border border-gray-100 p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
-                    <History size={20} className="text-[#05015A]" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900">Ticket Timeline</h3>
+                  <History size={18} className="text-[#05015A]" />
+                  <h3 className="font-semibold text-gray-900">
+                    Ticket Timeline
+                  </h3>
                 </div>
 
                 <div className="relative">
-                  {/* Timeline Line */}
-                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
+                  <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-200" />
 
-                  <div className="space-y-6">
-                    {/* Created */}
+                  <div className="space-y-4">
                     <TimelineItem
                       color="bg-blue-500"
                       title="Ticket Created"
-                      description={`Created by ${ticket.created_by_name || "Unknown"}`}
+                      description={`Created by ${
+                        ticket.created_by_name || "Unknown"
+                      }`}
                       date={formatDate(ticket.created_at)}
                     />
 
-                    {/* Status Changes - In Progress */}
                     {ticket.status === "IN_PROGRESS" && (
                       <TimelineItem
                         color="bg-purple-500"
@@ -474,18 +421,18 @@ const ViewTicketModal = ({
                       />
                     )}
 
-                    {/* Reopened */}
                     {ticket.reopened_at && (
                       <TimelineItem
                         color="bg-orange-500"
                         title="Ticket Reopened"
-                        description={ticket.reopen_reason || "Ticket was reopened"}
+                        description={
+                          ticket.reopen_reason || "Ticket was reopened"
+                        }
                         date={formatDate(ticket.reopened_at)}
                         by={ticket.reopened_by_name}
                       />
                     )}
 
-                    {/* Resolved */}
                     {ticket.status === "RESOLVED" && (
                       <TimelineItem
                         color="bg-emerald-500"
@@ -495,7 +442,6 @@ const ViewTicketModal = ({
                       />
                     )}
 
-                    {/* Closed */}
                     {ticket.status === "CLOSED" && (
                       <TimelineItem
                         color="bg-gray-500"
@@ -505,58 +451,55 @@ const ViewTicketModal = ({
                       />
                     )}
 
-                    {/* Cancelled */}
                     {ticket.cancelled_at && (
                       <TimelineItem
                         color="bg-red-500"
                         title="Ticket Cancelled"
-                        description={ticket.cancellation_reason || "Ticket was cancelled"}
+                        description={
+                          ticket.cancellation_reason || "Ticket was cancelled"
+                        }
                         date={formatDate(ticket.cancelled_at)}
                         by={ticket.cancelled_by_name}
                       />
                     )}
-
-                    {/* Last Updated (if different from created) */}
-                    {ticket.updated_at !== ticket.created_at &&
-                      !["RESOLVED", "CLOSED", "CANCELLED"].includes(ticket.status) && (
-                        <TimelineItem
-                          color="bg-yellow-500"
-                          title="Last Updated"
-                          description="Ticket information was updated"
-                          date={formatDate(ticket.updated_at)}
-                        />
-                      )}
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* FOOTER */}
-          <div className="px-6 py-4 bg-white border-t border-gray-100">
+          {/* FOOTER - Compact */}
+          <div className="px-6 py-3 bg-white border-t border-gray-100 flex-shrink-0">
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-400">
-                Ticket ID: {ticket.ticket_id} • Created:{" "}
-                {formatDate(ticket.created_at)}
+                ID: {ticket.ticket_id?.substring(0, 8)}...
               </p>
-              <div className="flex items-center gap-3">
-                <p className="text-xs text-gray-400">
-                  {ticket.branch_name || "Main Branch"}
-                </p>
-                <button
-                  onClick={handleClose}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium 
-                             hover:bg-gray-200 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
+              {canReopen && (
+                  <button
+                    onClick={() => setShowReopenModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
+                  >
+                    <RotateCcw size={14} />
+                    Reopen Ticket
+                  </button>
+                )}
+                {canCancel && (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onCancelClick(ticket);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-500/80 text-white hover:bg-red-600 transition-all"
+                  >
+                    <CircleOff size={14} />
+                    Cancel Ticket
+                  </button>
+                )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Reopen Modal */}
       <ReopenTicketModal
         isOpen={showReopenModal}
         onClose={() => setShowReopenModal(false)}
@@ -567,66 +510,82 @@ const ViewTicketModal = ({
   );
 };
 
-// Info Card Component
-const InfoCard = ({ icon, iconBg, iconColor, label, value }) => (
-  <div className="bg-white rounded-xl border border-gray-100 p-4">
-    <div className="flex items-center gap-3">
-      <div
-        className={`w-10 h-10 rounded-lg ${iconBg} flex items-center justify-center ${iconColor}`}
-      >
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-gray-500 font-medium">{label}</p>
-        <p className="text-sm font-semibold text-gray-900 truncate">{value}</p>
-      </div>
+// ============================================
+// HELPER COMPONENTS
+// ============================================
+
+const InfoRow = ({ icon, label, value }) => (
+  <div className="flex items-center gap-3">
+    <div className="text-gray-400">{icon}</div>
+    <div className="flex-1 min-w-0">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-sm font-medium text-gray-900 truncate">{value}</p>
     </div>
   </div>
 );
 
-// Attachment Card Component
+const CategoryBadge = ({ category, otherText }) => {
+  const colors = CATEGORY_COLORS?.[category] || {
+    bg: "bg-gray-50",
+    text: "text-gray-600",
+    border: "border-gray-200",
+  };
+  const label =
+    category === "OTHER" && otherText
+      ? otherText
+      : TICKET_CATEGORIES[category] || category;
+
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text} border ${colors.border}`}
+    >
+      {label}
+    </span>
+  );
+};
+
+// ✅ FIXED: XSS vulnerability - Using React state instead of innerHTML
 const AttachmentCard = ({ attachment, getUrl }) => {
+  const [imageError, setImageError] = useState(false);
   const isImage = attachment.mime_type?.startsWith("image/");
   const url = getUrl(attachment.storage_key);
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-      {/* Preview */}
       <a href={url} target="_blank" rel="noopener noreferrer" className="block">
-        {isImage ? (
-          <div className="h-40 bg-gray-100 overflow-hidden">
+        {isImage && !imageError ? (
+          <div className="h-32 bg-gray-100 overflow-hidden">
             <img
               src={url}
               alt={attachment.original_name}
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-              onError={(e) => {
-                e.target.style.display = "none";
-                e.target.parentElement.innerHTML = `
-                  <div class="w-full h-full flex items-center justify-center bg-gray-100">
-                    <span class="text-xs text-gray-400">Failed to load</span>
-                  </div>
-                `;
-              }}
+              onError={() => setImageError(true)}
             />
           </div>
         ) : (
-          <div className="h-40 bg-gray-50 flex items-center justify-center">
-            <Download size={40} className="text-gray-300" />
+          <div className="h-32 bg-gray-50 flex flex-col items-center justify-center gap-2">
+            {imageError ? (
+              <>
+                <ImageOff size={24} className="text-gray-300" />
+                <span className="text-xs text-gray-400">Failed to load</span>
+              </>
+            ) : (
+              <Download size={24} className="text-gray-300" />
+            )}
           </div>
         )}
       </a>
 
-      {/* Info */}
-      <div className="p-3">
+      <div className="p-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <p
-              className="text-sm font-medium text-gray-900 truncate"
+              className="text-xs font-medium text-gray-900 truncate"
               title={attachment.original_name}
             >
               {attachment.original_name}
             </p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-[10px] text-gray-500">
               {(attachment.file_size / 1024).toFixed(1)} KB
             </p>
           </div>
@@ -634,9 +593,9 @@ const AttachmentCard = ({ attachment, getUrl }) => {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1.5 rounded-lg bg-[#05015A]/10 text-[#05015A] hover:bg-[#05015A]/20 transition-colors"
+            className="p-1 rounded bg-[#05015A]/10 text-[#05015A] hover:bg-[#05015A]/20 transition-colors"
           >
-            <ExternalLink size={14} />
+            <ExternalLink size={12} />
           </a>
         </div>
       </div>
@@ -644,23 +603,21 @@ const AttachmentCard = ({ attachment, getUrl }) => {
   );
 };
 
-// Timeline Item Component
 const TimelineItem = ({ color, title, description, date, by }) => (
-  <div className="relative flex gap-4 pl-8">
-    {/* Dot */}
+  <div className="relative flex gap-4 pl-6">
     <div
-      className={`absolute left-2.5 w-3 h-3 rounded-full ${color} ring-4 ring-white`}
+      className={`absolute left-1.5 w-3 h-3 rounded-full ${color} ring-4 ring-white`}
     />
-
-    {/* Content */}
-    <div className="flex-1 bg-gray-50 rounded-lg p-4 -mt-1">
+    <div className="flex-1 bg-gray-50 rounded-lg p-3 -mt-1">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
-          <p className="text-sm text-gray-600 mt-0.5">{description}</p>
-          {by && <p className="text-xs text-gray-500 mt-1">By {by}</p>}
+          <p className="text-xs text-gray-600 mt-0.5">{description}</p>
+          {by && <p className="text-xs text-gray-500 mt-0.5">By {by}</p>}
         </div>
-        <span className="text-xs text-gray-400 whitespace-nowrap">{date}</span>
+        <span className="text-[10px] text-gray-400 whitespace-nowrap">
+          {date}
+        </span>
       </div>
     </div>
   </div>

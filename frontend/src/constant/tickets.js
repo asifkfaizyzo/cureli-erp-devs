@@ -1,4 +1,4 @@
-// frontend/src/constant/tickets.js (or constants/tickets.js)
+// frontend/src/constant/tickets.js
 
 /**
  * ============================================
@@ -27,7 +27,7 @@ export const TICKET_CATEGORY_OPTIONS = [
  * ============================================
  */
 export const TICKET_STATUSES = {
-  PENDING: "Pending",        // ✅ Changed from OPEN
+  PENDING: "Pending",
   IN_PROGRESS: "In Progress",
   RESOLVED: "Resolved",
   CANCELLED: "Cancelled",
@@ -35,7 +35,7 @@ export const TICKET_STATUSES = {
 };
 
 export const TICKET_STATUS_OPTIONS = [
-  { value: "PENDING", label: "Pending" },        // ✅ Changed from OPEN
+  { value: "PENDING", label: "Pending" },
   { value: "IN_PROGRESS", label: "In Progress" },
   { value: "RESOLVED", label: "Resolved" },
   { value: "CANCELLED", label: "Cancelled" },
@@ -64,7 +64,7 @@ export const TIME_SLOTS = [
  * ============================================
  */
 export const STATUS_COLORS = {
-  PENDING: {                                    // ✅ Changed from OPEN
+  PENDING: {
     bg: "bg-yellow-100",
     text: "text-yellow-700",
     border: "border-yellow-200",
@@ -143,4 +143,74 @@ export const ATTACHMENT_CONFIG = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ],
   ALLOWED_EXTENSIONS: [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".doc", ".docx"],
+};
+
+/**
+ * ============================================
+ * HELPER FUNCTIONS
+ * ============================================
+ */
+
+// Check if status is valid
+export const isValidStatus = (status) => 
+  Object.keys(TICKET_STATUSES).includes(status);
+
+// Check if category is valid
+export const isValidCategory = (category) => 
+  Object.keys(TICKET_CATEGORIES).includes(category);
+
+// Check if ticket can be cancelled (only PENDING or IN_PROGRESS)
+export const canCancelTicket = (status) => 
+  ["PENDING", "IN_PROGRESS"].includes(status);
+
+// Check if ticket can be reopened (only RESOLVED or CLOSED)
+export const canReopenTicket = (status) => 
+  ["RESOLVED", "CLOSED"].includes(status);
+
+// Check if ticket is editable by admin
+export const canEditTicket = (status) => 
+  ["PENDING", "IN_PROGRESS"].includes(status);
+
+// Get status color config
+export const getStatusColors = (status) => 
+  STATUS_COLORS[status] || STATUS_COLORS.PENDING;
+
+// Get category color config
+export const getCategoryColors = (category) => 
+  CATEGORY_COLORS[category] || CATEGORY_COLORS.OTHER;
+
+// Get status label
+export const getStatusLabel = (status) => 
+  TICKET_STATUSES[status] || status;
+
+// Get category label
+export const getCategoryLabel = (category) => 
+  TICKET_CATEGORIES[category] || category;
+
+// Validate file for upload
+export const isValidAttachment = (file) => {
+  if (!file) return { valid: false, error: "No file provided" };
+  
+  if (file.size > ATTACHMENT_CONFIG.MAX_SIZE_BYTES) {
+    return { 
+      valid: false, 
+      error: `File exceeds ${ATTACHMENT_CONFIG.MAX_SIZE_MB}MB limit` 
+    };
+  }
+  
+  if (!ATTACHMENT_CONFIG.ALLOWED_TYPES.includes(file.type)) {
+    return { 
+      valid: false, 
+      error: `Invalid file type. Allowed: ${ATTACHMENT_CONFIG.ALLOWED_EXTENSIONS.join(", ")}` 
+    };
+  }
+  
+  return { valid: true, error: null };
+};
+
+// Format file size
+export const formatFileSize = (bytes) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };

@@ -8,6 +8,7 @@ import { z } from "zod";
  * ============================================
  */
 export const getTicketsQuerySchema = z.object({
+  // Status filter - includes CANCELLED for viewing user-cancelled tickets
   status: z
     .enum(["PENDING", "IN_PROGRESS", "RESOLVED", "CANCELLED", "CLOSED"])
     .optional(),
@@ -55,16 +56,11 @@ export const getTicketsQuerySchema = z.object({
 /**
  * ============================================
  * UPDATE TICKET STATUS SCHEMA
+ * CAdmin can only set these statuses (not CANCELLED - that's user action)
  * ============================================
  */
 export const updateTicketStatusSchema = z.object({
-  status: z.enum([
-    "PENDING",
-    "IN_PROGRESS",
-    "RESOLVED",
-    "CANCELLED",
-    "CLOSED",
-  ]),
+  status: z.enum(["PENDING", "IN_PROGRESS", "RESOLVED", "CLOSED"]),
 
   admin_notes: z
     .string()
@@ -72,17 +68,4 @@ export const updateTicketStatusSchema = z.object({
     .optional()
     .nullable()
     .transform((val) => val?.trim() || null),
-});
-
-/**
- * ============================================
- * ADD ADMIN NOTE SCHEMA
- * ============================================
- */
-export const addAdminNoteSchema = z.object({
-  note: z
-    .string()
-    .min(5, "Note must be at least 5 characters")
-    .max(500, "Note must be at most 500 characters")
-    .transform((val) => val.trim()),
 });

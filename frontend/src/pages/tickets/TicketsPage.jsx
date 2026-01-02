@@ -9,11 +9,7 @@ import ViewTicketModal from "./components/ViewTicketModal";
 import CancelTicketModal from "./components/CancelTicketModal";
 import StyledSelect from "../../components/common/StyledSelect";
 import toast from "react-hot-toast";
-import {
-  TICKET_STATUSES,
-  TICKET_CATEGORIES,
-} from "../../constant/tickets";
-import { format } from "date-fns";
+import { TICKET_STATUSES, TICKET_CATEGORIES } from "../../constant/tickets";
 
 const TicketsPage = () => {
   // Tickets data
@@ -64,12 +60,7 @@ const TicketsPage = () => {
   ];
 
   // Count active filters
-  const activeFiltersCount = [
-    statusFilter,
-    categoryFilter,
-    dateFrom,
-    dateTo,
-  ].filter(Boolean).length;
+  const activeFiltersCount = [statusFilter, categoryFilter, dateFrom, dateTo].filter(Boolean).length;
 
   // Responsive rows per page
   useEffect(() => {
@@ -114,16 +105,7 @@ const TicketsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [
-    currentPage,
-    rowsPerPage,
-    searchText,
-    statusFilter,
-    categoryFilter,
-    dateFrom,
-    dateTo,
-    sortConfig,
-  ]);
+  }, [currentPage, rowsPerPage, searchText, statusFilter, categoryFilter, dateFrom, dateTo, sortConfig]);
 
   // Initial fetch
   useEffect(() => {
@@ -163,10 +145,10 @@ const TicketsPage = () => {
     setIsCancelModalOpen(true);
   };
 
-  // ✅ New: Handle ticket reopen
+  // ✅ FIXED: Pass reason directly, not wrapped in object
   const handleReopenTicket = async (ticket, reason) => {
     try {
-      await reopenTicket(ticket.ticket_id, { reason });
+      await reopenTicket(ticket.ticket_id, reason);
       toast.success("Ticket reopened successfully");
       setIsViewModalOpen(false);
       setSelectedTicket(null);
@@ -179,12 +161,14 @@ const TicketsPage = () => {
 
   const handleTicketCreated = () => {
     setIsCreateModalOpen(false);
+    toast.success("Ticket created successfully");
     fetchTickets();
   };
 
   const handleTicketCancelled = () => {
     setIsCancelModalOpen(false);
     setSelectedTicket(null);
+    toast.success("Ticket cancelled successfully");
     fetchTickets();
   };
 
@@ -194,9 +178,6 @@ const TicketsPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
-          {/* <p className="text-sm text-gray-500 mt-1">
-            {totalItems} {totalItems === 1 ? "ticket" : "tickets"} found
-          </p> */}
         </div>
 
         <button
@@ -214,10 +195,7 @@ const TicketsPage = () => {
         {/* Search Bar */}
         <form onSubmit={handleSearch} className="flex items-center gap-3">
           <div className="relative flex-1">
-            <Search
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            />
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search by ticket number or subject..."
@@ -250,7 +228,6 @@ const TicketsPage = () => {
             Search
           </button>
 
-          {/* Toggle Filters Button */}
           <button
             type="button"
             onClick={() => setShowFilters(!showFilters)}
@@ -277,7 +254,6 @@ const TicketsPage = () => {
         {showFilters && (
           <div className="pt-4 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center gap-3 px-4 py-2 text-sm font-medium">
-              {/* Status Filter */}
               <StyledSelect
                 label="Status"
                 value={statusFilter}
@@ -289,7 +265,6 @@ const TicketsPage = () => {
                 placeholder="All Status"
               />
 
-              {/* Category Filter */}
               <StyledSelect
                 label="Category"
                 value={categoryFilter}
@@ -301,7 +276,6 @@ const TicketsPage = () => {
                 placeholder="All Categories"
               />
 
-              {/* Date From */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
                   <Calendar size={12} />
@@ -318,15 +292,10 @@ const TicketsPage = () => {
                   className={`h-10 px-3 border rounded-lg text-sm shadow-sm
                              focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
                              transition-all
-                             ${
-                               dateFrom
-                                 ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
-                                 : "bg-white border-gray-200 text-gray-700"
-                             }`}
+                             ${dateFrom ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium" : "bg-white border-gray-200 text-gray-700"}`}
                 />
               </div>
 
-              {/* Date To */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
                   <Calendar size={12} />
@@ -343,16 +312,11 @@ const TicketsPage = () => {
                   className={`h-10 px-3 border rounded-lg text-sm shadow-sm
                              focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
                              transition-all
-                             ${
-                               dateTo
-                                 ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
-                                 : "bg-white border-gray-200 text-gray-700"
-                             }`}
+                             ${dateTo ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium" : "bg-white border-gray-200 text-gray-700"}`}
                 />
               </div>
             </div>
 
-            {/* Clear Filters Button */}
             {activeFiltersCount > 0 && (
               <div className="mt-3 flex items-center justify-end">
                 <button
@@ -382,7 +346,6 @@ const TicketsPage = () => {
           onSortChange={handleSortChange}
           onViewTicket={handleViewTicket}
           onCancelTicket={handleCancelTicket}
-          onRefresh={fetchTickets}
         />
       </div>
 
@@ -401,8 +364,7 @@ const TicketsPage = () => {
         }}
         ticket={selectedTicket}
         onCancelClick={handleCancelTicket}
-        onReopenClick={handleReopenTicket} // ✅ Pass reopen handler
-        onRefresh={fetchTickets}
+        onReopenClick={handleReopenTicket}
       />
 
       <CancelTicketModal

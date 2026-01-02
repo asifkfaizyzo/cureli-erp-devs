@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-// Status Badge Component with Enhanced Styling
+// Status Badge Component
 const StatusBadge = ({ status }) => {
   const statusConfig = {
     PENDING: {
@@ -57,16 +57,16 @@ const StatusBadge = ({ status }) => {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold 
-                  ${config.bg} ${config.text} border ${config.border}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold 
+                  ${config.bg} ${config.text} border ${config.border} whitespace-nowrap`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
-      {config.label}
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0`} />
+      <span className="truncate">{config.label}</span>
     </span>
   );
 };
 
-// Category Badge Component with Enhanced Styling
+// Category Badge Component
 const CategoryBadge = ({ category }) => {
   const categoryConfig = {
     TECHNICAL_ISSUE: {
@@ -105,19 +105,19 @@ const CategoryBadge = ({ category }) => {
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium 
-                  ${config.bg} ${config.text} border ${config.border}`}
+      className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium 
+                  ${config.bg} ${config.text} border ${config.border} whitespace-nowrap`}
     >
       {config.label}
     </span>
   );
 };
 
-// Reopen Count Badge Component
+// Reopen Count Badge
 const ReopenBadge = ({ count }) => {
   if (!count || count === 0) {
     return (
-      <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-400">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-gray-100 text-gray-400">
         <span className="text-xs font-medium">0</span>
       </span>
     );
@@ -125,10 +125,10 @@ const ReopenBadge = ({ count }) => {
 
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold 
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-semibold 
                     bg-orange-100 text-orange-700 border border-orange-200"
     >
-      <RotateCcw size={12} className="animate-pulse" />
+      <RotateCcw size={10} />
       {count}
     </span>
   );
@@ -141,7 +141,7 @@ const SortIcon = ({ column, sortConfig }) => {
   return (
     <div className="flex flex-col -space-y-1">
       <ChevronUp
-        size={12}
+        size={10}
         className={`transition-colors ${
           isActive && sortConfig.order === "asc"
             ? "text-white"
@@ -149,7 +149,7 @@ const SortIcon = ({ column, sortConfig }) => {
         }`}
       />
       <ChevronDown
-        size={12}
+        size={10}
         className={`transition-colors ${
           isActive && sortConfig.order === "desc"
             ? "text-white"
@@ -160,24 +160,24 @@ const SortIcon = ({ column, sortConfig }) => {
   );
 };
 
-// Sortable Header Cell Component
+// Sortable Header Cell
 const SortableHeader = ({ column, label, sortConfig, onSort, className = "" }) => (
   <th
     onClick={() => onSort(column)}
-    className={`px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider 
+    className={`px-2 sm:px-3 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider 
                 cursor-pointer hover:bg-white/10 transition-colors select-none ${className}`}
   >
-    <div className="flex items-center gap-2">
-      <span>{label}</span>
+    <div className="flex items-center gap-1">
+      <span className="truncate">{label}</span>
       <SortIcon column={column} sortConfig={sortConfig} />
     </div>
   </th>
 );
 
-// Regular Header Cell Component
+// Regular Header Cell
 const HeaderCell = ({ children, className = "", center = false }) => (
   <th
-    className={`px-4 py-4 text-xs font-semibold text-white uppercase tracking-wider 
+    className={`px-2 sm:px-3 py-3 text-xs font-semibold text-white uppercase tracking-wider 
                 ${center ? "text-center" : "text-left"} ${className}`}
   >
     {children}
@@ -198,7 +198,6 @@ const TicketsTable = ({
 }) => {
   const totalPages = Math.ceil(totalItems / rowsPerPage);
 
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return "-";
     try {
@@ -217,14 +216,12 @@ const TicketsTable = ({
     }
   };
 
-  // Truncate text
-  const truncateText = (text, maxLength = 35) => {
+  const truncateText = (text, maxLength = 25) => {
     if (!text) return "-";
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";
   };
 
-  // Generate page numbers
   const getPageNumbers = () => {
     const pages = [];
     const showEllipsisStart = currentPage > 3;
@@ -236,82 +233,67 @@ const TicketsTable = ({
       }
     } else {
       pages.push(1);
-
-      if (showEllipsisStart) {
-        pages.push("...");
-      }
+      if (showEllipsisStart) pages.push("...");
 
       const start = Math.max(2, currentPage - 1);
       const end = Math.min(totalPages - 1, currentPage + 1);
 
       for (let i = start; i <= end; i++) {
-        if (!pages.includes(i)) {
-          pages.push(i);
-        }
+        if (!pages.includes(i)) pages.push(i);
       }
 
-      if (showEllipsisEnd) {
-        pages.push("...");
-      }
-
-      if (!pages.includes(totalPages)) {
-        pages.push(totalPages);
-      }
+      if (showEllipsisEnd) pages.push("...");
+      if (!pages.includes(totalPages)) pages.push(totalPages);
     }
 
     return pages;
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-      {/* Table Container */}
-      <div className="flex-1 overflow-x-auto">
-        <table className="w-full min-w-[1200px]">
+    // ✅ FIXED: Match UserTable structure
+    <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
+      {/* ✅ FIXED: Scrollable table container */}
+      <div className="flex-1 overflow-auto">
+        <table className="w-full border-collapse text-sm" style={{ minWidth: "900px" }}>
           {/* Header */}
-          <thead className="bg-gradient-to-r from-[#05015A] to-[#0a0280]">
-            <tr>
-              <HeaderCell className="w-14 rounded-tl-2xl">#</HeaderCell>
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white text-left">
+              <HeaderCell className="w-10">#</HeaderCell>
 
               <SortableHeader
                 column="ticket_number"
-                label="Ticket No."
+                label="Ticket"
                 sortConfig={sortConfig}
                 onSort={onSortChange}
-                className="min-w-[140px]"
               />
 
-              <HeaderCell className="min-w-[160px]">Shop</HeaderCell>
+              <HeaderCell>Shop</HeaderCell>
 
-              <HeaderCell className="min-w-[200px]">Subject</HeaderCell>
+              <HeaderCell>Subject</HeaderCell>
 
-              <HeaderCell className="min-w-[100px]">Category</HeaderCell>
+              <HeaderCell>Category</HeaderCell>
 
               <SortableHeader
                 column="status"
                 label="Status"
                 sortConfig={sortConfig}
                 onSort={onSortChange}
-                className="min-w-[130px]"
               />
 
-              <HeaderCell center className="w-24">
-                <div className="flex items-center justify-center gap-1.5">
-                  <RotateCcw size={14} />
-                  <span>Reopen</span>
-                </div>
+              <HeaderCell center className="w-16">
+                <RotateCcw size={12} className="mx-auto" />
               </HeaderCell>
 
-              <HeaderCell className="min-w-[140px]">Created By</HeaderCell>
+              <HeaderCell>Created By</HeaderCell>
 
               <SortableHeader
                 column="created_at"
                 label="Created"
                 sortConfig={sortConfig}
                 onSort={onSortChange}
-                className="min-w-[140px]"
               />
 
-              <HeaderCell center className="w-24 rounded-tr-2xl">
+              <HeaderCell center className="w-16">
                 Actions
               </HeaderCell>
             </tr>
@@ -321,19 +303,12 @@ const TicketsTable = ({
             {/* Loading State */}
             {loading && (
               <tr>
-                <td colSpan="10" className="px-4 py-16 text-center">
-                  <div className="flex flex-col items-center justify-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-[#05015A]/10 flex items-center justify-center">
-                      <Loader2 size={24} className="animate-spin text-[#05015A]" />
+                <td colSpan="10" className="px-4 py-12 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#05015A]/10 flex items-center justify-center">
+                      <Loader2 size={20} className="animate-spin text-[#05015A]" />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        Loading tickets...
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Please wait while we fetch the data
-                      </p>
-                    </div>
+                    <p className="text-sm text-gray-500">Loading tickets...</p>
                   </div>
                 </td>
               </tr>
@@ -342,17 +317,15 @@ const TicketsTable = ({
             {/* Empty State */}
             {!loading && tickets.length === 0 && (
               <tr>
-                <td colSpan="10" className="px-4 py-16 text-center">
-                  <div className="flex flex-col items-center justify-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Inbox size={32} className="text-gray-400" />
+                <td colSpan="10" className="px-4 py-12 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+                      <Inbox size={28} className="text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        No tickets found
-                      </p>
+                      <p className="text-sm font-medium text-gray-900">No tickets found</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        Try adjusting your filters or search criteria
+                        Try adjusting your filters
                       </p>
                     </div>
                   </div>
@@ -365,41 +338,37 @@ const TicketsTable = ({
               tickets.map((ticket, index) => (
                 <tr
                   key={ticket.ticket_id}
-                  className="group hover:bg-gray-50/80 transition-colors"
+                  className={`
+                    border-b border-gray-100 transition-all duration-150
+                    ${index % 2 === 0 ? "bg-gray-50/50" : "bg-white"}
+                    hover:bg-indigo-50/50
+                  `}
                 >
-                  {/* Serial Number */}
-                  <td className="px-4 py-4">
-                    <span className="text-sm text-gray-500 font-medium">
-                      {(currentPage - 1) * rowsPerPage + index + 1}
-                    </span>
+                  <td className="px-2 sm:px-3 py-3 text-gray-500 font-medium text-xs">
+                    {(currentPage - 1) * rowsPerPage + index + 1}
                   </td>
 
-                  {/* Ticket Number */}
-                  <td className="px-4 py-4">
+                  <td className="px-2 sm:px-3 py-3">
                     <button
                       onClick={() => onViewTicket(ticket)}
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-[#05015A] 
-                                 hover:text-[#0a0280] transition-colors group/btn"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#05015A] 
+                                 hover:text-[#0a0280] transition-colors"
                     >
-                      <FileText
-                        size={14}
-                        className="text-gray-400 group-hover/btn:text-[#05015A] transition-colors"
-                      />
-                      {ticket.ticket_number}
+                      <FileText size={12} className="text-gray-400 flex-shrink-0" />
+                      <span className="truncate max-w-[100px]">{ticket.ticket_number}</span>
                     </button>
                   </td>
 
-                  {/* Shop Name */}
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#05015A]/10 to-[#0a0280]/10 
+                  <td className="px-2 sm:px-3 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-6 h-6 rounded-md bg-gradient-to-br from-[#05015A]/10 to-[#0a0280]/10 
                                       flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-bold text-[#05015A]">
+                        <span className="text-[10px] font-bold text-[#05015A]">
                           {ticket.shop_name?.substring(0, 2).toUpperCase() || "SH"}
                         </span>
                       </div>
                       <span
-                        className="text-sm font-medium text-gray-900 truncate max-w-[120px]"
+                        className="text-xs font-medium text-gray-900 truncate max-w-[80px]"
                         title={ticket.shop_name}
                       >
                         {ticket.shop_name || "-"}
@@ -407,70 +376,60 @@ const TicketsTable = ({
                     </div>
                   </td>
 
-                  {/* Subject */}
-                  <td className="px-4 py-4">
+                  <td className="px-2 sm:px-3 py-3">
                     <p
-                      className="text-sm text-gray-700 truncate max-w-[200px]"
+                      className="text-xs text-gray-700 truncate max-w-[120px]"
                       title={ticket.subject}
                     >
-                      {truncateText(ticket.subject, 35)}
+                      {truncateText(ticket.subject, 25)}
                     </p>
                   </td>
 
-                  {/* Category */}
-                  <td className="px-4 py-4">
+                  <td className="px-2 sm:px-3 py-3">
                     <CategoryBadge category={ticket.category} />
                   </td>
 
-                  {/* Status */}
-                  <td className="px-4 py-4">
+                  <td className="px-2 sm:px-3 py-3">
                     <StatusBadge status={ticket.status} />
                   </td>
 
-                  {/* Reopen Count */}
-                  <td className="px-4 py-4">
+                  <td className="px-2 sm:px-3 py-3">
                     <div className="flex items-center justify-center">
                       <ReopenBadge count={ticket.reopen_count} />
                     </div>
                   </td>
 
-                  {/* Created By */}
-                  <td className="px-4 py-4">
+                  <td className="px-2 sm:px-3 py-3">
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-900 truncate max-w-[130px]">
+                      <span className="text-xs font-medium text-gray-900 truncate max-w-[80px]">
                         {ticket.created_by_name || "Unknown"}
                       </span>
-                      <span className="text-xs text-gray-500 capitalize">
+                      <span className="text-[10px] text-gray-500 capitalize">
                         {ticket.created_by_role?.replace("_", " ") || "-"}
                       </span>
                     </div>
                   </td>
 
-                  {/* Created Date */}
-                  <td className="px-4 py-4">
+                  <td className="px-2 sm:px-3 py-3">
                     <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-xs font-medium text-gray-900">
                         {formatDate(ticket.created_at)}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-[10px] text-gray-500">
                         {formatTime(ticket.created_at)}
                       </span>
                     </div>
                   </td>
 
-                  {/* Actions */}
-                  <td className="px-4 py-4">
+                  <td className="px-2 sm:px-3 py-3">
                     <div className="flex items-center justify-center">
                       <button
                         onClick={() => onViewTicket(ticket)}
-                        className="p-2 rounded-lg text-gray-400 hover:text-[#05015A] 
-                                   hover:bg-[#05015A]/10 transition-all group/action"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-[#05015A] 
+                                   hover:bg-[#05015A]/10 transition-all"
                         title="View Details"
                       >
-                        <Eye
-                          size={18}
-                          className="group-hover/action:scale-110 transition-transform"
-                        />
+                        <Eye size={16} />
                       </button>
                     </div>
                   </td>
@@ -480,63 +439,50 @@ const TicketsTable = ({
         </table>
       </div>
 
-      {/* Pagination */}
+      {/* ✅ FIXED: Pagination footer matches UserTable */}
       {!loading && tickets.length > 0 && (
-        <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-200">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             {/* Results Info */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">
-                Showing
-                <span className="font-semibold text-gray-900 mx-1">
-                  {(currentPage - 1) * rowsPerPage + 1}
-                </span>
-                to
-                <span className="font-semibold text-gray-900 mx-1">
-                  {Math.min(currentPage * rowsPerPage, totalItems)}
-                </span>
-                of
-                <span className="font-semibold text-gray-900 mx-1">{totalItems}</span>
-                tickets
+            <div className="text-xs text-gray-600">
+              Showing{" "}
+              <span className="font-semibold text-gray-900">
+                {(currentPage - 1) * rowsPerPage + 1}
               </span>
+              {" - "}
+              <span className="font-semibold text-gray-900">
+                {Math.min(currentPage * rowsPerPage, totalItems)}
+              </span>
+              {" of "}
+              <span className="font-semibold text-gray-900">{totalItems}</span>
             </div>
 
             {/* Pagination Controls */}
             <div className="flex items-center gap-1">
-              {/* Previous Button */}
               <button
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg
-                           border border-gray-300 bg-white text-gray-700
-                           hover:bg-gray-50 hover:border-gray-400
-                           disabled:opacity-50 disabled:cursor-not-allowed 
-                           disabled:hover:bg-white disabled:hover:border-gray-300
-                           transition-all"
+                className="p-1.5 rounded-lg border border-gray-300 bg-white text-gray-700
+                           hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                <ChevronLeft size={16} />
-                <span className="hidden sm:inline">Previous</span>
+                <ChevronLeft size={14} />
               </button>
 
-              {/* Page Numbers */}
-              <div className="hidden md:flex items-center gap-1 mx-2">
+              <div className="hidden sm:flex items-center gap-1 mx-1">
                 {getPageNumbers().map((page, idx) =>
                   page === "..." ? (
-                    <span
-                      key={`ellipsis-${idx}`}
-                      className="w-10 h-10 flex items-center justify-center text-gray-400"
-                    >
+                    <span key={`ellipsis-${idx}`} className="w-8 text-center text-gray-400 text-xs">
                       •••
                     </span>
                   ) : (
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`w-10 h-10 rounded-lg text-sm font-semibold transition-all
+                      className={`w-8 h-8 rounded-lg text-xs font-semibold transition-all
                                   ${
                                     currentPage === page
-                                      ? "bg-[#05015A] text-white shadow-lg shadow-[#05015A]/25"
-                                      : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+                                      ? "bg-[#05015A] text-white shadow-sm"
+                                      : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
                                   }`}
                     >
                       {page}
@@ -545,26 +491,19 @@ const TicketsTable = ({
                 )}
               </div>
 
-              {/* Mobile Page Indicator */}
-              <div className="md:hidden px-4 py-2 text-sm font-medium text-gray-600">
-                <span className="text-[#05015A] font-semibold">{currentPage}</span>
+              <div className="sm:hidden px-2 text-xs text-gray-600">
+                <span className="font-semibold text-[#05015A]">{currentPage}</span>
                 <span className="mx-1">/</span>
                 <span>{totalPages}</span>
               </div>
 
-              {/* Next Button */}
               <button
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg
-                           border border-gray-300 bg-white text-gray-700
-                           hover:bg-gray-50 hover:border-gray-400
-                           disabled:opacity-50 disabled:cursor-not-allowed 
-                           disabled:hover:bg-white disabled:hover:border-gray-300
-                           transition-all"
+                className="p-1.5 rounded-lg border border-gray-300 bg-white text-gray-700
+                           hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                <span className="hidden sm:inline">Next</span>
-                <ChevronRight size={16} />
+                <ChevronRight size={14} />
               </button>
             </div>
           </div>

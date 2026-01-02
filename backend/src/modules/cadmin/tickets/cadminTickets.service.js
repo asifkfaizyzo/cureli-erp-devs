@@ -8,32 +8,30 @@ import prisma from "../../../config/prisma.js";
  * ============================================
  */
 export async function getAllTickets({
-  page,
-  limit,
+  page = 1,
+  limit = 10,
   search,
   status,
   category,
   shop_name,
   date_from,
   date_to,
-  sort_by,
-  sort_order,
+  sort_by = "created_at",
+  sort_order = "desc",
 }) {
   try {
-    // Build where clause
-    const where = {
-      status: { not: "CANCELLED" }, // ✅ Exclude cancelled tickets
-    };
+    const where = {};
 
     // Search filter
     if (search) {
       where.OR = [
         { ticket_number: { contains: search, mode: "insensitive" } },
         { subject: { contains: search, mode: "insensitive" } },
+        { shop: { business_name: { contains: search, mode: "insensitive" } } },
       ];
     }
 
-    // Status filter - only if explicitly requested
+    // Status filter
     if (status) {
       where.status = status;
     }
@@ -63,69 +61,51 @@ export async function getAllTickets({
       }
     }
 
-    console.log("📋 Fetching tickets with where:", JSON.stringify(where, null, 2));
-
-    const total = await prisma.ticket.count({ where });
-
-    const tickets = await prisma.ticket.findMany({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      orderBy: {
-        [sort_by]: sort_order,
-      },
-      include: {
-        shop: {
-          select: {
-            shop_id: true,
-            business_name: true,
+    const [total, tickets] = await Promise.all([
+      prisma.ticket.count({ where }),
+      prisma.ticket.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { [sort_by]: sort_order },
+        include: {
+          shop: {
+            select: {
+              shop_id: true,
+              business_name: true,
+            },
+          },
+          branch: {
+            select: {
+              branch_id: true,
+              branch_name: true,
+            },
+          },
+          created_by: {
+            select: {
+              user_id: true,
+              full_name: true,
+              role: true,
+            },
+          },
+          cancelled_by: {
+            select: {
+              user_id: true,
+              full_name: true,
+            },
+          },
+          reopened_by: {
+            select: {
+              user_id: true,
+              full_name: true,
+            },
+          },
+          _count: {
+            select: { attachments: true },
           },
         },
-        branch: {
-          select: {
-            branch_id: true,
-            branch_name: true,
-          },
-        },
-        created_by: {
-          select: {
-            user_id: true,
-            full_name: true,
-            role: true,
-          },
-        },
-        cancelled_by: { // ✅ ADDED
-          select: {
-            user_id: true,
-            full_name: true,
-            role: true,
-          },
-        },
-        reopened_by: { // ✅ ADDED
-          select: {
-            user_id: true,
-            full_name: true,
-            role: true,
-          },
-        },
-        attachments: {
-          select: {
-            attachment_id: true,
-            storage_key: true,
-            original_name: true,
-            mime_type: true,
-            file_size: true,
-          },
-        },
-        _count: {
-          select: {
-            attachments: true,
-          },
-        },
-      },
-    });
-
-    console.log(`✅ Found ${tickets.length} tickets out of ${total} total`);
+      }),
+    ]);
 
     return {
       tickets: tickets.map(transformTicketForCAdmin),
@@ -133,18 +113,18 @@ export async function getAllTickets({
         page,
         limit,
         total,
-        total_pages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit),
       },
     };
   } catch (error) {
-    console.error("❌ getAllTickets error:", error);
+    console.error("getAllTickets error:", error);
     throw error;
   }
 }
 
 /**
  * ============================================
- * GET TICKET BY ID (Super Admin)
+ * GET TICKET BY ID
  * ============================================
  */
 export async function getTicketById(ticket_id) {
@@ -172,18 +152,16 @@ export async function getTicketById(ticket_id) {
             phone_number: true,
           },
         },
-        cancelled_by: { // ✅ CRITICAL
+        cancelled_by: {
           select: {
             user_id: true,
             full_name: true,
-            role: true,
           },
         },
-        reopened_by: { // ✅ CRITICAL
+        reopened_by: {
           select: {
             user_id: true,
             full_name: true,
-            role: true,
           },
         },
         attachments: {
@@ -201,33 +179,19 @@ export async function getTicketById(ticket_id) {
 
     if (!ticket) return null;
 
-    // ✅ Debug log
-    console.log("🔍 CAdmin fetched ticket:", {
-      ticket_id: ticket.ticket_id,
-      reopen_count: ticket.reopen_count,
-      reopened_by_id: ticket.reopened_by_id,
-      reopened_by: ticket.reopened_by,
-      reopen_reason: ticket.reopen_reason,
-    });
-
     return transformTicketForCAdmin(ticket);
   } catch (error) {
-    console.error("❌ getTicketById error:", error);
+    console.error("getTicketById error:", error);
     throw error;
   }
 }
 
 /**
  * ============================================
- * UPDATE TICKET STATUS (Admin Action)
+ * UPDATE TICKET STATUS
  * ============================================
  */
-/**
- * ============================================
- * UPDATE TICKET STATUS (Admin Action)
- * ============================================
- */
-export async function updateTicketStatus(ticket_id, status, admin_notes) {
+export async function updateTicketStatus(ticket_id, status, admin_notes, cadmin_id) {
   try {
     const ticket = await prisma.ticket.findUnique({
       where: { ticket_id },
@@ -239,8 +203,15 @@ export async function updateTicketStatus(ticket_id, status, admin_notes) {
       throw err;
     }
 
-    // Validate status
-    const validStatuses = ["PENDING", "IN_PROGRESS", "RESOLVED", "CLOSED", "CANCELLED"];
+    // CAdmin cannot update cancelled tickets
+    if (ticket.status === "CANCELLED") {
+      const err = new Error("Cannot update a cancelled ticket");
+      err.code = "CANNOT_UPDATE_CANCELLED";
+      throw err;
+    }
+
+    // Validate status (CAdmin cannot set CANCELLED)
+    const validStatuses = ["PENDING", "IN_PROGRESS", "RESOLVED", "CLOSED"];
     if (!validStatuses.includes(status)) {
       const err = new Error("Invalid status");
       err.code = "INVALID_STATUS";
@@ -253,16 +224,29 @@ export async function updateTicketStatus(ticket_id, status, admin_notes) {
       updated_at: new Date(),
     };
 
-    // Only update admin_notes if provided
-    if (admin_notes !== undefined && admin_notes !== null) {
-      updateData.admin_notes = admin_notes;
-    }
+    // Handle admin notes - append with timestamp
+    if (admin_notes) {
+      const admin = await prisma.cAdmin.findUnique({
+        where: { cadmin_id },
+        select: { name: true },
+      });
 
-    console.log("🔄 Updating ticket:", {
-      ticket_id,
-      status,
-      has_admin_notes: !!admin_notes,
-    });
+      const timestamp = new Date().toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      const newNoteEntry = `[${timestamp}] ${admin?.name || "Admin"}: ${admin_notes}`;
+      const existingNotes = ticket.admin_notes || "";
+      updateData.admin_notes = existingNotes
+        ? `${existingNotes}\n\n${newNoteEntry}`
+        : newNoteEntry;
+    }
 
     const updatedTicket = await prisma.ticket.update({
       where: { ticket_id },
@@ -291,14 +275,12 @@ export async function updateTicketStatus(ticket_id, status, admin_notes) {
           select: {
             user_id: true,
             full_name: true,
-            role: true,
           },
         },
         reopened_by: {
           select: {
             user_id: true,
             full_name: true,
-            role: true,
           },
         },
         attachments: {
@@ -313,58 +295,43 @@ export async function updateTicketStatus(ticket_id, status, admin_notes) {
       },
     });
 
-    console.log("✅ Ticket updated successfully:", updatedTicket.ticket_number);
-
     return transformTicketForCAdmin(updatedTicket);
   } catch (error) {
-    console.error("❌ updateTicketStatus error:", error);
+    console.error("updateTicketStatus error:", error);
     throw error;
   }
 }
 
-
 /**
  * ============================================
- * ADD ADMIN NOTE
+ * GET TICKET STATS
  * ============================================
  */
 export async function getTicketStats() {
   try {
-    const [total, pending, in_progress, resolved, cancelled, closed] =
+    const [total, pending, in_progress, resolved, closed, cancelled] =
       await Promise.all([
         prisma.ticket.count(),
         prisma.ticket.count({ where: { status: "PENDING" } }),
         prisma.ticket.count({ where: { status: "IN_PROGRESS" } }),
         prisma.ticket.count({ where: { status: "RESOLVED" } }),
-        prisma.ticket.count({ where: { status: "CANCELLED" } }),
         prisma.ticket.count({ where: { status: "CLOSED" } }),
+        prisma.ticket.count({ where: { status: "CANCELLED" } }),
       ]);
-
-    console.log("📊 Stats calculated:", {
-      total,
-      pending,
-      in_progress,
-      resolved,
-      cancelled,
-      closed,
-    });
 
     return {
       total,
       pending,
       in_progress,
       resolved,
-      cancelled,
       closed,
+      cancelled,
     };
   } catch (error) {
-    console.error("❌ getTicketStats error:", error);
+    console.error("getTicketStats error:", error);
     throw error;
   }
 }
-
-
-
 
 /**
  * ============================================
@@ -386,6 +353,7 @@ function transformTicketForCAdmin(ticket) {
     created_by_user_id: ticket.created_by_user_id,
     created_by_name: ticket.created_by?.full_name || null,
     created_by_role: ticket.created_by?.role || null,
+    created_by_phone: ticket.created_by?.phone_number || null,
 
     // Contact & Issue
     contact_number: ticket.contact_number,
@@ -399,18 +367,18 @@ function transformTicketForCAdmin(ticket) {
     status: ticket.status,
     admin_notes: ticket.admin_notes,
 
-    // Cancellation
+    // Cancellation (by user)
     cancelled_at: ticket.cancelled_at,
     cancelled_by_id: ticket.cancelled_by_id,
     cancelled_by_name: ticket.cancelled_by?.full_name || null,
     cancellation_reason: ticket.cancellation_reason,
 
-    // Reopening ✅ ALL FIELDS INCLUDED
+    // Reopening
     reopened_at: ticket.reopened_at,
     reopened_by_id: ticket.reopened_by_id,
-    reopened_by_name: ticket.reopened_by?.full_name || null, // ✅ Should work now
+    reopened_by_name: ticket.reopened_by?.full_name || null,
     reopen_count: ticket.reopen_count || 0,
-    reopen_reason: ticket.reopen_reason, // ✅ ADDED
+    reopen_reason: ticket.reopen_reason,
 
     // Attachments
     attachments: ticket.attachments || [],
@@ -420,108 +388,4 @@ function transformTicketForCAdmin(ticket) {
     created_at: ticket.created_at,
     updated_at: ticket.updated_at,
   };
-}
-
-/**
- * ============================================
- * ADD ADMIN NOTE
- * ============================================
- */
-export async function addAdminNote(ticket_id, note, cadmin_id) {
-  try {
-    const ticket = await prisma.ticket.findUnique({
-      where: { ticket_id },
-    });
-
-    if (!ticket) {
-      const err = new Error("Ticket not found");
-      err.code = "TICKET_NOT_FOUND";
-      throw err;
-    }
-
-    // Get admin details
-    const admin = await prisma.cAdmin.findUnique({
-      where: { cadmin_id },
-      select: { name: true },
-    });
-
-    // Format timestamp
-    const timestamp = new Date().toLocaleString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-
-    // Build new note entry
-    const newNoteEntry = `[${timestamp}] ${admin?.name || "Admin"}: ${note}`;
-
-    // Append to existing notes
-    const existingNotes = ticket.admin_notes || "";
-    const updatedNotes = existingNotes
-      ? `${existingNotes}\n\n${newNoteEntry}`
-      : newNoteEntry;
-
-    const updatedTicket = await prisma.ticket.update({
-      where: { ticket_id },
-      data: {
-        admin_notes: updatedNotes,
-        updated_at: new Date(),
-      },
-      include: {
-        shop: {
-          select: {
-            shop_id: true,
-            business_name: true,
-          },
-        },
-        branch: {
-          select: {
-            branch_id: true,
-            branch_name: true,
-          },
-        },
-        created_by: {
-          select: {
-            user_id: true,
-            full_name: true,
-            role: true,
-          },
-        },
-        cancelled_by: {
-          select: {
-            user_id: true,
-            full_name: true,
-            role: true,
-          },
-        },
-        reopened_by: {
-          select: {
-            user_id: true,
-            full_name: true,
-            role: true,
-          },
-        },
-        attachments: {
-          select: {
-            attachment_id: true,
-            storage_key: true,
-            original_name: true,
-            mime_type: true,
-            file_size: true,
-          },
-        },
-      },
-    });
-
-    console.log(`✅ Admin note added to ticket ${ticket.ticket_number}`);
-
-    return transformTicketForCAdmin(updatedTicket);
-  } catch (error) {
-    console.error("❌ addAdminNote error:", error);
-    throw error;
-  }
 }

@@ -8,7 +8,9 @@ const StyledSelect = ({
   value, 
   onChange, 
   options, 
-  placeholder = "Select..." 
+  placeholder = "Select...",
+  error,
+  disabled = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState(null);
@@ -29,6 +31,7 @@ const StyledSelect = ({
 
   // Handle opening - calculate position first, then open
   const handleToggle = () => {
+    if (disabled) return;
     if (!isOpen) {
       updatePosition();
     }
@@ -114,34 +117,41 @@ const StyledSelect = ({
         <label className="text-xs text-gray-500 font-medium">{label}</label>
       )}
       
-      <div className="relative">
-        {/* Trigger Button */}
-        <button
-          ref={triggerRef}
-          type="button"
-          onClick={handleToggle}
-          className={`h-10 pl-4 pr-10 border rounded-lg text-sm text-left
-                     flex items-center min-w-[140px] whitespace-nowrap shadow-sm
-                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                     transition-all duration-200 ease-in-out
-                     ${isActive 
+      {/* Trigger Button - Chevron is now INSIDE */}
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={handleToggle}
+        disabled={disabled}
+        className={`w-full h-10 px-3 border rounded-lg text-sm text-left
+                   flex items-center justify-between gap-2 shadow-sm
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+                   transition-all duration-200 ease-in-out
+                   disabled:opacity-50 disabled:cursor-not-allowed
+                   ${error
+                     ? "border-red-500 bg-red-50"
+                     : isActive 
                        ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium" 
                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                     }`}
-        >
-          <span className={selectedOption ? "" : "text-gray-400"}>
-            {selectedOption?.label || placeholder}
-          </span>
-        </button>
-
-        {/* Chevron */}
+                   }`}
+      >
+        <span className={`flex-1 truncate ${selectedOption ? "" : "text-gray-400"}`}>
+          {selectedOption?.label || placeholder}
+        </span>
+        
+        {/* Chevron inside button */}
         <ChevronDown 
           size={16} 
-          className={`absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none transition-transform
+          className={`flex-shrink-0 transition-transform duration-200
                      ${isOpen ? "rotate-180" : ""}
                      ${isActive ? "text-indigo-500" : "text-gray-400"}`} 
         />
-      </div>
+      </button>
+
+      {/* Error Message */}
+      {error && (
+        <p className="text-xs text-red-500">{error}</p>
+      )}
 
       {/* Dropdown Portal */}
       {dropdown}

@@ -1,38 +1,31 @@
 // cureli-admin/src/api/cadminTickets.js
 
-import apiClient from "./axios";
+import CAdminAPI from "./axios";
 
 /**
- * Get all tickets (Super Admin view)
+ * Get all tickets with filters and pagination
  */
 export const getAllTickets = (params = {}) => {
-  return apiClient.get("/tickets", { params }); // ✅ Removed /cadmin prefix
+  return CAdminAPI.get("/tickets", { params });
 };
 
 /**
  * Get ticket by ID
  */
 export const getTicketById = (ticketId) => {
-  return apiClient.get(`/tickets/${ticketId}`); // ✅ Removed /cadmin prefix
+  return CAdminAPI.get(`/tickets/${ticketId}`);
 };
 
 /**
  * Update ticket status
  */
 export const updateTicketStatus = (ticketId, data) => {
-  return apiClient.patch(`/tickets/${ticketId}/status`, data); // ✅ Removed /cadmin prefix
-};
-
-/**
- * Add admin note to ticket
- */
-export const addTicketNote = (ticketId, data) => {
-  return apiClient.post(`/tickets/${ticketId}/notes`, data); // ✅ Removed /cadmin prefix
+  return CAdminAPI.patch(`/tickets/${ticketId}/status`, data);
 };
 
 /**
  * Get ticket statistics
  */
 export const getTicketStats = () => {
-  return apiClient.get("/tickets/stats"); // ✅ Removed /cadmin prefix
+  return CAdminAPI.get("/tickets/stats");
 };

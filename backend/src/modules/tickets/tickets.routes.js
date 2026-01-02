@@ -1,170 +1,89 @@
-// src/modules/tickets/tickets.routes.js
+// backend/src/modules/tickets/tickets.routes.js
 
-import { Router } from "express";
+import express from "express";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireRole } from "../../middleware/rbac.js";
 import { validateQuery } from "../../middleware/validate.js";
-import { uploadTicketAttachments } from "./tickets.service.js";
-
 import {
   createTicketController,
   getTicketsController,
   getTicketController,
   getTicketStatsController,
   cancelTicketController,
-  reopenTicketController
+  reopenTicketController,
 } from "./tickets.controller.js";
+import { getTicketsQuerySchema } from "./tickets.schema.js";
 
-import {
-  getTicketsQuerySchema,
-} from "./tickets.schema.js";
+const router = express.Router();
 
-const router = Router();
 
-// All routes require authentication
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join("uploads", "tickets");
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    const sanitizedName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, "_");
+    cb(null, `${uniqueSuffix}-${sanitizedName}${ext}`);
+  },
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "application/pdf",
+  ];
+
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Invalid file type. Only images and PDFs are allowed."));
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB per file
+    files: 3, // Max 3 files
+  },
+});
+
+
 router.use(requireAuth);
-
-// All routes require super_admin or branch_admin role
 router.use(requireRole("super_admin", "branch_admin"));
 
-/**
- * GET /api/tickets/stats
- * Get ticket statistics
- * ⚠️ MUST be before /:ticket_id to avoid route conflict
- */
+
+
+// GET /api/tickets/stats - Must be before /:ticket_id
 router.get("/stats", getTicketStatsController);
 
-/**
- * GET /api/tickets
- * List tickets with filtering and pagination
- * - SA: sees all shop tickets
- * - BA: sees only their branch tickets
- */
-router.get(
-  "/",
-  validateQuery(getTicketsQuerySchema),
-  getTicketsController
-);
+// GET /api/tickets
+router.get("/", validateQuery(getTicketsQuerySchema), getTicketsController);
 
-/**
- * POST /api/tickets
- * Create a new support ticket with attachments
- * ✅ Accepts multipart/form-data with up to 3 image/PDF files
- */
-router.post(
-  "/",
-  uploadTicketAttachments.array("attachments", 3), // ✅ Handle file uploads
-  createTicketController
-);
+// POST /api/tickets
+router.post("/", upload.array("attachments", 3), createTicketController);
 
-/**
- * GET /api/tickets/:ticket_id
- * Get single ticket details
- */
+// GET /api/tickets/:ticket_id
 router.get("/:ticket_id", getTicketController);
 
-/**
- * POST /api/tickets/:ticket_id/cancel
- * Cancel a ticket
- */
-router.post(
-  "/:ticket_id/cancel",
-  cancelTicketController
-);
+// POST /api/tickets/:ticket_id/cancel
+router.post("/:ticket_id/cancel", cancelTicketController);
 
-/**
- * POST /api/tickets/:ticket_id/reopen
- * Reopen a resolved or closed ticket
- */
-router.post("/:ticket_id/reopen", reopenTicketController); // ✅ Add reopen route
+// POST /api/tickets/:ticket_id/reopen
+router.post("/:ticket_id/reopen", reopenTicketController);
 
 export default router;
-
-
-
-// // src/modules/tickets/tickets.routes.js
-
-// import { Router } from "express";
-// import { requireAuth } from "../../middleware/auth.js";
-// import { requireRole } from "../../middleware/rbac.js";
-// import { validateBody, validateQuery } from "../../middleware/validate.js";
-
-// import {
-//   createTicketController,
-//   getTicketsController,
-//   getTicketController,
-//   getTicketStatsController,
-//   cancelTicketController,
-//   reopenTicketController,
-// } from "./tickets.controller.js";
-
-// import {
-//   createTicketSchema,
-//   getTicketsQuerySchema,
-//   cancelTicketSchema,
-//   reopenTicketSchema,
-// } from "./tickets.schema.js";
-
-// const router = Router();
-
-// // All routes require authentication
-// router.use(requireAuth);
-
-// // All routes require super_admin or branch_admin role
-// router.use(requireRole("super_admin", "branch_admin"));
-
-// /**
-//  * GET /api/tickets
-//  * List tickets with filtering and pagination
-//  * - SA: sees all shop tickets
-//  * - BA: sees only their branch tickets
-//  */
-// router.get(
-//   "/",
-//   validateQuery(getTicketsQuerySchema),
-//   getTicketsController
-// );
-
-// /**
-//  * GET /api/tickets/stats
-//  * Get ticket statistics
-//  */
-// router.get("/stats", getTicketStatsController);
-
-// /**
-//  * POST /api/tickets
-//  * Create a new support ticket
-//  */
-// router.post(
-//   "/",
-//   validateBody(createTicketSchema),
-//   createTicketController
-// );
-
-// /**
-//  * GET /api/tickets/:ticket_id
-//  * Get single ticket details
-//  */
-// router.get("/:ticket_id", getTicketController);
-
-// /**
-//  * POST /api/tickets/:ticket_id/cancel
-//  * Cancel a ticket
-//  */
-// router.post(
-//   "/:ticket_id/cancel",
-//   validateBody(cancelTicketSchema),
-//   cancelTicketController
-// );
-
-// /**
-//  * POST /api/tickets/:ticket_id/reopen
-//  * Reopen a cancelled ticket
-//  */
-// router.post(
-//   "/:ticket_id/reopen",
-//   validateBody(reopenTicketSchema),
-//   reopenTicketController
-// );
-
-// export default router;

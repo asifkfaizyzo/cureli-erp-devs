@@ -1,81 +1,93 @@
 // backend/src/modules/tickets/tickets.service.js
 
 import prisma from "../../config/prisma.js";
-import multer from "multer";
-import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // ============================================
-// Multer Configuration for Ticket Attachments
+// Generate Ticket Number
 // ============================================
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, "../../../uploads/tickets");
-    
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    const nameWithoutExt = path.basename(file.originalname, ext);
-    const sanitizedName = nameWithoutExt.replace(/[^a-zA-Z0-9]/g, "_");
-    cb(null, uniqueSuffix + "-" + sanitizedName + ext);
-  },
-});
-
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "application/pdf",
-  ];
-
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Invalid file type. Only images and PDFs are allowed."));
-  }
-};
-
-export const uploadTicketAttachments = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB per file
-    files: 3, // Max 3 files
-  },
-});
-
-/**
- * ============================================
- * GENERATE TICKET NUMBER
- * ============================================
- */
 async function generateTicketNumber(shop_id) {
   const shopCode = shop_id.substring(0, 4).toUpperCase();
-  const ticketCount = await prisma.ticket.count({
-    where: { shop_id },
-  });
+  const ticketCount = await prisma.ticket.count({ where: { shop_id } });
   const sequentialNumber = String(ticketCount + 1).padStart(5, "0");
   return `TKT-${shopCode}-${sequentialNumber}`;
 }
 
-/**
- * ============================================
- * CREATE TICKET (with file attachments)
- * ============================================
- */
+// ============================================
+// Transform Ticket Helper
+// ============================================
+function transformTicket(ticket) {
+  return {
+    ticket_id: ticket.ticket_id,
+    ticket_number: ticket.ticket_number,
+    shop_id: ticket.shop_id,
+    branch_id: ticket.branch_id,
+    branch_name: ticket.branch?.branch_name || null,
+
+    created_by_user_id: ticket.created_by_user_id,
+    created_by_name: ticket.created_by?.full_name || null,
+    created_by_role: ticket.created_by?.role || null,
+
+    contact_number: ticket.contact_number,
+    category: ticket.category,
+    other_category_text: ticket.other_category_text,
+    subject: ticket.subject,
+    description: ticket.description,
+    preferred_slot: ticket.preferred_slot,
+
+    status: ticket.status,
+    admin_notes: ticket.admin_notes,
+
+    cancelled_at: ticket.cancelled_at,
+    cancelled_by_id: ticket.cancelled_by_id,
+    cancelled_by_name: ticket.cancelled_by?.full_name || null,
+    cancellation_reason: ticket.cancellation_reason,
+
+    reopened_at: ticket.reopened_at,
+    reopened_by_id: ticket.reopened_by_id,
+    reopened_by_name: ticket.reopened_by?.full_name || null,
+    reopen_count: ticket.reopen_count,
+    reopen_reason: ticket.reopen_reason,
+
+    attachments: ticket.attachments || [],
+    attachment_count: ticket._count?.attachments || ticket.attachments?.length || 0,
+
+    created_at: ticket.created_at,
+    updated_at: ticket.updated_at,
+  };
+}
+
+// ============================================
+// Include Config
+// ============================================
+const ticketInclude = {
+  branch: {
+    select: { branch_id: true, branch_name: true },
+  },
+  created_by: {
+    select: { user_id: true, full_name: true, role: true },
+  },
+  cancelled_by: {
+    select: { user_id: true, full_name: true, role: true },
+  },
+  reopened_by: {
+    select: { user_id: true, full_name: true, role: true },
+  },
+  attachments: {
+    select: {
+      attachment_id: true,
+      storage_key: true,
+      original_name: true,
+      mime_type: true,
+      file_size: true,
+      uploaded_at: true,
+    },
+  },
+};
+
+// ============================================
+// Create Ticket
+// ============================================
 export async function createTicket({
   shop_id,
   branch_id,
@@ -86,27 +98,31 @@ export async function createTicket({
   description,
   other_category_text,
   preferred_slot,
-  files,
+  files = [],
 }) {
-  try {
-    if (branch_id) {
-      const branch = await prisma.branch.findFirst({
-        where: {
-          branch_id,
-          shop_id,
-          is_active: true,
-        },
-      });
+  console.log("=== CREATE TICKET DEBUG ===");
+  console.log("shop_id:", shop_id);
+  console.log("branch_id:", branch_id);
+  console.log("user_id:", user_id);
+  console.log("category:", category);
+  console.log("files count:", files.length);
 
-      if (!branch) {
-        const err = new Error("Branch not found or inactive");
-        err.code = "INVALID_BRANCH";
-        throw err;
-      }
+  if (branch_id) {
+    const branch = await prisma.branch.findFirst({
+      where: { branch_id, shop_id, is_active: true },
+    });
+
+    if (!branch) {
+      const err = new Error("Branch not found or inactive");
+      err.code = "INVALID_BRANCH";
+      throw err;
     }
+  }
 
-    const ticket_number = await generateTicketNumber(shop_id);
+  const ticket_number = await generateTicketNumber(shop_id);
+  console.log("Generated ticket_number:", ticket_number);
 
+  try {
     const ticket = await prisma.$transaction(async (tx) => {
       const newTicket = await tx.ticket.create({
         data: {
@@ -115,16 +131,18 @@ export async function createTicket({
           branch_id: branch_id || null,
           created_by_user_id: user_id,
           contact_number,
-          category,
+          category, // Prisma should accept string for enum
           subject,
-          description,
+          description: description || null,
           other_category_text: category === "OTHER" ? other_category_text : null,
           preferred_slot,
-          status: "PENDING",
+          status: "PENDING", // Prisma should accept string for enum
         },
       });
 
-      if (files && files.length > 0) {
+      console.log("Created ticket:", newTicket.ticket_id);
+
+      if (files.length > 0) {
         const attachmentData = files.map((file) => ({
           ticket_id: newTicket.ticket_id,
           storage_key: `tickets/${file.filename}`,
@@ -133,11 +151,8 @@ export async function createTicket({
           file_size: file.size,
         }));
 
-        await tx.ticketAttachment.createMany({
-          data: attachmentData,
-        });
-
-        console.log(`✅ Created ${attachmentData.length} attachments for ticket ${ticket_number}`);
+        await tx.ticketAttachment.createMany({ data: attachmentData });
+        console.log("Created attachments:", attachmentData.length);
       }
 
       return newTicket;
@@ -145,56 +160,35 @@ export async function createTicket({
 
     const completeTicket = await prisma.ticket.findUnique({
       where: { ticket_id: ticket.ticket_id },
-      include: {
-        branch: {
-          select: {
-            branch_id: true,
-            branch_name: true,
-          },
-        },
-        created_by: {
-          select: {
-            user_id: true,
-            full_name: true,
-            role: true,
-          },
-        },
-        attachments: {
-          select: {
-            attachment_id: true,
-            storage_key: true,
-            original_name: true,
-            mime_type: true,
-            file_size: true,
-            uploaded_at: true,
-          },
-        },
-      },
+      include: ticketInclude,
     });
 
     return transformTicket(completeTicket);
   } catch (error) {
-    console.error("❌ createTicket error:", error);
+    console.error("=== CREATE TICKET ERROR ===");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error code:", error.code);
     
-    if (files && files.length > 0) {
+    // Prisma-specific error details
+    if (error.meta) {
+      console.error("Prisma meta:", error.meta);
+    }
+
+    if (files.length > 0) {
       files.forEach((file) => {
-        const filePath = file.path;
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-          console.log(`🗑️ Cleaned up file: ${file.filename}`);
+        if (file.path && fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
         }
       });
     }
-    
     throw error;
   }
 }
 
-/**
- * ============================================
- * GET TICKETS (with filtering & pagination)
- * ============================================
- */
+// ============================================
+// Get Tickets
+// ============================================
 export async function getTickets({
   shop_id,
   branch_id,
@@ -203,186 +197,155 @@ export async function getTickets({
   search,
   date_from,
   date_to,
-  page,
-  limit,
-  sort_by,
-  sort_order,
+  page = 1,
+  limit = 20,
+  sort_by = "created_at",
+  sort_order = "desc",
   requester_role,
   requester_branch_id,
 }) {
-  const where = { shop_id };
+  console.log("=== GET TICKETS SERVICE DEBUG ===");
+  console.log("Input params:", {
+    shop_id,
+    branch_id,
+    status,
+    category,
+    search,
+    date_from,
+    date_to,
+    page,
+    limit,
+    sort_by,
+    sort_order,
+    requester_role,
+    requester_branch_id,
+  });
 
+  const andConditions = [];
+
+  // Always filter by shop
+  andConditions.push({ shop_id });
+
+  // Role-based filtering
   if (requester_role === "super_admin") {
     if (branch_id) {
-      where.branch_id = branch_id;
+      andConditions.push({ branch_id });
     }
   } else if (requester_role === "branch_admin") {
-    where.OR = [
-      { branch_id: requester_branch_id },
-      { branch_id: null },
-    ];
+    if (requester_branch_id) {
+      andConditions.push({
+        OR: [
+          { branch_id: requester_branch_id },
+          { branch_id: null },
+        ],
+      });
+    }
   }
 
+  // Status filter
   if (status) {
-    where.status = status;
+    andConditions.push({ status });
   }
 
+  // Category filter
   if (category) {
-    where.category = category;
+    andConditions.push({ category });
   }
 
+  // Date range filter
   if (date_from || date_to) {
-    where.created_at = {};
+    const dateCondition = {};
     if (date_from) {
-      where.created_at.gte = new Date(date_from);
+      dateCondition.gte = new Date(date_from);
     }
     if (date_to) {
       const endDate = new Date(date_to);
       endDate.setDate(endDate.getDate() + 1);
-      where.created_at.lt = endDate;
+      dateCondition.lt = endDate;
     }
+    andConditions.push({ created_at: dateCondition });
   }
 
+  // Search filter
   if (search) {
-    where.OR = [
-      { ticket_number: { contains: search, mode: "insensitive" } },
-      { subject: { contains: search, mode: "insensitive" } },
-    ];
+    andConditions.push({
+      OR: [
+        { ticket_number: { contains: search, mode: "insensitive" } },
+        { subject: { contains: search, mode: "insensitive" } },
+      ],
+    });
   }
 
-  const total = await prisma.ticket.count({ where });
+  const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
-  const tickets = await prisma.ticket.findMany({
-    where,
-    include: {
-      branch: {
-        select: {
-          branch_id: true,
-          branch_name: true,
-        },
-      },
-      created_by: {
-        select: {
-          user_id: true,
-          full_name: true,
-          role: true,
-        },
-      },
-      cancelled_by: { // ✅ ADDED
-        select: {
-          user_id: true,
-          full_name: true,
-          role: true,
-        },
-      },
-      reopened_by: { // ✅ ADDED
-        select: {
-          user_id: true,
-          full_name: true,
-          role: true,
-        },
-      },
-      attachments: {
-        select: {
-          attachment_id: true,
-          storage_key: true,
-          original_name: true,
-          mime_type: true,
-          file_size: true,
-        },
-      },
-      _count: {
-        select: {
-          attachments: true,
-        },
-      },
-    },
-    orderBy: { [sort_by]: sort_order },
-    skip: (page - 1) * limit,
-    take: limit,
-  });
+  console.log("Final where clause:", JSON.stringify(where, null, 2));
 
-  return {
-    tickets: tickets.map(transformTicket),
-    pagination: {
-      page,
-      limit,
-      total,
-      total_pages: Math.ceil(total / limit),
-    },
-  };
+  try {
+    // ✅ Parse page and limit to ensure they're numbers
+    const pageNum = typeof page === 'string' ? parseInt(page, 10) : page;
+    const limitNum = typeof limit === 'string' ? parseInt(limit, 10) : limit;
+
+    console.log("Pagination - page:", pageNum, "limit:", limitNum);
+
+    const [total, tickets] = await Promise.all([
+      prisma.ticket.count({ where }),
+      prisma.ticket.findMany({
+        where,
+        include: {
+          ...ticketInclude,
+          _count: { select: { attachments: true } },
+        },
+        orderBy: { [sort_by]: sort_order },
+        skip: (pageNum - 1) * limitNum,
+        take: limitNum,
+      }),
+    ]);
+
+    console.log("Query result - total:", total, "fetched:", tickets.length);
+
+    return {
+      tickets: tickets.map(transformTicket),
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        total_pages: Math.ceil(total / limitNum),
+      },
+    };
+  } catch (error) {
+    console.error("=== GET TICKETS ERROR ===");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error code:", error.code);
+    
+    if (error.meta) {
+      console.error("Prisma meta:", error.meta);
+    }
+    
+    throw error;
+  }
 }
 
-/**
- * ============================================
- * GET SINGLE TICKET BY ID
- * ============================================
- */
+// ============================================
+// Get Ticket By ID
+// ============================================
 export async function getTicketById(ticket_id, shop_id) {
-  const ticket = await prisma.ticket.findFirst({
-    where: {
-      ticket_id,
-      shop_id,
-    },
-    include: {
-      branch: {
-        select: {
-          branch_id: true,
-          branch_name: true,
-        },
-      },
-      created_by: {
-        select: {
-          user_id: true,
-          full_name: true,
-          role: true,
-          phone_number: true,
-        },
-      },
-      cancelled_by: {
-        select: {
-          user_id: true,
-          full_name: true,
-          role: true,
-        },
-      },
-      reopened_by: { // ✅ CRITICAL: Include this
-        select: {
-          user_id: true,
-          full_name: true,
-          role: true,
-        },
-      },
-      attachments: {
-        select: {
-          attachment_id: true,
-          storage_key: true,
-          original_name: true,
-          mime_type: true,
-          file_size: true,
-          uploaded_at: true,
-        },
-      },
-    },
-  });
+  try {
+    const ticket = await prisma.ticket.findFirst({
+      where: { ticket_id, shop_id },
+      include: ticketInclude,
+    });
 
-  if (!ticket) return null;
-
-  // ✅ Debug log (remove after fixing)
-  console.log("🔍 Fetched ticket:", {
-    ticket_id: ticket.ticket_id,
-    reopened_by_id: ticket.reopened_by_id,
-    reopened_by: ticket.reopened_by,
-  });
-
-  return transformTicket(ticket);
+    return ticket ? transformTicket(ticket) : null;
+  } catch (error) {
+    console.error("getTicketById error:", error);
+    throw error;
+  }
 }
 
-/**
- * ============================================
- * CANCEL TICKET
- * ============================================
- */
+// ============================================
+// Cancel Ticket
+// ============================================
 export async function cancelTicket(ticket_id, shop_id, user_id, reason) {
   const ticket = await prisma.ticket.findFirst({
     where: { ticket_id, shop_id },
@@ -414,23 +377,15 @@ export async function cancelTicket(ticket_id, shop_id, user_id, reason) {
       cancelled_by_id: user_id,
       cancellation_reason: reason,
     },
-    include: {
-      branch: { select: { branch_id: true, branch_name: true } },
-      created_by: { select: { user_id: true, full_name: true, role: true } },
-      cancelled_by: { select: { user_id: true, full_name: true, role: true } },
-      reopened_by: { select: { user_id: true, full_name: true, role: true } }, // ✅ ADDED
-      attachments: true,
-    },
+    include: ticketInclude,
   });
 
   return transformTicket(updatedTicket);
 }
 
-/**
- * ============================================
- * REOPEN TICKET
- * ============================================
- */
+// ============================================
+// Reopen Ticket
+// ============================================
 export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
   const ticket = await prisma.ticket.findFirst({
     where: { ticket_id, shop_id },
@@ -442,15 +397,15 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
     throw err;
   }
 
-  if (ticket.status !== "RESOLVED" && ticket.status !== "CLOSED") {
-    const err = new Error("Only resolved or closed tickets can be reopened");
-    err.code = "INVALID_STATUS_FOR_REOPEN";
-    throw err;
-  }
-
   if (ticket.status === "CANCELLED") {
     const err = new Error("Cannot reopen a cancelled ticket");
     err.code = "CANNOT_REOPEN_CANCELLED";
+    throw err;
+  }
+
+  if (ticket.status !== "RESOLVED" && ticket.status !== "CLOSED") {
+    const err = new Error("Only resolved or closed tickets can be reopened");
+    err.code = "INVALID_STATUS_FOR_REOPEN";
     throw err;
   }
 
@@ -460,168 +415,105 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
       status: "PENDING",
       reopened_at: new Date(),
       reopened_by_id: user_id,
-      reopen_count: ticket.reopen_count + 1,
+      reopen_count: { increment: 1 },
       reopen_reason: reason,
     },
-    include: {
-      branch: { select: { branch_id: true, branch_name: true } },
-      created_by: { select: { user_id: true, full_name: true, role: true } },
-      cancelled_by: { select: { user_id: true, full_name: true, role: true } },
-      reopened_by: { select: { user_id: true, full_name: true, role: true } }, // ✅ CRITICAL
-      attachments: true,
-    },
-  });
-
-  // ✅ Debug log (remove after fixing)
-  console.log("🔍 Reopened ticket:", {
-    ticket_id: updatedTicket.ticket_id,
-    reopened_by_id: updatedTicket.reopened_by_id,
-    reopened_by: updatedTicket.reopened_by,
+    include: ticketInclude,
   });
 
   return transformTicket(updatedTicket);
 }
 
-/**
- * ============================================
- * GET TICKET STATS
- * ============================================
- */
+// ============================================
+// Get Ticket Stats
+// ============================================
 export async function getTicketStats(shop_id, requester_role, requester_branch_id) {
-  const where = { shop_id };
+  const andConditions = [{ shop_id }];
 
-  if (requester_role === "branch_admin") {
-    where.OR = [
-      { branch_id: requester_branch_id },
-      { branch_id: null },
-    ];
+  if (requester_role === "branch_admin" && requester_branch_id) {
+    andConditions.push({
+      OR: [
+        { branch_id: requester_branch_id },
+        { branch_id: null },
+      ],
+    });
   }
 
-  const statusCounts = await prisma.ticket.groupBy({
-    by: ["status"],
-    where,
-    _count: { status: true },
-  });
+  const where = { AND: andConditions };
 
-  const totalCount = await prisma.ticket.count({ where });
+  try {
+    const [statusCounts, categoryCounts, totalCount, recentCount] = await Promise.all([
+      prisma.ticket.groupBy({
+        by: ["status"],
+        where,
+        _count: { status: true },
+      }),
+      prisma.ticket.groupBy({
+        by: ["category"],
+        where,
+        _count: { category: true },
+      }),
+      prisma.ticket.count({ where }),
+      prisma.ticket.count({
+        where: {
+          AND: [
+            ...andConditions,
+            { created_at: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+          ],
+        },
+      }),
+    ]);
 
-  const categoryCounts = await prisma.ticket.groupBy({
-    by: ["category"],
-    where,
-    _count: { category: true },
-  });
+    const byStatus = {
+      PENDING: 0,
+      IN_PROGRESS: 0,
+      RESOLVED: 0,
+      CANCELLED: 0,
+      CLOSED: 0,
+    };
+    statusCounts.forEach((item) => {
+      byStatus[item.status] = item._count.status;
+    });
 
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const byCategory = {
+      TECHNICAL_ISSUE: 0,
+      BILLING_ISSUE: 0,
+      FEATURE_REQUEST: 0,
+      ACCOUNT_ISSUE: 0,
+      OTHER: 0,
+    };
+    categoryCounts.forEach((item) => {
+      byCategory[item.category] = item._count.category;
+    });
 
-  const recentCount = await prisma.ticket.count({
-    where: { ...where, created_at: { gte: sevenDaysAgo } },
-  });
-
-  const byStatus = {
-    PENDING: 0,
-    IN_PROGRESS: 0,
-    RESOLVED: 0,
-    CANCELLED: 0,
-    CLOSED: 0,
-  };
-
-  statusCounts.forEach((item) => {
-    byStatus[item.status] = item._count.status;
-  });
-
-  const byCategory = {
-    TECHNICAL_ISSUE: 0,
-    BILLING_ISSUE: 0,
-    FEATURE_REQUEST: 0,
-    ACCOUNT_ISSUE: 0,
-    OTHER: 0,
-  };
-
-  categoryCounts.forEach((item) => {
-    byCategory[item.category] = item._count.category;
-  });
-
-  return {
-    total: totalCount,
-    recent_7_days: recentCount,
-    by_status: byStatus,
-    by_category: byCategory,
-  };
+    return {
+      total: totalCount,
+      recent_7_days: recentCount,
+      by_status: byStatus,
+      by_category: byCategory,
+    };
+  } catch (error) {
+    console.error("getTicketStats error:", error);
+    throw error;
+  }
 }
 
-/**
- * ============================================
- * HELPER: Transform ticket for response
- * ============================================
- */
-function transformTicket(ticket) {
-  return {
-    ticket_id: ticket.ticket_id,
-    ticket_number: ticket.ticket_number,
-    shop_id: ticket.shop_id,
-    branch_id: ticket.branch_id,
-    branch_name: ticket.branch?.branch_name || null,
-    
-    // Creator info
-    created_by_user_id: ticket.created_by_user_id,
-    created_by_name: ticket.created_by?.full_name || null,
-    created_by_role: ticket.created_by?.role || null,
-    
-    // Contact & Issue
-    contact_number: ticket.contact_number,
-    category: ticket.category,
-    other_category_text: ticket.other_category_text,
-    subject: ticket.subject,
-    description: ticket.description,
-    preferred_slot: ticket.preferred_slot,
-    
-    // Status & Admin Notes
-    status: ticket.status,
-    admin_notes: ticket.admin_notes,
-    
-    // Cancellation
-    cancelled_at: ticket.cancelled_at,
-    cancelled_by_id: ticket.cancelled_by_id,
-    cancelled_by_name: ticket.cancelled_by?.full_name || null,
-    cancellation_reason: ticket.cancellation_reason,
-    
-    // Reopening
-    reopened_at: ticket.reopened_at,
-    reopened_by_id: ticket.reopened_by_id,
-    reopened_by_name: ticket.reopened_by?.full_name || null, // ✅ Should work now
-    reopen_count: ticket.reopen_count,
-    reopen_reason: ticket.reopen_reason,
-    
-    // Attachments
-    attachments: ticket.attachments || [],
-    attachment_count: ticket._count?.attachments || ticket.attachments?.length || 0,
-    
-    // Timestamps
-    created_at: ticket.created_at,
-    updated_at: ticket.updated_at,
-  };
-}
-
-/**
- * ============================================
- * CHECK USER CAN ACCESS TICKET
- * ============================================
- */
+// ============================================
+// Check Access
+// ============================================
 export async function canAccessTicket(ticket_id, shop_id, requester_role, requester_branch_id) {
-  const ticket = await prisma.ticket.findFirst({
-    where: {
-      ticket_id,
-      shop_id,
-    },
-    select: {
-      branch_id: true,
-    },
-  });
+  try {
+    const ticket = await prisma.ticket.findFirst({
+      where: { ticket_id, shop_id },
+      select: { branch_id: true },
+    });
 
-  if (!ticket) return false;
+    if (!ticket) return false;
+    if (requester_role === "super_admin") return true;
 
-  if (requester_role === "super_admin") return true;
-
-  return ticket.branch_id === requester_branch_id || ticket.branch_id === null;
+    return ticket.branch_id === requester_branch_id || ticket.branch_id === null;
+  } catch (error) {
+    console.error("canAccessTicket error:", error);
+    return false;
+  }
 }
