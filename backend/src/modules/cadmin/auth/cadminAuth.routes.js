@@ -1,3 +1,4 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\cadmin\auth\cadminAuth.routes.js
 import express from "express";
 import {
   loginCAdminController,
