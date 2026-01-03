@@ -10,50 +10,19 @@ import {
   ChevronRight,
   FileText,
   Inbox,
+  Search,
+  AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
+import {
+  getStatusConfig,
+  getCategoryConfig,
+  getPriorityConfig,
+} from "../../../config/ticketConfigs";
 
 // Status Badge Component
 const StatusBadge = ({ status }) => {
-  const statusConfig = {
-    PENDING: {
-      bg: "bg-amber-50",
-      text: "text-amber-700",
-      border: "border-amber-200",
-      dot: "bg-amber-500",
-      label: "Pending",
-    },
-    IN_PROGRESS: {
-      bg: "bg-blue-50",
-      text: "text-blue-700",
-      border: "border-blue-200",
-      dot: "bg-blue-500",
-      label: "In Progress",
-    },
-    RESOLVED: {
-      bg: "bg-emerald-50",
-      text: "text-emerald-700",
-      border: "border-emerald-200",
-      dot: "bg-emerald-500",
-      label: "Resolved",
-    },
-    CANCELLED: {
-      bg: "bg-red-50",
-      text: "text-red-700",
-      border: "border-red-200",
-      dot: "bg-red-500",
-      label: "Cancelled",
-    },
-    CLOSED: {
-      bg: "bg-slate-50",
-      text: "text-slate-700",
-      border: "border-slate-200",
-      dot: "bg-slate-500",
-      label: "Closed",
-    },
-  };
-
-  const config = statusConfig[status] || statusConfig.PENDING;
+  const config = getStatusConfig(status);
 
   return (
     <span
@@ -68,40 +37,7 @@ const StatusBadge = ({ status }) => {
 
 // Category Badge Component
 const CategoryBadge = ({ category }) => {
-  const categoryConfig = {
-    TECHNICAL_ISSUE: {
-      bg: "bg-violet-50",
-      text: "text-violet-700",
-      border: "border-violet-200",
-      label: "Technical",
-    },
-    BILLING_ISSUE: {
-      bg: "bg-orange-50",
-      text: "text-orange-700",
-      border: "border-orange-200",
-      label: "Billing",
-    },
-    FEATURE_REQUEST: {
-      bg: "bg-cyan-50",
-      text: "text-cyan-700",
-      border: "border-cyan-200",
-      label: "Feature",
-    },
-    ACCOUNT_ISSUE: {
-      bg: "bg-pink-50",
-      text: "text-pink-700",
-      border: "border-pink-200",
-      label: "Account",
-    },
-    OTHER: {
-      bg: "bg-gray-50",
-      text: "text-gray-600",
-      border: "border-gray-200",
-      label: "Other",
-    },
-  };
-
-  const config = categoryConfig[category] || categoryConfig.OTHER;
+  const config = getCategoryConfig(category);
 
   return (
     <span
@@ -109,6 +45,22 @@ const CategoryBadge = ({ category }) => {
                   ${config.bg} ${config.text} border ${config.border} whitespace-nowrap`}
     >
       {config.label}
+    </span>
+  );
+};
+
+// Priority Badge Component
+const PriorityBadge = ({ priority }) => {
+  const config = getPriorityConfig(priority);
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold 
+                  ${config.bg} ${config.text} border ${config.border} whitespace-nowrap
+                  ${config.pulse ? "animate-pulse" : ""}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0`} />
+      <span>{config.label}</span>
     </span>
   );
 };
@@ -123,10 +75,18 @@ const ReopenBadge = ({ count }) => {
     );
   }
 
+  const isHigh = count >= 3;
+  const isCritical = count >= 5;
+
   return (
     <span
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-semibold 
-                    bg-orange-100 text-orange-700 border border-orange-200"
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-semibold 
+                  ${isCritical 
+                    ? "bg-red-100 text-red-700 border border-red-200" 
+                    : isHigh 
+                      ? "bg-orange-100 text-orange-700 border border-orange-200"
+                      : "bg-amber-100 text-amber-700 border border-amber-200"
+                  }`}
     >
       <RotateCcw size={10} />
       {count}
@@ -195,6 +155,7 @@ const TicketsTable = ({
   sortConfig,
   onSortChange,
   onViewTicket,
+  hasActiveFilters = false,
 }) => {
   const totalPages = Math.ceil(totalItems / rowsPerPage);
 
@@ -249,12 +210,44 @@ const TicketsTable = ({
     return pages;
   };
 
+  // Empty state content based on context
+  const renderEmptyState = () => {
+    if (hasActiveFilters) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-3">
+          <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center">
+            <Search size={28} className="text-amber-400" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-900">No tickets match your filters</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Try adjusting or clearing your filters
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col items-center justify-center gap-3">
+        <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+          <Inbox size={28} className="text-gray-400" />
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-medium text-gray-900">No tickets yet</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Tickets will appear here when created
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    // ✅ FIXED: Match UserTable structure
     <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
-      {/* ✅ FIXED: Scrollable table container */}
+      {/* Scrollable table container */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full border-collapse text-sm" style={{ minWidth: "900px" }}>
+        <table className="w-full border-collapse text-sm" style={{ minWidth: "1000px" }}>
           {/* Header */}
           <thead className="sticky top-0 z-10">
             <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white text-left">
@@ -273,6 +266,8 @@ const TicketsTable = ({
 
               <HeaderCell>Category</HeaderCell>
 
+              <HeaderCell>Priority</HeaderCell>
+
               <SortableHeader
                 column="status"
                 label="Status"
@@ -280,9 +275,13 @@ const TicketsTable = ({
                 onSort={onSortChange}
               />
 
-              <HeaderCell center className="w-16">
-                <RotateCcw size={12} className="mx-auto" />
-              </HeaderCell>
+              <SortableHeader
+                column="reopen_count"
+                label={<RotateCcw size={12} className="mx-auto" />}
+                sortConfig={sortConfig}
+                onSort={onSortChange}
+                className="w-16 text-center"
+              />
 
               <HeaderCell>Created By</HeaderCell>
 
@@ -303,7 +302,7 @@ const TicketsTable = ({
             {/* Loading State */}
             {loading && (
               <tr>
-                <td colSpan="10" className="px-4 py-12 text-center">
+                <td colSpan="11" className="px-4 py-12 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-[#05015A]/10 flex items-center justify-center">
                       <Loader2 size={20} className="animate-spin text-[#05015A]" />
@@ -317,18 +316,8 @@ const TicketsTable = ({
             {/* Empty State */}
             {!loading && tickets.length === 0 && (
               <tr>
-                <td colSpan="10" className="px-4 py-12 text-center">
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Inbox size={28} className="text-gray-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">No tickets found</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Try adjusting your filters
-                      </p>
-                    </div>
-                  </div>
+                <td colSpan="11" className="px-4 py-12 text-center">
+                  {renderEmptyState()}
                 </td>
               </tr>
             )}
@@ -390,6 +379,10 @@ const TicketsTable = ({
                   </td>
 
                   <td className="px-2 sm:px-3 py-3">
+                    <PriorityBadge priority={ticket.priority} />
+                  </td>
+
+                  <td className="px-2 sm:px-3 py-3">
                     <StatusBadge status={ticket.status} />
                   </td>
 
@@ -439,7 +432,7 @@ const TicketsTable = ({
         </table>
       </div>
 
-      {/* ✅ FIXED: Pagination footer matches UserTable */}
+      {/* Pagination footer */}
       {!loading && tickets.length > 0 && (
         <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-2">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">

@@ -1,6 +1,6 @@
 // frontend/src/pages/tickets/TicketsPage.jsx
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, Search, X, Filter, Calendar } from "lucide-react";
 import { getTickets, reopenTicket } from "../../api/tickets";
 import TicketListTable from "./components/TicketListTable";
@@ -8,10 +8,12 @@ import CreateTicketModal from "./components/CreateTicketModal";
 import ViewTicketModal from "./components/ViewTicketModal";
 import CancelTicketModal from "./components/CancelTicketModal";
 import StyledSelect from "../../components/common/StyledSelect";
-import toast from "react-hot-toast";
-import { TICKET_STATUSES, TICKET_CATEGORIES } from "../../constant/tickets";
+import { useToast } from "../../components/common/Toast";
+import { TICKET_STATUSES, TICKET_CATEGORIES, SLA_RESPONSE_HINT } from "../../constant/tickets";
 
 const TicketsPage = () => {
+  const toast = useToast();
+
   // Tickets data
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -62,6 +64,11 @@ const TicketsPage = () => {
   // Count active filters
   const activeFiltersCount = [statusFilter, categoryFilter, dateFrom, dateTo].filter(Boolean).length;
 
+  // Check if any filters are active (including search)
+  const hasActiveFilters = useMemo(() => {
+    return !!(searchText || statusFilter || categoryFilter || dateFrom || dateTo);
+  }, [searchText, statusFilter, categoryFilter, dateFrom, dateTo]);
+
   // Responsive rows per page
   useEffect(() => {
     const updateRows = () => {
@@ -101,11 +108,11 @@ const TicketsPage = () => {
       setTotalItems(data?.pagination?.total || 0);
     } catch (err) {
       console.error("Failed to fetch tickets:", err);
-      toast.error("Failed to load tickets");
+      toast.error("Failed to Load", "Could not fetch tickets. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [currentPage, rowsPerPage, searchText, statusFilter, categoryFilter, dateFrom, dateTo, sortConfig]);
+  }, [currentPage, rowsPerPage, searchText, statusFilter, categoryFilter, dateFrom, dateTo, sortConfig, toast]);
 
   // Initial fetch
   useEffect(() => {
@@ -145,31 +152,46 @@ const TicketsPage = () => {
     setIsCancelModalOpen(true);
   };
 
-  // ✅ FIXED: Pass reason directly, not wrapped in object
   const handleReopenTicket = async (ticket, reason) => {
     try {
       await reopenTicket(ticket.ticket_id, reason);
-      toast.success("Ticket reopened successfully");
+      toast.success("Ticket Reopened", `Ticket ${ticket.ticket_number} has been reopened successfully.`);
       setIsViewModalOpen(false);
       setSelectedTicket(null);
       fetchTickets();
     } catch (error) {
       console.error("Failed to reopen ticket:", error);
-      toast.error(error.response?.data?.message || "Failed to reopen ticket");
+      toast.error(
+        "Reopen Failed",
+        error.response?.data?.message || "Failed to reopen ticket. Please try again."
+      );
     }
   };
 
+  // Handle ticket creation with SLA hint
   const handleTicketCreated = () => {
     setIsCreateModalOpen(false);
-    toast.success("Ticket created successfully");
+    
+    // Show success toast with SLA hint
+    toast.success(
+      "Ticket Created Successfully",
+      SLA_RESPONSE_HINT,
+      6000 // Show for 6 seconds to ensure user reads the SLA hint
+    );
+    
     fetchTickets();
   };
 
   const handleTicketCancelled = () => {
     setIsCancelModalOpen(false);
     setSelectedTicket(null);
-    toast.success("Ticket cancelled successfully");
+    toast.success("Ticket Cancelled", "Your ticket has been cancelled successfully.");
     fetchTickets();
+  };
+
+  // Handler for creating ticket from empty state
+  const handleCreateFromEmpty = () => {
+    setIsCreateModalOpen(true);
   };
 
   return (
@@ -346,6 +368,8 @@ const TicketsPage = () => {
           onSortChange={handleSortChange}
           onViewTicket={handleViewTicket}
           onCancelTicket={handleCancelTicket}
+          onCreateTicket={handleCreateFromEmpty}
+          hasActiveFilters={hasActiveFilters}
         />
       </div>
 

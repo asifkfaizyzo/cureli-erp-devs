@@ -1,37 +1,74 @@
 // frontend/src/pages/tickets/components/TicketListTable.jsx
 
+import { useState } from "react";
 import {
   Eye,
   XCircle,
   ChevronUp,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Loader2,
   FileText,
   Inbox,
+  Plus,
+  Search,
+  FilterX,
+  MoreHorizontal,
+  User,
+  Paperclip,
 } from "lucide-react";
-import { TICKET_STATUSES, TICKET_CATEGORIES } from "../../../constant/tickets";
-import { format } from "date-fns";
+import { TICKET_STATUSES, TICKET_CATEGORIES, EMPTY_STATE_MESSAGES } from "../../../constant/tickets";
+import { format, formatDistanceToNow } from "date-fns";
 
 // ============================================
 // STATUS BADGE COMPONENT
 // ============================================
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ status, size = "default" }) => {
   const statusConfig = {
-    PENDING: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", dot: "bg-amber-500" },
-    IN_PROGRESS: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", dot: "bg-blue-500" },
-    RESOLVED: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", dot: "bg-emerald-500" },
-    CANCELLED: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200", dot: "bg-red-500" },
-    CLOSED: { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", dot: "bg-slate-500" },
+    PENDING: { 
+      bg: "bg-amber-50", 
+      text: "text-amber-700", 
+      border: "border-amber-200", 
+      dot: "bg-amber-500",
+    },
+    IN_PROGRESS: { 
+      bg: "bg-blue-50", 
+      text: "text-blue-700", 
+      border: "border-blue-200", 
+      dot: "bg-blue-500",
+    },
+    RESOLVED: { 
+      bg: "bg-emerald-50", 
+      text: "text-emerald-700", 
+      border: "border-emerald-200", 
+      dot: "bg-emerald-500",
+    },
+    CANCELLED: { 
+      bg: "bg-red-50", 
+      text: "text-red-700", 
+      border: "border-red-200", 
+      dot: "bg-red-500",
+    },
+    CLOSED: { 
+      bg: "bg-slate-50", 
+      text: "text-slate-700", 
+      border: "border-slate-200", 
+      dot: "bg-slate-500",
+    },
   };
 
   const config = statusConfig[status] || statusConfig.PENDING;
   const label = TICKET_STATUSES[status] || status;
 
+  const sizeClasses = size === "small" 
+    ? "px-2 py-0.5 text-[10px]" 
+    : "px-2.5 py-1 text-xs";
+
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${config.bg} ${config.text} border ${config.border}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+    <span 
+      className={`inline-flex items-center gap-1.5 ${sizeClasses} rounded-full font-semibold ${config.bg} ${config.text} border ${config.border}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot} ${status === 'IN_PROGRESS' ? 'animate-pulse' : ''}`} />
       {label}
     </span>
   );
@@ -44,57 +81,231 @@ const CategoryBadge = ({ category }) => {
   const categoryConfig = {
     TECHNICAL_ISSUE: { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200" },
     BILLING_ISSUE: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
-    FEATURE_REQUEST: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200" },
+    FEATURE_REQUEST: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200"},
     ACCOUNT_ISSUE: { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-200" },
-    OTHER: { bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-200" },
+    OTHER: { bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-200"},
   };
 
   const config = categoryConfig[category] || categoryConfig.OTHER;
   const label = TICKET_CATEGORIES[category] || category;
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${config.bg} ${config.text} border ${config.border}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${config.bg} ${config.text} border ${config.border}`}>
       {label}
     </span>
   );
 };
 
 // ============================================
-// SORT ICON COMPONENT
+// SORT INDICATOR
 // ============================================
-const SortIcon = ({ column, sortConfig }) => {
+const SortIndicator = ({ column, sortConfig }) => {
   const isActive = sortConfig.sortBy === column;
+  if (!isActive) {
+    return (
+      <div className="opacity-0 group-hover:opacity-50 transition-opacity">
+        <ChevronUp size={14} className="text-white" />
+      </div>
+    );
+  }
   return (
-    <div className="flex flex-col -space-y-1">
-      <ChevronUp size={12} className={`transition-colors ${isActive && sortConfig.order === "asc" ? "text-white" : "text-white/40"}`} />
-      <ChevronDown size={12} className={`transition-colors ${isActive && sortConfig.order === "desc" ? "text-white" : "text-white/40"}`} />
+    <div className={`transition-transform ${sortConfig.order === "desc" ? "rotate-180" : ""}`}>
+      <ChevronUp size={14} className="text-white" />
     </div>
   );
 };
 
 // ============================================
-// SORTABLE HEADER COMPONENT
+// EMPTY STATE COMPONENT
 // ============================================
-const SortableHeader = ({ column, label, sortConfig, onSort, className = "" }) => (
-  <th
-    onClick={() => onSort(column)}
-    className={`px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none ${className}`}
-  >
-    <div className="flex items-center gap-2">
-      <span>{label}</span>
-      <SortIcon column={column} sortConfig={sortConfig} />
+const EmptyState = ({ hasActiveFilters, onCreateTicket }) => {
+  if (hasActiveFilters) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-20">
+        <div className="w-20 h-20 rounded-2xl bg-amber-50 flex items-center justify-center">
+          <FilterX size={36} className="text-amber-500" />
+        </div>
+        <div className="text-center max-w-sm">
+          <p className="text-lg font-semibold text-gray-900">{EMPTY_STATE_MESSAGES.NO_RESULTS}</p>
+          <p className="text-sm text-gray-500 mt-2">Try adjusting your search or filter criteria to find what you're looking for</p>
+        </div>
+        <div className="flex items-center gap-2 mt-2 px-4 py-2 bg-gray-50 rounded-full">
+          <Search size={14} className="text-gray-400" />
+          <span className="text-xs text-gray-500">Tip: Clear filters to see all tickets</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 py-20">
+      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#05015A]/10 to-[#0a0280]/20 flex items-center justify-center">
+        <Inbox size={36} className="text-[#05015A]" />
+      </div>
+      <div className="text-center max-w-sm">
+        <p className="text-lg font-semibold text-gray-900">{EMPTY_STATE_MESSAGES.NO_TICKETS}</p>
+        <p className="text-sm text-gray-500 mt-2">Create your first support ticket and we'll help you resolve your issues</p>
+      </div>
+      {onCreateTicket && (
+        <button
+          onClick={onCreateTicket}
+          className="mt-4 px-6 py-3 bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white rounded-xl text-sm font-semibold 
+                     flex items-center gap-2 hover:shadow-lg hover:shadow-[#05015A]/25 hover:-translate-y-0.5
+                     transition-all duration-200"
+        >
+          <Plus size={18} />
+          <span>Create Your First Ticket</span>
+        </button>
+      )}
     </div>
-  </th>
+  );
+};
+
+// ============================================
+// LOADING STATE
+// ============================================
+const LoadingState = () => (
+  <div className="flex flex-col items-center justify-center gap-4 py-20">
+    <div className="relative">
+      <div className="w-16 h-16 rounded-2xl bg-[#05015A]/10 flex items-center justify-center">
+        <Loader2 size={28} className="animate-spin text-[#05015A]" />
+      </div>
+      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#05015A] rounded-lg flex items-center justify-center animate-bounce">
+        <FileText size={12} className="text-white" />
+      </div>
+    </div>
+    <div className="text-center">
+      <p className="text-sm font-medium text-gray-900">Loading tickets...</p>
+      <p className="text-xs text-gray-500 mt-1">Please wait a moment</p>
+    </div>
+  </div>
 );
 
 // ============================================
-// REGULAR HEADER COMPONENT
+// TICKET ROW COMPONENT
 // ============================================
-const HeaderCell = ({ children, className = "", center = false }) => (
-  <th className={`px-4 py-4 text-xs font-semibold text-white uppercase tracking-wider ${center ? "text-center" : "text-left"} ${className}`}>
-    {children}
-  </th>
-);
+const TicketRow = ({ ticket, index, currentPage, rowsPerPage, onViewTicket, onCancelTicket }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    try {
+      return format(new Date(dateString), "MMM dd, yyyy");
+    } catch {
+      return "-";
+    }
+  };
+
+  const formatRelativeTime = (dateString) => {
+    if (!dateString) return "";
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch {
+      return "";
+    }
+  };
+
+  const canCancel = ticket.status === "PENDING" || ticket.status === "IN_PROGRESS";
+  const hasAttachments = ticket.attachment_count > 0;
+
+  return (
+    <tr 
+      className={`group transition-all duration-200 ${isHovered ? "bg-[#05015A]/[0.02]" : "hover:bg-gray-50/80"}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Row Number */}
+      <td className="px-4 py-4">
+        <span className="text-sm text-gray-400 font-medium tabular-nums">
+          {String((currentPage - 1) * rowsPerPage + index + 1).padStart(2, '0')}
+        </span>
+      </td>
+
+      {/* Ticket Number & Subject */}
+      <td className="px-4 py-4">
+        <button
+          onClick={() => onViewTicket(ticket)}
+          className="text-left group/ticket"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-[#05015A] group-hover/ticket:text-[#0a0280] transition-colors">
+              {ticket.ticket_number}
+            </span>
+            {hasAttachments && (
+              <span className="flex items-center gap-0.5 text-gray-400">
+                <Paperclip size={12} />
+                <span className="text-[10px]">{ticket.attachment_count}</span>
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-gray-600 mt-0.5 line-clamp-1 max-w-[280px] group-hover/ticket:text-gray-900 transition-colors">
+            {ticket.subject}
+          </p>
+        </button>
+      </td>
+
+      {/* Category */}
+      <td className="px-4 py-4">
+        <CategoryBadge category={ticket.category} />
+      </td>
+
+      {/* Status */}
+      <td className="px-4 py-4">
+        <StatusBadge status={ticket.status} />
+      </td>
+
+      {/* Created By */}
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center flex-shrink-0">
+            <User size={14} className="text-gray-500" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">
+              {ticket.created_by_name || "Unknown"}
+            </p>
+            <p className="text-xs text-gray-500 capitalize">
+              {ticket.created_by_role?.replace("_", " ") || "-"}
+            </p>
+          </div>
+        </div>
+      </td>
+
+      {/* Created Date */}
+      <td className="px-4 py-4">
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-gray-900">{formatDate(ticket.created_at)}</span>
+          <span className="text-xs text-gray-500">{formatRelativeTime(ticket.created_at)}</span>
+        </div>
+      </td>
+
+      {/* Actions */}
+      <td className="px-4 py-4">
+        <div className={`flex items-center justify-center gap-1 transition-opacity duration-200 ${isHovered ? "opacity-100" : "opacity-60"}`}>
+          <button
+            onClick={() => onViewTicket(ticket)}
+            className="p-2 rounded-lg text-gray-500 hover:text-[#05015A] hover:bg-[#05015A]/10 transition-all"
+            title="View Details"
+          >
+            <Eye size={18} />
+          </button>
+
+          {canCancel ? (
+            <button
+              onClick={() => onCancelTicket(ticket)}
+              className="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all"
+              title="Cancel Ticket"
+            >
+              <XCircle size={18} />
+            </button>
+          ) : (
+            <div className="w-9 h-9" />
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+};
 
 // ============================================
 // MAIN TABLE COMPONENT
@@ -110,35 +321,10 @@ const TicketListTable = ({
   onSortChange,
   onViewTicket,
   onCancelTicket,
+  onCreateTicket,
+  hasActiveFilters = false,
 }) => {
   const totalPages = Math.ceil(totalItems / rowsPerPage);
-
-  // ✅ REMOVED: Client-side filtering - backend handles authorization
-  // Now using tickets directly
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    try {
-      return format(new Date(dateString), "MMM dd, yyyy");
-    } catch {
-      return "-";
-    }
-  };
-
-  const formatTime = (dateString) => {
-    if (!dateString) return "";
-    try {
-      return format(new Date(dateString), "HH:mm");
-    } catch {
-      return "";
-    }
-  };
-
-  const truncateText = (text, maxLength = 35) => {
-    if (!text) return "-";
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
 
   const getPageNumbers = () => {
     const pages = [];
@@ -161,180 +347,135 @@ const TicketListTable = ({
     return pages;
   };
 
-  const canCancel = (status) => status === "PENDING" || status === "IN_PROGRESS";
-
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
-      <div className="flex-1 overflow-x-auto">
-        <table className="w-full min-w-[900px]">
-          <thead className="bg-gradient-to-r from-[#05015A] to-[#0a0280]">
-            <tr>
-              <HeaderCell className="w-14 rounded-tl-2xl">#</HeaderCell>
-              <SortableHeader column="ticket_number" label="Ticket No." sortConfig={sortConfig} onSort={onSortChange} className="min-w-[140px]" />
-              <HeaderCell className="min-w-[200px]">Subject</HeaderCell>
-              <HeaderCell className="min-w-[120px]">Category</HeaderCell>
-              <SortableHeader column="status" label="Status" sortConfig={sortConfig} onSort={onSortChange} className="min-w-[130px]" />
-              <HeaderCell className="min-w-[150px]">Created By</HeaderCell>
-              <SortableHeader column="created_at" label="Created" sortConfig={sortConfig} onSort={onSortChange} className="min-w-[140px]" />
-              <HeaderCell center className="w-28 rounded-tr-2xl">Actions</HeaderCell>
+      {/* Table Container */}
+      <div className="flex-1 overflow-auto">
+        <table className="w-full min-w-[950px]">
+          {/* Header */}
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280]">
+              <th className="w-14 px-4 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">
+                #
+              </th>
+              <th 
+                onClick={() => onSortChange("ticket_number")}
+                className="min-w-[280px] px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group"
+              >
+                <div className="flex items-center gap-2">
+                  <span>Ticket</span>
+                  <SortIndicator column="ticket_number" sortConfig={sortConfig} />
+                </div>
+              </th>
+              <th className="min-w-[130px] px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                Category
+              </th>
+              <th 
+                onClick={() => onSortChange("status")}
+                className="min-w-[120px] px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group"
+              >
+                <div className="flex items-center gap-2">
+                  <span>Status</span>
+                  <SortIndicator column="status" sortConfig={sortConfig} />
+                </div>
+              </th>
+              <th className="min-w-[160px] px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                Created By
+              </th>
+              <th 
+                onClick={() => onSortChange("created_at")}
+                className="min-w-[140px] px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group"
+              >
+                <div className="flex items-center gap-2">
+                  <span>Created</span>
+                  <SortIndicator column="created_at" sortConfig={sortConfig} />
+                </div>
+              </th>
+              <th className="w-28 px-4 py-4 text-center text-xs font-semibold text-white uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
 
+          {/* Body */}
           <tbody className="divide-y divide-gray-100">
             {loading && (
               <tr>
-                <td colSpan="8" className="px-4 py-16 text-center">
-                  <div className="flex flex-col items-center justify-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-[#05015A]/10 flex items-center justify-center">
-                      <Loader2 size={24} className="animate-spin text-[#05015A]" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Loading tickets...</p>
-                      <p className="text-xs text-gray-500 mt-1">Please wait while we fetch your tickets</p>
-                    </div>
-                  </div>
+                <td colSpan="7">
+                  <LoadingState />
                 </td>
               </tr>
             )}
 
             {!loading && tickets.length === 0 && (
               <tr>
-                <td colSpan="8" className="px-4 py-16 text-center">
-                  <div className="flex flex-col items-center justify-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Inbox size={32} className="text-gray-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">No tickets found</p>
-                      <p className="text-xs text-gray-500 mt-1">Create a new ticket to get started</p>
-                    </div>
-                  </div>
+                <td colSpan="7">
+                  <EmptyState 
+                    hasActiveFilters={hasActiveFilters} 
+                    onCreateTicket={onCreateTicket}
+                  />
                 </td>
               </tr>
             )}
 
-            {!loading &&
-              tickets.map((ticket, index) => (
-                <tr key={ticket.ticket_id} className="group hover:bg-gray-50/80 transition-colors">
-                  <td className="px-4 py-4">
-                    <span className="text-sm text-gray-500 font-medium">
-                      {(currentPage - 1) * rowsPerPage + index + 1}
-                    </span>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <button
-                      onClick={() => onViewTicket(ticket)}
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-[#05015A] hover:text-[#0a0280] transition-colors group/btn"
-                    >
-                      <FileText size={14} className="text-gray-400 group-hover/btn:text-[#05015A] transition-colors" />
-                      {ticket.ticket_number}
-                    </button>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <p className="text-sm text-gray-700 truncate max-w-[200px]" title={ticket.subject}>
-                      {truncateText(ticket.subject, 35)}
-                    </p>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <CategoryBadge category={ticket.category} />
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <StatusBadge status={ticket.status} />
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-medium text-gray-900 truncate">
-                          {ticket.created_by_name || "Unknown"}
-                        </span>
-                        <span className="text-xs text-gray-500 capitalize">
-                          {ticket.created_by_role?.replace("_", " ") || "-"}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-900">{formatDate(ticket.created_at)}</span>
-                      <span className="text-xs text-gray-500">{formatTime(ticket.created_at)}</span>
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-4">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => onViewTicket(ticket)}
-                        className="p-2 rounded-lg text-gray-400 hover:text-[#05015A] hover:bg-[#05015A]/10 transition-all group/action"
-                        title="View Details"
-                      >
-                        <Eye size={18} className="group-hover/action:scale-110 transition-transform" />
-                      </button>
-
-                      {canCancel(ticket.status) ? (
-                        <button
-                          onClick={() => onCancelTicket(ticket)}
-                          className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all group/cancel"
-                          title="Cancel Ticket"
-                        >
-                          <XCircle size={18} className="group-hover/cancel:scale-110 transition-transform" />
-                        </button>
-                      ) : (
-                        <div className="w-[34px] h-[34px]" />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+            {!loading && tickets.map((ticket, index) => (
+              <TicketRow
+                key={ticket.ticket_id}
+                ticket={ticket}
+                index={index}
+                currentPage={currentPage}
+                rowsPerPage={rowsPerPage}
+                onViewTicket={onViewTicket}
+                onCancelTicket={onCancelTicket}
+              />
+            ))}
           </tbody>
         </table>
       </div>
 
       {/* Pagination */}
       {!loading && tickets.length > 0 && (
-        <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-200">
+        <div className="flex-shrink-0 px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100/50 border-t border-gray-200">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">
-                Showing
-                <span className="font-semibold text-gray-900 mx-1">{(currentPage - 1) * rowsPerPage + 1}</span>
-                to
-                <span className="font-semibold text-gray-900 mx-1">{Math.min(currentPage * rowsPerPage, totalItems)}</span>
-                of
-                <span className="font-semibold text-gray-900 mx-1">{totalItems}</span>
-                tickets
-              </span>
+            {/* Info */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-gray-200">
+                <FileText size={14} className="text-gray-400" />
+                <span className="text-sm text-gray-600">
+                  <span className="font-semibold text-gray-900">{(currentPage - 1) * rowsPerPage + 1}</span>
+                  <span className="mx-1">-</span>
+                  <span className="font-semibold text-gray-900">{Math.min(currentPage * rowsPerPage, totalItems)}</span>
+                  <span className="mx-1 text-gray-400">of</span>
+                  <span className="font-semibold text-gray-900">{totalItems}</span>
+                </span>
+              </div>
             </div>
 
+            {/* Page Controls */}
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 <ChevronLeft size={16} />
-                <span className="hidden sm:inline">Previous</span>
+                <span className="hidden sm:inline">Prev</span>
               </button>
 
-              <div className="hidden md:flex items-center gap-1 mx-2">
+              <div className="hidden md:flex items-center gap-1 mx-1">
                 {getPageNumbers().map((page, idx) =>
                   page === "..." ? (
                     <span key={`ellipsis-${idx}`} className="w-10 h-10 flex items-center justify-center text-gray-400">
-                      •••
+                      <MoreHorizontal size={16} />
                     </span>
                   ) : (
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`w-10 h-10 rounded-lg text-sm font-semibold transition-all ${
+                      className={`w-10 h-10 rounded-lg text-sm font-semibold transition-all shadow-sm ${
                         currentPage === page
                           ? "bg-[#05015A] text-white shadow-lg shadow-[#05015A]/25"
-                          : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+                          : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
                       }`}
                     >
                       {page}
@@ -343,16 +484,16 @@ const TicketListTable = ({
                 )}
               </div>
 
-              <div className="md:hidden px-4 py-2 text-sm font-medium text-gray-600">
-                <span className="text-[#05015A] font-semibold">{currentPage}</span>
-                <span className="mx-1">/</span>
+              <div className="md:hidden px-4 py-2 text-sm font-medium text-gray-600 bg-white rounded-lg border border-gray-200">
+                <span className="text-[#05015A] font-bold">{currentPage}</span>
+                <span className="mx-1 text-gray-400">/</span>
                 <span>{totalPages}</span>
               </div>
 
               <button
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages || totalPages === 0}
-                className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
               >
                 <span className="hidden sm:inline">Next</span>
                 <ChevronRight size={16} />

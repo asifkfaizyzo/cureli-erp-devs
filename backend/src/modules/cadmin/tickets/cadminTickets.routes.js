@@ -8,6 +8,7 @@ import {
   getAllTicketsController,
   getTicketStatsController,
   getTicketByIdController,
+  getTicketHistoryController,
   updateTicketStatusController,
 } from "./cadminTickets.controller.js";
 
@@ -23,25 +24,26 @@ router.use(requireCAdmin);
 
 /**
  * GET /cadmin/tickets/stats
- * Get ticket statistics (must be before /:ticket_id)
  */
 router.get("/stats", getTicketStatsController);
 
 /**
  * GET /cadmin/tickets
- * List all tickets from all shops with filtering
  */
 router.get("/", validateQuery(getTicketsQuerySchema), getAllTicketsController);
 
 /**
  * GET /cadmin/tickets/:ticket_id
- * Get single ticket details
  */
 router.get("/:ticket_id", getTicketByIdController);
 
 /**
+ * GET /cadmin/tickets/:ticket_id/history
+ */
+router.get("/:ticket_id/history", getTicketHistoryController);
+
+/**
  * PATCH /cadmin/tickets/:ticket_id/status
- * Update ticket status
  */
 router.patch(
   "/:ticket_id/status",

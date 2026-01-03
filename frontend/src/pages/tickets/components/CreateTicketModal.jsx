@@ -1,12 +1,170 @@
 // frontend/src/pages/tickets/components/CreateTicketModal.jsx
 
 import { useState, useEffect } from "react";
-import { X, Plus, Trash2, Upload, AlertCircle } from "lucide-react";
+import { X, Plus, Trash2, Upload, AlertCircle, CheckCircle, Loader2, FileText, Image } from "lucide-react";
 import { createTicket } from "../../../api/tickets";
 import { useAuthStore } from "../../../store/useAuthStore";
-import { TICKET_CATEGORY_OPTIONS, TIME_SLOTS, ATTACHMENT_CONFIG } from "../../../constant/tickets";
+import { 
+  TICKET_CATEGORY_OPTIONS, 
+  TIME_SLOTS, 
+  ATTACHMENT_CONFIG,
+  isValidAttachment,
+  formatFileSize,
+  UPLOAD_STATUS 
+} from "../../../constant/tickets";
 import StyledSelect from "../../../components/common/StyledSelect";
 
+/**
+ * File item component with upload status indicator
+ */
+const FileItem = ({ file, status, error, onRemove, disabled }) => {
+  const isImage = file.type?.startsWith("image/");
+  const isPdf = file.type === "application/pdf";
+  
+  const getStatusIcon = () => {
+    switch (status) {
+      case UPLOAD_STATUS.UPLOADING:
+        return <Loader2 size={16} className="animate-spin text-indigo-600" />;
+      case UPLOAD_STATUS.SUCCESS:
+        return <CheckCircle size={16} className="text-emerald-600" />;
+      case UPLOAD_STATUS.ERROR:
+        return <AlertCircle size={16} className="text-red-500" />;
+      default:
+        return null;
+    }
+  };
+
+  const getFileIcon = () => {
+    if (isImage) return <Image size={16} className="text-blue-500" />;
+    if (isPdf) return <FileText size={16} className="text-red-500" />;
+    return <FileText size={16} className="text-gray-500" />;
+  };
+
+  return (
+    <div 
+      className={`
+        flex items-center justify-between p-2.5 rounded-lg border transition-all
+        ${status === UPLOAD_STATUS.ERROR 
+          ? "bg-red-50 border-red-200" 
+          : status === UPLOAD_STATUS.SUCCESS
+            ? "bg-emerald-50 border-emerald-200"
+            : "bg-gray-50 border-gray-200"
+        }
+      `}
+    >
+      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+        {/* File type icon */}
+        <div className="flex-shrink-0">
+          {getFileIcon()}
+        </div>
+        
+        {/* File info */}
+        <div className="flex-1 min-w-0">
+          <p 
+            className={`text-sm font-medium truncate ${
+              status === UPLOAD_STATUS.ERROR ? "text-red-700" : "text-gray-900"
+            }`}
+            title={file.name}
+          >
+            {file.name}
+          </p>
+          <p className={`text-xs ${status === UPLOAD_STATUS.ERROR ? "text-red-500" : "text-gray-500"}`}>
+            {error || formatFileSize(file.size)}
+          </p>
+        </div>
+
+        {/* Status icon */}
+        <div className="flex-shrink-0">
+          {getStatusIcon()}
+        </div>
+      </div>
+
+      {/* Remove button */}
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disabled || status === UPLOAD_STATUS.UPLOADING}
+        className="ml-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        title="Remove file"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+};
+
+/**
+ * Upload area component
+ */
+const UploadArea = ({ onFileSelect, disabled, remainingSlots }) => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    if (!disabled) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (disabled) return;
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      onFileSelect({ target: { files } });
+    }
+  };
+
+  if (remainingSlots <= 0) return null;
+
+  return (
+    <label 
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`
+        flex flex-col items-center justify-center gap-2 px-4 py-4
+        border-2 border-dashed rounded-lg cursor-pointer
+        transition-all duration-200
+        ${disabled 
+          ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-60" 
+          : isDragging
+            ? "border-indigo-500 bg-indigo-50"
+            : "border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50"
+        }
+      `}
+    >
+      <div className={`p-2 rounded-full ${isDragging ? "bg-indigo-100" : "bg-gray-100"}`}>
+        <Upload size={20} className={isDragging ? "text-indigo-600" : "text-gray-500"} />
+      </div>
+      <div className="text-center">
+        <span className={`text-sm font-medium ${isDragging ? "text-indigo-700" : "text-gray-700"}`}>
+          {isDragging ? "Drop files here" : "Click to upload"}
+        </span>
+        <p className="text-xs text-gray-500 mt-0.5">
+          or drag and drop ({remainingSlots} remaining)
+        </p>
+      </div>
+      <input
+        type="file"
+        multiple
+        accept={ATTACHMENT_CONFIG.ALLOWED_TYPES.join(",")}
+        onChange={onFileSelect}
+        className="hidden"
+        disabled={disabled}
+      />
+    </label>
+  );
+};
+
+/**
+ * Main CreateTicketModal Component
+ */
 const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
   const { user } = useAuthStore();
 
@@ -19,7 +177,8 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
     preferred_slot: "",
   });
 
-  const [attachments, setAttachments] = useState([]);
+  // Enhanced attachment state with status tracking
+  const [attachments, setAttachments] = useState([]); // Array of { file, status, error }
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -58,36 +217,57 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
     }
   }, [isOpen, user]);
 
+  // Handle file selection with validation
   const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
     setUploadError("");
 
-    if (attachments.length + files.length > ATTACHMENT_CONFIG.MAX_FILES) {
-      setUploadError(`Maximum ${ATTACHMENT_CONFIG.MAX_FILES} files allowed`);
+    if (files.length === 0) return;
+
+    const currentCount = attachments.length;
+    const remainingSlots = ATTACHMENT_CONFIG.MAX_FILES - currentCount;
+
+    if (files.length > remainingSlots) {
+      setUploadError(`Can only add ${remainingSlots} more file${remainingSlots !== 1 ? 's' : ''} (max ${ATTACHMENT_CONFIG.MAX_FILES})`);
       return;
     }
 
-    const validFiles = [];
+    const newAttachments = [];
+    const validationErrors = [];
+
     for (const file of files) {
-      if (file.size > ATTACHMENT_CONFIG.MAX_SIZE_BYTES) {
-        setUploadError(`${file.name} exceeds ${ATTACHMENT_CONFIG.MAX_SIZE_MB}MB limit`);
-        continue;
+      const validation = isValidAttachment(file);
+      
+      if (validation.valid) {
+        newAttachments.push({
+          file,
+          status: UPLOAD_STATUS.SUCCESS, // Mark as valid/ready
+          error: null,
+        });
+      } else {
+        validationErrors.push(`${file.name}: ${validation.error}`);
       }
-      if (!ATTACHMENT_CONFIG.ALLOWED_TYPES.includes(file.type)) {
-        setUploadError(`${file.name} has invalid file type`);
-        continue;
-      }
-      validFiles.push(file);
     }
 
-    setAttachments([...attachments, ...validFiles]);
-    e.target.value = ""; // Reset input
+    if (validationErrors.length > 0) {
+      setUploadError(validationErrors.join("; "));
+    }
+
+    if (newAttachments.length > 0) {
+      setAttachments([...attachments, ...newAttachments]);
+    }
+
+    // Reset input
+    if (e.target) e.target.value = "";
   };
 
+  // Handle file removal
   const handleRemoveFile = (index) => {
     setAttachments(attachments.filter((_, i) => i !== index));
+    setUploadError("");
   };
 
+  // Form validation
   const validate = () => {
     const newErrors = {};
 
@@ -117,12 +297,20 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validate()) return;
 
     setLoading(true);
+    
+    // Mark all files as uploading
+    setAttachments(prev => prev.map(att => ({
+      ...att,
+      status: UPLOAD_STATUS.UPLOADING,
+    })));
+
     try {
       const payload = {
         contact_number: formData.contact_number,
@@ -143,14 +331,30 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
         payload.branch_id = user.branch_id;
       }
 
-      if (attachments.length > 0) {
-        payload.attachments = attachments;
+      // Extract files from attachment objects
+      const files = attachments.map(att => att.file);
+      if (files.length > 0) {
+        payload.attachments = files;
       }
 
       await createTicket(payload);
+      
+      // Mark all files as success before closing
+      setAttachments(prev => prev.map(att => ({
+        ...att,
+        status: UPLOAD_STATUS.SUCCESS,
+      })));
+
       onSuccess();
     } catch (err) {
       console.error("Failed to create ticket:", err);
+
+      // Mark files as error
+      setAttachments(prev => prev.map(att => ({
+        ...att,
+        status: UPLOAD_STATUS.ERROR,
+        error: "Upload failed",
+      })));
 
       let errorMessage = "Failed to create ticket. Please try again.";
 
@@ -170,6 +374,8 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
   };
 
   if (!isOpen) return null;
+
+  const remainingSlots = ATTACHMENT_CONFIG.MAX_FILES - attachments.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -203,7 +409,8 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
                   onChange={(e) => setFormData({ ...formData, contact_number: e.target.value.replace(/\D/g, "") })}
                   placeholder="10-digit mobile number"
                   maxLength={10}
-                  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all ${
+                  disabled={loading}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all disabled:bg-gray-50 disabled:cursor-not-allowed ${
                     errors.contact_number ? "border-red-500" : "border-gray-300"
                   }`}
                 />
@@ -223,6 +430,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
                   options={categoryOptions}
                   placeholder="Select category"
                   error={errors.category}
+                  disabled={loading}
                 />
               </div>
 
@@ -238,7 +446,8 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
                     onChange={(e) => setFormData({ ...formData, other_category_text: e.target.value })}
                     placeholder="What type of issue is this?"
                     maxLength={100}
-                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all ${
+                    disabled={loading}
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all disabled:bg-gray-50 disabled:cursor-not-allowed ${
                       errors.other_category_text ? "border-red-500" : "border-gray-300"
                     }`}
                   />
@@ -259,6 +468,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
                   options={timeSlotOptions}
                   placeholder="Select time slot"
                   error={errors.preferred_slot}
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -276,7 +486,8 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
                   onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                   placeholder="Brief summary of your issue"
                   maxLength={200}
-                  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all ${
+                  disabled={loading}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all disabled:bg-gray-50 disabled:cursor-not-allowed ${
                     errors.subject ? "border-red-500" : "border-gray-300"
                   }`}
                 />
@@ -295,59 +506,59 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
                   rows={3}
                   maxLength={2000}
                   placeholder="Provide additional details..."
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none"
+                  disabled={loading}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none disabled:bg-gray-50 disabled:cursor-not-allowed"
                 />
                 <p className="text-xs text-gray-400 text-right mt-1">{formData.description.length}/2000</p>
               </div>
 
-              {/* File Attachments */}
+              {/* File Attachments - Enhanced */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Attachments (Optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Attachments (Optional)
+                </label>
                 <p className="text-xs text-gray-500 mb-2">
-                  Max {ATTACHMENT_CONFIG.MAX_FILES} files, {ATTACHMENT_CONFIG.MAX_SIZE_MB}MB each
+                  Images & PDFs • Max {ATTACHMENT_CONFIG.MAX_SIZE_MB}MB each • {ATTACHMENT_CONFIG.MAX_FILES} files max
                 </p>
 
-                {attachments.length < ATTACHMENT_CONFIG.MAX_FILES && (
-                  <label className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-colors cursor-pointer">
-                    <Upload size={16} className="text-gray-500" />
-                    <span className="text-sm text-gray-600">Choose files</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept={ATTACHMENT_CONFIG.ALLOWED_TYPES.join(",")}
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      disabled={loading}
-                    />
-                  </label>
-                )}
+                {/* Upload Area */}
+                <UploadArea
+                  onFileSelect={handleFileSelect}
+                  disabled={loading || remainingSlots <= 0}
+                  remainingSlots={remainingSlots}
+                />
 
+                {/* Upload Error */}
                 {uploadError && (
-                  <div className="flex items-center gap-2 mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                    <AlertCircle size={14} className="text-red-600" />
+                  <div className="flex items-start gap-2 mt-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
+                    <AlertCircle size={14} className="text-red-600 flex-shrink-0 mt-0.5" />
                     <span className="text-xs text-red-600">{uploadError}</span>
                   </div>
                 )}
 
+                {/* File List */}
                 {attachments.length > 0 && (
-                  <div className="mt-2 space-y-1.5">
-                    {attachments.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                          <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveFile(index)}
-                          disabled={loading}
-                          className="ml-2 p-1 text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                  <div className="mt-3 space-y-2">
+                    {attachments.map((attachment, index) => (
+                      <FileItem
+                        key={`${attachment.file.name}-${index}`}
+                        file={attachment.file}
+                        status={attachment.status}
+                        error={attachment.error}
+                        onRemove={() => handleRemoveFile(index)}
+                        disabled={loading}
+                      />
                     ))}
                   </div>
+                )}
+
+                {/* Files count indicator */}
+                {attachments.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                    <CheckCircle size={12} className="text-emerald-600" />
+                    {attachments.length} file{attachments.length !== 1 ? 's' : ''} ready
+                    {remainingSlots > 0 && ` • ${remainingSlots} more allowed`}
+                  </p>
                 )}
               </div>
             </div>
@@ -379,7 +590,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
           >
             {loading ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <Loader2 size={16} className="animate-spin" />
                 <span>Creating...</span>
               </>
             ) : (

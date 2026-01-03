@@ -44,6 +44,52 @@ export const TICKET_STATUS_OPTIONS = [
 
 /**
  * ============================================
+ * STATUS TOOLTIP MESSAGES
+ * Used for clarifying Cancelled vs Closed states
+ * ============================================
+ */
+export const STATUS_TOOLTIP_MESSAGES = {
+  CANCELLED: "You cancelled this ticket before it was resolved.",
+  CLOSED: "This ticket was resolved and closed by support.",
+  PENDING: "Waiting for support team to review.",
+  IN_PROGRESS: "Support team is actively working on this.",
+  RESOLVED: "Issue has been resolved. You can reopen if needed.",
+};
+
+/**
+ * ============================================
+ * REOPEN LIMITS & THRESHOLDS
+ * ============================================
+ */
+export const REOPEN_LIMIT = 6;
+export const REOPEN_WARNING_THRESHOLD = 4;
+
+export const REOPEN_LIMIT_MESSAGE = 
+  "This ticket has been reopened multiple times. Please create a new ticket or contact support via email.";
+
+export const REOPEN_WARNING_MESSAGE = 
+  "Frequent reopening may delay resolution. Please ensure all details are provided.";
+
+/**
+ * ============================================
+ * SLA / RESPONSE TIME HINTS
+ * ============================================
+ */
+export const SLA_RESPONSE_HINT = 
+  "Our support team typically responds within 24 business hours.";
+
+/**
+ * ============================================
+ * EMPTY STATE MESSAGES
+ * ============================================
+ */
+export const EMPTY_STATE_MESSAGES = {
+  NO_TICKETS: "You haven't created any support tickets yet.",
+  NO_RESULTS: "No tickets match your current filters.",
+};
+
+/**
+ * ============================================
  * TIME SLOTS
  * ============================================
  */
@@ -147,6 +193,18 @@ export const ATTACHMENT_CONFIG = {
 
 /**
  * ============================================
+ * UPLOAD STATUS STATES
+ * ============================================
+ */
+export const UPLOAD_STATUS = {
+  IDLE: "idle",
+  UPLOADING: "uploading",
+  SUCCESS: "success",
+  ERROR: "error",
+};
+
+/**
+ * ============================================
  * HELPER FUNCTIONS
  * ============================================
  */
@@ -187,6 +245,22 @@ export const getStatusLabel = (status) =>
 export const getCategoryLabel = (category) => 
   TICKET_CATEGORIES[category] || category;
 
+// Get status tooltip message
+export const getStatusTooltip = (status) =>
+  STATUS_TOOLTIP_MESSAGES[status] || null;
+
+// Check if reopen is allowed based on count
+export const canReopenByCount = (reopenCount) =>
+  reopenCount < REOPEN_LIMIT;
+
+// Check if reopen warning should be shown
+export const shouldShowReopenWarning = (reopenCount) =>
+  reopenCount >= REOPEN_WARNING_THRESHOLD && reopenCount < REOPEN_LIMIT;
+
+// Get remaining reopen attempts
+export const getRemainingReopens = (reopenCount) =>
+  Math.max(0, REOPEN_LIMIT - reopenCount);
+
 // Validate file for upload
 export const isValidAttachment = (file) => {
   if (!file) return { valid: false, error: "No file provided" };
@@ -213,4 +287,122 @@ export const formatFileSize = (bytes) => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+/**
+ * ============================================
+ * TIMELINE EVENT TYPES
+ * Used for building ticket timeline view
+ * ============================================
+ */
+export const TIMELINE_EVENT_TYPES = {
+  CREATED: {
+    color: "bg-blue-500",
+    label: "Ticket Created",
+  },
+  STATUS_PENDING: {
+    color: "bg-yellow-500",
+    label: "Status: Pending",
+  },
+  STATUS_IN_PROGRESS: {
+    color: "bg-purple-500",
+    label: "In Progress",
+  },
+  STATUS_RESOLVED: {
+    color: "bg-emerald-500",
+    label: "Ticket Resolved",
+  },
+  STATUS_CLOSED: {
+    color: "bg-gray-500",
+    label: "Ticket Closed",
+  },
+  REOPENED: {
+    color: "bg-orange-500",
+    label: "Ticket Reopened",
+  },
+  CANCELLED: {
+    color: "bg-red-500",
+    label: "Ticket Cancelled",
+  },
+};
+
+/**
+ * Build timeline events from ticket data
+ * @param {Object} ticket - Ticket object from API
+ * @returns {Array} - Sorted array of timeline events
+ */
+export const buildTimelineEvents = (ticket) => {
+  if (!ticket) return [];
+
+  const events = [];
+
+  // 1. Ticket Created (always first)
+  events.push({
+    id: "created",
+    type: "CREATED",
+    title: "Ticket Created",
+    description: `Created by ${ticket.created_by_name || "Unknown"}`,
+    timestamp: ticket.created_at,
+    color: TIMELINE_EVENT_TYPES.CREATED.color,
+    by: ticket.created_by_name,
+  });
+
+  // 2. Reopened events (if any)
+  // Note: We only have the last reopen date, but we know the count
+  if (ticket.reopen_count > 0 && ticket.reopened_at) {
+    events.push({
+      id: "reopened",
+      type: "REOPENED",
+      title: `Ticket Reopened${ticket.reopen_count > 1 ? ` (${ticket.reopen_count} times)` : ""}`,
+      description: ticket.reopen_reason || "Ticket was reopened for further review",
+      timestamp: ticket.reopened_at,
+      color: TIMELINE_EVENT_TYPES.REOPENED.color,
+      by: ticket.reopened_by_name,
+      count: ticket.reopen_count,
+    });
+  }
+
+  // 3. Cancelled (if applicable)
+  if (ticket.cancelled_at && ticket.status === "CANCELLED") {
+    events.push({
+      id: "cancelled",
+      type: "CANCELLED",
+      title: "Ticket Cancelled",
+      description: ticket.cancellation_reason || "Ticket was cancelled",
+      timestamp: ticket.cancelled_at,
+      color: TIMELINE_EVENT_TYPES.CANCELLED.color,
+      by: ticket.cancelled_by_name,
+    });
+  }
+
+  // 4. Current status (if not cancelled and not just created)
+  if (ticket.status !== "CANCELLED" && ticket.status !== "PENDING") {
+    const statusEvent = {
+      id: `status-${ticket.status}`,
+      type: `STATUS_${ticket.status}`,
+      title: TIMELINE_EVENT_TYPES[`STATUS_${ticket.status}`]?.label || ticket.status,
+      description: getStatusDescription(ticket.status),
+      timestamp: ticket.updated_at,
+      color: TIMELINE_EVENT_TYPES[`STATUS_${ticket.status}`]?.color || "bg-gray-500",
+    };
+    events.push(statusEvent);
+  }
+
+  // Sort by timestamp (oldest first for chronological display)
+  events.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+  return events;
+};
+
+/**
+ * Get description for status
+ */
+const getStatusDescription = (status) => {
+  const descriptions = {
+    IN_PROGRESS: "Support team is reviewing this ticket",
+    RESOLVED: "Issue has been resolved by support",
+    CLOSED: "Ticket has been closed",
+    PENDING: "Waiting for support team",
+  };
+  return descriptions[status] || "";
 };

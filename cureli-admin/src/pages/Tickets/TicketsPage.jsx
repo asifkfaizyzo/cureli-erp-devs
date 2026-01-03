@@ -1,14 +1,19 @@
 // cureli-admin/src/pages/Tickets/TicketsPage.jsx
 
-import { useState, useEffect, useCallback } from "react";
-import { Search, X, Filter, Calendar, RefreshCw, Ticket } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Search, X, Filter, Calendar, RefreshCw, Ticket, AlertCircle } from "lucide-react";
 import { getAllTickets, getTicketById } from "../../api/cadminTickets";
 import TicketsTable from "./components/TicketsTable";
 import TicketDetailsModal from "./components/TicketDetailsModal";
-import Pagination from "../../components/common/Pagination";
 import StyledSelect from "../../components/common/StyledSelect";
+import useDebounce from "../../hooks/useDebounce";
 import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 import toast from "react-hot-toast";
+import {
+  STATUS_OPTIONS,
+  CATEGORY_OPTIONS,
+  PRIORITY_OPTIONS,
+} from "../../config/ticketConfigs";
 
 const TicketsPage = () => {
   // Data state
@@ -24,6 +29,7 @@ const TicketsPage = () => {
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -42,26 +48,18 @@ const TicketsPage = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [loadingTicketDetails, setLoadingTicketDetails] = useState(false);
 
-  // Filter options
-  const statusOptions = [
-    { label: "All Status", value: "" },
-    { label: "Pending", value: "PENDING" },
-    { label: "In Progress", value: "IN_PROGRESS" },
-    { label: "Resolved", value: "RESOLVED" },
-    { label: "Closed", value: "CLOSED" },
-    { label: "Cancelled", value: "CANCELLED" },
-  ];
+  // Debounced search (300ms)
+  const debouncedSearch = useDebounce(searchText, 300);
 
-  const categoryOptions = [
-    { label: "All Categories", value: "" },
-    { label: "Technical Issue", value: "TECHNICAL_ISSUE" },
-    { label: "Billing Issue", value: "BILLING_ISSUE" },
-    { label: "Feature Request", value: "FEATURE_REQUEST" },
-    { label: "Account Issue", value: "ACCOUNT_ISSUE" },
-    { label: "Other", value: "OTHER" },
-  ];
+  // Count active filters
+  const activeFiltersCount = useMemo(() => {
+    return [statusFilter, categoryFilter, priorityFilter, dateFrom, dateTo].filter(Boolean).length;
+  }, [statusFilter, categoryFilter, priorityFilter, dateFrom, dateTo]);
 
-  const activeFiltersCount = [statusFilter, categoryFilter, dateFrom, dateTo].filter(Boolean).length;
+  // Check if any filter is active (including search)
+  const hasActiveFilters = useMemo(() => {
+    return activeFiltersCount > 0 || debouncedSearch.trim().length > 0;
+  }, [activeFiltersCount, debouncedSearch]);
 
   // Fetch tickets
   const fetchTickets = useCallback(async () => {
@@ -76,9 +74,10 @@ const TicketsPage = () => {
         sort_order: sortConfig.order,
       };
 
-      if (searchText.trim()) params.search = searchText.trim();
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
       if (statusFilter) params.status = statusFilter;
       if (categoryFilter) params.category = categoryFilter;
+      if (priorityFilter) params.priority = priorityFilter;
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
 
@@ -89,6 +88,7 @@ const TicketsPage = () => {
       setTotalItems(pagination.total);
       setTotalPages(pagination.totalPages);
 
+      // Auto-adjust page if current page exceeds total pages
       if (currentPage > pagination.totalPages && pagination.totalPages > 0) {
         setCurrentPage(pagination.totalPages);
       }
@@ -101,53 +101,61 @@ const TicketsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, rowsPerPage, searchText, statusFilter, categoryFilter, dateFrom, dateTo, sortConfig]);
+  }, [
+    currentPage,
+    rowsPerPage,
+    debouncedSearch,
+    statusFilter,
+    categoryFilter,
+    priorityFilter,
+    dateFrom,
+    dateTo,
+    sortConfig,
+  ]);
 
+  // Fetch on dependency changes
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
 
+  // Reset to page 1 when filters change (but not on page change)
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchText, statusFilter, categoryFilter, dateFrom, dateTo, sortConfig]);
+  }, [debouncedSearch, statusFilter, categoryFilter, priorityFilter, dateFrom, dateTo, sortConfig]);
 
   // Handlers
-  const handleSortChange = (column) => {
+  const handleSortChange = useCallback((column) => {
     setSortConfig((prev) => ({
       sortBy: column,
       order: prev.sortBy === column && prev.order === "asc" ? "desc" : "asc",
     }));
-  };
+  }, []);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setCurrentPage(1);
-    fetchTickets();
-  };
-
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
+    setSearchText("");
     setStatusFilter("");
     setCategoryFilter("");
+    setPriorityFilter("");
     setDateFrom("");
     setDateTo("");
-    setCurrentPage(1);
-  };
+  }, []);
 
-  const handleViewTicket = async (ticket) => {
+  const handleViewTicket = useCallback(async (ticket) => {
     setLoadingTicketDetails(true);
     setIsDetailsModalOpen(true);
-    
+
     try {
       const response = await getTicketById(ticket.ticket_id);
       setSelectedTicket(response.data.data.ticket);
     } catch (err) {
       console.error("Failed to fetch ticket details:", err);
       toast.error("Failed to load ticket details");
+      // Fallback to basic ticket data from list
       setSelectedTicket(ticket);
     } finally {
       setLoadingTicketDetails(false);
     }
-  };
+  }, []);
 
   const handleRefresh = useCallback(() => {
     fetchTickets();
@@ -158,12 +166,13 @@ const TicketsPage = () => {
     setSelectedTicket(null);
   }, []);
 
-  const startIndex = (currentPage - 1) * rowsPerPage;
+  const handleTicketUpdated = useCallback(() => {
+    fetchTickets();
+  }, [fetchTickets]);
 
   return (
-    // ✅ FIXED: Match UserPage structure exactly
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
-      {/* Header - No horizontal padding, let content flow */}
+      {/* Header */}
       <div className="flex-shrink-0 flex flex-col gap-3 px-4 pt-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -192,7 +201,8 @@ const TicketsPage = () => {
 
         {/* Search & Filters */}
         <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
-          <form onSubmit={handleSearch} className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {/* Search Input - No submit button, debounced */}
             <div className="relative flex-1 min-w-[200px]">
               <Search
                 size={18}
@@ -219,14 +229,7 @@ const TicketsPage = () => {
               )}
             </div>
 
-            <button
-              type="submit"
-              className="px-4 sm:px-6 h-10 sm:h-11 bg-[#05015A] text-white rounded-lg text-sm font-medium
-                         hover:bg-[#0a0280] transition-all shadow-sm flex-shrink-0"
-            >
-              Search
-            </button>
-
+            {/* Filter Toggle Button */}
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
@@ -247,32 +250,34 @@ const TicketsPage = () => {
                 </span>
               )}
             </button>
-          </form>
+          </div>
 
-          {/* Filter Options - ✅ FIXED: Better responsive grid */}
+          {/* Filter Options */}
           {showFilters && (
             <div className="pt-3 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
                 <StyledSelect
                   label="Status"
                   value={statusFilter}
-                  onChange={(value) => {
-                    setStatusFilter(value);
-                    setCurrentPage(1);
-                  }}
-                  options={statusOptions}
+                  onChange={(value) => setStatusFilter(value)}
+                  options={STATUS_OPTIONS}
                   placeholder="All Status"
                 />
 
                 <StyledSelect
                   label="Category"
                   value={categoryFilter}
-                  onChange={(value) => {
-                    setCategoryFilter(value);
-                    setCurrentPage(1);
-                  }}
-                  options={categoryOptions}
+                  onChange={(value) => setCategoryFilter(value)}
+                  options={CATEGORY_OPTIONS}
                   placeholder="All Categories"
+                />
+
+                <StyledSelect
+                  label="Priority"
+                  value={priorityFilter}
+                  onChange={(value) => setPriorityFilter(value)}
+                  options={PRIORITY_OPTIONS}
+                  placeholder="All Priorities"
                 />
 
                 <div className="flex flex-col gap-1.5">
@@ -283,10 +288,7 @@ const TicketsPage = () => {
                   <input
                     type="date"
                     value={dateFrom}
-                    onChange={(e) => {
-                      setDateFrom(e.target.value);
-                      setCurrentPage(1);
-                    }}
+                    onChange={(e) => setDateFrom(e.target.value)}
                     max={dateTo || undefined}
                     className={`h-10 px-3 border rounded-lg text-sm shadow-sm
                                focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
@@ -307,10 +309,7 @@ const TicketsPage = () => {
                   <input
                     type="date"
                     value={dateTo}
-                    onChange={(e) => {
-                      setDateTo(e.target.value);
-                      setCurrentPage(1);
-                    }}
+                    onChange={(e) => setDateTo(e.target.value)}
                     min={dateFrom || undefined}
                     className={`h-10 px-3 border rounded-lg text-sm shadow-sm
                                focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
@@ -324,7 +323,7 @@ const TicketsPage = () => {
                 </div>
               </div>
 
-              {activeFiltersCount > 0 && (
+              {(activeFiltersCount > 0 || searchText) && (
                 <div className="mt-3 flex items-center justify-end">
                   <button
                     onClick={handleClearFilters}
@@ -343,7 +342,10 @@ const TicketsPage = () => {
         {/* Error State */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
-            <span className="text-sm">{error}</span>
+            <div className="flex items-center gap-2">
+              <AlertCircle size={18} />
+              <span className="text-sm">{error}</span>
+            </div>
             <button
               onClick={handleRefresh}
               className="text-red-700 hover:text-red-900 font-medium underline text-sm"
@@ -354,7 +356,7 @@ const TicketsPage = () => {
         )}
       </div>
 
-      {/* ✅ FIXED: Table container matches UserPage structure */}
+      {/* Table container */}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden px-4 pb-4">
         <TicketsTable
           tickets={tickets}
@@ -366,6 +368,7 @@ const TicketsPage = () => {
           sortConfig={sortConfig}
           onSortChange={handleSortChange}
           onViewTicket={handleViewTicket}
+          hasActiveFilters={hasActiveFilters}
         />
       </div>
 
@@ -375,7 +378,7 @@ const TicketsPage = () => {
         onClose={handleCloseModal}
         ticket={selectedTicket}
         loading={loadingTicketDetails}
-        onRefresh={handleRefresh}
+        onRefresh={handleTicketUpdated}
       />
     </div>
   );

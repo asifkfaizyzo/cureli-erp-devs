@@ -622,7 +622,7 @@ model Ticket {
   cancelled_by        User?           @relation("TicketCanceller", fields: [cancelled_by_id], references: [user_id])
   reopened_by         User?           @relation("TicketReopener", fields: [reopened_by_id], references: [user_id])
   attachments         TicketAttachment[]
-  
+  statusHistory   TicketStatusHistory[] @relation("TicketStatusHistory")
   @@index([shop_id])
   @@index([branch_id])
   @@index([status])
@@ -652,6 +652,36 @@ model TicketAttachment {
   
   @@index([ticket_id])
   @@map("ticket_attachments")
+}
+// ============================================
+// TICKET STATUS HISTORY MODEL (NEW)
+// ============================================
+
+model TicketStatusHistory {
+  id              String        @id @default(uuid()) @db.Uuid
+  ticket_id       String        @db.Uuid
+  
+  // Who made the change
+  changed_by_type String        @db.VarChar(20)  // "USER" | "CADMIN"
+  changed_by_id   String        @db.Uuid
+  changed_by_name String        @db.VarChar(100)
+  
+  // Status change
+  from_status     TicketStatus?
+  to_status       TicketStatus
+  
+  // Optional note
+  note            String?       @db.Text
+  
+  // Timestamp
+  created_at      DateTime      @default(now()) @db.Timestamptz(6)
+  
+  // Relation
+  ticket          Ticket        @relation("TicketStatusHistory", fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+  
+  @@index([ticket_id])
+  @@index([created_at])
+  @@map("ticket_status_history")
 }
 
 // ============================================

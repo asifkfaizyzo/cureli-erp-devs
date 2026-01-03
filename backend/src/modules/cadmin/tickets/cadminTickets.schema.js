@@ -8,7 +8,6 @@ import { z } from "zod";
  * ============================================
  */
 export const getTicketsQuerySchema = z.object({
-  // Status filter - includes CANCELLED for viewing user-cancelled tickets
   status: z
     .enum(["PENDING", "IN_PROGRESS", "RESOLVED", "CANCELLED", "CLOSED"])
     .optional(),
@@ -21,6 +20,11 @@ export const getTicketsQuerySchema = z.object({
       "ACCOUNT_ISSUE",
       "OTHER",
     ])
+    .optional(),
+
+  // NEW: Priority filter (computed from reopen_count)
+  priority: z
+    .enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"])
     .optional(),
 
   shop_name: z.string().max(100).optional(),
@@ -46,7 +50,7 @@ export const getTicketsQuerySchema = z.object({
     .pipe(z.number().int().min(1).max(100)),
 
   sort_by: z
-    .enum(["created_at", "updated_at", "ticket_number", "status"])
+    .enum(["created_at", "updated_at", "ticket_number", "status", "reopen_count"])
     .optional()
     .default("created_at"),
 
@@ -56,15 +60,14 @@ export const getTicketsQuerySchema = z.object({
 /**
  * ============================================
  * UPDATE TICKET STATUS SCHEMA
- * CAdmin can only set these statuses (not CANCELLED - that's user action)
  * ============================================
  */
 export const updateTicketStatusSchema = z.object({
   status: z.enum(["PENDING", "IN_PROGRESS", "RESOLVED", "CLOSED"]),
 
-  admin_notes: z
+  note: z
     .string()
-    .max(1000, "Admin notes must be at most 1000 characters")
+    .max(500, "Note must be at most 500 characters")
     .optional()
     .nullable()
     .transform((val) => val?.trim() || null),

@@ -35,6 +35,8 @@ export async function createTicketController(req, res) {
       shop_id,
       branch_id: branch_id || userBranchId || null,
       user_id,
+      user_branch_id: userBranchId,
+      user_role: role,
       contact_number,
       category,
       subject,
@@ -46,13 +48,19 @@ export async function createTicketController(req, res) {
 
     return success(res, { ticket }, "Ticket created successfully", 201);
   } catch (err) {
-    console.error("createTicketController error:", err);
+    console.error("createTicketController error:", err.code, err.message);
 
-    if (err.code === "INVALID_BRANCH") {
-      return fail(res, err.message, 400);
-    }
+    // Handle specific error codes
+    const errorCodeMap = {
+      INVALID_BRANCH: 400,
+      BRANCH_ACCESS_DENIED: 403,
+      RATE_LIMIT_EXCEEDED: 429,
+      DUPLICATE_TICKET: 409,
+      TICKET_NUMBER_CONFLICT: 500,
+    };
 
-    return fail(res, err.message || "Failed to create ticket", 500);
+    const statusCode = errorCodeMap[err.code] || 500;
+    return fail(res, err.message || "Failed to create ticket", statusCode);
   }
 }
 
@@ -63,13 +71,6 @@ export async function createTicketController(req, res) {
 export async function getTicketsController(req, res) {
   try {
     const { shop_id, role, branch_id: requesterBranchId } = req.user;
-
-    // ✅ Debug logging
-    console.log("=== GET TICKETS DEBUG ===");
-    console.log("shop_id:", shop_id);
-    console.log("role:", role);
-    console.log("requesterBranchId:", requesterBranchId);
-    console.log("query params:", req.query);
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
@@ -86,16 +87,9 @@ export async function getTicketsController(req, res) {
       ...req.query,
     });
 
-    console.log("=== RESULT ===");
-    console.log("tickets count:", result.tickets?.length);
-    console.log("pagination:", result.pagination);
-
     return success(res, result);
   } catch (err) {
-    // ✅ Better error logging
-    console.error("=== GET TICKETS ERROR ===");
-    console.error("Error message:", err.message);
-    console.error("Error stack:", err.stack);
+    console.error("getTicketsController error:", err.message);
     return fail(res, "Failed to fetch tickets", 500);
   }
 }
@@ -120,7 +114,7 @@ export async function getTicketStatsController(req, res) {
 
     return success(res, { stats });
   } catch (err) {
-    console.error("getTicketStatsController error:", err);
+    console.error("getTicketStatsController error:", err.message);
     return fail(res, "Failed to fetch ticket stats", 500);
   }
 }
@@ -156,7 +150,7 @@ export async function getTicketController(req, res) {
 
     return success(res, { ticket });
   } catch (err) {
-    console.error("getTicketController error:", err);
+    console.error("getTicketController error:", err.message);
     return fail(res, "Failed to fetch ticket", 500);
   }
 }
@@ -193,16 +187,16 @@ export async function cancelTicketController(req, res) {
 
     return success(res, { ticket }, "Ticket cancelled successfully");
   } catch (err) {
-    console.error("cancelTicketController error:", err);
+    console.error("cancelTicketController error:", err.code, err.message);
 
-    if (err.code === "TICKET_NOT_FOUND") {
-      return fail(res, err.message, 404);
-    }
-    if (err.code === "ALREADY_CANCELLED" || err.code === "INVALID_STATUS_TRANSITION") {
-      return fail(res, err.message, 400);
-    }
+    const errorCodeMap = {
+      TICKET_NOT_FOUND: 404,
+      ALREADY_CANCELLED: 400,
+      INVALID_STATUS_TRANSITION: 400,
+    };
 
-    return fail(res, "Failed to cancel ticket", 500);
+    const statusCode = errorCodeMap[err.code] || 500;
+    return fail(res, err.message || "Failed to cancel ticket", statusCode);
   }
 }
 
@@ -238,15 +232,16 @@ export async function reopenTicketController(req, res) {
 
     return success(res, { ticket }, "Ticket reopened successfully");
   } catch (err) {
-    console.error("reopenTicketController error:", err);
+    console.error("reopenTicketController error:", err.code, err.message);
 
-    if (err.code === "TICKET_NOT_FOUND") {
-      return fail(res, err.message, 404);
-    }
-    if (err.code === "INVALID_STATUS_FOR_REOPEN" || err.code === "CANNOT_REOPEN_CANCELLED") {
-      return fail(res, err.message, 400);
-    }
+    const errorCodeMap = {
+      TICKET_NOT_FOUND: 404,
+      INVALID_STATUS_FOR_REOPEN: 400,
+      CANNOT_REOPEN_CANCELLED: 400,
+      REOPEN_LIMIT_EXCEEDED: 400,
+    };
 
-    return fail(res, "Failed to reopen ticket", 500);
+    const statusCode = errorCodeMap[err.code] || 500;
+    return fail(res, err.message || "Failed to reopen ticket", statusCode);
   }
 }

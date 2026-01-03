@@ -1,15 +1,18 @@
 // frontend/src/pages/tickets/components/CancelTicketModal.jsx
 
 import { useState, useEffect } from "react";
-import { X, AlertTriangle } from "lucide-react";
+import { X, AlertTriangle, Loader2 } from "lucide-react";
 import { cancelTicket } from "../../../api/tickets";
+import { useToast } from "../../../components/common/Toast";
 
 const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
+  const toast = useToast();
+  
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ FIXED: Reset state when modal opens
+  // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setReason("");
@@ -26,6 +29,7 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
 
     if (!reason || reason.trim().length < 10) {
       setError("Please provide a reason (at least 10 characters)");
+      toast.warning("Validation Error", "Cancellation reason must be at least 10 characters.");
       return;
     }
 
@@ -35,7 +39,9 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
       onSuccess();
     } catch (err) {
       console.error("Failed to cancel ticket:", err);
-      setError(err.response?.data?.message || "Failed to cancel ticket");
+      const errorMessage = err.response?.data?.message || "Failed to cancel ticket";
+      setError(errorMessage);
+      toast.error("Cancellation Failed", errorMessage);
     } finally {
       setLoading(false);
     }
@@ -43,7 +49,7 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      {/* ✅ HORIZONTAL LAYOUT - Compact design */}
+      {/* HORIZONTAL LAYOUT - Compact design */}
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
         {/* Header - Compact */}
         <div className="flex items-center gap-4 p-5 border-b border-gray-200">
@@ -80,12 +86,15 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
             </label>
             <textarea
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              onChange={(e) => {
+                setReason(e.target.value);
+                setError("");
+              }}
               rows={3}
               maxLength={500}
               placeholder="Explain why you're cancelling this ticket..."
               disabled={loading}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 resize-none transition-all ${
+              className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 resize-none transition-all disabled:bg-gray-50 disabled:cursor-not-allowed ${
                 error ? "border-red-500" : "border-gray-300"
               }`}
             />
@@ -116,7 +125,7 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <Loader2 size={16} className="animate-spin" />
                   <span>Cancelling...</span>
                 </>
               ) : (

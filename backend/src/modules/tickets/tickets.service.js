@@ -4,13 +4,105 @@ import prisma from "../../config/prisma.js";
 import fs from "fs";
 
 // ============================================
-// Generate Ticket Number
+// CONSTANTS
 // ============================================
-async function generateTicketNumber(shop_id) {
+const REOPEN_LIMIT = 6;
+const MAX_RETRY_ATTEMPTS = 3;
+
+// ============================================
+// STATUS TRANSITION MATRIX
+// Defines valid status transitions
+// ============================================
+const STATUS_TRANSITIONS = {
+  PENDING: ["IN_PROGRESS", "CANCELLED"],
+  IN_PROGRESS: ["RESOLVED", "CANCELLED"],
+  RESOLVED: ["CLOSED", "PENDING"], // PENDING via reopen
+  CLOSED: ["PENDING"], // PENDING via reopen
+  CANCELLED: [], // Terminal state - no transitions allowed
+};
+
+/**
+ * Validate if a status transition is allowed
+ * @param {string} fromStatus - Current status
+ * @param {string} toStatus - Target status
+ * @returns {boolean}
+ */
+function isValidTransition(fromStatus, toStatus) {
+  const allowedTransitions = STATUS_TRANSITIONS[fromStatus];
+  return allowedTransitions ? allowedTransitions.includes(toStatus) : false;
+}
+
+// ============================================
+// UTILITY: Mask sensitive data for logs
+// ============================================
+function maskPhone(phone) {
+  if (!phone || phone.length < 7) return "***";
+  return phone.replace(/(\d{3})\d{4}(\d{3})/, "$1****$2");
+}
+
+function maskUserId(userId) {
+  if (!userId) return "***";
+  return userId.substring(0, 8) + "...";
+}
+
+function sanitizeLogData(data) {
+  const sanitized = { ...data };
+  if (sanitized.contact_number) {
+    sanitized.contact_number = maskPhone(sanitized.contact_number);
+  }
+  if (sanitized.user_id) {
+    sanitized.user_id = maskUserId(sanitized.user_id);
+  }
+  if (sanitized.shop_id) {
+    sanitized.shop_id = maskUserId(sanitized.shop_id);
+  }
+  return sanitized;
+}
+
+// ============================================
+// Generate Ticket Number with Retry Logic
+// Handles race conditions with unique constraint
+// ============================================
+async function generateTicketNumber(shop_id, tx, attempt = 1) {
   const shopCode = shop_id.substring(0, 4).toUpperCase();
-  const ticketCount = await prisma.ticket.count({ where: { shop_id } });
-  const sequentialNumber = String(ticketCount + 1).padStart(5, "0");
-  return `TKT-${shopCode}-${sequentialNumber}`;
+  
+  // Use a more robust approach: get the highest ticket number and increment
+  const lastTicket = await tx.ticket.findFirst({
+    where: { shop_id },
+    orderBy: { created_at: "desc" },
+    select: { ticket_number: true },
+  });
+
+  let sequentialNumber;
+  
+  if (lastTicket && lastTicket.ticket_number) {
+    // Extract the number from the last ticket (format: TKT-XXXX-00001)
+    const parts = lastTicket.ticket_number.split("-");
+    const lastNumber = parseInt(parts[2], 10) || 0;
+    sequentialNumber = String(lastNumber + attempt).padStart(5, "0");
+  } else {
+    sequentialNumber = String(attempt).padStart(5, "0");
+  }
+
+  const ticketNumber = `TKT-${shopCode}-${sequentialNumber}`;
+
+  // Verify uniqueness
+  const existing = await tx.ticket.findUnique({
+    where: { ticket_number: ticketNumber },
+    select: { ticket_id: true },
+  });
+
+  if (existing) {
+    if (attempt >= MAX_RETRY_ATTEMPTS) {
+      // Fallback: Use timestamp-based suffix
+      const timestamp = Date.now().toString(36).toUpperCase();
+      return `TKT-${shopCode}-${timestamp}`;
+    }
+    // Retry with incremented number
+    return generateTicketNumber(shop_id, tx, attempt + 1);
+  }
+
+  return ticketNumber;
 }
 
 // ============================================
@@ -86,12 +178,98 @@ const ticketInclude = {
 };
 
 // ============================================
+// Check for Duplicate Tickets (Rate Limiting)
+// ============================================
+async function checkDuplicateTicket(shop_id, user_id, subject) {
+  const ONE_MINUTE_AGO = new Date(Date.now() - 60 * 1000);
+  
+  const recentTicket = await prisma.ticket.findFirst({
+    where: {
+      shop_id,
+      created_by_user_id: user_id,
+      created_at: { gte: ONE_MINUTE_AGO },
+    },
+    select: { ticket_id: true, subject: true },
+  });
+
+  if (recentTicket) {
+    const err = new Error("Please wait before creating another ticket. You can only create one ticket per minute.");
+    err.code = "RATE_LIMIT_EXCEEDED";
+    throw err;
+  }
+
+  // Check for duplicate subject in last 5 minutes
+  const FIVE_MINUTES_AGO = new Date(Date.now() - 5 * 60 * 1000);
+  const duplicateSubject = await prisma.ticket.findFirst({
+    where: {
+      shop_id,
+      created_by_user_id: user_id,
+      subject: subject.trim(),
+      created_at: { gte: FIVE_MINUTES_AGO },
+    },
+    select: { ticket_id: true },
+  });
+
+  if (duplicateSubject) {
+    const err = new Error("A ticket with the same subject was recently created. Please check your existing tickets.");
+    err.code = "DUPLICATE_TICKET";
+    throw err;
+  }
+}
+
+// ============================================
+// Validate Branch Ownership
+// ============================================
+async function validateBranchOwnership(shop_id, branch_id, user_id, user_branch_id, role) {
+  // Super admins can create tickets for any branch
+  if (role === "super_admin") {
+    // Just validate the branch exists and belongs to the shop
+    if (branch_id) {
+      const branch = await prisma.branch.findFirst({
+        where: { branch_id, shop_id, is_active: true },
+      });
+
+      if (!branch) {
+        const err = new Error("Branch not found or inactive");
+        err.code = "INVALID_BRANCH";
+        throw err;
+      }
+    }
+    return;
+  }
+
+  // Branch admins can only create tickets for their own branch or shop-level (null branch)
+  if (role === "branch_admin") {
+    if (branch_id && branch_id !== user_branch_id) {
+      const err = new Error("You can only create tickets for your own branch");
+      err.code = "BRANCH_ACCESS_DENIED";
+      throw err;
+    }
+
+    // Validate the branch exists
+    if (branch_id) {
+      const branch = await prisma.branch.findFirst({
+        where: { branch_id, shop_id, is_active: true },
+      });
+
+      if (!branch) {
+        const err = new Error("Branch not found or inactive");
+        err.code = "INVALID_BRANCH";
+        throw err;
+      }
+    }
+  }
+}
+
+// ============================================
 // Create Ticket
 // ============================================
 export async function createTicket({
   shop_id,
   branch_id,
   user_id,
+  user_branch_id,
+  user_role,
   contact_number,
   category,
   subject,
@@ -100,30 +278,23 @@ export async function createTicket({
   preferred_slot,
   files = [],
 }) {
-  console.log("=== CREATE TICKET DEBUG ===");
-  console.log("shop_id:", shop_id);
-  console.log("branch_id:", branch_id);
-  console.log("user_id:", user_id);
-  console.log("category:", category);
-  console.log("files count:", files.length);
+  // Sanitized logging
+  console.log("=== CREATE TICKET ===");
+  console.log("Data:", sanitizeLogData({ shop_id, branch_id, user_id, category, files_count: files.length }));
 
-  if (branch_id) {
-    const branch = await prisma.branch.findFirst({
-      where: { branch_id, shop_id, is_active: true },
-    });
+  // 1. Check for duplicate/rate limiting
+  await checkDuplicateTicket(shop_id, user_id, subject);
 
-    if (!branch) {
-      const err = new Error("Branch not found or inactive");
-      err.code = "INVALID_BRANCH";
-      throw err;
-    }
-  }
-
-  const ticket_number = await generateTicketNumber(shop_id);
-  console.log("Generated ticket_number:", ticket_number);
+  // 2. Validate branch ownership
+  await validateBranchOwnership(shop_id, branch_id, user_id, user_branch_id, user_role);
 
   try {
     const ticket = await prisma.$transaction(async (tx) => {
+      // 3. Generate ticket number with retry logic
+      const ticket_number = await generateTicketNumber(shop_id, tx);
+      console.log("Generated ticket_number:", ticket_number);
+
+      // 4. Create the ticket
       const newTicket = await tx.ticket.create({
         data: {
           ticket_number,
@@ -131,17 +302,18 @@ export async function createTicket({
           branch_id: branch_id || null,
           created_by_user_id: user_id,
           contact_number,
-          category, // Prisma should accept string for enum
-          subject,
-          description: description || null,
-          other_category_text: category === "OTHER" ? other_category_text : null,
+          category,
+          subject: subject.trim(),
+          description: description?.trim() || null,
+          other_category_text: category === "OTHER" ? other_category_text?.trim() : null,
           preferred_slot,
-          status: "PENDING", // Prisma should accept string for enum
+          status: "PENDING",
         },
       });
 
       console.log("Created ticket:", newTicket.ticket_id);
 
+      // 5. Create attachments
       if (files.length > 0) {
         const attachmentData = files.map((file) => ({
           ticket_id: newTicket.ticket_id,
@@ -158,6 +330,7 @@ export async function createTicket({
       return newTicket;
     });
 
+    // 6. Fetch complete ticket
     const completeTicket = await prisma.ticket.findUnique({
       where: { ticket_id: ticket.ticket_id },
       include: ticketInclude,
@@ -166,22 +339,29 @@ export async function createTicket({
     return transformTicket(completeTicket);
   } catch (error) {
     console.error("=== CREATE TICKET ERROR ===");
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
     console.error("Error code:", error.code);
-    
-    // Prisma-specific error details
-    if (error.meta) {
-      console.error("Prisma meta:", error.meta);
-    }
+    console.error("Error message:", error.message);
 
+    // Clean up uploaded files on error
     if (files.length > 0) {
       files.forEach((file) => {
         if (file.path && fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
+          try {
+            fs.unlinkSync(file.path);
+          } catch (unlinkError) {
+            console.error("Failed to cleanup file:", file.path);
+          }
         }
       });
     }
+
+    // Handle unique constraint violation (race condition fallback)
+    if (error.code === "P2002" && error.meta?.target?.includes("ticket_number")) {
+      const err = new Error("Failed to generate unique ticket number. Please try again.");
+      err.code = "TICKET_NUMBER_CONFLICT";
+      throw err;
+    }
+
     throw error;
   }
 }
@@ -204,23 +384,6 @@ export async function getTickets({
   requester_role,
   requester_branch_id,
 }) {
-  console.log("=== GET TICKETS SERVICE DEBUG ===");
-  console.log("Input params:", {
-    shop_id,
-    branch_id,
-    status,
-    category,
-    search,
-    date_from,
-    date_to,
-    page,
-    limit,
-    sort_by,
-    sort_order,
-    requester_role,
-    requester_branch_id,
-  });
-
   const andConditions = [];
 
   // Always filter by shop
@@ -278,14 +441,9 @@ export async function getTickets({
 
   const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
-  console.log("Final where clause:", JSON.stringify(where, null, 2));
-
   try {
-    // ✅ Parse page and limit to ensure they're numbers
-    const pageNum = typeof page === 'string' ? parseInt(page, 10) : page;
-    const limitNum = typeof limit === 'string' ? parseInt(limit, 10) : limit;
-
-    console.log("Pagination - page:", pageNum, "limit:", limitNum);
+    const pageNum = typeof page === "string" ? parseInt(page, 10) : page;
+    const limitNum = typeof limit === "string" ? parseInt(limit, 10) : limit;
 
     const [total, tickets] = await Promise.all([
       prisma.ticket.count({ where }),
@@ -301,8 +459,6 @@ export async function getTickets({
       }),
     ]);
 
-    console.log("Query result - total:", total, "fetched:", tickets.length);
-
     return {
       tickets: tickets.map(transformTicket),
       pagination: {
@@ -313,15 +469,7 @@ export async function getTickets({
       },
     };
   } catch (error) {
-    console.error("=== GET TICKETS ERROR ===");
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
-    console.error("Error code:", error.code);
-    
-    if (error.meta) {
-      console.error("Prisma meta:", error.meta);
-    }
-    
+    console.error("getTickets error:", error.message);
     throw error;
   }
 }
@@ -338,13 +486,13 @@ export async function getTicketById(ticket_id, shop_id) {
 
     return ticket ? transformTicket(ticket) : null;
   } catch (error) {
-    console.error("getTicketById error:", error);
+    console.error("getTicketById error:", error.message);
     throw error;
   }
 }
 
 // ============================================
-// Cancel Ticket
+// Cancel Ticket (with transition validation)
 // ============================================
 export async function cancelTicket(ticket_id, shop_id, user_id, reason) {
   const ticket = await prisma.ticket.findFirst({
@@ -357,13 +505,13 @@ export async function cancelTicket(ticket_id, shop_id, user_id, reason) {
     throw err;
   }
 
-  if (ticket.status === "CANCELLED") {
-    const err = new Error("Ticket is already cancelled");
-    err.code = "ALREADY_CANCELLED";
-    throw err;
-  }
-
-  if (ticket.status === "CLOSED" || ticket.status === "RESOLVED") {
+  // Validate status transition
+  if (!isValidTransition(ticket.status, "CANCELLED")) {
+    if (ticket.status === "CANCELLED") {
+      const err = new Error("Ticket is already cancelled");
+      err.code = "ALREADY_CANCELLED";
+      throw err;
+    }
     const err = new Error(`Cannot cancel a ${ticket.status.toLowerCase()} ticket`);
     err.code = "INVALID_STATUS_TRANSITION";
     throw err;
@@ -384,7 +532,7 @@ export async function cancelTicket(ticket_id, shop_id, user_id, reason) {
 }
 
 // ============================================
-// Reopen Ticket
+// Reopen Ticket (with limit enforcement)
 // ============================================
 export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
   const ticket = await prisma.ticket.findFirst({
@@ -397,13 +545,22 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
     throw err;
   }
 
-  if (ticket.status === "CANCELLED") {
-    const err = new Error("Cannot reopen a cancelled ticket");
-    err.code = "CANNOT_REOPEN_CANCELLED";
+  // Check reopen limit (CRITICAL)
+  if (ticket.reopen_count >= REOPEN_LIMIT) {
+    const err = new Error(
+      `This ticket has been reopened ${REOPEN_LIMIT} times. Please create a new ticket or contact support via email.`
+    );
+    err.code = "REOPEN_LIMIT_EXCEEDED";
     throw err;
   }
 
-  if (ticket.status !== "RESOLVED" && ticket.status !== "CLOSED") {
+  // Validate status transition
+  if (!isValidTransition(ticket.status, "PENDING")) {
+    if (ticket.status === "CANCELLED") {
+      const err = new Error("Cannot reopen a cancelled ticket");
+      err.code = "CANNOT_REOPEN_CANCELLED";
+      throw err;
+    }
     const err = new Error("Only resolved or closed tickets can be reopened");
     err.code = "INVALID_STATUS_FOR_REOPEN";
     throw err;
@@ -420,6 +577,8 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
     },
     include: ticketInclude,
   });
+
+  console.log(`Ticket ${ticket.ticket_number} reopened. Count: ${updatedTicket.reopen_count}/${REOPEN_LIMIT}`);
 
   return transformTicket(updatedTicket);
 }
@@ -493,7 +652,7 @@ export async function getTicketStats(shop_id, requester_role, requester_branch_i
       by_category: byCategory,
     };
   } catch (error) {
-    console.error("getTicketStats error:", error);
+    console.error("getTicketStats error:", error.message);
     throw error;
   }
 }
@@ -513,7 +672,12 @@ export async function canAccessTicket(ticket_id, shop_id, requester_role, reques
 
     return ticket.branch_id === requester_branch_id || ticket.branch_id === null;
   } catch (error) {
-    console.error("canAccessTicket error:", error);
+    console.error("canAccessTicket error:", error.message);
     return false;
   }
 }
+
+// ============================================
+// EXPORTS: Status Transition Helpers (for testing/admin)
+// ============================================
+export { isValidTransition, STATUS_TRANSITIONS, REOPEN_LIMIT };

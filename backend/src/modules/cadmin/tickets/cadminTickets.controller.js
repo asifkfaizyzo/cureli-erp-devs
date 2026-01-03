@@ -6,15 +6,14 @@ import {
   getTicketById,
   updateTicketStatus,
   getTicketStats,
+  getTicketStatusHistory,
 } from "./cadminTickets.service.js";
 
 /**
  * GET /cadmin/tickets
- * Get all tickets from all shops (Super Admin view)
  */
 export async function getAllTicketsController(req, res) {
   try {
-    // ✅ Use req.validated instead of req.query
     const result = await getAllTickets(req.validated);
     return success(res, result);
   } catch (err) {
@@ -25,7 +24,6 @@ export async function getAllTicketsController(req, res) {
 
 /**
  * GET /cadmin/tickets/stats
- * Get ticket statistics across all shops
  */
 export async function getTicketStatsController(req, res) {
   try {
@@ -39,7 +37,6 @@ export async function getTicketStatsController(req, res) {
 
 /**
  * GET /cadmin/tickets/:ticket_id
- * Get single ticket details
  */
 export async function getTicketByIdController(req, res) {
   try {
@@ -58,21 +55,38 @@ export async function getTicketByIdController(req, res) {
 }
 
 /**
+ * GET /cadmin/tickets/:ticket_id/history
+ */
+export async function getTicketHistoryController(req, res) {
+  try {
+    const { ticket_id } = req.params;
+    const history = await getTicketStatusHistory(ticket_id);
+    return success(res, { history });
+  } catch (err) {
+    console.error("getTicketHistoryController error:", err);
+
+    if (err.code === "TICKET_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+
+    return fail(res, "Failed to fetch ticket history", 500);
+  }
+}
+
+/**
  * PATCH /cadmin/tickets/:ticket_id/status
- * Update ticket status (Admin action)
  */
 export async function updateTicketStatusController(req, res) {
   try {
     const { ticket_id } = req.params;
-    // ✅ Use req.validated for body data too
-    const { status, admin_notes } = req.validated;
+    const { status, note } = req.validated;
     const cadmin_id = req.cadmin.cadmin_id;
 
     if (!status) {
       return fail(res, "Status is required", 400);
     }
 
-    const ticket = await updateTicketStatus(ticket_id, status, admin_notes, cadmin_id);
+    const ticket = await updateTicketStatus(ticket_id, status, note, cadmin_id);
 
     return success(res, { ticket }, "Ticket updated successfully");
   } catch (err) {
@@ -82,7 +96,11 @@ export async function updateTicketStatusController(req, res) {
       return fail(res, err.message, 404);
     }
 
-    if (err.code === "INVALID_STATUS" || err.code === "CANNOT_UPDATE_CANCELLED") {
+    if (
+      err.code === "INVALID_STATUS" ||
+      err.code === "CANNOT_UPDATE_CANCELLED" ||
+      err.code === "SAME_STATUS"
+    ) {
       return fail(res, err.message, 400);
     }
 

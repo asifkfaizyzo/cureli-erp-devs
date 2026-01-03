@@ -18,10 +18,20 @@ import {
   Info,
   History,
   ImageOff,
+  AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import ReopenTicketModal from "./ReopenTicketModal";
-import { TICKET_CATEGORIES, CATEGORY_COLORS } from "../../../constant/tickets";
+import Tooltip from "../../../components/common/Tooltip";
+import { 
+  TICKET_CATEGORIES, 
+  CATEGORY_COLORS,
+  STATUS_TOOLTIP_MESSAGES,
+  REOPEN_LIMIT,
+  canReopenByCount,
+  REOPEN_LIMIT_MESSAGE,
+  buildTimelineEvents,
+} from "../../../constant/tickets";
 
 const ViewTicketModal = ({
   isOpen,
@@ -99,7 +109,9 @@ const ViewTicketModal = ({
 
   const canCancel =
     ticket.status === "PENDING" || ticket.status === "IN_PROGRESS";
-  const canReopen = ticket.status === "RESOLVED" || ticket.status === "CLOSED";
+  const canReopenStatus = ticket.status === "RESOLVED" || ticket.status === "CLOSED";
+  const canReopenCount = canReopenByCount(ticket.reopen_count || 0);
+  const canReopen = canReopenStatus && canReopenCount;
 
   const tabs = [
     { id: "details", label: "Details", icon: Info },
@@ -119,14 +131,30 @@ const ViewTicketModal = ({
 
   const getStatusBadge = (status) => {
     const config = statusConfig[status] || statusConfig.PENDING;
-    return (
+    const tooltipMessage = STATUS_TOOLTIP_MESSAGES[status];
+    
+    const badge = (
       <span
-        className={`px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
+        className={`px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text} cursor-default`}
+        tabIndex={tooltipMessage ? 0 : -1}
       >
         {config.label}
       </span>
     );
+
+    if (tooltipMessage) {
+      return (
+        <Tooltip content={tooltipMessage} position="bottom" contentClassName="max-w-xs whitespace-normal">
+          {badge}
+        </Tooltip>
+      );
+    }
+
+    return badge;
   };
+
+  // Build timeline events
+  const timelineEvents = buildTimelineEvents(ticket);
 
   return (
     <>
@@ -136,7 +164,6 @@ const ViewTicketModal = ({
       >
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
-        {/* ✅ HORIZONTAL LAYOUT - Max width increased, fixed height */}
         <div
           className="relative w-full max-w-6xl h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
@@ -167,7 +194,6 @@ const ViewTicketModal = ({
               </div>
 
               <div className="flex items-center gap-2">
-              
                 <button
                   onClick={onClose}
                   className="p-1.5 rounded-lg bg-white/20 text-white hover:bg-red-500/30 transition-all"
@@ -298,11 +324,18 @@ const ViewTicketModal = ({
                           size={18}
                           className="text-orange-600 flex-shrink-0 mt-0.5"
                         />
-                        <div>
-                          <h4 className="text-sm font-semibold text-orange-900 mb-1">
-                            Reopened ({ticket.reopen_count}{" "}
-                            {ticket.reopen_count === 1 ? "time" : "times"})
-                          </h4>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-orange-900 mb-1">
+                              Reopened ({ticket.reopen_count}{" "}
+                              {ticket.reopen_count === 1 ? "time" : "times"})
+                            </h4>
+                            {ticket.reopen_count >= REOPEN_LIMIT && (
+                              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                                Limit Reached
+                              </span>
+                            )}
+                          </div>
                           {ticket.reopen_reason && (
                             <p className="text-sm text-orange-800 mb-1">
                               {ticket.reopen_reason}
@@ -353,6 +386,35 @@ const ViewTicketModal = ({
                       value={formatDate(ticket.created_at)}
                     />
                   </div>
+
+                  {/* Reopen count status card */}
+                  {canReopenStatus && (
+                    <div className={`rounded-xl border p-4 ${
+                      canReopenCount 
+                        ? "bg-blue-50 border-blue-200" 
+                        : "bg-red-50 border-red-200"
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <RotateCcw size={14} className={canReopenCount ? "text-blue-600" : "text-red-600"} />
+                        <h3 className={`font-semibold text-sm ${canReopenCount ? "text-blue-900" : "text-red-900"}`}>
+                          Reopen Status
+                        </h3>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className={canReopenCount ? "text-blue-700" : "text-red-700"}>Reopened:</span>
+                          <span className={`font-semibold ${canReopenCount ? "text-blue-900" : "text-red-900"}`}>
+                            {ticket.reopen_count || 0} / {REOPEN_LIMIT}
+                          </span>
+                        </div>
+                        {!canReopenCount && (
+                          <p className="text-xs text-red-600 mt-2">
+                            Maximum reopen limit reached.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -389,7 +451,7 @@ const ViewTicketModal = ({
               </div>
             )}
 
-            {/* =============== TIMELINE TAB =============== */}
+            {/* =============== TIMELINE TAB - ENHANCED =============== */}
             {activeTab === "timeline" && (
               <div className="bg-white rounded-xl border border-gray-100 p-6">
                 <div className="flex items-center gap-3 mb-6">
@@ -397,73 +459,36 @@ const ViewTicketModal = ({
                   <h3 className="font-semibold text-gray-900">
                     Ticket Timeline
                   </h3>
+                  <span className="text-xs text-gray-500">
+                    ({timelineEvents.length} event{timelineEvents.length !== 1 ? "s" : ""})
+                  </span>
                 </div>
 
-                <div className="relative">
-                  <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-200" />
-
-                  <div className="space-y-4">
-                    <TimelineItem
-                      color="bg-blue-500"
-                      title="Ticket Created"
-                      description={`Created by ${
-                        ticket.created_by_name || "Unknown"
-                      }`}
-                      date={formatDate(ticket.created_at)}
-                    />
-
-                    {ticket.status === "IN_PROGRESS" && (
-                      <TimelineItem
-                        color="bg-purple-500"
-                        title="In Progress"
-                        description="Ticket is being reviewed"
-                        date={formatDate(ticket.updated_at)}
-                      />
-                    )}
-
-                    {ticket.reopened_at && (
-                      <TimelineItem
-                        color="bg-orange-500"
-                        title="Ticket Reopened"
-                        description={
-                          ticket.reopen_reason || "Ticket was reopened"
-                        }
-                        date={formatDate(ticket.reopened_at)}
-                        by={ticket.reopened_by_name}
-                      />
-                    )}
-
-                    {ticket.status === "RESOLVED" && (
-                      <TimelineItem
-                        color="bg-emerald-500"
-                        title="Ticket Resolved"
-                        description="Issue has been resolved"
-                        date={formatDate(ticket.updated_at)}
-                      />
-                    )}
-
-                    {ticket.status === "CLOSED" && (
-                      <TimelineItem
-                        color="bg-gray-500"
-                        title="Ticket Closed"
-                        description="Ticket has been closed"
-                        date={formatDate(ticket.updated_at)}
-                      />
-                    )}
-
-                    {ticket.cancelled_at && (
-                      <TimelineItem
-                        color="bg-red-500"
-                        title="Ticket Cancelled"
-                        description={
-                          ticket.cancellation_reason || "Ticket was cancelled"
-                        }
-                        date={formatDate(ticket.cancelled_at)}
-                        by={ticket.cancelled_by_name}
-                      />
-                    )}
+                {timelineEvents.length === 0 ? (
+                  <div className="text-center py-8">
+                    <History size={32} className="mx-auto text-gray-300 mb-2" />
+                    <p className="text-gray-500 text-sm">No timeline events available</p>
                   </div>
-                </div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-200" />
+
+                    <div className="space-y-4">
+                      {timelineEvents.map((event, index) => (
+                        <TimelineItem
+                          key={event.id}
+                          color={event.color}
+                          title={event.title}
+                          description={event.description}
+                          date={formatDate(event.timestamp)}
+                          by={event.by}
+                          count={event.count}
+                          isLast={index === timelineEvents.length - 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -474,14 +499,28 @@ const ViewTicketModal = ({
               <p className="text-xs text-gray-400">
                 ID: {ticket.ticket_id?.substring(0, 8)}...
               </p>
-              {canReopen && (
-                  <button
-                    onClick={() => setShowReopenModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
-                  >
-                    <RotateCcw size={14} />
-                    Reopen Ticket
-                  </button>
+              
+              <div className="flex items-center gap-2">
+                {canReopenStatus && (
+                  canReopenCount ? (
+                    <button
+                      onClick={() => setShowReopenModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all"
+                    >
+                      <RotateCcw size={14} />
+                      Reopen Ticket
+                    </button>
+                  ) : (
+                    <Tooltip content={REOPEN_LIMIT_MESSAGE} position="top" contentClassName="max-w-xs whitespace-normal">
+                      <button
+                        disabled
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-300 text-gray-500 cursor-not-allowed opacity-60"
+                      >
+                        <AlertTriangle size={14} />
+                        Reopen Limit Reached
+                      </button>
+                    </Tooltip>
+                  )
                 )}
                 {canCancel && (
                   <button
@@ -495,6 +534,7 @@ const ViewTicketModal = ({
                     Cancel Ticket
                   </button>
                 )}
+              </div>
             </div>
           </div>
         </div>
@@ -544,7 +584,6 @@ const CategoryBadge = ({ category, otherText }) => {
   );
 };
 
-// ✅ FIXED: XSS vulnerability - Using React state instead of innerHTML
 const AttachmentCard = ({ attachment, getUrl }) => {
   const [imageError, setImageError] = useState(false);
   const isImage = attachment.mime_type?.startsWith("image/");
@@ -603,19 +642,26 @@ const AttachmentCard = ({ attachment, getUrl }) => {
   );
 };
 
-const TimelineItem = ({ color, title, description, date, by }) => (
+const TimelineItem = ({ color, title, description, date, by, count, isLast }) => (
   <div className="relative flex gap-4 pl-6">
     <div
       className={`absolute left-1.5 w-3 h-3 rounded-full ${color} ring-4 ring-white`}
     />
-    <div className="flex-1 bg-gray-50 rounded-lg p-3 -mt-1">
+    <div className={`flex-1 bg-gray-50 rounded-lg p-3 -mt-1 ${!isLast ? 'mb-0' : ''}`}>
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
+            {count && count > 1 && (
+              <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-medium rounded-full">
+                ×{count}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-gray-600 mt-0.5">{description}</p>
           {by && <p className="text-xs text-gray-500 mt-0.5">By {by}</p>}
         </div>
-        <span className="text-[10px] text-gray-400 whitespace-nowrap">
+        <span className="text-[10px] text-gray-400 whitespace-nowrap flex-shrink-0">
           {date}
         </span>
       </div>

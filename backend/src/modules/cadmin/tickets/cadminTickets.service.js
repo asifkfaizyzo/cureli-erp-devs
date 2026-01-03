@@ -1,10 +1,38 @@
 // backend/src/modules/cadmin/tickets/cadminTickets.service.js
 
 import prisma from "../../../config/prisma.js";
+import { sendTicketStatusEmail } from "../../../utils/ticketEmails.js";
 
 /**
  * ============================================
- * GET ALL TICKETS (Super Admin - All Shops)
+ * PRIORITY CALCULATION HELPER
+ * ============================================
+ */
+function calculatePriority(reopenCount) {
+  if (reopenCount === 0) return "LOW";
+  if (reopenCount <= 2) return "MEDIUM";
+  if (reopenCount <= 4) return "HIGH";
+  return "CRITICAL";
+}
+
+function getPriorityReopenRange(priority) {
+  switch (priority) {
+    case "LOW":
+      return { equals: 0 };
+    case "MEDIUM":
+      return { in: [1, 2] };
+    case "HIGH":
+      return { in: [3, 4] };
+    case "CRITICAL":
+      return { in: [5, 6] };
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * ============================================
+ * GET ALL TICKETS
  * ============================================
  */
 export async function getAllTickets({
@@ -13,6 +41,7 @@ export async function getAllTickets({
   search,
   status,
   category,
+  priority,
   shop_name,
   date_from,
   date_to,
@@ -22,7 +51,6 @@ export async function getAllTickets({
   try {
     const where = {};
 
-    // Search filter
     if (search) {
       where.OR = [
         { ticket_number: { contains: search, mode: "insensitive" } },
@@ -31,24 +59,28 @@ export async function getAllTickets({
       ];
     }
 
-    // Status filter
     if (status) {
       where.status = status;
     }
 
-    // Category filter
     if (category) {
       where.category = category;
     }
 
-    // Shop name filter
+    if (priority) {
+      const reopenRange = getPriorityReopenRange(priority);
+      if (reopenRange) {
+        where.reopen_count = reopenRange;
+      }
+    }
+
     if (shop_name) {
       where.shop = {
+        ...where.shop,
         business_name: { contains: shop_name, mode: "insensitive" },
       };
     }
 
-    // Date range filter
     if (date_from || date_to) {
       where.created_at = {};
       if (date_from) {
@@ -150,6 +182,7 @@ export async function getTicketById(ticket_id) {
             full_name: true,
             role: true,
             phone_number: true,
+            email: true,
           },
         },
         cancelled_by: {
@@ -188,13 +221,53 @@ export async function getTicketById(ticket_id) {
 
 /**
  * ============================================
- * UPDATE TICKET STATUS
+ * GET TICKET STATUS HISTORY
  * ============================================
  */
-export async function updateTicketStatus(ticket_id, status, admin_notes, cadmin_id) {
+export async function getTicketStatusHistory(ticket_id) {
   try {
     const ticket = await prisma.ticket.findUnique({
       where: { ticket_id },
+      select: { ticket_id: true },
+    });
+
+    if (!ticket) {
+      const err = new Error("Ticket not found");
+      err.code = "TICKET_NOT_FOUND";
+      throw err;
+    }
+
+    const history = await prisma.ticketStatusHistory.findMany({
+      where: { ticket_id },
+      orderBy: { created_at: "desc" },
+    });
+
+    return history;
+  } catch (error) {
+    console.error("getTicketStatusHistory error:", error);
+    throw error;
+  }
+}
+
+/**
+ * ============================================
+ * UPDATE TICKET STATUS (WITH EMAIL NOTIFICATION)
+ * ============================================
+ */
+export async function updateTicketStatus(ticket_id, status, note, cadmin_id) {
+  try {
+    // Get ticket with creator info for email
+    const ticket = await prisma.ticket.findUnique({
+      where: { ticket_id },
+      include: {
+        created_by: {
+          select: {
+            user_id: true,
+            full_name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (!ticket) {
@@ -218,19 +291,24 @@ export async function updateTicketStatus(ticket_id, status, admin_notes, cadmin_
       throw err;
     }
 
-    // Build update data
-    const updateData = {
-      status,
-      updated_at: new Date(),
-    };
+    // Skip if status is the same
+    if (ticket.status === status) {
+      const err = new Error("Status is already " + status);
+      err.code = "SAME_STATUS";
+      throw err;
+    }
 
-    // Handle admin notes - append with timestamp
-    if (admin_notes) {
-      const admin = await prisma.cAdmin.findUnique({
-        where: { cadmin_id },
-        select: { name: true },
-      });
+    // Get admin info
+    const admin = await prisma.cAdmin.findUnique({
+      where: { cadmin_id },
+      select: { name: true },
+    });
 
+    const previousStatus = ticket.status;
+
+    // Build admin_notes update (append with timestamp)
+    let updatedAdminNotes = ticket.admin_notes || "";
+    if (note) {
       const timestamp = new Date().toLocaleString("en-IN", {
         timeZone: "Asia/Kolkata",
         year: "numeric",
@@ -240,60 +318,98 @@ export async function updateTicketStatus(ticket_id, status, admin_notes, cadmin_
         minute: "2-digit",
         hour12: true,
       });
-
-      const newNoteEntry = `[${timestamp}] ${admin?.name || "Admin"}: ${admin_notes}`;
-      const existingNotes = ticket.admin_notes || "";
-      updateData.admin_notes = existingNotes
-        ? `${existingNotes}\n\n${newNoteEntry}`
+      const newNoteEntry = `[${timestamp}] ${admin?.name || "Admin"} (${previousStatus} → ${status}): ${note}`;
+      updatedAdminNotes = updatedAdminNotes
+        ? `${updatedAdminNotes}\n\n${newNoteEntry}`
         : newNoteEntry;
     }
 
-    const updatedTicket = await prisma.ticket.update({
-      where: { ticket_id },
-      data: updateData,
-      include: {
-        shop: {
-          select: {
-            shop_id: true,
-            business_name: true,
+    // Use transaction to update ticket and create history entry
+    const [updatedTicket, historyEntry] = await prisma.$transaction([
+      prisma.ticket.update({
+        where: { ticket_id },
+        data: {
+          status,
+          admin_notes: updatedAdminNotes || ticket.admin_notes,
+          updated_at: new Date(),
+        },
+        include: {
+          shop: {
+            select: {
+              shop_id: true,
+              business_name: true,
+            },
+          },
+          branch: {
+            select: {
+              branch_id: true,
+              branch_name: true,
+            },
+          },
+          created_by: {
+            select: {
+              user_id: true,
+              full_name: true,
+              role: true,
+              email: true,
+            },
+          },
+          cancelled_by: {
+            select: {
+              user_id: true,
+              full_name: true,
+            },
+          },
+          reopened_by: {
+            select: {
+              user_id: true,
+              full_name: true,
+            },
+          },
+          attachments: {
+            select: {
+              attachment_id: true,
+              storage_key: true,
+              original_name: true,
+              mime_type: true,
+              file_size: true,
+            },
           },
         },
-        branch: {
-          select: {
-            branch_id: true,
-            branch_name: true,
-          },
+      }),
+      prisma.ticketStatusHistory.create({
+        data: {
+          ticket_id,
+          changed_by_type: "CADMIN",
+          changed_by_id: cadmin_id,
+          changed_by_name: admin?.name || "Admin",
+          from_status: previousStatus,
+          to_status: status,
+          note: note || null,
         },
-        created_by: {
-          select: {
-            user_id: true,
-            full_name: true,
-            role: true,
-          },
-        },
-        cancelled_by: {
-          select: {
-            user_id: true,
-            full_name: true,
-          },
-        },
-        reopened_by: {
-          select: {
-            user_id: true,
-            full_name: true,
-          },
-        },
-        attachments: {
-          select: {
-            attachment_id: true,
-            storage_key: true,
-            original_name: true,
-            mime_type: true,
-            file_size: true,
-          },
-        },
-      },
-    });
+      }),
+    ]);
+
+    // ============================================
+    // SEND EMAIL NOTIFICATION (async, non-blocking)
+    // ============================================
+    if (ticket.created_by?.email) {
+      // Fire and forget - don't await to avoid slowing down response
+      sendTicketStatusEmail({
+        userEmail: ticket.created_by.email,
+        userName: ticket.created_by.full_name || "Customer",
+        ticketNumber: ticket.ticket_number,
+        subject: ticket.subject,
+        fromStatus: previousStatus,
+        toStatus: status,
+        adminNote: note || null,
+      }).catch((err) => {
+        // Log error but don't fail the request
+        console.error("Failed to send ticket status email:", err);
+      });
+    } else {
+      console.warn(`⚠️ No email for ticket ${ticket.ticket_number} creator - skipping notification`);
+    }
 
     return transformTicketForCAdmin(updatedTicket);
   } catch (error) {
@@ -339,6 +455,8 @@ export async function getTicketStats() {
  * ============================================
  */
 function transformTicketForCAdmin(ticket) {
+  const priority = calculatePriority(ticket.reopen_count || 0);
+
   return {
     ticket_id: ticket.ticket_id,
     ticket_number: ticket.ticket_number,
@@ -354,6 +472,7 @@ function transformTicketForCAdmin(ticket) {
     created_by_name: ticket.created_by?.full_name || null,
     created_by_role: ticket.created_by?.role || null,
     created_by_phone: ticket.created_by?.phone_number || null,
+    created_by_email: ticket.created_by?.email || null,
 
     // Contact & Issue
     contact_number: ticket.contact_number,
@@ -363,8 +482,9 @@ function transformTicketForCAdmin(ticket) {
     description: ticket.description,
     preferred_slot: ticket.preferred_slot,
 
-    // Status & Notes
+    // Status & Priority
     status: ticket.status,
+    priority,
     admin_notes: ticket.admin_notes,
 
     // Cancellation (by user)
