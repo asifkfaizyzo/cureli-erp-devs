@@ -49,8 +49,8 @@ const MENU_ITEMS = [
   { id: "admins", label: "Admins", icon: UserStar, path: "/admins" },
   { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
   {
-    id: "more",
-    label: "More",
+    id: "communication",
+    label: "communication",
     icon: MoreHorizontal,
     submenu: [
       { id: "tickets", label: "Tickets", icon: Ticket, path: "/tickets" },

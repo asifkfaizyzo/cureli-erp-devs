@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import PurchaseTable from "./components/PurchaseTable";
-import InvoicePagination from "./components/InvoicePagination";
+import InvoicePagination from "../../../components/common/Pagination";
 import InvoiceFilters from "./components/InvoiceFilters";
 import ViewInvoiceModal from "./components/ViewInvoiceModal";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";

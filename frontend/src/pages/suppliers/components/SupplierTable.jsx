@@ -1,21 +1,15 @@
-
-
 import { useState, useEffect, useCallback } from "react";
 import SupplierRow from "./SupplierRow";
-import SupplierPagination from "./SupplierPagination";
-import { useMenuStore } from "../../../store/useMenuStore"; // Assuming you have this store
+import { useMenuStore } from "../../../store/useMenuStore";
 
 const SupplierTable = ({
   data = [],
-  currentPage,
-  setCurrentPage,
   rowsPerPage,
-  totalCount,
-  totalPages,
+  startIndex,
   loading,
-  onRowClick
+  onRowClick,
+  children // For pagination slot
 }) => {
-  // Use store for dynamic sizing logic if available, or default to false
   const sidebarExpanded = useMenuStore?.((s) => s.sidebarExpanded) || false;
 
   // --- DYNAMIC SIZING CONSTANTS ---
@@ -23,8 +17,8 @@ const SupplierTable = ({
   const pySize = sidebarExpanded ? "py-2" : "py-3";
   const pxSize = sidebarExpanded ? "px-2" : "px-4";
 
-  // ✅ UPDATED HEADER CLASS: Gradient Background + Right Border + White Text
-   const headerClass = `${pxSize} py-3 text-left h-10 font-bold text-white uppercase tracking-wider bg-gradient-to-r from-[#05015A] to-[#0a0280] border-r border-blue-800 sticky top-0 z-10 whitespace-nowrap shadow-sm`;
+  const headerClass = `${pxSize} py-3 text-left h-10 font-bold text-white uppercase tracking-wider bg-gradient-to-r from-[#05015A] to-[#0a0280] border-r border-blue-800 sticky top-0 z-10 whitespace-nowrap shadow-sm`;
+  
   const [columnWidths, setColumnWidths] = useState({
     slNo: 40,
     supplierId: 120,
@@ -63,9 +57,6 @@ const SupplierTable = ({
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [resizing, handleMouseMove, handleMouseUp]);
-
-  const startIndex =
-    totalCount === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
 
   return (
     <div className="flex flex-col h-full bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden transition-all duration-300 font-poppins">
@@ -118,16 +109,13 @@ const SupplierTable = ({
                 index={startIndex + i}
                 loading={loading}
                 onRowClick={onRowClick}
-                // Pass styles down if needed by SupplierRow
                 cellClass={`${textSize} ${pySize} ${pxSize} border-b border-gray-100 group-hover:border-blue-100 transition-all duration-200`}
               />
             ))}
           </tbody>
         </table>
 
-        {/* ---------------------- */}
         {/* ANTI-BLINK LOADING OVERLAY */}
-        {/* ---------------------- */}
         {loading && (
           <div className="
             absolute inset-0 
@@ -140,21 +128,8 @@ const SupplierTable = ({
 
       </div>
 
-      {/* FOOTER (Pagination Slot) */}
-      <div className="flex-shrink-0 border-t border-gray-200 bg-gray-50/50 px-4 py-2 flex items-center justify-between">
-        
-        <div className="text-xs font-medium text-gray-500">
-          Showing <span className="text-[#05015A] font-bold">{startIndex}</span> - <span className="text-[#05015A] font-bold">
-            {Math.min(startIndex + rowsPerPage - 1, totalCount)}
-          </span> of <span className="text-gray-900">{totalCount}</span>
-        </div>
-
-        <SupplierPagination
-          totalPages={totalPages}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-        />
-      </div>
+      {/* PAGINATION SLOT */}
+      {children}
     </div>
   );
 };

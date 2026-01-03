@@ -3,8 +3,11 @@ import { useSearchParams } from "react-router-dom";
 import UserHeader from "../components/User/UserHeader";
 import UserTable from "../components/User/UserTable";
 import { getCAdminUsers } from "../api/cadminUsers";
+import { useToast } from "../components/common/Toast";
 
 const UserPage = () => {
+  const toast = useToast();
+  
   // Get search params from URL
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -80,10 +83,14 @@ const UserPage = () => {
       setTotalItems(payload.meta?.total || 0);
     } catch (err) {
       console.error("Failed to fetch users:", err);
+      toast.error(
+        "Failed to Load Users",
+        "Unable to fetch user data. Please try again."
+      );
     } finally {
       setLoading(false);
     }
-  }, [currentPage, rowsPerPage, searchText, statusFilter, roleFilter, dateFilter, sortConfig]);
+  }, [currentPage, rowsPerPage, searchText, statusFilter, roleFilter, dateFilter, sortConfig, toast]);
 
   // Fetch on mount and whenever dependencies change
   useEffect(() => {
@@ -97,12 +104,38 @@ const UserPage = () => {
 
   // Handler to update a single user row locally (for table suspend action)
   const handleUserUpdate = useCallback((userId, updates) => {
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.id === userId ? { ...user, ...updates } : user
-      )
-    );
-  }, []);
+    try {
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === userId ? { ...user, ...updates } : user
+        )
+      );
+      
+      // Show appropriate toast based on the update
+      if (updates.status === "suspended") {
+        toast.success(
+          "User Suspended",
+          "User account has been suspended successfully."
+        );
+      } else if (updates.status === "active") {
+        toast.success(
+          "User Activated",
+          "User account has been activated successfully."
+        );
+      } else {
+        toast.success(
+          "User Updated",
+          "User information updated successfully."
+        );
+      }
+    } catch (error) {
+      console.error("Failed to update user:", error);
+      toast.error(
+        "Update Failed",
+        "Failed to update user. Please try again."
+      );
+    }
+  }, [toast]);
 
   const handleSortChange = (column) => {
     setSortConfig((prev) => {

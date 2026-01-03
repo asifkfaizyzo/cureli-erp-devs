@@ -1,35 +1,52 @@
-// src/pages/SupplierPage.jsx
 import { useState, useMemo } from "react";
 import { useToast } from "../../components/common/Toast";
 import SupplierHeader from "./components/SupplierHeader";
 import SupplierTable from "./components/SupplierTable";
 import SupplierModal from "./components/SupplierModal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import InvoicePagination from "../../components/common/Pagination";
 import { suppliersData } from "../../components/data/suppliers";
-import usePagination from "../../hooks/usePagination";
+import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 
 const SupplierPage = () => {
   const toast = useToast();
 
-  // 1. STATE: Manage Filters
+  /* ---------------- FILTER STATE ---------------- */
   const [filters, setFilters] = useState({
     name: "",
     supplierId: "",
     contact: "",
   });
 
+  /* ---------------- DATA STATE ---------------- */
   const [loading, setLoading] = useState(false);
   const [tableData, setTableData] = useState(suppliersData);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // MODAL STATE
+  /* ---------------- MODAL STATE ---------------- */
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
 
-  // ✅ CONFIRMATION STATE
+  /* ---------------- CONFIRMATION STATE ---------------- */
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // 2. FILTER LOGIC
+  /* ---------------- DYNAMIC ROW COUNT ---------------- */
+  const rowsPerPage = useDynamicRowCount();
+
+  /* ---------------- FILTER HANDLER ---------------- */
+  const handleFilterChange = (field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setFilters({ name: "", supplierId: "", contact: "" });
+    setCurrentPage(1);
+    toast.info("Filters Reset", "All filters have been cleared.", 2000);
+  };
+
+  /* ---------------- FILTER LOGIC ---------------- */
   const filteredSuppliers = useMemo(() => {
     return tableData.filter((item) => {
       const itemName = item.name?.toLowerCase() || "";
@@ -44,45 +61,18 @@ const SupplierPage = () => {
     });
   }, [filters, tableData]);
 
-  // 3. PAGINATION (Using your custom hook)
-  const {
-    currentPage,
-    setCurrentPage,
-    rowsPerPage,
-    paginatedData: rawPaginatedData,
-    totalPages,
-    totalItems,
-  } = usePagination(filteredSuppliers);
+  /* ---------------- PAGINATION ---------------- */
+  const totalItems = filteredSuppliers.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / rowsPerPage));
 
-  // 4. EMPTY ROWS LOGIC (Visual Fix)
-  const finalTableData = useMemo(() => {
-    const data = [...rawPaginatedData];
-    while (data.length < rowsPerPage) {
-      data.push({ empty: true });
-    }
-    return data;
-  }, [rawPaginatedData, rowsPerPage]);
+  const startIndex = (currentPage - 1) * rowsPerPage;
 
-  // Handle Page Change with Loading Effect
-  const handlePageChangeWithLoading = (page) => {
-    setLoading(true);
-    setTimeout(() => {
-      setCurrentPage(page);
-      setLoading(false);
-    }, 180);
-  };
+  const paginatedData = useMemo(
+    () => filteredSuppliers.slice(startIndex, startIndex + rowsPerPage),
+    [filteredSuppliers, startIndex, rowsPerPage]
+  );
 
-  // FILTER HANDLERS
-  const handleFilterChange = (field, value) => {
-    setFilters((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleResetFilters = () => {
-    setFilters({ name: "", supplierId: "", contact: "" });
-    toast.info("Filters Reset", "All filters have been cleared.", 2000);
-  };
-
-  // ✅ ACTIONS WITH TOAST & CONFIRM DIALOG
+  /* ---------------- TABLE ACTIONS ---------------- */
   const handleRowAction = (action, supplier) => {
     if (action === "delete") {
       setConfirmDelete(supplier);
@@ -141,8 +131,31 @@ const SupplierPage = () => {
     setModalOpen(true);
   };
 
+  const confirmDeleteAction = () => {
+    if (!confirmDelete) return;
+
+    try {
+      setTableData((prev) =>
+        prev.filter((s) => s.supplierId !== confirmDelete.supplierId)
+      );
+      toast.success(
+        "Supplier Deleted",
+        `Supplier ${confirmDelete.name} has been removed.`
+      );
+      setConfirmDelete(null);
+    } catch (error) {
+      toast.error(
+        "Delete Failed",
+        "Failed to delete supplier. Please try again."
+      );
+      console.error("Delete error:", error);
+    }
+  };
+
+  /* ---------------- UI ---------------- */
   return (
     <div className="flex flex-col h-full w-full font-poppins overflow-hidden">
+      {/* FILTERS */}
       <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <SupplierHeader
           filters={filters}
@@ -153,20 +166,25 @@ const SupplierPage = () => {
         />
       </div>
 
-      <div className="flex-1 min-h-0 relative">
+      {/* TABLE */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <SupplierTable
-          data={finalTableData}
-          currentPage={currentPage}
-          setCurrentPage={handlePageChangeWithLoading}
+          data={paginatedData}
           rowsPerPage={rowsPerPage}
-          totalCount={totalItems}
-          totalPages={totalPages}
+          startIndex={startIndex}
           loading={loading}
           onRowClick={handleRowAction}
-        />
+        >
+          <InvoicePagination
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalItems={totalItems}
+            rowsPerPage={rowsPerPage}
+          />
+        </SupplierTable>
       </div>
 
-      {/* Supplier Modal */}
+      {/* SUPPLIER MODAL */}
       <SupplierModal
         open={modalOpen}
         mode={modalMode}
@@ -175,30 +193,11 @@ const SupplierPage = () => {
         onSave={handleSave}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* DELETE CONFIRMATION */}
       <ConfirmDialog
         isOpen={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}
-        onConfirm={() => {
-          try {
-            setTableData((prev) =>
-              prev.filter(
-                (s) => s.supplierId !== confirmDelete.supplierId
-              )
-            );
-            toast.success(
-              "Supplier Deleted",
-              `Supplier ${confirmDelete.name} deleted successfully.`
-            );
-            setConfirmDelete(null);
-          } catch (error) {
-            toast.error(
-              "Delete Failed",
-              "Failed to delete supplier. Please try again."
-            );
-            console.error("Delete error:", error);
-          }
-        }}
+        onConfirm={confirmDeleteAction}
         title="Delete Supplier"
         message={`Are you sure you want to delete ${confirmDelete?.name}? This action cannot be undone.`}
         confirmText="Delete"
