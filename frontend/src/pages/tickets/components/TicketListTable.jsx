@@ -5,25 +5,22 @@ import {
   Eye,
   XCircle,
   ChevronUp,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   FileText,
   Inbox,
   Plus,
   Search,
   FilterX,
-  MoreHorizontal,
-  User,
   Paperclip,
 } from "lucide-react";
 import { TICKET_STATUSES, TICKET_CATEGORIES, EMPTY_STATE_MESSAGES } from "../../../constant/tickets";
 import { format, formatDistanceToNow } from "date-fns";
+import Pagination from "../../../components/common/Pagination";
 
 // ============================================
 // STATUS BADGE COMPONENT
 // ============================================
-const StatusBadge = ({ status, size = "default" }) => {
+const StatusBadge = ({ status }) => {
   const statusConfig = {
     PENDING: { 
       bg: "bg-amber-50", 
@@ -60,13 +57,9 @@ const StatusBadge = ({ status, size = "default" }) => {
   const config = statusConfig[status] || statusConfig.PENDING;
   const label = TICKET_STATUSES[status] || status;
 
-  const sizeClasses = size === "small" 
-    ? "px-2 py-0.5 text-[10px]" 
-    : "px-2.5 py-1 text-xs";
-
   return (
     <span 
-      className={`inline-flex items-center gap-1.5 ${sizeClasses} rounded-full font-semibold ${config.bg} ${config.text} border ${config.border}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-semibold ${config.bg} ${config.text} border ${config.border}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${config.dot} ${status === 'IN_PROGRESS' ? 'animate-pulse' : ''}`} />
       {label}
@@ -81,16 +74,16 @@ const CategoryBadge = ({ category }) => {
   const categoryConfig = {
     TECHNICAL_ISSUE: { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200" },
     BILLING_ISSUE: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
-    FEATURE_REQUEST: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200"},
+    FEATURE_REQUEST: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200" },
     ACCOUNT_ISSUE: { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-200" },
-    OTHER: { bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-200"},
+    OTHER: { bg: "bg-gray-50", text: "text-gray-600", border: "border-gray-200" },
   };
 
   const config = categoryConfig[category] || categoryConfig.OTHER;
   const label = TICKET_CATEGORIES[category] || category;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${config.bg} ${config.text} border ${config.border}`}>
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${config.bg} ${config.text} border ${config.border}`}>
       {label}
     </span>
   );
@@ -215,14 +208,14 @@ const TicketRow = ({ ticket, index, currentPage, rowsPerPage, onViewTicket, onCa
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Row Number */}
-      <td className="px-4 py-4">
+      <td className="px-4 py-3.5 align-middle">
         <span className="text-sm text-gray-400 font-medium tabular-nums">
           {String((currentPage - 1) * rowsPerPage + index + 1).padStart(2, '0')}
         </span>
       </td>
 
       {/* Ticket Number & Subject */}
-      <td className="px-4 py-4">
+      <td className="px-4 py-3.5 align-middle">
         <button
           onClick={() => onViewTicket(ticket)}
           className="text-left group/ticket"
@@ -245,34 +238,29 @@ const TicketRow = ({ ticket, index, currentPage, rowsPerPage, onViewTicket, onCa
       </td>
 
       {/* Category */}
-      <td className="px-4 py-4">
+      <td className="px-4 py-3.5 align-middle">
         <CategoryBadge category={ticket.category} />
       </td>
 
       {/* Status */}
-      <td className="px-4 py-4">
+      <td className="px-4 py-3.5 align-middle">
         <StatusBadge status={ticket.status} />
       </td>
 
       {/* Created By */}
-      <td className="px-4 py-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center flex-shrink-0">
-            <User size={14} className="text-gray-500" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {ticket.created_by_name || "Unknown"}
-            </p>
-            <p className="text-xs text-gray-500 capitalize">
-              {ticket.created_by_role?.replace("_", " ") || "-"}
-            </p>
-          </div>
+      <td className="px-4 py-3.5 align-middle">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-gray-900 truncate">
+            {ticket.created_by_name || "Unknown"}
+          </p>
+          <p className="text-xs text-gray-500 capitalize">
+            {ticket.created_by_role?.replace("_", " ") || "-"}
+          </p>
         </div>
       </td>
 
       {/* Created Date */}
-      <td className="px-4 py-4">
+      <td className="px-4 py-3.5 align-middle">
         <div className="flex flex-col">
           <span className="text-sm font-medium text-gray-900">{formatDate(ticket.created_at)}</span>
           <span className="text-xs text-gray-500">{formatRelativeTime(ticket.created_at)}</span>
@@ -280,7 +268,7 @@ const TicketRow = ({ ticket, index, currentPage, rowsPerPage, onViewTicket, onCa
       </td>
 
       {/* Actions */}
-      <td className="px-4 py-4">
+      <td className="px-4 py-3.5 align-middle">
         <div className={`flex items-center justify-center gap-1 transition-opacity duration-200 ${isHovered ? "opacity-100" : "opacity-60"}`}>
           <button
             onClick={() => onViewTicket(ticket)}
@@ -324,74 +312,51 @@ const TicketListTable = ({
   onCreateTicket,
   hasActiveFilters = false,
 }) => {
-  const totalPages = Math.ceil(totalItems / rowsPerPage);
-
-  const getPageNumbers = () => {
-    const pages = [];
-    const showEllipsisStart = currentPage > 3;
-    const showEllipsisEnd = currentPage < totalPages - 2;
-
-    if (totalPages <= 5) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      pages.push(1);
-      if (showEllipsisStart) pages.push("...");
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-      for (let i = start; i <= end; i++) {
-        if (!pages.includes(i)) pages.push(i);
-      }
-      if (showEllipsisEnd) pages.push("...");
-      if (!pages.includes(totalPages)) pages.push(totalPages);
-    }
-    return pages;
-  };
-
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
       {/* Table Container */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full min-w-[950px]">
+        <table className="w-full min-w-[900px]">
           {/* Header */}
           <thead className="sticky top-0 z-10">
             <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280]">
-              <th className="w-14 px-4 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">
+              <th className="w-14 px-4 py-3.5 text-left text-xs font-semibold text-white/70 uppercase tracking-wider align-middle">
                 #
               </th>
               <th 
                 onClick={() => onSortChange("ticket_number")}
-                className="min-w-[280px] px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group"
+                className="min-w-[280px] px-4 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group align-middle"
               >
                 <div className="flex items-center gap-2">
                   <span>Ticket</span>
                   <SortIndicator column="ticket_number" sortConfig={sortConfig} />
                 </div>
               </th>
-              <th className="min-w-[130px] px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+              <th className="min-w-[130px] px-4 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider align-middle">
                 Category
               </th>
               <th 
                 onClick={() => onSortChange("status")}
-                className="min-w-[120px] px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group"
+                className="min-w-[120px] px-4 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group align-middle"
               >
                 <div className="flex items-center gap-2">
                   <span>Status</span>
                   <SortIndicator column="status" sortConfig={sortConfig} />
                 </div>
               </th>
-              <th className="min-w-[160px] px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+              <th className="min-w-[140px] px-4 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider align-middle">
                 Created By
               </th>
               <th 
                 onClick={() => onSortChange("created_at")}
-                className="min-w-[140px] px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group"
+                className="min-w-[130px] px-4 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group align-middle"
               >
                 <div className="flex items-center gap-2">
                   <span>Created</span>
                   <SortIndicator column="created_at" sortConfig={sortConfig} />
                 </div>
               </th>
-              <th className="w-28 px-4 py-4 text-center text-xs font-semibold text-white uppercase tracking-wider">
+              <th className="w-24 px-4 py-3.5 text-center text-xs font-semibold text-white uppercase tracking-wider align-middle">
                 Actions
               </th>
             </tr>
@@ -433,73 +398,15 @@ const TicketListTable = ({
         </table>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination - Using Reusable Component */}
       {!loading && tickets.length > 0 && (
-        <div className="flex-shrink-0 px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100/50 border-t border-gray-200">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            {/* Info */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-gray-200">
-                <FileText size={14} className="text-gray-400" />
-                <span className="text-sm text-gray-600">
-                  <span className="font-semibold text-gray-900">{(currentPage - 1) * rowsPerPage + 1}</span>
-                  <span className="mx-1">-</span>
-                  <span className="font-semibold text-gray-900">{Math.min(currentPage * rowsPerPage, totalItems)}</span>
-                  <span className="mx-1 text-gray-400">of</span>
-                  <span className="font-semibold text-gray-900">{totalItems}</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Page Controls */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-              >
-                <ChevronLeft size={16} />
-                <span className="hidden sm:inline">Prev</span>
-              </button>
-
-              <div className="hidden md:flex items-center gap-1 mx-1">
-                {getPageNumbers().map((page, idx) =>
-                  page === "..." ? (
-                    <span key={`ellipsis-${idx}`} className="w-10 h-10 flex items-center justify-center text-gray-400">
-                      <MoreHorizontal size={16} />
-                    </span>
-                  ) : (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`w-10 h-10 rounded-lg text-sm font-semibold transition-all shadow-sm ${
-                        currentPage === page
-                          ? "bg-[#05015A] text-white shadow-lg shadow-[#05015A]/25"
-                          : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  )
-                )}
-              </div>
-
-              <div className="md:hidden px-4 py-2 text-sm font-medium text-gray-600 bg-white rounded-lg border border-gray-200">
-                <span className="text-[#05015A] font-bold">{currentPage}</span>
-                <span className="mx-1 text-gray-400">/</span>
-                <span>{totalPages}</span>
-              </div>
-
-              <button
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-              >
-                <span className="hidden sm:inline">Next</span>
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
+        <div className="flex-shrink-0 border-t border-gray-200">
+          <Pagination
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalItems={totalItems}
+            rowsPerPage={rowsPerPage}
+          />
         </div>
       )}
     </div>

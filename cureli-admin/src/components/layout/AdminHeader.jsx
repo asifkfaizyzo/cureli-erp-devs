@@ -96,7 +96,7 @@ const AdminHeader = () => {
   // Get role badge color
   const getRoleBadgeColor = (role) => {
     switch (role) {
-      case "Super Admin":
+      case "Super cAdmin":
         return "bg-purple-100 text-purple-700";
       case "Analyst":
         return "bg-blue-100 text-blue-700";

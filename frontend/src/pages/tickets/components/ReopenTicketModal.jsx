@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { X, RotateCcw, AlertTriangle, Loader2, Info } from "lucide-react";
-import { useToast } from "../../../components/common/Toast";
 import {
   REOPEN_LIMIT,
   REOPEN_WARNING_THRESHOLD,
@@ -14,20 +13,16 @@ import {
 } from "../../../constant/tickets";
 
 const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
-  const toast = useToast();
-
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showWarningConfirm, setShowWarningConfirm] = useState(false);
 
-  // Get reopen count from ticket
   const reopenCount = ticket?.reopen_count || 0;
   const canReopen = canReopenByCount(reopenCount);
   const showWarning = shouldShowReopenWarning(reopenCount);
   const remainingReopens = getRemainingReopens(reopenCount);
 
-  // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setReason("");
@@ -44,7 +39,6 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-          {/* Header */}
           <div className="flex items-center gap-3 p-5 border-b border-gray-200">
             <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
               <AlertTriangle size={20} className="text-red-600" />
@@ -61,7 +55,6 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
             </button>
           </div>
 
-          {/* Body */}
           <div className="p-5">
             <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
               <AlertTriangle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
@@ -80,7 +73,6 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
             </div>
           </div>
 
-          {/* Footer */}
           <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-100">
             <button
               onClick={onClose}
@@ -100,11 +92,10 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
 
     if (!reason.trim() || reason.trim().length < 10) {
       setError("Reason must be at least 10 characters");
-      toast.warning("Validation Error", "Please provide a reason (at least 10 characters)");
+      // ✅ REMOVED: toast.warning - inline error is enough
       return;
     }
 
-    // If warning should be shown and not yet confirmed, show warning first
     if (showWarning && !showWarningConfirm) {
       setShowWarningConfirm(true);
       return;
@@ -113,12 +104,13 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
     setLoading(true);
     try {
       await onConfirm(reason.trim());
-      toast.success("Ticket Reopened", `Ticket ${ticket.ticket_number} has been reopened.`);
+      // ✅ REMOVED: toast.success - let parent handle it
+      // Modal will be closed by parent after success
     } catch (err) {
       console.error("Failed to reopen ticket:", err);
       const errorMessage = err.message || "Failed to reopen ticket";
       setError(errorMessage);
-      toast.error("Reopen Failed", errorMessage);
+      // ✅ REMOVED: toast.error - let parent handle it OR show inline error only
     } finally {
       setLoading(false);
     }
@@ -133,7 +125,6 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-          {/* Header */}
           <div className="flex items-center gap-3 p-5 border-b border-gray-200">
             <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
               <AlertTriangle size={20} className="text-amber-600" />
@@ -151,9 +142,7 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
             </button>
           </div>
 
-          {/* Body */}
           <div className="p-5">
-            {/* Warning Message */}
             <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
               <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <div>
@@ -162,7 +151,6 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
               </div>
             </div>
 
-            {/* Reopen count info */}
             <div className="p-3 bg-gray-50 rounded-lg mb-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Current reopen count:</span>
@@ -176,14 +164,12 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
               </div>
             </div>
 
-            {/* Reason preview */}
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs font-medium text-blue-700 mb-1">Your reason:</p>
               <p className="text-sm text-blue-900">{reason}</p>
             </div>
           </div>
 
-          {/* Footer */}
           <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-100">
             <button
               type="button"
@@ -220,7 +206,6 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        {/* Header */}
         <div className="flex items-center gap-3 p-5 border-b border-gray-200">
           <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
             <RotateCcw size={20} className="text-orange-600" />
@@ -238,9 +223,7 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
           </button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} className="p-5">
-          {/* Reopen count indicator */}
           {reopenCount > 0 && (
             <div className={`flex items-start gap-2 p-3 rounded-lg mb-4 ${
               showWarning 
@@ -289,7 +272,6 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
             <p className="text-xs text-gray-400">{reason.length}/500</p>
           </div>
 
-          {/* Footer */}
           <div className="flex items-center justify-end gap-3 mt-5">
             <button
               type="button"

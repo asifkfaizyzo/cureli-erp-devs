@@ -1,4 +1,4 @@
-// src/components/common/Toast/Toast.jsx
+// src/components/common/Toast/Toast.jsx - Simpler version
 
 import { useState, useEffect, useRef } from "react";
 import { 
@@ -84,7 +84,7 @@ const Toast = ({
   const config = toastConfig[type] || toastConfig.info;
   const Icon = config.icon;
 
-  // Smaller ring size
+  // Ring size
   const size = 36;
   const strokeWidth = 2.5;
   const radius = (size - strokeWidth) / 2;
@@ -133,7 +133,7 @@ const Toast = ({
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       className={`
-        relative w-[360px] rounded-xl overflow-hidden font-poppins
+        relative w-[380px] max-w-[calc(100vw-2rem)] rounded-xl overflow-hidden font-poppins
         ${config.bgBase}
         bg-gradient-to-r ${config.bgGradient}
         backdrop-blur-xl
@@ -147,9 +147,9 @@ const Toast = ({
         }
       `}
     >
-      <div className="flex items-center gap-3 px-3 py-2.5">
-        {/* Smaller Circular Progress Ring */}
-        <div className="relative flex-shrink-0">
+      <div className="flex gap-3 px-3 py-3">
+        {/* Circular Progress Ring */}
+        <div className="relative flex-shrink-0 self-start mt-0.5">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className={`w-[30px] h-[30px] rounded-full ${config.iconBg}`} />
           </div>
@@ -184,22 +184,24 @@ const Toast = ({
           </div>
         </div>
 
-        <div className="flex-1 min-w-0">
+        {/* Content - Fully Flexible */}
+        <div className="flex-1 min-w-0 py-0.5">
           {title && (
-            <p className={`text-sm font-semibold ${config.titleColor} truncate leading-tight`}>
+            <p className={`text-sm font-semibold ${config.titleColor} leading-tight break-words`}>
               {title}
             </p>
           )}
           {message && (
-            <p className={`text-xs ${config.messageColor} ${title ? 'mt-0.5' : ''} line-clamp-1 leading-relaxed opacity-75`}>
+            <p className={`text-xs ${config.messageColor} ${title ? 'mt-1' : ''} leading-relaxed break-words`}>
               {message}
             </p>
           )}
         </div>
 
+        {/* Close Button */}
         <button
           onClick={handleClose}
-          className="w-6 h-6 rounded-lg flex items-center justify-center
+          className="w-6 h-6 rounded-lg flex items-center justify-center self-start
             text-gray-400 hover:text-gray-600 hover:bg-black/5
             transition-all duration-200 flex-shrink-0 active:scale-90"
         >
@@ -207,8 +209,9 @@ const Toast = ({
         </button>
       </div>
 
+      {/* Paused Indicator */}
       {isPaused && (
-        <div className="absolute bottom-1 right-2 flex items-center gap-1">
+        <div className="absolute bottom-1.5 right-2.5 flex items-center gap-1">
           <div 
             className="w-1 h-1 rounded-full animate-pulse"
             style={{ backgroundColor: config.ringColor }}

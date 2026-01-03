@@ -5,7 +5,7 @@ import prisma from "../../../config/prisma.js";
  */
 function formatRole(role) {
   const map = {
-    SUPER_ADMIN: "Super Admin",
+    SUPER_ADMIN: "Super cAdmin",
     ANALYST: "Analyst",
     ACCOUNTING: "Accounting",
   };

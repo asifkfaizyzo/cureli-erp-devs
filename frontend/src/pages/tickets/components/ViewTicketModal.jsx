@@ -1,6 +1,6 @@
 // frontend/src/pages/tickets/components/ViewTicketModal.jsx
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   CircleOff,
@@ -19,6 +19,7 @@ import {
   History,
   ImageOff,
   AlertTriangle,
+  Headphones,
 } from "lucide-react";
 import { format } from "date-fns";
 import ReopenTicketModal from "./ReopenTicketModal";
@@ -42,11 +43,65 @@ const ViewTicketModal = ({
 }) => {
   const [activeTab, setActiveTab] = useState("details");
   const [showReopenModal, setShowReopenModal] = useState(false);
+  const [slideDirection, setSlideDirection] = useState("right");
+  const [isAnimating, setIsAnimating] = useState(false);
+  const tabIndicatorRef = useRef(null);
+  const tabsContainerRef = useRef(null);
+
+  // Tab configuration with order for slide direction
+  const tabs = [
+    { id: "details", label: "Ticket Info", icon: Info, order: 0 },
+    { id: "communication", label: "Communication", icon: Headphones, order: 1 },
+    {
+      id: "attachments",
+      label: "Files",
+      icon: Paperclip,
+      count: ticket?.attachments?.length || 0,
+      order: 2,
+    },
+    { id: "timeline", label: "Timeline", icon: History, order: 3 },
+  ];
+
+  // Get tab order for determining slide direction
+  const getTabOrder = (tabId) => tabs.find(t => t.id === tabId)?.order ?? 0;
+
+  // Handle tab change with animation
+  const handleTabChange = (newTabId) => {
+    if (newTabId === activeTab || isAnimating) return;
+    
+    const currentOrder = getTabOrder(activeTab);
+    const newOrder = getTabOrder(newTabId);
+    
+    setSlideDirection(newOrder > currentOrder ? "left" : "right");
+    setIsAnimating(true);
+    
+    setTimeout(() => {
+      setActiveTab(newTabId);
+      setTimeout(() => {
+        setIsAnimating(false);
+      }, 50);
+    }, 150);
+  };
+
+  // Update tab indicator position
+  useEffect(() => {
+    if (tabsContainerRef.current && tabIndicatorRef.current) {
+      const activeTabElement = tabsContainerRef.current.querySelector(`[data-tab="${activeTab}"]`);
+      if (activeTabElement) {
+        const containerRect = tabsContainerRef.current.getBoundingClientRect();
+        const tabRect = activeTabElement.getBoundingClientRect();
+        
+        tabIndicatorRef.current.style.left = `${tabRect.left - containerRect.left}px`;
+        tabIndicatorRef.current.style.width = `${tabRect.width}px`;
+      }
+    }
+  }, [activeTab]);
 
   // Reset tab when ticket changes
   useEffect(() => {
     if (ticket) {
       setActiveTab("details");
+      setIsAnimating(false);
     }
   }, [ticket?.ticket_id]);
 
@@ -107,22 +162,9 @@ const ViewTicketModal = ({
     },
   };
 
-  const canCancel =
-    ticket.status === "PENDING" || ticket.status === "IN_PROGRESS";
+  const canCancel = ticket.status === "PENDING" || ticket.status === "IN_PROGRESS";
   const canReopenStatus = ticket.status === "RESOLVED" || ticket.status === "CLOSED";
   const canReopenCount = canReopenByCount(ticket.reopen_count || 0);
-  const canReopen = canReopenStatus && canReopenCount;
-
-  const tabs = [
-    { id: "details", label: "Details", icon: Info },
-    {
-      id: "attachments",
-      label: "Files",
-      icon: Paperclip,
-      count: ticket.attachments?.length || 0,
-    },
-    { id: "timeline", label: "Timeline", icon: History },
-  ];
 
   const handleReopenConfirm = async (reason) => {
     await onReopenClick(ticket, reason);
@@ -156,6 +198,21 @@ const ViewTicketModal = ({
   // Build timeline events
   const timelineEvents = buildTimelineEvents(ticket);
 
+  // Check if there's communication content
+  const hasCommunication = ticket.admin_notes || 
+    (ticket.status === "CANCELLED" && ticket.cancellation_reason) || 
+    ticket.reopen_count > 0;
+
+  // Animation classes for content
+  const getAnimationClasses = () => {
+    if (isAnimating) {
+      return slideDirection === "left" 
+        ? "opacity-0 -translate-x-8" 
+        : "opacity-0 translate-x-8";
+    }
+    return "opacity-100 translate-x-0";
+  };
+
   return (
     <>
       <div
@@ -168,7 +225,7 @@ const ViewTicketModal = ({
           className="relative w-full max-w-6xl h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* HEADER - Compact */}
+          {/* HEADER */}
           <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-3 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -204,297 +261,384 @@ const ViewTicketModal = ({
             </div>
           </div>
 
-          {/* TABS - Compact */}
-          <div className="flex gap-1 px-6 py-2 bg-gray-50 border-b border-gray-200 flex-shrink-0">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-all
-                    ${
-                      isActive
-                        ? "bg-white text-[#05015A] shadow-sm"
-                        : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
-                    }`}
-                >
-                  <Icon size={14} />
-                  {tab.label}
-                  {tab.count !== undefined && tab.count > 0 && (
-                    <span className="bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-full text-[10px]">
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          {/* TABS - Enhanced with sliding indicator */}
+          <div className="relative px-6 pt-3 pb-0 bg-white border-b border-gray-200 flex-shrink-0">
+            <div 
+              ref={tabsContainerRef}
+              className="flex gap-1 relative"
+            >
+              {/* Sliding indicator */}
+              <div
+                ref={tabIndicatorRef}
+                className="absolute bottom-0 h-0.5 bg-[#05015A] transition-all duration-300 ease-out rounded-full"
+                style={{ left: 0, width: 0 }}
+              />
+              
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    data-tab={tab.id}
+                    onClick={() => handleTabChange(tab.id)}
+                    disabled={isAnimating}
+                    className={`
+                      relative flex items-center gap-2 px-4 py-3 text-sm font-medium 
+                      transition-all duration-200 rounded-t-lg
+                      ${isActive
+                        ? "text-[#05015A]"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                      }
+                      ${isAnimating ? "pointer-events-none" : ""}
+                    `}
+                  >
+                    <Icon size={16} className={isActive ? "text-[#05015A]" : ""} />
+                    <span>{tab.label}</span>
+                    {tab.count !== undefined && tab.count > 0 && (
+                      <span className={`
+                        px-1.5 py-0.5 rounded-full text-[10px] font-semibold
+                        ${isActive 
+                          ? "bg-[#05015A]/10 text-[#05015A]" 
+                          : "bg-gray-100 text-gray-600"
+                        }
+                      `}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* CONTENT - Flex grow with overflow */}
-          <div className="flex-1 overflow-auto p-6 bg-gray-50">
-            {/* =============== DETAILS TAB - HORIZONTAL LAYOUT =============== */}
-            {activeTab === "details" && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-                {/* Left Column - Ticket Content */}
-                <div className="lg:col-span-2 space-y-4">
-                  {/* Subject & Description Card */}
-                  <div className="bg-white rounded-xl border border-gray-100 p-5">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-8 h-8 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
-                        <MessageSquare size={16} className="text-[#05015A]" />
-                      </div>
-                      <h3 className="font-semibold text-gray-900">
-                        Ticket Content
-                      </h3>
-                      <CategoryBadge
-                        category={ticket.category}
-                        otherText={ticket.other_category_text}
-                      />
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                          Subject
-                        </label>
-                        <p className="text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                          {ticket.subject}
-                        </p>
+          {/* CONTENT - With smooth transitions */}
+          <div className="flex-1 overflow-hidden bg-gray-50">
+            <div 
+              className={`
+                h-full overflow-auto p-6
+                transition-all duration-300 ease-out
+                ${getAnimationClasses()}
+              `}
+            >
+              {/* =============== TICKET INFO TAB =============== */}
+              {activeTab === "details" && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Column - Ticket Content */}
+                  <div className="lg:col-span-2 space-y-4">
+                    {/* Subject & Description Card */}
+                    <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
+                          <MessageSquare size={16} className="text-[#05015A]" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900">
+                          Ticket Content
+                        </h3>
+                        <CategoryBadge
+                          category={ticket.category}
+                          otherText={ticket.other_category_text}
+                        />
                       </div>
 
-                      {ticket.description && (
+                      <div className="space-y-4">
                         <div>
                           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                            Description
+                            Subject
                           </label>
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-32 overflow-auto">
-                            {ticket.description}
+                          <p className="text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                            {ticket.subject}
                           </p>
                         </div>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Admin Notes */}
-                  {ticket.admin_notes && (
-                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <MessageSquare size={14} className="text-indigo-600" />
-                        <h3 className="font-semibold text-indigo-900 text-sm">
-                          Admin Notes
-                        </h3>
-                      </div>
-                      <p className="text-sm text-indigo-800 whitespace-pre-wrap leading-relaxed">
-                        {ticket.admin_notes}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Status Cards - Cancellation/Reopen */}
-                  {ticket.status === "CANCELLED" &&
-                    ticket.cancellation_reason && (
-                      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                        <div className="flex items-start gap-3">
-                          <X
-                            size={18}
-                            className="text-red-600 flex-shrink-0 mt-0.5"
-                          />
+                        {ticket.description && (
                           <div>
-                            <h4 className="text-sm font-semibold text-red-900 mb-1">
-                              Ticket Cancelled
-                            </h4>
-                            <p className="text-sm text-red-700 mb-1">
-                              {ticket.cancellation_reason}
-                            </p>
-                            <p className="text-xs text-red-600">
-                              By {ticket.cancelled_by_name || "Unknown"} •{" "}
-                              {formatDate(ticket.cancelled_at)}
+                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                              Description
+                            </label>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-40 overflow-auto">
+                              {ticket.description}
                             </p>
                           </div>
-                        </div>
-                      </div>
-                    )}
-
-                  {ticket.reopen_count > 0 && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                      <div className="flex items-start gap-3">
-                        <RotateCcw
-                          size={18}
-                          className="text-orange-600 flex-shrink-0 mt-0.5"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-semibold text-orange-900 mb-1">
-                              Reopened ({ticket.reopen_count}{" "}
-                              {ticket.reopen_count === 1 ? "time" : "times"})
-                            </h4>
-                            {ticket.reopen_count >= REOPEN_LIMIT && (
-                              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                                Limit Reached
-                              </span>
-                            )}
-                          </div>
-                          {ticket.reopen_reason && (
-                            <p className="text-sm text-orange-800 mb-1">
-                              {ticket.reopen_reason}
-                            </p>
-                          )}
-                          {ticket.reopened_at && (
-                            <p className="text-xs text-orange-600">
-                              By {ticket.reopened_by_name || "Unknown"} •{" "}
-                              {formatDate(ticket.reopened_at)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right Column - Info Cards */}
-                <div className="space-y-4">
-                  <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-4">
-                    <h3 className="font-semibold text-gray-900 text-sm border-b pb-2">
-                      Ticket Information
-                    </h3>
-
-                    <InfoRow
-                      icon={<Phone size={16} />}
-                      label="Contact"
-                      value={ticket.contact_number || "N/A"}
-                    />
-                    <InfoRow
-                      icon={<Clock size={16} />}
-                      label="Preferred Time"
-                      value={ticket.preferred_slot || "N/A"}
-                    />
-                    <InfoRow
-                      icon={<Building2 size={16} />}
-                      label="Branch"
-                      value={ticket.branch_name || "Main Branch"}
-                    />
-                    <InfoRow
-                      icon={<User size={16} />}
-                      label="Created By"
-                      value={ticket.created_by_name || "Unknown"}
-                    />
-                    <InfoRow
-                      icon={<Calendar size={16} />}
-                      label="Created At"
-                      value={formatDate(ticket.created_at)}
-                    />
-                  </div>
-
-                  {/* Reopen count status card */}
-                  {canReopenStatus && (
-                    <div className={`rounded-xl border p-4 ${
-                      canReopenCount 
-                        ? "bg-blue-50 border-blue-200" 
-                        : "bg-red-50 border-red-200"
-                    }`}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <RotateCcw size={14} className={canReopenCount ? "text-blue-600" : "text-red-600"} />
-                        <h3 className={`font-semibold text-sm ${canReopenCount ? "text-blue-900" : "text-red-900"}`}>
-                          Reopen Status
-                        </h3>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className={canReopenCount ? "text-blue-700" : "text-red-700"}>Reopened:</span>
-                          <span className={`font-semibold ${canReopenCount ? "text-blue-900" : "text-red-900"}`}>
-                            {ticket.reopen_count || 0} / {REOPEN_LIMIT}
-                          </span>
-                        </div>
-                        {!canReopenCount && (
-                          <p className="text-xs text-red-600 mt-2">
-                            Maximum reopen limit reached.
-                          </p>
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Right Column - Info Cards */}
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-4 shadow-sm">
+                      <h3 className="font-semibold text-gray-900 text-sm border-b border-gray-100 pb-2">
+                        Ticket Information
+                      </h3>
+
+                      <InfoRow
+                        icon={<Phone size={16} />}
+                        label="Contact"
+                        value={ticket.contact_number || "N/A"}
+                      />
+                      <InfoRow
+                        icon={<Clock size={16} />}
+                        label="Preferred Time"
+                        value={ticket.preferred_slot || "N/A"}
+                      />
+                      <InfoRow
+                        icon={<Building2 size={16} />}
+                        label="Branch"
+                        value={ticket.branch_name || "Main Branch"}
+                      />
+                      <InfoRow
+                        icon={<User size={16} />}
+                        label="Created By"
+                        value={ticket.created_by_name || "Unknown"}
+                      />
+                      <InfoRow
+                        icon={<Calendar size={16} />}
+                        label="Created At"
+                        value={formatDate(ticket.created_at)}
+                      />
+                    </div>
+
+                    {/* Reopen count status card */}
+                    {canReopenStatus && (
+                      <div className={`rounded-xl border p-4 shadow-sm ${
+                        canReopenCount 
+                          ? "bg-blue-50 border-blue-200" 
+                          : "bg-red-50 border-red-200"
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <RotateCcw size={14} className={canReopenCount ? "text-blue-600" : "text-red-600"} />
+                          <h3 className={`font-semibold text-sm ${canReopenCount ? "text-blue-900" : "text-red-900"}`}>
+                            Reopen Status
+                          </h3>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className={canReopenCount ? "text-blue-700" : "text-red-700"}>Reopened:</span>
+                            <span className={`font-semibold ${canReopenCount ? "text-blue-900" : "text-red-900"}`}>
+                              {ticket.reopen_count || 0} / {REOPEN_LIMIT}
+                            </span>
+                          </div>
+                          {!canReopenCount && (
+                            <p className="text-xs text-red-600 mt-2">
+                              Maximum reopen limit reached.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* =============== COMMUNICATION TAB (NEW) =============== */}
+              {activeTab === "communication" && (
+                <div className="max-w-4xl mx-auto space-y-4">
+                  {!hasCommunication ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
+                      <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                        <Headphones size={28} className="text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Communication Yet</h3>
+                      <p className="text-gray-500 text-sm">
+                        Admin notes and status updates will appear here once available.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Admin Notes */}
+                      {ticket.admin_notes && (
+                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                          <div className="bg-indigo-50 px-5 py-3 border-b border-indigo-100">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                <MessageSquare size={16} className="text-indigo-600" />
+                              </div>
+                              <h3 className="font-semibold text-indigo-900">
+                                Admin Notes
+                              </h3>
+                            </div>
+                          </div>
+                          <div className="p-5">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                              {ticket.admin_notes}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Cancellation Info */}
+                      {ticket.status === "CANCELLED" && ticket.cancellation_reason && (
+                        <div className="bg-white rounded-xl border border-red-200 shadow-sm overflow-hidden">
+                          <div className="bg-red-50 px-5 py-3 border-b border-red-100">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                                <X size={16} className="text-red-600" />
+                              </div>
+                              <h3 className="font-semibold text-red-900">
+                                Ticket Cancelled
+                              </h3>
+                            </div>
+                          </div>
+                          <div className="p-5">
+                            <p className="text-sm text-gray-700 mb-3">
+                              {ticket.cancellation_reason}
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <User size={12} />
+                                {ticket.cancelled_by_name || "Unknown"}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Calendar size={12} />
+                                {formatDate(ticket.cancelled_at)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reopen History */}
+                      {ticket.reopen_count > 0 && (
+                        <div className="bg-white rounded-xl border border-orange-200 shadow-sm overflow-hidden">
+                          <div className="bg-orange-50 px-5 py-3 border-b border-orange-100">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                                  <RotateCcw size={16} className="text-orange-600" />
+                                </div>
+                                <h3 className="font-semibold text-orange-900">
+                                  Ticket Reopened
+                                </h3>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-1 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full">
+                                  {ticket.reopen_count} {ticket.reopen_count === 1 ? "time" : "times"}
+                                </span>
+                                {ticket.reopen_count >= REOPEN_LIMIT && (
+                                  <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
+                                    Limit Reached
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="p-5">
+                            {ticket.reopen_reason && (
+                              <div className="mb-3">
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                                  Latest Reason
+                                </label>
+                                <p className="text-sm text-gray-700 bg-orange-50/50 border border-orange-100 rounded-lg p-3">
+                                  {ticket.reopen_reason}
+                                </p>
+                              </div>
+                            )}
+                            {ticket.reopened_at && (
+                              <div className="flex items-center gap-4 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <User size={12} />
+                                  {ticket.reopened_by_name || "Unknown"}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar size={12} />
+                                  {formatDate(ticket.reopened_at)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* =============== ATTACHMENTS TAB =============== */}
-            {activeTab === "attachments" && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Paperclip size={16} className="text-[#05015A]" />
-                  <span>{ticket.attachments?.length || 0} Attachment(s)</span>
-                </div>
-
-                {!ticket.attachments || ticket.attachments.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                    <Paperclip
-                      size={40}
-                      className="mx-auto text-gray-300 mb-3"
-                    />
-                    <p className="text-gray-500">
-                      No attachments for this ticket
-                    </p>
+              {/* =============== ATTACHMENTS TAB =============== */}
+              {activeTab === "attachments" && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Paperclip size={16} className="text-[#05015A]" />
+                    <span>{ticket.attachments?.length || 0} Attachment(s)</span>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {ticket.attachments.map((attachment) => (
-                      <AttachmentCard
-                        key={attachment.attachment_id}
-                        attachment={attachment}
-                        getUrl={getAttachmentUrl}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
 
-            {/* =============== TIMELINE TAB - ENHANCED =============== */}
-            {activeTab === "timeline" && (
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <History size={18} className="text-[#05015A]" />
-                  <h3 className="font-semibold text-gray-900">
-                    Ticket Timeline
-                  </h3>
-                  <span className="text-xs text-gray-500">
-                    ({timelineEvents.length} event{timelineEvents.length !== 1 ? "s" : ""})
-                  </span>
-                </div>
-
-                {timelineEvents.length === 0 ? (
-                  <div className="text-center py-8">
-                    <History size={32} className="mx-auto text-gray-300 mb-2" />
-                    <p className="text-gray-500 text-sm">No timeline events available</p>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-200" />
-
-                    <div className="space-y-4">
-                      {timelineEvents.map((event, index) => (
-                        <TimelineItem
-                          key={event.id}
-                          color={event.color}
-                          title={event.title}
-                          description={event.description}
-                          date={formatDate(event.timestamp)}
-                          by={event.by}
-                          count={event.count}
-                          isLast={index === timelineEvents.length - 1}
+                  {!ticket.attachments || ticket.attachments.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
+                      <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                        <Paperclip size={28} className="text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Attachments</h3>
+                      <p className="text-gray-500 text-sm">
+                        No files were attached to this ticket.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {ticket.attachments.map((attachment) => (
+                        <AttachmentCard
+                          key={attachment.attachment_id}
+                          attachment={attachment}
+                          getUrl={getAttachmentUrl}
                         />
                       ))}
                     </div>
+                  )}
+                </div>
+              )}
+
+              {/* =============== TIMELINE TAB =============== */}
+              {activeTab === "timeline" && (
+                <div className="max-w-3xl mx-auto">
+                  <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-8 h-8 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
+                        <History size={16} className="text-[#05015A]" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900">
+                        Ticket Timeline
+                      </h3>
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                        {timelineEvents.length} event{timelineEvents.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+
+                    {timelineEvents.length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                          <History size={28} className="text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Events Yet</h3>
+                        <p className="text-gray-500 text-sm">Timeline events will appear here.</p>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-gradient-to-b from-[#05015A] via-gray-200 to-gray-100" />
+
+                        <div className="space-y-4">
+                          {timelineEvents.map((event, index) => (
+                            <TimelineItem
+                              key={event.id}
+                              color={event.color}
+                              title={event.title}
+                              description={event.description}
+                              date={formatDate(event.timestamp)}
+                              by={event.by}
+                              count={event.count}
+                              isFirst={index === 0}
+                              isLast={index === timelineEvents.length - 1}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* FOOTER - Compact */}
-          <div className="px-6 py-3 bg-white border-t border-gray-100 flex-shrink-0">
+          {/* FOOTER */}
+          <div className="px-6 py-3 bg-white border-t border-gray-200 flex-shrink-0">
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-400">
                 ID: {ticket.ticket_id?.substring(0, 8)}...
@@ -590,7 +734,7 @@ const AttachmentCard = ({ attachment, getUrl }) => {
   const url = getUrl(attachment.storage_key);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
       <a href={url} target="_blank" rel="noopener noreferrer" className="block">
         {isImage && !imageError ? (
           <div className="h-32 bg-gray-100 overflow-hidden">
@@ -642,26 +786,45 @@ const AttachmentCard = ({ attachment, getUrl }) => {
   );
 };
 
-const TimelineItem = ({ color, title, description, date, by, count, isLast }) => (
-  <div className="relative flex gap-4 pl-6">
+const TimelineItem = ({ color, title, description, date, by, count, isFirst, isLast }) => (
+  <div className="relative flex gap-4 pl-8">
+    {/* Timeline dot */}
     <div
-      className={`absolute left-1.5 w-3 h-3 rounded-full ${color} ring-4 ring-white`}
+      className={`
+        absolute left-2 w-4 h-4 rounded-full ${color} 
+        ring-4 ring-white shadow-sm
+        ${isFirst ? "ring-[#05015A]/20" : ""}
+      `}
     />
-    <div className={`flex-1 bg-gray-50 rounded-lg p-3 -mt-1 ${!isLast ? 'mb-0' : ''}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
+    
+    {/* Content card */}
+    <div className={`
+      flex-1 bg-gray-50 rounded-lg p-4 
+      border border-gray-100
+      hover:bg-gray-100/50 transition-colors
+      ${!isLast ? 'mb-0' : ''}
+    `}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
             {count && count > 1 && (
-              <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-medium rounded-full">
+              <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-semibold rounded-full">
                 ×{count}
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-600 mt-0.5">{description}</p>
-          {by && <p className="text-xs text-gray-500 mt-0.5">By {by}</p>}
+          {description && (
+            <p className="text-xs text-gray-600 mt-1">{description}</p>
+          )}
+          {by && (
+            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+              <User size={10} />
+              {by}
+            </p>
+          )}
         </div>
-        <span className="text-[10px] text-gray-400 whitespace-nowrap flex-shrink-0">
+        <span className="text-[10px] text-gray-400 whitespace-nowrap flex-shrink-0 bg-white px-2 py-1 rounded-md border border-gray-100">
           {date}
         </span>
       </div>

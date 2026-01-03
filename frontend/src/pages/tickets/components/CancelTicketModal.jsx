@@ -3,16 +3,12 @@
 import { useState, useEffect } from "react";
 import { X, AlertTriangle, Loader2 } from "lucide-react";
 import { cancelTicket } from "../../../api/tickets";
-import { useToast } from "../../../components/common/Toast";
 
 const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
-  const toast = useToast();
-  
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setReason("");
@@ -29,19 +25,19 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
 
     if (!reason || reason.trim().length < 10) {
       setError("Please provide a reason (at least 10 characters)");
-      toast.warning("Validation Error", "Cancellation reason must be at least 10 characters.");
+      // ✅ REMOVED: toast.warning - inline error is enough
       return;
     }
 
     setLoading(true);
     try {
       await cancelTicket(ticket.ticket_id, reason.trim());
-      onSuccess();
+      onSuccess(); // ✅ Parent will show toast
     } catch (err) {
       console.error("Failed to cancel ticket:", err);
       const errorMessage = err.response?.data?.message || "Failed to cancel ticket";
       setError(errorMessage);
-      toast.error("Cancellation Failed", errorMessage);
+      // ✅ REMOVED: toast.error - inline error is shown instead
     } finally {
       setLoading(false);
     }
@@ -49,9 +45,7 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      {/* HORIZONTAL LAYOUT - Compact design */}
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-        {/* Header - Compact */}
         <div className="flex items-center gap-4 p-5 border-b border-gray-200">
           <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
             <AlertTriangle size={20} className="text-red-600" />
@@ -69,9 +63,7 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
           </button>
         </div>
 
-        {/* Content - Compact */}
         <form onSubmit={handleSubmit} className="p-5">
-          {/* Warning Box - Inline */}
           <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
             <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-amber-800">
@@ -79,7 +71,6 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
             </p>
           </div>
 
-          {/* Reason Input */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Cancellation Reason <span className="text-red-500">*</span>
@@ -108,7 +99,6 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
             </div>
           </div>
 
-          {/* Actions - Inline */}
           <div className="flex items-center justify-end gap-3 mt-5">
             <button
               type="button"
