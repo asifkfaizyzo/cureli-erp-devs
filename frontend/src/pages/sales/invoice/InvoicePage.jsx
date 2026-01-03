@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import InvoiceFilters from "./components/InvoiceFilters";
 import InvoiceTable from "./components/InvoiceTable";
-import InvoicePagination from "./components/InvoicePagination";
+import InvoicePagination from "../../../components/common/Pagination";
 import ViewInvoiceModal from "./components/ViewInvoiceModal";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import { useToast } from "../../../components/common/Toast";
