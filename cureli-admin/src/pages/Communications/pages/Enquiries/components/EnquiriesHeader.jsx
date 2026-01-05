@@ -1,4 +1,4 @@
-// EnquiriesHeader.jsx
+//cureli-admin\src\pages\Communications\pages\Enquiries\components\EnquiriesHeader.jsx
 import { Search, RefreshCw } from "lucide-react";
 import { memo, useCallback, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";

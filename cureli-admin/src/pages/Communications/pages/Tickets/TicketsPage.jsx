@@ -195,7 +195,7 @@ const TicketsPage = () => {
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 flex flex-col gap-3 px-4 pt-4">
+      <div className="flex-shrink-0 flex flex-col gap-3 ">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-[#05015A] flex items-center justify-center flex-shrink-0">
@@ -383,7 +383,7 @@ const TicketsPage = () => {
       </div>
 
       {/* Table container */}
-      <div className="flex-1 min-h-0 min-w-0 overflow-hidden px-4 pb-4">
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden  pb-4">
         <TicketsTable
           tickets={tickets}
           loading={loading}

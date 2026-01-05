@@ -1,18 +1,44 @@
+// backend/src/modules/enquiries/enquiries.schema.js
 import { z } from "zod";
 
-// Public: Body schema for enquiry submission
+// Public: Body schema for enquiry submission - RELAXED validation
 export const createEnquirySchema = z.object({
-  name: z.string().min(2).max(100).trim(),
-  email: z.string().email().max(255).toLowerCase().trim(),
-  phone: z.string().regex(/^[0-9]{10}$/).optional().or(z.literal("")),
-  message: z.string().min(10).max(2000).trim(),
+  name: z
+    .string()
+    .min(2, "Name must be at least 2 characters")
+    .max(100, "Name is too long")
+    .trim(),
+  email: z
+    .string()
+    .email("Please enter a valid email address")
+    .max(255, "Email is too long")
+    .toLowerCase()
+    .trim(),
+  phone: z
+    .string()
+    .max(10)
+    .optional()
+    .or(z.literal("")),
+  message: z
+    .string()
+    .min(10, "Message must be at least 10 characters")
+    .max(2000, "Message is too long")
+    .trim(),
   recaptchaToken: z.string().optional(),
 });
 
 // Admin: Body schema for reply
 export const replyEnquirySchema = z.object({
-  subject: z.string().min(5).max(200).trim(),
-  message: z.string().min(10).max(5000).trim(),
+  subject: z
+    .string()
+    .min(3, "Subject must be at least 3 characters")
+    .max(200, "Subject is too long")
+    .trim(),
+  message: z
+    .string()
+    .min(5, "Message must be at least 5 characters")
+    .max(5000, "Message is too long")
+    .trim(),
 });
 
 // Admin: Body schema for status update

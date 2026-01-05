@@ -1,230 +1,320 @@
-// EnquiriesTable.jsx
-import { Eye, MessageSquare, MoreVertical, Trash2 } from "lucide-react";
-import { useState, useRef, useEffect, memo, useCallback } from "react";
+// cureli-admin/src/pages/Communications/pages/Enquiries/components/EnquiriesTable.jsx
+import {
+  Eye,
+  MessageSquare,
+  Trash2,
+  Loader2,
+  Inbox,
+  Search,
+  Mail,
+  Phone,
+  User,
+} from "lucide-react";
+import { format } from "date-fns";
+import Pagination from "../../../../../components/common/Pagination";
 
-const statusColors = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  IN_PROGRESS: "bg-blue-100 text-blue-800",
-  REPLIED: "bg-green-100 text-green-800",
-  CLOSED: "bg-gray-100 text-gray-800",
+const statusConfig = {
+  PENDING: {
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-200",
+    dot: "bg-amber-500",
+    label: "Pending",
+  },
+  IN_PROGRESS: {
+    bg: "bg-blue-50",
+    text: "text-blue-700",
+    border: "border-blue-200",
+    dot: "bg-blue-500",
+    label: "In Progress",
+  },
+  REPLIED: {
+    bg: "bg-green-50",
+    text: "text-green-700",
+    border: "border-green-200",
+    dot: "bg-green-500",
+    label: "Replied",
+  },
+  CLOSED: {
+    bg: "bg-gray-100",
+    text: "text-gray-600",
+    border: "border-gray-300",
+    dot: "bg-gray-500",
+    label: "Closed",
+  },
 };
 
-const formatDate = (date) => {
-  if (!date) return "-";
-  return new Date(date).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+// Status Badge Component
+const StatusBadge = ({ status }) => {
+  const config = statusConfig[status] || statusConfig.PENDING;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold 
+                  ${config.bg} ${config.text} border ${config.border} whitespace-nowrap`}
+    >
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0`}
+      />
+      <span className="truncate">{config.label}</span>
+    </span>
+  );
 };
 
-const EnquiriesTable = memo(
-  ({ enquiries, isLoading, onView, onReply, onDelete, pagination, onPageChange }) => {
-    const [openMenu, setOpenMenu] = useState(null);
-    const menuRef = useRef(null);
+// Header Cell
+const HeaderCell = ({ children, className = "", center = false }) => (
+  <th
+    className={`px-2 sm:px-3 py-3 text-xs font-semibold text-white uppercase tracking-wider 
+                ${center ? "text-center" : "text-left"} ${className}`}
+  >
+    {children}
+  </th>
+);
 
-    // Close menu on outside click
-    useEffect(() => {
-      const handleClickOutside = (e) => {
-        if (menuRef.current && !menuRef.current.contains(e.target)) {
-          setOpenMenu(null);
-        }
-      };
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    const toggleMenu = useCallback((enquiryId) => {
-      setOpenMenu((prev) => (prev === enquiryId ? null : enquiryId));
-    }, []);
-
-    const handleDelete = useCallback(
-      (enquiry) => {
-        onDelete(enquiry);
-        setOpenMenu(null);
-      },
-      [onDelete]
-    );
-
-    if (isLoading) {
-      return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#000060]"></div>
-          </div>
-        </div>
-      );
+const EnquiriesTable = ({
+  enquiries,
+  loading,
+  currentPage,
+  setCurrentPage,
+  rowsPerPage,
+  totalItems,
+  onViewEnquiry,
+  onReplyEnquiry,
+  onDeleteEnquiry,
+  hasActiveFilters = false,
+}) => {
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    try {
+      return format(new Date(dateString), "MMM dd, yyyy");
+    } catch {
+      return "-";
     }
+  };
 
-    if (!enquiries?.length) {
+  const formatTime = (dateString) => {
+    if (!dateString) return "";
+    try {
+      return format(new Date(dateString), "HH:mm");
+    } catch {
+      return "";
+    }
+  };
+
+  const truncateText = (text, maxLength = 30) => {
+    if (!text) return "-";
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
+
+  // Empty state content
+  const renderEmptyState = () => {
+    if (hasActiveFilters) {
       return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-          <div className="text-center text-gray-500">
-            <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>No enquiries found</p>
+        <div className="flex flex-col items-center justify-center gap-3">
+          <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center">
+            <Search size={28} className="text-amber-400" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-900">
+              No enquiries match your filters
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Try adjusting or clearing your filters
+            </p>
           </div>
         </div>
       );
     }
 
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-100">
+      <div className="flex flex-col items-center justify-center gap-3">
+        <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
+          <Inbox size={28} className="text-gray-400" />
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-medium text-gray-900">No enquiries yet</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Enquiries will appear here when submitted
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
+      {/* Scrollable table container */}
+      <div className="flex-1 overflow-auto">
+        <table
+          className="w-full border-collapse text-sm"
+          style={{ minWidth: "900px" }}
+        >
+          {/* Header */}
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-gradient-to-r from-[#000060] to-[#0000a0] text-white text-left">
+              <HeaderCell className="w-10">#</HeaderCell>
+              <HeaderCell>Enquiry</HeaderCell>
+              <HeaderCell>Contact Info</HeaderCell>
+              <HeaderCell>Status</HeaderCell>
+              <HeaderCell>Submitted</HeaderCell>
+              <HeaderCell center className="w-24">
+                Actions
+              </HeaderCell>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-gray-100">
+            {/* Loading State */}
+            {loading && (
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Enquiry
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Message
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Actions
-                </th>
+                <td colSpan="8" className="px-4 py-12 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#000060]/10 flex items-center justify-center">
+                      <Loader2
+                        size={20}
+                        className="animate-spin text-[#000060]"
+                      />
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      Loading enquiries...
+                    </p>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {enquiries.map((enquiry) => (
+            )}
+
+            {/* Empty State */}
+            {!loading && enquiries.length === 0 && (
+              <tr>
+                <td colSpan="8" className="px-4 py-12 text-center">
+                  {renderEmptyState()}
+                </td>
+              </tr>
+            )}
+
+            {/* Data Rows */}
+            {!loading &&
+              enquiries.map((enquiry, index) => (
                 <tr
                   key={enquiry.enquiry_id}
-                  className="hover:bg-gray-50 transition-colors"
+                  className={`
+                    border-b border-gray-100 transition-all duration-150
+                    ${index % 2 === 0 ? "bg-gray-50/50" : "bg-white"}
+                    hover:bg-indigo-50/50
+                  `}
                 >
-                  <td className="px-4 py-4">
-                    <div>
-                      <p className="font-medium text-gray-900">{enquiry.name}</p>
-                      <p className="text-xs text-gray-500 font-mono">
-                        {enquiry.enquiry_number}
-                      </p>
-                    </div>
+                  <td className="px-2 sm:px-3 py-3 text-gray-500 font-medium text-xs">
+                    {(currentPage - 1) * rowsPerPage + index + 1}
                   </td>
-                  <td className="px-4 py-4">
-                    <div>
-                      <p className="text-sm text-gray-900">{enquiry.email}</p>
-                      {enquiry.phone && (
-                        <p className="text-xs text-gray-500">{enquiry.phone}</p>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <p className="text-sm text-gray-600 truncate max-w-[200px]">
-                      {enquiry.message}
-                    </p>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span
-                      className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                        statusColors[enquiry.status] || "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {enquiry.status?.replace("_", " ") || "Unknown"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div>
-                      <p className="text-sm text-gray-900">
-                        {formatDate(enquiry.created_at)}
-                      </p>
-                      {enquiry.reply_count > 0 && (
-                        <p className="text-xs text-green-600">
-                          {enquiry.reply_count}{" "}
-                          {enquiry.reply_count === 1 ? "reply" : "replies"}
+
+                  <td className="px-2 sm:px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-[#000060]/10 flex items-center justify-center flex-shrink-0">
+                        <User size={16} className="text-[#000060]" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {enquiry.name}
                         </p>
+                        <p className="text-[10px] font-mono text-gray-500">
+                          {enquiry.enquiry_number}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="px-2 sm:px-3 py-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <Mail
+                          size={12}
+                          className="text-gray-400 flex-shrink-0"
+                        />
+                        <span
+                          className="text-xs text-gray-700 truncate max-w-[180px]"
+                          title={enquiry.email}
+                        >
+                          {enquiry.email}
+                        </span>
+                      </div>
+                      {enquiry.phone && (
+                        <>
+                          <span className="text-gray-300">•</span>
+                          <div className="flex items-center gap-1.5">
+                            <Phone
+                              size={12}
+                              className="text-gray-400 flex-shrink-0"
+                            />
+                            <span className="text-xs text-gray-600">
+                              {enquiry.phone}
+                            </span>
+                          </div>
+                        </>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center justify-end gap-2">
+
+                  <td className="px-2 sm:px-3 py-3">
+                    <StatusBadge status={enquiry.status} />
+                  </td>
+
+                  <td className="px-2 sm:px-3 py-3">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium text-gray-900">
+                        {formatDate(enquiry.created_at)}
+                      </span>
+                      <span className="text-[10px] text-gray-500">
+                        {formatTime(enquiry.created_at)}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td className="px-2 sm:px-3 py-3">
+                    <div className="flex items-center justify-center gap-1">
                       <button
-                        onClick={() => onView(enquiry)}
-                        className="p-2 text-gray-500 hover:text-[#000060] hover:bg-gray-100 rounded-lg transition-colors"
+                        onClick={() => onViewEnquiry(enquiry)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-[#000060] 
+                                   hover:bg-[#000060]/10 transition-all"
                         title="View Details"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye size={16} />
                       </button>
                       <button
-                        onClick={() => onReply(enquiry)}
-                        className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        title="Reply"
+                        onClick={() => onReplyEnquiry(enquiry)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 
+                                   hover:bg-green-50 transition-all"
+                        title="Send Reply"
                       >
-                        <MessageSquare className="w-4 h-4" />
+                        <MessageSquare size={16} />
                       </button>
-                      <div
-                        className="relative"
-                        ref={openMenu === enquiry.enquiry_id ? menuRef : null}
+                      <button
+                        onClick={() => onDeleteEnquiry(enquiry)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 
+                                   hover:bg-red-50 transition-all"
+                        title="Delete"
                       >
-                        <button
-                          onClick={() => toggleMenu(enquiry.enquiry_id)}
-                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                        {openMenu === enquiry.enquiry_id && (
-                          <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-10">
-                            <button
-                              onClick={() => handleDelete(enquiry)}
-                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {pagination && pagination.totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-gray-500">
-              Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-              {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
-              {pagination.total} results
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onPageChange(pagination.page - 1)}
-                disabled={pagination.page === 1}
-                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Previous
-              </button>
-              <span className="px-3 py-1.5 text-sm text-gray-600">
-                Page {pagination.page} of {pagination.totalPages}
-              </span>
-              <button
-                onClick={() => onPageChange(pagination.page + 1)}
-                disabled={pagination.page === pagination.totalPages}
-                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+          </tbody>
+        </table>
       </div>
-    );
-  }
-);
 
-EnquiriesTable.displayName = "EnquiriesTable";
+      {/* Pagination - Using common component */}
+      {!loading && totalItems > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          totalItems={totalItems}
+          rowsPerPage={rowsPerPage}
+        />
+      )}
+    </div>
+  );
+};
 
 export default EnquiriesTable;
-

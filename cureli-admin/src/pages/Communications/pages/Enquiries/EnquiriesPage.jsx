@@ -1,34 +1,56 @@
-import { useState, useEffect, useCallback } from "react";
-import { MessageSquare } from "lucide-react";
+// cureli-admin/src/pages/Communications/pages/Enquiries/EnquiriesPage.jsx
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  Search,
+  X,
+  Filter,
+  RefreshCw,
+  MessageSquare,
+  AlertCircle,
+} from "lucide-react";
 import {
   getEnquiries,
   getEnquiryStats,
   deleteEnquiry,
 } from "../../../../api/cadminEnquiries";
 import { useToast } from "../../../../components/common/Toast";
-import EnquiriesHeader from "./components/EnquiriesHeader";
 import EnquiriesTable from "./components/EnquiriesTable";
 import EnquiryDetailsModal from "./components/EnquiryDetailsModal";
 import EnquiryReplyModal from "./components/EnquiryReplyModal";
 import ConfirmDialog from "../../../../components/common/ConfirmDialog";
+import StyledSelect from "../../../../components/common/StyledSelect";
+import useDebounce from "../../../../hooks/useDebounce";
+import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
+
+const STATUS_OPTIONS = [
+  { value: "", label: "All Status" },
+  { value: "PENDING", label: "Pending" },
+  { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "REPLIED", label: "Replied" },
+  { value: "CLOSED", label: "Closed" },
+];
 
 const EnquiriesPage = () => {
   const toast = useToast();
 
   // Data state
   const [enquiries, setEnquiries] = useState([]);
-  const [pagination, setPagination] = useState(null);
   const [stats, setStats] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Pagination meta from server
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   // Filters
-  const [filters, setFilters] = useState({
-    search: "",
-    status: "ALL",
-    page: 1,
-    limit: 10,
-  });
+  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = useDynamicRowCount();
 
   // Modal state
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
@@ -37,19 +59,34 @@ const EnquiriesPage = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Debounced search
+  const debouncedSearch = useDebounce(searchText, 300);
+
+  // Count active filters
+  const activeFiltersCount = useMemo(() => {
+    return [statusFilter].filter(Boolean).length;
+  }, [statusFilter]);
+
+  // Check if any filter is active
+  const hasActiveFilters = useMemo(() => {
+    return activeFiltersCount > 0 || debouncedSearch.trim().length > 0;
+  }, [activeFiltersCount, debouncedSearch]);
+
   // Fetch enquiries
   const fetchEnquiries = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    try {
-      const response = await getEnquiries({
-        page: filters.page,
-        limit: filters.limit,
-        status: filters.status,
-        search: filters.search,
-      });
 
-      console.log("📤 Full Response:", response);
+    try {
+      const params = {
+        page: currentPage,
+        limit: rowsPerPage,
+      };
+
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+      if (statusFilter) params.status = statusFilter;
+
+      const response = await getEnquiries(params);
 
       let enquiriesData = [];
       let paginationData = null;
@@ -63,34 +100,31 @@ const EnquiriesPage = () => {
       } else if (response?.enquiries) {
         enquiriesData = response.enquiries;
         paginationData = response.pagination;
-      } else if (Array.isArray(response?.data?.data)) {
-        enquiriesData = response.data.data;
-      } else if (Array.isArray(response?.data)) {
-        enquiriesData = response.data;
-      } else if (Array.isArray(response)) {
-        enquiriesData = response;
       }
 
-      console.log("📋 Parsed Enquiries:", enquiriesData);
-      console.log("📄 Parsed Pagination:", paginationData);
-
       setEnquiries(enquiriesData);
-      setPagination(paginationData);
+      setTotalItems(paginationData?.total || enquiriesData.length);
+      setTotalPages(paginationData?.totalPages || 1);
+
+      // Auto-adjust page if current page exceeds total pages
+      if (currentPage > (paginationData?.totalPages || 1) && (paginationData?.totalPages || 1) > 0) {
+        setCurrentPage(paginationData.totalPages);
+      }
     } catch (err) {
-      console.error("❌ Failed to fetch enquiries:", err);
+      console.error("Failed to fetch enquiries:", err);
       setError("Failed to load enquiries. Please try again.");
+      toast.error("Failed to load enquiries");
       setEnquiries([]);
+      setTotalItems(0);
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [currentPage, rowsPerPage, debouncedSearch, statusFilter, toast]);
 
   // Fetch stats
   const fetchStats = useCallback(async () => {
     try {
       const response = await getEnquiryStats();
-
-      console.log("📊 Stats Response:", response);
 
       let statsData = null;
 
@@ -100,27 +134,19 @@ const EnquiriesPage = () => {
         statsData = response.data.stats;
       } else if (response?.stats) {
         statsData = response.stats;
-      } else if (
-        response?.data?.data &&
-        typeof response.data.data === "object"
-      ) {
+      } else if (response?.data?.data && typeof response.data.data === "object") {
         statsData = response.data.data;
-      } else if (
-        response?.data &&
-        typeof response.data === "object" &&
-        !response.data.success
-      ) {
+      } else if (response?.data && typeof response.data === "object") {
         statsData = response.data;
       }
 
-      console.log("📊 Parsed Stats:", statsData);
-
       setStats(statsData);
     } catch (err) {
-      console.error("❌ Failed to fetch stats:", err);
+      console.error("Failed to fetch stats:", err);
     }
   }, []);
 
+  // Fetch on dependency changes
   useEffect(() => {
     fetchEnquiries();
   }, [fetchEnquiries]);
@@ -129,32 +155,32 @@ const EnquiriesPage = () => {
     fetchStats();
   }, [fetchStats]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter]);
+
   // Handlers
-  const handleFilterChange = useCallback((newFilters) => {
-    setFilters((prev) => ({ ...prev, ...newFilters, page: 1 }));
-  }, []);
-
-  const handlePageChange = useCallback((page) => {
-    setFilters((prev) => ({ ...prev, page }));
-  }, []);
-
   const handleRefresh = useCallback(() => {
     fetchEnquiries();
     fetchStats();
   }, [fetchEnquiries, fetchStats]);
+
+  const handleClearFilters = useCallback(() => {
+    setSearchText("");
+    setStatusFilter("");
+  }, []);
 
   const handleView = useCallback((enquiry) => {
     setSelectedEnquiry(enquiry);
     setIsDetailsModalOpen(true);
   }, []);
 
-  // ✅ Open reply modal from table or details modal
   const handleReply = useCallback((enquiry) => {
     setSelectedEnquiry(enquiry);
     setIsReplyModalOpen(true);
   }, []);
 
-  // ✅ Open reply modal from details modal (keeps details modal reference)
   const handleReplyFromDetails = useCallback((enquiry) => {
     setSelectedEnquiry(enquiry);
     setIsReplyModalOpen(true);
@@ -171,39 +197,23 @@ const EnquiriesPage = () => {
     setIsDeleting(true);
     try {
       await deleteEnquiry(selectedEnquiry.enquiry_id);
-      toast.success(
-        "Deleted",
-        `Enquiry ${selectedEnquiry.enquiry_number} has been deleted.`
-      );
+      toast.success("Deleted", `Enquiry ${selectedEnquiry.enquiry_number} has been deleted.`);
       setIsDeleteDialogOpen(false);
       setSelectedEnquiry(null);
       handleRefresh();
     } catch (err) {
       console.error("Failed to delete enquiry:", err);
-      toast.error(
-        "Delete Failed",
-        "Could not delete the enquiry. Please try again."
-      );
+      toast.error("Delete Failed", "Could not delete the enquiry. Please try again.");
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // ✅ UPDATED: Close ALL modals after successful reply and refresh data
   const handleReplySuccess = useCallback(() => {
-    // Close reply modal
     setIsReplyModalOpen(false);
-
-    // Close details modal (if open)
     setIsDetailsModalOpen(false);
-
-    // Clear selected enquiry
     setSelectedEnquiry(null);
-
-    // Refresh the enquiries list and stats
     handleRefresh();
-
-    console.log("✅ Reply sent - returning to enquiries page");
   }, [handleRefresh]);
 
   const handleStatusChange = useCallback(() => {
@@ -217,8 +227,6 @@ const EnquiriesPage = () => {
 
   const handleCloseReplyModal = useCallback(() => {
     setIsReplyModalOpen(false);
-    // ✅ Don't clear selectedEnquiry here - might need it for details modal
-    // Only clear if details modal is also closed
     if (!isDetailsModalOpen) {
       setSelectedEnquiry(null);
     }
@@ -230,54 +238,178 @@ const EnquiriesPage = () => {
   }, []);
 
   return (
-    <div className="p-6 space-y-6 font-poppins">
-      {/* Page Title */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-[#000060]/10 rounded-xl flex items-center justify-center">
-          <MessageSquare className="w-5 h-5 text-[#000060]" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Enquiries</h1>
-          <p className="text-sm text-gray-500">
-            Manage and respond to customer enquiries
-          </p>
-        </div>
-      </div>
+    <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden font-poppins">
+      {/* Header */}
+      <div className="flex-shrink-0 flex flex-col gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
+              <MessageSquare size={20} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate">
+                Customer Enquiries
+              </h1>
+              <p className="text-sm text-gray-500">
+                {totalItems} total enquir{totalItems !== 1 ? "ies" : "y"}
+              </p>
+            </div>
+          </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          {error}
           <button
             onClick={handleRefresh}
-            className="ml-2 underline hover:no-underline"
+            disabled={isLoading}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
+                       hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
+                       disabled:opacity-50 flex-shrink-0"
           >
-            Try again
+            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
-      )}
 
-      {/* Header with Stats & Filters */}
-      <EnquiriesHeader
-        stats={stats}
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        onRefresh={handleRefresh}
-        isLoading={isLoading}
-      />
+        {/* Stats Cards
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-200">
+            <p className="text-xs text-gray-500 font-medium mb-1">Total</p>
+            <p className="text-2xl font-bold text-gray-900">{stats?.total ?? 0}</p>
+          </div>
+          <div className="bg-amber-50 rounded-xl p-3 shadow-sm border border-amber-200">
+            <p className="text-xs text-amber-600 font-medium mb-1">Pending</p>
+            <p className="text-2xl font-bold text-amber-700">{stats?.pending ?? 0}</p>
+          </div>
+          <div className="bg-blue-50 rounded-xl p-3 shadow-sm border border-blue-200">
+            <p className="text-xs text-blue-600 font-medium mb-1">In Progress</p>
+            <p className="text-2xl font-bold text-blue-700">{stats?.inProgress ?? 0}</p>
+          </div>
+          <div className="bg-green-50 rounded-xl p-3 shadow-sm border border-green-200">
+            <p className="text-xs text-green-600 font-medium mb-1">Replied</p>
+            <p className="text-2xl font-bold text-green-700">{stats?.replied ?? 0}</p>
+          </div>
+          <div className="bg-gray-100 rounded-xl p-3 shadow-sm border border-gray-300">
+            <p className="text-xs text-gray-500 font-medium mb-1">Closed</p>
+            <p className="text-2xl font-bold text-gray-700">{stats?.closed ?? 0}</p>
+          </div>
+        </div> */}
+
+        {/* Search & Filters */}
+        <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="text"
+                placeholder="Search by name, email, or enquiry number..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
+                           bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20 
+                           focus:border-[#000060] transition-all"
+              />
+              {searchText && (
+                <button
+                  type="button"
+                  onClick={() => setSearchText("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded
+                             text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {/* Filter Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`px-3 sm:px-4 h-10 sm:h-11 rounded-lg text-sm font-medium flex items-center gap-2
+                         transition-all shadow-sm relative flex-shrink-0
+                         ${
+                           showFilters || activeFiltersCount > 0
+                             ? "bg-indigo-50 text-indigo-700 border-2 border-indigo-200"
+                             : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                         }`}
+            >
+              <Filter size={18} />
+              <span className="hidden sm:inline">Filters</span>
+              {activeFiltersCount > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
+                                 text-xs font-bold rounded-full flex items-center justify-center"
+                >
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Filter Options */}
+          {showFilters && (
+            <div className="pt-3 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <StyledSelect
+                  label="Status"
+                  value={statusFilter}
+                  onChange={(value) => setStatusFilter(value)}
+                  options={STATUS_OPTIONS}
+                  placeholder="All Status"
+                />
+              </div>
+
+              {hasActiveFilters && (
+                <div className="mt-3 flex items-center justify-end">
+                  <button
+                    onClick={handleClearFilters}
+                    className="px-4 py-2 text-sm text-red-600 hover:text-red-700 
+                               hover:bg-red-50 rounded-lg transition-all flex items-center gap-2"
+                  >
+                    <X size={16} />
+                    Clear all filters
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={18} />
+              <span className="text-sm">{error}</span>
+            </div>
+            <button
+              onClick={handleRefresh}
+              className="text-red-700 hover:text-red-900 font-medium underline text-sm"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Table */}
-      <EnquiriesTable
-        enquiries={enquiries}
-        isLoading={isLoading}
-        onView={handleView}
-        onReply={handleReply}
-        onDelete={handleDeleteClick}
-        pagination={pagination}
-        onPageChange={handlePageChange}
-      />
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden pb-4">
+        <EnquiriesTable
+          enquiries={enquiries}
+          loading={isLoading}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          rowsPerPage={rowsPerPage}
+          totalItems={totalItems}
+          onViewEnquiry={handleView}
+          onReplyEnquiry={handleReply}
+          onDeleteEnquiry={handleDeleteClick}
+          hasActiveFilters={hasActiveFilters}
+        />
+      </div>
 
-      {/* Details Modal */}
+      {/* Modals */}
       <EnquiryDetailsModal
         enquiry={selectedEnquiry}
         isOpen={isDetailsModalOpen}
@@ -286,15 +418,13 @@ const EnquiriesPage = () => {
         onStatusChange={handleStatusChange}
       />
 
-      {/* Reply Modal */}
       <EnquiryReplyModal
         enquiry={selectedEnquiry}
         isOpen={isReplyModalOpen}
         onClose={handleCloseReplyModal}
-        onSuccess={handleReplySuccess} // ✅ This now closes everything
+        onSuccess={handleReplySuccess}
       />
 
-      {/* Delete Confirmation */}
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}
         onClose={handleCloseDeleteDialog}
