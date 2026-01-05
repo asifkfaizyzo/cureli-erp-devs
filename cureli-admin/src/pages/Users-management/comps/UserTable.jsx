@@ -8,10 +8,10 @@ import {
   Ban,
   CheckCircle,
 } from "lucide-react";
-import Pagination from "../common/Pagination";
+import Pagination from "../../../components/common/Pagination";
 import UserDetailsModal from "./UserDetailsModal";
-import ConfirmDialog from "../common/ConfirmDialog";
-import { toggleCAdminUserAccess } from "../../api/cadminUsers";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import { toggleCAdminUserAccess } from "../../../api/cadminUsers";
 
 const UserTable = ({
   currentPage,

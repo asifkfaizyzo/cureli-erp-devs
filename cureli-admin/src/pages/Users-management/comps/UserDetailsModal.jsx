@@ -23,18 +23,18 @@ import {
   UsersTab,
   ActivityTab,
 } from "./UserDetailsTabs";
-import ConfirmDialog from "../common/ConfirmDialog";
-import { useToast } from "../../components/common/Toast";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import { useToast } from "../../../components/common/Toast";
 import {
   getCAdminUserById,
   toggleCAdminUserAccess,
   resetCAdminUserPassword,
   updateCAdminUser,
-} from "../../api/cadminUsers";
+} from "../../../api/cadminUsers";
 
 const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   const toast = useToast();
-  
+
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
 
@@ -51,7 +51,8 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   const [showSuspendConfirm, setShowSuspendConfirm] = useState(false);
   const [suspendLoading, setSuspendLoading] = useState(false);
 
-  const [showResetPasswordConfirm, setShowResetPasswordConfirm] = useState(false);
+  const [showResetPasswordConfirm, setShowResetPasswordConfirm] =
+    useState(false);
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
 
   // Save loading state
@@ -73,23 +74,30 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       const response = await getCAdminUserById(userId);
       const userData = response.data?.data || response.data;
       setUser(userData);
-      
+
       // Initialize form data - include all editable fields
       const initialFormData = {
         first_name: userData.first_name || "",
         last_name: userData.last_name || "",
-        full_name: userData.full_name || `${userData.first_name || ""} ${userData.last_name || ""}`.trim() || "",
+        full_name:
+          userData.full_name ||
+          `${userData.first_name || ""} ${userData.last_name || ""}`.trim() ||
+          "",
         username: userData.username || "",
         email: userData.email || "",
         phone_number: userData.phone_number || "",
-        role: userData.raw_role || userData.role?.toLowerCase().replace(" ", "_") || "",
+        role:
+          userData.raw_role ||
+          userData.role?.toLowerCase().replace(" ", "_") ||
+          "",
       };
-      
+
       setFormData(initialFormData);
       setOriginalFormData(initialFormData); // Save original for comparison
     } catch (err) {
       console.error("Failed to fetch user details:", err);
-      const errorMessage = err.response?.data?.message || "Failed to load user details";
+      const errorMessage =
+        err.response?.data?.message || "Failed to load user details";
       setFetchError(errorMessage);
       toast.error("Failed to Load Details", errorMessage);
     } finally {
@@ -121,7 +129,11 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       if (e.key === "Escape") {
         if (isEditing && hasChanges()) {
           // Confirm before closing if there are unsaved changes
-          if (window.confirm("You have unsaved changes. Are you sure you want to close?")) {
+          if (
+            window.confirm(
+              "You have unsaved changes. Are you sure you want to close?"
+            )
+          ) {
             onClose(false);
           }
         } else {
@@ -200,7 +212,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   // ═══════════════════════════════════════════════════════════
   // HANDLERS
   // ═══════════════════════════════════════════════════════════
-  
+
   const handleFormChange = (field, value) => {
     setSaveError(null); // Clear any previous save errors
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -208,7 +220,11 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
   const handleCancelEdit = () => {
     if (hasChanges()) {
-      if (!window.confirm("You have unsaved changes. Are you sure you want to cancel?")) {
+      if (
+        !window.confirm(
+          "You have unsaved changes. Are you sure you want to cancel?"
+        )
+      ) {
         return;
       }
     }
@@ -223,9 +239,9 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
     try {
       const newIsActive = !user.is_active;
       await toggleCAdminUserAccess(user.user_id, newIsActive);
-      
+
       setShowSuspendConfirm(false);
-      
+
       // Show success toast
       if (newIsActive) {
         toast.success(
@@ -238,15 +254,13 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
           `${user.full_name || user.username} has been suspended successfully.`
         );
       }
-      
+
       onClose(true); // Close and refresh
     } catch (error) {
       console.error("Suspend/Activate failed:", error);
-      const errorMessage = error.response?.data?.message || "Failed to update user status";
-      toast.error(
-        "Action Failed",
-        errorMessage
-      );
+      const errorMessage =
+        error.response?.data?.message || "Failed to update user status";
+      toast.error("Action Failed", errorMessage);
     } finally {
       setSuspendLoading(false);
     }
@@ -257,23 +271,21 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
     setResetPasswordLoading(true);
     try {
       await resetCAdminUserPassword(user.user_id);
-      
+
       setShowResetPasswordConfirm(false);
-      
+
       // Show success toast
       toast.success(
         "Reset Link Sent",
         `Password reset link has been sent to ${user.email}`
       );
-      
+
       onClose(true); // Close and refresh
     } catch (error) {
       console.error("Reset password failed:", error);
-      const errorMessage = error.response?.data?.message || "Failed to send reset link";
-      toast.error(
-        "Reset Failed",
-        errorMessage
-      );
+      const errorMessage =
+        error.response?.data?.message || "Failed to send reset link";
+      toast.error("Reset Failed", errorMessage);
     } finally {
       setResetPasswordLoading(false);
     }
@@ -281,7 +293,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
   const handleSaveChanges = async () => {
     if (!user) return;
-    
+
     // Check if there are any changes
     if (!hasChanges()) {
       setIsEditing(false);
@@ -301,7 +313,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
     try {
       const payload = {};
-      
+
       // For Super Admin: use first_name and last_name
       if (isOwner) {
         if (formData.first_name !== originalFormData.first_name) {
@@ -319,7 +331,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
           payload.full_name = formData.full_name.trim();
         }
       }
-      
+
       // Common fields
       if (formData.username !== originalFormData.username) {
         payload.username = formData.username.trim().toLowerCase();
@@ -327,7 +339,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       if (formData.phone_number !== originalFormData.phone_number) {
         payload.phone_number = formData.phone_number.replace(/\D/g, "");
       }
-      
+
       // Only include role if it's editable (not Super Admin) and changed
       if (!isOwner && formData.role !== originalFormData.role) {
         payload.role = formData.role;
@@ -342,7 +354,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       console.log("Saving changes:", payload); // Debug log
 
       const response = await updateCAdminUser(user.user_id, payload);
-      
+
       // Check if update was successful
       if (response.status === 200 || response.data?.success) {
         // Update local user state with response data if available
@@ -352,25 +364,22 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
           // Update original form data to reflect saved state
           setOriginalFormData(formData);
         }
-        
+
         setIsEditing(false);
-        
+
         // Show success toast
-        toast.success(
-          "Changes Saved",
-          `User details updated successfully.`
-        );
-        
+        toast.success("Changes Saved", `User details updated successfully.`);
+
         onClose(true); // Close and refresh parent
       } else {
         throw new Error(response.data?.message || "Update failed");
       }
     } catch (error) {
       console.error("Save failed:", error);
-      
+
       // Handle specific error cases
       let errorMessage = "Failed to save changes. Please try again.";
-      
+
       if (error.response?.status === 400) {
         errorMessage = error.response.data?.message || "Invalid data provided";
       } else if (error.response?.status === 409) {
@@ -380,7 +389,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       }
-      
+
       setSaveError(errorMessage);
       toast.error("Save Failed", errorMessage);
     } finally {
@@ -407,7 +416,10 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
     if (formData.username && formData.username.length < 3) {
       return "Username must be at least 3 characters";
     }
-    if (formData.username && !/^[a-z0-9_]+$/.test(formData.username.toLowerCase())) {
+    if (
+      formData.username &&
+      !/^[a-z0-9_]+$/.test(formData.username.toLowerCase())
+    ) {
       return "Username can only contain lowercase letters, numbers, and underscores";
     }
 
@@ -496,7 +508,11 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={() => {
           if (isEditing && hasChanges()) {
-            if (window.confirm("You have unsaved changes. Are you sure you want to close?")) {
+            if (
+              window.confirm(
+                "You have unsaved changes. Are you sure you want to close?"
+              )
+            ) {
               onClose(false);
             }
           } else {
@@ -608,7 +624,11 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
                 <button
                   onClick={() => {
                     if (isEditing && hasChanges()) {
-                      if (window.confirm("You have unsaved changes. Are you sure you want to close?")) {
+                      if (
+                        window.confirm(
+                          "You have unsaved changes. Are you sure you want to close?"
+                        )
+                      ) {
                         onClose(false);
                       }
                     } else {
@@ -650,7 +670,11 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
                   onClick={() => {
                     // Warn about unsaved changes when switching tabs
                     if (isEditing && hasChanges() && tab.id !== "profile") {
-                      if (!window.confirm("You have unsaved changes. Switch tab anyway?")) {
+                      if (
+                        !window.confirm(
+                          "You have unsaved changes. Switch tab anyway?"
+                        )
+                      ) {
                         return;
                       }
                       setIsEditing(false);
@@ -691,7 +715,9 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
             <div className="flex items-center justify-between">
               {/* Left: User Meta Info */}
               <p className="text-xs text-gray-400">
-                User ID: {user?.user_id?.slice(0, 8) || basicUser?.id?.slice(0, 8)}... • Last login:{" "}
+                User ID:{" "}
+                {user?.user_id?.slice(0, 8) || basicUser?.id?.slice(0, 8)}... •
+                Last login:{" "}
                 {user?.last_login_at
                   ? new Date(user.last_login_at).toLocaleDateString()
                   : basicUser?.lastLogin || "Never"}
@@ -775,7 +801,8 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
           title="Reset Password?"
           message={
             <span>
-              Send a password reset link to <strong>{user?.email || basicUser?.email}</strong>?
+              Send a password reset link to{" "}
+              <strong>{user?.email || basicUser?.email}</strong>?
               <br />
               <span className="text-gray-400 text-sm mt-1 block">
                 The user will receive an email with instructions to create a new
@@ -794,7 +821,6 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 };
 
 export default UserDetailsModal;
-
 
 // import { useState, useEffect } from "react";
 // import {
@@ -868,7 +894,7 @@ export default UserDetailsModal;
 //       const response = await getCAdminUserById(userId);
 //       const userData = response.data?.data || response.data;
 //       setUser(userData);
-      
+
 //       // Initialize form data - include all editable fields
 //       const initialFormData = {
 //         first_name: userData.first_name || "",
@@ -879,7 +905,7 @@ export default UserDetailsModal;
 //         phone_number: userData.phone_number || "",
 //         role: userData.raw_role || userData.role?.toLowerCase().replace(" ", "_") || "",
 //       };
-      
+
 //       setFormData(initialFormData);
 //       setOriginalFormData(initialFormData); // Save original for comparison
 //     } catch (err) {
@@ -993,7 +1019,7 @@ export default UserDetailsModal;
 //   // ═══════════════════════════════════════════════════════════
 //   // HANDLERS
 //   // ═══════════════════════════════════════════════════════════
-  
+
 //   const handleFormChange = (field, value) => {
 //     setSaveError(null); // Clear any previous save errors
 //     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -1016,7 +1042,7 @@ export default UserDetailsModal;
 //     try {
 //       const newIsActive = !user.is_active;
 //       await toggleCAdminUserAccess(user.user_id, newIsActive);
-      
+
 //       setShowSuspendConfirm(false);
 //       onClose(true); // Close and refresh
 //     } catch (error) {
@@ -1032,7 +1058,7 @@ export default UserDetailsModal;
 //     setResetPasswordLoading(true);
 //     try {
 //       await resetCAdminUserPassword(user.user_id);
-      
+
 //       setShowResetPasswordConfirm(false);
 //       alert(`Password reset link sent to ${user.email}`);
 //       onClose(true); // Close and refresh
@@ -1046,7 +1072,7 @@ export default UserDetailsModal;
 
 //   const handleSaveChanges = async () => {
 //     if (!user) return;
-    
+
 //     // Check if there are any changes
 //     if (!hasChanges()) {
 //       setIsEditing(false);
@@ -1065,7 +1091,7 @@ export default UserDetailsModal;
 
 //     try {
 //       const payload = {};
-      
+
 //       // For Super Admin: use first_name and last_name
 //       if (isOwner) {
 //         if (formData.first_name !== originalFormData.first_name) {
@@ -1083,7 +1109,7 @@ export default UserDetailsModal;
 //           payload.full_name = formData.full_name.trim();
 //         }
 //       }
-      
+
 //       // Common fields
 //       if (formData.username !== originalFormData.username) {
 //         payload.username = formData.username.trim().toLowerCase();
@@ -1091,7 +1117,7 @@ export default UserDetailsModal;
 //       if (formData.phone_number !== originalFormData.phone_number) {
 //         payload.phone_number = formData.phone_number.replace(/\D/g, "");
 //       }
-      
+
 //       // Only include role if it's editable (not Super Admin) and changed
 //       if (!isOwner && formData.role !== originalFormData.role) {
 //         payload.role = formData.role;
@@ -1106,7 +1132,7 @@ export default UserDetailsModal;
 //       console.log("Saving changes:", payload); // Debug log
 
 //       const response = await updateCAdminUser(user.user_id, payload);
-      
+
 //       // Check if update was successful
 //       if (response.status === 200 || response.data?.success) {
 //         // Update local user state with response data if available
@@ -1116,7 +1142,7 @@ export default UserDetailsModal;
 //           // Update original form data to reflect saved state
 //           setOriginalFormData(formData);
 //         }
-        
+
 //         setIsEditing(false);
 //         onClose(true); // Close and refresh parent
 //       } else {
@@ -1124,7 +1150,7 @@ export default UserDetailsModal;
 //       }
 //     } catch (error) {
 //       console.error("Save failed:", error);
-      
+
 //       // Handle specific error cases
 //       if (error.response?.status === 400) {
 //         setSaveError(error.response.data?.message || "Invalid data provided");
@@ -1456,7 +1482,7 @@ export default UserDetailsModal;
 //                   <button
 //                     onClick={() => setShowResetPasswordConfirm(true)}
 //                     disabled={loadingUser || !user}
-//                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium 
+//                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
 //                                bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all
 //                                disabled:opacity-50 disabled:cursor-not-allowed"
 //                   >

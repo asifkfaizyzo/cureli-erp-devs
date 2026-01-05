@@ -1,7 +1,7 @@
 import { Search, Plus, X, Download, FileSpreadsheet } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import StyledSelect from "../common/StyledSelect";
-import StyledDateFilter from "../common/StyledDateFilter";
+import StyledSelect from "../../../components/common/StyledSelect";
+import StyledDateFilter from "../../../components/common/StyledDateFilter";
 
 const UserHeader = ({
   searchText,
@@ -77,7 +77,9 @@ const UserHeader = ({
     if (!blob) return alert("No users available to export.");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `users_export_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `users_export_${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
     link.click();
     setShowExportMenu(false);
   };

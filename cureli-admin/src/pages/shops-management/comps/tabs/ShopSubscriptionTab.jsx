@@ -5,7 +5,7 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
-import DetailRow from "../../../../components/User/DetailRow";
+import DetailRow from "../../../../components/common/DetailRow";
 
 const ShopSubscriptionTab = ({ shop }) => {
   if (!shop) return null;

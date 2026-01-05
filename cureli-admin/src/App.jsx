@@ -4,7 +4,7 @@ import { useEffect } from "react";
 // Admin Pages
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
-import UserPage from "./pages/UserPage";
+import UserPage from "./pages/Users-management/UserPage";
 import CAdminForgotPassword from "./pages/CAdminForgotPassword";
 import CAdminResetPassword from "./pages/CAdminResetPassword";
 import VerificationPage from "./pages/VerificationPage";

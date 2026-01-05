@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import UserHeader from "../components/User/UserHeader";
-import UserTable from "../components/User/UserTable";
-import { getCAdminUsers } from "../api/cadminUsers";
-import { useToast } from "../components/common/Toast";
+import UserHeader from "./comps/UserHeader";
+import UserTable from "./comps/UserTable";
+import { getCAdminUsers } from "../../api/cadminUsers";
+import { useToast } from "../../components/common/Toast";
 
 const UserPage = () => {
   const toast = useToast();

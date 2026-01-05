@@ -21,7 +21,7 @@ import {
   Calendar,
   User,
 } from "lucide-react";
-import DetailRow from "./DetailRow";
+import DetailRow from "../../../components/common/DetailRow";
 
 // ═══════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
