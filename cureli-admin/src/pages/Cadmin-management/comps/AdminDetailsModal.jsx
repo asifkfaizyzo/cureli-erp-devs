@@ -10,10 +10,10 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
-import ConfirmDialog from "../common/ConfirmDialog";
-import DetailRow from "../User/DetailRow";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import DetailRow from "../../../components/common/DetailRow";
 import AdminActivityTab from "./AdminActivityTab";
-import { getAdminById, updateAdmin, toggleAdminAccess } from "../../api/cadminAdmins";
+import { getAdminById, updateAdmin, toggleAdminAccess } from "../../../api/cadminAdmins";
 
 const ROLE_OPTIONS = [
   { value: "SUPER_ADMIN", label: "Super Admin" },

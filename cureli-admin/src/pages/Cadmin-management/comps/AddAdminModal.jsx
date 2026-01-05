@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import { createAdmin } from "../../api/cadminAdmins";
+import { createAdmin } from "../../../api/cadminAdmins";
 
 const STATUS_OPTIONS = [
   { value: "Active", label: "Active" },

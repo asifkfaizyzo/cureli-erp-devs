@@ -11,10 +11,10 @@ import {
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
-import Pagination from "../common/Pagination"; // ✅ Import common Pagination
+import Pagination from "../../../components/common/Pagination"; // ✅ Import common Pagination
 import AdminDetailsModal from "./AdminDetailsModal";
-import ConfirmDialog from "../common/ConfirmDialog";
-import { toggleAdminAccess } from "../../api/cadminAdmins";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import { toggleAdminAccess } from "../../../api/cadminAdmins";
 
 const AdminTable = ({
   admins = [],
@@ -125,11 +125,15 @@ const AdminTable = ({
           <div className="flex flex-col">
             <ChevronUp
               size={10}
-              className={`-mb-0.5 ${isAsc ? "text-yellow-300" : "text-white/30"}`}
+              className={`-mb-0.5 ${
+                isAsc ? "text-yellow-300" : "text-white/30"
+              }`}
             />
             <ChevronDown
               size={10}
-              className={`-mt-0.5 ${isDesc ? "text-yellow-300" : "text-white/30"}`}
+              className={`-mt-0.5 ${
+                isDesc ? "text-yellow-300" : "text-white/30"
+              }`}
             />
           </div>
         </div>
@@ -175,7 +179,10 @@ const AdminTable = ({
               <tr>
                 <td colSpan={9} className="p-12">
                   <div className="flex flex-col items-center justify-center">
-                    <Loader2 size={32} className="text-[#05015A] animate-spin mb-3" />
+                    <Loader2
+                      size={32}
+                      className="text-[#05015A] animate-spin mb-3"
+                    />
                     <p className="text-gray-500">Loading admins...</p>
                   </div>
                 </td>
@@ -203,7 +210,9 @@ const AdminTable = ({
                   <td className="px-3 py-1.5 text-gray-700">{a.email}</td>
                   <td className="px-3 py-1.5">{getRoleBadge(a.role)}</td>
                   <td className="px-3 py-1.5">{getStatusBadge(a.status)}</td>
-                  <td className="px-3 py-1.5 text-gray-600">{a.lastLogin || "Never"}</td>
+                  <td className="px-3 py-1.5 text-gray-600">
+                    {a.lastLogin || "Never"}
+                  </td>
                   <td className="px-3 py-1.5 text-center">
                     <div className="inline-flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                       <button
@@ -236,7 +245,11 @@ const AdminTable = ({
                         className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all"
                         title={a.status === "Active" ? "Suspend" : "Activate"}
                       >
-                        {a.status === "Active" ? <Ban size={14} /> : <CheckCircle size={14} />}
+                        {a.status === "Active" ? (
+                          <Ban size={14} />
+                        ) : (
+                          <CheckCircle size={14} />
+                        )}
                       </button>
                     </div>
                   </td>
@@ -249,10 +262,12 @@ const AdminTable = ({
                     <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
                       <Users size={32} className="text-gray-300" />
                     </div>
-                    <p className="text-lg font-semibold text-gray-600 mb-1">No admins found</p>
+                    <p className="text-lg font-semibold text-gray-600 mb-1">
+                      No admins found
+                    </p>
                     <p className="text-gray-400 text-sm max-w-sm">
-                      There are no admins matching your current filters. Try adjusting your search
-                      criteria.
+                      There are no admins matching your current filters. Try
+                      adjusting your search criteria.
                     </p>
                   </div>
                 </td>
@@ -287,7 +302,11 @@ const AdminTable = ({
         onClose={handleCloseStatusConfirm}
         onConfirm={handleToggleStatus}
         loading={toggleLoading}
-        title={adminToToggle?.status === "Active" ? "Suspend Admin?" : "Activate Admin?"}
+        title={
+          adminToToggle?.status === "Active"
+            ? "Suspend Admin?"
+            : "Activate Admin?"
+        }
         message={
           toggleError ? (
             <span className="text-red-600">{toggleError}</span>
@@ -297,7 +316,9 @@ const AdminTable = ({
             } "${adminToToggle?.name}"?`
           )
         }
-        confirmText={adminToToggle?.status === "Active" ? "Suspend" : "Activate"}
+        confirmText={
+          adminToToggle?.status === "Active" ? "Suspend" : "Activate"
+        }
         type={adminToToggle?.status === "Active" ? "warning" : "success"}
       />
     </div>

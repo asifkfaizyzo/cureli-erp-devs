@@ -1,11 +1,11 @@
 // cureli-admin/src/pages/AdminsPage.jsx
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import AdminHeader from "../components/Admin/AdminHeader";
-import AdminTable from "../components/Admin/AdminTable";
-import AddAdminModal from "../components/Admin/AddAdminModal";
-import { getAdmins } from "../api/cadminAdmins";
-import { useToast } from "../components/common/Toast";
+import AdminHeader from "./comps/AdminHeader";
+import AdminTable from "./comps/AdminTable";
+import AddAdminModal from "./comps/AddAdminModal";
+import { getAdmins } from "../../api/cadminAdmins";
+import { useToast } from "../../components/common/Toast";
 
 // ✅ Helper to get initial rows based on screen width
 const getRowsForScreenSize = (width) => {
@@ -18,7 +18,7 @@ const getRowsForScreenSize = (width) => {
 
 const AdminsPage = () => {
   const toast = useToast();
-  
+
   // DATA STATE
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,8 +42,10 @@ const AdminsPage = () => {
 
   // PAGINATION - ✅ Initialize with correct value based on screen size
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(() => 
-    getRowsForScreenSize(typeof window !== 'undefined' ? window.innerWidth : 1920)
+  const [rowsPerPage, setRowsPerPage] = useState(() =>
+    getRowsForScreenSize(
+      typeof window !== "undefined" ? window.innerWidth : 1920
+    )
   );
 
   // ✅ Track if initial fetch is done to prevent double fetching
@@ -54,7 +56,7 @@ const AdminsPage = () => {
   useEffect(() => {
     const updateRows = () => {
       const newRows = getRowsForScreenSize(window.innerWidth);
-      
+
       setRowsPerPage((prevRows) => {
         // Only update if actually changed
         if (prevRows !== newRows) {
@@ -73,7 +75,7 @@ const AdminsPage = () => {
     };
 
     window.addEventListener("resize", handleResize);
-    
+
     return () => {
       window.removeEventListener("resize", handleResize);
       if (resizeTimeoutRef.current) {
@@ -98,7 +100,8 @@ const AdminsPage = () => {
       // Only add non-empty filters
       if (searchText.trim()) params.search = searchText.trim();
       if (statusFilter) params.status = statusFilter.toLowerCase();
-      if (roleFilter) params.role = roleFilter.toLowerCase().replace(/\s+/g, "_");
+      if (roleFilter)
+        params.role = roleFilter.toLowerCase().replace(/\s+/g, "_");
 
       const response = await getAdmins(params);
       const { admins: data, meta } = response.data.data;
@@ -121,7 +124,15 @@ const AdminsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, rowsPerPage, searchText, statusFilter, roleFilter, sortConfig, toast]);
+  }, [
+    currentPage,
+    rowsPerPage,
+    searchText,
+    statusFilter,
+    roleFilter,
+    sortConfig,
+    toast,
+  ]);
 
   // ✅ Fetch on mount and when dependencies change (with initial mount check)
   useEffect(() => {
@@ -169,24 +180,39 @@ const AdminsPage = () => {
     setCurrentPage(1);
   };
 
-  const handleAdminUpdate = useCallback((adminId, updates) => {
-    try {
-      setAdmins((prev) =>
-        prev.map((a) => (a.id === adminId ? { ...a, ...updates } : a))
-      );
-      
-      if (updates.status === "suspended") {
-        toast.success("Admin Suspended", "Admin account has been suspended successfully.");
-      } else if (updates.status === "active") {
-        toast.success("Admin Activated", "Admin account has been activated successfully.");
-      } else {
-        toast.success("Admin Updated", "Admin information updated successfully.");
+  const handleAdminUpdate = useCallback(
+    (adminId, updates) => {
+      try {
+        setAdmins((prev) =>
+          prev.map((a) => (a.id === adminId ? { ...a, ...updates } : a))
+        );
+
+        if (updates.status === "suspended") {
+          toast.success(
+            "Admin Suspended",
+            "Admin account has been suspended successfully."
+          );
+        } else if (updates.status === "active") {
+          toast.success(
+            "Admin Activated",
+            "Admin account has been activated successfully."
+          );
+        } else {
+          toast.success(
+            "Admin Updated",
+            "Admin information updated successfully."
+          );
+        }
+      } catch (error) {
+        console.error("Failed to update admin:", error);
+        toast.error(
+          "Update Failed",
+          "Failed to update admin. Please try again."
+        );
       }
-    } catch (error) {
-      console.error("Failed to update admin:", error);
-      toast.error("Update Failed", "Failed to update admin. Please try again.");
-    }
-  }, [toast]);
+    },
+    [toast]
+  );
 
   const handleRefresh = useCallback(() => {
     fetchAdmins();
@@ -211,7 +237,10 @@ const AdminsPage = () => {
     (newAdmin) => {
       setAdmins((prev) => [newAdmin, ...prev.slice(0, rowsPerPage - 1)]);
       setTotalItems((prev) => prev + 1);
-      toast.success("Admin Created", `${newAdmin.username || "New admin"} has been added successfully.`);
+      toast.success(
+        "Admin Created",
+        `${newAdmin.username || "New admin"} has been added successfully.`
+      );
     },
     [rowsPerPage, toast]
   );
