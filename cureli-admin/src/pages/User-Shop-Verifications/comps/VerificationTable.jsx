@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { ChevronUp, ChevronDown, ShieldCheck, Calendar } from "lucide-react";
-import Pagination from "../common/Pagination"; // ✅ Use common Pagination
+import Pagination from "../../../components/common/Pagination"; // ✅ Use common Pagination
 
 const VerificationTable = ({
   data = [],
@@ -31,7 +31,11 @@ const VerificationTable = ({
   const handleMouseDown = (column, e) => {
     if (column === "slNo") return;
     e.preventDefault();
-    setResizing({ column, startX: e.clientX, startWidth: columnWidths[column] });
+    setResizing({
+      column,
+      startX: e.clientX,
+      startWidth: columnWidths[column],
+    });
   };
 
   const handleMouseMove = useCallback(
@@ -138,11 +142,15 @@ const VerificationTable = ({
           <div className="flex flex-col shrink-0">
             <ChevronUp
               size={10}
-              className={`-mb-0.5 ${isAsc ? "text-yellow-300" : "text-white/30"}`}
+              className={`-mb-0.5 ${
+                isAsc ? "text-yellow-300" : "text-white/30"
+              }`}
             />
             <ChevronDown
               size={10}
-              className={`-mt-0.5 ${isDesc ? "text-yellow-300" : "text-white/30"}`}
+              className={`-mt-0.5 ${
+                isDesc ? "text-yellow-300" : "text-white/30"
+              }`}
             />
           </div>
         </div>
@@ -176,7 +184,9 @@ const VerificationTable = ({
       <div className="h-full flex items-center justify-center bg-white rounded-xl border border-gray-200">
         <div className="text-center">
           <div className="w-12 h-12 rounded-full border-4 border-[#05015A] border-t-transparent animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Loading verification records...</p>
+          <p className="text-gray-600 font-medium">
+            Loading verification records...
+          </p>
           <p className="text-gray-400 text-sm mt-1">Please wait</p>
         </div>
       </div>
@@ -192,12 +202,38 @@ const VerificationTable = ({
           <thead className="sticky top-0 z-10">
             <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white">
               <Header label="#" width={columnWidths.slNo} align="center" />
-              <SortHeader field="business_name" label="Shop" width={columnWidths.shopName} />
-              <SortHeader field="owner_name" label="Owner" width={columnWidths.ownerInfo} />
-              <SortHeader field="verification_status" label="Status" width={columnWidths.status} />
-              <Header label="Files" width={columnWidths.files} field="files" align="center" />
-              <SortHeader field="resubmission_count" label="Resub" width={columnWidths.resubCount} align="center" />
-              <SortHeader field="created_at" label="Submitted" width={columnWidths.date} />
+              <SortHeader
+                field="business_name"
+                label="Shop"
+                width={columnWidths.shopName}
+              />
+              <SortHeader
+                field="owner_name"
+                label="Owner"
+                width={columnWidths.ownerInfo}
+              />
+              <SortHeader
+                field="verification_status"
+                label="Status"
+                width={columnWidths.status}
+              />
+              <Header
+                label="Files"
+                width={columnWidths.files}
+                field="files"
+                align="center"
+              />
+              <SortHeader
+                field="resubmission_count"
+                label="Resub"
+                width={columnWidths.resubCount}
+                align="center"
+              />
+              <SortHeader
+                field="created_at"
+                label="Submitted"
+                width={columnWidths.date}
+              />
             </tr>
           </thead>
 
@@ -225,11 +261,16 @@ const VerificationTable = ({
                     </td>
 
                     {/* Shop Info */}
-                    <td style={{ width: columnWidths.shopName }} className="px-4 py-3">
+                    <td
+                      style={{ width: columnWidths.shopName }}
+                      className="px-4 py-3"
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center shrink-0 group-hover:from-indigo-200 group-hover:to-purple-200 transition-colors">
                           <span className="text-[#05015A] font-bold text-xs">
-                            {shop.business_name?.substring(0, 2).toUpperCase() || "SH"}
+                            {shop.business_name
+                              ?.substring(0, 2)
+                              .toUpperCase() || "SH"}
                           </span>
                         </div>
                         <div className="min-w-0">
@@ -244,7 +285,10 @@ const VerificationTable = ({
                     </td>
 
                     {/* Owner Info */}
-                    <td style={{ width: columnWidths.ownerInfo }} className="px-4 py-3">
+                    <td
+                      style={{ width: columnWidths.ownerInfo }}
+                      className="px-4 py-3"
+                    >
                       <div className="min-w-0">
                         <p className="font-medium text-gray-800 truncate">
                           {shop.owner_name || "N/A"}
@@ -256,14 +300,19 @@ const VerificationTable = ({
                     </td>
 
                     {/* Status */}
-                    <td style={{ width: columnWidths.status }} className="px-4 py-3">
+                    <td
+                      style={{ width: columnWidths.status }}
+                      className="px-4 py-3"
+                    >
                       <span
                         className={`
                           inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
                           border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}
                         `}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`}
+                        />
                         {statusConfig.label}
                       </span>
                     </td>
@@ -306,10 +355,18 @@ const VerificationTable = ({
                     </td>
 
                     {/* Date */}
-                    <td style={{ width: columnWidths.date }} className="px-4 py-3">
+                    <td
+                      style={{ width: columnWidths.date }}
+                      className="px-4 py-3"
+                    >
                       <div className="flex items-center gap-2 text-gray-600">
-                        <Calendar size={14} className="text-gray-400 shrink-0" />
-                        <span className="text-sm">{formatDate(shop.created_at)}</span>
+                        <Calendar
+                          size={14}
+                          className="text-gray-400 shrink-0"
+                        />
+                        <span className="text-sm">
+                          {formatDate(shop.created_at)}
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -326,7 +383,8 @@ const VerificationTable = ({
                       No verification records found
                     </p>
                     <p className="text-gray-400 max-w-sm">
-                      There are no shops matching your current filters. Try adjusting your search criteria.
+                      There are no shops matching your current filters. Try
+                      adjusting your search criteria.
                     </p>
                   </div>
                 </td>

@@ -1,11 +1,11 @@
 // cureli-admin/src/pages/VerificationPage.jsx
 
 import { useState, useCallback, useEffect } from "react";
-import VerificationHeader from "../components/Verification/VerificationHeader";
-import VerificationTable from "../components/Verification/VerificationTable";
-import VerificationModal from "../components/Verification/VerificationModal";
-import { listShopsForVerification } from "../api/cadminDocs";
-import { useToast } from "../components/common/Toast";
+import VerificationHeader from "./comps/VerificationHeader";
+import VerificationTable from "./comps/VerificationTable";
+import VerificationModal from "./comps/VerificationModal";
+import { listShopsForVerification } from "../../api/cadminDocs";
+import { useToast } from "../../components/common/Toast";
 
 const VerificationPage = () => {
   const toast = useToast();

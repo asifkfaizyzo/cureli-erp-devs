@@ -1,9 +1,16 @@
 // cureli-admin/src/components/Verification/VerificationHeader.jsx
 
-import { Search, X, Download, FileSpreadsheet, ShieldCheck, Filter } from "lucide-react";
+import {
+  Search,
+  X,
+  Download,
+  FileSpreadsheet,
+  ShieldCheck,
+  Filter,
+} from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import StyledSelect from "../common/StyledSelect";
-import StyledDateFilter from "../common/StyledDateFilter";
+import StyledSelect from "../../../components/common/StyledSelect";
+import StyledDateFilter from "../../../components/common/StyledDateFilter";
 
 const VerificationHeader = ({
   search,
@@ -31,7 +38,8 @@ const VerificationHeader = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const hasActiveFilters = !!status || !!resubmissionCount || !!date || !!search;
+  const hasActiveFilters =
+    !!status || !!resubmissionCount || !!date || !!search;
 
   const clearFilters = () => {
     setSearch("");
@@ -81,7 +89,9 @@ const VerificationHeader = ({
     if (!blob) return alert("No shops available to export.");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `verification_export_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `verification_export_${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
     link.click();
     setShowExportMenu(false);
   };

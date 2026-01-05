@@ -15,17 +15,17 @@ import {
 import { useState, useEffect, useMemo } from "react";
 import DocumentCard from "./DocumentCard";
 import VerificationDetailsTop from "./VerificationDetailsTop";
-import ConfirmDialog from "../common/ConfirmDialog";
-import { useToast } from "../common/Toast";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import { useToast } from "../../../components/common/Toast";
 // ✅ CHANGED: Import batchUpdateFiles instead of verifyFile, rejectFile
 import {
   getShopVerificationDetail,
   batchUpdateFiles,
-} from "../../api/cadminDocs";
+} from "../../../api/cadminDocs";
 
 const VerificationModal = ({ shop, onClose }) => {
   const toast = useToast();
-  
+
   const [activeTab, setActiveTab] = useState("details");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -180,7 +180,10 @@ const VerificationModal = ({ shop, onClose }) => {
 
   const confirmReject = () => {
     if (!rejectionReason.trim()) {
-      toast.error("Rejection Reason Required", "Please provide a reason for rejection.");
+      toast.error(
+        "Rejection Reason Required",
+        "Please provide a reason for rejection."
+      );
       return;
     }
 
@@ -258,12 +261,12 @@ const VerificationModal = ({ shop, onClose }) => {
       // Single API call for all changes
       if (verifyIds.length > 0 || rejectItems.length > 0) {
         await batchUpdateFiles({ verifyIds, rejectItems });
-        
+
         // Show success toast with summary
         const approvedCount = verifyIds.length;
         const rejectedCount = rejectItems.length;
         let message = "";
-        
+
         if (approvedCount > 0 && rejectedCount > 0) {
           message = `${approvedCount} document(s) approved, ${rejectedCount} rejected.`;
         } else if (approvedCount > 0) {
@@ -271,7 +274,7 @@ const VerificationModal = ({ shop, onClose }) => {
         } else if (rejectedCount > 0) {
           message = `${rejectedCount} document(s) rejected.`;
         }
-        
+
         toast.success("Verification Complete", message);
       } else {
         toast.info("No Changes", "No changes were made.", 2000);
@@ -664,7 +667,6 @@ const VerificationModal = ({ shop, onClose }) => {
 };
 
 export default VerificationModal;
-
 
 // // cureli-admin/src/components/Verification/VerificationModal.jsx
 
@@ -1281,7 +1283,7 @@ export default VerificationModal;
 //               shop owner.
 //             </p>
 //             <textarea
-//               className="w-full h-24 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 
+//               className="w-full h-24 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700
 //                          focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 resize-none"
 //               placeholder="Enter rejection reason..."
 //               value={rejectionReason}

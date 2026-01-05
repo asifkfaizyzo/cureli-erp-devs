@@ -12,7 +12,7 @@ import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import UserPage from "./pages/Users-management/UserPage";
 import CAdminForgotPassword from "./pages/CAdminForgotPassword";
 import CAdminResetPassword from "./pages/CAdminResetPassword";
-import VerificationPage from "./pages/VerificationPage";
+import VerificationPage from "./pages/User-Shop-Verifications/VerificationPage";
 import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
 import ShopsPage from "./pages/shops-management/ShopsPage";
 import AdminsPage from "./pages/Cadmin-management/AdminsPage";
