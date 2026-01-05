@@ -1,10 +1,4 @@
-//Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\api\enquiries.js
+//frontend\src\api\enquiries.js
 import API from "./axios";
-
-// export const submitEnquiry = async (data) => {
-//     console.log(data);
-//   const response = await axios.post(`${API_URL}/enquiries`, data);
-//   return response.data;
-// };
 
 export const submitEnquiry = (data) => API.post("/enquiries", data);

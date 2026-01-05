@@ -17,7 +17,6 @@ const StyledSelect = ({
   const triggerRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Calculate position before opening
   const updatePosition = useCallback(() => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
@@ -29,7 +28,6 @@ const StyledSelect = ({
     }
   }, []);
 
-  // Handle opening - calculate position first, then open
   const handleToggle = () => {
     if (disabled) return;
     if (!isOpen) {
@@ -38,7 +36,6 @@ const StyledSelect = ({
     setIsOpen(!isOpen);
   };
 
-  // Close on outside click
   useEffect(() => {
     if (!isOpen) return;
 
@@ -54,7 +51,6 @@ const StyledSelect = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  // Close on scroll and update position on resize
   useEffect(() => {
     if (!isOpen) return;
 
@@ -73,7 +69,6 @@ const StyledSelect = ({
   const selectedOption = options.find((opt) => opt.value === value);
   const isActive = Boolean(value);
 
-  // Only render dropdown when open AND position is calculated
   const dropdown = isOpen && dropdownPosition
     ? createPortal(
         <div
@@ -100,9 +95,9 @@ const StyledSelect = ({
                            : "text-gray-700 hover:bg-gray-50"
                          }`}
             >
-              <span>{option.label}</span>
+              <span className="flex items-center gap-2">{option.label}</span>
               {value === option.value && (
-                <Check size={14} className="text-indigo-600" />
+                <Check size={14} className="text-indigo-600 flex-shrink-0" />
               )}
             </button>
           ))}
@@ -117,7 +112,6 @@ const StyledSelect = ({
         <label className="text-xs text-gray-500 font-medium">{label}</label>
       )}
       
-      {/* Trigger Button - Chevron is now INSIDE */}
       <button
         ref={triggerRef}
         type="button"
@@ -135,11 +129,10 @@ const StyledSelect = ({
                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                    }`}
       >
-        <span className={`flex-1 truncate ${selectedOption ? "" : "text-gray-400"}`}>
+        <span className={`flex-1 truncate flex items-center gap-2 ${selectedOption ? "" : "text-gray-400"}`}>
           {selectedOption?.label || placeholder}
         </span>
         
-        {/* Chevron inside button */}
         <ChevronDown 
           size={16} 
           className={`flex-shrink-0 transition-transform duration-200
@@ -148,12 +141,10 @@ const StyledSelect = ({
         />
       </button>
 
-      {/* Error Message */}
       {error && (
         <p className="text-xs text-red-500">{error}</p>
       )}
 
-      {/* Dropdown Portal */}
       {dropdown}
     </div>
   );

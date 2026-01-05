@@ -4,7 +4,7 @@ import { Radio, Construction, Bell, Users, Calendar } from "lucide-react";
 
 const BroadcastPage = () => {
   return (
-    <div className="p-6 space-y-6 font-poppins">
+    <div className=" space-y-6 font-poppins">
       {/* Page Header */}
       <div className="flex items-center gap-4">
         <div
