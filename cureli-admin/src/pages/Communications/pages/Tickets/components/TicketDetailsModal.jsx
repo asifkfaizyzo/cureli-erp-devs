@@ -23,7 +23,10 @@ import {
   ArrowRight,
   XCircle,
 } from "lucide-react";
-import { updateTicketStatus, getTicketHistory } from "../../../api/cadminTickets";
+import {
+  updateTicketStatus,
+  getTicketHistory,
+} from "../../../../../api/cadminTickets";
 import { format } from "date-fns";
 import {
   getStatusConfig,
@@ -31,7 +34,7 @@ import {
   getPriorityConfig,
   UPDATABLE_STATUSES,
   STATUS_CONFIG,
-} from "../../../config/ticketConfigs";
+} from "../../../../../config/ticketConfigs";
 import toast from "react-hot-toast";
 
 // ============================================
@@ -107,7 +110,8 @@ const StatusNoteModal = ({
           {/* Note Input */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Add a note <span className="text-gray-400 font-normal">(optional)</span>
+              Add a note{" "}
+              <span className="text-gray-400 font-normal">(optional)</span>
             </label>
             <textarea
               value={note}
@@ -119,7 +123,9 @@ const StatusNoteModal = ({
                          text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 
                          focus:ring-[#05015A]/20 focus:border-[#05015A] transition-all resize-none"
             />
-            <p className="text-xs text-gray-400 mt-1 text-right">{note.length}/500</p>
+            <p className="text-xs text-gray-400 mt-1 text-right">
+              {note.length}/500
+            </p>
           </div>
 
           {/* Actions */}
@@ -163,7 +169,9 @@ const StatusNoteModal = ({
 // ============================================
 const TimelineItem = ({ item, isFirst, isLast }) => {
   const toConfig = getStatusConfig(item.to_status);
-  const fromConfig = item.from_status ? getStatusConfig(item.from_status) : null;
+  const fromConfig = item.from_status
+    ? getStatusConfig(item.from_status)
+    : null;
 
   const formatDateTime = (dateString) => {
     if (!dateString) return "N/A";
@@ -183,11 +191,13 @@ const TimelineItem = ({ item, isFirst, isLast }) => {
       <div className="flex flex-col items-center">
         <div
           className={`w-3 h-3 rounded-full border-2 z-10
-                      ${isFirst ? `${toConfig.dot} border-white shadow-md` : "bg-white border-gray-300"}`}
+                      ${
+                        isFirst
+                          ? `${toConfig.dot} border-white shadow-md`
+                          : "bg-white border-gray-300"
+                      }`}
         />
-        {!isLast && (
-          <div className="w-0.5 flex-1 bg-gray-200 -mt-0.5" />
-        )}
+        {!isLast && <div className="w-0.5 flex-1 bg-gray-200 -mt-0.5" />}
       </div>
 
       {/* Content */}
@@ -201,9 +211,11 @@ const TimelineItem = ({ item, isFirst, isLast }) => {
             </div>
             <span
               className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase
-                          ${isCAdminAction 
-                            ? "bg-indigo-100 text-indigo-700" 
-                            : "bg-gray-100 text-gray-600"}`}
+                          ${
+                            isCAdminAction
+                              ? "bg-indigo-100 text-indigo-700"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
             >
               {isCAdminAction ? "Admin" : "User"}
             </span>
@@ -244,7 +256,9 @@ const TimelineItem = ({ item, isFirst, isLast }) => {
           {item.note && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <p className="text-xs text-gray-500 font-medium mb-1">Note:</p>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.note}</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                {item.note}
+              </p>
             </div>
           )}
         </div>
@@ -278,12 +292,7 @@ const AttachmentCard = ({ attachment, getUrl }) => {
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block"
-      >
+      <a href={url} target="_blank" rel="noopener noreferrer" className="block">
         {isImage && !imageError ? (
           <div className="h-32 bg-gray-100 overflow-hidden">
             <img
@@ -330,7 +339,13 @@ const AttachmentCard = ({ attachment, getUrl }) => {
 // ============================================
 // MAIN MODAL COMPONENT
 // ============================================
-const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => {
+const TicketDetailsModal = ({
+  isOpen,
+  onClose,
+  ticket,
+  loading,
+  onRefresh,
+}) => {
   const [activeTab, setActiveTab] = useState("details");
   const [updating, setUpdating] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("");
@@ -531,8 +546,12 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                     {/* Priority Badge */}
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs font-medium 
-                                  ${priorityConfig.bg} ${priorityConfig.text} border ${priorityConfig.border}
-                                  ${priorityConfig.pulse ? "animate-pulse" : ""}`}
+                                  ${priorityConfig.bg} ${
+                        priorityConfig.text
+                      } border ${priorityConfig.border}
+                                  ${
+                                    priorityConfig.pulse ? "animate-pulse" : ""
+                                  }`}
                     >
                       {priorityConfig.label} Priority
                     </span>
@@ -652,40 +671,41 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                 )}
 
                 {/* Cancellation Alert */}
-                {ticket.status === "CANCELLED" && ticket.cancellation_reason && (
-                  <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                        <XCircle size={20} className="text-red-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-red-900 mb-2">
-                          Ticket Cancelled
-                        </h3>
-                        <div className="bg-white/50 rounded-lg p-3 mb-3">
-                          <p className="text-xs font-semibold text-red-700 uppercase tracking-wider mb-1">
-                            Cancellation Reason
-                          </p>
-                          <p className="text-sm text-red-900 whitespace-pre-wrap">
-                            {ticket.cancellation_reason}
-                          </p>
+                {ticket.status === "CANCELLED" &&
+                  ticket.cancellation_reason && (
+                    <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                          <XCircle size={20} className="text-red-600" />
                         </div>
-                        {ticket.cancelled_at && (
-                          <div className="flex items-center gap-4 text-xs text-red-700">
-                            <span className="flex items-center gap-1">
-                              <User size={12} />
-                              {ticket.cancelled_by_name || "Unknown"}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar size={12} />
-                              {formatDate(ticket.cancelled_at)}
-                            </span>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-red-900 mb-2">
+                            Ticket Cancelled
+                          </h3>
+                          <div className="bg-white/50 rounded-lg p-3 mb-3">
+                            <p className="text-xs font-semibold text-red-700 uppercase tracking-wider mb-1">
+                              Cancellation Reason
+                            </p>
+                            <p className="text-sm text-red-900 whitespace-pre-wrap">
+                              {ticket.cancellation_reason}
+                            </p>
                           </div>
-                        )}
+                          {ticket.cancelled_at && (
+                            <div className="flex items-center gap-4 text-xs text-red-700">
+                              <span className="flex items-center gap-1">
+                                <User size={12} />
+                                {ticket.cancelled_by_name || "Unknown"}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Calendar size={12} />
+                                {formatDate(ticket.cancelled_at)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Info Cards Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -695,11 +715,19 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                       <div className="w-10 h-10 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
                         <Building2 size={20} className="text-[#05015A]" />
                       </div>
-                      <h3 className="font-semibold text-gray-900">Shop Information</h3>
+                      <h3 className="font-semibold text-gray-900">
+                        Shop Information
+                      </h3>
                     </div>
                     <div className="space-y-3">
-                      <InfoRow label="Shop Name" value={ticket.shop_name || "-"} />
-                      <InfoRow label="Branch" value={ticket.branch_name || "Main"} />
+                      <InfoRow
+                        label="Shop Name"
+                        value={ticket.shop_name || "-"}
+                      />
+                      <InfoRow
+                        label="Branch"
+                        value={ticket.branch_name || "Main"}
+                      />
                     </div>
                   </div>
 
@@ -709,7 +737,9 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                       <div className="w-10 h-10 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
                         <User size={20} className="text-[#05015A]" />
                       </div>
-                      <h3 className="font-semibold text-gray-900">Contact Details</h3>
+                      <h3 className="font-semibold text-gray-900">
+                        Contact Details
+                      </h3>
                     </div>
                     <div className="space-y-3">
                       <InfoRow
@@ -734,12 +764,20 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                       <div className="w-10 h-10 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
                         <Tag size={20} className="text-[#05015A]" />
                       </div>
-                      <h3 className="font-semibold text-gray-900">Ticket Info</h3>
+                      <h3 className="font-semibold text-gray-900">
+                        Ticket Info
+                      </h3>
                     </div>
                     <div className="space-y-3">
-                      <InfoRow label="Category" value={categoryConfig.fullLabel} />
+                      <InfoRow
+                        label="Category"
+                        value={categoryConfig.fullLabel}
+                      />
                       <InfoRow label="Priority" value={priorityConfig.label} />
-                      <InfoRow label="Created" value={formatDate(ticket.created_at)} />
+                      <InfoRow
+                        label="Created"
+                        value={formatDate(ticket.created_at)}
+                      />
                       {ticket.preferred_slot && (
                         <InfoRow
                           label="Preferred Time"
@@ -757,7 +795,9 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                     <div className="w-10 h-10 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
                       <MessageSquare size={20} className="text-[#05015A]" />
                     </div>
-                    <h3 className="font-semibold text-gray-900">Ticket Content</h3>
+                    <h3 className="font-semibold text-gray-900">
+                      Ticket Content
+                    </h3>
                   </div>
 
                   <div className="space-y-4">
@@ -794,7 +834,9 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                       <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
                         <FileText size={16} className="text-indigo-600" />
                       </div>
-                      <h3 className="font-semibold text-indigo-900">Admin Notes</h3>
+                      <h3 className="font-semibold text-indigo-900">
+                        Admin Notes
+                      </h3>
                     </div>
                     <pre className="text-sm text-indigo-800 whitespace-pre-wrap font-sans leading-relaxed">
                       {ticket.admin_notes}
@@ -827,7 +869,10 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
 
                 {loadingHistory ? (
                   <div className="flex flex-col items-center justify-center py-12">
-                    <Loader2 size={32} className="animate-spin text-[#05015A] mb-3" />
+                    <Loader2
+                      size={32}
+                      className="animate-spin text-[#05015A] mb-3"
+                    />
                     <p className="text-sm text-gray-500">Loading history...</p>
                   </div>
                 ) : history.length === 0 ? (
@@ -871,8 +916,13 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
 
                 {!ticket.attachments || ticket.attachments.length === 0 ? (
                   <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                    <Paperclip size={48} className="mx-auto text-gray-300 mb-3" />
-                    <p className="text-gray-500">No attachments for this ticket</p>
+                    <Paperclip
+                      size={48}
+                      className="mx-auto text-gray-300 mb-3"
+                    />
+                    <p className="text-gray-500">
+                      No attachments for this ticket
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -899,7 +949,9 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                       <Save size={20} className="text-[#05015A]" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">Update Ticket Status</h3>
+                      <h3 className="font-semibold text-gray-900">
+                        Update Ticket Status
+                      </h3>
                       <p className="text-xs text-gray-500 mt-0.5">
                         Select a new status to update this ticket
                       </p>
@@ -908,19 +960,25 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
 
                   {/* Current Status Display */}
                   <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <p className="text-xs text-gray-500 font-medium mb-2">Current Status</p>
+                    <p className="text-xs text-gray-500 font-medium mb-2">
+                      Current Status
+                    </p>
                     <span
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold
                                   ${currentStatusConfig.bg} ${currentStatusConfig.text} border ${currentStatusConfig.border}`}
                     >
-                      <span className={`w-2 h-2 rounded-full ${currentStatusConfig.dot}`} />
+                      <span
+                        className={`w-2 h-2 rounded-full ${currentStatusConfig.dot}`}
+                      />
                       {currentStatusConfig.label}
                     </span>
                   </div>
 
                   {/* Status Selection */}
                   <div className="space-y-3">
-                    <p className="text-xs text-gray-500 font-medium">Select New Status</p>
+                    <p className="text-xs text-gray-500 font-medium">
+                      Select New Status
+                    </p>
                     <div className="grid grid-cols-2 gap-3">
                       {UPDATABLE_STATUSES.map((status) => {
                         const config = getStatusConfig(status);
@@ -936,16 +994,25 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                               relative flex items-center gap-2 p-4 rounded-xl border-2 transition-all
                               ${
                                 isSelected
-                                  ? `${config.bg} ${config.border} ring-2 ring-offset-2 ring-${config.dot.replace("bg-", "")}`
+                                  ? `${config.bg} ${
+                                      config.border
+                                    } ring-2 ring-offset-2 ring-${config.dot.replace(
+                                      "bg-",
+                                      ""
+                                    )}`
                                   : isCurrent
                                   ? "bg-gray-50 border-gray-200 cursor-not-allowed opacity-50"
                                   : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
                               }
                             `}
                           >
-                            <span className={`w-3 h-3 rounded-full ${config.dot}`} />
                             <span
-                              className={`font-medium ${isSelected ? config.text : "text-gray-700"}`}
+                              className={`w-3 h-3 rounded-full ${config.dot}`}
+                            />
+                            <span
+                              className={`font-medium ${
+                                isSelected ? config.text : "text-gray-700"
+                              }`}
                             >
                               {config.label}
                             </span>
@@ -969,8 +1036,13 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                   {/* Error Message */}
                   {error && (
                     <div className="mt-4 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                      <AlertTriangle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-red-700 font-medium">{error}</p>
+                      <AlertTriangle
+                        size={20}
+                        className="text-red-500 flex-shrink-0 mt-0.5"
+                      />
+                      <p className="text-sm text-red-700 font-medium">
+                        {error}
+                      </p>
                     </div>
                   )}
 
@@ -978,7 +1050,9 @@ const TicketDetailsModal = ({ isOpen, onClose, ticket, loading, onRefresh }) => 
                   <div className="flex gap-3 pt-6 mt-6 border-t border-gray-100">
                     <button
                       onClick={handleUpdateClick}
-                      disabled={!selectedStatus || selectedStatus === ticket.status}
+                      disabled={
+                        !selectedStatus || selectedStatus === ticket.status
+                      }
                       className={`
                         flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold transition-all
                         ${

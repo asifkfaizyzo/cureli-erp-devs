@@ -19,8 +19,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   getEnquiryDetails,
   updateEnquiryStatus,
-} from "../../../api/cadminEnquiries";
-import { useToast } from "../../../components/common/Toast";
+} from "../../../../../api/cadminEnquiries";
+import { useToast } from "../../../../../components/common/Toast";
 
 const backdropVariants = {
   hidden: { opacity: 0 },

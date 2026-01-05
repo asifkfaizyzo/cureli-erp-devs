@@ -4,13 +4,13 @@ import {
   getEnquiries,
   getEnquiryStats,
   deleteEnquiry,
-} from "../../api/cadminEnquiries";
-import { useToast } from "../../components/common/Toast";
+} from "../../../../api/cadminEnquiries";
+import { useToast } from "../../../../components/common/Toast";
 import EnquiriesHeader from "./components/EnquiriesHeader";
 import EnquiriesTable from "./components/EnquiriesTable";
 import EnquiryDetailsModal from "./components/EnquiryDetailsModal";
 import EnquiryReplyModal from "./components/EnquiryReplyModal";
-import ConfirmDialog from "../../components/common/ConfirmDialog";
+import ConfirmDialog from "../../../../components/common/ConfirmDialog";
 
 const EnquiriesPage = () => {
   const toast = useToast();
@@ -100,9 +100,16 @@ const EnquiriesPage = () => {
         statsData = response.data.stats;
       } else if (response?.stats) {
         statsData = response.stats;
-      } else if (response?.data?.data && typeof response.data.data === "object") {
+      } else if (
+        response?.data?.data &&
+        typeof response.data.data === "object"
+      ) {
         statsData = response.data.data;
-      } else if (response?.data && typeof response.data === "object" && !response.data.success) {
+      } else if (
+        response?.data &&
+        typeof response.data === "object" &&
+        !response.data.success
+      ) {
         statsData = response.data;
       }
 
@@ -164,13 +171,19 @@ const EnquiriesPage = () => {
     setIsDeleting(true);
     try {
       await deleteEnquiry(selectedEnquiry.enquiry_id);
-      toast.success("Deleted", `Enquiry ${selectedEnquiry.enquiry_number} has been deleted.`);
+      toast.success(
+        "Deleted",
+        `Enquiry ${selectedEnquiry.enquiry_number} has been deleted.`
+      );
       setIsDeleteDialogOpen(false);
       setSelectedEnquiry(null);
       handleRefresh();
     } catch (err) {
       console.error("Failed to delete enquiry:", err);
-      toast.error("Delete Failed", "Could not delete the enquiry. Please try again.");
+      toast.error(
+        "Delete Failed",
+        "Could not delete the enquiry. Please try again."
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -180,16 +193,16 @@ const EnquiriesPage = () => {
   const handleReplySuccess = useCallback(() => {
     // Close reply modal
     setIsReplyModalOpen(false);
-    
+
     // Close details modal (if open)
     setIsDetailsModalOpen(false);
-    
+
     // Clear selected enquiry
     setSelectedEnquiry(null);
-    
+
     // Refresh the enquiries list and stats
     handleRefresh();
-    
+
     console.log("✅ Reply sent - returning to enquiries page");
   }, [handleRefresh]);
 
@@ -297,4 +310,3 @@ const EnquiriesPage = () => {
 };
 
 export default EnquiriesPage;
-

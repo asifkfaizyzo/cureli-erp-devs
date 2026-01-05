@@ -1,3 +1,5 @@
+// src/store/useMenuStore.js
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -12,15 +14,15 @@ export const useMenuStore = create(
       toggleSidebar: () =>
         set((state) => ({ sidebarExpanded: !state.sidebarExpanded })),
 
-      // Add breadcrumbs storage (if needed)
+      // Breadcrumbs
       breadcrumbs: ["Dashboard"],
       setBreadcrumbs: (crumbs) => set({ breadcrumbs: crumbs }),
     }),
-
     {
       name: "menu-storage",
       partialize: (state) => ({
         activeMenu: state.activeMenu,
+        // Note: breadcrumbs are NOT persisted (they reset on refresh based on URL)
       }),
     }
   )

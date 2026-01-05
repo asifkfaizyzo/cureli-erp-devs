@@ -1,8 +1,8 @@
 import { X, Send, Loader2, AlertCircle, Mail, FileText, CheckCircle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { replyToEnquiry } from "../../../api/cadminEnquiries";
-import { useToast } from "../../../components/common/Toast";
+import { replyToEnquiry } from "../../../../../api/cadminEnquiries";
+import { useToast } from "../../../../../components/common/Toast";
 
 const backdropVariants = {
   hidden: { opacity: 0 },

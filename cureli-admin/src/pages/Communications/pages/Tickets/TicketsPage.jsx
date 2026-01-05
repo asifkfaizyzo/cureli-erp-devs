@@ -1,19 +1,27 @@
 // cureli-admin/src/pages/Tickets/TicketsPage.jsx
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Search, X, Filter, Calendar, RefreshCw, Ticket, AlertCircle } from "lucide-react";
-import { getAllTickets, getTicketById } from "../../api/cadminTickets";
+import {
+  Search,
+  X,
+  Filter,
+  Calendar,
+  RefreshCw,
+  Ticket,
+  AlertCircle,
+} from "lucide-react";
+import { getAllTickets, getTicketById } from "../../../../api/cadminTickets";
 import TicketsTable from "./components/TicketsTable";
 import TicketDetailsModal from "./components/TicketDetailsModal";
-import StyledSelect from "../../components/common/StyledSelect";
-import useDebounce from "../../hooks/useDebounce";
-import useDynamicRowCount from "../../hooks/useDynamicRowCount";
+import StyledSelect from "../../../../components/common/StyledSelect";
+import useDebounce from "../../../../hooks/useDebounce";
+import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
 import toast from "react-hot-toast";
 import {
   STATUS_OPTIONS,
   CATEGORY_OPTIONS,
   PRIORITY_OPTIONS,
-} from "../../config/ticketConfigs";
+} from "../../../../config/ticketConfigs";
 
 const TicketsPage = () => {
   // Data state
@@ -53,7 +61,13 @@ const TicketsPage = () => {
 
   // Count active filters
   const activeFiltersCount = useMemo(() => {
-    return [statusFilter, categoryFilter, priorityFilter, dateFrom, dateTo].filter(Boolean).length;
+    return [
+      statusFilter,
+      categoryFilter,
+      priorityFilter,
+      dateFrom,
+      dateTo,
+    ].filter(Boolean).length;
   }, [statusFilter, categoryFilter, priorityFilter, dateFrom, dateTo]);
 
   // Check if any filter is active (including search)
@@ -121,7 +135,15 @@ const TicketsPage = () => {
   // Reset to page 1 when filters change (but not on page change)
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, categoryFilter, priorityFilter, dateFrom, dateTo, sortConfig]);
+  }, [
+    debouncedSearch,
+    statusFilter,
+    categoryFilter,
+    priorityFilter,
+    dateFrom,
+    dateTo,
+    sortConfig,
+  ]);
 
   // Handlers
   const handleSortChange = useCallback((column) => {
@@ -180,7 +202,9 @@ const TicketsPage = () => {
               <Ticket size={20} className="text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 truncate">Support Tickets</h1>
+              <h1 className="text-xl font-bold text-gray-900 truncate">
+                Support Tickets
+              </h1>
               <p className="text-sm text-gray-500">
                 {totalItems} total ticket{totalItems !== 1 ? "s" : ""}
               </p>
@@ -244,8 +268,10 @@ const TicketsPage = () => {
               <Filter size={18} />
               <span className="hidden sm:inline">Filters</span>
               {activeFiltersCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
-                                 text-xs font-bold rounded-full flex items-center justify-center">
+                <span
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
+                                 text-xs font-bold rounded-full flex items-center justify-center"
+                >
                   {activeFiltersCount}
                 </span>
               )}

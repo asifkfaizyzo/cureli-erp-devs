@@ -1,3 +1,5 @@
+// src/App.jsx
+
 import {
   BrowserRouter as Router,
   Routes,
@@ -16,8 +18,12 @@ import VerificationPage from "./pages/User-Shop-Verifications/VerificationPage";
 import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
 import ShopsPage from "./pages/shops-management/ShopsPage";
 import AdminsPage from "./pages/Cadmin-management/AdminsPage";
-import TicketsPage from "./pages/Tickets/TicketsPage";
-import EnquiriesPage from "./pages/Enquiries/EnquiriesPage";
+
+// Communications Pages (NEW STRUCTURE)
+import CommunicationsPage from "./pages/Communications/CommunicationsPage";
+import TicketsPage from "./pages/Communications/pages/Tickets/TicketsPage";
+import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage";
+import BroadcastPage from "./pages/Communications/pages/Broadcast/BroadcastPage";
 
 // Layout
 import AppLayout from "./components/layout/AppLayout";
@@ -92,8 +98,14 @@ function App() {
           <Route path="/audits" element={<div>Audits Page</div>} />
           <Route path="/settings" element={<div>Settings Page</div>} />
           <Route path="/admins" element={<AdminsPage />} />
-          <Route path="/tickets" element={<TicketsPage />} />
-          <Route path="/enquires" element={<EnquiriesPage />} />
+
+          {/* ══════════════════════════════════════════════════════
+              COMMUNICATIONS ROUTES
+          ══════════════════════════════════════════════════════ */}
+          <Route path="/communications" element={<CommunicationsPage />} />
+          <Route path="/communications/tickets" element={<TicketsPage />} />
+          <Route path="/communications/enquiries" element={<EnquiriesPage />} />
+          <Route path="/communications/broadcast" element={<BroadcastPage />} />
         </Route>
 
         {/* ══════════════════════════════════════════════════════

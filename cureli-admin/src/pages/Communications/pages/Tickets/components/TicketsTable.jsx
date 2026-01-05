@@ -18,7 +18,7 @@ import {
   getStatusConfig,
   getCategoryConfig,
   getPriorityConfig,
-} from "../../../config/ticketConfigs";
+} from "../../../../../config/ticketConfigs";
 
 // Status Badge Component
 const StatusBadge = ({ status }) => {
@@ -29,7 +29,9 @@ const StatusBadge = ({ status }) => {
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold 
                   ${config.bg} ${config.text} border ${config.border} whitespace-nowrap`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0`} />
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0`}
+      />
       <span className="truncate">{config.label}</span>
     </span>
   );
@@ -56,10 +58,14 @@ const PriorityBadge = ({ priority }) => {
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold 
-                  ${config.bg} ${config.text} border ${config.border} whitespace-nowrap
+                  ${config.bg} ${config.text} border ${
+        config.border
+      } whitespace-nowrap
                   ${config.pulse ? "animate-pulse" : ""}`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0`} />
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0`}
+      />
       <span>{config.label}</span>
     </span>
   );
@@ -81,9 +87,10 @@ const ReopenBadge = ({ count }) => {
   return (
     <span
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-semibold 
-                  ${isCritical 
-                    ? "bg-red-100 text-red-700 border border-red-200" 
-                    : isHigh 
+                  ${
+                    isCritical
+                      ? "bg-red-100 text-red-700 border border-red-200"
+                      : isHigh
                       ? "bg-orange-100 text-orange-700 border border-orange-200"
                       : "bg-amber-100 text-amber-700 border border-amber-200"
                   }`}
@@ -121,7 +128,13 @@ const SortIcon = ({ column, sortConfig }) => {
 };
 
 // Sortable Header Cell
-const SortableHeader = ({ column, label, sortConfig, onSort, className = "" }) => (
+const SortableHeader = ({
+  column,
+  label,
+  sortConfig,
+  onSort,
+  className = "",
+}) => (
   <th
     onClick={() => onSort(column)}
     className={`px-2 sm:px-3 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider 
@@ -219,7 +232,9 @@ const TicketsTable = ({
             <Search size={28} className="text-amber-400" />
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-gray-900">No tickets match your filters</p>
+            <p className="text-sm font-medium text-gray-900">
+              No tickets match your filters
+            </p>
             <p className="text-xs text-gray-500 mt-1">
               Try adjusting or clearing your filters
             </p>
@@ -247,7 +262,10 @@ const TicketsTable = ({
     <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
       {/* Scrollable table container */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full border-collapse text-sm" style={{ minWidth: "1000px" }}>
+        <table
+          className="w-full border-collapse text-sm"
+          style={{ minWidth: "1000px" }}
+        >
           {/* Header */}
           <thead className="sticky top-0 z-10">
             <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white text-left">
@@ -305,7 +323,10 @@ const TicketsTable = ({
                 <td colSpan="11" className="px-4 py-12 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-[#05015A]/10 flex items-center justify-center">
-                      <Loader2 size={20} className="animate-spin text-[#05015A]" />
+                      <Loader2
+                        size={20}
+                        className="animate-spin text-[#05015A]"
+                      />
                     </div>
                     <p className="text-sm text-gray-500">Loading tickets...</p>
                   </div>
@@ -343,17 +364,25 @@ const TicketsTable = ({
                       className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#05015A] 
                                  hover:text-[#0a0280] transition-colors"
                     >
-                      <FileText size={12} className="text-gray-400 flex-shrink-0" />
-                      <span className="truncate max-w-[100px]">{ticket.ticket_number}</span>
+                      <FileText
+                        size={12}
+                        className="text-gray-400 flex-shrink-0"
+                      />
+                      <span className="truncate max-w-[100px]">
+                        {ticket.ticket_number}
+                      </span>
                     </button>
                   </td>
 
                   <td className="px-2 sm:px-3 py-3">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-6 h-6 rounded-md bg-gradient-to-br from-[#05015A]/10 to-[#0a0280]/10 
-                                      flex items-center justify-center flex-shrink-0">
+                      <div
+                        className="w-6 h-6 rounded-md bg-gradient-to-br from-[#05015A]/10 to-[#0a0280]/10 
+                                      flex items-center justify-center flex-shrink-0"
+                      >
                         <span className="text-[10px] font-bold text-[#05015A]">
-                          {ticket.shop_name?.substring(0, 2).toUpperCase() || "SH"}
+                          {ticket.shop_name?.substring(0, 2).toUpperCase() ||
+                            "SH"}
                         </span>
                       </div>
                       <span
@@ -464,7 +493,10 @@ const TicketsTable = ({
               <div className="hidden sm:flex items-center gap-1 mx-1">
                 {getPageNumbers().map((page, idx) =>
                   page === "..." ? (
-                    <span key={`ellipsis-${idx}`} className="w-8 text-center text-gray-400 text-xs">
+                    <span
+                      key={`ellipsis-${idx}`}
+                      className="w-8 text-center text-gray-400 text-xs"
+                    >
                       •••
                     </span>
                   ) : (
@@ -485,7 +517,9 @@ const TicketsTable = ({
               </div>
 
               <div className="sm:hidden px-2 text-xs text-gray-600">
-                <span className="font-semibold text-[#05015A]">{currentPage}</span>
+                <span className="font-semibold text-[#05015A]">
+                  {currentPage}
+                </span>
                 <span className="mx-1">/</span>
                 <span>{totalPages}</span>
               </div>
