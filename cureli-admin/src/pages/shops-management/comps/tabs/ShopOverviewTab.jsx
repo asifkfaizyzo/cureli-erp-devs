@@ -1,5 +1,5 @@
 import { Building2, User, Shield, MapPin } from "lucide-react";
-import DetailRow from "../../User/DetailRow";
+import DetailRow from "../../../../components/common/DetailRow";
 
 const ShopOverviewTab = ({ shop }) => {
   if (!shop) return null;

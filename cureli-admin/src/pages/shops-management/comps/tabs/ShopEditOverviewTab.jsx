@@ -1,5 +1,5 @@
 import { Building2, User, MapPin, AlertTriangle } from "lucide-react";
-import DetailRow from "../../User/DetailRow";
+import DetailRow from "../../../../components/common/DetailRow";
 
 const BUSINESS_TYPES = [
   { value: "Sole Proprietorship", label: "Sole Proprietorship" },

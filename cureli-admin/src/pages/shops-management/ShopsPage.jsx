@@ -1,10 +1,10 @@
 // src/pages/ShopsPage.jsx
 
 import { useState, useEffect, useCallback } from "react";
-import ShopsHeader from "../components/Shops/ShopsHeader";
-import ShopsTable from "../components/Shops/ShopsTable";
-import { getShops } from "../api/cadminShops";
-import { useToast } from "../components/common/Toast";
+import ShopsHeader from "./comps/ShopsHeader";
+import ShopsTable from "./comps/ShopsTable";
+import { getShops } from "../../api/cadminShops";
+import { useToast } from "../../components/common/Toast";
 
 const ShopsPage = () => {
   const toast = useToast();

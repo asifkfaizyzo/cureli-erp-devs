@@ -9,7 +9,7 @@ import CAdminForgotPassword from "./pages/CAdminForgotPassword";
 import CAdminResetPassword from "./pages/CAdminResetPassword";
 import VerificationPage from "./pages/VerificationPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
-import ShopsPage from "./pages/ShopsPage";
+import ShopsPage from "./pages/shops-management/ShopsPage";
 import AdminsPage from "./pages/Cadmin-management/AdminsPage";
 import TicketsPage from "./pages/Tickets/TicketsPage";
 import EnquiriesPage from "./pages/Enquiries/EnquiriesPage";

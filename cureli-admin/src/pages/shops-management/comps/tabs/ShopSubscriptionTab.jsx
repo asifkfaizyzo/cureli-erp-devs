@@ -5,7 +5,7 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
-import DetailRow from "../../User/DetailRow";
+import DetailRow from "../../../../components/User/DetailRow";
 
 const ShopSubscriptionTab = ({ shop }) => {
   if (!shop) return null;
@@ -63,7 +63,7 @@ const ShopSubscriptionTab = ({ shop }) => {
   // Format price from paisa to rupees
   const formatPrice = (priceInPaisa) => {
     if (!priceInPaisa && priceInPaisa !== 0) return "N/A";
-    const rupees = Number(priceInPaisa) ;
+    const rupees = Number(priceInPaisa);
     return `₹${rupees.toLocaleString("en-IN")}`;
   };
 

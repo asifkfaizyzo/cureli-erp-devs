@@ -13,9 +13,9 @@ import {
   Star,
   Plus,
 } from "lucide-react";
-import DetailRow from "../../User/DetailRow";
+import DetailRow from "../../../../components/common/DetailRow";
 import CustomPlanModal from "../CustomPlanModal";
-import { getPlans, updateShopSubscription } from "../../../api/cadminShops";
+import { getPlans, updateShopSubscription } from "../../../../api/cadminShops";
 
 const ShopEditSubscriptionTab = ({ shop, onRefresh }) => {
   const currentSub = shop?.currentSubscription;

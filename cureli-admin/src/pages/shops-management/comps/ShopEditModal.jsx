@@ -13,8 +13,8 @@ import {
   Save,
   Loader2,
 } from "lucide-react";
-import { getShopById, updateShop } from "../../api/cadminShops";
-import { useToast } from "../common/Toast";
+import { getShopById, updateShop } from "../../../api/cadminShops";
+import { useToast } from "../../../components/common/Toast";
 
 // Tab Components
 import ShopEditOverviewTab from "./tabs/ShopEditOverviewTab";
@@ -27,7 +27,7 @@ import ShopActivityTab from "./tabs/ShopActivityTab";
 
 const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
   const toast = useToast();
-  
+
   const [activeTab, setActiveTab] = useState("overview");
 
   // Full shop data
@@ -79,7 +79,8 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
       setHasChanges(false);
     } catch (err) {
       console.error("Failed to fetch shop details:", err);
-      const errorMessage = err.response?.data?.message || "Failed to load shop details";
+      const errorMessage =
+        err.response?.data?.message || "Failed to load shop details";
       setError(errorMessage);
       toast.error("Failed to Load Shop", errorMessage);
     } finally {
@@ -137,7 +138,7 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
     try {
       // Build payload with only changed fields
       const payload = {};
-      
+
       if (formData.business_name !== shop.business_name) {
         payload.business_name = formData.business_name;
       }
@@ -166,17 +167,19 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
       }
 
       await updateShop(shop.shop_id, payload);
-      
+
       // Show success toast
       toast.success(
         "Shop Updated",
         `${shop.business_name || "Shop"} details saved successfully.`
       );
-      
+
       onClose(true); // Close and refresh
     } catch (err) {
       console.error("Save failed:", err);
-      const errorMessage = err.response?.data?.message || "Failed to save changes. Please try again.";
+      const errorMessage =
+        err.response?.data?.message ||
+        "Failed to save changes. Please try again.";
       toast.error("Save Failed", errorMessage);
     } finally {
       setSaveLoading(false);
@@ -186,7 +189,9 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
   // Handle close with unsaved changes warning
   const handleClose = () => {
     if (hasChanges) {
-      const confirm = window.confirm("You have unsaved changes. Are you sure you want to close?");
+      const confirm = window.confirm(
+        "You have unsaved changes. Are you sure you want to close?"
+      );
       if (!confirm) return;
     }
     onClose(false);
@@ -206,7 +211,12 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
   const tabs = [
     { id: "overview", label: "Overview", icon: Building2, editable: true },
     { id: "address", label: "Address", icon: MapPin, editable: true },
-    { id: "subscription", label: "Subscription", icon: CreditCard, editable: true },
+    {
+      id: "subscription",
+      label: "Subscription",
+      icon: CreditCard,
+      editable: true,
+    },
     { id: "documents", label: "Documents", icon: FileText, editable: true },
     { id: "users", label: "Users", icon: Users, editable: false },
     { id: "branches", label: "Branches", icon: GitBranch, editable: false },
@@ -215,20 +225,44 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
 
   // Get current tab config
   const currentTab = tabs.find((t) => t.id === activeTab);
-  const isEditableTab = currentTab?.editable && (activeTab === "overview" || activeTab === "address");
+  const isEditableTab =
+    currentTab?.editable &&
+    (activeTab === "overview" || activeTab === "address");
 
   // Verification status badge
   const getVerificationBadge = (status) => {
     const config = {
-      verified: { bg: "bg-emerald-500/20", text: "text-emerald-300", label: "Verified" },
-      pending: { bg: "bg-blue-500/20", text: "text-blue-300", label: "Pending" },
-      pending_review: { bg: "bg-yellow-500/20", text: "text-yellow-300", label: "Pending Review" },
-      rejected: { bg: "bg-red-500/20", text: "text-red-300", label: "Rejected" },
-      partially_rejected: { bg: "bg-orange-500/20", text: "text-orange-300", label: "Partially Rejected" },
+      verified: {
+        bg: "bg-emerald-500/20",
+        text: "text-emerald-300",
+        label: "Verified",
+      },
+      pending: {
+        bg: "bg-blue-500/20",
+        text: "text-blue-300",
+        label: "Pending",
+      },
+      pending_review: {
+        bg: "bg-yellow-500/20",
+        text: "text-yellow-300",
+        label: "Pending Review",
+      },
+      rejected: {
+        bg: "bg-red-500/20",
+        text: "text-red-300",
+        label: "Rejected",
+      },
+      partially_rejected: {
+        bg: "bg-orange-500/20",
+        text: "text-orange-300",
+        label: "Partially Rejected",
+      },
     };
     const style = config[status] || config.pending;
     return (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
+      <span
+        className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
+      >
         {style.label}
       </span>
     );
@@ -281,18 +315,10 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
         );
       case "subscription":
         return (
-          <ShopEditSubscriptionTab
-            shop={shop}
-            onRefresh={handleRefresh}
-          />
+          <ShopEditSubscriptionTab shop={shop} onRefresh={handleRefresh} />
         );
       case "documents":
-        return (
-          <ShopEditDocumentsTab
-            shop={shop}
-            onRefresh={handleRefresh}
-          />
-        );
+        return <ShopEditDocumentsTab shop={shop} onRefresh={handleRefresh} />;
       case "users":
         return <ShopUsersTab shop={shop} />;
       case "branches":
@@ -307,7 +333,8 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
   // Display values
   const displayName = shop?.business_name || basicShop?.business_name || "Shop";
   const displayType = shop?.business_type || basicShop?.business_type || "";
-  const displayVerification = shop?.verification_status || basicShop?.verification_status || "pending";
+  const displayVerification =
+    shop?.verification_status || basicShop?.verification_status || "pending";
 
   return (
     <div
@@ -339,7 +366,9 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-white text-lg font-semibold">Edit: {displayName}</h2>
+                  <h2 className="text-white text-lg font-semibold">
+                    Edit: {displayName}
+                  </h2>
                   {displayType && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/20 text-white">
                       {displayType}
@@ -362,9 +391,10 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
                   disabled={!hasChanges || saveLoading}
                   className={`
                     flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                    ${hasChanges && !saveLoading
-                      ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                      : "bg-white/20 text-white/50 cursor-not-allowed"
+                    ${
+                      hasChanges && !saveLoading
+                        ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                        : "bg-white/20 text-white/50 cursor-not-allowed"
                     }
                   `}
                 >
@@ -407,16 +437,20 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`
                   flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-md transition-all whitespace-nowrap
-                  ${isActive
-                    ? "text-[#05015A] border-b-2 border-[#05015A] bg-white"
-                    : "text-gray-500 hover:text-gray-700"
+                  ${
+                    isActive
+                      ? "text-[#05015A] border-b-2 border-[#05015A] bg-white"
+                      : "text-gray-500 hover:text-gray-700"
                   }
                 `}
               >
                 <Icon size={16} />
                 {tab.label}
                 {tab.editable && (
-                  <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" title="Editable" />
+                  <span
+                    className="w-1.5 h-1.5 bg-amber-400 rounded-full"
+                    title="Editable"
+                  />
                 )}
               </button>
             );
@@ -433,8 +467,12 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
           <div className="flex items-center justify-between">
             {/* Left: Meta Info */}
             <p className="text-xs text-gray-400">
-              Shop ID: {shop?.shop_id?.slice(0, 8) || basicShop?.shop_id?.slice(0, 8)}... •
-              Last Updated: {shop?.updated_at ? new Date(shop.updated_at).toLocaleDateString() : "N/A"}
+              Shop ID:{" "}
+              {shop?.shop_id?.slice(0, 8) || basicShop?.shop_id?.slice(0, 8)}...
+              • Last Updated:{" "}
+              {shop?.updated_at
+                ? new Date(shop.updated_at).toLocaleDateString()
+                : "N/A"}
             </p>
 
             {/* Right: Buttons */}
@@ -452,9 +490,10 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
                   disabled={!hasChanges || saveLoading}
                   className={`
                     flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                    ${hasChanges && !saveLoading
-                      ? "bg-[#05015A] text-white hover:bg-[#0a0280]"
-                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    ${
+                      hasChanges && !saveLoading
+                        ? "bg-[#05015A] text-white hover:bg-[#0a0280]"
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
                     }
                   `}
                 >
@@ -475,7 +514,6 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
 };
 
 export default ShopEditModal;
-
 
 // // src/components/Shops/ShopEditModal.jsx
 
@@ -611,7 +649,7 @@ export default ShopEditModal;
 //     try {
 //       // Build payload with only changed fields
 //       const payload = {};
-      
+
 //       if (formData.business_name !== shop.business_name) {
 //         payload.business_name = formData.business_name;
 //       }

@@ -1,14 +1,31 @@
 import { useState, useEffect } from "react";
-import { X, Users, GitBranch, Loader2, Sparkles, DollarSign, FileText, AlertTriangle, CheckCircle, Building2 } from "lucide-react";
-import { createCustomPlan, activatePlan } from "../../api/cadminShops";
+import {
+  X,
+  Users,
+  GitBranch,
+  Loader2,
+  Sparkles,
+  DollarSign,
+  FileText,
+  AlertTriangle,
+  CheckCircle,
+  Building2,
+} from "lucide-react";
+import { createCustomPlan, activatePlan } from "../../../api/cadminShops";
 
-const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = "" }) => {
+const CustomPlanModal = ({
+  isOpen,
+  onClose,
+  onPlanCreated,
+  shopId,
+  shopName = "",
+}) => {
   const [planName, setPlanName] = useState("");
   const [description, setDescription] = useState("");
   const [maxUsers, setMaxUsers] = useState(10);
   const [maxBranches, setMaxBranches] = useState(2);
   const [price, setPrice] = useState(0);
-  
+
   const [loading, setLoading] = useState(false);
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState("");
@@ -29,7 +46,7 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
   }, [isOpen]);
 
   const getAutoName = () => {
-    return shopName 
+    return shopName
       ? `Custom - ${shopName} - ${maxUsers}U/${maxBranches}B`
       : `Custom - ${maxUsers}U/${maxBranches}B`;
   };
@@ -89,7 +106,10 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
 
     try {
       const response = await activatePlan(createdPlan.plan_id);
-      const activatedPlan = response.data?.data || { ...createdPlan, status: "ACTIVE" };
+      const activatedPlan = response.data?.data || {
+        ...createdPlan,
+        status: "ACTIVE",
+      };
       onPlanCreated(activatedPlan);
     } catch (err) {
       console.error("Failed to activate plan:", err);
@@ -128,10 +148,11 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
                   {step === 1 ? "Create Custom Plan" : "Activate Plan"}
                 </h3>
                 <p className="text-white/70 text-sm">
-                  {step === 1 
-                    ? (shopName ? `Custom plan for ${shopName}` : "Set custom limits for this shop")
-                    : "Make the plan available for use"
-                  }
+                  {step === 1
+                    ? shopName
+                      ? `Custom plan for ${shopName}`
+                      : "Set custom limits for this shop"
+                    : "Make the plan available for use"}
                 </p>
               </div>
             </div>
@@ -153,14 +174,17 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
               {shopName && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 rounded-lg border border-indigo-100 mb-6">
                   <Building2 size={16} className="text-indigo-600" />
-                  <span className="text-xs text-indigo-600 font-medium">Creating for:</span>
-                  <span className="text-sm text-indigo-900 font-semibold">{shopName}</span>
+                  <span className="text-xs text-indigo-600 font-medium">
+                    Creating for:
+                  </span>
+                  <span className="text-sm text-indigo-900 font-semibold">
+                    {shopName}
+                  </span>
                 </div>
               )}
 
               {/* Form - Horizontal Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
                 {/* Left Column */}
                 <div className="space-y-4">
                   {/* Plan Name */}
@@ -168,7 +192,9 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                       <FileText size={16} className="text-indigo-500" />
                       Plan Name
-                      <span className="text-xs text-gray-400 font-normal">(optional)</span>
+                      <span className="text-xs text-gray-400 font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="text"
@@ -179,7 +205,9 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
                                transition-all"
                       placeholder={getAutoName()}
                     />
-                    <p className="mt-1 text-xs text-gray-400">Leave empty to auto-generate</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Leave empty to auto-generate
+                    </p>
                   </div>
 
                   {/* Description */}
@@ -187,7 +215,9 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                       <FileText size={16} className="text-indigo-500" />
                       Description
-                      <span className="text-xs text-gray-400 font-normal">(optional)</span>
+                      <span className="text-xs text-gray-400 font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <textarea
                       value={description}
@@ -210,19 +240,25 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
                       Yearly Price (₹)
                     </label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
+                        ₹
+                      </span>
                       <input
                         type="number"
                         min="0"
                         value={price}
-                        onChange={(e) => setPrice(parseInt(e.target.value) || 0)}
+                        onChange={(e) =>
+                          setPrice(parseInt(e.target.value) || 0)
+                        }
                         className="w-full px-4 py-3 pl-8 border border-gray-200 rounded-xl text-lg font-medium
                                  focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
                                  transition-all"
                         placeholder="0 for custom pricing"
                       />
                     </div>
-                    <p className="mt-1 text-xs text-gray-400">Enter 0 for custom/negotiated pricing</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Enter 0 for custom/negotiated pricing
+                    </p>
                   </div>
 
                   {/* Max Users & Branches - Side by Side */}
@@ -237,7 +273,9 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
                         min="1"
                         max="1000"
                         value={maxUsers}
-                        onChange={(e) => setMaxUsers(parseInt(e.target.value) || 1)}
+                        onChange={(e) =>
+                          setMaxUsers(parseInt(e.target.value) || 1)
+                        }
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-medium
                                  focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
                                  transition-all"
@@ -253,7 +291,9 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
                         min="1"
                         max="100"
                         value={maxBranches}
-                        onChange={(e) => setMaxBranches(parseInt(e.target.value) || 1)}
+                        onChange={(e) =>
+                          setMaxBranches(parseInt(e.target.value) || 1)
+                        }
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-medium
                                  focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
                                  transition-all"
@@ -263,11 +303,17 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
 
                   {/* Info Box */}
                   <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-start gap-2">
-                    <AlertTriangle size={16} className="text-blue-600 mt-0.5 shrink-0" />
+                    <AlertTriangle
+                      size={16}
+                      className="text-blue-600 mt-0.5 shrink-0"
+                    />
                     <div className="text-xs text-blue-700">
-                      <p className="font-medium">This will create a CUSTOM DRAFT plan</p>
+                      <p className="font-medium">
+                        This will create a CUSTOM DRAFT plan
+                      </p>
                       <p className="mt-0.5">
-                        Linked to {shopName || "this shop"}. You'll need to activate it in the next step.
+                        Linked to {shopName || "this shop"}. You'll need to
+                        activate it in the next step.
                       </p>
                     </div>
                   </div>
@@ -317,7 +363,6 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
           <>
             <div className="p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
                 {/* Left Column - Success Message */}
                 <div className="space-y-4">
                   {/* Success Message */}
@@ -326,24 +371,36 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
                       <CheckCircle size={24} className="text-emerald-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-emerald-800">Plan Created Successfully!</p>
-                      <p className="text-sm text-emerald-600 mt-0.5">"{createdPlan.name}" is now in DRAFT status</p>
+                      <p className="font-medium text-emerald-800">
+                        Plan Created Successfully!
+                      </p>
+                      <p className="text-sm text-emerald-600 mt-0.5">
+                        "{createdPlan.name}" is now in DRAFT status
+                      </p>
                     </div>
                   </div>
 
                   {/* Activation Warning */}
                   <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 flex items-start gap-2">
-                    <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                    <AlertTriangle
+                      size={16}
+                      className="text-amber-600 mt-0.5 shrink-0"
+                    />
                     <div className="text-xs text-amber-700">
                       <p className="font-medium">Activate to use this plan</p>
-                      <p className="mt-0.5">Once activated, this plan becomes <strong>immutable</strong> and cannot be edited.</p>
+                      <p className="mt-0.5">
+                        Once activated, this plan becomes{" "}
+                        <strong>immutable</strong> and cannot be edited.
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Right Column - Plan Summary */}
                 <div className="p-4 bg-gray-50 rounded-xl">
-                  <h4 className="font-medium text-gray-900 mb-4">Plan Summary</h4>
+                  <h4 className="font-medium text-gray-900 mb-4">
+                    Plan Summary
+                  </h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-500">Name:</span>
@@ -351,11 +408,15 @@ const CustomPlanModal = ({ isOpen, onClose, onPlanCreated, shopId, shopName = ""
                     </div>
                     <div>
                       <span className="text-gray-500">Type:</span>
-                      <p className="font-medium text-purple-600">{createdPlan.type || "CUSTOM"}</p>
+                      <p className="font-medium text-purple-600">
+                        {createdPlan.type || "CUSTOM"}
+                      </p>
                     </div>
                     <div>
                       <span className="text-gray-500">Status:</span>
-                      <p className="font-medium text-amber-600">{createdPlan.status || "DRAFT"}</p>
+                      <p className="font-medium text-amber-600">
+                        {createdPlan.status || "DRAFT"}
+                      </p>
                     </div>
                     <div>
                       <span className="text-gray-500">Linked Shop:</span>

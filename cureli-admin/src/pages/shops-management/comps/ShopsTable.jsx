@@ -10,10 +10,10 @@ import {
   Ban,
   CheckCircle,
 } from "lucide-react";
-import Pagination from "../../components/common/Pagination";
+import Pagination from "../../../components/common/Pagination";
 import ShopDetailsModal from "./ShopDetailsModal";
-import ConfirmDialog from "../common/ConfirmDialog";
-import { toggleShopActive } from "../../api/cadminShops";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import { toggleShopActive } from "../../../api/cadminShops";
 
 const ShopsTable = ({
   currentPage,

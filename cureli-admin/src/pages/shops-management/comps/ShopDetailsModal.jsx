@@ -17,9 +17,13 @@ import {
   Loader2,
   AlertTriangle,
 } from "lucide-react";
-import { getShopById, updateShop, toggleShopActive } from "../../api/cadminShops";
-import ConfirmDialog from "../common/ConfirmDialog";
-import { useToast } from "../common/Toast";
+import {
+  getShopById,
+  updateShop,
+  toggleShopActive,
+} from "../../../api/cadminShops";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import { useToast } from "../../../components/common/Toast";
 
 // Tab Components (View Mode)
 import ShopOverviewTab from "./tabs/ShopOverviewTab";
@@ -44,9 +48,14 @@ const REQUIRED_DOCUMENT_TYPES = [
   "pan_card",
 ];
 
-const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) => {
+const ShopDetailsModal = ({
+  shop: basicShop,
+  isOpen,
+  onClose,
+  mode = "view",
+}) => {
   const toast = useToast();
-  
+
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditing, setIsEditing] = useState(false);
 
@@ -110,7 +119,8 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
       setDocumentsValid(allRequiredPresent);
     } catch (err) {
       console.error("Failed to fetch shop details:", err);
-      const errorMessage = err.response?.data?.message || "Failed to load shop details";
+      const errorMessage =
+        err.response?.data?.message || "Failed to load shop details";
       setError(errorMessage);
       toast.error("Failed to Load Shop", errorMessage);
     } finally {
@@ -165,7 +175,12 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
   // Tab configuration
   const tabs = [
     { id: "overview", label: "Overview", icon: Building2, editable: true },
-    { id: "subscription", label: "Subscription", icon: CreditCard, editable: true },
+    {
+      id: "subscription",
+      label: "Subscription",
+      icon: CreditCard,
+      editable: true,
+    },
     { id: "documents", label: "Documents", icon: FileText, editable: true },
     { id: "users", label: "Users", icon: Users, editable: false },
     { id: "branches", label: "Branches", icon: GitBranch, editable: false },
@@ -189,10 +204,26 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
   // Verification status badge
   const getVerificationBadge = (status) => {
     const config = {
-      verified: { bg: "bg-emerald-500/20", text: "text-emerald-300", label: "Verified" },
-      pending: { bg: "bg-blue-500/20", text: "text-blue-300", label: "Pending" },
-      pending_review: { bg: "bg-yellow-500/20", text: "text-yellow-300", label: "Pending Review" },
-      rejected: { bg: "bg-red-500/20", text: "text-red-300", label: "Rejected" },
+      verified: {
+        bg: "bg-emerald-500/20",
+        text: "text-emerald-300",
+        label: "Verified",
+      },
+      pending: {
+        bg: "bg-blue-500/20",
+        text: "text-blue-300",
+        label: "Pending",
+      },
+      pending_review: {
+        bg: "bg-yellow-500/20",
+        text: "text-yellow-300",
+        label: "Pending Review",
+      },
+      rejected: {
+        bg: "bg-red-500/20",
+        text: "text-red-300",
+        label: "Rejected",
+      },
       partially_rejected: {
         bg: "bg-orange-500/20",
         text: "text-orange-300",
@@ -201,7 +232,9 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
     };
     const style = config[status] || config.pending;
     return (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
+      <span
+        className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}
+      >
         {style.label}
       </span>
     );
@@ -277,16 +310,18 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
 
       await updateShop(shop.shop_id, payload);
       setIsEditing(false);
-      
+
       toast.success(
         "Shop Updated",
         `${shop.business_name || "Shop"} details saved successfully.`
       );
-      
+
       onClose(true); // Close and refresh
     } catch (err) {
       console.error("Save failed:", err);
-      const errorMessage = err.response?.data?.message || "Failed to save changes. Please try again.";
+      const errorMessage =
+        err.response?.data?.message ||
+        "Failed to save changes. Please try again.";
       toast.error("Save Failed", errorMessage);
     } finally {
       setSaveLoading(false);
@@ -313,7 +348,7 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
       const newIsActive = !shop.is_active;
       await toggleShopActive(shop.shop_id, newIsActive);
       setShowSuspendConfirm(false);
-      
+
       // Show success toast
       if (newIsActive) {
         toast.success(
@@ -326,11 +361,12 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
           `${shop.business_name || "Shop"} has been suspended successfully.`
         );
       }
-      
+
       onClose(true); // Close and refresh
     } catch (err) {
       console.error("Suspend/Activate failed:", err);
-      const errorMessage = err.response?.data?.message || "Failed to update shop status";
+      const errorMessage =
+        err.response?.data?.message || "Failed to update shop status";
       toast.error("Action Failed", errorMessage);
     } finally {
       setSuspendLoading(false);
@@ -377,7 +413,11 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
     switch (activeTab) {
       case "overview":
         return isEditing ? (
-          <ShopEditOverviewTab shop={shop} formData={formData} onFormChange={handleFormChange} />
+          <ShopEditOverviewTab
+            shop={shop}
+            formData={formData}
+            onFormChange={handleFormChange}
+          />
         ) : (
           <ShopOverviewTab shop={shop} />
         );
@@ -415,7 +455,10 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
     shop?.verification_status || basicShop?.verification_status || "pending";
   const displayIsActive = shop?.is_active ?? basicShop?.is_active ?? true;
   const ownerName =
-    shop?.owner?.full_name || basicShop?.owner?.name || basicShop?.owner?.full_name || "";
+    shop?.owner?.full_name ||
+    basicShop?.owner?.name ||
+    basicShop?.owner?.full_name ||
+    "";
 
   return (
     <>
@@ -460,7 +503,9 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
                     {getActiveBadge(displayIsActive)}
                   </div>
                   {ownerName && (
-                    <p className="text-white/70 text-sm mt-0.5">Owner: {ownerName}</p>
+                    <p className="text-white/70 text-sm mt-0.5">
+                      Owner: {ownerName}
+                    </p>
                   )}
                 </div>
               </div>
@@ -489,7 +534,11 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
                       }
                       disabled:opacity-50 disabled:cursor-not-allowed
                     `}
-                    title={isEditing && !canSave() ? "Upload all 6 required documents to save" : ""}
+                    title={
+                      isEditing && !canSave()
+                        ? "Upload all 6 required documents to save"
+                        : ""
+                    }
                   >
                     {saveLoading ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -498,7 +547,11 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
                     ) : (
                       <Pencil size={16} />
                     )}
-                    {saveLoading ? "Saving..." : isEditing ? "Save Changes" : "Edit Details"}
+                    {saveLoading
+                      ? "Saving..."
+                      : isEditing
+                      ? "Save Changes"
+                      : "Edit Details"}
                   </button>
                 )}
 
@@ -528,7 +581,8 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
               const isActive = activeTab === tab.id;
 
               // ✅ Show warning dot on documents tab if invalid
-              const showWarning = tab.id === "documents" && isEditing && !documentsValid;
+              const showWarning =
+                tab.id === "documents" && isEditing && !documentsValid;
 
               return (
                 <button
@@ -552,7 +606,10 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
                     />
                   )}
                   {tab.editable && isEditing && !showWarning && (
-                    <span className="w-1.5 h-1.5 bg-amber-400 rounded-full" title="Editable" />
+                    <span
+                      className="w-1.5 h-1.5 bg-amber-400 rounded-full"
+                      title="Editable"
+                    />
                   )}
                 </button>
               );
@@ -560,25 +617,33 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
           </div>
 
           {/* Content */}
-          <div className="p-4 h-[60vh] overflow-auto bg-gray-50">{renderTabContent()}</div>
+          <div className="p-4 h-[60vh] overflow-auto bg-gray-50">
+            {renderTabContent()}
+          </div>
 
           {/* Footer */}
           <div className="px-6 py-4 bg-white border-t border-gray-100">
             <div className="flex items-center justify-between">
               {/* Left: Meta Info */}
               <p className="text-xs text-gray-400">
-                Shop ID: {shop?.shop_id?.slice(0, 8) || basicShop?.shop_id?.slice(0, 8)}... •
+                Shop ID:{" "}
+                {shop?.shop_id?.slice(0, 8) || basicShop?.shop_id?.slice(0, 8)}
+                ... •
                 {isEditing ? (
                   <span>
                     {" "}
                     Last Updated:{" "}
-                    {shop?.updated_at ? new Date(shop.updated_at).toLocaleDateString() : "N/A"}
+                    {shop?.updated_at
+                      ? new Date(shop.updated_at).toLocaleDateString()
+                      : "N/A"}
                   </span>
                 ) : (
                   <span>
                     {" "}
                     Created:{" "}
-                    {shop?.created_at ? new Date(shop.created_at).toLocaleDateString() : "N/A"}
+                    {shop?.created_at
+                      ? new Date(shop.created_at).toLocaleDateString()
+                      : "N/A"}
                   </span>
                 )}
               </p>
@@ -654,7 +719,6 @@ const ShopDetailsModal = ({ shop: basicShop, isOpen, onClose, mode = "view" }) =
 };
 
 export default ShopDetailsModal;
-
 
 // // src/components/Shops/ShopDetailsModal.jsx
 

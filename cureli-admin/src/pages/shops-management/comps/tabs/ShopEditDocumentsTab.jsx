@@ -16,8 +16,8 @@ import {
   File,
   Plus,
 } from "lucide-react";
-import ConfirmDialog from "../../common/ConfirmDialog";
-import { verifyShopFile, rejectShopFile, uploadShopDocument } from "../../../api/cadminShops";
+import ConfirmDialog from "../../../../components/common/ConfirmDialog";
+import { verifyShopFile, rejectShopFile, uploadShopDocument } from "../../../../api/cadminShops";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 

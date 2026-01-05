@@ -2,8 +2,8 @@
 
 import { Search, X, Download, FileSpreadsheet } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import StyledSelect from "../common/StyledSelect";
-import StyledDateFilter from "../common/StyledDateFilter";
+import StyledSelect from "../../../components/common/StyledSelect";
+import StyledDateFilter from "../../../components/common/StyledDateFilter";
 
 const ShopsHeader = ({
   searchText,
