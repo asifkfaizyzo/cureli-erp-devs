@@ -1,4 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import { useEffect } from "react";
 
 // Admin Pages
@@ -8,7 +13,7 @@ import UserPage from "./pages/Users-management/UserPage";
 import CAdminForgotPassword from "./pages/CAdminForgotPassword";
 import CAdminResetPassword from "./pages/CAdminResetPassword";
 import VerificationPage from "./pages/VerificationPage";
-import SubscriptionPage from "./pages/SubscriptionPage";
+import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
 import ShopsPage from "./pages/shops-management/ShopsPage";
 import AdminsPage from "./pages/Cadmin-management/AdminsPage";
 import TicketsPage from "./pages/Tickets/TicketsPage";
@@ -68,7 +73,6 @@ function App() {
   return (
     <Router>
       <Routes>
-
         {/* ══════════════════════════════════════════════════════
             PUBLIC ROUTES (No Layout)
         ══════════════════════════════════════════════════════ */}
@@ -97,7 +101,6 @@ function App() {
         ══════════════════════════════════════════════════════ */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
-
       </Routes>
     </Router>
   );

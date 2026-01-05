@@ -16,7 +16,7 @@ import {
   STATUS_CONFIG, 
   BILLING,
   isNameAvailable 
-} from "../../config/modules/subscriptionConfig";
+} from "../../../config/modules/subscriptionConfig";
 
 export default function PlanModal({ 
   isOpen, 

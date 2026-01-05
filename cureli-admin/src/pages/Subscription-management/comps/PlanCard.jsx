@@ -18,7 +18,7 @@ import {
   generateFeatures,
   formatPrice,
   BILLING,
-} from "../../config/modules/subscriptionConfig";
+} from "../../../config/modules/subscriptionConfig";
 
 export default function PlanCard({ plan, onAction }) {
   const statusConfig = STATUS_CONFIG[plan.status];

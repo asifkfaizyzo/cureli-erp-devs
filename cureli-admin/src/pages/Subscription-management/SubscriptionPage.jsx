@@ -1,19 +1,27 @@
-import { Plus, CreditCard, ChevronLeft, ChevronRight, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import {
+  Plus,
+  CreditCard,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+} from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useToast } from "../components/common/Toast";
+import { useToast } from "../../components/common/Toast";
 
 // Components
-import PlanCard from "../components/Subscription/PlanCard";
-import PlanModal from "../components/Subscription/PlanModal";
-import CreatePlanModal from "../components/Subscription/CreatePlanModal";
-import ConfirmActionModal from "../components/Subscription/ConfirmActionModal";
-import PlanFilterBar from "../components/Subscription/PlanFilterBar";
+import PlanCard from "./comps/PlanCard";
+import PlanModal from "./comps/PlanModal";
+import CreatePlanModal from "./comps/CreatePlanModal";
+import ConfirmActionModal from "./comps/ConfirmActionModal";
+import PlanFilterBar from "./comps/PlanFilterBar";
 
 // Config
-import { 
-  PLAN_STATUS, 
-  generateCloneName 
-} from "../config/modules/subscriptionConfig";
+import {
+  PLAN_STATUS,
+  generateCloneName,
+} from "../../config/modules/subscriptionConfig";
 
 // API
 import {
@@ -26,11 +34,11 @@ import {
   reactivatePlan,
   clonePlan,
   deletePlan,
-} from "../api/cadminPlans";
+} from "../../api/cadminPlans";
 
 export default function SubscriptionPage() {
   const toast = useToast();
-  
+
   // ============================================
   // STATE
   // ============================================
@@ -45,12 +53,12 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-  
+
   // NEW: Plan type filter (PRE_MADE or CUSTOM)
   const [planTypeFilter, setPlanTypeFilter] = useState("PRE_MADE");
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all");
-  
+
   // Modal states
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [planModalOpen, setPlanModalOpen] = useState(false);
@@ -71,27 +79,27 @@ export default function SubscriptionPage() {
   // ============================================
   // DATA FETCHING
   // ============================================
-  
+
   const fetchPlans = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Fetch plans based on current type filter
       const [plansResponse, statsResponse] = await Promise.all([
-        getPlans({ 
-          limit: 100, 
-          sort_by: "created_at", 
+        getPlans({
+          limit: 100,
+          sort_by: "created_at",
           sort_order: "desc",
-          type: planTypeFilter,  // Filter by type
+          type: planTypeFilter, // Filter by type
         }),
-        getPlanStats(),  // Stats only count PRE_MADE plans
+        getPlanStats(), // Stats only count PRE_MADE plans
       ]);
 
       if (plansResponse.success) {
         setPlans(plansResponse.data.plans || []);
       }
-      
+
       if (statsResponse.success) {
         setStats(statsResponse.data);
       }
@@ -103,7 +111,7 @@ export default function SubscriptionPage() {
     } finally {
       setLoading(false);
     }
-  }, [planTypeFilter, toast]);  // Re-fetch when type filter changes
+  }, [planTypeFilter, toast]); // Re-fetch when type filter changes
 
   useEffect(() => {
     fetchPlans();
@@ -118,10 +126,11 @@ export default function SubscriptionPage() {
   // ============================================
   // DERIVED DATA
   // ============================================
-  
+
   // Filter plans based on search and status filter
   const filteredPlans = plans.filter((p) => {
-    const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
+    const matchesSearch =
+      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
     if (!matchesSearch) return false;
     if (filter === "all") return true;
     return p.status === filter;
@@ -161,7 +170,7 @@ export default function SubscriptionPage() {
     checkScrollPosition();
     window.addEventListener("resize", checkScrollPosition);
     const timeout = setTimeout(checkScrollPosition, 100);
-    
+
     return () => {
       window.removeEventListener("resize", checkScrollPosition);
       clearTimeout(timeout);
@@ -171,7 +180,7 @@ export default function SubscriptionPage() {
   // ============================================
   // PLAN ACTIONS
   // ============================================
-  
+
   const handlePlanAction = (actionType, plan) => {
     switch (actionType) {
       case "edit":
@@ -215,12 +224,12 @@ export default function SubscriptionPage() {
 
   const handleConfirmAction = async () => {
     const { action, plan, newName } = confirmModal;
-    
+
     setActionLoading(true);
-    
+
     try {
       let response;
-      
+
       switch (action) {
         case "activate":
           response = await activatePlan(plan.plan_id);
@@ -248,7 +257,7 @@ export default function SubscriptionPage() {
 
       if (response?.success) {
         await fetchPlans();
-        
+
         // Show success toast based on action
         const actionMessages = {
           activate: `Plan "${plan.name}" activated successfully.`,
@@ -257,12 +266,12 @@ export default function SubscriptionPage() {
           clone: `Plan "${newName}" created successfully.`,
           delete: `Plan "${plan.name}" deleted successfully.`,
         };
-        
+
         toast.success(
           action.charAt(0).toUpperCase() + action.slice(1) + " Successful",
           actionMessages[action]
         );
-        
+
         if (action === "clone") {
           // Clones are PRE_MADE, so switch to that view if we're on CUSTOM
           if (planTypeFilter === "CUSTOM") {
@@ -277,9 +286,13 @@ export default function SubscriptionPage() {
       }
     } catch (err) {
       console.error(`Failed to ${action} plan:`, err);
-      const errorMsg = err.response?.data?.message || `Failed to ${action} plan`;
+      const errorMsg =
+        err.response?.data?.message || `Failed to ${action} plan`;
       setError(errorMsg);
-      toast.error(`${action.charAt(0).toUpperCase() + action.slice(1)} Failed`, errorMsg);
+      toast.error(
+        `${action.charAt(0).toUpperCase() + action.slice(1)} Failed`,
+        errorMsg
+      );
     } finally {
       setActionLoading(false);
       setConfirmModal({ open: false, action: null, plan: null, newName: null });
@@ -288,7 +301,7 @@ export default function SubscriptionPage() {
 
   const handleCreatePlan = async (formData) => {
     setActionLoading(true);
-    
+
     try {
       // Convert price from rupees to paisa for API
       // Plans created from this page are always PRE_MADE
@@ -299,7 +312,7 @@ export default function SubscriptionPage() {
         max_users: formData.usersLimit,
         max_branches: formData.branchesLimit,
         is_highlighted: formData.isHighlighted,
-        type: "PRE_MADE",  // Always PRE_MADE from subscription page
+        type: "PRE_MADE", // Always PRE_MADE from subscription page
       };
 
       const response = await createPlan(apiData);
@@ -335,7 +348,7 @@ export default function SubscriptionPage() {
 
   const handleSavePlan = async (updatedPlan) => {
     setActionLoading(true);
-    
+
     try {
       const updateData = {
         name: updatedPlan.name,
@@ -352,7 +365,7 @@ export default function SubscriptionPage() {
         await fetchPlans();
         setPlanModalOpen(false);
         setSelectedPlan(null);
-        
+
         toast.success(
           "Plan Updated",
           `${updatedPlan.name} has been updated successfully.`
@@ -392,7 +405,9 @@ export default function SubscriptionPage() {
           <div className="p-4 bg-red-100 rounded-full">
             <AlertCircle size={40} className="text-red-500" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800">Failed to Load Plans</h3>
+          <h3 className="text-lg font-semibold text-gray-800">
+            Failed to Load Plans
+          </h3>
           <p className="text-gray-500 text-sm">{error}</p>
           <button
             onClick={fetchPlans}
@@ -411,7 +426,6 @@ export default function SubscriptionPage() {
   // ============================================
   return (
     <div className="w-full min-w-0 overflow-hidden px-2">
-      
       {/* Error Banner (for non-critical errors) */}
       {error && plans.length > 0 && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
@@ -427,7 +441,7 @@ export default function SubscriptionPage() {
           </button>
         </div>
       )}
-      
+
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-3">
@@ -435,8 +449,12 @@ export default function SubscriptionPage() {
             <CreditCard className="text-white" size={22} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-[#05015A]">Subscription Plans</h1>
-            <p className="text-sm text-gray-500">Manage your billing plans and pricing tiers</p>
+            <h1 className="text-2xl font-bold text-[#05015A]">
+              Subscription Plans
+            </h1>
+            <p className="text-sm text-gray-500">
+              Manage your billing plans and pricing tiers
+            </p>
           </div>
         </div>
 
@@ -449,7 +467,7 @@ export default function SubscriptionPage() {
           >
             <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
           </button>
-          
+
           {/* Only show Create Plan button on PRE_MADE view */}
           {planTypeFilter === "PRE_MADE" && (
             <button
@@ -466,7 +484,10 @@ export default function SubscriptionPage() {
                 disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
-              <Plus size={18} className="transition-transform duration-300 group-hover:rotate-90" />
+              <Plus
+                size={18}
+                className="transition-transform duration-300 group-hover:rotate-90"
+              />
               Create Plan
             </button>
           )}
@@ -487,7 +508,6 @@ export default function SubscriptionPage() {
       {/* Plans Slider */}
       {filteredPlans.length > 0 ? (
         <div className="relative w-full overflow-hidden">
-          
           {/* Left Arrow */}
           {showNavigation && canScrollLeft && (
             <button
@@ -517,14 +537,11 @@ export default function SubscriptionPage() {
             }}
           >
             {filteredPlans.map((plan) => (
-              <div 
+              <div
                 key={plan.plan_id}
                 className="flex-shrink-0 w-[280px] min-w-[280px]"
               >
-                <PlanCard 
-                  plan={plan} 
-                  onAction={handlePlanAction}
-                />
+                <PlanCard plan={plan} onAction={handlePlanAction} />
               </div>
             ))}
           </div>
@@ -548,24 +565,26 @@ export default function SubscriptionPage() {
           {/* Pagination Dots */}
           {showNavigation && (
             <div className="flex justify-center gap-2 mt-4">
-              {Array.from({ length: Math.ceil(filteredPlans.length / 4) }).map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    if (sliderRef.current) {
-                      sliderRef.current.scrollTo({ 
-                        left: index * 4 * 296, 
-                        behavior: "smooth" 
-                      });
-                      setTimeout(checkScrollPosition, 300);
-                    }
-                  }}
-                  className="
+              {Array.from({ length: Math.ceil(filteredPlans.length / 4) }).map(
+                (_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      if (sliderRef.current) {
+                        sliderRef.current.scrollTo({
+                          left: index * 4 * 296,
+                          behavior: "smooth",
+                        });
+                        setTimeout(checkScrollPosition, 300);
+                      }
+                    }}
+                    className="
                     w-2 h-2 rounded-full bg-gray-300 
                     hover:bg-[#05015A] transition-all duration-300
                   "
-                />
-              ))}
+                  />
+                )
+              )}
             </div>
           )}
         </div>
@@ -579,18 +598,21 @@ export default function SubscriptionPage() {
             {planTypeFilter === "CUSTOM" ? "No Custom Plans" : "No Plans Found"}
           </h3>
           <p className="text-gray-500 mb-5 text-center max-w-md">
-            {planTypeFilter === "CUSTOM" 
+            {planTypeFilter === "CUSTOM"
               ? "Custom plans are created when assigning subscriptions to individual shops."
-              : searchQuery 
-                ? `No plans match "${searchQuery}". Try a different search term.`
-                : filter !== "all"
-                  ? "No plans match the selected filter. Try changing your filter options."
-                  : "Get started by creating your first subscription plan."
-            }
+              : searchQuery
+              ? `No plans match "${searchQuery}". Try a different search term.`
+              : filter !== "all"
+              ? "No plans match the selected filter. Try changing your filter options."
+              : "Get started by creating your first subscription plan."}
           </p>
-          {planTypeFilter === "PRE_MADE" && (searchQuery || filter !== "all") ? (
+          {planTypeFilter === "PRE_MADE" &&
+          (searchQuery || filter !== "all") ? (
             <button
-              onClick={() => { setFilter("all"); setSearchQuery(""); }}
+              onClick={() => {
+                setFilter("all");
+                setSearchQuery("");
+              }}
               className="
                 px-6 py-2.5 bg-[#05015A] text-white rounded-xl 
                 text-sm font-semibold hover:bg-[#0a0280] 
@@ -630,7 +652,7 @@ export default function SubscriptionPage() {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onSubmit={handleCreatePlan}
-        existingNames={plans.map(p => p.name)}
+        existingNames={plans.map((p) => p.name)}
         loading={actionLoading}
       />
 
@@ -649,18 +671,23 @@ export default function SubscriptionPage() {
 
       <ConfirmActionModal
         isOpen={confirmModal.open}
-        onClose={() => setConfirmModal({ open: false, action: null, plan: null, newName: null })}
+        onClose={() =>
+          setConfirmModal({
+            open: false,
+            action: null,
+            plan: null,
+            newName: null,
+          })
+        }
         onConfirm={handleConfirmAction}
         action={confirmModal.action}
         plan={confirmModal.plan}
         newName={confirmModal.newName}
         loading={actionLoading}
       />
-
     </div>
   );
 }
-
 
 // import { Plus, CreditCard, ChevronLeft, ChevronRight, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 // import { useState, useRef, useEffect, useCallback } from "react";
@@ -673,9 +700,9 @@ export default function SubscriptionPage() {
 // import PlanFilterBar from "../components/Subscription/PlanFilterBar";
 
 // // Config
-// import { 
-//   PLAN_STATUS, 
-//   generateCloneName 
+// import {
+//   PLAN_STATUS,
+//   generateCloneName
 // } from "../config/modules/subscriptionConfig";
 
 // // API
@@ -706,12 +733,12 @@ export default function SubscriptionPage() {
 //   const [loading, setLoading] = useState(true);
 //   const [error, setError] = useState(null);
 //   const [actionLoading, setActionLoading] = useState(false);
-  
+
 //   // NEW: Plan type filter (PRE_MADE or CUSTOM)
 //   const [planTypeFilter, setPlanTypeFilter] = useState("PRE_MADE");
 //   const [searchQuery, setSearchQuery] = useState("");
 //   const [filter, setFilter] = useState("all");
-  
+
 //   // Modal states
 //   const [createModalOpen, setCreateModalOpen] = useState(false);
 //   const [planModalOpen, setPlanModalOpen] = useState(false);
@@ -732,17 +759,17 @@ export default function SubscriptionPage() {
 //   // ============================================
 //   // DATA FETCHING
 //   // ============================================
-  
+
 //   const fetchPlans = useCallback(async () => {
 //     try {
 //       setLoading(true);
 //       setError(null);
-      
+
 //       // Fetch plans based on current type filter
 //       const [plansResponse, statsResponse] = await Promise.all([
-//         getPlans({ 
-//           limit: 100, 
-//           sort_by: "created_at", 
+//         getPlans({
+//           limit: 100,
+//           sort_by: "created_at",
 //           sort_order: "desc",
 //           type: planTypeFilter,  // Filter by type
 //         }),
@@ -752,7 +779,7 @@ export default function SubscriptionPage() {
 //       if (plansResponse.success) {
 //         setPlans(plansResponse.data.plans || []);
 //       }
-      
+
 //       if (statsResponse.success) {
 //         setStats(statsResponse.data);
 //       }
@@ -777,7 +804,7 @@ export default function SubscriptionPage() {
 //   // ============================================
 //   // DERIVED DATA
 //   // ============================================
-  
+
 //   // Filter plans based on search and status filter
 //   const filteredPlans = plans.filter((p) => {
 //     const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
@@ -820,7 +847,7 @@ export default function SubscriptionPage() {
 //     checkScrollPosition();
 //     window.addEventListener("resize", checkScrollPosition);
 //     const timeout = setTimeout(checkScrollPosition, 100);
-    
+
 //     return () => {
 //       window.removeEventListener("resize", checkScrollPosition);
 //       clearTimeout(timeout);
@@ -830,7 +857,7 @@ export default function SubscriptionPage() {
 //   // ============================================
 //   // PLAN ACTIONS
 //   // ============================================
-  
+
 //   const handlePlanAction = (actionType, plan) => {
 //     switch (actionType) {
 //       case "edit":
@@ -874,12 +901,12 @@ export default function SubscriptionPage() {
 
 //   const handleConfirmAction = async () => {
 //     const { action, plan, newName } = confirmModal;
-    
+
 //     setActionLoading(true);
-    
+
 //     try {
 //       let response;
-      
+
 //       switch (action) {
 //         case "activate":
 //           response = await activatePlan(plan.plan_id);
@@ -907,7 +934,7 @@ export default function SubscriptionPage() {
 
 //       if (response?.success) {
 //         await fetchPlans();
-        
+
 //         if (action === "clone") {
 //           // Clones are PRE_MADE, so switch to that view if we're on CUSTOM
 //           if (planTypeFilter === "CUSTOM") {
@@ -931,7 +958,7 @@ export default function SubscriptionPage() {
 
 //   const handleCreatePlan = async (formData) => {
 //     setActionLoading(true);
-    
+
 //     try {
 //       // Convert price from rupees to paisa for API
 //       // Plans created from this page are always PRE_MADE
@@ -971,7 +998,7 @@ export default function SubscriptionPage() {
 
 //   const handleSavePlan = async (updatedPlan) => {
 //     setActionLoading(true);
-    
+
 //     try {
 //       const updateData = {
 //         name: updatedPlan.name,
@@ -1040,7 +1067,7 @@ export default function SubscriptionPage() {
 //   // ============================================
 //   return (
 //     <div className="w-full min-w-0 overflow-hidden px-2">
-      
+
 //       {/* Error Banner (for non-critical errors) */}
 //       {error && plans.length > 0 && (
 //         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
@@ -1056,7 +1083,7 @@ export default function SubscriptionPage() {
 //           </button>
 //         </div>
 //       )}
-      
+
 //       {/* Header */}
 //       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
 //         <div className="flex items-center gap-3">
@@ -1078,15 +1105,15 @@ export default function SubscriptionPage() {
 //           >
 //             <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
 //           </button>
-          
+
 //           {/* Only show Create Plan button on PRE_MADE view */}
 //           {planTypeFilter === "PRE_MADE" && (
 //             <button
 //               onClick={() => setCreateModalOpen(true)}
 //               disabled={actionLoading}
 //               className="
-//                 group flex items-center gap-2 
-//                 bg-[#05015A] text-white 
+//                 group flex items-center gap-2
+//                 bg-[#05015A] text-white
 //                 px-5 py-2.5 rounded-xl text-sm font-semibold
 //                 shadow-lg shadow-[#05015A]/25
 //                 hover:bg-[#0a0280] hover:shadow-xl
@@ -1102,8 +1129,6 @@ export default function SubscriptionPage() {
 //         </div>
 //       </div>
 
-
-
 //       {/* Filter Bar */}
 //       <PlanFilterBar
 //         planTypeFilter={planTypeFilter}
@@ -1118,7 +1143,7 @@ export default function SubscriptionPage() {
 //       {/* Plans Slider */}
 //       {filteredPlans.length > 0 ? (
 //         <div className="relative w-full overflow-hidden">
-          
+
 //           {/* Left Arrow */}
 //           {showNavigation && canScrollLeft && (
 //             <button
@@ -1126,8 +1151,8 @@ export default function SubscriptionPage() {
 //               className="
 //                 absolute left-2 top-1/2 -translate-y-1/2 z-10
 //                 p-2.5 rounded-full shadow-lg border-2
-//                 bg-[#05015A] text-white border-[#05015A] 
-//                 hover:bg-[#0a0280] hover:scale-110 
+//                 bg-[#05015A] text-white border-[#05015A]
+//                 hover:bg-[#0a0280] hover:scale-110
 //                 transition-all duration-300
 //               "
 //             >
@@ -1148,12 +1173,12 @@ export default function SubscriptionPage() {
 //             }}
 //           >
 //             {filteredPlans.map((plan) => (
-//               <div 
+//               <div
 //                 key={plan.plan_id}
 //                 className="flex-shrink-0 w-[280px] min-w-[280px]"
 //               >
-//                 <PlanCard 
-//                   plan={plan} 
+//                 <PlanCard
+//                   plan={plan}
 //                   onAction={handlePlanAction}
 //                 />
 //               </div>
@@ -1167,8 +1192,8 @@ export default function SubscriptionPage() {
 //               className="
 //                 absolute right-2 top-1/2 -translate-y-1/2 z-10
 //                 p-2.5 rounded-full shadow-lg border-2
-//                 bg-[#05015A] text-white border-[#05015A] 
-//                 hover:bg-[#0a0280] hover:scale-110 
+//                 bg-[#05015A] text-white border-[#05015A]
+//                 hover:bg-[#0a0280] hover:scale-110
 //                 transition-all duration-300
 //               "
 //             >
@@ -1184,15 +1209,15 @@ export default function SubscriptionPage() {
 //                   key={index}
 //                   onClick={() => {
 //                     if (sliderRef.current) {
-//                       sliderRef.current.scrollTo({ 
-//                         left: index * 4 * 296, 
-//                         behavior: "smooth" 
+//                       sliderRef.current.scrollTo({
+//                         left: index * 4 * 296,
+//                         behavior: "smooth"
 //                       });
 //                       setTimeout(checkScrollPosition, 300);
 //                     }
 //                   }}
 //                   className="
-//                     w-2 h-2 rounded-full bg-gray-300 
+//                     w-2 h-2 rounded-full bg-gray-300
 //                     hover:bg-[#05015A] transition-all duration-300
 //                   "
 //                 />
@@ -1210,9 +1235,9 @@ export default function SubscriptionPage() {
 //             {planTypeFilter === "CUSTOM" ? "No Custom Plans" : "No Plans Found"}
 //           </h3>
 //           <p className="text-gray-500 mb-5 text-center max-w-md">
-//             {planTypeFilter === "CUSTOM" 
+//             {planTypeFilter === "CUSTOM"
 //               ? "Custom plans are created when assigning subscriptions to individual shops."
-//               : searchQuery 
+//               : searchQuery
 //                 ? `No plans match "${searchQuery}". Try a different search term.`
 //                 : filter !== "all"
 //                   ? "No plans match the selected filter. Try changing your filter options."
@@ -1223,8 +1248,8 @@ export default function SubscriptionPage() {
 //             <button
 //               onClick={() => { setFilter("all"); setSearchQuery(""); }}
 //               className="
-//                 px-6 py-2.5 bg-[#05015A] text-white rounded-xl 
-//                 text-sm font-semibold hover:bg-[#0a0280] 
+//                 px-6 py-2.5 bg-[#05015A] text-white rounded-xl
+//                 text-sm font-semibold hover:bg-[#0a0280]
 //                 transition-all duration-300
 //               "
 //             >
@@ -1234,8 +1259,8 @@ export default function SubscriptionPage() {
 //             <button
 //               onClick={() => setCreateModalOpen(true)}
 //               className="
-//                 px-6 py-2.5 bg-[#05015A] text-white rounded-xl 
-//                 text-sm font-semibold hover:bg-[#0a0280] 
+//                 px-6 py-2.5 bg-[#05015A] text-white rounded-xl
+//                 text-sm font-semibold hover:bg-[#0a0280]
 //                 transition-all duration-300
 //               "
 //             >
@@ -1245,8 +1270,8 @@ export default function SubscriptionPage() {
 //             <button
 //               onClick={() => setPlanTypeFilter("PRE_MADE")}
 //               className="
-//                 px-6 py-2.5 bg-violet-600 text-white rounded-xl 
-//                 text-sm font-semibold hover:bg-violet-700 
+//                 px-6 py-2.5 bg-violet-600 text-white rounded-xl
+//                 text-sm font-semibold hover:bg-violet-700
 //                 transition-all duration-300
 //               "
 //             >

@@ -10,7 +10,7 @@ import {
   Loader2
 } from "lucide-react";
 import { useState } from "react";
-import { BILLING } from "../../config/modules/subscriptionConfig";
+import { BILLING } from "../../../config/modules/subscriptionConfig";
 
 const initialFormState = {
   name: "",

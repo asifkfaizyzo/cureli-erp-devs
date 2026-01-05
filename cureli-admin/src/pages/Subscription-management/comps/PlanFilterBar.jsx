@@ -2,7 +2,7 @@ import { Search, Filter, X, Layers, Sparkles } from "lucide-react";
 import {
   PLAN_STATUS,
   STATUS_CONFIG,
-} from "../../config/modules/subscriptionConfig";
+} from "../../../config/modules/subscriptionConfig";
 
 export default function PlanFilterBar({
   planTypeFilter, // NEW: 'PRE_MADE' or 'CUSTOM'
