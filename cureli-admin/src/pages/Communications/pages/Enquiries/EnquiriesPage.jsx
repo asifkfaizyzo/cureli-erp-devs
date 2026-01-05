@@ -268,29 +268,7 @@ const EnquiriesPage = () => {
           </button>
         </div>
 
-        {/* Stats Cards
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-200">
-            <p className="text-xs text-gray-500 font-medium mb-1">Total</p>
-            <p className="text-2xl font-bold text-gray-900">{stats?.total ?? 0}</p>
-          </div>
-          <div className="bg-amber-50 rounded-xl p-3 shadow-sm border border-amber-200">
-            <p className="text-xs text-amber-600 font-medium mb-1">Pending</p>
-            <p className="text-2xl font-bold text-amber-700">{stats?.pending ?? 0}</p>
-          </div>
-          <div className="bg-blue-50 rounded-xl p-3 shadow-sm border border-blue-200">
-            <p className="text-xs text-blue-600 font-medium mb-1">In Progress</p>
-            <p className="text-2xl font-bold text-blue-700">{stats?.inProgress ?? 0}</p>
-          </div>
-          <div className="bg-green-50 rounded-xl p-3 shadow-sm border border-green-200">
-            <p className="text-xs text-green-600 font-medium mb-1">Replied</p>
-            <p className="text-2xl font-bold text-green-700">{stats?.replied ?? 0}</p>
-          </div>
-          <div className="bg-gray-100 rounded-xl p-3 shadow-sm border border-gray-300">
-            <p className="text-xs text-gray-500 font-medium mb-1">Closed</p>
-            <p className="text-2xl font-bold text-gray-700">{stats?.closed ?? 0}</p>
-          </div>
-        </div> */}
+        
 
         {/* Search & Filters */}
         <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">

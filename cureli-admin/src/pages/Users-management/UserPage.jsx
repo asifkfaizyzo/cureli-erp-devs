@@ -1,20 +1,77 @@
-import { useState, useEffect, useCallback } from "react";
+// cureli-admin/src/pages/Users-management/UserPage.jsx
+
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import UserHeader from "./comps/UserHeader";
+import {
+  Users,
+  RefreshCw,
+  Search,
+  X,
+  Filter,
+  AlertCircle,
+} from "lucide-react";
 import UserTable from "./comps/UserTable";
+import StyledSelect from "../../components/common/StyledSelect";
+import StyledDateFilter from "../../components/common/StyledDateFilter";
 import { getCAdminUsers } from "../../api/cadminUsers";
 import { useToast } from "../../components/common/Toast";
 
+const STATUS_OPTIONS = [
+  { value: "", label: "All Status" },
+  { value: "Active", label: "Active" },
+  { value: "Inactive", label: "Inactive" },
+  { value: "suspended", label: "Suspended" },
+];
+
+const ROLE_OPTIONS = [
+  { value: "", label: "All Roles" },
+  { value: "Super Admin", label: "Super Admin" },
+  { value: "Admin", label: "Admin" },
+  { value: "Manager", label: "Manager" },
+  { value: "Staff", label: "Staff" },
+];
+
 const UserPage = () => {
   const toast = useToast();
-  
+
   // Get search params from URL
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // pagination + rows per page
+  // Pagination + rows per page
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  // Initialize search text from URL params
+  const initialSearch = searchParams.get("search") || "";
+
+  // Filters / sort
+  const [searchText, setSearchText] = useState(initialSearch);
+  const [statusFilter, setStatusFilter] = useState("Active");
+  const [roleFilter, setRoleFilter] = useState("Super Admin");
+  const [dateFilter, setDateFilter] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [sortConfig, setSortConfig] = useState({
+    sortBy: "created_at",
+    order: "desc",
+  });
+
+  // Server data
+  const [users, setUsers] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Count active filters
+  const activeFiltersCount = useMemo(() => {
+    return [statusFilter, roleFilter, dateFilter].filter(Boolean).length;
+  }, [statusFilter, roleFilter, dateFilter]);
+
+  // Check if any filter is active
+  const hasActiveFilters = useMemo(() => {
+    return activeFiltersCount > 0 || searchText.trim().length > 0;
+  }, [activeFiltersCount, searchText]);
+
+  // Responsive rows per page
   useEffect(() => {
     const updateRows = () => {
       const width = window.innerWidth;
@@ -32,21 +89,6 @@ const UserPage = () => {
     return () => window.removeEventListener("resize", updateRows);
   }, []);
 
-  // Initialize search text from URL params
-  const initialSearch = searchParams.get("search") || "";
-
-  // filters / sort
-  const [searchText, setSearchText] = useState(initialSearch);
-  const [statusFilter, setStatusFilter] = useState("Active");
-  const [roleFilter, setRoleFilter] = useState("Super Admin");
-  const [dateFilter, setDateFilter] = useState("");
-  const [sortConfig, setSortConfig] = useState({ sortBy: "created_at", order: "desc" });
-
-  // server data
-  const [users, setUsers] = useState([]);
-  const [totalItems, setTotalItems] = useState(0);
-  const [loading, setLoading] = useState(false);
-
   // Update search text when URL params change
   useEffect(() => {
     const searchFromUrl = searchParams.get("search");
@@ -62,6 +104,7 @@ const UserPage = () => {
   // Fetch function
   const fetchUsers = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = {
         page: currentPage,
@@ -83,113 +126,251 @@ const UserPage = () => {
       setTotalItems(payload.meta?.total || 0);
     } catch (err) {
       console.error("Failed to fetch users:", err);
-      toast.error(
-        "Failed to Load Users",
-        "Unable to fetch user data. Please try again."
-      );
+      const errorMessage =
+        err.response?.data?.message ||
+        "Unable to fetch user data. Please try again.";
+      setError(errorMessage);
+      setUsers([]);
+      setTotalItems(0);
+      toast.error("Failed to Load Users", errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [currentPage, rowsPerPage, searchText, statusFilter, roleFilter, dateFilter, sortConfig, toast]);
+  }, [
+    currentPage,
+    rowsPerPage,
+    searchText,
+    statusFilter,
+    roleFilter,
+    dateFilter,
+    sortConfig,
+    toast,
+  ]);
 
   // Fetch on mount and whenever dependencies change
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Handler to refresh table (called after modal actions)
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, statusFilter, roleFilter, dateFilter, sortConfig]);
+
+  // Handlers
   const handleRefresh = useCallback(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Handler to update a single user row locally (for table suspend action)
-  const handleUserUpdate = useCallback((userId, updates) => {
-    try {
-      setUsers((prev) =>
-        prev.map((user) =>
-          user.id === userId ? { ...user, ...updates } : user
-        )
-      );
-      
-      // Show appropriate toast based on the update
-      if (updates.status === "suspended") {
-        toast.success(
-          "User Suspended",
-          "User account has been suspended successfully."
+  const handleClearFilters = useCallback(() => {
+    setSearchText("");
+    setStatusFilter("");
+    setRoleFilter("");
+    setDateFilter("");
+    // Clear URL params
+    searchParams.delete("search");
+    setSearchParams(searchParams);
+  }, [searchParams, setSearchParams]);
+
+  const handleUserUpdate = useCallback(
+    (userId, updates) => {
+      try {
+        setUsers((prev) =>
+          prev.map((user) => (user.id === userId ? { ...user, ...updates } : user))
         );
-      } else if (updates.status === "active") {
-        toast.success(
-          "User Activated",
-          "User account has been activated successfully."
-        );
-      } else {
-        toast.success(
-          "User Updated",
-          "User information updated successfully."
-        );
+
+        // Show appropriate toast based on the update
+        if (updates.status === "suspended") {
+          toast.success(
+            "User Suspended",
+            "User account has been suspended successfully."
+          );
+        } else if (updates.status === "active") {
+          toast.success(
+            "User Activated",
+            "User account has been activated successfully."
+          );
+        } else {
+          toast.success(
+            "User Updated",
+            "User information updated successfully."
+          );
+        }
+      } catch (error) {
+        console.error("Failed to update user:", error);
+        toast.error("Update Failed", "Failed to update user. Please try again.");
       }
-    } catch (error) {
-      console.error("Failed to update user:", error);
-      toast.error(
-        "Update Failed",
-        "Failed to update user. Please try again."
-      );
-    }
-  }, [toast]);
+    },
+    [toast]
+  );
 
   const handleSortChange = (column) => {
     setSortConfig((prev) => {
-      const order = prev.sortBy === column && prev.order === "asc" ? "desc" : "asc";
+      const order =
+        prev.sortBy === column && prev.order === "asc" ? "desc" : "asc";
       return { sortBy: column, order };
     });
-    setCurrentPage(1);
   };
 
-  const handleFilterChange = ({ search, status, role, date }) => {
-    if (search !== undefined) {
-      setSearchText(search);
-      // Update URL params when search changes
-      if (search) {
-        setSearchParams({ search });
-      } else {
-        // Remove search param if empty
-        searchParams.delete("search");
-        setSearchParams(searchParams);
-      }
+  const handleSearchChange = (value) => {
+    setSearchText(value);
+    // Update URL params when search changes
+    if (value) {
+      setSearchParams({ search: value });
+    } else {
+      // Remove search param if empty
+      searchParams.delete("search");
+      setSearchParams(searchParams);
     }
-    if (status !== undefined) setStatusFilter(status);
-    if (role !== undefined) setRoleFilter(role);
-    if (date !== undefined) setDateFilter(date);
-    setCurrentPage(1);
   };
-
-  // Clear search from URL when user clears search
-  const handleClearSearch = useCallback(() => {
-    setSearchText("");
-    searchParams.delete("search");
-    setSearchParams(searchParams);
-    // Restore default filters
-    setStatusFilter("Active");
-    setRoleFilter("Super Admin");
-    setCurrentPage(1);
-  }, [searchParams, setSearchParams]);
 
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
-      <UserHeader
-        searchText={searchText}
-        setSearchText={(v) => handleFilterChange({ search: v })}
-        statusFilter={statusFilter}
-        setStatusFilter={(v) => handleFilterChange({ status: v })}
-        roleFilter={roleFilter}
-        setRoleFilter={(v) => handleFilterChange({ role: v })}
-        dateFilter={dateFilter}
-        setDateFilter={(v) => handleFilterChange({ date: v })}
-        users={users}
-        totalItems={totalItems}
-        onClearSearch={handleClearSearch}
-      />
+      {/* Header */}
+      <div className="flex-shrink-0 flex flex-col gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
+              <Users size={20} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate">
+                User Management
+              </h1>
+              <p className="text-sm text-gray-500">
+                {totalItems} total user{totalItems !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
 
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
+                       hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
+                       disabled:opacity-50 flex-shrink-0"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+        </div>
+
+        {/* Search & Filters */}
+        <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="text"
+                placeholder="Search by name, email, or phone..."
+                value={searchText}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
+                           bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20 
+                           focus:border-[#000060] transition-all"
+              />
+              {searchText && (
+                <button
+                  type="button"
+                  onClick={() => handleSearchChange("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded
+                             text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {/* Filter Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`px-3 sm:px-4 h-10 sm:h-11 rounded-lg text-sm font-medium flex items-center gap-2
+                         transition-all shadow-sm relative flex-shrink-0
+                         ${
+                           showFilters || activeFiltersCount > 0
+                             ? "bg-indigo-50 text-indigo-700 border-2 border-indigo-200"
+                             : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                         }`}
+            >
+              <Filter size={18} />
+              <span className="hidden sm:inline">Filters</span>
+              {activeFiltersCount > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
+                                 text-xs font-bold rounded-full flex items-center justify-center"
+                >
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Filter Options */}
+          {showFilters && (
+            <div className="pt-3 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <StyledSelect
+                  label="Status"
+                  value={statusFilter}
+                  onChange={(value) => setStatusFilter(value)}
+                  options={STATUS_OPTIONS}
+                  placeholder="All Status"
+                />
+
+                <StyledSelect
+                  label="Role"
+                  value={roleFilter}
+                  onChange={(value) => setRoleFilter(value)}
+                  options={ROLE_OPTIONS}
+                  placeholder="All Roles"
+                />
+
+                <StyledDateFilter
+                  label="Last Login Date"
+                  date={dateFilter}
+                  setDate={setDateFilter}
+                />
+              </div>
+
+              {hasActiveFilters && (
+                <div className="mt-3 flex items-center justify-end">
+                  <button
+                    onClick={handleClearFilters}
+                    className="px-4 py-2 text-sm text-red-600 hover:text-red-700 
+                               hover:bg-red-50 rounded-lg transition-all flex items-center gap-2"
+                  >
+                    <X size={16} />
+                    Clear all filters
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={18} />
+              <span className="text-sm">{error}</span>
+            </div>
+            <button
+              onClick={handleRefresh}
+              className="text-red-700 hover:text-red-900 font-medium underline text-sm"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Table */}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <UserTable
           currentPage={currentPage}
