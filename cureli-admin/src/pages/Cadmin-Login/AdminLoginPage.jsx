@@ -1,11 +1,11 @@
 // AdminLoginPage.jsx
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import CAdminLoginForm from "../components/CAdminLoginForm";
-import CAdminOtpForm from "../components/CAdminOtpForm";
-import { AUTH_CONFIG } from "../config/modules/authConfig.js";
+import CAdminLoginForm from "./comps/CAdminLoginForm";
+import CAdminOtpForm from "./comps/CAdminOtpForm";
+import { AUTH_CONFIG } from "../../config/modules/authConfig.js";
 
-import logo from "../assets/icons/cureli.svg";
+import logo from "../../assets/icons/cureli.svg";
 import {
   Shield,
   Lock,

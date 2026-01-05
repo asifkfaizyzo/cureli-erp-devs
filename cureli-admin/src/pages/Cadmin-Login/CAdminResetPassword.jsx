@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
-import { resetPasswordCAdmin } from "../api/auth";
+import { resetPasswordCAdmin } from "../../api/auth";
 
 const CAdminResetPassword = () => {
   const navigate = useNavigate();

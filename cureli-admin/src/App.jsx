@@ -7,11 +7,11 @@ import {
 import { useEffect } from "react";
 
 // Admin Pages
-import AdminLoginPage from "./pages/AdminLoginPage";
+import AdminLoginPage from "./pages/Cadmin-Login/AdminLoginPage";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import UserPage from "./pages/Users-management/UserPage";
-import CAdminForgotPassword from "./pages/CAdminForgotPassword";
-import CAdminResetPassword from "./pages/CAdminResetPassword";
+import CAdminForgotPassword from "./pages/Cadmin-Login/CAdminForgotPassword";
+import CAdminResetPassword from "./pages/Cadmin-Login/CAdminResetPassword";
 import VerificationPage from "./pages/User-Shop-Verifications/VerificationPage";
 import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
 import ShopsPage from "./pages/shops-management/ShopsPage";

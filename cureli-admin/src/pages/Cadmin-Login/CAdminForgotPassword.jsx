@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
-import { forgotPasswordCAdmin } from "../api/auth";
+import { forgotPasswordCAdmin } from "../../api/auth";
 
 const CAdminForgotPassword = () => {
   const navigate = useNavigate();

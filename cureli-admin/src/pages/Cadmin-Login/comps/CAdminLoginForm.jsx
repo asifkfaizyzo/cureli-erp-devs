@@ -2,8 +2,14 @@
 import { useState, useRef } from "react";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
-import { loginCAdmin, loginCAdminDirect } from "../api/auth";
-import { Loader2, CheckCircle2, User, KeyRound, ArrowRight } from "lucide-react";
+import { loginCAdmin, loginCAdminDirect } from "../../../api/auth";
+import {
+  Loader2,
+  CheckCircle2,
+  User,
+  KeyRound,
+  ArrowRight,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
@@ -41,10 +47,10 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
       } else {
         const res = await loginCAdminDirect({ username, password });
         const accessToken = res.data.data.access_token;
-        
+
         setLoading(false);
         setSuccess(true);
-        
+
         setTimeout(() => {
           localStorage.setItem("cadmin_access_token", accessToken);
           navigate("/dashboard");
@@ -52,7 +58,9 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
       }
     } catch (err) {
       setErrors({
-        general: err?.response?.data?.message || "Invalid credentials. Please try again.",
+        general:
+          err?.response?.data?.message ||
+          "Invalid credentials. Please try again.",
       });
       setLoading(false);
     }
@@ -81,7 +89,7 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
                 <motion.div
                   key={i}
                   initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ 
+                  animate={{
                     scale: [0.8, 1.4, 1.8],
                     opacity: [0.4, 0.2, 0],
                   }}
@@ -99,7 +107,7 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
                   }}
                 />
               ))}
-              
+
               {/* Success Icon */}
               <motion.div
                 initial={{ scale: 0, rotate: -180 }}
@@ -112,7 +120,10 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.3, type: "spring" }}
                 >
-                  <CheckCircle2 className="w-8 h-8 text-white" strokeWidth={2.5} />
+                  <CheckCircle2
+                    className="w-8 h-8 text-white"
+                    strokeWidth={2.5}
+                  />
                 </motion.div>
               </motion.div>
 
@@ -121,10 +132,10 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
                 <motion.div
                   key={`dot-${i}`}
                   initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
-                  animate={{ 
+                  animate={{
                     scale: [0, 1, 0],
-                    x: Math.cos(i * 60 * Math.PI / 180) * 60,
-                    y: Math.sin(i * 60 * Math.PI / 180) * 60,
+                    x: Math.cos((i * 60 * Math.PI) / 180) * 60,
+                    y: Math.sin((i * 60 * Math.PI) / 180) * 60,
                     opacity: [1, 1, 0],
                   }}
                   transition={{ duration: 0.8, delay: 0.2 + i * 0.05 }}
@@ -140,8 +151,12 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
               transition={{ delay: 0.4 }}
               className="relative z-10 text-center mt-6"
             >
-              <h3 className="text-xl font-bold text-[#000060] mb-1">Welcome Back</h3>
-              <p className="text-slate-500 text-sm">Redirecting to dashboard...</p>
+              <h3 className="text-xl font-bold text-[#000060] mb-1">
+                Welcome Back
+              </h3>
+              <p className="text-slate-500 text-sm">
+                Redirecting to dashboard...
+              </p>
             </motion.div>
 
             {/* Progress Bar */}
@@ -169,19 +184,23 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
             {/* Header */}
             <div className="text-center mb-6">
               <h2 className="text-xl font-bold text-[#000060]">Admin Login</h2>
-              <p className="text-slate-500 text-sm mt-1">Enter your credentials to continue</p>
+              <p className="text-slate-500 text-sm mt-1">
+                Enter your credentials to continue
+              </p>
             </div>
 
             {/* Error Alert */}
             <AnimatePresence>
               {errors.general && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: -10, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  animate={{ opacity: 1, y: 0, height: "auto" }}
                   exit={{ opacity: 0, y: -10, height: 0 }}
                   className="mb-5 p-3 bg-red-50 border border-red-100 rounded-lg"
                 >
-                  <p className="text-red-600 text-sm text-center">{errors.general}</p>
+                  <p className="text-red-600 text-sm text-center">
+                    {errors.general}
+                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -192,8 +211,14 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
                 Username
               </label>
               <div className="relative">
-                <div className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors duration-200
-                              ${focusedField === 'username' ? 'text-[#000060]' : 'text-slate-400'}`}>
+                <div
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors duration-200
+                              ${
+                                focusedField === "username"
+                                  ? "text-[#000060]"
+                                  : "text-slate-400"
+                              }`}
+                >
                   <User className="w-4 h-4" />
                 </div>
                 <input
@@ -202,20 +227,21 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
                   className={`w-full pl-10 pr-4 py-3 rounded-lg border transition-all duration-200
                             bg-slate-50 text-slate-700 placeholder:text-slate-400 text-sm
                             focus:bg-white focus:outline-none
-                            ${errors.username 
-                              ? 'border-red-300 focus:border-red-400' 
-                              : 'border-slate-200 focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/10'
+                            ${
+                              errors.username
+                                ? "border-red-300 focus:border-red-400"
+                                : "border-slate-200 focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/10"
                             }`}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  onFocus={() => setFocusedField('username')}
+                  onFocus={() => setFocusedField("username")}
                   onBlur={() => setFocusedField(null)}
                   onKeyPress={handleKeyPress}
                   disabled={loading}
                 />
               </div>
               {errors.username && (
-                <motion.p 
+                <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="text-red-500 text-xs mt-1.5"
@@ -231,8 +257,14 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
                 Password
               </label>
               <div className="relative">
-                <div className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors duration-200
-                              ${focusedField === 'password' ? 'text-[#000060]' : 'text-slate-400'}`}>
+                <div
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors duration-200
+                              ${
+                                focusedField === "password"
+                                  ? "text-[#000060]"
+                                  : "text-slate-400"
+                              }`}
+                >
                   <KeyRound className="w-4 h-4" />
                 </div>
                 <input
@@ -241,13 +273,14 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
                   className={`w-full pl-10 pr-10 py-3 rounded-lg border transition-all duration-200
                             bg-slate-50 text-slate-700 placeholder:text-slate-400 text-sm
                             focus:bg-white focus:outline-none
-                            ${errors.password 
-                              ? 'border-red-300 focus:border-red-400' 
-                              : 'border-slate-200 focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/10'
+                            ${
+                              errors.password
+                                ? "border-red-300 focus:border-red-400"
+                                : "border-slate-200 focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/10"
                             }`}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setFocusedField('password')}
+                  onFocus={() => setFocusedField("password")}
                   onBlur={() => setFocusedField(null)}
                   onKeyPress={handleKeyPress}
                   ref={passwordRef}
@@ -267,7 +300,7 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
                 </button>
               </div>
               {errors.password && (
-                <motion.p 
+                <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="text-red-500 text-xs mt-1.5"

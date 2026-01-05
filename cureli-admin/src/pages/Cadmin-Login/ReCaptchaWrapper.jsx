@@ -1,7 +1,7 @@
 import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 
 const ReCaptchaWrapper = ({ children }) => {
-  const siteKey = import.meta.env.VITE_GOOGLE_CAPTCHA_ID || "demo-recaptcha-key"; // ✅ fallback fix
+  const siteKey = import.meta.env.VITE_GOOGLE_CAPTCHA_ID ; 
 
   return (
     <GoogleReCaptchaProvider

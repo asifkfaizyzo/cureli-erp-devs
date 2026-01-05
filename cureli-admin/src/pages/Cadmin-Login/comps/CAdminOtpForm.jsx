@@ -1,7 +1,7 @@
 // CAdminOtpForm.jsx
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { verifyOtpCAdmin } from "../api/auth";
+import { verifyOtpCAdmin } from "../../../api/auth";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle2, ArrowLeft, RefreshCw } from "lucide-react";
 
@@ -30,7 +30,12 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
 
   useEffect(() => {
     const code = otp.join("");
-    if (code.length === 4 && otp.every((d) => d !== "") && !loading && !success) {
+    if (
+      code.length === 4 &&
+      otp.every((d) => d !== "") &&
+      !loading &&
+      !success
+    ) {
       handleVerify(code);
     }
   }, [otp]);
@@ -91,16 +96,17 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
     try {
       const res = await verifyOtpCAdmin({ username, otp: code });
       setSuccess(true);
-      
+
       setTimeout(() => {
         localStorage.setItem("cadmin_access_token", res.data.data.access_token);
         navigate("/dashboard");
       }, 600);
-      
     } catch (err) {
-      setError(err?.response?.data?.message || "Invalid OTP. Please try again.");
+      setError(
+        err?.response?.data?.message || "Invalid OTP. Please try again."
+      );
       triggerShake();
-      
+
       setTimeout(() => {
         setOtp(["", "", "", ""]);
         refs.current[0]?.focus();
@@ -134,7 +140,8 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
       <div className="text-center mb-6">
         <h2 className="text-xl font-bold text-[#000060] mb-1">Verify OTP</h2>
         <p className="text-slate-500 text-sm">
-          Code sent to <span className="font-medium text-slate-700">{phoneHint}</span>
+          Code sent to{" "}
+          <span className="font-medium text-slate-700">{phoneHint}</span>
         </p>
       </div>
 
@@ -164,7 +171,7 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
             onKeyDown={(e) => handleKeyDown(e, idx)}
           />
         ))}
-        
+
         {/* Success Check */}
         <AnimatePresence>
           {success && (
@@ -203,9 +210,10 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
         whileTap={{ scale: loading || success ? 1 : 0.99 }}
         className={`w-full py-3 rounded-lg font-medium transition-all duration-200 
                    flex items-center justify-center gap-2
-                   ${success 
-                     ? "bg-[#000060] text-white" 
-                     : "bg-[#000060] text-white hover:bg-[#000060]/90"
+                   ${
+                     success
+                       ? "bg-[#000060] text-white"
+                       : "bg-[#000060] text-white hover:bg-[#000060]/90"
                    }
                    shadow-md shadow-[#000060]/20
                    disabled:bg-slate-400 disabled:shadow-none disabled:cursor-not-allowed`}
@@ -231,7 +239,7 @@ const CAdminOtpForm = ({ username, phoneHint, onBack }) => {
           <p className="text-slate-500 text-sm">
             Resend in{" "}
             <span className="font-medium text-[#000060] tabular-nums">
-              00:{timer.toString().padStart(2, '0')}
+              00:{timer.toString().padStart(2, "0")}
             </span>
           </p>
         ) : (
