@@ -994,7 +994,7 @@ const TopHeader = () => {
              flex items-center gap-3 transition-colors"
 >
   <Ticket size={16} className="text-gray-500" />
-  <span>Support Tickets</span>
+  <span>Tickets</span>
 </button>
 
                   </div>
