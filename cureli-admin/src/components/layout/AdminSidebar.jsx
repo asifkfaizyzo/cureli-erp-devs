@@ -263,11 +263,11 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
         </div>
       </nav>
 
-      <motion.div
+      {/* <motion.div
         className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-8 bg-gray-300 rounded-full"
         animate={{ opacity: isExpanded ? 0 : 0.5 }}
         transition={{ duration: 0.2 }}
-      />
+      /> */}
     </motion.aside>
   );
 };
