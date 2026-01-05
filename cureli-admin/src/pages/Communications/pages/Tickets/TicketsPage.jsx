@@ -15,7 +15,7 @@ import TicketsTable from "./components/TicketsTable";
 import TicketDetailsModal from "./components/TicketDetailsModal";
 import StyledSelect from "../../../../components/common/StyledSelect";
 import useDebounce from "../../../../hooks/useDebounce";
-import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
+import useRowCommuniacton from "../../../../hooks/useRowCommuniacton1";
 import toast from "react-hot-toast";
 import {
   STATUS_OPTIONS,
@@ -49,7 +49,7 @@ const TicketsPage = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = useDynamicRowCount();
+  const rowsPerPage = useRowCommuniacton();
 
   // Modal
   const [selectedTicket, setSelectedTicket] = useState(null);

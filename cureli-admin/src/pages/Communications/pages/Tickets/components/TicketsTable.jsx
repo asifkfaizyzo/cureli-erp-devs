@@ -6,12 +6,9 @@ import {
   ChevronDown,
   Loader2,
   RotateCcw,
-  ChevronLeft,
-  ChevronRight,
   FileText,
   Inbox,
   Search,
-  AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -19,6 +16,7 @@ import {
   getCategoryConfig,
   getPriorityConfig,
 } from "../../../../../config/ticketConfigs";
+import Pagination from "../../../../../components/common/Pagination";
 
 // Status Badge Component
 const StatusBadge = ({ status }) => {
@@ -170,8 +168,6 @@ const TicketsTable = ({
   onViewTicket,
   hasActiveFilters = false,
 }) => {
-  const totalPages = Math.ceil(totalItems / rowsPerPage);
-
   const formatDate = (dateString) => {
     if (!dateString) return "-";
     try {
@@ -194,33 +190,6 @@ const TicketsTable = ({
     if (!text) return "-";
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";
-  };
-
-  const getPageNumbers = () => {
-    const pages = [];
-    const showEllipsisStart = currentPage > 3;
-    const showEllipsisEnd = currentPage < totalPages - 2;
-
-    if (totalPages <= 5) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      pages.push(1);
-      if (showEllipsisStart) pages.push("...");
-
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-
-      for (let i = start; i <= end; i++) {
-        if (!pages.includes(i)) pages.push(i);
-      }
-
-      if (showEllipsisEnd) pages.push("...");
-      if (!pages.includes(totalPages)) pages.push(totalPages);
-    }
-
-    return pages;
   };
 
   // Empty state content based on context
@@ -461,80 +430,14 @@ const TicketsTable = ({
         </table>
       </div>
 
-      {/* Pagination footer */}
+      {/* Pagination Component - Acts as 10th row */}
       {!loading && tickets.length > 0 && (
-        <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-2">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            {/* Results Info */}
-            <div className="text-xs text-gray-600">
-              Showing{" "}
-              <span className="font-semibold text-gray-900">
-                {(currentPage - 1) * rowsPerPage + 1}
-              </span>
-              {" - "}
-              <span className="font-semibold text-gray-900">
-                {Math.min(currentPage * rowsPerPage, totalItems)}
-              </span>
-              {" of "}
-              <span className="font-semibold text-gray-900">{totalItems}</span>
-            </div>
-
-            {/* Pagination Controls */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="p-1.5 rounded-lg border border-gray-300 bg-white text-gray-700
-                           hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronLeft size={14} />
-              </button>
-
-              <div className="hidden sm:flex items-center gap-1 mx-1">
-                {getPageNumbers().map((page, idx) =>
-                  page === "..." ? (
-                    <span
-                      key={`ellipsis-${idx}`}
-                      className="w-8 text-center text-gray-400 text-xs"
-                    >
-                      •••
-                    </span>
-                  ) : (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`w-8 h-8 rounded-lg text-xs font-semibold transition-all
-                                  ${
-                                    currentPage === page
-                                      ? "bg-[#05015A] text-white shadow-sm"
-                                      : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-                                  }`}
-                    >
-                      {page}
-                    </button>
-                  )
-                )}
-              </div>
-
-              <div className="sm:hidden px-2 text-xs text-gray-600">
-                <span className="font-semibold text-[#05015A]">
-                  {currentPage}
-                </span>
-                <span className="mx-1">/</span>
-                <span>{totalPages}</span>
-              </div>
-
-              <button
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="p-1.5 rounded-lg border border-gray-300 bg-white text-gray-700
-                           hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          totalItems={totalItems}
+          rowsPerPage={rowsPerPage}
+        />
       )}
     </div>
   );
