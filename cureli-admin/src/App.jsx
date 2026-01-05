@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 // Admin Pages
 import AdminLoginPage from "./pages/AdminLoginPage";
-import AdminDashboard from "./pages/AdminDashboard";
+import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import UserPage from "./pages/UserPage";
 import CAdminForgotPassword from "./pages/CAdminForgotPassword";
 import CAdminResetPassword from "./pages/CAdminResetPassword";

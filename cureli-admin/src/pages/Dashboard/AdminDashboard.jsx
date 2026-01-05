@@ -1,11 +1,11 @@
 import React from "react";
-import KPICard from "../components/Dashboard/KPICard";
-import RevenueChart from "../components/Dashboard/RevenueChart";
-import ActivityFeed from "../components/Dashboard/ActivityFeed";
-import SubscriptionDonut from "../components/Dashboard/SubscriptionDonut";
-import QuickActionsPanel from "../components/Dashboard/QuickActionsPanel";
-import AlertsBanner from "../components/Dashboard/AlertsBanner";
-import TopShopsTable from "../components/Dashboard/TopShopsTable";
+import KPICard from "./comps/KPICard";
+import RevenueChart from "./comps/RevenueChart";
+import ActivityFeed from "./comps/ActivityFeed";
+import SubscriptionDonut from "./comps/SubscriptionDonut";
+import QuickActionsPanel from "./comps/QuickActionsPanel";
+import AlertsBanner from "./comps/AlertsBanner";
+import TopShopsTable from "./comps/TopShopsTable";
 
 import { DollarSign, Users, Store, Clock } from "lucide-react";
 
