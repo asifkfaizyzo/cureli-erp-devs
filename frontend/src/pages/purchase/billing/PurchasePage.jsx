@@ -143,11 +143,15 @@ const PurchasePage = () => {
   -------------------------------- */
   useEffect(() => {
     const updateLayout = () => {
-      const w = window.innerWidth;
-      let count = 6;
-      if (w >= 2560) count = 18;
-      else if (w >= 1920) count = 16;
-      else if (w >= 1440) count = 10;
+      const width = window.innerWidth;
+      let count = 6; // Default / Mobile
+
+      if (width >= 2560) count = 17;       // 4k / 27 inch
+      else if (width >= 1920) count = 16;  // 1080p Full HD
+      else if (width >= 1440) count = 10;  // 19 inch / high res laptop
+      else if (width >= 1366) count = 6;   // 14 inch laptop
+      else count = 6;
+
       setTargetRowCount(count);
     };
 
@@ -162,14 +166,10 @@ const PurchasePage = () => {
   useEffect(() => {
     setRows((prev) => {
       if (prev.length < targetRowCount) {
-        return [
-          ...prev,
-          ...Array.from({ length: targetRowCount - prev.length }).map(
-            makeEmptyPurchaseRow
-          ),
-        ];
+        const needed = targetRowCount - prev.length;
+        return [...prev, ...Array.from({ length: needed }).map(makeEmptyPurchaseRow)];
       }
-      return prev.length
+      return prev.length > 0
         ? prev
         : Array.from({ length: targetRowCount }).map(makeEmptyPurchaseRow);
     });
@@ -234,122 +234,122 @@ const PurchasePage = () => {
   };
 
   const mapHeaderToKey = (h) => {
-  if (!h) return null;
-  const key = String(h).toLowerCase().trim().replace(/[^a-z0-9%/]/g, '');
+    if (!h) return null;
+    const key = String(h).toLowerCase().trim().replace(/[^a-z0-9%/]/g, '');
 
-  const map = {
-    // Manufacturer
-    mfac: "mfac",
-    manufacturer: "mfac",
-    mfr: "mfac",
-    company: "mfac",
-    
-    // Rack
-    rack: "rack",
-    location: "rack",
-    shelf: "rack",
-    
-    // Product Name
-    description: "name",
-    descriptionofgoods: "name",
-    product: "name",
-    productname: "name",
-    name: "name",
-    item: "name",
-    itemname: "name",
-    particulars: "name",
-    goods: "name",
-    medicine: "name",
-    medicinename: "name",
-    
-    // HSN
-    hsn: "hsn",
-    hsnsac: "hsn",
-    hsncode: "hsn",
-    saccode: "hsn",
-    
-    // Pack
-    pack: "pack",
-    packing: "pack",
-    packsize: "pack",
-    unit: "pack",
-    uom: "pack",
-    
-    // Batch
-    batch: "batch",
-    batchno: "batch",
-    batchnumber: "batch",
-    lotno: "batch",
-    lot: "batch",
-    
-    // Expiry
-    exp: "exp",
-    expiry: "exp",
-    expirydate: "exp",
-    expdate: "exp",
-    expirationdate: "exp",
-    
-    // Quantity
-    qty: "qty",
-    quantity: "qty",
-    qnty: "qty",
-    units: "qty",
-    nos: "qty",
-    
-    // Scheme
-    sch: "sch",
-    scheme: "sch",
-    free: "sch",
-    freeqty: "sch",
-    
-    // MRP
-    mrp: "mrp",
-    maximumretailprice: "mrp",
-    retailprice: "mrp",
-    
-    // Price
-    price: "price",
-    rate: "price",
-    purchaseprice: "price",
-    purchaserate: "price",
-    unitprice: "price",
-    ptr: "price",
-    
-    // Scheme Percent
-    "sch%": "schemePercent",
-    "scheme%": "schemePercent",
-    schemepercent: "schemePercent",
-    schemepercentage: "schemePercent",
-    
-    // Discount Percent
-    "disc%": "discountPercent",
-    "discount%": "discountPercent",
-    discountpercent: "discountPercent",
-    discountpercentage: "discountPercent",
-    "dis%": "discountPercent",
-    
-    // CGST
-    "cgst%": "cgstPercent",
-    cgstpercent: "cgstPercent",
-    cgst: "cgstPercent",
-    cgstrate: "cgstPercent",
-    
-    // SGST
-    "sgst%": "sgstPercent",
-    sgstpercent: "sgstPercent",
-    sgst: "sgstPercent",
-    sgstrate: "sgstPercent",
-    
-    // Amount
-    amount: "amount",
-    total: "amount",
-    totalamount: "amount",
-    netamount: "amount",
-    value: "amount",
+    const map = {
+      // Manufacturer
+      mfac: "mfac",
+      manufacturer: "mfac",
+      mfr: "mfac",
+      company: "mfac",
+      
+      // Rack
+      rack: "rack",
+      location: "rack",
+      shelf: "rack",
+      
+      // Product Name
+      description: "name",
+      descriptionofgoods: "name",
+      product: "name",
+      productname: "name",
+      name: "name",
+      item: "name",
+      itemname: "name",
+      particulars: "name",
+      goods: "name",
+      medicine: "name",
+      medicinename: "name",
+      
+      // HSN
+      hsn: "hsn",
+      hsnsac: "hsn",
+      hsncode: "hsn",
+      saccode: "hsn",
+      
+      // Pack
+      pack: "pack",
+      packing: "pack",
+      packsize: "pack",
+      unit: "pack",
+      uom: "pack",
+      
+      // Batch
+      batch: "batch",
+      batchno: "batch",
+      batchnumber: "batch",
+      lotno: "batch",
+      lot: "batch",
+      
+      // Expiry
+      exp: "exp",
+      expiry: "exp",
+      expirydate: "exp",
+      expdate: "exp",
+      expirationdate: "exp",
+      
+      // Quantity
+      qty: "qty",
+      quantity: "qty",
+      qnty: "qty",
+      units: "qty",
+      nos: "qty",
+      
+      // Scheme
+      sch: "sch",
+      scheme: "sch",
+      free: "sch",
+      freeqty: "sch",
+      
+      // MRP
+      mrp: "mrp",
+      maximumretailprice: "mrp",
+      retailprice: "mrp",
+      
+      // Price
+      price: "price",
+      rate: "price",
+      purchaseprice: "price",
+      purchaserate: "price",
+      unitprice: "price",
+      ptr: "price",
+      
+      // Scheme Percent
+      "sch%": "schemePercent",
+      "scheme%": "schemePercent",
+      schemepercent: "schemePercent",
+      schemepercentage: "schemePercent",
+      
+      // Discount Percent
+      "disc%": "discountPercent",
+      "discount%": "discountPercent",
+      discountpercent: "discountPercent",
+      discountpercentage: "discountPercent",
+      "dis%": "discountPercent",
+      
+      // CGST
+      "cgst%": "cgstPercent",
+      cgstpercent: "cgstPercent",
+      cgst: "cgstPercent",
+      cgstrate: "cgstPercent",
+      
+      // SGST
+      "sgst%": "sgstPercent",
+      sgstpercent: "sgstPercent",
+      sgst: "sgstPercent",
+      sgstrate: "sgstPercent",
+      
+      // Amount
+      amount: "amount",
+      total: "amount",
+      totalamount: "amount",
+      netamount: "amount",
+      value: "amount",
+    };
+
+    return map[key] || null;
   };
-
-  return map[key] || null;
-};
 
   const parseRowData = (headers, values) => {
     const row = makeEmptyPurchaseRow();
@@ -423,146 +423,146 @@ const PurchasePage = () => {
   };
 
   /* --------------------------------
-   EXCEL IMPORT (XLSX & XLS)
-   Using SheetJS for both formats
--------------------------------- */
-const handleImportExcel = async (file) => {
-  setIsLoading(true);
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    
-    // Use SheetJS to read both .xlsx and .xls formats
-    const workbook = XLSX.read(arrayBuffer, { 
-      type: 'array',
-      cellDates: true,
-      cellNF: false,
-      cellText: false,
-      raw: false, // Get formatted strings
-    });
-    
-    // Get first sheet
-    const sheetName = workbook.SheetNames[0];
-    if (!sheetName) {
-      toast.error("No worksheet found");
-      setIsLoading(false);
-      return;
-    }
-    
-    const worksheet = workbook.Sheets[sheetName];
-    
-    // Convert to array of arrays
-    const data = XLSX.utils.sheet_to_json(worksheet, { 
-      header: 1,
-      defval: "",
-      blankrows: false,
-      raw: false, // Get formatted values
-    });
-
-    // Debug: Log the raw data
-    console.log("📊 Excel Data:", data);
-    console.log("📊 First row (headers):", data[0]);
-    console.log("📊 Second row (first data):", data[1]);
-
-    if (data.length < 1) {
-      toast.error("Excel file is empty");
-      setIsLoading(false);
-      return;
-    }
-
-    // Find the header row (first non-empty row with multiple values)
-    let headerRowIndex = 0;
-    for (let i = 0; i < Math.min(10, data.length); i++) {
-      const row = data[i];
-      if (row && row.filter(cell => cell && String(cell).trim()).length >= 3) {
-        headerRowIndex = i;
-        break;
-      }
-    }
-
-    const headers = data[headerRowIndex].map(h => String(h || '').trim());
-    console.log("📊 Detected headers:", headers);
-    console.log("📊 Header row index:", headerRowIndex);
-
-    // Debug: Show which headers are mapped
-    const mappedHeaders = headers.map(h => ({
-      original: h,
-      mapped: mapHeaderToKey(h)
-    }));
-    console.log("📊 Header mapping:", mappedHeaders);
-
-    const parsed = [];
-    const master = [];
-
-    // Process data rows (skip header row)
-    for (let i = headerRowIndex + 1; i < data.length; i++) {
-      const rowData = data[i];
+     EXCEL IMPORT (XLSX & XLS)
+     Using SheetJS for both formats
+  -------------------------------- */
+  const handleImportExcel = async (file) => {
+    setIsLoading(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
       
-      // Skip completely empty rows
-      if (!rowData || rowData.every(cell => !cell || String(cell).trim() === '')) {
-        continue;
+      // Use SheetJS to read both .xlsx and .xls formats
+      const workbook = XLSX.read(arrayBuffer, { 
+        type: 'array',
+        cellDates: true,
+        cellNF: false,
+        cellText: false,
+        raw: false, // Get formatted strings
+      });
+      
+      // Get first sheet
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        toast.error("No worksheet found");
+        setIsLoading(false);
+        return;
       }
       
-      // Convert each cell to string
-      const values = rowData.map(cell => {
-        if (cell === null || cell === undefined) return '';
-        if (cell instanceof Date) {
-          const month = String(cell.getMonth() + 1).padStart(2, '0');
-          const year = String(cell.getFullYear()).slice(-2);
-          return `${month}/${year}`;
-        }
-        return String(cell).trim();
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Convert to array of arrays
+      const data = XLSX.utils.sheet_to_json(worksheet, { 
+        header: 1,
+        defval: "",
+        blankrows: false,
+        raw: false, // Get formatted values
       });
 
-      const row = parseRowData(headers, values);
-      
-      // Debug: Log first few parsed rows
-      if (i <= headerRowIndex + 3) {
-        console.log(`📊 Row ${i} values:`, values);
-        console.log(`📊 Row ${i} parsed:`, row);
+      // Debug: Log the raw data
+      console.log("📊 Excel Data:", data);
+      console.log("📊 First row (headers):", data[0]);
+      console.log("📊 Second row (first data):", data[1]);
+
+      if (data.length < 1) {
+        toast.error("Excel file is empty");
+        setIsLoading(false);
+        return;
       }
 
-      parsed.push(row);
+      // Find the header row (first non-empty row with multiple values)
+      let headerRowIndex = 0;
+      for (let i = 0; i < Math.min(10, data.length); i++) {
+        const row = data[i];
+        if (row && row.filter(cell => cell && String(cell).trim()).length >= 3) {
+          headerRowIndex = i;
+          break;
+        }
+      }
 
-      if (row.name) {
-        master.push({
-          id: `excel-${i}`,
-          name: row.name,
-          hsn: row.hsn,
-          pack: row.pack,
-          rack: row.rack,
-          cgstPercent: row.cgstPercent,
-          sgstPercent: row.sgstPercent,
+      const headers = data[headerRowIndex].map(h => String(h || '').trim());
+      console.log("📊 Detected headers:", headers);
+      console.log("📊 Header row index:", headerRowIndex);
+
+      // Debug: Show which headers are mapped
+      const mappedHeaders = headers.map(h => ({
+        original: h,
+        mapped: mapHeaderToKey(h)
+      }));
+      console.log("📊 Header mapping:", mappedHeaders);
+
+      const parsed = [];
+      const master = [];
+
+      // Process data rows (skip header row)
+      for (let i = headerRowIndex + 1; i < data.length; i++) {
+        const rowData = data[i];
+        
+        // Skip completely empty rows
+        if (!rowData || rowData.every(cell => !cell || String(cell).trim() === '')) {
+          continue;
+        }
+        
+        // Convert each cell to string
+        const values = rowData.map(cell => {
+          if (cell === null || cell === undefined) return '';
+          if (cell instanceof Date) {
+            const month = String(cell.getMonth() + 1).padStart(2, '0');
+            const year = String(cell.getFullYear()).slice(-2);
+            return `${month}/${year}`;
+          }
+          return String(cell).trim();
         });
+
+        const row = parseRowData(headers, values);
+        
+        // Debug: Log first few parsed rows
+        if (i <= headerRowIndex + 3) {
+          console.log(`📊 Row ${i} values:`, values);
+          console.log(`📊 Row ${i} parsed:`, row);
+        }
+
+        parsed.push(row);
+
+        if (row.name) {
+          master.push({
+            id: `excel-${i}`,
+            name: row.name,
+            hsn: row.hsn,
+            pack: row.pack,
+            rack: row.rack,
+            cgstPercent: row.cgstPercent,
+            sgstPercent: row.sgstPercent,
+          });
+        }
       }
-    }
 
-    const count = parsed.filter(r => r.name).length;
-    console.log("📊 Items with name:", count);
-    console.log("📊 Total parsed rows:", parsed.length);
+      const count = parsed.filter(r => r.name).length;
+      console.log("📊 Items with name:", count);
+      console.log("📊 Total parsed rows:", parsed.length);
 
-    while (parsed.length < targetRowCount) parsed.push(makeEmptyPurchaseRow());
-    
-    setRows(parsed);
-    setProductMaster((p) => [...p, ...master]);
-    
-    const extension = file.name.split('.').pop().toUpperCase();
-    
-    if (count === 0) {
-      toast.warning(
-        "No Items Found", 
-        "Check console for header mapping. Your column names may not match."
-      );
-    } else {
-      toast.success(`${extension} Imported`, `${count} items imported successfully.`);
+      while (parsed.length < targetRowCount) parsed.push(makeEmptyPurchaseRow());
+      
+      setRows(parsed);
+      setProductMaster((p) => [...p, ...master]);
+      
+      const extension = file.name.split('.').pop().toUpperCase();
+      
+      if (count === 0) {
+        toast.warning(
+          "No Items Found", 
+          "Check console for header mapping. Your column names may not match."
+        );
+      } else {
+        toast.success(`${extension} Imported`, `${count} items imported successfully.`);
+      }
+      
+    } catch (error) {
+      console.error("Excel import error:", error);
+      toast.error("Failed to import Excel file", error.message || "Unknown error");
+    } finally {
+      setIsLoading(false);
     }
-    
-  } catch (error) {
-    console.error("Excel import error:", error);
-    toast.error("Failed to import Excel file", error.message || "Unknown error");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   /* --------------------------------
      EXCEL EXPORT (XLSX only)
@@ -680,7 +680,7 @@ const handleImportExcel = async (file) => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1 gap-1">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1 gap-1 font-sans">
       {/* Loading Overlay */}
       {isLoading && (
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
@@ -694,22 +694,29 @@ const handleImportExcel = async (file) => {
         </div>
       )}
 
-      <PurchaseHeader
-        onSave={handleSave}
-        onSavePrint={handleSavePrint}
-        onImportFile={handleImportFile}
-        onExportExcel={handleExportExcel}
-      />
-
-      <div className="flex-1 overflow-hidden bg-white rounded-lg shadow-sm">
-        <PurchaseTable
-          rows={rows}
-          setRows={setRows}
-          productMaster={productMaster}
-          calculateRow={calculateRow}
+      {/* HEADER */}
+      <div className="shrink-0">
+        <PurchaseHeader
+          onSave={handleSave}
+          onSavePrint={handleSavePrint}
+          onImportFile={handleImportFile}
+          onExportExcel={handleExportExcel}
         />
       </div>
 
+      {/* TABLE */}
+      <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm min-h-0 relative">
+        <div className="flex-1 overflow-y-auto">
+          <PurchaseTable
+            rows={rows}
+            setRows={setRows}
+            productMaster={productMaster}
+            calculateRow={calculateRow}
+          />
+        </div>
+      </div>
+
+      {/* FOOTER */}
       <div className="shrink-0 flex gap-2 h-[170px] 2xl:h-[200px]">
         <SupplierDetailsCard supplier={supplier} setSupplier={setSupplier} />
         <PurchaseSummaryCard summary={summary} />

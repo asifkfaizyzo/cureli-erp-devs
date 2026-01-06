@@ -1,8 +1,10 @@
 // src/components/purchase/PurchaseTable.jsx
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import PurchaseRow from "./PurchaseRowFixed";
 
 const FIELDS_COUNT = 13;
+const ROW_HEIGHT = 36; // Height of each row in pixels
+const HEADER_HEIGHT = 60; // Height of header (both rows)
 
 const PurchaseTable = ({
   rows,
@@ -12,6 +14,30 @@ const PurchaseTable = ({
 }) => {
   const fieldRefs = useRef([]);
   const containerRef = useRef(null);
+  const tbodyRef = useRef(null);
+
+  // Dynamic max visible rows based on screen size
+  const [maxVisibleRows, setMaxVisibleRows] = useState(9);
+
+  // Update max visible rows based on screen width
+  useEffect(() => {
+    const updateMaxRows = () => {
+      const width = window.innerWidth;
+      let count = 4; // Default / Mobile
+
+      if (width >= 2560) count = 17;       // 4k / 27 inch
+      else if (width >= 1920) count = 13;  // 1080p Full HD
+      else if (width >= 1440) count = 7;  // 19 inch / high res laptop
+      else if (width >= 1366) count = 5;   // 14 inch laptop
+      else count = 4;
+
+      setMaxVisibleRows(count);
+    };
+
+    updateMaxRows();
+    window.addEventListener("resize", updateMaxRows);
+    return () => window.removeEventListener("resize", updateMaxRows);
+  }, []);
 
   const stableProductMaster = useMemo(
     () => productMaster || [],
@@ -21,6 +47,16 @@ const PurchaseTable = ({
   useEffect(() => {
     fieldRefs.current = fieldRefs.current.slice(0, rows.length);
   }, [rows.length]);
+
+  // Auto-scroll to bottom when new rows with data are added
+  useEffect(() => {
+    if (containerRef.current && rows.length > maxVisibleRows) {
+      const lastRowWithData = rows.findLastIndex(row => row.name);
+      if (lastRowWithData >= maxVisibleRows - 1) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      }
+    }
+  }, [rows, maxVisibleRows]);
 
   const focusNextField = useCallback((rowIndex, fieldIndex) => {
     const nextField = fieldIndex + 1;
@@ -142,37 +178,48 @@ const PurchaseTable = ({
     { className: "border-r-0", content: null },
   ];
 
+  // Calculate max height for scroll container
+  const maxTableHeight = HEADER_HEIGHT + (maxVisibleRows * ROW_HEIGHT);
+
   return (
     <div className="h-full w-full flex flex-col bg-slate-50 rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+      {/* Scrollable container with dynamic max height */}
       <div 
         ref={containerRef} 
         className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
+        style={{ 
+          maxHeight: `${maxTableHeight}px`,
+        }}
       >
         <table className="w-full border-collapse text-[11px] 2xl:text-xs">
           <thead className="sticky top-0 z-20">
             {/* Main Header Row */}
-            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280]">{headerColumns.map((col, i) => (
-              <th
-                key={i}
-                colSpan={col.colSpan || 1}
-                className={`${col.width} px-2 py-2.5 text-white font-semibold text-center border-r border-[#1a1a8a] last:border-r-0 ${col.isSerial ? 'bg-[#03013d]' : ''}`}
-              >
-                <div className="leading-tight">
-                  <div>{col.label}</div>
-                  {col.subLabel && (
-                    <div className="text-[9px] font-normal text-indigo-200 mt-0.5">{col.subLabel}</div>
-                  )}
-                </div>
-              </th>
-            ))}</tr>
+            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280]">
+              {headerColumns.map((col, i) => (
+                <th
+                  key={i}
+                  colSpan={col.colSpan || 1}
+                  className={`${col.width} px-2 py-2.5 text-white font-semibold text-center border-r border-[#1a1a8a] last:border-r-0 ${col.isSerial ? 'bg-[#03013d]' : ''}`}
+                >
+                  <div className="leading-tight">
+                    <div>{col.label}</div>
+                    {col.subLabel && (
+                      <div className="text-[9px] font-normal text-indigo-200 mt-0.5">{col.subLabel}</div>
+                    )}
+                  </div>
+                </th>
+              ))}
+            </tr>
 
-            {/* Sub-header Row - No whitespace between elements */}
-            <tr className="bg-[#0d0399]">{subHeaderCells.map((cell, i) => (
-              <th key={i} className={cell.className}>{cell.content}</th>
-            ))}</tr>
+            {/* Sub-header Row */}
+            <tr className="bg-[#0d0399]">
+              {subHeaderCells.map((cell, i) => (
+                <th key={i} className={cell.className}>{cell.content}</th>
+              ))}
+            </tr>
           </thead>
 
-          <tbody className="bg-white">
+          <tbody ref={tbodyRef} className="bg-white">
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={17} className="py-16 text-center text-slate-400">
@@ -208,6 +255,18 @@ const PurchaseTable = ({
           </tbody>
         </table>
       </div>
+
+      {/* Row count indicator - shows when scrolling is needed */}
+      {rows.length > maxVisibleRows && (
+        <div className="shrink-0 px-3 py-1.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+          <span>
+            Showing {maxVisibleRows} of {rows.length} rows
+          </span>
+          <span className="text-slate-400">
+            ↑↓ Scroll to see more
+          </span>
+        </div>
+      )}
     </div>
   );
 };
