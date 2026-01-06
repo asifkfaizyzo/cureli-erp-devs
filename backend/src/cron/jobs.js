@@ -3,7 +3,6 @@
 import cron from "node-cron";
 import { transitionDeprecatedPlans } from "../modules/cadmin/plans/cadminPlans.service.js";
 import { cleanupExpiredSessions } from "../utils/session.js";
-import { SubscriptionStatus, GRACE_PERIOD_DAYS } from "../config/subscription.js";
 import {
   cleanupOldPendingUsers,
   cleanupIncompleteUsers,
@@ -113,64 +112,4 @@ export function initializeCronJobs() {
   console.log("   - Pending users cleanup: Daily at 3:00 AM");
   console.log("   - Incomplete users cleanup: Daily at 3:15 AM");
   console.log("   - Deletion logs cleanup: Daily at 3:30 AM");
-}
-
-export async function markExpiredSubscriptions() {
-  const now = new Date();
-  
-  const result = await prisma.shopSubscription.updateMany({
-    where: {
-      status: SubscriptionStatus.ACTIVE,
-      end_date: { lt: now },
-    },
-    data: {
-      status: SubscriptionStatus.EXPIRED,
-    },
-  });
-
-  if (result.count > 0) {
-    console.log(`[CRON] Marked ${result.count} subscriptions as EXPIRED`);
-  }
-
-  return result;
-}
-
-/**
- * Run daily: Send renewal reminders
- * - 30 days before expiry
- * - 7 days before expiry
- * - On expiry day
- * - During grace period (every 5 days)
- */
-export async function sendRenewalReminders() {
-  const now = new Date();
-  
-  // 30 days reminder
-  const thirtyDays = new Date(now);
-  thirtyDays.setDate(thirtyDays.getDate() + 30);
-  
-  const expiringSoon = await prisma.shopSubscription.findMany({
-    where: {
-      status: SubscriptionStatus.ACTIVE,
-      end_date: {
-        gte: new Date(thirtyDays.setHours(0, 0, 0, 0)),
-        lt: new Date(thirtyDays.setHours(23, 59, 59, 999)),
-      },
-    },
-    include: {
-      shop: {
-        include: {
-          owner: {
-            select: { email: true, full_name: true },
-          },
-        },
-      },
-      plan: true,
-    },
-  });
-
-  // TODO: Send emails for expiringSoon subscriptions
-  console.log(`[CRON] ${expiringSoon.length} subscriptions expiring in 30 days`);
-
-  // Similar for 7-day, same-day, and grace period reminders
 }

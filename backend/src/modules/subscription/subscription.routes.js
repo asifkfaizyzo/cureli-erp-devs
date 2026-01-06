@@ -1,4 +1,5 @@
 // backend/src/modules/subscription/subscription.routes.js
+// REPLACE the entire file with this updated version
 
 import express from "express";
 import { requireAuth } from "../../middleware/auth.js";
@@ -12,9 +13,11 @@ import {
   subscriptionStatusController,
   subscriptionHistoryController,
   getMySubscription,
+  // NEW controllers
   changePlanController,
   previewPlanChangeController,
   getDowngradeComplianceController,
+  cancelPendingSubscriptionController,
 } from "./subscription.controller.js";
 import {
   selectPlanSchema,
@@ -24,13 +27,17 @@ import {
 
 const router = express.Router();
 
+// ============================================
+// EXISTING ROUTES
+// ============================================
+
 // Get all available plans
 router.get("/plans", requireAuth, getPlansController);
 
 // Get user details for Razorpay prefill
 router.get("/user-details", requireAuth, getUserDetailsController);
 
-// Select a plan (creates order for paid, activates for free)
+// Select a plan (creates order for paid, activates for free) - ONBOARDING ONLY
 router.post(
   "/select",
   requireAuth,
@@ -52,10 +59,20 @@ router.get("/status", requireAuth, subscriptionStatusController);
 // Get subscription history
 router.get("/history", requireAuth, subscriptionHistoryController);
 
-// Get my current subscription (enhanced with state)
+// Get my current subscription
 router.get("/my", requireAuth, getMySubscription);
 
-// Change subscription plan (upgrade or downgrade) - SA only
+// ============================================
+// NEW: PLAN CHANGE ROUTES (Upgrade/Downgrade)
+// ============================================
+
+/**
+ * POST /api/subscriptions/change
+ * Change subscription plan (upgrade or downgrade)
+ * - SA only
+ * - Upgrade: Creates Razorpay order, returns payment details
+ * - Downgrade: Validates compliance, applies immediately
+ */
 router.post(
   "/change",
   requireAuth,
@@ -64,7 +81,12 @@ router.post(
   changePlanController
 );
 
-// Preview plan change
+/**
+ * GET /api/subscriptions/change/preview/:plan_id
+ * Preview what will happen on plan change
+ * - Returns direction (upgrade/downgrade)
+ * - Returns compliance requirements for downgrade
+ */
 router.get(
   "/change/preview/:plan_id",
   requireAuth,
@@ -72,12 +94,28 @@ router.get(
   previewPlanChangeController
 );
 
-// Get compliance data for downgrade
+/**
+ * GET /api/subscriptions/downgrade/compliance/:plan_id
+ * Get users and branches for compliance selection
+ * - Returns list of active users (excluding owner)
+ * - Returns list of active branches
+ */
 router.get(
   "/downgrade/compliance/:plan_id",
   requireAuth,
   requireRole("super_admin"),
   getDowngradeComplianceController
+);
+
+/**
+ * POST /api/subscriptions/:subscription_id/cancel
+ * Cancel a pending subscription (e.g., Razorpay abandoned)
+ */
+router.post(
+  "/:subscription_id/cancel",
+  requireAuth,
+  requireRole("super_admin"),
+  cancelPendingSubscriptionController
 );
 
 export default router;

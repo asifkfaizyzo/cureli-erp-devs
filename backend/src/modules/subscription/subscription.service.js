@@ -1,23 +1,15 @@
-// backend/src/modules/subscription/subscription.service.js
-
+//Q:\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\subscription\subscription.service.js
 import prisma from "../../config/prisma.js";
 import {
   razorpay,
   RAZORPAY_CURRENCY,
   verifyPaymentSignature,
 } from "../../config/razorpay.js";
-import {
-  SubscriptionStatus,
-  PaymentStatus,
-  canAccessApp,
-  getSubscriptionState,
-  getDaysRemaining,
-  GRACE_PERIOD_DAYS,
-} from "../../config/subscription.js";
 
-// ============================================
-// GET VISIBLE PLANS
-// ============================================
+/**
+ * Get plans available for customer selection
+ * Only ACTIVE + PRE_MADE + not deleted
+ */
 export async function getVisiblePlans() {
   return prisma.plan.findMany({
     where: {
@@ -39,9 +31,9 @@ export async function getVisiblePlans() {
   });
 }
 
-// ============================================
-// GET USER DETAILS
-// ============================================
+/**
+ * Get user details for Razorpay prefill
+ */
 export async function getUserDetails(user_id) {
   const user = await prisma.user.findUnique({
     where: { user_id },
@@ -64,9 +56,9 @@ export async function getUserDetails(user_id) {
   return user;
 }
 
-// ============================================
-// GET ACTIVE PLAN
-// ============================================
+/**
+ * Get plan by ID (must be active)
+ */
 export async function getActivePlan(plan_id) {
   const plan = await prisma.plan.findFirst({
     where: {
@@ -85,30 +77,30 @@ export async function getActivePlan(plan_id) {
   return plan;
 }
 
-// ============================================
-// CREATE FREE SUBSCRIPTION
-// ============================================
+/**
+ * Create subscription for FREE plan (instant activation)
+ */
 export async function createFreeSubscription({ shop_id, plan }) {
   const now = new Date();
   const end = new Date();
-  end.setFullYear(end.getFullYear() + 1);
+  end.setFullYear(end.getFullYear() + 1); // 1 year
 
   const subscription = await prisma.shopSubscription.create({
     data: {
       shop_id,
       plan_id: plan.plan_id,
-      status: SubscriptionStatus.ACTIVE,
-      payment_status: PaymentStatus.PAID,
+      status: "active",
+      payment_status: "paid",
       billing_cycle: "yearly",
       start_date: now,
       end_date: end,
       renewal_date: end,
-      activated_at: now,
       branch_limit_snapshot: plan.max_branches,
       user_limit_snapshot: plan.max_users,
     },
   });
 
+  // Set as current subscription
   await prisma.shop.update({
     where: { shop_id },
     data: { current_subscription_id: subscription.subscription_id },
@@ -117,29 +109,33 @@ export async function createFreeSubscription({ shop_id, plan }) {
   return subscription;
 }
 
-// ============================================
-// CREATE PAID SUBSCRIPTION
-// ============================================
+/**
+ * Create subscription for PAID plan (pending payment)
+ * Also creates Razorpay order
+ */
 export async function createPaidSubscription({ shop_id, plan, user }) {
   const now = new Date();
 
+  // Create subscription in pending state
   const subscription = await prisma.shopSubscription.create({
     data: {
       shop_id,
       plan_id: plan.plan_id,
-      status: SubscriptionStatus.PENDING,
-      payment_status: PaymentStatus.PENDING,
+      status: "pending",
+      payment_status: "pending",
       billing_cycle: "yearly",
       start_date: now,
-      end_date: now,
-      renewal_date: now,
+      end_date: now, // Will be updated after payment
+      renewal_date: now, // Will be updated after payment
       branch_limit_snapshot: plan.max_branches,
       user_limit_snapshot: plan.max_users,
     },
   });
 
+  // Create Razorpay order
+  // Price is in paisa, Razorpay expects amount in smallest currency unit (paisa for INR)
   const razorpayOrder = await razorpay.orders.create({
-    amount: Number(plan.price) * 100,
+    amount: Number(plan.price) * 100, // Already in paisa
     currency: RAZORPAY_CURRENCY,
     receipt: subscription.subscription_id,
     notes: {
@@ -150,6 +146,7 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
     },
   });
 
+  // Store Razorpay order ID in payment transaction
   await prisma.paymentTransaction.create({
     data: {
       shop_id,
@@ -178,15 +175,16 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
   };
 }
 
-// ============================================
-// VERIFY AND ACTIVATE SUBSCRIPTION
-// ============================================
+/**
+ * Verify payment and activate subscription
+ */
 export async function verifyAndActivateSubscription({
   razorpay_order_id,
   razorpay_payment_id,
   razorpay_signature,
   subscription_id,
 }) {
+  // Step 1: Verify signature
   const isValid = verifyPaymentSignature(
     razorpay_order_id,
     razorpay_payment_id,
@@ -199,6 +197,7 @@ export async function verifyAndActivateSubscription({
     throw err;
   }
 
+  // Step 2: Find the payment transaction
   const transaction = await prisma.paymentTransaction.findUnique({
     where: { provider_order_id: razorpay_order_id },
     include: { subscription: true },
@@ -216,11 +215,14 @@ export async function verifyAndActivateSubscription({
     throw err;
   }
 
+  // Step 3: Calculate subscription dates
   const now = new Date();
   const endDate = new Date();
-  endDate.setFullYear(endDate.getFullYear() + 1);
+  endDate.setFullYear(endDate.getFullYear() + 1); // 1 year from now
 
+  // Step 4: Update everything in a transaction
   const result = await prisma.$transaction(async (tx) => {
+    // Update payment transaction
     await tx.paymentTransaction.update({
       where: { transaction_id: transaction.transaction_id },
       data: {
@@ -234,19 +236,20 @@ export async function verifyAndActivateSubscription({
       },
     });
 
+    // Update subscription
     const subscription = await tx.shopSubscription.update({
       where: { subscription_id },
       data: {
-        status: SubscriptionStatus.ACTIVE,
-        payment_status: PaymentStatus.PAID,
+        status: "active",
+        payment_status: "paid",
         start_date: now,
         end_date: endDate,
         renewal_date: endDate,
-        activated_at: now,
       },
       include: { plan: true },
     });
 
+    // Set as current subscription
     await tx.shop.update({
       where: { shop_id: transaction.shop_id },
       data: { current_subscription_id: subscription_id },
@@ -258,35 +261,26 @@ export async function verifyAndActivateSubscription({
   return result;
 }
 
-// ============================================
-// GET SUBSCRIPTION STATUS
-// ============================================
+/**
+ * Get subscription status for a shop
+ */
 export async function getSubscriptionStatus(shop_id) {
   if (!shop_id) return null;
 
-  const subscription = await prisma.shopSubscription.findFirst({
+  return prisma.shopSubscription.findFirst({
     where: {
       shop_id,
-      status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.EXPIRED] },
+      is_active: true,
+      end_date: { gte: new Date() },
     },
     include: { plan: true },
     orderBy: { created_at: "desc" },
   });
-
-  if (!subscription) return null;
-
-  // Enrich with computed state
-  const state = getSubscriptionState(subscription);
-
-  return {
-    ...subscription,
-    computed: state,
-  };
 }
 
-// ============================================
-// GET SUBSCRIPTION HISTORY
-// ============================================
+/**
+ * Get subscription history for a shop
+ */
 export async function getSubscriptionHistory(shop_id) {
   if (!shop_id) return [];
 
@@ -297,10 +291,11 @@ export async function getSubscriptionHistory(shop_id) {
   });
 }
 
-// ============================================
-// ANALYZE PLAN CHANGE
-// ============================================
+/**
+ * Analyze what happens when switching to a new plan
+ */
 export async function analyzePlanChangeService(shop_id, target_plan_id) {
+  // Get current subscription with plan
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
     include: {
@@ -329,13 +324,7 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
     throw err;
   }
 
-  // Check if subscription allows access
-  if (!canAccessApp(shop.currentSubscription)) {
-    const err = new Error("Subscription expired. Please renew first.");
-    err.code = "SUBSCRIPTION_EXPIRED";
-    throw err;
-  }
-
+  // Get target plan
   const targetPlan = await prisma.plan.findFirst({
     where: {
       plan_id: target_plan_id,
@@ -354,6 +343,7 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
   const activeUsers = shop._count.users;
   const activeBranches = shop._count.branches;
 
+  // Same plan check
   if (currentPlan.plan_id === target_plan_id) {
     return {
       direction: "no_change",
@@ -363,6 +353,7 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
     };
   }
 
+  // Determine direction
   const normalizeLimit = (val) => (val === -1 ? Infinity : val);
 
   const currentMaxUsers = normalizeLimit(currentPlan.max_users);
@@ -408,6 +399,7 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
     };
   }
 
+  // Upgrade
   return {
     direction: "upgrade",
     hasImpact: false,
@@ -420,10 +412,11 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
   };
 }
 
-// ============================================
-// GET COMPLIANCE DATA
-// ============================================
+/**
+ * Get compliance data for downgrade modal
+ */
 export async function getComplianceDataService(shop_id, target_plan_id) {
+  // Get target plan
   const targetPlan = await prisma.plan.findFirst({
     where: {
       plan_id: target_plan_id,
@@ -438,11 +431,13 @@ export async function getComplianceDataService(shop_id, target_plan_id) {
     throw err;
   }
 
+  // Get shop with owner
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
     select: { owner_user_id: true },
   });
 
+  // Get active users (excluding owner/super_admin)
   const users = await prisma.user.findMany({
     where: {
       shop_id,
@@ -465,6 +460,7 @@ export async function getComplianceDataService(shop_id, target_plan_id) {
     orderBy: [{ role: "asc" }, { full_name: "asc" }],
   });
 
+  // Get active branches
   const branches = await prisma.branch.findMany({
     where: {
       shop_id,
@@ -509,9 +505,15 @@ export async function getComplianceDataService(shop_id, target_plan_id) {
   };
 }
 
-// ============================================
-// CHANGE PLAN SERVICE
-// ============================================
+/**
+ * ============================================
+ * PLAN CHANGE EXECUTION
+ * ============================================
+ */
+
+/**
+ * Execute plan change (upgrade or downgrade)
+ */
 export async function changePlanService({
   shop_id,
   user_id,
@@ -520,6 +522,7 @@ export async function changePlanService({
   branches_to_deactivate = [],
   user_reassignments = [],
 }) {
+  // Analyze the change first
   const analysis = await analyzePlanChangeService(shop_id, target_plan_id);
 
   if (analysis.direction === "no_change") {
@@ -528,6 +531,7 @@ export async function changePlanService({
     throw err;
   }
 
+  // Get target plan
   const targetPlan = await prisma.plan.findFirst({
     where: {
       plan_id: target_plan_id,
@@ -536,6 +540,7 @@ export async function changePlanService({
     },
   });
 
+  // Get user details for Razorpay
   const user = await prisma.user.findUnique({
     where: { user_id },
     select: {
@@ -545,10 +550,16 @@ export async function changePlanService({
     },
   });
 
+  // ============================================
+  // UPGRADE FLOW
+  // ============================================
   if (analysis.direction === "upgrade") {
     return await executeUpgrade(shop_id, targetPlan, user);
   }
 
+  // ============================================
+  // DOWNGRADE FLOW
+  // ============================================
   return await executeDowngrade(
     shop_id,
     targetPlan,
@@ -559,29 +570,31 @@ export async function changePlanService({
   );
 }
 
-// ============================================
-// EXECUTE UPGRADE
-// ============================================
+/**
+ * Execute upgrade - create Razorpay order
+ */
 async function executeUpgrade(shop_id, targetPlan, user) {
   const now = new Date();
 
+  // Create pending subscription
   const subscription = await prisma.shopSubscription.create({
     data: {
       shop_id,
       plan_id: targetPlan.plan_id,
-      status: SubscriptionStatus.PENDING,
-      payment_status: PaymentStatus.PENDING,
+      status: "pending",
+      payment_status: "pending",
       billing_cycle: "yearly",
       start_date: now,
-      end_date: now,
+      end_date: now, // Updated after payment
       renewal_date: now,
       branch_limit_snapshot: targetPlan.max_branches,
       user_limit_snapshot: targetPlan.max_users,
     },
   });
 
+  // Create Razorpay order
   const razorpayOrder = await razorpay.orders.create({
-    amount: Number(targetPlan.price) * 100,
+    amount: Number(targetPlan.price) * 100, // Convert to paisa
     currency: RAZORPAY_CURRENCY,
     receipt: subscription.subscription_id,
     notes: {
@@ -593,6 +606,7 @@ async function executeUpgrade(shop_id, targetPlan, user) {
     },
   });
 
+  // Store payment transaction
   await prisma.paymentTransaction.create({
     data: {
       shop_id,
@@ -630,28 +644,31 @@ async function executeUpgrade(shop_id, targetPlan, user) {
   };
 }
 
-// ============================================
-// EXECUTE DOWNGRADE
-// ============================================
+/**
+ * Execute downgrade - validate compliance and apply immediately
+ */
 async function executeDowngrade(
   shop_id,
   targetPlan,
   analysis,
   users_to_disable,
   branches_to_deactivate,
-  user_reassignments = []
+  user_reassignments = [] // NEW parameter
 ) {
+  // Get shop owner
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
     select: { owner_user_id: true },
   });
 
+  // Validate: Cannot disable owner
   if (users_to_disable.includes(shop.owner_user_id)) {
     const err = new Error("Cannot disable shop owner");
     err.code = "CANNOT_DISABLE_OWNER";
     throw err;
   }
 
+  // Validate: Must keep at least 1 branch
   const activeBranches = analysis.usage.activeBranches;
   const remainingBranches = activeBranches - branches_to_deactivate.length;
 
@@ -661,6 +678,7 @@ async function executeDowngrade(
     throw err;
   }
 
+  // Validate: Users to disable belong to shop
   if (users_to_disable.length > 0) {
     const validUsers = await prisma.user.count({
       where: {
@@ -678,6 +696,7 @@ async function executeDowngrade(
     }
   }
 
+  // Validate: Branches to deactivate belong to shop
   if (branches_to_deactivate.length > 0) {
     const validBranches = await prisma.branch.count({
       where: {
@@ -694,7 +713,9 @@ async function executeDowngrade(
     }
   }
 
+  // NEW: Validate user reassignments
   if (user_reassignments.length > 0) {
+    // Check all target branches exist and are not being deactivated
     const targetBranchIds = [
       ...new Set(user_reassignments.map((r) => r.toBranchId)),
     ];
@@ -727,6 +748,7 @@ async function executeDowngrade(
       throw err;
     }
 
+    // Check users being reassigned exist
     const reassignUserIds = user_reassignments.map((r) => r.userId);
     const validReassignUsers = await prisma.user.count({
       where: {
@@ -743,11 +765,13 @@ async function executeDowngrade(
     }
   }
 
+  // Remove reassigned users from disable list
   const reassignedUserIds = new Set(user_reassignments.map((r) => r.userId));
   const finalUsersToDisable = users_to_disable.filter(
     (id) => !reassignedUserIds.has(id)
   );
 
+  // Check final compliance
   const finalActiveUsers =
     analysis.usage.activeUsers - finalUsersToDisable.length;
   const finalActiveBranches = activeBranches - branches_to_deactivate.length;
@@ -759,7 +783,9 @@ async function executeDowngrade(
 
   if (finalActiveUsers > userLimit) {
     const err = new Error(
-      `Still ${finalActiveUsers - userLimit} users over the limit. Please disable more users.`
+      `Still ${
+        finalActiveUsers - userLimit
+      } users over the limit. Please disable more users.`
     );
     err.code = "NOT_COMPLIANT";
     err.details = { type: "users", excess: finalActiveUsers - userLimit };
@@ -768,7 +794,9 @@ async function executeDowngrade(
 
   if (finalActiveBranches > branchLimit) {
     const err = new Error(
-      `Still ${finalActiveBranches - branchLimit} branches over the limit. Please deactivate more branches.`
+      `Still ${
+        finalActiveBranches - branchLimit
+      } branches over the limit. Please deactivate more branches.`
     );
     err.code = "NOT_COMPLIANT";
     err.details = {
@@ -778,11 +806,15 @@ async function executeDowngrade(
     throw err;
   }
 
+  // ============================================
+  // EXECUTE DOWNGRADE IN TRANSACTION
+  // ============================================
   const now = new Date();
   const endDate = new Date();
   endDate.setFullYear(endDate.getFullYear() + 1);
 
   const result = await prisma.$transaction(async (tx) => {
+    // 1. Disable users
     if (finalUsersToDisable.length > 0) {
       await tx.user.updateMany({
         where: { user_id: { in: finalUsersToDisable } },
@@ -792,6 +824,7 @@ async function executeDowngrade(
         },
       });
 
+      // Invalidate their sessions
       await tx.userSession.updateMany({
         where: {
           user_id: { in: finalUsersToDisable },
@@ -805,6 +838,7 @@ async function executeDowngrade(
       });
     }
 
+    // 2. NEW: Reassign users to new branches
     if (user_reassignments.length > 0) {
       for (const reassignment of user_reassignments) {
         await tx.user.update({
@@ -814,6 +848,7 @@ async function executeDowngrade(
       }
     }
 
+    // 3. Deactivate branches
     if (branches_to_deactivate.length > 0) {
       await tx.branch.updateMany({
         where: { branch_id: { in: branches_to_deactivate } },
@@ -821,6 +856,7 @@ async function executeDowngrade(
       });
     }
 
+    // 4. Deactivate old subscription
     const oldSubscription = await tx.shop.findUnique({
       where: { shop_id },
       select: { current_subscription_id: true },
@@ -830,27 +866,30 @@ async function executeDowngrade(
       await tx.shopSubscription.update({
         where: { subscription_id: oldSubscription.current_subscription_id },
         data: {
-          status: SubscriptionStatus.EXPIRED,
+          is_active: false,
+          status: "cancelled",
         },
       });
     }
 
+    // 5. Create new subscription
     const newSubscription = await tx.shopSubscription.create({
       data: {
         shop_id,
         plan_id: targetPlan.plan_id,
-        status: SubscriptionStatus.ACTIVE,
-        payment_status: PaymentStatus.PAID,
+        status: "active",
+        payment_status: "paid",
         billing_cycle: "yearly",
         start_date: now,
         end_date: endDate,
         renewal_date: endDate,
-        activated_at: now,
         branch_limit_snapshot: targetPlan.max_branches,
         user_limit_snapshot: targetPlan.max_users,
+        is_active: true,
       },
     });
 
+    // 6. Update shop's current subscription
     await tx.shop.update({
       where: { shop_id },
       data: { current_subscription_id: newSubscription.subscription_id },
@@ -874,9 +913,46 @@ async function executeDowngrade(
   };
 }
 
-// ============================================
-// HELPER: FORMAT PLAN
-// ============================================
+/**
+ * Cancel pending subscription
+ */
+export async function cancelPendingSubscriptionService(
+  subscription_id,
+  shop_id
+) {
+  const subscription = await prisma.shopSubscription.findFirst({
+    where: {
+      subscription_id,
+      shop_id,
+    },
+  });
+
+  if (!subscription) {
+    const err = new Error("Subscription not found");
+    err.code = "SUBSCRIPTION_NOT_FOUND";
+    throw err;
+  }
+
+  if (subscription.status !== "pending") {
+    const err = new Error("Can only cancel pending subscriptions");
+    err.code = "NOT_PENDING";
+    throw err;
+  }
+
+  await prisma.shopSubscription.update({
+    where: { subscription_id },
+    data: {
+      status: "cancelled",
+      is_active: false,
+    },
+  });
+
+  return { success: true };
+}
+
+/**
+ * Helper: Format plan for API response
+ */
 function formatPlanForResponse(plan) {
   return {
     plan_id: plan.plan_id,
