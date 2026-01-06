@@ -257,7 +257,7 @@ const PurchaseTable = ({
       </div>
 
       {/* Row count indicator - shows when scrolling is needed */}
-      {rows.length > maxVisibleRows && (
+      {/* {rows.length > maxVisibleRows && (
         <div className="shrink-0 px-3 py-1.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
           <span>
             Showing {maxVisibleRows} of {rows.length} rows
@@ -266,7 +266,7 @@ const PurchaseTable = ({
             ↑↓ Scroll to see more
           </span>
         </div>
-      )}
+      )} */}
     </div>
   );
 };
