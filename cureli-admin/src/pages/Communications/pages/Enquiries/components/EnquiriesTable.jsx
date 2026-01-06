@@ -101,12 +101,6 @@ const EnquiriesTable = ({
     }
   };
 
-  const truncateText = (text, maxLength = 30) => {
-    if (!text) return "-";
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
-
   // Empty state content
   const renderEmptyState = () => {
     if (hasActiveFilters) {
@@ -168,7 +162,7 @@ const EnquiriesTable = ({
             {/* Loading State */}
             {loading && (
               <tr>
-                <td colSpan="8" className="px-4 py-12 text-center">
+                <td colSpan="6" className="px-4 py-12 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-[#000060]/10 flex items-center justify-center">
                       <Loader2
@@ -187,7 +181,7 @@ const EnquiriesTable = ({
             {/* Empty State */}
             {!loading && enquiries.length === 0 && (
               <tr>
-                <td colSpan="8" className="px-4 py-12 text-center">
+                <td colSpan="6" className="px-4 py-12 text-center">
                   {renderEmptyState()}
                 </td>
               </tr>
@@ -304,7 +298,7 @@ const EnquiriesTable = ({
         </table>
       </div>
 
-      {/* Pagination - Using common component */}
+      {/* Pagination - Acts as last row */}
       {!loading && totalItems > 0 && (
         <Pagination
           currentPage={currentPage}

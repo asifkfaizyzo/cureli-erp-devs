@@ -20,7 +20,7 @@ import EnquiryReplyModal from "./components/EnquiryReplyModal";
 import ConfirmDialog from "../../../../components/common/ConfirmDialog";
 import StyledSelect from "../../../../components/common/StyledSelect";
 import useDebounce from "../../../../hooks/useDebounce";
-import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
+import useRowCommuniacton from "../../../../hooks/useRowCommuniacton1";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
@@ -41,7 +41,6 @@ const EnquiriesPage = () => {
 
   // Pagination meta from server
   const [totalItems, setTotalItems] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
 
   // Filters
   const [searchText, setSearchText] = useState("");
@@ -50,7 +49,7 @@ const EnquiriesPage = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = useDynamicRowCount();
+  const rowsPerPage = useRowCommuniacton();
 
   // Modal state
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
@@ -86,6 +85,8 @@ const EnquiriesPage = () => {
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
       if (statusFilter) params.status = statusFilter;
 
+      console.log("Fetching enquiries with params:", params); // Debug log
+
       const response = await getEnquiries(params);
 
       let enquiriesData = [];
@@ -102,13 +103,15 @@ const EnquiriesPage = () => {
         paginationData = response.pagination;
       }
 
+      console.log("Received enquiries:", enquiriesData.length, "Total:", paginationData?.total); // Debug log
+
       setEnquiries(enquiriesData);
       setTotalItems(paginationData?.total || enquiriesData.length);
-      setTotalPages(paginationData?.totalPages || 1);
 
       // Auto-adjust page if current page exceeds total pages
-      if (currentPage > (paginationData?.totalPages || 1) && (paginationData?.totalPages || 1) > 0) {
-        setCurrentPage(paginationData.totalPages);
+      const totalPages = Math.ceil((paginationData?.total || enquiriesData.length) / rowsPerPage);
+      if (currentPage > totalPages && totalPages > 0) {
+        setCurrentPage(totalPages);
       }
     } catch (err) {
       console.error("Failed to fetch enquiries:", err);
@@ -155,7 +158,7 @@ const EnquiriesPage = () => {
     fetchStats();
   }, [fetchStats]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters change (NOT when rowsPerPage changes to avoid double fetch)
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearch, statusFilter]);
@@ -372,7 +375,7 @@ const EnquiriesPage = () => {
       </div>
 
       {/* Table */}
-      <div className="flex-1 min-h-0 min-w-0 overflow-hidden pb-4">
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <EnquiriesTable
           enquiries={enquiries}
           loading={isLoading}
@@ -418,3 +421,4 @@ const EnquiriesPage = () => {
 };
 
 export default EnquiriesPage;
+
