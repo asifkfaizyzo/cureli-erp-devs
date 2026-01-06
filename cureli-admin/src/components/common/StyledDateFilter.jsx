@@ -18,6 +18,7 @@ const StyledDateFilter = ({ label, date, setDate }) => {
       setDropdownPosition({
         top: rect.bottom + 4,
         left: rect.left,
+        width: rect.width,
       });
     }
   }, []);
@@ -182,48 +183,48 @@ const StyledDateFilter = ({ label, date, setDate }) => {
 
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label className="text-xs text-gray-500 font-medium ml-1">{label}</label>}
+      {label && <label className="text-xs text-gray-500 font-medium">{label}</label>}
 
-      <div className="relative">
-        <button
-          ref={triggerRef}
-          type="button"
-          onClick={handleToggle}
-          className={`
-            h-10 pl-10 pr-10 border rounded-lg text-sm text-left 
-            flex items-center w-auto min-w-[160px] shadow-sm whitespace-nowrap
-            focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-            transition-all duration-200 ease-in-out
-            ${isActive
-              ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
-              : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-            }
-          `}
-        >
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={handleToggle}
+        className={`
+          w-full h-10 px-3 border rounded-lg text-sm text-left 
+          flex items-center justify-between gap-2 shadow-sm
+          focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+          transition-all duration-200 ease-in-out
+          ${isActive
+            ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
+            : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+          }
+        `}
+      >
+        {/* Left side: Calendar Icon + Text */}
+        <span className={`flex-1 truncate flex items-center gap-2 ${isActive ? "" : "text-gray-400"}`}>
           <CalendarIcon
             size={16}
-            className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors
-              ${isActive ? "text-indigo-500" : "text-gray-400"}`}
+            className={`flex-shrink-0 transition-colors ${isActive ? "text-indigo-500" : "text-gray-400"}`}
           />
           <span>{isActive ? formatDateDisplay(date) : "Select Date"}</span>
-          {isActive ? (
-            <div
-              role="button"
-              onClick={handleClear}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full 
-                         hover:bg-indigo-200 text-indigo-500 transition-colors z-10"
-            >
-              <X size={14} strokeWidth={2.5} />
-            </div>
-          ) : (
-            <ChevronDown
-              size={16}
-              className={`absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-transform duration-200
-                ${isOpen ? "rotate-180" : ""}`}
-            />
-          )}
-        </button>
-      </div>
+        </span>
+
+        {/* Right side: Clear Button or Chevron */}
+        {isActive ? (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="flex-shrink-0 p-0.5 rounded-full hover:bg-indigo-200 text-indigo-500 transition-colors"
+          >
+            <X size={14} strokeWidth={2.5} />
+          </button>
+        ) : (
+          <ChevronDown
+            size={16}
+            className={`flex-shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""} ${isActive ? "text-indigo-500" : "text-gray-400"}`}
+          />
+        )}
+      </button>
 
       {/* Dropdown Portal */}
       {dropdown}

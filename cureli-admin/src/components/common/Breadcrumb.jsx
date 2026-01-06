@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Home } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 
 /**
@@ -59,6 +60,12 @@ const Breadcrumb = () => {
       className="text-sm flex items-center gap-1.5 mb-3"
       aria-label="Breadcrumb"
     >
+      {/* Home Icon */}
+      <Home size={14} className="text-gray-400 flex-shrink-0" />
+      
+      {/* Arrow after home icon */}
+      <span className="text-gray-300 select-none">›</span>
+      
       {crumbs.map((crumb, index) => {
         const isLast = index === crumbs.length - 1;
         const path = getBreadcrumbPath(crumb);

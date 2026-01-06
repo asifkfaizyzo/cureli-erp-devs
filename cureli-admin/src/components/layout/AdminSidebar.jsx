@@ -7,7 +7,7 @@ import {
   LayoutGrid,
   Users,
   HousePlus,
-  Podcast,
+  CreditCard,
   ListChecks,
   Settings,
   ShieldCheck,
@@ -61,7 +61,7 @@ const MENU_ITEMS = [
   {
     id: "subscriptions",
     label: "Subscriptions",
-    icon: Podcast,
+    icon: CreditCard,
     path: "/subscriptions",
     breadcrumbs: ["Subscriptions"],
   },
