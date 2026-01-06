@@ -11,6 +11,7 @@ const PurchaseTable = ({
   setRows,
   productMaster,
   calculateRow,
+  importVersion = 0,
 }) => {
   const fieldRefs = useRef([]);
   const containerRef = useRef(null);
@@ -46,7 +47,20 @@ const PurchaseTable = ({
 
   useEffect(() => {
     fieldRefs.current = fieldRefs.current.slice(0, rows.length);
-  }, [rows.length]);
+    
+    // Force ref refresh after import
+    if (rows.length > 0 && importVersion > 0) {
+      requestAnimationFrame(() => {
+        fieldRefs.current.forEach((row) => {
+          if (row) {
+            row.forEach((el) => {
+              if (el && el.blur) el.blur(); // Validate ref connection
+            });
+          }
+        });
+      });
+    }
+  }, [rows.length, importVersion]);
 
   // Auto-scroll to bottom when new rows with data are added
   useEffect(() => {
@@ -255,18 +269,6 @@ const PurchaseTable = ({
           </tbody>
         </table>
       </div>
-
-      {/* Row count indicator - shows when scrolling is needed */}
-      {/* {rows.length > maxVisibleRows && (
-        <div className="shrink-0 px-3 py-1.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
-          <span>
-            Showing {maxVisibleRows} of {rows.length} rows
-          </span>
-          <span className="text-slate-400">
-            ↑↓ Scroll to see more
-          </span>
-        </div>
-      )} */}
     </div>
   );
 };

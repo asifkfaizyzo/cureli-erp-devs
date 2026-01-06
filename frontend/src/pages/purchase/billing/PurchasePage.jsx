@@ -83,6 +83,7 @@ const PurchasePage = () => {
   const [rows, setRows] = useState([]);
   const [productMaster, setProductMaster] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [importVersion, setImportVersion] = useState(0);
   
   // Print ref
   const printRef = useRef(null);
@@ -235,8 +236,14 @@ const PurchasePage = () => {
 
   const mapHeaderToKey = (h) => {
     if (!h) return null;
-    const key = String(h).toLowerCase().trim().replace(/[^a-z0-9%/]/g, '');
-
+    
+    // Remove newlines, tabs, and all whitespace
+    const key = String(h)
+      .replace(/[\n\r\t]/g, ' ')      // Replace line breaks
+      .replace(/\s+/g, '')             // Remove ALL whitespace
+      .toLowerCase()
+      .replace(/[^a-z0-9%]/g, '');     // Keep only letters, numbers, %
+    
     const map = {
       // Manufacturer
       mfac: "mfac",
@@ -362,7 +369,16 @@ const PurchasePage = () => {
     });
 
     if (!row.sch) row.sch = "0";
-    return calculateRow(row);
+    
+    // Two-pass calculation
+    let calculated = calculateRow(row);
+    
+    // Second pass: ensure derived fields populated
+    if (calculated.cgstPercent && !calculated.cgstAmount) {
+      calculated = calculateRow(calculated);
+    }
+    
+    return calculated;
   };
 
   /* --------------------------------
@@ -386,7 +402,7 @@ const PurchasePage = () => {
         const master = [];
 
         for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(",").map(v => v.trim().replace(/^"|"$/g, ''));
+          const values = lines[i].split(",").map(v => v.trim().replace(/^\"|\"$/g, ''));
           const row = parseRowData(headers, values);
           parsed.push(row);
 
@@ -404,9 +420,38 @@ const PurchasePage = () => {
         }
 
         const count = parsed.filter(r => r.name).length;
-        while (parsed.length < targetRowCount) parsed.push(makeEmptyPurchaseRow());
-        setRows(parsed);
+        
+        // Patch existing rows instead of replacing
+        setRows((prevRows) => {
+          const importedCount = parsed.length;
+          const minRowsNeeded = importedCount + 2;
+          const targetSize = Math.max(minRowsNeeded, targetRowCount);
+          const merged = [...prevRows];
+          
+          // Patch imported data into existing rows
+          parsed.forEach((importedRow, idx) => {
+            if (idx < merged.length) {
+              merged[idx] = calculateRow({ ...merged[idx], ...importedRow });
+            } else {
+              merged.push(calculateRow(importedRow));
+            }
+          });
+          
+          // Clear remaining rows
+          for (let i = importedCount; i < merged.length; i++) {
+            merged[i] = makeEmptyPurchaseRow();
+          }
+          
+          // Add empty rows if needed
+          while (merged.length < targetSize) {
+            merged.push(makeEmptyPurchaseRow());
+          }
+          
+          return merged;
+        });
+        
         setProductMaster((p) => [...p, ...master]);
+        setImportVersion(v => v + 1);
         toast.success("CSV Imported", `${count} items imported successfully.`);
       } catch (error) {
         console.error("CSV import error:", error);
@@ -540,10 +585,37 @@ const PurchasePage = () => {
       console.log("📊 Items with name:", count);
       console.log("📊 Total parsed rows:", parsed.length);
 
-      while (parsed.length < targetRowCount) parsed.push(makeEmptyPurchaseRow());
+      // Patch existing rows instead of replacing
+      setRows((prevRows) => {
+        const importedCount = parsed.length;
+        const minRowsNeeded = importedCount + 2;
+        const targetSize = Math.max(minRowsNeeded, targetRowCount);
+        const merged = [...prevRows];
+        
+        // Patch imported data into existing rows
+        parsed.forEach((importedRow, idx) => {
+          if (idx < merged.length) {
+            merged[idx] = calculateRow({ ...merged[idx], ...importedRow });
+          } else {
+            merged.push(calculateRow(importedRow));
+          }
+        });
+        
+        // Clear remaining rows
+        for (let i = importedCount; i < merged.length; i++) {
+          merged[i] = makeEmptyPurchaseRow();
+        }
+        
+        // Add empty rows if needed
+        while (merged.length < targetSize) {
+          merged.push(makeEmptyPurchaseRow());
+        }
+        
+        return merged;
+      });
       
-      setRows(parsed);
       setProductMaster((p) => [...p, ...master]);
+      setImportVersion(v => v + 1);
       
       const extension = file.name.split('.').pop().toUpperCase();
       
@@ -712,6 +784,7 @@ const PurchasePage = () => {
             setRows={setRows}
             productMaster={productMaster}
             calculateRow={calculateRow}
+            importVersion={importVersion}
           />
         </div>
       </div>
