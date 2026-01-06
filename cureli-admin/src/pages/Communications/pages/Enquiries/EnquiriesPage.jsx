@@ -1,4 +1,5 @@
 // cureli-admin/src/pages/Communications/pages/Enquiries/EnquiriesPage.jsx
+
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Search,
@@ -20,7 +21,7 @@ import EnquiryReplyModal from "./components/EnquiryReplyModal";
 import ConfirmDialog from "../../../../components/common/ConfirmDialog";
 import StyledSelect from "../../../../components/common/StyledSelect";
 import useDebounce from "../../../../hooks/useDebounce";
-import useRowCommuniacton from "../../../../hooks/useRowCommuniacton1";
+import useDynamicRowCount from "../../../../hooks/useDynamicRowCount"; // ✅ Correct hook name
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
@@ -32,6 +33,7 @@ const STATUS_OPTIONS = [
 
 const EnquiriesPage = () => {
   const toast = useToast();
+  const rowsPerPage = useDynamicRowCount(); // ✅ Use correct hook
 
   // Data state
   const [enquiries, setEnquiries] = useState([]);
@@ -49,7 +51,6 @@ const EnquiriesPage = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = useRowCommuniacton();
 
   // Modal state
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
@@ -85,8 +86,6 @@ const EnquiriesPage = () => {
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
       if (statusFilter) params.status = statusFilter;
 
-      console.log("Fetching enquiries with params:", params); // Debug log
-
       const response = await getEnquiries(params);
 
       let enquiriesData = [];
@@ -102,8 +101,6 @@ const EnquiriesPage = () => {
         enquiriesData = response.enquiries;
         paginationData = response.pagination;
       }
-
-      console.log("Received enquiries:", enquiriesData.length, "Total:", paginationData?.total); // Debug log
 
       setEnquiries(enquiriesData);
       setTotalItems(paginationData?.total || enquiriesData.length);
@@ -158,7 +155,7 @@ const EnquiriesPage = () => {
     fetchStats();
   }, [fetchStats]);
 
-  // Reset to page 1 when filters change (NOT when rowsPerPage changes to avoid double fetch)
+  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearch, statusFilter]);
@@ -270,8 +267,6 @@ const EnquiriesPage = () => {
             <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
-
-        
 
         {/* Search & Filters */}
         <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
@@ -421,4 +416,3 @@ const EnquiriesPage = () => {
 };
 
 export default EnquiriesPage;
-

@@ -1,4 +1,5 @@
-//Q:\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\subscription\subscription.controller.js
+// backend/src/modules/subscription/subscription.controller.js
+
 import { success, fail } from "../../utils/response.js";
 import {
   getVisiblePlans,
@@ -12,13 +13,19 @@ import {
   analyzePlanChangeService,
   changePlanService,
   getComplianceDataService,
-  cancelPendingSubscriptionService,
 } from "./subscription.service.js";
 import prisma from "../../config/prisma.js";
+import {
+  SubscriptionStatus,
+  getSubscriptionState,
+  canAccessApp,
+  getDaysRemaining,
+  GRACE_PERIOD_DAYS,
+} from "../../config/subscription.js";
 
-/**
- * GET /plans - Get all available plans
- */
+// ============================================
+// GET PLANS
+// ============================================
 export async function getPlansController(req, res) {
   try {
     const plans = await getVisiblePlans();
@@ -29,31 +36,26 @@ export async function getPlansController(req, res) {
   }
 }
 
-/**
- * GET /user-details - Get current user details for Razorpay prefill
- */
+// ============================================
+// GET USER DETAILS
+// ============================================
 export async function getUserDetailsController(req, res) {
   try {
     const user_id = req.user.user_id;
     const user = await getUserDetails(user_id);
-
     return success(res, { user });
   } catch (err) {
     console.error("getUserDetailsController error:", err);
-
     if (err.code === "USER_NOT_FOUND") {
       return fail(res, err.message, 404);
     }
-
     return fail(res, "Failed to fetch user details", 500);
   }
 }
 
-/**
- * POST /select - Select a plan
- * For FREE plans: Activates immediately
- * For PAID plans: Creates Razorpay order
- */
+// ============================================
+// SELECT PLAN
+// ============================================
 export async function selectPlanController(req, res) {
   try {
     const { plan_id } = req.validated;
@@ -61,19 +63,14 @@ export async function selectPlanController(req, res) {
     const user_id = req.user.user_id;
 
     if (!shop_id) {
-      return fail(
-        res,
-        "Shop not found. Please complete shop setup first.",
-        400
-      );
+      return fail(res, "Shop not found. Please complete shop setup first.", 400);
     }
 
-    // Check if shop already has active subscription
+    // Check for existing active subscription
     const existingSubscription = await prisma.shopSubscription.findFirst({
       where: {
         shop_id,
-        status: "active",
-        is_active: true,
+        status: SubscriptionStatus.ACTIVE,
         end_date: { gte: new Date() },
       },
     });
@@ -82,17 +79,11 @@ export async function selectPlanController(req, res) {
       return fail(res, "You already have an active subscription", 400);
     }
 
-    // Get the plan
     const plan = await getActivePlan(plan_id);
-
-    // Get user details for Razorpay prefill
     const user = await getUserDetails(user_id);
-
-    // Check if FREE plan
     const isFree = Number(plan.price) === 0;
 
     if (isFree) {
-      // FREE PLAN - Activate immediately
       const subscription = await createFreeSubscription({ shop_id, plan });
 
       return success(
@@ -115,7 +106,6 @@ export async function selectPlanController(req, res) {
       );
     }
 
-    // PAID PLAN - Create Razorpay order
     const orderData = await createPaidSubscription({ shop_id, plan, user });
 
     return success(
@@ -158,9 +148,9 @@ export async function selectPlanController(req, res) {
   }
 }
 
-/**
- * POST /confirm - Confirm payment after Razorpay checkout
- */
+// ============================================
+// CONFIRM PAYMENT
+// ============================================
 export async function confirmPaymentController(req, res) {
   try {
     const {
@@ -198,11 +188,7 @@ export async function confirmPaymentController(req, res) {
     console.error("confirmPaymentController error:", err);
 
     if (err.code === "INVALID_SIGNATURE") {
-      return fail(
-        res,
-        "Payment verification failed. Please contact support.",
-        400
-      );
+      return fail(res, "Payment verification failed. Please contact support.", 400);
     }
     if (err.code === "TRANSACTION_NOT_FOUND") {
       return fail(res, "Transaction not found", 404);
@@ -211,22 +197,17 @@ export async function confirmPaymentController(req, res) {
       return fail(res, "Invalid subscription", 400);
     }
 
-    return fail(
-      res,
-      "Payment confirmation failed. Please contact support.",
-      500
-    );
+    return fail(res, "Payment confirmation failed. Please contact support.", 500);
   }
 }
 
-/**
- * GET /status - Get current subscription status
- */
+// ============================================
+// GET STATUS
+// ============================================
 export async function subscriptionStatusController(req, res) {
   try {
     const shop_id = req.user.shop_id;
     const status = await getSubscriptionStatus(shop_id);
-
     return success(res, { subscription: status });
   } catch (err) {
     console.error("subscriptionStatusController error:", err);
@@ -234,14 +215,13 @@ export async function subscriptionStatusController(req, res) {
   }
 }
 
-/**
- * GET /history - Get subscription history
- */
+// ============================================
+// GET HISTORY
+// ============================================
 export async function subscriptionHistoryController(req, res) {
   try {
     const shop_id = req.user.shop_id;
     const history = await getSubscriptionHistory(shop_id);
-
     return success(res, { history });
   } catch (err) {
     console.error("subscriptionHistoryController error:", err);
@@ -249,17 +229,19 @@ export async function subscriptionHistoryController(req, res) {
   }
 }
 
-/**
- * GET /my - Get current user's active subscription
- */
+// ============================================
+// GET MY SUBSCRIPTION (Enhanced)
+// ============================================
 export async function getMySubscription(req, res) {
   try {
     const shop_id = req.user.shop_id;
 
     if (!shop_id) {
       return success(res, {
-        has_active_subscription: false,
+        has_subscription: false,
+        can_access: false,
         current_plan: null,
+        state: 'NONE',
       });
     }
 
@@ -282,44 +264,44 @@ export async function getMySubscription(req, res) {
       },
     });
 
-    if (!shop) {
+    if (!shop || !shop.currentSubscription) {
       return success(res, {
-        has_active_subscription: false,
+        has_subscription: false,
+        can_access: false,
         current_plan: null,
+        state: 'NONE',
       });
     }
 
     const sub = shop.currentSubscription;
-
-    const isValid =
-      sub &&
-      sub.is_active &&
-      sub.status === "active" &&
-      new Date(sub.end_date) > new Date();
+    const state = getSubscriptionState(sub);
+    const daysRemaining = getDaysRemaining(sub);
 
     return success(res, {
-      has_active_subscription: isValid,
-      current_plan: isValid
-        ? {
-            plan_id: sub.plan.plan_id,
-            name: sub.plan.name,
-            price: Number(sub.plan.price),
-            expires_at: sub.end_date,
-            max_branches: sub.plan.max_branches,
-            max_users: sub.plan.max_users,
-          }
-        : null,
-      subscription: isValid
-        ? {
-            subscription_id: sub.subscription_id,
-            status: sub.status,
-            start_date: sub.start_date,
-            end_date: sub.end_date,
-            renewal_date: sub.renewal_date,
-            branch_limit: sub.branch_limit_snapshot,
-            user_limit: sub.user_limit_snapshot,
-          }
-        : null,
+      has_subscription: true,
+      can_access: state.canAccess,
+      state: state.state,
+      message: state.message,
+      show_warning: state.showWarning || false,
+      show_urgent_warning: state.showUrgentWarning || false,
+      current_plan: {
+        plan_id: sub.plan.plan_id,
+        name: sub.plan.name,
+        price: Number(sub.plan.price),
+        max_branches: sub.plan.max_branches,
+        max_users: sub.plan.max_users,
+      },
+      subscription: {
+        subscription_id: sub.subscription_id,
+        status: sub.status,
+        start_date: sub.start_date,
+        end_date: sub.end_date,
+        renewal_date: sub.renewal_date,
+        days_remaining: daysRemaining,
+        grace_period_days: GRACE_PERIOD_DAYS,
+        branch_limit: sub.branch_limit_snapshot,
+        user_limit: sub.user_limit_snapshot,
+      },
     });
   } catch (err) {
     console.error("getMySubscription error:", err);
@@ -327,9 +309,12 @@ export async function getMySubscription(req, res) {
   }
 }
 
+// ============================================
+// CHANGE PLAN
+// ============================================
 export async function changePlanController(req, res) {
   try {
-    const { plan_id, users_to_disable, branches_to_deactivate } = req.validated;
+    const { plan_id, users_to_disable, branches_to_deactivate, user_reassignments } = req.validated;
     const { shop_id, user_id } = req.user;
 
     if (!shop_id) {
@@ -342,9 +327,9 @@ export async function changePlanController(req, res) {
       target_plan_id: plan_id,
       users_to_disable,
       branches_to_deactivate,
+      user_reassignments,
     });
 
-    // UPGRADE: Return Razorpay order
     if (result.requires_payment) {
       return success(res, {
         requires_payment: true,
@@ -354,7 +339,6 @@ export async function changePlanController(req, res) {
       }, "Payment required for upgrade");
     }
 
-    // DOWNGRADE: Applied immediately
     return success(res, {
       requires_payment: false,
       subscription: result.subscription,
@@ -369,6 +353,7 @@ export async function changePlanController(req, res) {
     const errorMap = {
       PLAN_NOT_FOUND: 404,
       NO_ACTIVE_SUBSCRIPTION: 400,
+      SUBSCRIPTION_EXPIRED: 400,
       SAME_PLAN: 400,
       NOT_COMPLIANT: 400,
       CANNOT_DISABLE_OWNER: 400,
@@ -382,10 +367,9 @@ export async function changePlanController(req, res) {
   }
 }
 
-/**
- * GET /api/subscriptions/change/preview/:plan_id
- * Preview plan change impact
- */
+// ============================================
+// PREVIEW PLAN CHANGE
+// ============================================
 export async function previewPlanChangeController(req, res) {
   try {
     const { plan_id } = req.params;
@@ -396,7 +380,6 @@ export async function previewPlanChangeController(req, res) {
     }
 
     const preview = await analyzePlanChangeService(shop_id, plan_id);
-
     return success(res, preview);
   } catch (err) {
     console.error("previewPlanChangeController error:", err);
@@ -407,15 +390,17 @@ export async function previewPlanChangeController(req, res) {
     if (err.code === "NO_ACTIVE_SUBSCRIPTION") {
       return fail(res, err.message, 400);
     }
+    if (err.code === "SUBSCRIPTION_EXPIRED") {
+      return fail(res, err.message, 400);
+    }
 
     return fail(res, "Failed to preview plan change", 500);
   }
 }
 
-/**
- * GET /api/subscriptions/downgrade/compliance/:plan_id
- * Get data needed for compliance modal
- */
+// ============================================
+// GET DOWNGRADE COMPLIANCE
+// ============================================
 export async function getDowngradeComplianceController(req, res) {
   try {
     const { plan_id } = req.params;
@@ -426,7 +411,6 @@ export async function getDowngradeComplianceController(req, res) {
     }
 
     const complianceData = await getComplianceDataService(shop_id, plan_id);
-
     return success(res, complianceData);
   } catch (err) {
     console.error("getDowngradeComplianceController error:", err);
@@ -436,35 +420,5 @@ export async function getDowngradeComplianceController(req, res) {
     }
 
     return fail(res, "Failed to fetch compliance data", 500);
-  }
-}
-
-/**
- * POST /api/subscriptions/:subscription_id/cancel
- * Cancel pending subscription
- */
-export async function cancelPendingSubscriptionController(req, res) {
-  try {
-    const { subscription_id } = req.params;
-    const { shop_id } = req.user;
-
-    if (!shop_id) {
-      return fail(res, "Shop not found", 400);
-    }
-
-    await cancelPendingSubscriptionService(subscription_id, shop_id);
-
-    return success(res, null, "Pending subscription cancelled");
-  } catch (err) {
-    console.error("cancelPendingSubscriptionController error:", err);
-
-    if (err.code === "SUBSCRIPTION_NOT_FOUND") {
-      return fail(res, err.message, 404);
-    }
-    if (err.code === "NOT_PENDING") {
-      return fail(res, err.message, 400);
-    }
-
-    return fail(res, "Failed to cancel subscription", 500);
   }
 }

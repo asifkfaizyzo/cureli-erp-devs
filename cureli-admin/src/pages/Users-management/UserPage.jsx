@@ -1,5 +1,4 @@
-// cureli-admin/src/pages/Users-management/UserPage.jsx
-
+// src/pages/Users-management/UserPage.jsx
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -15,20 +14,21 @@ import StyledSelect from "../../components/common/StyledSelect";
 import StyledDateFilter from "../../components/common/StyledDateFilter";
 import { getCAdminUsers } from "../../api/cadminUsers";
 import { useToast } from "../../components/common/Toast";
+import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 
+// ✅ FIXED: Remove "suspended", only Active/Inactive
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
-  { value: "Active", label: "Active" },
-  { value: "Inactive", label: "Inactive" },
-  { value: "suspended", label: "Suspended" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
 ];
 
+// ✅ FIXED: Correct roles - Super Admin, Branch Admin, Staff
 const ROLE_OPTIONS = [
   { value: "", label: "All Roles" },
-  { value: "Super Admin", label: "Super Admin" },
-  { value: "Admin", label: "Admin" },
-  { value: "Manager", label: "Manager" },
-  { value: "Staff", label: "Staff" },
+  { value: "super_admin", label: "Super Admin" },
+  { value: "branch_admin", label: "Branch Admin" },
+  { value: "staff", label: "Staff" },
 ];
 
 const UserPage = () => {
@@ -37,17 +37,19 @@ const UserPage = () => {
   // Get search params from URL
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Pagination + rows per page
+  // Use dynamic row count from global config
+  const rowsPerPage = useDynamicRowCount();
+
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Initialize search text from URL params
   const initialSearch = searchParams.get("search") || "";
 
   // Filters / sort
   const [searchText, setSearchText] = useState(initialSearch);
-  const [statusFilter, setStatusFilter] = useState("Active");
-  const [roleFilter, setRoleFilter] = useState("Super Admin");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [sortConfig, setSortConfig] = useState({
@@ -70,24 +72,6 @@ const UserPage = () => {
   const hasActiveFilters = useMemo(() => {
     return activeFiltersCount > 0 || searchText.trim().length > 0;
   }, [activeFiltersCount, searchText]);
-
-  // Responsive rows per page
-  useEffect(() => {
-    const updateRows = () => {
-      const width = window.innerWidth;
-
-      if (width >= 2560) setRowsPerPage(14);
-      else if (width >= 1920) setRowsPerPage(12);
-      else if (width >= 1440) setRowsPerPage(9);
-      else if (width >= 1366) setRowsPerPage(8);
-      else setRowsPerPage(6);
-    };
-
-    updateRows();
-
-    window.addEventListener("resize", updateRows);
-    return () => window.removeEventListener("resize", updateRows);
-  }, []);
 
   // Update search text when URL params change
   useEffect(() => {
@@ -152,7 +136,7 @@ const UserPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters change (but not when rowsPerPage changes)
   useEffect(() => {
     setCurrentPage(1);
   }, [searchText, statusFilter, roleFilter, dateFilter, sortConfig]);
@@ -180,12 +164,12 @@ const UserPage = () => {
         );
 
         // Show appropriate toast based on the update
-        if (updates.status === "suspended") {
+        if (updates.is_active === false) {
           toast.success(
-            "User Suspended",
-            "User account has been suspended successfully."
+            "User Deactivated",
+            "User account has been deactivated successfully."
           );
-        } else if (updates.status === "active") {
+        } else if (updates.is_active === true) {
           toast.success(
             "User Activated",
             "User account has been activated successfully."
@@ -370,17 +354,12 @@ const UserPage = () => {
         )}
       </div>
 
-      {/* Table */}
+      {/* Table Container - Takes remaining height */}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <UserTable
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
           rowsPerPage={rowsPerPage}
-          setRowsPerPage={setRowsPerPage}
-          searchText={searchText}
-          statusFilter={statusFilter}
-          roleFilter={roleFilter}
-          dateFilter={dateFilter}
           users={users}
           loading={loading}
           totalItems={totalItems}
@@ -393,5 +372,4 @@ const UserPage = () => {
     </div>
   );
 };
-
 export default UserPage;

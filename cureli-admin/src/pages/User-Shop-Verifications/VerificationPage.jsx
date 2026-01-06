@@ -1,5 +1,4 @@
-// cureli-admin/src/pages/User-Shop-Verifications/VerificationPage.jsx
-
+// src/pages/User-Shop-Verifications/VerificationPage.jsx
 import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   ShieldCheck,
@@ -15,13 +14,16 @@ import StyledSelect from "../../components/common/StyledSelect";
 import StyledDateFilter from "../../components/common/StyledDateFilter";
 import { listShopsForVerification } from "../../api/cadminDocs";
 import { useToast } from "../../components/common/Toast";
+import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 
+// ✅ FIXED: Match backend status values
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
   { value: "pending", label: "Pending" },
-  { value: "approved", label: "Approved" },
+  { value: "pending_review", label: "Pending Review" },
+  { value: "verified", label: "Verified" }, // ✅ Backend uses "verified"
+  { value: "partially_rejected", label: "Partially Rejected" },
   { value: "rejected", label: "Rejected" },
-  { value: "resubmitted", label: "Resubmitted" },
 ];
 
 const RESUBMISSION_OPTIONS = [
@@ -34,6 +36,9 @@ const RESUBMISSION_OPTIONS = [
 const VerificationPage = () => {
   const toast = useToast();
 
+  // Use dynamic row count from global config (height-based)
+  const rowsPerPage = useDynamicRowCount();
+
   // Filters
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -42,12 +47,13 @@ const VerificationPage = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   // Sort
-  const [sortField, setSortField] = useState("default");
-  const [sortOrder, setSortOrder] = useState("desc");
+  const [sortConfig, setSortConfig] = useState({
+    sortBy: "created_at",
+    order: "desc",
+  });
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Server data
   const [shops, setShops] = useState([]);
@@ -69,28 +75,6 @@ const VerificationPage = () => {
     return activeFiltersCount > 0 || search.trim().length > 0;
   }, [activeFiltersCount, search]);
 
-  // Responsive rows per page
-  useEffect(() => {
-    const updateRows = () => {
-      const w = window.innerWidth;
-      const r =
-        w >= 2560
-          ? 10
-          : w >= 1920
-          ? 10
-          : w >= 1440
-          ? 10
-          : w >= 1366
-          ? 8
-          : 6;
-      setRowsPerPage(r);
-    };
-
-    updateRows();
-    window.addEventListener("resize", updateRows);
-    return () => window.removeEventListener("resize", updateRows);
-  }, []);
-
   // Fetch shops
   const fetchShops = useCallback(async () => {
     setLoading(true);
@@ -99,15 +83,15 @@ const VerificationPage = () => {
       const params = {
         page: currentPage,
         limit: rowsPerPage,
-        sort_by: sortField,
-        sort_order: sortOrder,
+        sort_by: sortConfig.sortBy,
+        sort_order: sortConfig.order,
       };
 
       if (search.trim()) {
         params.search = search.trim();
       }
       if (status) {
-        params.status = status;
+        params.status = status; // ✅ Now sends correct backend values
       }
       if (resubmissionCount && Number(resubmissionCount) > 0) {
         params.resubmissionCountMin = Number(resubmissionCount);
@@ -140,8 +124,7 @@ const VerificationPage = () => {
     status,
     resubmissionCount,
     date,
-    sortField,
-    sortOrder,
+    sortConfig,
     toast,
   ]);
 
@@ -153,7 +136,7 @@ const VerificationPage = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, status, resubmissionCount, date, sortField, sortOrder]);
+  }, [search, status, resubmissionCount, date, sortConfig]);
 
   // Handlers
   const handleRefresh = useCallback(() => {
@@ -178,11 +161,12 @@ const VerificationPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleSortChange = (field) => {
-    const newOrder =
-      sortField === field && sortOrder === "asc" ? "desc" : "asc";
-    setSortField(field);
-    setSortOrder(newOrder);
+  const handleSortChange = (column) => {
+    setSortConfig((prev) => {
+      const order =
+        prev.sortBy === column && prev.order === "asc" ? "desc" : "asc";
+      return { sortBy: column, order };
+    });
   };
 
   const handleModalClose = (shouldRefresh = false) => {
@@ -193,8 +177,6 @@ const VerificationPage = () => {
       fetchShops();
     }
   };
-
-  const totalPages = Math.max(1, Math.ceil(totalItems / rowsPerPage));
 
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
@@ -342,8 +324,8 @@ const VerificationPage = () => {
         )}
       </div>
 
-      {/* Table */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      {/* Table Container - Takes remaining height */}
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <VerificationTable
           data={shops}
           loading={loading}
@@ -351,9 +333,7 @@ const VerificationPage = () => {
           setCurrentPage={setCurrentPage}
           rowsPerPage={rowsPerPage}
           totalItems={totalItems}
-          totalPages={totalPages}
-          sortField={sortField}
-          sortOrder={sortOrder}
+          sortConfig={sortConfig}
           onSortChange={handleSortChange}
           onRowClick={handleRowClick}
         />

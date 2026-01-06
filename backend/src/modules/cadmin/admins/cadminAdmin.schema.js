@@ -18,9 +18,7 @@ const CADMIN_ROLES = ["SUPER_ADMIN", "ANALYST", "ACCOUNTING"];
 
 const getAdminsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().refine((v) => ALLOWED_LIMITS.includes(v), {
-    message: `Limit must be one of: ${ALLOWED_LIMITS.join(", ")}`,
-  }).default(10),
+  limit: z.coerce.number().int().min(5).max(50).default(10),
   search: z.string().trim().default(""),
   status: z.string().trim().toLowerCase().refine((v) => ALLOWED_STATUS.includes(v), {
     message: "Invalid status filter",

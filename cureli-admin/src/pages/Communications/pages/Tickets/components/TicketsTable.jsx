@@ -1,25 +1,39 @@
 // cureli-admin/src/pages/Tickets/components/TicketsTable.jsx
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Eye,
   ChevronUp,
   ChevronDown,
-  Loader2,
   RotateCcw,
   FileText,
-  Inbox,
-  Search,
+  Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
+import { TABLE_CONFIG, getRowBgClass } from "../../../../../config/tableConfig"; 
+import TableSkeleton from "../../../../../components/common/TableSkeleton"; 
+import TableEmptyState from "../../../../../components/common/TableEmptyState"; 
+import Pagination from "../../../../../components/common/Pagination";
 import {
   getStatusConfig,
   getCategoryConfig,
   getPriorityConfig,
 } from "../../../../../config/ticketConfigs";
-import Pagination from "../../../../../components/common/Pagination";
 
-// Compact Status Badge
+// ✅ Define COLUMNS configuration
+const COLUMNS = {
+  slNo: { key: 'slNo', label: '#', width: 50, sortable: false, align: 'left' },
+  ticket: { key: 'ticket_number', label: 'Ticket', width: 120, sortable: true, align: 'left' },
+  shop: { key: 'shop', label: 'Shop', width: 140, sortable: false, align: 'left' },
+  subject: { key: 'subject', label: 'Subject', width: 180, sortable: false, align: 'left' },
+  category: { key: 'category', label: 'Category', width: 100, sortable: false, align: 'center' },
+  priority: { key: 'priority', label: 'Priority', width: 130, sortable: true, align: 'left' },
+  status: { key: 'status', label: 'Status', width: 110, sortable: true, align: 'center' },
+  createdAt: { key: 'created_at', label: 'Created', width: 110, sortable: true, align: 'left' },
+  actions: { key: 'actions', label: 'View', width: 70, sortable: false, align: 'center' },
+};
+
+// Status Badge Component
 const StatusBadge = ({ status }) => {
   const config = getStatusConfig(status);
   return (
@@ -33,7 +47,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// Compact Category Badge
+// Category Badge Component
 const CategoryBadge = ({ category }) => {
   const config = getCategoryConfig(category);
   return (
@@ -84,8 +98,8 @@ const PriorityCell = ({ priority, reopenCount = 0 }) => {
 };
 
 const TicketsTable = ({
-  tickets,
-  loading,
+  tickets = [],
+  loading = false,
   currentPage,
   setCurrentPage,
   rowsPerPage,
@@ -95,22 +109,27 @@ const TicketsTable = ({
   onViewTicket,
   hasActiveFilters = false,
 }) => {
-  // Column widths - 8 columns like UserTable
+  const { styles, heights } = TABLE_CONFIG;
+
+  // Column widths for resizing
   const [columnWidths, setColumnWidths] = useState({
-    slNo: 50,
-    ticket: 120,
-    shop: 140,
-    subject: 180,
-    category: 100,
-    priority: 130,
-    status: 110,
-    actions: 70,
+    slNo: COLUMNS.slNo.width,
+    ticket: COLUMNS.ticket.width,
+    shop: COLUMNS.shop.width,
+    subject: COLUMNS.subject.width,
+    category: COLUMNS.category.width,
+    priority: COLUMNS.priority.width,
+    status: COLUMNS.status.width,
+    createdAt: COLUMNS.createdAt.width,
+    actions: COLUMNS.actions.width,
   });
 
   const [resizing, setResizing] = useState(null);
 
   const handleMouseDown = (column, e) => {
+    if (column === "slNo") return;
     e.preventDefault();
+    e.stopPropagation();
     setResizing({
       column,
       startX: e.clientX,
@@ -118,25 +137,27 @@ const TicketsTable = ({
     });
   };
 
-  const handleMouseMove = (e) => {
-    if (!resizing) return;
-    const diff = e.clientX - resizing.startX;
-    const newWidth = Math.max(50, resizing.startWidth + diff);
-    setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
-  };
+  const handleMouseMove = useCallback(
+    (e) => {
+      if (!resizing) return;
+      const diff = e.clientX - resizing.startX;
+      const newWidth = Math.max(50, resizing.startWidth + diff);
+      setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
+    },
+    [resizing]
+  );
 
-  const handleMouseUp = () => setResizing(null);
+  const handleMouseUp = useCallback(() => setResizing(null), []);
 
   useEffect(() => {
-    if (resizing) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, [resizing]);
+    if (!resizing) return;
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizing, handleMouseMove, handleMouseUp]);
 
   const formatDateTime = (dateString) => {
     if (!dateString) return "-";
@@ -147,37 +168,71 @@ const TicketsTable = ({
     }
   };
 
-  // Sortable Header matching UserTable style
-  const SortableHeader = ({ column, label, width }) => {
-    const isActive = sortConfig?.sortBy === column;
+  // ✅ FIXED Sortable Header Component with column mapping
+  const SortableHeader = ({ column }) => {
+    const config = COLUMNS[column];
+    
+    // Map frontend column to backend field for comparison
+    const columnToBackendMap = {
+      'ticket': 'ticket_number',
+      'createdAt': 'created_at',
+      'priority': 'reopen_count',
+      'status': 'status',
+    };
+    
+    const backendColumn = columnToBackendMap[column] || column;
+    const isActive = sortConfig?.sortBy === backendColumn; // ✅ Compare with backend field
     const isAsc = isActive && sortConfig?.order === "asc";
     const isDesc = isActive && sortConfig?.order === "desc";
 
     return (
-      <th style={{ width, minWidth: width }} className="relative group">
+      <th
+        style={{ width: columnWidths[column], height: `${heights.headerRow}px` }}
+        className="relative group"
+      >
         <div
-          className="flex items-center justify-between p-3 cursor-pointer select-none"
-          onClick={() => onSortChange && onSortChange(column)}
+          className={`flex items-center justify-between ${styles.header.cell} cursor-pointer select-none`}
+          onClick={() => config.sortable && onSortChange?.(column)}
         >
-          <span className="font-semibold">{label}</span>
-          <div className="flex flex-col gap-0.5">
-            <ChevronUp
-              size={12}
-              className={`transition-colors ${
-                isAsc ? "text-yellow-300" : "text-white/50"
-              }`}
-            />
-            <ChevronDown
-              size={12}
-              className={`-mt-1 transition-colors ${
-                isDesc ? "text-yellow-300" : "text-white/50"
-              }`}
-            />
-          </div>
+          <span>{config.label}</span>
+          {config.sortable && (
+            <div className="flex flex-col gap-0.5">
+              <ChevronUp
+                size={12}
+                className={isAsc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive}
+              />
+              <ChevronDown
+                size={12}
+                className={`-mt-1 ${isDesc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive}`}
+              />
+            </div>
+          )}
         </div>
         <div
           onMouseDown={(e) => handleMouseDown(column, e)}
-          className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-white/30 transition-colors"
+          className={styles.header.resizeHandle}
+        />
+      </th>
+    );
+  };
+
+  // ✅ Non-sortable Header Component
+  const TableHeader = ({ column }) => {
+    const config = COLUMNS[column];
+
+    if (config.sortable) {
+      return <SortableHeader column={column} />;
+    }
+
+    return (
+      <th
+        style={{ width: columnWidths[column], height: `${heights.headerRow}px` }}
+        className={`relative group ${config.align === 'center' ? 'text-center' : ''}`}
+      >
+        <div className={styles.header.cell}>{config.label}</div>
+        <div
+          onMouseDown={(e) => handleMouseDown(column, e)}
+          className={styles.header.resizeHandle}
         />
       </th>
     );
@@ -185,224 +240,156 @@ const TicketsTable = ({
 
   const startIndex = (currentPage - 1) * rowsPerPage;
 
-  if (loading) {
-    return (
-      <div className="h-full flex items-center justify-center bg-white rounded-xl border border-gray-100">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 size={24} className="animate-spin text-[#05015A]" />
-          <p className="text-sm text-gray-500">Loading tickets...</p>
-        </div>
-      </div>
-    );
-  }
+  // ✅ Conditional rendering logic
+  const hasData = tickets.length > 0;
+  const showTable = loading || hasData;
+  const showEmptyState = !loading && !hasData;
+  const showPagination = !loading && hasData;
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
-      <div className="flex-1 overflow-auto">
-        <table
-          className="w-full border-collapse text-sm"
-          style={{ minWidth: "800px" }}
-        >
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white text-left">
-              <th
-                style={{ width: columnWidths.slNo }}
-                className="p-3 font-semibold"
-              >
-                #
-              </th>
+    <div className={styles.container.wrapper}>
+      {/* ✅ Table - Show when loading OR has data */}
+      {showTable && (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <table className="w-full border-collapse text-sm" style={{ minWidth: "900px" }}>
+            {/* Table Header */}
+            <thead className="sticky top-0 z-10">
+              <tr className={styles.header.row}>
+                <TableHeader column="slNo" />
+                <SortableHeader column="ticket" />
+                <TableHeader column="shop" />
+                <TableHeader column="subject" />
+                <TableHeader column="category" />
+                <SortableHeader column="priority" />
+                <SortableHeader column="status" />
+                <SortableHeader column="createdAt" />
+                <TableHeader column="actions" />
+              </tr>
+            </thead>
 
-              <SortableHeader
-                column="ticket_number"
-                label="Ticket"
-                width={columnWidths.ticket}
-              />
+            {/* Table Body */}
+            <tbody>
+              {loading ? (
+                <TableSkeleton columns={9} rows={rowsPerPage} />
+              ) : (
+                tickets.map((ticket, index) => (
+                  <tr
+                    key={ticket.ticket_id}
+                    style={{ height: `${heights.bodyRow}px` }}
+                    className={getRowBgClass(index, false)}
+                  >
+                    {/* Serial Number */}
+                    <td className={`${styles.cell.base} ${styles.cell.muted} font-medium`}>
+                      {startIndex + index + 1}
+                    </td>
 
-              <th
-                style={{ width: columnWidths.shop }}
-                className="p-3 font-semibold relative group"
-              >
-                Shop / Created
-                <div
-                  onMouseDown={(e) => handleMouseDown("shop", e)}
-                  className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-white/30"
-                />
-              </th>
+                    {/* Ticket Number */}
+                    <td className={styles.cell.base}>
+                      <button
+                        onClick={() => onViewTicket(ticket)}
+                        className="flex items-center gap-1.5 font-semibold text-[#05015A] hover:text-[#0a0280] hover:underline"
+                      >
+                        <FileText size={14} className="text-gray-400" />
+                        <span className="truncate max-w-[100px]">
+                          {ticket.ticket_number}
+                        </span>
+                      </button>
+                    </td>
 
-              <th
-                style={{ width: columnWidths.subject }}
-                className="p-3 font-semibold relative group"
-              >
-                Subject
-                <div
-                  onMouseDown={(e) => handleMouseDown("subject", e)}
-                  className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-white/30"
-                />
-              </th>
-
-              <th
-                style={{ width: columnWidths.category }}
-                className="p-3 font-semibold text-center"
-              >
-                Category
-              </th>
-
-              <SortableHeader
-                column="priority"
-                label="Priority"
-                width={columnWidths.priority}
-              />
-
-              <SortableHeader
-                column="status"
-                label="Status"
-                width={columnWidths.status}
-              />
-
-              <th
-                style={{ width: columnWidths.actions, minWidth: 60 }}
-                className="p-2 font-semibold text-center"
-              >
-                View
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {tickets.length > 0 ? (
-              tickets.map((ticket, i) => (
-                <tr
-                  key={ticket.ticket_id}
-                  className={`
-                    border-b border-gray-100 transition-all duration-150
-                    ${i % 2 === 0 ? "bg-gray-50" : "bg-white"}
-                    hover:bg-indigo-50
-                  `}
-                >
-                  {/* # */}
-                  <td className="p-3 text-gray-500 font-medium">
-                    {startIndex + i + 1}
-                  </td>
-
-                  {/* Ticket Number */}
-                  <td className="p-3">
-                    <button
-                      onClick={() => onViewTicket(ticket)}
-                      className="flex items-center gap-1.5 font-semibold text-[#05015A] hover:text-[#0a0280] hover:underline"
-                    >
-                      <FileText size={14} className="text-gray-400" />
-                      <span className="truncate max-w-[100px]">
-                        {ticket.ticket_number}
-                      </span>
-                    </button>
-                  </td>
-
-                  {/* Shop + Created Date (combined) */}
-                  <td className="p-3">
-                    <div className="flex flex-col gap-0.5">
+                    {/* Shop Name */}
+                    <td className={styles.cell.base}>
                       <div className="flex items-center gap-1.5">
-                        <div
-                          className="w-6 h-6 rounded-md bg-gradient-to-br from-[#05015A]/10 to-[#0a0280]/10 
-                                      flex items-center justify-center flex-shrink-0"
-                        >
-                          <span className="text-[9px] font-bold text-[#05015A]">
-                            {ticket.shop_name?.substring(0, 2).toUpperCase() || "SH"}
-                          </span>
-                        </div>
+                        
                         <span
-                          className="text-sm font-medium text-gray-900 truncate max-w-[90px]"
+                          className={`text-sm ${styles.cell.primary} truncate max-w-[110px]`}
                           title={ticket.shop_name}
                         >
                           {ticket.shop_name || "-"}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-400 ml-7">
-                        {formatDateTime(ticket.created_at)}
-                      </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Subject */}
-                  <td className="p-3">
-                    <p
-                      className="text-sm text-gray-700 truncate max-w-[160px]"
-                      title={ticket.subject}
-                    >
-                      {ticket.subject || "-"}
-                    </p>
-                  </td>
-
-                  {/* Category */}
-                  <td className="p-3 text-center">
-                    <CategoryBadge category={ticket.category} />
-                  </td>
-
-                  {/* Priority + Reopen */}
-                  <td className="p-3">
-                    <PriorityCell
-                      priority={ticket.priority}
-                      reopenCount={ticket.reopen_count}
-                    />
-                  </td>
-
-                  {/* Status */}
-                  <td className="p-3 text-center">
-                    <StatusBadge status={ticket.status} />
-                  </td>
-
-                  {/* Actions */}
-                  <td className="p-2">
-                    <div className="flex items-center justify-center">
-                      <button
-                        onClick={() => onViewTicket(ticket)}
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-[#05015A] hover:bg-indigo-50 transition-all"
-                        title="View Details"
+                    {/* Subject */}
+                    <td className={styles.cell.base}>
+                      <p
+                        className={`text-sm ${styles.cell.secondary} truncate max-w-[160px]`}
+                        title={ticket.subject}
                       >
-                        <Eye size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="8" className="p-12">
-                  <div className="flex flex-col items-center justify-center text-gray-400">
-                    <div
-                      className={`w-16 h-16 rounded-full flex items-center justify-center mb-4
-                                  ${hasActiveFilters ? "bg-amber-50" : "bg-gray-100"}`}
-                    >
-                      {hasActiveFilters ? (
-                        <Search size={32} className="text-amber-400" />
-                      ) : (
-                        <Inbox size={32} className="text-gray-300" />
-                      )}
-                    </div>
-                    <p className="text-lg font-medium text-gray-500 mb-1">
-                      {hasActiveFilters ? "No matching tickets" : "No tickets yet"}
-                    </p>
-                    <p className="text-sm text-gray-400">
-                      {hasActiveFilters
-                        ? "Try adjusting your filters"
-                        : "Tickets will appear here when created"}
-                    </p>
-                  </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                        {ticket.subject || "-"}
+                      </p>
+                    </td>
 
-      {tickets.length > 0 && (
-        <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
-          <Pagination
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            totalItems={totalItems}
-            rowsPerPage={rowsPerPage}
-          />
+                    {/* Category */}
+                    <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                      <CategoryBadge category={ticket.category} />
+                    </td>
+
+                    {/* Priority + Reopen */}
+                    <td className={styles.cell.base}>
+                      <PriorityCell
+                        priority={ticket.priority}
+                        reopenCount={ticket.reopen_count}
+                      />
+                    </td>
+
+                    {/* Status */}
+                    <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                      <StatusBadge status={ticket.status} />
+                    </td>
+
+                    {/* Created Date */}
+                    <td className={styles.cell.base}>
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={12} className="text-gray-400 flex-shrink-0" />
+                        <span className={`text-xs ${styles.cell.secondary}`}>
+                          {formatDateTime(ticket.created_at)}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td className={styles.cell.base}>
+                      <div className={styles.actions.container}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onViewTicket(ticket);
+                          }}
+                          className={`${styles.actions.button.base} ${styles.actions.button.view}`}
+                          title="View Details"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
+      )}
+
+      {/* ✅ Empty State */}
+      {showEmptyState && (
+        <TableEmptyState
+          message={hasActiveFilters ? "No matching tickets" : "No tickets yet"}
+          description={
+            hasActiveFilters
+              ? "Try adjusting your filters"
+              : "Tickets will appear here when created"
+          }
+        />
+      )}
+
+      {/* ✅ Pagination - only when has data */}
+      {showPagination && (
+        <Pagination
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          totalItems={totalItems}
+          rowsPerPage={rowsPerPage}
+        />
       )}
     </div>
   );

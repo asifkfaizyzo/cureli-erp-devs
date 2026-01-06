@@ -1,4 +1,4 @@
-// cureli-admin\src\components\common\Pagination.jsx
+// src/components/common/Pagination.jsx
 import React from "react";
 import {
   ChevronLeft,
@@ -6,6 +6,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
+import { TABLE_CONFIG } from "../../config/tableConfig";
 
 const Pagination = ({
   currentPage,
@@ -13,6 +14,8 @@ const Pagination = ({
   totalItems,
   rowsPerPage,
 }) => {
+  const { pagination } = TABLE_CONFIG.styles;
+  
   // Calculate total pages
   const totalPages = Math.max(1, Math.ceil((totalItems || 0) / (rowsPerPage || 1)));
 
@@ -53,7 +56,7 @@ const Pagination = ({
   const showControls = totalPages > 1;
 
   return (
-    <div className="w-full flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-1.5 flex items-center justify-between">
+    <div className={`w-full px-4 py-1.5 flex items-center justify-between ${pagination.wrapper}`}>
       {/* LEFT END: Results info */}
       <div className="text-sm text-gray-500">
         Showing{" "}

@@ -15,31 +15,24 @@ import AddAdminModal from "./comps/AddAdminModal";
 import StyledSelect from "../../components/common/StyledSelect";
 import { getAdmins } from "../../api/cadminAdmins";
 import { useToast } from "../../components/common/Toast";
-
-// Helper to get initial rows based on screen width
-const getRowsForScreenSize = (width) => {
-  if (width >= 2560) return 14;
-  if (width >= 1920) return 12;
-  if (width >= 1440) return 10;
-  if (width >= 1366) return 8;
-  return 6;
-};
+import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
   { value: "active", label: "Active" },
-  { value: "suspended", label: "Suspended" },
+  { value: "inactive", label: "Suspended" }, // ✅ Changed from "suspended" to "inactive"
 ];
 
 const ROLE_OPTIONS = [
   { value: "", label: "All Roles" },
   { value: "super_admin", label: "Super Admin" },
-  { value: "admin", label: "Admin" },
-  { value: "moderator", label: "Moderator" },
+  { value: "analyst", label: "Analyst" },
+  { value: "accounting", label: "Accounting" },
 ];
 
 const AdminsPage = () => {
   const toast = useToast();
+  const rowsPerPage = useDynamicRowCount();
 
   // DATA STATE
   const [admins, setAdmins] = useState([]);
@@ -65,14 +58,8 @@ const AdminsPage = () => {
 
   // PAGINATION
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(() =>
-    getRowsForScreenSize(
-      typeof window !== "undefined" ? window.innerWidth : 1920
-    )
-  );
 
   const isInitialMount = useRef(true);
-  const resizeTimeoutRef = useRef(null);
 
   // Count active filters
   const activeFiltersCount = useMemo(() => {
@@ -83,36 +70,6 @@ const AdminsPage = () => {
   const hasActiveFilters = useMemo(() => {
     return activeFiltersCount > 0 || searchText.trim().length > 0;
   }, [activeFiltersCount, searchText]);
-
-  // Dynamic rows per page based on screen size
-  useEffect(() => {
-    const updateRows = () => {
-      const newRows = getRowsForScreenSize(window.innerWidth);
-
-      setRowsPerPage((prevRows) => {
-        if (prevRows !== newRows) {
-          return newRows;
-        }
-        return prevRows;
-      });
-    };
-
-    const handleResize = () => {
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
-      }
-      resizeTimeoutRef.current = setTimeout(updateRows, 300);
-    };
-
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
-      }
-    };
-  }, []);
 
   // FETCH ADMINS FROM SERVER
   const fetchAdmins = useCallback(async () => {
@@ -179,24 +136,23 @@ const AdminsPage = () => {
     setCurrentPage(1);
   }, [searchText, statusFilter, roleFilter, sortConfig]);
 
-  // Reset to page 1 when rowsPerPage changes
-  const prevRowsPerPage = useRef(rowsPerPage);
-  useEffect(() => {
-    if (prevRowsPerPage.current !== rowsPerPage) {
-      prevRowsPerPage.current = rowsPerPage;
-      if (currentPage > 1) {
-        setCurrentPage(1);
-      }
-    }
-  }, [rowsPerPage, currentPage]);
+  // ✅ FIXED: Handle sort change with column mapping
+  const handleSortChange = useCallback((column) => {
+    // Map frontend column names to backend sort fields
+    const columnMapping = {
+      'name': 'name',
+      'role': 'role',
+      'lastLogin': 'last_login_at', // ✅ Map to backend field
+    };
 
-  // HANDLERS
-  const handleSortChange = (column) => {
+    // Get the backend field name
+    const backendColumn = columnMapping[column] || column;
+
     setSortConfig((prev) => ({
-      sortBy: column,
-      order: prev.sortBy === column && prev.order === "asc" ? "desc" : "asc",
+      sortBy: backendColumn,
+      order: prev.sortBy === backendColumn && prev.order === "asc" ? "desc" : "asc",
     }));
-  };
+  }, []);
 
   const handleClearFilters = useCallback(() => {
     setSearchText("");
@@ -211,12 +167,12 @@ const AdminsPage = () => {
           prev.map((a) => (a.id === adminId ? { ...a, ...updates } : a))
         );
 
-        if (updates.status === "suspended") {
+        if (updates.status === "Inactive") {
           toast.success(
             "Admin Suspended",
             "Admin account has been suspended successfully."
           );
-        } else if (updates.status === "active") {
+        } else if (updates.status === "Active") {
           toast.success(
             "Admin Activated",
             "Admin account has been activated successfully."

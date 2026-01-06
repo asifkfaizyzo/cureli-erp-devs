@@ -5,7 +5,6 @@ import {
   Search,
   X,
   Filter,
-  Calendar,
   RefreshCw,
   Ticket,
   AlertCircle,
@@ -14,8 +13,9 @@ import { getAllTickets, getTicketById } from "../../../../api/cadminTickets";
 import TicketsTable from "./components/TicketsTable";
 import TicketDetailsModal from "./components/TicketDetailsModal";
 import StyledSelect from "../../../../components/common/StyledSelect";
+import StyledDateFilter from "../../../../components/common/StyledDateFilter"; // ✅ NEW IMPORT
 import useDebounce from "../../../../hooks/useDebounce";
-import useRowCommuniacton from "../../../../hooks/useRowCommuniacton1";
+import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
 import toast from "react-hot-toast";
 import {
   STATUS_OPTIONS,
@@ -24,6 +24,8 @@ import {
 } from "../../../../config/ticketConfigs";
 
 const TicketsPage = () => {
+  const rowsPerPage = useDynamicRowCount();
+
   // Data state
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +51,6 @@ const TicketsPage = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = useRowCommuniacton();
 
   // Modal
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -132,7 +133,7 @@ const TicketsPage = () => {
     fetchTickets();
   }, [fetchTickets]);
 
-  // Reset to page 1 when filters change (but not on page change)
+  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [
@@ -147,9 +148,21 @@ const TicketsPage = () => {
 
   // Handlers
   const handleSortChange = useCallback((column) => {
+    // Map frontend column names to backend sort fields
+    const columnMapping = {
+      ticket: "ticket_number",
+      createdAt: "created_at",
+      priority: "reopen_count",
+      status: "status",
+    };
+
+    // Get the backend field name
+    const backendColumn = columnMapping[column] || column;
+
     setSortConfig((prev) => ({
-      sortBy: column,
-      order: prev.sortBy === column && prev.order === "asc" ? "desc" : "asc",
+      sortBy: backendColumn,
+      order:
+        prev.sortBy === backendColumn && prev.order === "asc" ? "desc" : "asc",
     }));
   }, []);
 
@@ -172,7 +185,6 @@ const TicketsPage = () => {
     } catch (err) {
       console.error("Failed to fetch ticket details:", err);
       toast.error("Failed to load ticket details");
-      // Fallback to basic ticket data from list
       setSelectedTicket(ticket);
     } finally {
       setLoadingTicketDetails(false);
@@ -195,7 +207,7 @@ const TicketsPage = () => {
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 flex flex-col gap-3 ">
+      <div className="flex-shrink-0 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-[#05015A] flex items-center justify-center flex-shrink-0">
@@ -226,7 +238,7 @@ const TicketsPage = () => {
         {/* Search & Filters */}
         <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {/* Search Input - No submit button, debounced */}
+            {/* Search Input */}
             <div className="relative flex-1 min-w-[200px]">
               <Search
                 size={18}
@@ -306,50 +318,22 @@ const TicketsPage = () => {
                   placeholder="All Priorities"
                 />
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
-                    <Calendar size={12} />
-                    Date From
-                  </label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    max={dateTo || undefined}
-                    className={`h-10 px-3 border rounded-lg text-sm shadow-sm
-                               focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                               transition-all
-                               ${
-                                 dateFrom
-                                   ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
-                                   : "bg-white border-gray-200 text-gray-700"
-                               }`}
-                  />
-                </div>
+                {/* ✅ REPLACED: Date From with StyledDateFilter */}
+                <StyledDateFilter
+                  label="Date From"
+                  date={dateFrom}
+                  setDate={setDateFrom}
+                />
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
-                    <Calendar size={12} />
-                    Date To
-                  </label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    min={dateFrom || undefined}
-                    className={`h-10 px-3 border rounded-lg text-sm shadow-sm
-                               focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
-                               transition-all
-                               ${
-                                 dateTo
-                                   ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
-                                   : "bg-white border-gray-200 text-gray-700"
-                               }`}
-                  />
-                </div>
+                {/* ✅ REPLACED: Date To with StyledDateFilter */}
+                <StyledDateFilter
+                  label="Date To"
+                  date={dateTo}
+                  setDate={setDateTo}
+                />
               </div>
 
-              {(activeFiltersCount > 0 || searchText) && (
+              {hasActiveFilters && (
                 <div className="mt-3 flex items-center justify-end">
                   <button
                     onClick={handleClearFilters}
@@ -382,8 +366,8 @@ const TicketsPage = () => {
         )}
       </div>
 
-      {/* Table container */}
-      <div className="flex-1 min-h-0 min-w-0 overflow-hidden  pb-4">
+      {/* Table */}
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <TicketsTable
           tickets={tickets}
           loading={loading}

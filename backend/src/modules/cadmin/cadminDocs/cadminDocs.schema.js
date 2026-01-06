@@ -84,12 +84,13 @@ export function validateVerificationQuery(req, res, next) {
         : "desc";
 
     // Pagination
-    const page = Number.isInteger(Number(raw.page)) && Number(raw.page) > 0
-      ? Number(raw.page)
-      : 1;
-    const ALLOWED_LIMITS = [6, 8, 10, 12, 14, 20];
+    const page =
+      Number.isInteger(Number(raw.page)) && Number(raw.page) > 0
+        ? Number(raw.page)
+        : 1;
+
     let limit = Number.isInteger(Number(raw.limit)) ? Number(raw.limit) : 10;
-    if (!ALLOWED_LIMITS.includes(limit)) limit = 10;
+    limit = Math.max(5, Math.min(50, limit));
 
     // Attach validated object to request
     req.validated = {

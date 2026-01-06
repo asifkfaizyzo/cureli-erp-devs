@@ -1,5 +1,5 @@
 import prisma from "../../../config/prisma.js";
-
+import { SubscriptionStatus } from "../../../config/subscription.js";
 /**
  * Format role for display
  */
@@ -87,7 +87,7 @@ export async function getPendingCountsService() {
     // Subscriptions expiring in next 7 days
     prisma.shopSubscription.count({
       where: {
-        is_active: true,
+        status: SubscriptionStatus.ACTIVE,
         end_date: {
           gte: now,
           lte: sevenDaysFromNow,

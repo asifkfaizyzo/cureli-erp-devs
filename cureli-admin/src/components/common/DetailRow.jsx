@@ -1,4 +1,4 @@
-// components/User/DetailRow.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\components\common\DetailRow.jsx
 
 import { Pencil, ClipboardCopy, CheckCircle, XCircle, Clock, Lock, ChevronDown, Check } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";

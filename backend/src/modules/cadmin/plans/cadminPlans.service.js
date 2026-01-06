@@ -3,7 +3,7 @@
 // ============================================
 
 import prisma from "../../../config/prisma.js";
-
+import { SubscriptionStatus } from "../../../config/subscription.js";
 // ============================================
 // CONSTANTS
 // ============================================
@@ -41,8 +41,11 @@ async function getSubscriberCount(plan_id) {
   const count = await prisma.shopSubscription.count({
     where: {
       plan_id,
-      is_active: true,
-      end_date: { gte: new Date() },
+      status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.EXPIRED] },
+      // Include expired within grace period
+      end_date: {
+        gte: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
+      },
     },
   });
   return count;

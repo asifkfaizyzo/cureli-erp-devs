@@ -17,9 +17,31 @@ import {
 
 import { useMenuStore } from "../../store/useMenuStore";
 
-/* ───────────────── constants ───────────────── */
+/* ───────────────── Sidebar Width Config ───────────────── */
 const COLLAPSED_WIDTH = 72;
-const EXPANDED_WIDTH = 260;
+
+// Responsive expanded widths based on screen width
+const EXPANDED_WIDTH_CONFIG = {
+  '2xl': 280,   // >= 1536px (large monitors)
+  'xl': 220,    // >= 1280px (standard desktop)
+  'lg': 200,    // >= 1024px (small desktop / large laptop)
+  'md': 180,    // >= 768px (tablet / small laptop)
+  'sm': 160,    // < 768px (mobile - if sidebar is shown)
+  'default': 200,
+};
+
+// Get expanded width based on screen size
+const getExpandedWidth = () => {
+  if (typeof window === 'undefined') return EXPANDED_WIDTH_CONFIG.default;
+  
+  const width = window.innerWidth;
+  
+  if (width >= 1536) return EXPANDED_WIDTH_CONFIG['2xl'];
+  if (width >= 1280) return EXPANDED_WIDTH_CONFIG['xl'];
+  if (width >= 1024) return EXPANDED_WIDTH_CONFIG['lg'];
+  if (width >= 768) return EXPANDED_WIDTH_CONFIG['md'];
+  return EXPANDED_WIDTH_CONFIG['sm'];
+};
 
 const SIDEBAR_TRANSITION = {
   type: "spring",
@@ -165,6 +187,19 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
 
   const isExpanded = expanded;
 
+  // ✅ Responsive expanded width
+  const [expandedWidth, setExpandedWidth] = useState(getExpandedWidth);
+
+  // Update width on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setExpandedWidth(getExpandedWidth());
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   /* ───────────── navigation handler ───────────── */
   const handleNavigation = useCallback(
     (item) => {
@@ -243,7 +278,7 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
         overflow-hidden
       "
       initial={false}
-      animate={{ width: isExpanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH }}
+      animate={{ width: isExpanded ? expandedWidth : COLLAPSED_WIDTH }}
       transition={SIDEBAR_TRANSITION}
     >
       <nav
@@ -262,12 +297,6 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
           ))}
         </div>
       </nav>
-
-      {/* <motion.div
-        className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-8 bg-gray-300 rounded-full"
-        animate={{ opacity: isExpanded ? 0 : 0.5 }}
-        transition={{ duration: 0.2 }}
-      /> */}
     </motion.aside>
   );
 };

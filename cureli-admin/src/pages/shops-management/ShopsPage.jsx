@@ -14,40 +14,47 @@ import StyledSelect from "../../components/common/StyledSelect";
 import StyledDateFilter from "../../components/common/StyledDateFilter";
 import { getShops } from "../../api/cadminShops";
 import { useToast } from "../../components/common/Toast";
+import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 
+// ✅ FIXED: Use lowercase values to match backend
 const VERIFICATION_OPTIONS = [
   { value: "", label: "All Verification" },
   { value: "verified", label: "Verified" },
   { value: "pending", label: "Pending" },
+  { value: "pending_review", label: "Pending Review" },
+  { value: "partially_rejected", label: "Partially Rejected" },
   { value: "rejected", label: "Rejected" },
 ];
 
+// ✅ These are standard subscription status values
+// If your backend uses different values, update these
 const SUBSCRIPTION_OPTIONS = [
   { value: "", label: "All Subscriptions" },
   { value: "active", label: "Active" },
   { value: "expired", label: "Expired" },
   { value: "trial", label: "Trial" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "pending", label: "Pending" },
 ];
 
 const ACTIVE_OPTIONS = [
   { value: "", label: "All Status" },
-  { value: "Active", label: "Active" },
-  { value: "Inactive", label: "Inactive" },
+  { value: "true", label: "Active" },   // ✅ Changed from "Active" to "true"
+  { value: "false", label: "Inactive" }, // ✅ Changed from "Inactive" to "false"
 ];
 
 const ShopsPage = () => {
   const toast = useToast();
+  const rowsPerPage = useDynamicRowCount();
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Filters
   const [searchText, setSearchText] = useState("");
-  const [verificationFilter, setVerificationFilter] = useState("verified");
-  const [subscriptionFilter, setSubscriptionFilter] = useState("active");
-  const [activeFilter, setActiveFilter] = useState("Active");
+  const [verificationFilter, setVerificationFilter] = useState("");
+  const [subscriptionFilter, setSubscriptionFilter] = useState("");
+  const [activeFilter, setActiveFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -78,22 +85,6 @@ const ShopsPage = () => {
     return activeFiltersCount > 0 || searchText.trim().length > 0;
   }, [activeFiltersCount, searchText]);
 
-  // Responsive rows per page
-  useEffect(() => {
-    const updateRows = () => {
-      const width = window.innerWidth;
-      if (width >= 2560) setRowsPerPage(14);
-      else if (width >= 1920) setRowsPerPage(12);
-      else if (width >= 1440) setRowsPerPage(9);
-      else if (width >= 1366) setRowsPerPage(8);
-      else setRowsPerPage(6);
-    };
-
-    updateRows();
-    window.addEventListener("resize", updateRows);
-    return () => window.removeEventListener("resize", updateRows);
-  }, []);
-
   // Fetch shops
   const fetchShops = useCallback(async () => {
     setLoading(true);
@@ -105,12 +96,7 @@ const ShopsPage = () => {
         search: searchText || undefined,
         verification_status: verificationFilter || undefined,
         subscription_status: subscriptionFilter || undefined,
-        is_active:
-          activeFilter === "Active"
-            ? true
-            : activeFilter === "Inactive"
-            ? false
-            : undefined,
+        is_active: activeFilter || undefined, // ✅ Now sends "true" or "false" string
         date_start: dateFilter || undefined,
         sort_by: sortConfig.sortBy,
         sort_order: sortConfig.order,

@@ -1,8 +1,28 @@
-// cureli-admin/src/components/Verification/VerificationTable.jsx
-
-import { useState, useEffect, useCallback } from "react";
+// src/pages/User-Shop-Verifications/comps/VerificationTable.jsx
+import { useState, useEffect } from "react";
 import { ChevronUp, ChevronDown, ShieldCheck, Calendar } from "lucide-react";
-import Pagination from "../../../components/common/Pagination"; // ✅ Use common Pagination
+import Pagination from "../../../components/common/Pagination";
+import TableSkeleton from "../../../components/common/TableSkeleton";
+import TableEmptyState from "../../../components/common/TableEmptyState";
+import {
+  TABLE_CONFIG,
+  getClickableRowClass,
+  getVerificationStatusConfig,
+  formatDate,
+} from "../../../config/tableConfig";
+
+// ============================================
+// COLUMN CONFIGURATION
+// ============================================
+const COLUMNS = {
+  slNo: { key: 'slNo', label: '#', width: 50, sortable: false, align: 'center' },
+  shopName: { key: 'business_name', label: 'Shop', width: 200, sortable: true, align: 'left' },
+  ownerInfo: { key: 'owner_name', label: 'Owner', width: 180, sortable: true, align: 'left' },
+  status: { key: 'verification_status', label: 'Status', width: 130, sortable: true, align: 'left' },
+  files: { key: 'files', label: 'Files', width: 100, sortable: false, align: 'center' },
+  resubCount: { key: 'resubmission_count', label: 'Resub', width: 70, sortable: true, align: 'center' },
+  date: { key: 'created_at', label: 'Submitted', width: 120, sortable: true, align: 'left' },
+};
 
 const VerificationTable = ({
   data = [],
@@ -11,26 +31,29 @@ const VerificationTable = ({
   setCurrentPage,
   rowsPerPage,
   totalItems,
-  sortField,
-  sortOrder,
+  sortConfig = { sortBy: null, order: null },
   onSortChange,
   onRowClick,
 }) => {
-  const [columnWidths, setColumnWidths] = useState({
-    slNo: 50,
-    shopName: 200,
-    ownerInfo: 220,
-    status: 150,
-    files: 120,
-    resubCount: 100,
-    date: 130,
-  });
+  const { styles, heights } = TABLE_CONFIG;
 
+  // Column resizing state
+  const [columnWidths, setColumnWidths] = useState(() => {
+    const widths = {};
+    Object.entries(COLUMNS).forEach(([key, col]) => {
+      widths[key] = col.width;
+    });
+    return widths;
+  });
   const [resizing, setResizing] = useState(null);
 
+  // ============================================
+  // COLUMN RESIZING HANDLERS
+  // ============================================
   const handleMouseDown = (column, e) => {
-    if (column === "slNo") return;
+    if (column === 'slNo') return;
     e.preventDefault();
+    e.stopPropagation();
     setResizing({
       column,
       startX: e.clientX,
@@ -38,259 +61,224 @@ const VerificationTable = ({
     });
   };
 
-  const handleMouseMove = useCallback(
-    (e) => {
-      if (!resizing) return;
-      const diff = e.clientX - resizing.startX;
-      const newWidth = Math.max(80, resizing.startWidth + diff);
-      setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
-    },
-    [resizing]
-  );
+  const handleMouseMove = (e) => {
+    if (!resizing) return;
+    const diff = e.clientX - resizing.startX;
+    const newWidth = Math.max(50, resizing.startWidth + diff);
+    setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
+  };
 
-  const handleMouseUp = useCallback(() => setResizing(null), []);
+  const handleMouseUp = () => setResizing(null);
 
   useEffect(() => {
-    if (!resizing) return;
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [resizing, handleMouseMove, handleMouseUp]);
-
-  // Calculate start index for row numbering
-  const startIndex = (currentPage - 1) * rowsPerPage;
-
-  // Status badge configuration
-  const getStatusConfig = (status) => {
-    switch (status) {
-      case "verified":
-        return {
-          bg: "bg-emerald-50",
-          text: "text-emerald-700",
-          border: "border-emerald-200",
-          dot: "bg-emerald-500",
-          label: "Verified",
-        };
-      case "pending_review":
-        return {
-          bg: "bg-amber-50",
-          text: "text-amber-700",
-          border: "border-amber-200",
-          dot: "bg-amber-500",
-          label: "Pending Review",
-        };
-      case "partially_rejected":
-        return {
-          bg: "bg-orange-50",
-          text: "text-orange-700",
-          border: "border-orange-200",
-          dot: "bg-orange-500",
-          label: "Partial Reject",
-        };
-      case "rejected":
-        return {
-          bg: "bg-red-50",
-          text: "text-red-700",
-          border: "border-red-200",
-          dot: "bg-red-500",
-          label: "Rejected",
-        };
-      default:
-        return {
-          bg: "bg-gray-50",
-          text: "text-gray-700",
-          border: "border-gray-200",
-          dot: "bg-gray-500",
-          label: status || "Unknown",
-        };
+    if (resizing) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
     }
-  };
+  }, [resizing]);
 
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
+  // ============================================
+  // COMPUTED VALUES
+  // ============================================
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const hasData = data.length > 0;
+  const showTable = loading || hasData;
+  const showEmptyState = !loading && !hasData;
+  const showPagination = !loading && hasData;
 
-  // Sortable Header Component
-  const SortHeader = ({ field, label, width, align = "left" }) => {
-    const isActive = sortField === field;
-    const isAsc = isActive && sortOrder === "asc";
-    const isDesc = isActive && sortOrder === "desc";
+  // ============================================
+  // SORTABLE HEADER COMPONENT
+  // ============================================
+  const SortableHeader = ({ columnKey }) => {
+    const column = COLUMNS[columnKey];
+    const isActive = sortConfig?.sortBy === column.key;
+    const isAsc = isActive && sortConfig?.order === "asc";
+    const isDesc = isActive && sortConfig?.order === "desc";
 
     return (
       <th
-        style={{ width }}
-        className={`relative group select-none px-4 py-3 text-${align} font-semibold text-xs uppercase tracking-wider`}
+        style={{ width: columnWidths[columnKey], minWidth: 50 }}
+        className={`relative group ${column.align === 'center' ? 'text-center' : ''}`}
       >
         <div
-          onClick={() => onSortChange?.(field)}
-          className={`
-            flex items-center gap-1 cursor-pointer transition-colors rounded px-1 -mx-1 py-0.5
-            hover:bg-white/10 ${align === "center" ? "justify-center" : ""}
-          `}
+          className={`flex items-center justify-between ${styles.header.cell} ${
+            column.sortable ? "cursor-pointer select-none" : ""
+          } ${column.align === 'center' ? 'justify-center' : ''}`}
+          onClick={() => column.sortable && onSortChange?.(column.key)}
         >
-          <span className="truncate">{label}</span>
-          <div className="flex flex-col shrink-0">
-            <ChevronUp
-              size={10}
-              className={`-mb-0.5 ${
-                isAsc ? "text-yellow-300" : "text-white/30"
-              }`}
-            />
-            <ChevronDown
-              size={10}
-              className={`-mt-0.5 ${
-                isDesc ? "text-yellow-300" : "text-white/30"
-              }`}
-            />
-          </div>
+          <span>{column.label}</span>
+          {column.sortable && (
+            <div className="flex flex-col gap-0.5 ml-1">
+              <ChevronUp
+                size={12}
+                className={`transition-colors ${
+                  isAsc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive
+                }`}
+              />
+              <ChevronDown
+                size={12}
+                className={`-mt-1 transition-colors ${
+                  isDesc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive
+                }`}
+              />
+            </div>
+          )}
         </div>
         <div
-          onMouseDown={(e) => handleMouseDown(field, e)}
-          className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-yellow-400/50 transition-colors z-20"
+          onMouseDown={(e) => handleMouseDown(columnKey, e)}
+          className={styles.header.resizeHandle}
         />
       </th>
     );
   };
 
-  // Non-sortable Header Component
-  const Header = ({ label, width, field, align = "left" }) => (
-    <th
-      style={{ width }}
-      className={`relative group select-none px-4 py-3 text-${align} font-semibold text-xs uppercase tracking-wider`}
-    >
-      <span className="truncate">{label}</span>
-      {field && (
-        <div
-          onMouseDown={(e) => handleMouseDown(field, e)}
-          className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-yellow-400/50 transition-colors z-20"
-        />
+  // ============================================
+  // NON-SORTABLE HEADER COMPONENT
+  // ============================================
+  const TableHeader = ({ columnKey }) => {
+    const column = COLUMNS[columnKey];
+    
+    if (column.sortable) {
+      return <SortableHeader columnKey={columnKey} />;
+    }
+
+    return (
+      <th
+        style={{ width: columnWidths[columnKey], minWidth: 50 }}
+        className={`relative group ${column.align === 'center' ? 'text-center' : ''}`}
+      >
+        <div className={`${styles.header.cell} ${column.align === 'center' ? 'text-center' : ''}`}>
+          {column.label}
+        </div>
+        {columnKey !== 'slNo' && (
+          <div
+            onMouseDown={(e) => handleMouseDown(columnKey, e)}
+            className={styles.header.resizeHandle}
+          />
+        )}
+      </th>
+    );
+  };
+
+  // ============================================
+  // STATUS BADGE COMPONENT
+  // ============================================
+  const StatusBadge = ({ status }) => {
+    const config = getVerificationStatusConfig(status);
+    return (
+      <span className={config.wrapper}>
+        <span className={config.dot} />
+        {config.label}
+      </span>
+    );
+  };
+
+  // ============================================
+  // FILES COUNT COMPONENT
+  // ============================================
+  const FilesCount = ({ approved, total, rejected }) => (
+    <div className="inline-flex items-center gap-1">
+      <span className="text-emerald-600 font-semibold text-sm">{approved || 0}</span>
+      <span className="text-gray-300">/</span>
+      <span className="text-gray-600 font-medium text-sm">{total || 0}</span>
+      {rejected > 0 && (
+        <span className="text-xs text-red-500 font-medium ml-1">
+          ({rejected}✗)
+        </span>
       )}
-    </th>
+    </div>
   );
 
-  // Loading State
-  if (loading) {
-    return (
-      <div className="h-full flex items-center justify-center bg-white rounded-xl border border-gray-200">
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-full border-4 border-[#05015A] border-t-transparent animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">
-            Loading verification records...
-          </p>
-          <p className="text-gray-400 text-sm mt-1">Please wait</p>
-        </div>
-      </div>
-    );
-  }
+  // ============================================
+  // RESUBMISSION BADGE COMPONENT
+  // ============================================
+  const ResubmissionBadge = ({ count }) => {
+    const { resubmission } = styles.badges;
+    
+    if (count > 0) {
+      return (
+        <span className={resubmission.active}>
+          {count}
+        </span>
+      );
+    }
+    return <span className={resubmission.empty}>—</span>;
+  };
 
+  // ============================================
+  // RENDER
+  // ============================================
   return (
-    <div className="h-full w-full flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-      {/* Table Container */}
-      <div className="flex-1 overflow-auto min-h-0">
-        <table className="w-full border-collapse text-sm">
-          {/* Table Header */}
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white">
-              <Header label="#" width={columnWidths.slNo} align="center" />
-              <SortHeader
-                field="business_name"
-                label="Shop"
-                width={columnWidths.shopName}
-              />
-              <SortHeader
-                field="owner_name"
-                label="Owner"
-                width={columnWidths.ownerInfo}
-              />
-              <SortHeader
-                field="verification_status"
-                label="Status"
-                width={columnWidths.status}
-              />
-              <Header
-                label="Files"
-                width={columnWidths.files}
-                field="files"
-                align="center"
-              />
-              <SortHeader
-                field="resubmission_count"
-                label="Resub"
-                width={columnWidths.resubCount}
-                align="center"
-              />
-              <SortHeader
-                field="created_at"
-                label="Submitted"
-                width={columnWidths.date}
-              />
-            </tr>
-          </thead>
+    <div className={styles.container.wrapper}>
+      {/* Table - Show when loading OR has data */}
+      {showTable && (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <table className="w-full border-collapse text-sm" style={{ minWidth: "870px" }}>
+            {/* Table Header */}
+            <thead className="sticky top-0 z-10">
+              <tr className={styles.header.row}>
+                <TableHeader columnKey="slNo" />
+                <SortableHeader columnKey="shopName" />
+                <SortableHeader columnKey="ownerInfo" />
+                <SortableHeader columnKey="status" />
+                <TableHeader columnKey="files" />
+                <SortableHeader columnKey="resubCount" />
+                <SortableHeader columnKey="date" />
+              </tr>
+            </thead>
 
-          {/* Table Body */}
-          <tbody className="divide-y divide-gray-100">
-            {data.length > 0 ? (
-              data.map((shop, i) => {
-                const statusConfig = getStatusConfig(shop.verification_status);
-                const rowIndex = startIndex + i + 1; // ✅ Fixed row numbering
-
-                return (
+            {/* Table Body */}
+            <tbody>
+              {loading ? (
+                <TableSkeleton
+                  rows={rowsPerPage}
+                  columns={Object.keys(COLUMNS).filter(k => k !== 'slNo')}
+                />
+              ) : (
+                data.map((shop, index) => (
                   <tr
-                    key={shop.shop_id || `v-${i}`}
+                    key={shop.shop_id || `v-${index}`}
                     onClick={() => onRowClick?.(shop)}
-                    className="hover:bg-indigo-50/50 cursor-pointer transition-colors group"
+                    className={getClickableRowClass(index)}
+                    style={{ height: `${heights.bodyRow}px` }}
                   >
-                    {/* Row Number */}
-                    <td
+                    {/* Serial Number */}
+                    <td 
+                      className={`${styles.cell.base} ${styles.cell.center} ${styles.cell.muted} font-medium`}
                       style={{ width: columnWidths.slNo }}
-                      className="px-4 py-3 text-center"
                     >
-                      <span className="text-gray-400 font-medium text-xs">
-                        {rowIndex}
-                      </span>
+                      {startIndex + index + 1}
                     </td>
 
-                    {/* Shop Info */}
-                    <td
+                    {/* Shop Info - Compact version */}
+                    <td 
+                      className={styles.cell.base}
                       style={{ width: columnWidths.shopName }}
-                      className="px-4 py-3"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center shrink-0 group-hover:from-indigo-200 group-hover:to-purple-200 transition-colors">
-                          <span className="text-[#05015A] font-bold text-xs">
-                            {shop.business_name
-                              ?.substring(0, 2)
-                              .toUpperCase() || "SH"}
-                          </span>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 truncate group-hover:text-[#05015A] transition-colors">
+                      <div className="flex items-center gap-2 min-w-0">
+                        
+                        <div className="min-w-0 flex-1">
+                          <p className={`${styles.cell.primary} truncate text-sm`}>
                             {shop.business_name || "Unnamed Shop"}
                           </p>
                           <p className="text-xs text-gray-400 truncate font-mono">
-                            {shop.shop_id?.substring(0, 8)}...
+                            #{shop.shop_id?.substring(0, 8) || 'N/A'}
                           </p>
                         </div>
                       </div>
                     </td>
 
-                    {/* Owner Info */}
-                    <td
+                    {/* Owner Info - Compact version */}
+                    <td 
+                      className={styles.cell.base}
                       style={{ width: columnWidths.ownerInfo }}
-                      className="px-4 py-3"
                     >
                       <div className="min-w-0">
-                        <p className="font-medium text-gray-800 truncate">
+                        <p className={`${styles.cell.primary} truncate text-sm`}>
                           {shop.owner_name || "N/A"}
                         </p>
                         <p className="text-xs text-gray-400 truncate">
@@ -300,107 +288,71 @@ const VerificationTable = ({
                     </td>
 
                     {/* Status */}
-                    <td
+                    <td 
+                      className={styles.cell.base}
                       style={{ width: columnWidths.status }}
-                      className="px-4 py-3"
                     >
-                      <span
-                        className={`
-                          inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
-                          border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}
-                        `}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`}
-                        />
-                        {statusConfig.label}
-                      </span>
+                      <StatusBadge status={shop.verification_status} />
                     </td>
 
                     {/* Files Count */}
-                    <td
+                    <td 
+                      className={`${styles.cell.base} ${styles.cell.center}`}
                       style={{ width: columnWidths.files }}
-                      className="px-4 py-3 text-center"
                     >
-                      <div className="inline-flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <span className="text-emerald-600 font-semibold">
-                            {shop.files_approved || 0}
-                          </span>
-                          <span className="text-gray-300">/</span>
-                          <span className="text-gray-600 font-medium">
-                            {shop.files_total || 0}
-                          </span>
-                        </div>
-                        {shop.files_rejected > 0 && (
-                          <span className="text-xs text-red-500 font-medium">
-                            ({shop.files_rejected} ✗)
-                          </span>
-                        )}
-                      </div>
+                      <FilesCount
+                        approved={shop.files_approved}
+                        total={shop.files_total}
+                        rejected={shop.files_rejected}
+                      />
                     </td>
 
                     {/* Resubmission Count */}
-                    <td
+                    <td 
+                      className={`${styles.cell.base} ${styles.cell.center}`}
                       style={{ width: columnWidths.resubCount }}
-                      className="px-4 py-3 text-center"
                     >
-                      {shop.resubmission_count > 0 ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">
-                          {shop.resubmission_count}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
+                      <ResubmissionBadge count={shop.resubmission_count} />
                     </td>
 
                     {/* Date */}
-                    <td
+                    <td 
+                      className={styles.cell.base}
                       style={{ width: columnWidths.date }}
-                      className="px-4 py-3"
                     >
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Calendar
-                          size={14}
-                          className="text-gray-400 shrink-0"
-                        />
+                      <div className="flex items-center gap-1.5 text-gray-600">
+                        <Calendar size={13} className="text-gray-400 shrink-0" />
                         <span className="text-sm">
                           {formatDate(shop.created_at)}
                         </span>
                       </div>
                     </td>
                   </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan="7" className="p-16">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-6">
-                      <ShieldCheck size={40} className="text-gray-300" />
-                    </div>
-                    <p className="text-xl font-semibold text-gray-600 mb-2">
-                      No verification records found
-                    </p>
-                    <p className="text-gray-400 max-w-sm">
-                      There are no shops matching your current filters. Try
-                      adjusting your search criteria.
-                    </p>
-                  </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      {/* ✅ UPDATED: Use common Pagination component */}
-      <Pagination
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        totalItems={totalItems}
-        rowsPerPage={rowsPerPage}
-      />
+      {/* Empty State */}
+      {showEmptyState && (
+        <TableEmptyState
+          icon={ShieldCheck}
+          title="No verification records found"
+          subtitle="There are no shops matching your current filters. Try adjusting your search criteria."
+        />
+      )}
+
+      {/* Pagination */}
+      {showPagination && (
+        <Pagination
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          totalItems={totalItems}
+          rowsPerPage={rowsPerPage}
+        />
+      )}
     </div>
   );
 };

@@ -102,14 +102,6 @@ model CAdminActivityLog {
 
 
 
-
-
-
-
-
-
-
-
 // ============================================
 // CURELI-USERS
 // ============================================
@@ -206,16 +198,16 @@ model User {
   reset_token         String?   @db.VarChar(500)
   reset_token_expires DateTime? @db.Timestamptz(6)
   // Phone change temp state
-phone_change_new_number      String?   @db.Text
-phone_change_verification_id String?   @db.Text
-phone_change_old_verified    Boolean   @default(false)
-phone_change_expires         DateTime? @db.Timestamptz(6)
+  phone_change_new_number      String?   @db.Text
+  phone_change_verification_id String?   @db.Text
+  phone_change_old_verified    Boolean   @default(false)
+  phone_change_expires         DateTime? @db.Timestamptz(6)
 
-// Email change temp state
-email_change_new_email       String?   @db.Text
-email_change_verification_id String?   @db.Text
-email_change_otp_hash        String?   @db.Text
-email_change_expires         DateTime? @db.Timestamptz(6)
+  // Email change temp state
+  email_change_new_email       String?   @db.Text
+  email_change_verification_id String?   @db.Text
+  email_change_otp_hash        String?   @db.Text
+  email_change_expires         DateTime? @db.Timestamptz(6)
 
   login_verification_id String?   @db.Text
   login_otp_expires     DateTime? @db.Timestamptz(6)
@@ -341,24 +333,40 @@ model ShopFile {
   @@map("shop_files")
 }
 
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 model ShopSubscription {
   subscription_id String @id @default(uuid()) @db.Uuid
 
   shop_id String @db.Uuid
   plan_id String @db.Uuid
 
-  status         String
-  billing_cycle  String @default("monthly")
-  payment_status String
 
-  start_date   DateTime @db.Timestamptz(6)
-  end_date     DateTime @db.Timestamptz(6)
-  renewal_date DateTime @db.Timestamptz(6)
+  status         SubscriptionStatus @default(PENDING)
+  payment_status PaymentStatus      @default(PENDING)
+  
+  billing_cycle  String @default("yearly")
+
+  start_date   DateTime  @db.Timestamptz(6)
+  end_date     DateTime  @db.Timestamptz(6)
+  renewal_date DateTime  @db.Timestamptz(6)
+  
+
+  activated_at DateTime? @db.Timestamptz(6)
 
   branch_limit_snapshot Int
   user_limit_snapshot   Int
-
-  is_active Boolean @default(true)
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
@@ -370,7 +378,7 @@ model ShopSubscription {
 
   @@index([plan_id])
   @@index([shop_id])
-  @@index([is_active])
+  @@index([status])
   @@index([end_date])
   @@map("shop_subscriptions")
 }

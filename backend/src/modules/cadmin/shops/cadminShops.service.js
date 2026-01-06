@@ -3,7 +3,12 @@
 import prisma from "../../../config/prisma.js";
 import fs from "fs";
 import path from "path";
-
+import {
+  SubscriptionStatus,
+  PaymentStatus,
+  canAccessApp,
+  GRACE_PERIOD_DAYS,
+} from "../../../config/subscription.js";
 // ✅ Import the correct updateShopVerificationStatus from cadminDocs
 import { createVerificationLog } from "../cadminDocs/cadminDocs.service.js";
 
@@ -89,9 +94,7 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
       await tx.shopSubscription.update({
         where: { subscription_id: shop.current_subscription_id },
         data: {
-          is_active: false,
-          status: "cancelled",
-          updated_at: new Date(),
+          status: SubscriptionStatus.EXPIRED,
         },
       });
     }
@@ -101,15 +104,15 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
       data: {
         shop_id,
         plan_id,
-        status: "active",
+        status: SubscriptionStatus.ACTIVE,
         billing_cycle: "yearly",
-        payment_status: "paid", // Free - auto-paid
+        payment_status: PaymentStatus.PAID,
         start_date: startDate,
         end_date: endDate,
         renewal_date: renewalDate,
+        activated_at: startDate,
         branch_limit_snapshot: plan.max_branches,
         user_limit_snapshot: plan.max_users,
-        is_active: true,
       },
     });
 
@@ -118,7 +121,6 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
       where: { shop_id },
       data: {
         current_subscription_id: newSubscription.subscription_id,
-        updated_at: new Date(),
       },
     });
 
@@ -355,31 +357,57 @@ export async function listShops({
 
   // ✅ FIX: Subscription status filter - use AND array for complex conditions
   if (subscription_status) {
+    const now = new Date();
+    const gracePeriodStart = new Date(now);
+    gracePeriodStart.setDate(gracePeriodStart.getDate() - GRACE_PERIOD_DAYS);
+
     if (subscription_status === "active") {
-      // Must have a current subscription that is active
+      // Active = ACTIVE status and end_date not passed
       where.AND = [
         ...(where.AND || []),
         { current_subscription_id: { not: null } },
         {
           currentSubscription: {
-            status: { in: ["active", "trial"] }, // Include trial as active
-            is_active: true,
-            end_date: { gte: new Date() },
+            status: SubscriptionStatus.ACTIVE,
+            end_date: { gte: now },
           },
         },
       ];
-    } else if (subscription_status === "expired") {
-      // Has subscription but it's expired/cancelled OR end_date passed
+    } else if (subscription_status === "expiring") {
+      // Expiring soon = ACTIVE but end_date within 30 days
+      const thirtyDaysFromNow = new Date(now);
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
       where.AND = [
         ...(where.AND || []),
         { current_subscription_id: { not: null } },
         {
-          OR: [
-            { currentSubscription: { status: "expired" } },
-            { currentSubscription: { status: { in: ["expired", "cancelled"] } } },
-            { currentSubscription: { end_date: { lt: new Date() } } },
-            { currentSubscription: { is_active: false } },
-          ],
+          currentSubscription: {
+            status: SubscriptionStatus.ACTIVE,
+            end_date: { gte: now, lte: thirtyDaysFromNow },
+          },
+        },
+      ];
+    } else if (subscription_status === "grace") {
+      // In grace period = end_date passed but within 20 days
+      where.AND = [
+        ...(where.AND || []),
+        { current_subscription_id: { not: null } },
+        {
+          currentSubscription: {
+            end_date: { lt: now, gte: gracePeriodStart },
+          },
+        },
+      ];
+    } else if (subscription_status === "expired") {
+      // Fully expired = end_date passed more than 20 days ago
+      where.AND = [
+        ...(where.AND || []),
+        { current_subscription_id: { not: null } },
+        {
+          currentSubscription: {
+            end_date: { lt: gracePeriodStart },
+          },
         },
       ];
     } else if (subscription_status === "none") {
@@ -437,7 +465,6 @@ export async function listShops({
           select: {
             subscription_id: true,
             status: true,
-            is_active: true,
             start_date: true,
             end_date: true,
             plan: {
@@ -490,7 +517,6 @@ export async function listShops({
           subscription_id: shop.currentSubscription.subscription_id,
           name: shop.currentSubscription.plan?.name || "Unknown",
           status: shop.currentSubscription.status,
-          is_active: shop.currentSubscription.is_active,
           end_date: shop.currentSubscription.end_date,
         }
       : null,
@@ -612,7 +638,6 @@ export async function getShopById(shop_id) {
           renewal_date: true,
           branch_limit_snapshot: true,
           user_limit_snapshot: true,
-          is_active: true,
           created_at: true,
           plan: {
             select: {
@@ -637,7 +662,6 @@ export async function getShopById(shop_id) {
           renewal_date: true,
           branch_limit_snapshot: true,
           user_limit_snapshot: true,
-          is_active: true,
           plan: {
             select: {
               plan_id: true,
@@ -839,9 +863,10 @@ export async function getShopStats() {
     prisma.shop.count({ where: { is_active: false } }),
     prisma.shop.count({
       where: {
+        current_subscription_id: { not: null },
         currentSubscription: {
-          isNot: null,
-          is_active: true,
+          status: SubscriptionStatus.ACTIVE,
+          end_date: { gte: now },
         },
       },
     }),
