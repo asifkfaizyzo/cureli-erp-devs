@@ -2,7 +2,7 @@
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import PurchaseRow from "./PurchaseRowFixed";
 
-const FIELDS_COUNT = 13; // Number of editable fields
+const FIELDS_COUNT = 13;
 
 const PurchaseTable = ({
   rows,
@@ -22,7 +22,6 @@ const PurchaseTable = ({
     fieldRefs.current = fieldRefs.current.slice(0, rows.length);
   }, [rows.length]);
 
-  /* Keyboard navigation */
   const focusNextField = useCallback((rowIndex, fieldIndex) => {
     const nextField = fieldIndex + 1;
     
@@ -42,7 +41,6 @@ const PurchaseTable = ({
     });
   }, []);
 
-  /* Focus previous field */
   const focusPrevField = useCallback((rowIndex, fieldIndex) => {
     const prevField = fieldIndex - 1;
     
@@ -62,7 +60,6 @@ const PurchaseTable = ({
     });
   }, []);
 
-  /* Row update with calculation */
   const handleRowChange = useCallback(
     (rowIndex, key, value) => {
       setRows((prev) => {
@@ -102,7 +99,6 @@ const PurchaseTable = ({
     []
   );
 
-  // Column definitions for header (added # column)
   const headerColumns = [
     { label: "#", width: "w-[40px]", isSerial: true },
     { label: "Mfac", subLabel: "Rack", width: "w-[80px]" },
@@ -121,88 +117,61 @@ const PurchaseTable = ({
     { label: "Amount", width: "w-[95px]" },
   ];
 
-  // Calculate total amount
   const totalAmount = useMemo(() => {
     return rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   }, [rows]);
 
+  // Sub-header cells configuration
+  const subHeaderCells = [
+    { className: "h-1 border-r border-[#1a1a8a] bg-[#03013d]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: null },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: null },
+    { className: "border-r border-[#1a1a8a]", content: null },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: "%" },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: "Amt" },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: "%" },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: "Amt" },
+    { className: "border-r-0", content: null },
+  ];
+
   return (
     <div className="h-full w-full flex flex-col bg-slate-50 rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-      {/* Table Header Bar */}
-      {/* <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-[#05015A] to-[#0a0280] border-b border-[#0a0280]">
-        <h3 className="text-white font-semibold text-sm tracking-wide flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-          Purchase Items
-        </h3>
-        <div className="flex items-center gap-4">
-          <span className="text-indigo-200 text-xs bg-indigo-900/30 px-2.5 py-1 rounded-full">
-            {rows.length} item{rows.length !== 1 ? 's' : ''}
-          </span>
-          {totalAmount > 0 && (
-            <span className="text-white text-xs bg-emerald-600/80 px-2.5 py-1 rounded-full font-medium">
-              Total: ₹{totalAmount.toFixed(2)}
-            </span>
-          )}
-          <div className="text-[10px] text-indigo-300 hidden sm:block">
-            <kbd className="bg-indigo-900/50 px-1.5 py-0.5 rounded text-white">Tab</kbd>
-            <span className="ml-1">-</span>
-          </div>
-        </div>
-      </div> */}
-
-      {/* Table Container */}
       <div 
         ref={containerRef} 
         className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
       >
         <table className="w-full border-collapse text-[11px] 2xl:text-xs">
-          {/* HEADER */}
           <thead className="sticky top-0 z-20">
-            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280]">
-              {headerColumns.map((col, i) => (
-                <th
-                  key={i}
-                  colSpan={col.colSpan || 1}
-                  className={`
-                    ${col.width}
-                    px-2 py-2.5 
-                    text-white font-semibold text-center
-                    border-r border-[#1a1a8a] last:border-r-0
-                    ${col.isSerial ? 'bg-[#03013d]' : ''}
-                  `}
-                >
-                  <div className="leading-tight">
-                    <div>{col.label}</div>
-                    {col.subLabel && (
-                      <div className="text-[9px] font-normal text-indigo-200 mt-0.5">
-                        {col.subLabel}
-                      </div>
-                    )}
-                  </div>
-                </th>
-              ))}
-            </tr>
+            {/* Main Header Row */}
+            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280]">{headerColumns.map((col, i) => (
+              <th
+                key={i}
+                colSpan={col.colSpan || 1}
+                className={`${col.width} px-2 py-2.5 text-white font-semibold text-center border-r border-[#1a1a8a] last:border-r-0 ${col.isSerial ? 'bg-[#03013d]' : ''}`}
+              >
+                <div className="leading-tight">
+                  <div>{col.label}</div>
+                  {col.subLabel && (
+                    <div className="text-[9px] font-normal text-indigo-200 mt-0.5">{col.subLabel}</div>
+                  )}
+                </div>
+              </th>
+            ))}</tr>
 
-            {/* Sub-header Row */}
-            <tr className="bg-[#0d0399]">
-              <th className="h-1 border-r border-[#1a1a8a] bg-[#03013d]" /> {/* # column */}
-              {[...Array(8)].map((_, i) => (
-                <th key={i} className="h-1 border-r border-[#1a1a8a]" />
-              ))}
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]" />
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]" />
-              <th className="border-r border-[#1a1a8a]" />
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]">%</th>
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]">Amt</th>
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]">%</th>
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]">Amt</th>
-              <th className="border-r-0" />
-            </tr>
+            {/* Sub-header Row - No whitespace between elements */}
+            <tr className="bg-[#0d0399]">{subHeaderCells.map((cell, i) => (
+              <th key={i} className={cell.className}>{cell.content}</th>
+            ))}</tr>
           </thead>
 
-          {/* BODY */}
           <tbody className="bg-white">
             {rows.length === 0 ? (
               <tr>

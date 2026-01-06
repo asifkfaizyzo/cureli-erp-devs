@@ -1,6 +1,7 @@
 // src/pages/PurchasePage.jsx
 import { useState, useMemo, useEffect, useRef } from "react";
 import ExcelJS from "exceljs";
+import * as XLSX from "xlsx";
 import { useReactToPrint } from "react-to-print";
 import PurchaseHeader from "./components/PurchaseHeader";
 import PurchaseTable from "./components/PurchaseTable";
@@ -10,7 +11,6 @@ import PurchaseInvoicePrint from "./components/PurchaseInvoicePrint";
 import { useToast } from "../../../components/common/Toast";
 
 // Import print styles
-
 import "../../../styles/print.css";
 
 /* --------------------------------
@@ -84,7 +84,7 @@ const PurchasePage = () => {
   const [productMaster, setProductMaster] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Print ref - this is the key change
+  // Print ref
   const printRef = useRef(null);
 
   const [supplier, setSupplier] = useState({
@@ -108,10 +108,10 @@ const PurchasePage = () => {
   };
 
   /* --------------------------------
-     PRINT HANDLER - NEW API (v3.x)
+     PRINT HANDLER
   -------------------------------- */
   const handlePrint = useReactToPrint({
-    contentRef: printRef, // Use contentRef instead of content
+    contentRef: printRef,
     documentTitle: `Purchase_Invoice_${supplier.invoiceNo || supplier.purchaseId}`,
     onBeforePrint: () => {
       console.log("Preparing to print...");
@@ -227,58 +227,129 @@ const PurchasePage = () => {
     
     const saved = handleSave();
     if (saved) {
-      // Small delay to ensure state updates are reflected
       setTimeout(() => {
         handlePrint();
       }, 100);
     }
   };
 
-  /* --------------------------------
-     HEADER MAPPING & IMPORT LOGIC
-  -------------------------------- */
   const mapHeaderToKey = (h) => {
-    if (!h) return null;
-    const key = String(h).toLowerCase().trim();
+  if (!h) return null;
+  const key = String(h).toLowerCase().trim().replace(/[^a-z0-9%/]/g, '');
 
-    const map = {
-      mfac: "mfac",
-      rack: "rack",
-      description: "name",
-      "description of goods": "name",
-      product: "name",
-      name: "name",
-      hsn: "hsn",
-      "hsn/sac": "hsn",
-      pack: "pack",
-      batch: "batch",
-      "batch no": "batch",
-      "batch no.": "batch",
-      exp: "exp",
-      expiry: "exp",
-      qty: "qty",
-      quantity: "qty",
-      sch: "sch",
-      mrp: "mrp",
-      price: "price",
-      "sch %": "schemePercent",
-      "scheme %": "schemePercent",
-      "scheme%": "schemePercent",
-      schemepercent: "schemePercent",
-      "disc %": "discountPercent",
-      "discount %": "discountPercent",
-      "discount%": "discountPercent",
-      discountpercent: "discountPercent",
-      "cgst %": "cgstPercent",
-      "cgst%": "cgstPercent",
-      cgstpercent: "cgstPercent",
-      "sgst %": "sgstPercent",
-      "sgst%": "sgstPercent",
-      sgstpercent: "sgstPercent",
-    };
-
-    return map[key] || null;
+  const map = {
+    // Manufacturer
+    mfac: "mfac",
+    manufacturer: "mfac",
+    mfr: "mfac",
+    company: "mfac",
+    
+    // Rack
+    rack: "rack",
+    location: "rack",
+    shelf: "rack",
+    
+    // Product Name
+    description: "name",
+    descriptionofgoods: "name",
+    product: "name",
+    productname: "name",
+    name: "name",
+    item: "name",
+    itemname: "name",
+    particulars: "name",
+    goods: "name",
+    medicine: "name",
+    medicinename: "name",
+    
+    // HSN
+    hsn: "hsn",
+    hsnsac: "hsn",
+    hsncode: "hsn",
+    saccode: "hsn",
+    
+    // Pack
+    pack: "pack",
+    packing: "pack",
+    packsize: "pack",
+    unit: "pack",
+    uom: "pack",
+    
+    // Batch
+    batch: "batch",
+    batchno: "batch",
+    batchnumber: "batch",
+    lotno: "batch",
+    lot: "batch",
+    
+    // Expiry
+    exp: "exp",
+    expiry: "exp",
+    expirydate: "exp",
+    expdate: "exp",
+    expirationdate: "exp",
+    
+    // Quantity
+    qty: "qty",
+    quantity: "qty",
+    qnty: "qty",
+    units: "qty",
+    nos: "qty",
+    
+    // Scheme
+    sch: "sch",
+    scheme: "sch",
+    free: "sch",
+    freeqty: "sch",
+    
+    // MRP
+    mrp: "mrp",
+    maximumretailprice: "mrp",
+    retailprice: "mrp",
+    
+    // Price
+    price: "price",
+    rate: "price",
+    purchaseprice: "price",
+    purchaserate: "price",
+    unitprice: "price",
+    ptr: "price",
+    
+    // Scheme Percent
+    "sch%": "schemePercent",
+    "scheme%": "schemePercent",
+    schemepercent: "schemePercent",
+    schemepercentage: "schemePercent",
+    
+    // Discount Percent
+    "disc%": "discountPercent",
+    "discount%": "discountPercent",
+    discountpercent: "discountPercent",
+    discountpercentage: "discountPercent",
+    "dis%": "discountPercent",
+    
+    // CGST
+    "cgst%": "cgstPercent",
+    cgstpercent: "cgstPercent",
+    cgst: "cgstPercent",
+    cgstrate: "cgstPercent",
+    
+    // SGST
+    "sgst%": "sgstPercent",
+    sgstpercent: "sgstPercent",
+    sgst: "sgstPercent",
+    sgstrate: "sgstPercent",
+    
+    // Amount
+    amount: "amount",
+    total: "amount",
+    totalamount: "amount",
+    netamount: "amount",
+    value: "amount",
   };
+
+  return map[key] || null;
+};
 
   const parseRowData = (headers, values) => {
     const row = makeEmptyPurchaseRow();
@@ -294,18 +365,9 @@ const PurchasePage = () => {
     return calculateRow(row);
   };
 
-  const getCellValue = (cell) => {
-    if (cell === null || cell === undefined) return "";
-    if (typeof cell === 'object') {
-      if (cell.richText) return cell.richText.map(rt => rt.text).join('');
-      if (cell.result !== undefined) return cell.result;
-      if (cell.text) return cell.text;
-      if (cell instanceof Date) return cell.toLocaleDateString();
-      return cell.toString();
-    }
-    return String(cell);
-  };
-
+  /* --------------------------------
+     CSV IMPORT
+  -------------------------------- */
   const handleImportCSV = (file) => {
     setIsLoading(true);
     const reader = new FileReader();
@@ -341,6 +403,7 @@ const PurchasePage = () => {
           }
         }
 
+        const count = parsed.filter(r => r.name).length;
         while (parsed.length < targetRowCount) parsed.push(makeEmptyPurchaseRow());
         setRows(parsed);
         setProductMaster((p) => [...p, ...master]);
@@ -359,68 +422,152 @@ const PurchasePage = () => {
     reader.readAsText(file);
   };
 
-  const handleImportExcel = async (file) => {
-    setIsLoading(true);
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(arrayBuffer);
-      const worksheet = workbook.worksheets[0];
-      
-      if (!worksheet) {
-        toast.error("No worksheet found");
-        setIsLoading(false);
-        return;
-      }
+  /* --------------------------------
+   EXCEL IMPORT (XLSX & XLS)
+   Using SheetJS for both formats
+-------------------------------- */
+const handleImportExcel = async (file) => {
+  setIsLoading(true);
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    
+    // Use SheetJS to read both .xlsx and .xls formats
+    const workbook = XLSX.read(arrayBuffer, { 
+      type: 'array',
+      cellDates: true,
+      cellNF: false,
+      cellText: false,
+      raw: false, // Get formatted strings
+    });
+    
+    // Get first sheet
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) {
+      toast.error("No worksheet found");
+      setIsLoading(false);
+      return;
+    }
+    
+    const worksheet = workbook.Sheets[sheetName];
+    
+    // Convert to array of arrays
+    const data = XLSX.utils.sheet_to_json(worksheet, { 
+      header: 1,
+      defval: "",
+      blankrows: false,
+      raw: false, // Get formatted values
+    });
 
-      const data = [];
-      worksheet.eachRow({ includeEmpty: false }, (row) => {
-        const rowValues = [];
-        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-          while (rowValues.length < colNumber - 1) rowValues.push("");
-          rowValues.push(getCellValue(cell.value));
-        });
-        data.push(rowValues);
+    // Debug: Log the raw data
+    console.log("📊 Excel Data:", data);
+    console.log("📊 First row (headers):", data[0]);
+    console.log("📊 Second row (first data):", data[1]);
+
+    if (data.length < 1) {
+      toast.error("Excel file is empty");
+      setIsLoading(false);
+      return;
+    }
+
+    // Find the header row (first non-empty row with multiple values)
+    let headerRowIndex = 0;
+    for (let i = 0; i < Math.min(10, data.length); i++) {
+      const row = data[i];
+      if (row && row.filter(cell => cell && String(cell).trim()).length >= 3) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+
+    const headers = data[headerRowIndex].map(h => String(h || '').trim());
+    console.log("📊 Detected headers:", headers);
+    console.log("📊 Header row index:", headerRowIndex);
+
+    // Debug: Show which headers are mapped
+    const mappedHeaders = headers.map(h => ({
+      original: h,
+      mapped: mapHeaderToKey(h)
+    }));
+    console.log("📊 Header mapping:", mappedHeaders);
+
+    const parsed = [];
+    const master = [];
+
+    // Process data rows (skip header row)
+    for (let i = headerRowIndex + 1; i < data.length; i++) {
+      const rowData = data[i];
+      
+      // Skip completely empty rows
+      if (!rowData || rowData.every(cell => !cell || String(cell).trim() === '')) {
+        continue;
+      }
+      
+      // Convert each cell to string
+      const values = rowData.map(cell => {
+        if (cell === null || cell === undefined) return '';
+        if (cell instanceof Date) {
+          const month = String(cell.getMonth() + 1).padStart(2, '0');
+          const year = String(cell.getFullYear()).slice(-2);
+          return `${month}/${year}`;
+        }
+        return String(cell).trim();
       });
 
-      if (data.length < 2) {
-        toast.error("Excel file is empty");
-        setIsLoading(false);
-        return;
+      const row = parseRowData(headers, values);
+      
+      // Debug: Log first few parsed rows
+      if (i <= headerRowIndex + 3) {
+        console.log(`📊 Row ${i} values:`, values);
+        console.log(`📊 Row ${i} parsed:`, row);
       }
 
-      const headers = data[0];
-      const parsed = [];
-      const master = [];
+      parsed.push(row);
 
-      for (let i = 1; i < data.length; i++) {
-        const row = parseRowData(headers, data[i]);
-        parsed.push(row);
-        if (row.name) {
-          master.push({
-            id: `excel-${i}`,
-            name: row.name,
-            hsn: row.hsn,
-            pack: row.pack,
-            rack: row.rack,
-            cgstPercent: row.cgstPercent,
-            sgstPercent: row.sgstPercent,
-          });
-        }
+      if (row.name) {
+        master.push({
+          id: `excel-${i}`,
+          name: row.name,
+          hsn: row.hsn,
+          pack: row.pack,
+          rack: row.rack,
+          cgstPercent: row.cgstPercent,
+          sgstPercent: row.sgstPercent,
+        });
       }
-
-      while (parsed.length < targetRowCount) parsed.push(makeEmptyPurchaseRow());
-      setRows(parsed);
-      setProductMaster((p) => [...p, ...master]);
-      toast.success(`Excel imported: ${parsed.filter(r => r.name).length} items`);
-    } catch (error) {
-      console.error("Excel import error:", error);
-      toast.error("Failed to import Excel");
-    } finally {
-      setIsLoading(false);
     }
-  };
 
+    const count = parsed.filter(r => r.name).length;
+    console.log("📊 Items with name:", count);
+    console.log("📊 Total parsed rows:", parsed.length);
+
+    while (parsed.length < targetRowCount) parsed.push(makeEmptyPurchaseRow());
+    
+    setRows(parsed);
+    setProductMaster((p) => [...p, ...master]);
+    
+    const extension = file.name.split('.').pop().toUpperCase();
+    
+    if (count === 0) {
+      toast.warning(
+        "No Items Found", 
+        "Check console for header mapping. Your column names may not match."
+      );
+    } else {
+      toast.success(`${extension} Imported`, `${count} items imported successfully.`);
+    }
+    
+  } catch (error) {
+    console.error("Excel import error:", error);
+    toast.error("Failed to import Excel file", error.message || "Unknown error");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  /* --------------------------------
+     EXCEL EXPORT (XLSX only)
+     Using ExcelJS for better formatting
+  -------------------------------- */
   const handleExportExcel = async () => {
     setIsLoading(true);
     try {
@@ -483,6 +630,18 @@ const PurchasePage = () => {
         });
       });
 
+      // Add borders to all cells
+      worksheet.eachRow((row, rowNumber) => {
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+        });
+      });
+
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { 
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
@@ -505,11 +664,19 @@ const PurchasePage = () => {
     }
   };
 
+  /* --------------------------------
+     FILE IMPORT HANDLER
+  -------------------------------- */
   const handleImportFile = (file) => {
     const extension = file.name.split('.').pop().toLowerCase();
-    if (extension === 'csv') handleImportCSV(file);
-    else if (['xlsx', 'xls'].includes(extension)) handleImportExcel(file);
-    else toast.error('Unsupported format. Use CSV or Excel.');
+    
+    if (extension === 'csv') {
+      handleImportCSV(file);
+    } else if (['xlsx', 'xls'].includes(extension)) {
+      handleImportExcel(file);
+    } else {
+      toast.error('Unsupported Format', 'Please use CSV, XLS, or XLSX files.');
+    }
   };
 
   return (
@@ -548,7 +715,7 @@ const PurchasePage = () => {
         <PurchaseSummaryCard summary={summary} />
       </div>
 
-      {/* Print Component - Must be visible in DOM but can be positioned off-screen */}
+      {/* Print Component */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
         <div ref={printRef}>
           <PurchaseInvoicePrint
