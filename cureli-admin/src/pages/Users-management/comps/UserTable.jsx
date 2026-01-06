@@ -1,3 +1,4 @@
+//cureli-admin\src\pages\Users-management\comps\UserTable.jsx
 import { useEffect, useState } from "react";
 import {
   Eye,
@@ -375,7 +376,7 @@ const UserTable = ({
         </table>
       </div>
 
-      <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-1.5 flex items-center justify-between">
+      <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
         <Pagination
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
