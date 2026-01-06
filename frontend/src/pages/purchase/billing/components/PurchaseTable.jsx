@@ -1,8 +1,10 @@
 // src/components/purchase/PurchaseTable.jsx
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import PurchaseRow from "./PurchaseRowFixed";
 
-const FIELDS_COUNT = 13; // Number of editable fields
+const FIELDS_COUNT = 13;
+const ROW_HEIGHT = 36; // Height of each row in pixels
+const HEADER_HEIGHT = 60; // Height of header (both rows)
 
 const PurchaseTable = ({
   rows,
@@ -12,6 +14,30 @@ const PurchaseTable = ({
 }) => {
   const fieldRefs = useRef([]);
   const containerRef = useRef(null);
+  const tbodyRef = useRef(null);
+
+  // Dynamic max visible rows based on screen size
+  const [maxVisibleRows, setMaxVisibleRows] = useState(9);
+
+  // Update max visible rows based on screen width
+  useEffect(() => {
+    const updateMaxRows = () => {
+      const width = window.innerWidth;
+      let count = 4; // Default / Mobile
+
+      if (width >= 2560) count = 17;       // 4k / 27 inch
+      else if (width >= 1920) count = 13;  // 1080p Full HD
+      else if (width >= 1440) count = 7;  // 19 inch / high res laptop
+      else if (width >= 1366) count = 5;   // 14 inch laptop
+      else count = 4;
+
+      setMaxVisibleRows(count);
+    };
+
+    updateMaxRows();
+    window.addEventListener("resize", updateMaxRows);
+    return () => window.removeEventListener("resize", updateMaxRows);
+  }, []);
 
   const stableProductMaster = useMemo(
     () => productMaster || [],
@@ -22,7 +48,16 @@ const PurchaseTable = ({
     fieldRefs.current = fieldRefs.current.slice(0, rows.length);
   }, [rows.length]);
 
-  /* Keyboard navigation */
+  // Auto-scroll to bottom when new rows with data are added
+  useEffect(() => {
+    if (containerRef.current && rows.length > maxVisibleRows) {
+      const lastRowWithData = rows.findLastIndex(row => row.name);
+      if (lastRowWithData >= maxVisibleRows - 1) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      }
+    }
+  }, [rows, maxVisibleRows]);
+
   const focusNextField = useCallback((rowIndex, fieldIndex) => {
     const nextField = fieldIndex + 1;
     
@@ -42,7 +77,6 @@ const PurchaseTable = ({
     });
   }, []);
 
-  /* Focus previous field */
   const focusPrevField = useCallback((rowIndex, fieldIndex) => {
     const prevField = fieldIndex - 1;
     
@@ -62,7 +96,6 @@ const PurchaseTable = ({
     });
   }, []);
 
-  /* Row update with calculation */
   const handleRowChange = useCallback(
     (rowIndex, key, value) => {
       setRows((prev) => {
@@ -102,7 +135,6 @@ const PurchaseTable = ({
     []
   );
 
-  // Column definitions for header (added # column)
   const headerColumns = [
     { label: "#", width: "w-[40px]", isSerial: true },
     { label: "Mfac", subLabel: "Rack", width: "w-[80px]" },
@@ -121,64 +153,58 @@ const PurchaseTable = ({
     { label: "Amount", width: "w-[95px]" },
   ];
 
-  // Calculate total amount
   const totalAmount = useMemo(() => {
     return rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   }, [rows]);
 
+  // Sub-header cells configuration
+  const subHeaderCells = [
+    { className: "h-1 border-r border-[#1a1a8a] bg-[#03013d]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "h-1 border-r border-[#1a1a8a]", content: null },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: null },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: null },
+    { className: "border-r border-[#1a1a8a]", content: null },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: "%" },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: "Amt" },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: "%" },
+    { className: "py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]", content: "Amt" },
+    { className: "border-r-0", content: null },
+  ];
+
+  // Calculate max height for scroll container
+  const maxTableHeight = HEADER_HEIGHT + (maxVisibleRows * ROW_HEIGHT);
+
   return (
     <div className="h-full w-full flex flex-col bg-slate-50 rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-      {/* Table Header Bar */}
-      {/* <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-[#05015A] to-[#0a0280] border-b border-[#0a0280]">
-        <h3 className="text-white font-semibold text-sm tracking-wide flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-          Purchase Items
-        </h3>
-        <div className="flex items-center gap-4">
-          <span className="text-indigo-200 text-xs bg-indigo-900/30 px-2.5 py-1 rounded-full">
-            {rows.length} item{rows.length !== 1 ? 's' : ''}
-          </span>
-          {totalAmount > 0 && (
-            <span className="text-white text-xs bg-emerald-600/80 px-2.5 py-1 rounded-full font-medium">
-              Total: ₹{totalAmount.toFixed(2)}
-            </span>
-          )}
-          <div className="text-[10px] text-indigo-300 hidden sm:block">
-            <kbd className="bg-indigo-900/50 px-1.5 py-0.5 rounded text-white">Tab</kbd>
-            <span className="ml-1">-</span>
-          </div>
-        </div>
-      </div> */}
-
-      {/* Table Container */}
+      {/* Scrollable container with dynamic max height */}
       <div 
         ref={containerRef} 
         className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
+        style={{ 
+          maxHeight: `${maxTableHeight}px`,
+        }}
       >
         <table className="w-full border-collapse text-[11px] 2xl:text-xs">
-          {/* HEADER */}
           <thead className="sticky top-0 z-20">
+            {/* Main Header Row */}
             <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280]">
               {headerColumns.map((col, i) => (
                 <th
                   key={i}
                   colSpan={col.colSpan || 1}
-                  className={`
-                    ${col.width}
-                    px-2 py-2.5 
-                    text-white font-semibold text-center
-                    border-r border-[#1a1a8a] last:border-r-0
-                    ${col.isSerial ? 'bg-[#03013d]' : ''}
-                  `}
+                  className={`${col.width} px-2 py-2.5 text-white font-semibold text-center border-r border-[#1a1a8a] last:border-r-0 ${col.isSerial ? 'bg-[#03013d]' : ''}`}
                 >
                   <div className="leading-tight">
                     <div>{col.label}</div>
                     {col.subLabel && (
-                      <div className="text-[9px] font-normal text-indigo-200 mt-0.5">
-                        {col.subLabel}
-                      </div>
+                      <div className="text-[9px] font-normal text-indigo-200 mt-0.5">{col.subLabel}</div>
                     )}
                   </div>
                 </th>
@@ -187,23 +213,13 @@ const PurchaseTable = ({
 
             {/* Sub-header Row */}
             <tr className="bg-[#0d0399]">
-              <th className="h-1 border-r border-[#1a1a8a] bg-[#03013d]" /> {/* # column */}
-              {[...Array(8)].map((_, i) => (
-                <th key={i} className="h-1 border-r border-[#1a1a8a]" />
+              {subHeaderCells.map((cell, i) => (
+                <th key={i} className={cell.className}>{cell.content}</th>
               ))}
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]" />
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]" />
-              <th className="border-r border-[#1a1a8a]" />
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]">%</th>
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]">Amt</th>
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]">%</th>
-              <th className="py-1 text-[9px] font-medium text-indigo-200 border-r border-[#1a1a8a]">Amt</th>
-              <th className="border-r-0" />
             </tr>
           </thead>
 
-          {/* BODY */}
-          <tbody className="bg-white">
+          <tbody ref={tbodyRef} className="bg-white">
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={17} className="py-16 text-center text-slate-400">
@@ -239,6 +255,18 @@ const PurchaseTable = ({
           </tbody>
         </table>
       </div>
+
+      {/* Row count indicator - shows when scrolling is needed */}
+      {/* {rows.length > maxVisibleRows && (
+        <div className="shrink-0 px-3 py-1.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+          <span>
+            Showing {maxVisibleRows} of {rows.length} rows
+          </span>
+          <span className="text-slate-400">
+            ↑↓ Scroll to see more
+          </span>
+        </div>
+      )} */}
     </div>
   );
 };
