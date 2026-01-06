@@ -1,4 +1,4 @@
-// hooks/useDynamicRowCount.js
+// cureli-admin\src\hooks\useDynamicRowCount.js
 import { useState, useEffect } from 'react';
 
 const useDynamicRowCount = () => {

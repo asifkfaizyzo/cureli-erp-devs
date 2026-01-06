@@ -45,7 +45,7 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center gap-4 p-5 border-b border-gray-200">
           <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
             <AlertTriangle size={20} className="text-red-600" />
