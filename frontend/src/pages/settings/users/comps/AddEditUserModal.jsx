@@ -241,10 +241,17 @@ const AddEditUserModal = ({
       newErrors.username = "Username is taken";
     }
 
-    // Email (optional but must be valid if provided)
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Invalid email format";
-    }
+    // // Email (optional but must be valid if provided)
+    // if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    //   newErrors.email = "Invalid email format";
+    // }
+
+    // / Email validation - AFTER (required):
+if (!formData.email) {
+  newErrors.email = "Email is required";
+} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+  newErrors.email = "Invalid email format";
+}
 
     // Password (required for create, optional for edit)
     if (!isEditMode) {
@@ -503,11 +510,19 @@ const AddEditUserModal = ({
               </div>
             </div>
 
-            {/* Email (Optional) */}
-            {/* <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            
+            <div>
+              {/* Email (Optional) */}
+              {/* <label className="block text-sm font-medium text-gray-700 mb-1">
                 Email <span className="text-gray-400">(optional)</span>
-              </label>
+              </label> */}
+
+                {/* email required */}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+  Email <span className="text-red-500">*</span>
+</label>
+
+
               <div className="relative">
                 <Mail
                   size={18}
@@ -528,7 +543,7 @@ const AddEditUserModal = ({
               {errors.email && (
                 <p className="text-red-500 text-xs mt-1">{errors.email}</p>
               )}
-            </div> */}
+            </div>
 
             {/* Password Fields (Create mode only) */}
             {!isEditMode && (

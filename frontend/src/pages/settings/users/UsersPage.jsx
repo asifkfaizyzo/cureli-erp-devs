@@ -6,7 +6,6 @@ import {
   Users,
   Plus,
   AlertCircle,
-  Loader2,
   RefreshCw,
 } from "lucide-react";
 
