@@ -140,6 +140,7 @@ const VerificationPage = () => {
 
   // Handlers
   const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest verification data...", 2000);
     fetchShops();
   }, [fetchShops]);
 

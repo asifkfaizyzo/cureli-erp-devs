@@ -200,12 +200,14 @@ const AddEditUserModal = ({
 
     // Auto-generate username only if creating and username is empty
     if (!isEditMode && !formData.username && value.length > 2) {
-      const username = value
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "_")
-        .replace(/[^a-z0-9_]/g, "")
-        + "_" + Date.now().toString().slice(-4);
+      const username =
+        value
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, "_")
+          .replace(/[^a-z0-9_]/g, "") +
+        "_" +
+        Date.now().toString().slice(-4);
       setFormData((prev) => ({ ...prev, username }));
     }
   };
@@ -241,17 +243,12 @@ const AddEditUserModal = ({
       newErrors.username = "Username is taken";
     }
 
-    // // Email (optional but must be valid if provided)
-    // if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-    //   newErrors.email = "Invalid email format";
-    // }
-
-    // / Email validation - AFTER (required):
-if (!formData.email) {
-  newErrors.email = "Email is required";
-} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-  newErrors.email = "Invalid email format";
-}
+    // Email (OPTIONAL - only validate format if provided)
+    if (formData.email && formData.email.trim()) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+        newErrors.email = "Invalid email format";
+      }
+    }
 
     // Password (required for create, optional for edit)
     if (!isEditMode) {
@@ -310,7 +307,7 @@ if (!formData.email) {
           updates.username = formData.username.toLowerCase();
         }
         if (formData.email !== (user.email || "")) {
-          updates.email = formData.email || null;
+          updates.email = formData.email.trim() || null;
         }
 
         // SA only fields
@@ -335,7 +332,7 @@ if (!formData.email) {
           full_name: formData.full_name.trim(),
           phone_number: formData.phone_number.replace(/\D/g, ""),
           username: formData.username.toLowerCase(),
-          email: formData.email || null,
+          email: formData.email.trim() || null, // Send null if empty
           password: formData.password,
           role: formData.role,
           branch_id: formData.branch_id,
@@ -346,7 +343,8 @@ if (!formData.email) {
     } catch (err) {
       console.error("Submit error:", err);
       setSubmitError(
-        err.response?.data?.message || `Failed to ${isEditMode ? "update" : "create"} user`
+        err.response?.data?.message ||
+          `Failed to ${isEditMode ? "update" : "create"} user`
       );
     } finally {
       setIsSubmitting(false);
@@ -368,7 +366,9 @@ if (!formData.email) {
   };
 
   // Get available roles based on current user role
-  const availableRoles = isSuperAdmin ? ROLES : ROLES.filter((r) => r.value === "staff");
+  const availableRoles = isSuperAdmin
+    ? ROLES
+    : ROLES.filter((r) => r.value === "staff");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -468,7 +468,9 @@ if (!formData.email) {
                   </div>
                 </div>
                 {errors.phone_number && (
-                  <p className="text-red-500 text-xs mt-1">{errors.phone_number}</p>
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.phone_number}
+                  </p>
                 )}
               </div>
 
@@ -510,19 +512,11 @@ if (!formData.email) {
               </div>
             </div>
 
-            
+            {/* Email (Optional) */}
             <div>
-              {/* Email (Optional) */}
-              {/* <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email <span className="text-gray-400">(optional)</span>
-              </label> */}
-
-                {/* email required */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-  Email <span className="text-red-500">*</span>
-</label>
-
-
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email <span className="text-gray-400 text-xs font-normal">(optional)</span>
+              </label>
               <div className="relative">
                 <Mail
                   size={18}
@@ -578,7 +572,9 @@ if (!formData.email) {
                     </button>
                   </div>
                   {errors.password && (
-                    <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.password}
+                    </p>
                   )}
                 </div>
 
@@ -595,26 +591,37 @@ if (!formData.email) {
                     <input
                       type={showConfirmPassword ? "text" : "password"}
                       value={formData.confirmPassword}
-                      onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                      onChange={(e) =>
+                        handleChange("confirmPassword", e.target.value)
+                      }
                       placeholder="Re-enter password"
                       className={`w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.confirmPassword
                           ? "border-red-400 focus:ring-red-400/30 focus:border-red-400"
-                          : formData.confirmPassword && formData.password === formData.confirmPassword
+                          : formData.confirmPassword &&
+                            formData.password === formData.confirmPassword
                           ? "border-emerald-400 focus:ring-emerald-400/30 focus:border-emerald-400"
                           : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
                       }`}
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showConfirmPassword ? (
+                        <EyeOff size={16} />
+                      ) : (
+                        <Eye size={16} />
+                      )}
                     </button>
                   </div>
                   {errors.confirmPassword && (
-                    <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.confirmPassword}
+                    </p>
                   )}
                 </div>
               </div>
@@ -640,7 +647,11 @@ if (!formData.email) {
                       errors.role
                         ? "border-red-400 focus:ring-red-400/30 focus:border-red-400"
                         : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
-                    } ${!isSuperAdmin && isEditMode ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                    } ${
+                      !isSuperAdmin && isEditMode
+                        ? "bg-gray-100 cursor-not-allowed"
+                        : ""
+                    }`}
                   >
                     <option value="">Select role</option>
                     {availableRoles.map((role) => (
@@ -698,7 +709,9 @@ if (!formData.email) {
                   />
                 </div>
                 {errors.branch_id && (
-                  <p className="text-red-500 text-xs mt-1">{errors.branch_id}</p>
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.branch_id}
+                  </p>
                 )}
                 {!isSuperAdmin && (
                   <p className="text-gray-500 text-xs mt-1">
@@ -735,7 +748,11 @@ if (!formData.email) {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleSubmit}
-            disabled={isSubmitting || usernameStatus === "checking" || phoneStatus === "checking"}
+            disabled={
+              isSubmitting ||
+              usernameStatus === "checking" ||
+              phoneStatus === "checking"
+            }
             className="flex items-center gap-2 px-6 py-2 bg-[#000060] text-white font-medium rounded-lg hover:bg-[#000080] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
@@ -743,8 +760,10 @@ if (!formData.email) {
                 <Loader2 size={16} className="animate-spin" />
                 {isEditMode ? "Updating..." : "Creating..."}
               </>
+            ) : isEditMode ? (
+              "Update User"
             ) : (
-              isEditMode ? "Update User" : "Create User"
+              "Create User"
             )}
           </motion.button>
         </div>

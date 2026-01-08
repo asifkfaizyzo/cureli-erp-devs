@@ -24,6 +24,7 @@ import {
   EyeOff,
   CheckCircle2,
   XCircle,
+  Lock,
 } from "lucide-react";
 
 import { useSetupStore } from "../../store/useSetupStore";
@@ -63,15 +64,16 @@ const useDebounce = (value, delay) => {
 const SetupUsersPage = () => {
   const navigate = useNavigate();
 
-  const {
-    users,
-    branches,
-    planLimits,
-    addUser,
-    updateUser,
-    removeUser,
-    setCurrentStep,
-  } = useSetupStore();
+  // Store selectors
+  const users = useSetupStore((state) => state.users);
+  const branches = useSetupStore((state) => state.branches);
+  const planLimits = useSetupStore((state) => state.planLimits);
+  const addUser = useSetupStore((state) => state.addUser);
+  const updateUser = useSetupStore((state) => state.updateUser);
+  const removeUser = useSetupStore((state) => state.removeUser);
+  const setCurrentStep = useSetupStore((state) => state.setCurrentStep);
+  const branchHasAdmin = useSetupStore((state) => state.branchHasAdmin);
+  const getBranchesWithoutAdmin = useSetupStore((state) => state.getBranchesWithoutAdmin);
 
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -110,6 +112,20 @@ const SetupUsersPage = () => {
 
   const maxUsers = planLimits.max_users;
   const canAddMore = maxUsers === -1 || users.length < maxUsers;
+
+  // ✅ Get available branches for branch admin role
+  const getAvailableBranchesForRole = useCallback((role) => {
+    if (role === "branch_admin") {
+      return getBranchesWithoutAdmin(editingUser?.temp_id);
+    }
+    return branches;
+  }, [branches, editingUser, getBranchesWithoutAdmin]);
+
+  // Available branches based on selected role
+  const availableBranches = getAvailableBranchesForRole(formData.role);
+
+  // Check if all branches have admins (for branch_admin role)
+  const allBranchesHaveAdmins = formData.role === "branch_admin" && availableBranches.length === 0;
 
   useEffect(() => {
     setCurrentStep(2);
@@ -179,6 +195,18 @@ const SetupUsersPage = () => {
     checkPhone();
   }, [debouncedPhone, users, editingUser]);
 
+  // ✅ When role changes, clear branch if it's no longer available
+  useEffect(() => {
+    if (formData.role === "branch_admin" && formData.branch_temp_id) {
+      const branchStillAvailable = availableBranches.some(
+        (b) => b.temp_id === formData.branch_temp_id
+      );
+      if (!branchStillAvailable) {
+        setFormData((prev) => ({ ...prev, branch_temp_id: "" }));
+      }
+    }
+  }, [formData.role, formData.branch_temp_id, availableBranches]);
+
   // Dropdown position handlers
   const updateRoleDropdownPosition = useCallback(() => {
     if (roleButtonRef.current) {
@@ -222,6 +250,15 @@ const SetupUsersPage = () => {
     setFormData((prev) => ({ ...prev, role: value }));
     setErrors((prev) => ({ ...prev, role: "" }));
     setRoleDropdownOpen(false);
+    
+    // ✅ Clear branch selection when changing role to branch_admin
+    // if currently selected branch already has an admin
+    if (value === "branch_admin" && formData.branch_temp_id) {
+      const hasAdmin = branchHasAdmin(formData.branch_temp_id, editingUser?.temp_id);
+      if (hasAdmin) {
+        setFormData((prev) => ({ ...prev, branch_temp_id: "" }));
+      }
+    }
   };
 
   const selectBranch = (temp_id) => {
@@ -291,6 +328,8 @@ const SetupUsersPage = () => {
       branch_temp_id: user.branch_temp_id,
     });
     setEditingUser(user);
+    setUsernameCheckStatus(null);
+    setPhoneCheckStatus(null);
     setShowForm(true);
   };
 
@@ -347,6 +386,14 @@ const SetupUsersPage = () => {
     if (!formData.role) newErrors.role = "Required";
     if (!formData.branch_temp_id) newErrors.branch_temp_id = "Required";
 
+    // ✅ Validate branch admin uniqueness
+    if (formData.role === "branch_admin" && formData.branch_temp_id) {
+      const hasAdmin = branchHasAdmin(formData.branch_temp_id, editingUser?.temp_id);
+      if (hasAdmin) {
+        newErrors.branch_temp_id = "Branch already has an admin";
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -372,7 +419,14 @@ const SetupUsersPage = () => {
           branch_temp_id: formData.branch_temp_id,
         };
         if (formData.password) updates.password = formData.password;
-        updateUser(editingUser.temp_id, updates);
+        
+        const result = updateUser(editingUser.temp_id, updates);
+        
+        if (!result.success) {
+          setErrors({ submit: result.error });
+          setIsSubmitting(false);
+          return;
+        }
       } else {
         const result = addUser({
           full_name: formData.full_name.trim(),
@@ -415,9 +469,13 @@ const SetupUsersPage = () => {
     return null;
   };
 
-  // Render dropdowns via portal
+  // ✅ Render Role dropdown via portal with branch admin restriction
   const renderRoleDropdown = () => {
     if (!roleDropdownOpen || !roleDropdownPosition) return null;
+    
+    // Check if branch admin option should be disabled
+    const branchesWithoutAdmin = getBranchesWithoutAdmin(editingUser?.temp_id);
+    
     return createPortal(
       <div
         ref={roleDropdownRef}
@@ -426,20 +484,27 @@ const SetupUsersPage = () => {
       >
         {ROLES.map((role) => {
           const RoleIcon = role.icon;
+          const isDisabled = role.value === "branch_admin" && branchesWithoutAdmin.length === 0;
+          
           return (
             <button
               key={role.value}
               type="button"
-              onClick={() => selectRole(role.value)}
+              onClick={() => !isDisabled && selectRole(role.value)}
+              disabled={isDisabled}
               className={`w-full px-3 py-2 text-left flex items-center gap-2 text-sm transition-colors
-                ${formData.role === role.value ? "bg-[#000060]/10 text-[#000060]" : "hover:bg-gray-50"}`}
+                ${formData.role === role.value ? "bg-[#000060]/10 text-[#000060]" : 
+                  isDisabled ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:bg-gray-50"}`}
             >
               <RoleIcon size={14} className={formData.role === role.value ? "text-[#000060]" : "text-gray-400"} />
               <div className="flex-1">
                 <p className="font-medium text-xs">{role.label}</p>
-                <p className="text-[10px] text-gray-500">{role.description}</p>
+                <p className="text-[10px] text-gray-500">
+                  {isDisabled ? "All branches have admins" : role.description}
+                </p>
               </div>
               {formData.role === role.value && <Check size={12} className="text-[#000060]" />}
+              {isDisabled && <Lock size={10} className="text-gray-400" />}
             </button>
           );
         })}
@@ -448,27 +513,49 @@ const SetupUsersPage = () => {
     );
   };
 
+  // ✅ Render Branch dropdown via portal with admin indicator
   const renderBranchDropdown = () => {
     if (!branchDropdownOpen || !branchDropdownPosition) return null;
+    
+    // Use filtered branches based on role
+    const branchesToShow = formData.role === "branch_admin" ? availableBranches : branches;
+    
     return createPortal(
       <div
         ref={branchDropdownRef}
         className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl py-1 max-h-40 overflow-y-auto"
         style={{ top: branchDropdownPosition.top, left: branchDropdownPosition.left, width: branchDropdownPosition.width }}
       >
-        {branches.map((branch) => (
-          <button
-            key={branch.temp_id}
-            type="button"
-            onClick={() => selectBranch(branch.temp_id)}
-            className={`w-full px-3 py-2 text-left flex items-center gap-2 text-sm transition-colors
-              ${formData.branch_temp_id === branch.temp_id ? "bg-[#000060]/10 text-[#000060]" : "hover:bg-gray-50"}`}
-          >
-            <Building2 size={14} className={formData.branch_temp_id === branch.temp_id ? "text-[#000060]" : "text-gray-400"} />
-            <span className="flex-1 text-xs font-medium">{branch.branch_name}</span>
-            {formData.branch_temp_id === branch.temp_id && <Check size={12} className="text-[#000060]" />}
-          </button>
-        ))}
+        {branchesToShow.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-gray-500 text-center">
+            {formData.role === "branch_admin" 
+              ? "All branches have admins" 
+              : "No branches available"}
+          </div>
+        ) : (
+          branchesToShow.map((branch) => {
+            const hasAdmin = branchHasAdmin(branch.temp_id, editingUser?.temp_id);
+            
+            return (
+              <button
+                key={branch.temp_id}
+                type="button"
+                onClick={() => selectBranch(branch.temp_id)}
+                className={`w-full px-3 py-2 text-left flex items-center gap-2 text-sm transition-colors
+                  ${formData.branch_temp_id === branch.temp_id ? "bg-[#000060]/10 text-[#000060]" : "hover:bg-gray-50"}`}
+              >
+                <Building2 size={14} className={formData.branch_temp_id === branch.temp_id ? "text-[#000060]" : "text-gray-400"} />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-medium truncate block">{branch.branch_name}</span>
+                  {formData.role === "staff" && hasAdmin && (
+                    <span className="text-[9px] text-purple-600">Has admin</span>
+                  )}
+                </div>
+                {formData.branch_temp_id === branch.temp_id && <Check size={12} className="text-[#000060]" />}
+              </button>
+            );
+          })
+        )}
       </div>,
       document.body
     );
@@ -514,6 +601,16 @@ const SetupUsersPage = () => {
                   <X size={16} />
                 </button>
               </div>
+
+              {/* ✅ Warning banner if all branches have admins */}
+              {allBranchesHaveAdmins && (
+                <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
+                  <AlertCircle size={12} className="text-amber-600 flex-shrink-0" />
+                  <p className="text-[10px] text-amber-700">
+                    All branches already have a Branch Admin. Change role to Staff or create a new branch first.
+                  </p>
+                </div>
+              )}
 
               {/* Row 1: Name, Phone, Username */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
@@ -659,7 +756,9 @@ const SetupUsersPage = () => {
                     ref={branchButtonRef}
                     type="button"
                     onClick={handleBranchDropdownToggle}
+                    disabled={allBranchesHaveAdmins}
                     className={`w-full px-2 py-1.5 text-sm border rounded text-left flex items-center justify-between
+                      ${allBranchesHaveAdmins ? "bg-gray-100 cursor-not-allowed" : ""}
                       ${errors.branch_temp_id ? "border-red-400" : branchDropdownOpen ? "border-[#000060]" : "border-gray-300"}`}
                   >
                     {selectedBranch ? (
@@ -668,7 +767,9 @@ const SetupUsersPage = () => {
                         <span className="truncate">{selectedBranch.branch_name}</span>
                       </span>
                     ) : (
-                      <span className="text-gray-400">Select</span>
+                      <span className="text-gray-400">
+                        {allBranchesHaveAdmins ? "No branches available" : "Select"}
+                      </span>
                     )}
                     <ChevronDown size={12} className={`text-gray-400 flex-shrink-0 transition-transform ${branchDropdownOpen ? "rotate-180" : ""}`} />
                   </button>
@@ -685,7 +786,7 @@ const SetupUsersPage = () => {
                       <AlertCircle size={10} /> {errors.submit}
                     </span>
                   ) : (
-                    "You set the password for this user"
+                    <span>You set the password • Each branch can have only 1 admin</span>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -698,7 +799,7 @@ const SetupUsersPage = () => {
                   </button>
                   <button
                     onClick={handleSubmit}
-                    disabled={isSubmitting || usernameCheckStatus === "checking" || phoneCheckStatus === "checking"}
+                    disabled={isSubmitting || usernameCheckStatus === "checking" || phoneCheckStatus === "checking" || allBranchesHaveAdmins}
                     className="flex items-center gap-1 px-3 py-1 bg-[#000060] text-white text-xs font-medium rounded hover:bg-[#000080] disabled:bg-gray-400 transition"
                   >
                     {isSubmitting ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}
@@ -716,7 +817,7 @@ const SetupUsersPage = () => {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 flex items-center gap-2">
           <Info size={14} className="text-blue-600 flex-shrink-0" />
           <p className="text-xs text-blue-700">
-            You create passwords for your team. This step is optional.
+            You create passwords for your team. Each branch can have only one Branch Admin.
           </p>
         </div>
       )}

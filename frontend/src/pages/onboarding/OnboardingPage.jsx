@@ -31,7 +31,7 @@ const OnboardingPage = () => {
   const firstName = location.state?.first_name;
   const lastName = location.state?.last_name;
   const provider = location.state?.provider || "password";
-
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(true);
   const [progressStep, setProgressStep] = useState(0);
   const [userName, setUserName] = useState("");
@@ -198,11 +198,11 @@ const OnboardingPage = () => {
 
       case 1:
         return (
-          <PhoneDetails pending_id={pending_id} onContinue={handleContinue} />
+          <PhoneDetails pending_id={pending_id} onContinue={handleContinue} setPhone={setPhone}/>
         );
 
       case 2:
-        return <PhoneOTP pending_id={pending_id} onContinue={handleContinue} />;
+        return <PhoneOTP pending_id={pending_id} onContinue={handleContinue} phone={phone}/>;
 
       case 3:
         return (

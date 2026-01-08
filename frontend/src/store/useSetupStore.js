@@ -9,37 +9,30 @@ import { persist } from "zustand/middleware";
  * IMPORTANT RULES:
  * - Super Admin (SA) is NOT counted in user limits
  * - Each Staff/Branch Admin belongs to exactly ONE branch
+ * - Each branch can have only ONE Branch Admin
  * - 3 Steps: Branches → Users → Review
  */
 
 const initialState = {
-  // Setup status
   isSetupComplete: false,
-  isInitialized: false, // NEW: Track if we've fetched limits
-  currentStep: 1, // 1=branches, 2=users, 3=review
+  isInitialized: false,
+  currentStep: 1,
   
-  // Plan limits (fetched from API)
   planLimits: {
     plan_id: null,
     plan_name: "",
-    max_branches: 1, // Default to 1, will be overwritten by API
-    max_users: 1,    // Default to 1, will be overwritten by API
+    max_branches: 1,
+    max_users: 1,
   },
   
-  // Created data (stored until review submission)
   branches: [],
-  // Shape: { temp_id, branch_name, address_line_1, city, state, pincode, contact_number }
-  
   users: [],
-  // Shape: { temp_id, full_name, phone_number, username, password, role, branch_temp_id }
   
-  // Super Admin info (for display)
   superAdmin: {
     user_id: null,
     name: "",
   },
   
-  // Error state
   error: null,
 };
 
@@ -52,14 +45,9 @@ export const useSetupStore = create(
       // INITIALIZATION
       // ============================================
       
-      /**
-       * Initialize setup with plan limits and SA info
-       * This should be called every time setup pages load to ensure fresh data
-       */
       initializeSetup: ({ planLimits, superAdmin, forceRefresh = false }) => {
         const state = get();
         
-        // If setup is already complete, don't reinitialize
         if (state.isSetupComplete && !forceRefresh) return;
         
         console.log("📦 Initializing setup store with:", { planLimits, superAdmin });
@@ -80,49 +68,30 @@ export const useSetupStore = create(
         });
       },
 
-      /**
-       * Check if store is properly initialized
-       */
       isStoreReady: () => {
         const state = get();
         return state.isInitialized && state.planLimits.plan_id !== null;
       },
 
-      /**
-       * Set current step
-       */
       setCurrentStep: (step) => set({ currentStep: step }),
 
       // ============================================
       // BRANCH MANAGEMENT
       // ============================================
       
-      /**
-       * Add a new branch
-       * Returns: { success: boolean, error?: string }
-       */
       addBranch: (branchData) => {
         const state = get();
         const { branches, planLimits, isInitialized } = state;
         
-        // Safety check - ensure store is initialized
         if (!isInitialized) {
           console.error("❌ Store not initialized!");
           return { success: false, error: "Setup not initialized. Please refresh the page." };
         }
         
-        console.log("📊 Branch limit check:", { 
-          current: branches.length, 
-          max: planLimits.max_branches,
-          isUnlimited: planLimits.max_branches === -1 
-        });
-        
-        // Check limit (-1 means unlimited)
         if (planLimits.max_branches !== -1 && branches.length >= planLimits.max_branches) {
           return { success: false, error: `Branch limit reached (${planLimits.max_branches} max)` };
         }
         
-        // Generate temp ID
         const temp_id = `branch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
         const newBranch = {
@@ -144,9 +113,6 @@ export const useSetupStore = create(
         return { success: true, branch: newBranch };
       },
 
-      /**
-       * Update a branch
-       */
       updateBranch: (temp_id, updates) => {
         const state = get();
         set({
@@ -156,17 +122,10 @@ export const useSetupStore = create(
         });
       },
 
-      /**
-       * Remove a branch
-       * Also removes associated users
-       */
       removeBranch: (temp_id) => {
         const state = get();
         
-        // Remove branch
         const newBranches = state.branches.filter((b) => b.temp_id !== temp_id);
-        
-        // Remove users assigned to this branch
         const newUsers = state.users.filter((u) => u.branch_temp_id !== temp_id);
         
         set({
@@ -175,14 +134,63 @@ export const useSetupStore = create(
         });
       },
 
-      /**
-       * Check if can add more branches
-       */
       canAddBranch: () => {
         const state = get();
         const { max_branches } = state.planLimits;
         if (max_branches === -1) return true;
         return state.branches.length < max_branches;
+      },
+
+      // ============================================
+      // BRANCH ADMIN HELPERS
+      // ============================================
+
+      /**
+       * Check if a branch already has a branch admin
+       * @param {string} branch_temp_id - Branch temp ID to check
+       * @param {string} excludeUserTempId - User temp ID to exclude (for edit mode)
+       * @returns {boolean}
+       */
+      branchHasAdmin: (branch_temp_id, excludeUserTempId = null) => {
+        const state = get();
+        return state.users.some(
+          (u) =>
+            u.branch_temp_id === branch_temp_id &&
+            u.role === "branch_admin" &&
+            u.temp_id !== excludeUserTempId
+        );
+      },
+
+      /**
+       * Get branches that don't have a branch admin yet
+       * @param {string} excludeUserTempId - User temp ID to exclude (for edit mode)
+       * @returns {Array} - Branches without a branch admin
+       */
+      getBranchesWithoutAdmin: (excludeUserTempId = null) => {
+        const state = get();
+        const branchesWithAdmin = new Set(
+          state.users
+            .filter(
+              (u) =>
+                u.role === "branch_admin" &&
+                u.temp_id !== excludeUserTempId
+            )
+            .map((u) => u.branch_temp_id)
+        );
+        
+        return state.branches.filter((b) => !branchesWithAdmin.has(b.temp_id));
+      },
+
+      /**
+       * Get the branch admin for a specific branch
+       * @param {string} branch_temp_id
+       * @returns {Object|null}
+       */
+      getBranchAdmin: (branch_temp_id) => {
+        const state = get();
+        return state.users.find(
+          (u) => u.branch_temp_id === branch_temp_id && u.role === "branch_admin"
+        ) || null;
       },
 
       // ============================================
@@ -197,20 +205,12 @@ export const useSetupStore = create(
         const state = get();
         const { users, planLimits, isInitialized } = state;
         
-        // Safety check - ensure store is initialized
         if (!isInitialized) {
           console.error("❌ Store not initialized!");
           return { success: false, error: "Setup not initialized. Please refresh the page." };
         }
         
-        console.log("📊 User limit check:", { 
-          current: users.length, 
-          max: planLimits.max_users,
-          isUnlimited: planLimits.max_users === -1 
-        });
-        
-        // Check limit (-1 means unlimited)
-        // Remember: SA is NOT counted
+        // Check user limit
         if (planLimits.max_users !== -1 && users.length >= planLimits.max_users) {
           return { success: false, error: `User limit reached (${planLimits.max_users} max)` };
         }
@@ -222,12 +222,29 @@ export const useSetupStore = create(
         }
 
         // Check for duplicate username
-        const usernameExists = users.some((u) => u.username.toLowerCase() === userData.username.toLowerCase());
+        const usernameExists = users.some(
+          (u) => u.username.toLowerCase() === userData.username.toLowerCase()
+        );
         if (usernameExists) {
           return { success: false, error: "Username already exists" };
         }
+
+        // ✅ Check if branch already has an admin (only for branch_admin role)
+        if (userData.role === "branch_admin") {
+          const branchHasAdmin = users.some(
+            (u) =>
+              u.branch_temp_id === userData.branch_temp_id &&
+              u.role === "branch_admin"
+          );
+          
+          if (branchHasAdmin) {
+            return { 
+              success: false, 
+              error: "This branch already has a Branch Admin. Each branch can only have one." 
+            };
+          }
+        }
         
-        // Generate temp ID
         const temp_id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
         const newUser = {
@@ -235,8 +252,8 @@ export const useSetupStore = create(
           full_name: userData.full_name,
           phone_number: userData.phone_number,
           username: userData.username.toLowerCase(),
-          password: userData.password, // Stored temporarily, sent to backend
-          role: userData.role, // "staff" or "branch_admin"
+          password: userData.password,
+          role: userData.role,
           branch_temp_id: userData.branch_temp_id,
         };
         
@@ -251,19 +268,65 @@ export const useSetupStore = create(
 
       /**
        * Update a user
+       * Returns: { success: boolean, error?: string }
        */
       updateUser: (temp_id, updates) => {
         const state = get();
+        const existingUser = state.users.find((u) => u.temp_id === temp_id);
+        
+        if (!existingUser) {
+          return { success: false, error: "User not found" };
+        }
+
+        // ✅ Check if changing to branch_admin and target branch already has one
+        const newRole = updates.role || existingUser.role;
+        const newBranchId = updates.branch_temp_id || existingUser.branch_temp_id;
+
+        if (newRole === "branch_admin") {
+          const branchHasOtherAdmin = state.users.some(
+            (u) =>
+              u.branch_temp_id === newBranchId &&
+              u.role === "branch_admin" &&
+              u.temp_id !== temp_id
+          );
+          
+          if (branchHasOtherAdmin) {
+            return { 
+              success: false, 
+              error: "This branch already has a Branch Admin. Each branch can only have one." 
+            };
+          }
+        }
+
+        // Check for duplicate phone (if changing phone)
+        if (updates.phone_number && updates.phone_number !== existingUser.phone_number) {
+          const phoneExists = state.users.some(
+            (u) => u.phone_number === updates.phone_number && u.temp_id !== temp_id
+          );
+          if (phoneExists) {
+            return { success: false, error: "Phone number already exists" };
+          }
+        }
+
+        // Check for duplicate username (if changing username)
+        if (updates.username && updates.username.toLowerCase() !== existingUser.username.toLowerCase()) {
+          const usernameExists = state.users.some(
+            (u) => u.username.toLowerCase() === updates.username.toLowerCase() && u.temp_id !== temp_id
+          );
+          if (usernameExists) {
+            return { success: false, error: "Username already exists" };
+          }
+        }
+
         set({
           users: state.users.map((u) =>
             u.temp_id === temp_id ? { ...u, ...updates } : u
           ),
         });
+        
+        return { success: true };
       },
 
-      /**
-       * Remove a user
-       */
       removeUser: (temp_id) => {
         const state = get();
         set({
@@ -271,9 +334,6 @@ export const useSetupStore = create(
         });
       },
 
-      /**
-       * Check if can add more users
-       */
       canAddUser: () => {
         const state = get();
         const { max_users } = state.planLimits;
@@ -285,9 +345,6 @@ export const useSetupStore = create(
       // COMPUTED VALUES
       // ============================================
       
-      /**
-       * Get remaining branch slots
-       */
       getRemainingBranches: () => {
         const state = get();
         const { max_branches } = state.planLimits;
@@ -295,9 +352,6 @@ export const useSetupStore = create(
         return Math.max(0, max_branches - state.branches.length);
       },
 
-      /**
-       * Get remaining user slots (SA not counted)
-       */
       getRemainingUsers: () => {
         const state = get();
         const { max_users } = state.planLimits;
@@ -305,34 +359,25 @@ export const useSetupStore = create(
         return Math.max(0, max_users - state.users.length);
       },
 
-      /**
-       * Check if can proceed to next step
-       */
       canProceed: (step) => {
         const state = get();
         switch (step) {
-          case 1: // Branches
+          case 1:
             return state.branches.length >= 1;
-          case 2: // Users (optional)
+          case 2:
             return true;
-          case 3: // Review
+          case 3:
             return state.branches.length >= 1;
           default:
             return false;
         }
       },
 
-      /**
-       * Get users for a specific branch
-       */
       getUsersForBranch: (branch_temp_id) => {
         const state = get();
         return state.users.filter((u) => u.branch_temp_id === branch_temp_id);
       },
 
-      /**
-       * Get setup data for submission
-       */
       getSubmissionData: () => {
         const state = get();
         return {
@@ -361,9 +406,6 @@ export const useSetupStore = create(
       // SETUP COMPLETION
       // ============================================
       
-      /**
-       * Mark setup as complete and clear temporary data
-       */
       completeSetup: () => {
         set({
           isSetupComplete: true,
@@ -372,9 +414,6 @@ export const useSetupStore = create(
         });
       },
 
-      /**
-       * Reset entire setup (for errors or starting over)
-       */
       resetSetup: () => {
         set({
           ...initialState,
@@ -382,9 +421,6 @@ export const useSetupStore = create(
         });
       },
 
-      /**
-       * Clear only the branches and users data (keep plan limits)
-       */
       clearSetupData: () => {
         set({
           branches: [],
@@ -394,20 +430,13 @@ export const useSetupStore = create(
         });
       },
 
-      /**
-       * Set error message
-       */
       setError: (error) => set({ error }),
 
-      /**
-       * Clear error
-       */
       clearError: () => set({ error: null }),
     }),
     {
       name: "cureli-setup-storage",
-      version: 3, // Bumped version to clear old data
-      // Only persist these fields
+      version: 4, // Bumped version to clear old data
       partialize: (state) => ({
         isSetupComplete: state.isSetupComplete,
         isInitialized: state.isInitialized,
@@ -421,7 +450,7 @@ export const useSetupStore = create(
   )
 );
 
-// Selectors for common use cases
+// Selectors
 export const selectBranchCount = (state) => state.branches.length;
 export const selectUserCount = (state) => state.users.length;
 export const selectIsInitialized = (state) => state.isInitialized;

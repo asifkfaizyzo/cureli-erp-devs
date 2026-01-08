@@ -11,7 +11,7 @@ import {
   Mail,
 } from "lucide-react";
 
-import { getPlans, selectPlan, confirmPayment } from "../../api/subscription";
+import { getPlans, selectPlan, confirmPayment,cancelPendingSubscription } from "../../api/subscription";
 import {
   BILLING,
   formatPrice,
