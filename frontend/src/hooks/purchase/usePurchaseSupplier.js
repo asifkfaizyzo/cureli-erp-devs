@@ -1,108 +1,96 @@
-// src/hooks/usePurchaseSupplier.js
-import { useState, useEffect, useCallback } from "react";
+// src/hooks/purchase/usePurchaseSupplier.js
+import { useState, useCallback, useEffect } from "react";
 
-const generatePurchaseId = () => "PUR-" + Date.now().toString().slice(-6);
-
-const getInitialSupplier = () => ({
-  purchaseId: generatePurchaseId(),
-  supplierName: "",
-  supplierId: "",
-  invoiceNo: "",
-  invoiceDate: new Date().toISOString().split('T')[0],
-  receivedOn: new Date().toISOString().split('T')[0],
-  creditDays: "",
-  dueDate: "",
-  supplierGST: "",
-  supplierPhone: "",
-  supplierEmail: "",
-  address: "",
-  amountPaid: "",
-  balance: "",
-  paymentMode: "",
-  notes: "",
-});
-
-// Mock suppliers - replace with API
-const SUPPLIERS_LIST = [
-  { id: 1, name: "ABC Pharma Ltd", gst: "27AABCA1234C1Z5", phone: "+91 98765 43210", email: "abc@pharma.com", address: "Mumbai, Maharashtra", creditDays: 30 },
-  { id: 2, name: "XYZ Medicals", gst: "07AAFCX5678D1Z2", phone: "+91 98765 43211", email: "xyz@medicals.com", address: "Delhi, NCR", creditDays: 15 },
-  { id: 3, name: "PQR Distributors", gst: "29AAPCP5678R1Z3", phone: "+91 98765 43212", email: "pqr@dist.com", address: "Bangalore, Karnataka", creditDays: 45 },
-  { id: 4, name: "LMN Healthcare", gst: "03AABCL1234M1Z4", phone: "+91 98765 43213", email: "lmn@health.com", address: "Chandigarh, Punjab", creditDays: 30 },
-  { id: 5, name: "Global Pharma Inc", gst: "24AABCG5678P1Z5", phone: "+91 98765 43214", email: "global@pharma.com", address: "Ahmedabad, Gujarat", creditDays: 60 },
+const DEFAULT_SUPPLIERS = [
+  { id: 1, name: "ABC Pharma Ltd", gst: "27AABCA1234C1Z5", phone: "+91 98765 43210", address: "Mumbai, MH" },
+  { id: 2, name: "XYZ Medicals", gst: "07AAFCX5678D1Z2", phone: "+91 98765 43211", address: "Delhi, NCR" },
+  { id: 3, name: "PQR Distributors", gst: "29AAPCP5678R1Z3", phone: "+91 98765 43212", address: "Bangalore, KA" },
+  { id: 4, name: "LMN Healthcare", gst: "03AABCL1234M1Z4", phone: "+91 98765 43213", address: "Chandigarh, PB" },
+  { id: 5, name: "Global Pharma Inc", gst: "24AABCG5678P1Z5", phone: "+91 98765 43214", address: "Ahmedabad, GJ" },
+  { id: 6, name: "Sunrise Medicines", gst: "19AABCS5678S1Z6", phone: "+91 98765 43215", address: "Kolkata, WB" },
+  { id: 7, name: "Metro Drug House", gst: "33AABCM5678M1Z7", phone: "+91 98765 43216", address: "Chennai, TN" },
+  { id: 8, name: "Unity Healthcare", gst: "32AABCU5678U1Z8", phone: "+91 98765 43217", address: "Kochi, KL" },
 ];
 
-export const usePurchaseSupplier = (totalAmount = 0) => {
-  const [supplier, setSupplier] = useState(getInitialSupplier);
-  const [suppliersList] = useState(SUPPLIERS_LIST);
+export const usePurchaseSupplier = (total = 0) => {
+  const [supplier, setSupplier] = useState({
+    purchaseId: `PUR-${Date.now().toString().slice(-6)}`,
+    supplierName: "",
+    invoiceNo: "",
+    invoiceDate: new Date().toISOString().split("T")[0],
+    receivedOn: new Date().toISOString().split("T")[0],
+    supplierGST: "",
+    supplierPhone: "",
+    creditDays: "30",
+    amountPaid: "",
+    balance: "0.00",
+    address: "",
+  });
+
+  // ✅ NEW: Suppliers list state
+  const [suppliersList, setSuppliersList] = useState(DEFAULT_SUPPLIERS);
 
   // Auto-calculate balance
   useEffect(() => {
-    const paid = Number(supplier.amountPaid) || 0;
-    const balance = (totalAmount - paid).toFixed(2);
-    setSupplier(prev => prev.balance !== balance ? { ...prev, balance } : prev);
-  }, [totalAmount, supplier.amountPaid]);
+    const paid = parseFloat(supplier.amountPaid) || 0;
+    const balance = Math.max(0, total - paid).toFixed(2);
+    setSupplier(prev => ({ ...prev, balance }));
+  }, [total, supplier.amountPaid]);
 
-  // Auto-calculate due date when credit days change
-  useEffect(() => {
-    if (supplier.invoiceDate && supplier.creditDays) {
-      const invoiceDate = new Date(supplier.invoiceDate);
-      invoiceDate.setDate(invoiceDate.getDate() + Number(supplier.creditDays));
-      const dueDate = invoiceDate.toISOString().split('T')[0];
-      setSupplier(prev => prev.dueDate !== dueDate ? { ...prev, dueDate } : prev);
-    }
-  }, [supplier.invoiceDate, supplier.creditDays]);
-
-  const updateSupplier = useCallback((field, value) => {
-    setSupplier(prev => ({ ...prev, [field]: value }));
-  }, []);
-
-  const selectSupplier = useCallback((selectedSupplier) => {
-    if (!selectedSupplier) {
+  // Select supplier from list
+  const selectSupplier = useCallback((selected) => {
+    if (selected) {
       setSupplier(prev => ({
         ...prev,
-        supplierName: "",
-        supplierId: "",
-        supplierGST: "",
-        supplierPhone: "",
-        supplierEmail: "",
-        address: "",
-        creditDays: "",
+        supplierName: selected.name,
+        supplierGST: selected.gst || "",
+        supplierPhone: selected.phone || selected.officePhone || "",
+        address: selected.address || "",
       }));
-      return;
     }
-    
-    setSupplier(prev => ({
-      ...prev,
-      supplierName: selectedSupplier.name || "",
-      supplierId: selectedSupplier.id || "",
-      supplierGST: selectedSupplier.gst || "",
-      supplierPhone: selectedSupplier.phone || "",
-      supplierEmail: selectedSupplier.email || "",
-      address: selectedSupplier.address || "",
-      creditDays: selectedSupplier.creditDays?.toString() || "",
-    }));
   }, []);
 
-  const resetSupplier = useCallback(() => {
-    setSupplier(getInitialSupplier());
-  }, []);
-
+  // Validate supplier details
   const validateSupplier = useCallback(() => {
     const errors = [];
-    if (!supplier.supplierName) errors.push("Supplier name is required");
-    if (!supplier.invoiceNo) errors.push("Invoice number is required");
-    return { isValid: errors.length === 0, errors };
+    
+    if (!supplier.supplierName?.trim()) {
+      errors.push("Supplier name is required");
+    }
+    if (!supplier.invoiceNo?.trim()) {
+      errors.push("Invoice number is required");
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
   }, [supplier]);
+
+  // Reset supplier
+  const resetSupplier = useCallback(() => {
+    setSupplier({
+      purchaseId: `PUR-${Date.now().toString().slice(-6)}`,
+      supplierName: "",
+      invoiceNo: "",
+      invoiceDate: new Date().toISOString().split("T")[0],
+      receivedOn: new Date().toISOString().split("T")[0],
+      supplierGST: "",
+      supplierPhone: "",
+      creditDays: "30",
+      amountPaid: "",
+      balance: "0.00",
+      address: "",
+    });
+  }, []);
 
   return {
     supplier,
     setSupplier,
     suppliersList,
-    updateSupplier,
+    setSuppliersList, // ✅ NEW: Expose setSuppliersList
     selectSupplier,
-    resetSupplier,
     validateSupplier,
+    resetSupplier,
   };
 };
-
-export default usePurchaseSupplier;
