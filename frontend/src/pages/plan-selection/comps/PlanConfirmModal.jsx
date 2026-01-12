@@ -1,4 +1,5 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\frontend\src\components\plans\PlanConfirmModal.jsx
+// frontend/src/pages/plans/comps/PlanConfirmModal.jsx
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -13,12 +14,18 @@ import {
   Shield,
   Sparkles,
   ArrowRight,
+  Gift,
+  Clock,
+  Tag,
 } from "lucide-react";
 import {
   BILLING,
   formatPrice,
   generateFeatures,
   getCardTheme,
+  calculateDisplayDates,
+  formatDate,
+  calculateDiscountPercent,
 } from "../../../config/planConfig";
 
 export default function PlanConfirmModal({
@@ -33,22 +40,19 @@ export default function PlanConfirmModal({
 
   if (!isOpen || !plan) return null;
 
-  const isFree = plan.price === 0;
+  // Determine if plan is effectively free
+  const isEffectivelyFree = plan.price === 0 || plan.is_promo_active;
+  const hasPromoWithPrice = plan.is_promo_active && plan.price > 0;
+
+  // Get theme and features
   const theme = getCardTheme(plan);
   const features = generateFeatures(plan);
 
   // Calculate dates
-  const startDate = new Date();
-  const endDate = new Date();
-  endDate.setFullYear(endDate.getFullYear() + 1);
+  const dates = calculateDisplayDates(plan);
 
-  const formatDate = (date) => {
-    return date.toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  };
+  // Calculate discount if applicable
+  const discountPercent = calculateDiscountPercent(plan.compare_at_price, plan.price);
 
   const handleConfirm = () => {
     if (!termsAccepted || loading) return;
@@ -61,6 +65,20 @@ export default function PlanConfirmModal({
     onClose();
   };
 
+  // Get header accent color based on theme
+  const getHeaderAccent = () => {
+    if (plan.is_featured) return "bg-violet-500";
+    if (plan.price === 0) return "bg-emerald-500";
+    return "bg-[#000060]";
+  };
+
+  // Get card background based on theme
+  const getCardBg = () => {
+    if (plan.is_featured) return "bg-violet-50 border-violet-200";
+    if (plan.price === 0 && !plan.is_promo_active) return "bg-emerald-50 border-emerald-200";
+    return "bg-blue-50 border-blue-200";
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
@@ -71,15 +89,7 @@ export default function PlanConfirmModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Accent */}
-        <div
-          className={`h-1.5 ${
-            isFree
-              ? "bg-emerald-500"
-              : plan.is_highlighted
-              ? "bg-violet-500"
-              : "bg-[#000060]"
-          }`}
-        />
+        <div className={`h-1.5 ${getHeaderAccent()}`} />
 
         {/* Close Button */}
         <button
@@ -91,18 +101,41 @@ export default function PlanConfirmModal({
         </button>
 
         <div className="p-5">
-          {/* Header - More Compact */}
+          {/* Header */}
           <div className="text-center mb-4">
             <div className="flex items-center justify-center gap-2 mb-1">
-              {plan.is_highlighted && (
+              {/* Featured Badge */}
+              {plan.is_featured && (
                 <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-[10px] font-semibold rounded-full flex items-center gap-1">
                   <Sparkles size={10} />
                   POPULAR
                 </span>
               )}
-              {isFree && (
+              {/* Promo Badge */}
+              {plan.is_promo_active && (
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-semibold rounded-full flex items-center gap-1">
+                  <Clock size={10} />
+                  PROMO ACTIVE
+                </span>
+              )}
+              {/* Free Badge (only if truly free, not promo) */}
+              {plan.price === 0 && !plan.is_promo_active && (
                 <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full">
                   FREE
+                </span>
+              )}
+              {/* Discount Badge */}
+              {discountPercent && !plan.is_promo_active && (
+                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-semibold rounded-full flex items-center gap-1">
+                  <Tag size={10} />
+                  {discountPercent}% OFF
+                </span>
+              )}
+              {/* Bonus Badge */}
+              {plan.bonus_months > 0 && (
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full flex items-center gap-1">
+                  <Gift size={10} />
+                  +{plan.bonus_months} MONTHS
                 </span>
               )}
             </div>
@@ -110,40 +143,62 @@ export default function PlanConfirmModal({
               Confirm Your Plan
             </h2>
             <p className="text-gray-500 text-xs mt-0.5">
-              Review the details before {isFree ? "activating" : "purchasing"}
+              Review the details before {isEffectivelyFree ? "activating" : "purchasing"}
             </p>
           </div>
 
-          {/* Main Content - Horizontal Layout */}
+          {/* Main Content - Two Columns */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* LEFT COLUMN - Plan Details */}
             <div className="space-y-3">
               {/* Plan Name & Price Card */}
-              <div
-                className={`rounded-xl p-4 border-2 ${
-                  isFree
-                    ? "bg-emerald-50 border-emerald-200"
-                    : plan.is_highlighted
-                    ? "bg-violet-50 border-violet-200"
-                    : "bg-blue-50 border-blue-200"
-                }`}
-              >
+              <div className={`rounded-xl p-4 border-2 ${getCardBg()}`}>
                 <h3 className="text-base font-bold text-gray-800 mb-0.5">
                   {plan.name}
                 </h3>
                 <p className="text-gray-600 text-xs mb-2">
                   {plan.description || "Perfect for your business needs"}
                 </p>
-                <div className="flex items-baseline gap-1">
-                  <span
-                    className={`text-2xl font-bold ${
-                      isFree ? "text-emerald-600" : "text-[#000060]"
-                    }`}
-                  >
-                    {formatPrice(plan.price)}
-                  </span>
-                  {!isFree && (
-                    <span className="text-gray-500 text-sm">{BILLING.displayText}</span>
+
+                {/* Price Display */}
+                <div className="flex flex-col">
+                  {/* Strike-through price (non-promo discount) */}
+                  {plan.compare_at_price && plan.compare_at_price > plan.price && !isEffectivelyFree && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-400 line-through">
+                        {formatPrice(plan.compare_at_price)}
+                      </span>
+                      <span className="text-xs font-medium text-green-600">
+                        Save {formatPrice(plan.compare_at_price - plan.price)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Main price */}
+                  <div className="flex items-baseline gap-1">
+                    <span
+                      className={`text-2xl font-bold ${
+                        isEffectivelyFree ? "text-emerald-600" : "text-[#000060]"
+                      }`}
+                    >
+                      {isEffectivelyFree ? "FREE" : formatPrice(plan.price)}
+                    </span>
+                    {!isEffectivelyFree && (
+                      <span className="text-gray-500 text-sm">
+                        {BILLING.displayText}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Promo context with bold price */}
+                  {hasPromoWithPrice && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Then{" "}
+                      <span className="font-bold text-gray-700">
+                        {formatPrice(plan.price)}
+                      </span>
+                      /year after {formatDate(new Date(plan.promo_free_until))}
+                    </p>
                   )}
                 </div>
               </div>
@@ -174,7 +229,7 @@ export default function PlanConfirmModal({
                 </div>
               </div>
 
-              {/* Subscription Period - Compact */}
+              {/* Subscription Period */}
               <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
                 <div className="flex items-center gap-1.5 mb-2">
                   <Calendar size={12} className="text-gray-500" />
@@ -182,22 +237,62 @@ export default function PlanConfirmModal({
                     Subscription Period
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
+
+                {/* Timeline */}
+                <div className="flex items-center justify-between text-xs mb-3">
                   <div className="text-center">
                     <p className="text-[10px] text-gray-400">Start</p>
                     <p className="font-semibold text-gray-800">
-                      {formatDate(startDate)}
+                      {formatDate(dates.startDate)}
                     </p>
                   </div>
                   <ArrowRight size={14} className="text-gray-300" />
                   <div className="text-center">
-                    <p className="text-[10px] text-gray-400">End</p>
+                    <p className="text-[10px] text-gray-400">Valid Until</p>
                     <p className="font-semibold text-gray-800">
-                      {formatDate(endDate)}
+                      {formatDate(dates.endDate)}
                     </p>
                   </div>
-                  <div className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-medium rounded-full">
-                    1 Year
+                </div>
+
+                {/* Duration Breakdown */}
+                <div className="border-t border-gray-200 pt-2 space-y-1">
+                  {/* Promo Period */}
+                  {dates.isPromoActive && dates.promoEndDate && (
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-blue-600 font-medium flex items-center gap-1">
+                        <Clock size={10} />
+                        Free Promo Access
+                      </span>
+                      <span className="text-blue-600 font-medium">
+                        Until {formatDate(dates.promoEndDate)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Base Plan */}
+                  <div className="flex justify-between text-[10px] text-gray-500">
+                    <span>Base Plan Duration</span>
+                    <span>{dates.billingCycleMonths} Months</span>
+                  </div>
+
+                  {/* Bonus Months */}
+                  {dates.bonusMonths > 0 && (
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-amber-600 font-medium flex items-center gap-1">
+                        <Gift size={10} />
+                        Bonus Months
+                      </span>
+                      <span className="text-amber-600 font-medium">
+                        +{dates.bonusMonths} Months Free
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Total */}
+                  <div className="flex justify-between text-xs font-semibold text-gray-800 pt-1 border-t border-dashed border-gray-200">
+                    <span>Total Access</span>
+                    <span>{dates.totalMonths} Months</span>
                   </div>
                 </div>
               </div>
@@ -205,30 +300,35 @@ export default function PlanConfirmModal({
 
             {/* RIGHT COLUMN - Features & Payment */}
             <div className="space-y-3">
-              {/* Features - Compact */}
+              {/* Features */}
               <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
                 <p className="text-xs font-medium text-gray-700 mb-2">
                   What's included:
                 </p>
                 <ul className="space-y-1.5">
-                  {features.slice(0, 5).map((feature, idx) => (
+                  {features.map((feature, idx) => (
                     <li key={idx} className="flex items-center gap-1.5">
-                      <span className="text-emerald-500 flex-shrink-0">
-                        <Check size={12} />
+                      <span
+                        className={`flex-shrink-0 ${
+                          feature.highlight ? "text-amber-500" : "text-emerald-500"
+                        }`}
+                      >
+                        {feature.highlight ? <Gift size={12} /> : <Check size={12} />}
                       </span>
-                      <span className="text-gray-600 text-xs">{feature}</span>
+                      <span
+                        className={`text-xs ${
+                          feature.highlight ? "text-gray-800 font-medium" : "text-gray-600"
+                        }`}
+                      >
+                        {feature.text}
+                      </span>
                     </li>
                   ))}
-                  {features.length > 5 && (
-                    <li className="text-xs text-gray-400 pl-5">
-                      +{features.length - 5} more features
-                    </li>
-                  )}
                 </ul>
               </div>
 
               {/* Billing Summary (for paid plans) */}
-              {!isFree && (
+              {!isEffectivelyFree && (
                 <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
                   <div className="flex items-center gap-1.5 mb-2">
                     <CreditCard size={12} className="text-blue-600" />
@@ -239,15 +339,27 @@ export default function PlanConfirmModal({
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">{plan.name} Plan</span>
-                      <span className="text-gray-800">
-                        {formatPrice(plan.price)}
-                      </span>
+                      <span className="text-gray-800">{formatPrice(plan.price)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Billing Cycle</span>
-                      <span className="text-gray-800">Annual</span>
-                    </div>
+
+                    {/* Discount line */}
+                    {plan.compare_at_price && plan.compare_at_price > plan.price && (
+                      <div className="flex justify-between items-center text-green-600">
+                        <span>Discount ({discountPercent}%)</span>
+                        <span>-{formatPrice(plan.compare_at_price - plan.price)}</span>
+                      </div>
+                    )}
+
+                    {/* Bonus months info */}
+                    {plan.bonus_months > 0 && (
+                      <div className="flex justify-between items-center text-amber-600">
+                        <span>Bonus: +{plan.bonus_months} months</span>
+                        <span>FREE</span>
+                      </div>
+                    )}
+
                     <div className="border-t border-blue-200 my-1.5" />
+
                     <div className="flex justify-between items-center">
                       <span className="font-medium text-gray-800 text-sm">
                         Total Due Today
@@ -260,8 +372,8 @@ export default function PlanConfirmModal({
                 </div>
               )}
 
-              {/* Free Plan Info */}
-              {isFree && (
+              {/* Free Plan / Promo Info */}
+              {isEffectivelyFree && (
                 <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
                   <div className="flex items-center gap-1.5 mb-1">
                     <Check size={12} className="text-emerald-600" />
@@ -270,20 +382,59 @@ export default function PlanConfirmModal({
                     </span>
                   </div>
                   <p className="text-emerald-700 text-xs">
-                    This plan is completely free. You can upgrade anytime.
+                    {hasPromoWithPrice
+                      ? `This plan is free during the promo period. You'll be reminded before ${formatDate(new Date(plan.promo_free_until))} to renew.`
+                      : "This plan is completely free. You can upgrade anytime."}
                   </p>
                 </div>
               )}
+
+              {/* What happens next */}
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                <p className="text-xs font-medium text-gray-700 mb-2">
+                  What happens next:
+                </p>
+                <ol className="space-y-1.5 text-xs text-gray-600">
+                  {isEffectivelyFree ? (
+                    <>
+                      <li className="flex items-start gap-2">
+                        <span className="font-semibold text-emerald-600">1.</span>
+                        <span>Your plan activates immediately</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-semibold text-emerald-600">2.</span>
+                        <span>Complete your shop setup</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-semibold text-emerald-600">3.</span>
+                        <span>Start using Cureli ERP!</span>
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li className="flex items-start gap-2">
+                        <span className="font-semibold text-blue-600">1.</span>
+                        <span>Complete secure payment via Razorpay</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-semibold text-blue-600">2.</span>
+                        <span>Your plan activates instantly</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-semibold text-blue-600">3.</span>
+                        <span>Complete your shop setup & start!</span>
+                      </li>
+                    </>
+                  )}
+                </ol>
+              </div>
             </div>
           </div>
 
           {/* Error Message */}
           {error && (
             <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-              <AlertCircle
-                size={14}
-                className="text-red-500 flex-shrink-0 mt-0.5"
-              />
+              <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
               <p className="text-red-700 text-xs">{error}</p>
             </div>
           )}
@@ -334,7 +485,7 @@ export default function PlanConfirmModal({
                 onClick={handleConfirm}
                 disabled={!termsAccepted || loading}
                 className={`flex-[2] py-2.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 ${
-                  isFree
+                  isEffectivelyFree
                     ? "bg-emerald-600 hover:bg-emerald-700"
                     : "bg-[#000060] hover:bg-[#000080]"
                 }`}
@@ -344,10 +495,10 @@ export default function PlanConfirmModal({
                     <Loader2 size={14} className="animate-spin" />
                     Processing...
                   </>
-                ) : isFree ? (
+                ) : isEffectivelyFree ? (
                   <>
                     <Check size={14} />
-                    Activate Free Plan
+                    Activate {hasPromoWithPrice ? "Promo" : "Free"} Plan
                   </>
                 ) : (
                   <>
@@ -359,7 +510,7 @@ export default function PlanConfirmModal({
             </div>
 
             {/* Security Note */}
-            {!isFree && (
+            {!isEffectivelyFree && (
               <div className="mt-3 flex items-center justify-center gap-1.5 text-gray-400 text-[10px]">
                 <Shield size={12} />
                 <span>Secured by Razorpay • 256-bit SSL encryption</span>

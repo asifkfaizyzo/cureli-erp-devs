@@ -1,12 +1,11 @@
-import { Search, Filter, X, Layers, Sparkles } from "lucide-react";
+import { Search, Filter, X, Layers, Sparkles, Tag } from "lucide-react";
 import {
   PLAN_STATUS,
-  STATUS_CONFIG,
 } from "../../../config/modules/subscriptionConfig";
 
 export default function PlanFilterBar({
-  planTypeFilter, // NEW: 'PRE_MADE' or 'CUSTOM'
-  setPlanTypeFilter, // NEW: setter for plan type
+  planTypeFilter,
+  setPlanTypeFilter,
   filter,
   setFilter,
   searchQuery,
@@ -32,37 +31,49 @@ export default function PlanFilterBar({
   return (
     <div className="mb-6 space-y-4">
       {/* Plan Type Toggle - PRE_MADE vs CUSTOM */}
-      <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-xl w-fit">
-        <button
-          onClick={() => setPlanTypeFilter("PRE_MADE")}
-          className={`
-            flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-            transition-all duration-200
-            ${
-              planTypeFilter === "PRE_MADE"
-                ? "bg-[#05015A] text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-200"
-            }
-          `}
-        >
-          <Layers size={16} />
-          Pre-made Plans
-        </button>
-        <button
-          onClick={() => setPlanTypeFilter("CUSTOM")}
-          className={`
-            flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-            transition-all duration-200
-            ${
-              planTypeFilter === "CUSTOM"
-                ? "bg-violet-600 text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-200"
-            }
-          `}
-        >
-          <Sparkles size={16} />
-          Custom Plans
-        </button>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+          <button
+            onClick={() => setPlanTypeFilter("PRE_MADE")}
+            className={`
+              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+              transition-all duration-200
+              ${
+                planTypeFilter === "PRE_MADE"
+                  ? "bg-[#05015A] text-white shadow-md"
+                  : "text-gray-600 hover:bg-gray-200"
+              }
+            `}
+          >
+            <Layers size={16} />
+            Pre-made Plans
+          </button>
+          <button
+            onClick={() => setPlanTypeFilter("CUSTOM")}
+            className={`
+              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+              transition-all duration-200
+              ${
+                planTypeFilter === "CUSTOM"
+                  ? "bg-violet-600 text-white shadow-md"
+                  : "text-gray-600 hover:bg-gray-200"
+              }
+            `}
+          >
+            <Sparkles size={16} />
+            Custom Plans
+          </button>
+        </div>
+
+        {/* Promo Stats (only for PRE_MADE) */}
+        {planTypeFilter === "PRE_MADE" && planCounts.with_active_promo > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+            <Tag size={14} className="text-amber-600" />
+            <span className="text-xs font-medium text-amber-700">
+              {planCounts.with_active_promo} plan{planCounts.with_active_promo > 1 ? 's' : ''} with active promo
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Search and Status Filters */}
@@ -98,6 +109,7 @@ export default function PlanFilterBar({
             ))}
           </div>
         )}
+
         {/* Search Bar */}
         <div className="relative w-full lg:w-80">
           <Search

@@ -247,7 +247,10 @@ const App = () => {
                     path="/reset-password"
                     element={<ResetPasswordPage />}
                   />
-
+<Route
+                      path="/plan-selection"
+                      element={<PlanSelectionPage />}
+                    />
                   {/* ============================================ */}
                   {/* ONBOARDING ROUTES (Special guard) */}
                   {/* ============================================ */}
@@ -260,10 +263,7 @@ const App = () => {
                   {/* POST-VERIFICATION ROUTES (Token required) */}
                   {/* ============================================ */}
                   <Route element={<AuthGuard />}>
-                    <Route
-                      path="/plan-selection"
-                      element={<PlanSelectionPage />}
-                    />
+                    
 
                     {/* Setup Routes */}
                     <Route path="/setup" element={<SetupRouter />} />

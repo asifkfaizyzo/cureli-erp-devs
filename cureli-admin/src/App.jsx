@@ -18,6 +18,8 @@ import VerificationPage from "./pages/User-Shop-Verifications/VerificationPage";
 import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
 import ShopsPage from "./pages/shops-management/ShopsPage";
 import AdminsPage from "./pages/Cadmin-management/AdminsPage";
+import SubscriptionOverviewPage from "./pages/Subscription-management/SubscriptionOverviewPage";
+
 
 // Communications Pages (NEW STRUCTURE)
 import CommunicationsPage from "./pages/Communications/CommunicationsPage";
@@ -94,7 +96,9 @@ function App() {
           <Route path="/users" element={<UserPage />} />
           <Route path="/shops" element={<ShopsPage />} />
           <Route path="/verification" element={<VerificationPage />} />
-          <Route path="/subscriptions" element={<SubscriptionPage />} />
+          <Route path="/subscriptions" element={<SubscriptionOverviewPage />} />
+<Route path="/subscriptions/manage" element={<SubscriptionPage />} />
+
           <Route path="/audits" element={<div>Audits Page</div>} />
           <Route path="/settings" element={<div>Settings Page</div>} />
           <Route path="/admins" element={<AdminsPage />} />

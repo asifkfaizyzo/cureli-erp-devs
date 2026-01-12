@@ -1,242 +1,19 @@
+// frontend/src/pages/plans/PlanSelectionPage.jsx
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Loader2,
   AlertCircle,
   RefreshCw,
-  Users,
-  Building2,
-  Check,
-  Sparkles,
-  Mail,
 } from "lucide-react";
 
-import { getPlans, selectPlan, confirmPayment,cancelPendingSubscription } from "../../api/subscription";
-import {
-  BILLING,
-  formatPrice,
-  getCardTheme,
-  generateFeatures,
-} from "../../config/planConfig";
+import { getPlans, selectPlan, confirmPayment, cancelPendingSubscription } from "../../api/subscription";
+import PlanCard from "./comps/PlanCard";
+import CustomPlanCard from "./comps/CustomPlanCard";
 import PlanConfirmModal from "./comps/PlanConfirmModal";
 import OnboardingHeader from "../../components/layout/OnboardingHeader";
 
-// ============================================
-// PLAN CARD COMPONENT
-// ============================================
-function PlanCard({ plan, onSelect, isSelecting }) {
-  const theme = getCardTheme(plan);
-  const features = generateFeatures(plan);
-  const isFree = plan.price === 0;
-
-  return (
-    <div
-      className={`
-        group relative flex flex-col rounded-2xl p-6
-        shadow-md border-2 transition-all duration-300
-        bg-gradient-to-b ${theme.gradient} ${theme.hoverGradient}
-        ${theme.borderAccent}
-        hover:shadow-xl hover:-translate-y-1
-        w-[280px] h-[390px]
-      `}
-    >
-      {plan.is_highlighted && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-          <div className="whitespace-nowrap flex items-center gap-1.5 px-4 py-1.5 bg-violet-600 text-white text-xs font-bold rounded-full shadow-lg">
-            <Sparkles size={12} />
-            POPULAR
-          </div>
-        </div>
-      )}
-
-      <div className="flex-1 flex flex-col">
-        <div className="h-[160px] flex flex-col">
-          <h2 className="text-xl font-bold text-gray-800 group-hover:text-white text-center">
-            {plan.name}
-          </h2>
-
-          <p className="text-sm text-gray-600 group-hover:text-white/80 text-center mt-1 line-clamp-2 min-h-[40px]">
-            {plan.description || "Perfect for getting started"}
-          </p>
-
-          <div className="flex items-baseline justify-center gap-1 mt-3">
-            <span
-              className={`
-                text-3xl font-bold 
-                ${isFree ? "text-emerald-600" : theme.accentColor}
-                group-hover:text-white
-              `}
-            >
-              {formatPrice(plan.price)}
-            </span>
-            {!isFree && (
-              <span className="text-sm text-gray-500 group-hover:text-white/70">
-                {BILLING.displayText}
-              </span>
-            )}
-          </div>
-
-          <div className="flex justify-center gap-4 mt-3">
-            <div className="flex items-center gap-1.5 text-xs text-gray-600 group-hover:text-white/80">
-              <Users size={14} />
-              <span>
-                {plan.max_users === -1 ? "Unlimited" : plan.max_users} Users
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-gray-600 group-hover:text-white/80">
-              <Building2 size={14} />
-              <span>
-                {plan.max_branches === -1 ? "Unlimited" : plan.max_branches}{" "}
-                Branch{plan.max_branches !== 1 ? "es" : ""}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="h-px w-full bg-gray-300 group-hover:bg-white/30 my-3" />
-
-        <div className="flex-1 flex flex-col">
-          <ul className="space-y-1.5 flex-1">
-            {features.map((feature, idx) => (
-              <li key={idx} className="flex items-center gap-2 text-sm">
-                <span className="text-emerald-500 group-hover:text-emerald-300 flex-shrink-0">
-                  <Check size={14} />
-                </span>
-                <span className="text-gray-700 group-hover:text-white text-xs">
-                  {feature}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <button
-            onClick={() => onSelect(plan)}
-            disabled={isSelecting}
-            className={`
-              mt-auto w-full py-2.5 rounded-xl text-sm font-semibold
-              text-white transition-all duration-300
-              ${theme.buttonBg}
-              disabled:opacity-50 disabled:cursor-not-allowed
-              shadow-lg hover:shadow-xl
-            `}
-          >
-            {isSelecting ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 size={16} className="animate-spin" />
-                Processing...
-              </span>
-            ) : isFree ? (
-              "Start Free"
-            ) : (
-              "Select Plan"
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================
-// CUSTOM PLAN CARD
-// ============================================
-function CustomPlanCard() {
-  const theme = {
-    gradient: "from-amber-50 to-orange-100",
-    hoverGradient: "hover:from-amber-600 hover:to-orange-600",
-    borderAccent: "border-amber-300 border-dashed",
-    buttonBg: "bg-amber-600 hover:bg-amber-700",
-  };
-
-  return (
-    <div
-      className={`
-        group relative flex flex-col rounded-2xl p-6
-        shadow-md border-2 transition-all duration-300
-        bg-gradient-to-b ${theme.gradient} ${theme.hoverGradient}
-        ${theme.borderAccent}
-        hover:shadow-xl hover:-translate-y-1
-        w-[280px] h-[390px]
-      `}
-    >
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-        <div className="whitespace-nowrap flex items-center gap-1.5 px-4 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-full shadow-lg">
-          <Sparkles size={12} />
-          TAILORED FOR YOU
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col">
-        <div className="h-[160px] flex flex-col">
-          <h2 className="text-xl font-bold text-gray-800 group-hover:text-white text-center">
-            Custom Plan
-          </h2>
-
-          <p className="text-sm text-gray-600 group-hover:text-white/80 text-center mt-1 line-clamp-2 min-h-[40px]">
-            Need something specific? We'll tailor a plan for your business.
-          </p>
-
-          <div className="flex items-baseline justify-center gap-1 mt-3">
-            <span className="text-2xl font-bold text-amber-600 group-hover:text-white">
-              Custom Pricing
-            </span>
-          </div>
-
-          <div className="flex justify-center gap-4 mt-3">
-            <div className="flex items-center gap-1.5 text-xs text-gray-600 group-hover:text-white/80">
-              <Users size={14} />
-              <span>Flexible</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-gray-600 group-hover:text-white/80">
-              <Building2 size={14} />
-              <span>Flexible</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="h-px w-full bg-gray-300 group-hover:bg-white/30 my-3" />
-
-        <div className="flex-1 flex flex-col">
-          <ul className="space-y-1.5 flex-1">
-            {[
-              "Unlimited users & branches",
-              "Priority 24/7 support",
-              "Custom integrations",
-              "Dedicated account manager",
-            ].map((feature, idx) => (
-              <li key={idx} className="flex items-center gap-2 text-sm">
-                <span className="text-emerald-500 group-hover:text-emerald-300 flex-shrink-0">
-                  <Check size={14} />
-                </span>
-                <span className="text-gray-700 group-hover:text-white text-xs">
-                  {feature}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <a
-            href="mailto:sales@cureli.com"
-            className={`
-              mt-auto w-full py-2.5 rounded-xl text-sm font-semibold
-              text-white transition-all duration-300
-              ${theme.buttonBg}
-              shadow-lg hover:shadow-xl
-              flex items-center justify-center gap-2
-            `}
-          >
-            <Mail size={16} />
-            Contact Sales
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================
-// MAIN PAGE COMPONENT
-// ============================================
 const PlanSelectionPage = () => {
   const navigate = useNavigate();
 
@@ -292,7 +69,7 @@ const PlanSelectionPage = () => {
     setModalError("");
   };
 
-  // Confirm plan selection (handles both free and paid)
+  // Confirm plan selection
   const handleConfirmPlan = async () => {
     if (!selectedPlan || processing) return;
 
@@ -300,12 +77,11 @@ const PlanSelectionPage = () => {
       setProcessing(true);
       setModalError("");
 
-      // Call selectPlan API
       const res = await selectPlan({ plan_id: selectedPlan.plan_id });
       const data = res.data?.data;
 
       if (data.is_free) {
-        // FREE PLAN - Direct activation, go to dashboard
+        // FREE PLAN (Standard or Promo) - Direct activation
         navigate("/setup", { replace: true });
         return;
       }
@@ -342,7 +118,6 @@ const PlanSelectionPage = () => {
         color: "#000060",
       },
       handler: async function (response) {
-        // Payment successful - verify on backend
         try {
           await confirmPayment({
             razorpay_order_id: response.razorpay_order_id,
@@ -361,7 +136,6 @@ const PlanSelectionPage = () => {
       },
       modal: {
         ondismiss: async function () {
-          // ✅ User closed the Razorpay popup - Cancel the pending subscription
           try {
             await cancelPendingSubscription(data.subscription_id);
           } catch (err) {
@@ -380,7 +154,6 @@ const PlanSelectionPage = () => {
     rzp.on("payment.failed", async function (response) {
       console.error("Payment failed:", response.error);
 
-      // ✅ Payment failed - Cancel the pending subscription
       try {
         await cancelPendingSubscription(data.subscription_id);
       } catch (err) {
@@ -395,11 +168,6 @@ const PlanSelectionPage = () => {
     });
 
     rzp.open();
-  };
-
-  // Retry loading
-  const handleRetry = () => {
-    loadPlans();
   };
 
   // ============================================
@@ -438,7 +206,7 @@ const PlanSelectionPage = () => {
             </h2>
             <p className="text-gray-600">{error}</p>
             <button
-              onClick={handleRetry}
+              onClick={loadPlans}
               className="flex items-center gap-2 px-6 py-3 bg-[#000060] text-white rounded-xl font-semibold hover:bg-[#000080] transition-all"
             >
               <RefreshCw size={18} />

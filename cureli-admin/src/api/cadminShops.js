@@ -33,7 +33,6 @@ export function toggleShopActive(shopId, isActive) {
  * Uses the new plan API with status filter
  */
 export function getPlans() {
-  // Only fetch ACTIVE plans for shop subscription assignment
   return CAdminAPI.get("/plans", { params: { status: "ACTIVE" } });
 }
 
@@ -44,26 +43,43 @@ export function getAllPlans(params = {}) {
   return CAdminAPI.get("/plans", { params });
 }
 
-// ... existing imports and functions ...
-
 /**
  * Create a custom plan for a specific shop
  * Creates as CUSTOM type linked to the shop
+ * Now supports promo fields
  */
 export function createCustomPlan(data, shopId, shopName) {
   // Auto-generate name with shop name
   const autoName = data.name || `Custom - ${shopName} - ${data.max_users}U/${data.max_branches}B`;
   
-  return CAdminAPI.post("/plans", {
+  const payload = {
     name: autoName,
     description: data.description || `Custom plan for ${shopName} with ${data.max_users} users and ${data.max_branches} branches`,
     price: data.price || 0,
     max_users: data.max_users,
     max_branches: data.max_branches,
-    is_highlighted: false,
-    type: "CUSTOM",  // NEW: Set type to CUSTOM
-    created_for_shop_id: shopId,  // NEW: Link to shop
-  });
+    is_featured: data.is_featured || false,
+    type: "CUSTOM",
+    created_for_shop_id: shopId,
+    
+    // Promo fields (optional)
+    billing_cycle_months: data.billing_cycle_months || 12,
+  };
+
+  // Add optional promo fields only if they have values
+  if (data.compare_at_price && Number(data.compare_at_price) > 0) {
+    payload.compare_at_price = Number(data.compare_at_price);
+  }
+
+  if (data.bonus_months && Number(data.bonus_months) > 0) {
+    payload.bonus_months = Number(data.bonus_months);
+  }
+
+  if (data.promo_free_until) {
+    payload.promo_free_until = data.promo_free_until;
+  }
+
+  return CAdminAPI.post("/plans", payload);
 }
 
 /**
@@ -72,8 +88,6 @@ export function createCustomPlan(data, shopId, shopName) {
 export function activatePlan(planId) {
   return CAdminAPI.post(`/plans/${planId}/activate`);
 }
-
-// ... rest of existing functions ...
 
 /**
  * Update shop subscription (change plan)

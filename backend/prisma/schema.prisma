@@ -1,3 +1,7 @@
+// ============================================
+// PRISMA CONFIGURATION
+// ============================================
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,91 +12,102 @@ datasource db {
 }
 
 // ============================================
-// PLAN STATUS ENUM (NEW)
-// ============================================
-// Plan lifecycle states for subscription management
-enum PlanStatus {
-  DRAFT       // Editable, not visible to customers
-  ACTIVE      // Live, immutable, accepts subscriptions
-  DEPRECATED  // Suspended but has active subscribers
-  SUSPENDED   // Inactive, can be reactivated
-}
-enum PlanType {
-  PRE_MADE
-  CUSTOM
-}
-
-// ============================================
-// CADMIN ROLE ENUM (NEW)
+// ENUMS
 // ============================================
 
+// --- Admin ---
 enum CAdminRole {
   SUPER_ADMIN
   ANALYST
   ACCOUNTING
 }
 
+  // --- Plans ---
+
+enum PlanStatus {
+  DRAFT      // Editable, not visible to customers
+  ACTIVE     // Live, immutable, accepts subscriptions
+  DEPRECATED // Suspended but has active subscribers
+  SUSPENDED  // Inactive, can be reactivated
+}
+
+enum PlanType {
+  PRE_MADE
+  CUSTOM
+}
+
+// --- Tickets ---
+enum TicketCategory {
+  TECHNICAL_ISSUE
+  BILLING_ISSUE
+  FEATURE_REQUEST
+  ACCOUNT_ISSUE
+  OTHER
+}
+
+enum TicketStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+  CLOSED
+}
+
+// --- Enquiries ---
+enum EnquiryStatus {
+  PENDING
+  IN_PROGRESS
+  REPLIED
+  CLOSED
+}
+
 // ============================================
-// CURELI-ADMIN (UPDATED)
+// CURELI ADMIN
 // ============================================
 
 model CAdmin {
-  cadmin_id       String   @id @default(uuid()) @db.Uuid
+  cadmin_id    String     @id @default(uuid()) @db.Uuid
+  name         String     @db.Text
+  username     String     @unique @db.Text
+  email        String?    @unique @db.Text
+  phone_number String     @db.Text
+  password_hash String    @db.Text
+  role         CAdminRole @default(SUPER_ADMIN)
+  is_active    Boolean    @default(true)
 
-  // Profile
-  name            String   @db.Text
-  username        String   @unique @db.Text
-  email           String?  @unique @db.Text
-  phone_number    String   @db.Text
-  password_hash   String   @db.Text
-  
-  // Access control
-  role            CAdminRole @default(SUPER_ADMIN)
-  is_active       Boolean  @default(true)
-
-  // MessageCentral OTP
-  verification_id String?  @db.Text
-  otp_expires     DateTime?
-
-  // Password reset
+  // OTP & Password Reset
+  verification_id     String?   @db.Text
+  otp_expires         DateTime?
   reset_token         String?   @db.VarChar(500)
   reset_token_expires DateTime? @db.Timestamptz(6)
 
   // Timestamps
-  last_login_at   DateTime?
-  created_at      DateTime @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+  last_login_at DateTime?
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @updatedAt @db.Timestamptz(6)
 
   // Relations
-  createdPlans     Plan[]              @relation("PlanCreator")
-  planActivities   PlanActivityLog[]   @relation("PlanActivityByCAdmin")
-  activityLogs     CAdminActivityLog[] @relation("CAdminActivityLogs")
-  enquiryReplies   EnquiryReply[]  @relation("EnquiryRepliedBy")
+  createdPlans   Plan[]              @relation("PlanCreator")
+  planActivities PlanActivityLog[]   @relation("PlanActivityByCAdmin")
+  activityLogs   CAdminActivityLog[] @relation("CAdminActivityLogs")
+  enquiryReplies EnquiryReply[]      @relation("EnquiryRepliedBy")
 
   @@map("cadmins")
 }
 
-// ============================================
-// CADMIN ACTIVITY LOG (NEW)
-// ============================================
-
 model CAdminActivityLog {
   id              String   @id @default(uuid()) @db.Uuid
-
   cadmin_id       String   @db.Uuid
   performed_by_id String?  @db.Uuid
-
   action          String   @db.VarChar(50)
   description     String?  @db.Text
   changes         Json?
   meta            Json?
-
   ip_address      String?  @db.Text
   user_agent      String?  @db.Text
-
   created_at      DateTime @default(now()) @db.Timestamptz(6)
 
-  cadmin          CAdmin   @relation("CAdminActivityLogs", fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
+  cadmin CAdmin @relation("CAdminActivityLogs", fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
 
   @@index([cadmin_id])
   @@index([action])
@@ -100,79 +115,118 @@ model CAdminActivityLog {
   @@map("cadmin_activity_logs")
 }
 
-
-
-
-
-
-
-
-
-
-
 // ============================================
-// CURELI-USERS
+// USERS
 // ============================================
 
 model PendingUser {
-  pending_id String @id @default(uuid()) @db.Uuid
-
-  first_name    String
-  last_name     String
-  email         String  @unique
-  password_hash String?
-
+  pending_id     String  @id @default(uuid()) @db.Uuid
+  first_name     String
+  last_name      String
+  email          String  @unique
+  password_hash  String?
   google_id      String? @unique
   login_provider String  @default("password")
+  username       String?
 
+  // Email Verification
   email_otp_hash    String?
   email_otp_expires DateTime?
-  email_verified    Boolean   @default(false)
+  email_verified    Boolean @default(false)
 
+  // Phone Verification
   phone               String?   @db.Text
   sms_verification_id String?   @db.Text
   sms_transaction_id  String?   @db.Text
   sms_otp_expires     DateTime? @db.Timestamptz
   sms_verified        Boolean   @default(false)
 
-  username String?
-
+  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
   @@map("pending_users")
 }
 
-// ============================================
-// USER SESSION (NEW)
-// ============================================
+model User {
+  user_id        String  @id @default(uuid()) @db.Uuid
+  shop_id        String? @db.Uuid
+  branch_id      String? @db.Uuid
+  first_name     String
+  last_name      String
+  full_name      String
+  username       String? @unique
+  email          String? @unique
+  phone_number   String?
+  password_hash  String?
+  google_id      String? @unique
+  login_provider String
+  role           String
+  status         String  @default("pending_setup")
+  is_active      Boolean @default(true)
+  onboarding_step Int    @default(4)
+
+  // First Login Tracking
+  first_login_after_verification Boolean   @default(false)
+  first_verified_at              DateTime? @db.Timestamptz(6)
+
+  // Password Reset
+  reset_token         String?   @db.VarChar(500)
+  reset_token_expires DateTime? @db.Timestamptz(6)
+
+  // Phone Change Flow
+  phone_change_new_number      String?   @db.Text
+  phone_change_verification_id String?   @db.Text
+  phone_change_old_verified    Boolean   @default(false)
+  phone_change_expires         DateTime? @db.Timestamptz(6)
+
+  // Email Change Flow
+  email_change_new_email       String?   @db.Text
+  email_change_verification_id String?   @db.Text
+  email_change_otp_hash        String?   @db.Text
+  email_change_expires         DateTime? @db.Timestamptz(6)
+
+  // Login OTP
+  login_verification_id String?   @db.Text
+  login_otp_expires     DateTime? @db.Timestamptz(6)
+  login_otp_attempts    Int       @default(0)
+
+  // Timestamps
+  last_login_at DateTime? @db.Timestamptz(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  shops_owned      Shop[]        @relation("OwnerOfShop")
+  branch           Branch?       @relation(fields: [branch_id], references: [branch_id])
+  shop             Shop?         @relation("UsersInShop", fields: [shop_id], references: [shop_id])
+  shopFiles        ShopFile[]
+  activityLogs     ActivityLog[]
+  sessions         UserSession[]
+  ticketsCreated   Ticket[]      @relation("TicketCreator")
+  ticketsCancelled Ticket[]      @relation("TicketCanceller")
+  ticketsReopened  Ticket[]      @relation("TicketReopener")
+
+  @@map("users")
+}
 
 model UserSession {
-  id              String   @id @default(uuid()) @db.Uuid
-  user_id         String   @db.Uuid
-  
-  // Session identifier (hashed, stored in JWT)
-  session_token   String   @unique @db.Text
-  
-  // Device/Browser info for display
-  device_info     String?  @db.Text  // "Chrome on Windows 10"
-  ip_address      String?  @db.Text
-  
-  // Session state
-  is_active       Boolean  @default(true)
-  
+  id            String   @id @default(uuid()) @db.Uuid
+  user_id       String   @db.Uuid
+  session_token String   @unique @db.Text
+  device_info   String?  @db.Text
+  ip_address    String?  @db.Text
+  is_active     Boolean  @default(true)
+
   // Timestamps
-  created_at      DateTime @default(now()) @db.Timestamptz(6)
-  last_active_at  DateTime @default(now()) @db.Timestamptz(6)
-  expires_at      DateTime @db.Timestamptz(6)
-  
-  // How session ended (null if still active)
-  ended_at        DateTime? @db.Timestamptz(6)
-  ended_reason    String?   @db.Text  // "replaced" | "logout" | "expired" | "admin_force"
-  
-  // Relation
-  user            User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  last_active_at DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at     DateTime  @db.Timestamptz(6)
+  ended_at       DateTime? @db.Timestamptz(6)
+  ended_reason   String?   @db.Text // "replaced" | "logout" | "expired" | "admin_force"
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
   @@index([user_id])
   @@index([session_token])
   @@index([is_active])
@@ -181,93 +235,31 @@ model UserSession {
 }
 
 // ============================================
-// UPDATE User model - Add relation
-// ============================================
-
-model User {
-  user_id                        String  @id @default(uuid()) @db.Uuid
-  shop_id                        String? @db.Uuid
-  branch_id                      String? @db.Uuid
-  first_name                     String
-  last_name                      String
-  full_name                      String
-  username                       String? @unique
-  email                          String? @unique
-  phone_number                   String?
-  password_hash                  String?
-  google_id                      String? @unique
-  login_provider                 String
-  role                           String
-  status                         String  @default("pending_setup")
-  is_active                      Boolean @default(true)
-  onboarding_step                Int     @default(4)
-  first_login_after_verification Boolean @default(false)
-  first_verified_at              DateTime? @db.Timestamptz(6)
-  reset_token         String?   @db.VarChar(500)
-  reset_token_expires DateTime? @db.Timestamptz(6)
-  // Phone change temp state
-phone_change_new_number      String?   @db.Text
-phone_change_verification_id String?   @db.Text
-phone_change_old_verified    Boolean   @default(false)
-phone_change_expires         DateTime? @db.Timestamptz(6)
-
-// Email change temp state
-email_change_new_email       String?   @db.Text
-email_change_verification_id String?   @db.Text
-email_change_otp_hash        String?   @db.Text
-email_change_expires         DateTime? @db.Timestamptz(6)
-
-  login_verification_id String?   @db.Text
-  login_otp_expires     DateTime? @db.Timestamptz(6)
-  login_otp_attempts    Int       @default(0)
-
-  last_login_at DateTime? @db.Timestamptz(6)
-  created_at    DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime  @updatedAt @db.Timestamptz(6)
-
-  // Relations
-  shops_owned  Shop[]        @relation("OwnerOfShop")
-  branch       Branch?       @relation(fields: [branch_id], references: [branch_id])
-  shop         Shop?         @relation("UsersInShop", fields: [shop_id], references: [shop_id])
-  shopFiles    ShopFile[]
-  activityLogs ActivityLog[]
-  sessions     UserSession[]
-  
-  // ============================================
-  // NEW: Ticket relations
-  // ============================================
-  ticketsCreated   Ticket[] @relation("TicketCreator")
-  ticketsCancelled Ticket[] @relation("TicketCanceller")
-  ticketsReopened  Ticket[] @relation("TicketReopener")
-
-  @@map("users")
-}
-// ============================================
-// CURELI-SHOPS
+// SHOPS & BRANCHES
 // ============================================
 
 model Shop {
-  shop_id       String @id @default(uuid()) @db.Uuid
-  owner_user_id String @db.Uuid
-
-  business_name       String
-  legal_name          String?
-  gst_number          String? @unique
-  business_type       String?
-  address_line_1      String
-  address_line_2      String?
-  city                String
-  state               String
-  pincode             String
-  verification_status String  @default("pending")
-  verification_notes  String?
+  shop_id                 String  @id @default(uuid()) @db.Uuid
+  owner_user_id           String  @db.Uuid
+  business_name           String
+  legal_name              String?
+  gst_number              String? @unique
+  business_type           String?
+  address_line_1          String
+  address_line_2          String?
+  city                    String
+  state                   String
+  pincode                 String
+  verification_status     String  @default("pending")
+  verification_notes      String?
   current_subscription_id String? @unique @db.Uuid
+  is_active               Boolean @default(true)
 
-  is_active Boolean @default(true)
-
+  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
+  // Relations
   branches            Branch[]
   owner               User                 @relation("OwnerOfShop", fields: [owner_user_id], references: [user_id])
   users               User[]               @relation("UsersInShop")
@@ -276,93 +268,93 @@ model Shop {
   subscriptions       ShopSubscription[]   @relation("ShopSubscriptions")
   customPlans         Plan[]               @relation("CustomPlanShop")
   currentSubscription ShopSubscription?    @relation("CurrentSubscription", fields: [current_subscription_id], references: [subscription_id])
-  
-  // ============================================
-  // NEW: Ticket relation
-  // ============================================
   tickets             Ticket[]             @relation("ShopTickets")
 
   @@map("shops")
 }
-
-// In schema.prisma - Update the Branch model
 
 model Branch {
   branch_id        String  @id @default(uuid()) @db.Uuid
   shop_id          String  @db.Uuid
   branch_name      String
   branch_type      String  @default("main")
-  address_line_1   String?   // ← Changed to optional
+  address_line_1   String?
   address_line_2   String?
-  city             String?   // ← Changed to optional
-  state            String?   // ← Changed to optional
-  pincode          String?   // ← Changed to optional
-  contact_number   String?   // ← Changed to optional
+  city             String?
+  state            String?
+  pincode          String?
+  contact_number   String?
   alternate_number String?
+  is_active        Boolean @default(true)
 
-  is_active Boolean @default(true)
-
+  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-   shop  Shop   @relation(fields: [shop_id], references: [shop_id])
-  users User[]
-  
-  // ============================================
-  // NEW: Ticket relation
-  // ============================================
+  // Relations
+  shop    Shop     @relation(fields: [shop_id], references: [shop_id])
+  users   User[]
   tickets Ticket[] @relation("BranchTickets")
 
   @@map("branches")
 }
 
 model ShopFile {
-  file_id            String   @id @default(uuid()) @db.Uuid
-  shop_id            String   @db.Uuid
-  file_type          String   @db.Text
-  storage_key        String   @db.Text
-  original_name      String   @db.Text
-  mime_type          String   @db.Text
+  file_id            String    @id @default(uuid()) @db.Uuid
+  shop_id            String    @db.Uuid
+  file_type          String    @db.Text
+  storage_key        String    @db.Text
+  original_name      String    @db.Text
+  mime_type          String    @db.Text
   file_size          Int
+  status             String    @default("uploaded") @db.Text
+  verification_notes String?   @db.Text
+  resubmission_count Int       @default(0)
+  uploaded_by        String    @db.Uuid
 
-  status             String   @default("uploaded") @db.Text
-  verification_notes String?  @db.Text
-  resubmission_count Int      @default(0)
-
-  uploaded_by         String    @db.Uuid
+  // Timestamps
   uploaded_at         DateTime  @default(now()) @db.Timestamptz(6)
   verified_at         DateTime? @db.Timestamptz(6)
   rejected_at         DateTime? @db.Timestamptz(6)
   last_resubmitted_at DateTime? @db.Timestamptz(6)
 
+  // Relations
   shop Shop @relation(fields: [shop_id], references: [shop_id])
   user User @relation(fields: [uploaded_by], references: [user_id])
 
   @@map("shop_files")
 }
 
+// ============================================
+// SUBSCRIPTIONS & PLANS
+// ============================================
+
 model ShopSubscription {
   subscription_id String @id @default(uuid()) @db.Uuid
-
-  shop_id String @db.Uuid
-  plan_id String @db.Uuid
+  shop_id         String @db.Uuid
+  plan_id         String @db.Uuid
 
   status         String
-  billing_cycle  String @default("monthly")
+  billing_cycle  String @default("yearly")
   payment_status String
 
-  start_date   DateTime @db.Timestamptz(6)
-  end_date     DateTime @db.Timestamptz(6)
-  renewal_date DateTime @db.Timestamptz(6)
+  // Dates
+  start_date         DateTime  @db.Timestamptz(6)
+  end_date           DateTime  @db.Timestamptz(6)
+  renewal_date       DateTime  @db.Timestamptz(6)
+  grace_period_until DateTime? @db.Timestamptz(6)
 
+  // Snapshots (limits at time of subscription)
   branch_limit_snapshot Int
   user_limit_snapshot   Int
 
   is_active Boolean @default(true)
 
+  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
+  // Relations
   plan                Plan                 @relation(fields: [plan_id], references: [plan_id])
   shop                Shop                 @relation("ShopSubscriptions", fields: [shop_id], references: [shop_id])
   paymentTransactions PaymentTransaction[] @relation("SubscriptionPayments")
@@ -375,53 +367,50 @@ model ShopSubscription {
   @@map("shop_subscriptions")
 }
 
-// ============================================
-// CURELI-PLANS (CLEANED UP)
-// ============================================
-
 model Plan {
-  plan_id String @id @default(uuid()) @db.Uuid
+  plan_id     String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  type        PlanType @default(PRE_MADE)
 
-  // -------- CORE FIELDS --------
-  name            String   @unique @db.VarChar(100)
-  description     String?  @db.Text
-  
-  // Plan type - PRE_MADE (default) or CUSTOM
-  type            PlanType @default(PRE_MADE)
-  
-  // Pricing - yearly only (in paisa)
-  price           BigInt
-  
+  // Pricing (in Rupees)
+  price            BigInt
+  compare_at_price BigInt?
+
   // Limits
-  max_branches    Int
-  max_users       Int
-  
-  // Flags
-  is_customizable Boolean  @default(false)
-  is_highlighted  Boolean  @default(false)
+  max_branches Int
+  max_users    Int
 
-  // -------- CUSTOM PLAN FIELDS --------
-  // Shop this custom plan was created for (null for PRE_MADE plans)
+  // Billing Duration
+  billing_cycle_months Int @default(12)
+  bonus_months         Int @default(0)
+
+  // Promotional Access
+  promo_free_until DateTime? @db.Timestamptz(6)
+
+  // Flags
+  is_customizable Boolean @default(false)
+  is_featured     Boolean @default(false)
+
+  // Custom Plan Link
   created_for_shop_id String? @db.Uuid
 
-  // -------- LIFECYCLE FIELDS --------
-  status          PlanStatus @default(ACTIVE)
-  
-  // Admin who created this plan
-  created_by      String?  @db.Uuid
+  // Lifecycle
+  status     PlanStatus @default(ACTIVE)
+  created_by String?    @db.Uuid
 
   // Timestamps
-  created_at      DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime  @updatedAt @db.Timestamptz(6)
-  activated_at    DateTime? @db.Timestamptz(6)
-  suspended_at    DateTime? @db.Timestamptz(6)
-  deleted_at      DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @updatedAt @db.Timestamptz(6)
+  activated_at DateTime? @db.Timestamptz(6)
+  suspended_at DateTime? @db.Timestamptz(6)
+  deleted_at   DateTime? @db.Timestamptz(6)
 
-  // -------- Relations --------
-  subscriptions    ShopSubscription[]
-  creator          CAdmin?            @relation("PlanCreator", fields: [created_by], references: [cadmin_id])
-  createdForShop   Shop?              @relation("CustomPlanShop", fields: [created_for_shop_id], references: [shop_id])
-  activityLogs     PlanActivityLog[]
+  // Relations
+  subscriptions  ShopSubscription[]
+  creator        CAdmin?            @relation("PlanCreator", fields: [created_by], references: [cadmin_id])
+  createdForShop Shop?              @relation("CustomPlanShop", fields: [created_for_shop_id], references: [shop_id])
+  activityLogs   PlanActivityLog[]
 
   @@index([status])
   @@index([type])
@@ -429,38 +418,17 @@ model Plan {
   @@index([created_for_shop_id])
   @@map("plans")
 }
-// ============================================
-// PLAN ACTIVITY LOG (NEW)
-// ============================================
-// Tracks all plan lifecycle events for audit trail
 
 model PlanActivityLog {
-  id String @id @default(uuid()) @db.Uuid
-
-  // Plan this activity relates to
-  plan_id String @db.Uuid
-
-  // Admin who performed the action (null for system/migration actions)
-  cadmin_id String? @db.Uuid
-
-  // Action type: created | updated | activated | suspended | 
-  //              reactivated | cloned | deleted | migrated | auto_suspended
-  action String @db.VarChar(50)
-
-  // Previous status (for state transitions)
+  id          String  @id @default(uuid()) @db.Uuid
+  plan_id     String  @db.Uuid
+  cadmin_id   String? @db.Uuid
+  action      String  @db.VarChar(50)
   from_status String? @db.VarChar(20)
+  to_status   String? @db.VarChar(20)
+  changes     Json?
+  meta        Json?
 
-  // New status (for state transitions)
-  to_status String? @db.VarChar(20)
-
-  // What changed - stores field changes for updates
-  // Example: { "name": { "old": "Basic", "new": "Basic Plus" } }
-  changes Json?
-
-  // Additional context (clone source, subscriber count at suspend, etc.)
-  meta Json?
-
-  // When this action occurred
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
@@ -475,8 +443,50 @@ model PlanActivityLog {
 }
 
 // ============================================
-// CURELI-LOGS
+// PAYMENTS
 // ============================================
+
+model PaymentTransaction {
+  transaction_id      String  @id @default(uuid()) @db.Uuid
+  shop_id             String  @db.Uuid
+  subscription_id     String? @db.Uuid
+  provider            String
+  provider_order_id   String? @unique
+  provider_payment_id String? @unique
+  amount              BigInt  // In Rupees
+  currency            String  @default("INR")
+  status              String
+  meta                Json?
+
+  // Timestamps
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  shop         Shop              @relation("ShopPayments", fields: [shop_id], references: [shop_id])
+  subscription ShopSubscription? @relation("SubscriptionPayments", fields: [subscription_id], references: [subscription_id])
+
+  @@map("payment_transactions")
+}
+
+// ============================================
+// ACTIVITY LOGS
+// ============================================
+
+model ActivityLog {
+  activity_id String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  action      String   @db.Text
+  description String?  @db.Text
+  ip_address  String?  @db.Text
+  user_agent  String?  @db.Text
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@index([user_id])
+  @@map("activity_logs")
+}
 
 model DeletionLog {
   id              String   @id @default(uuid()) @db.Uuid
@@ -508,121 +518,48 @@ model FileVerificationLog {
 }
 
 // ============================================
-// CURELI-PAYMENTS
-// ============================================
-
-model PaymentTransaction {
-  transaction_id      String  @id @default(uuid()) @db.Uuid
-  shop_id             String  @db.Uuid
-  subscription_id     String? @db.Uuid
-
-  provider            String
-  provider_order_id   String? @unique
-  provider_payment_id String? @unique
-  amount              BigInt
-  currency            String  @default("INR")
-  status              String
-  meta                Json?
-
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @updatedAt @db.Timestamptz(6)
-
-  shop         Shop              @relation("ShopPayments", fields: [shop_id], references: [shop_id])
-  subscription ShopSubscription? @relation("SubscriptionPayments", fields: [subscription_id], references: [subscription_id])
-
-  @@map("payment_transactions")
-}
-
-model ActivityLog {
-  activity_id String   @id @default(uuid()) @db.Uuid
-  user_id     String   @db.Uuid
-  action      String   @db.Text
-  description String?  @db.Text
-  ip_address  String?  @db.Text
-  user_agent  String?  @db.Text
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-
-  user User @relation(fields: [user_id], references: [user_id])
-
-  @@index([user_id])
-  @@map("activity_logs")
-}
-
-
-// ============================================
-// TICKET ENUMS
-// ============================================
-
-enum TicketCategory {
-  TECHNICAL_ISSUE
-  BILLING_ISSUE
-  FEATURE_REQUEST
-  ACCOUNT_ISSUE
-  OTHER
-}
-
-enum TicketStatus {
-  PENDING      
-  IN_PROGRESS
-  RESOLVED
-  CANCELLED
-  CLOSED
-}
-
-// ============================================
-// TICKET MODEL
+// TICKETS
 // ============================================
 
 model Ticket {
-  ticket_id           String          @id @default(uuid()) @db.Uuid
-  ticket_number       String          @unique @db.VarChar(30)
-  
-  // Shop & Branch context
-  shop_id             String          @db.Uuid
-  branch_id           String?         @db.Uuid
-  
-  // Creator info
-  created_by_user_id  String          @db.Uuid
-  
-  // Contact Info
-  contact_number      String          @db.VarChar(15)
-  
-  // Issue Details
-  category            TicketCategory
-  subject             String          @db.VarChar(200)
-  description         String?         @db.Text
-  other_category_text String?         @db.VarChar(100)
-  
-  // Preferred contact slot
-  preferred_slot      String          @db.VarChar(20)
-  
-  // Status
-  status              TicketStatus    @default(PENDING) 
-  admin_notes         String?  @db.Text 
-  
-  // Cancellation details
-  cancelled_at        DateTime?       @db.Timestamptz(6)
-  cancelled_by_id     String?         @db.Uuid
-  cancellation_reason String?         @db.Text
-  
+  ticket_id          String         @id @default(uuid()) @db.Uuid
+  ticket_number      String         @unique @db.VarChar(30)
+  shop_id            String         @db.Uuid
+  branch_id          String?        @db.Uuid
+  created_by_user_id String         @db.Uuid
+  contact_number     String         @db.VarChar(15)
+  category           TicketCategory
+  subject            String         @db.VarChar(200)
+  description        String?        @db.Text
+  other_category_text String?       @db.VarChar(100)
+  preferred_slot     String         @db.VarChar(20)
+  status             TicketStatus   @default(PENDING)
+  admin_notes        String?        @db.Text
+
+  // Cancellation
+  cancelled_at        DateTime? @db.Timestamptz(6)
+  cancelled_by_id     String?   @db.Uuid
+  cancellation_reason String?   @db.Text
+
   // Reopening
-  reopened_at         DateTime?       @db.Timestamptz(6)
-  reopened_by_id      String?         @db.Uuid
-  reopen_count        Int             @default(0)
-  reopen_reason       String?  @db.Text // ✅ ADD THIS
-  
+  reopened_at    DateTime? @db.Timestamptz(6)
+  reopened_by_id String?   @db.Uuid
+  reopen_count   Int       @default(0)
+  reopen_reason  String?   @db.Text
+
   // Timestamps
-  created_at          DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime        @updatedAt @db.Timestamptz(6)
-  
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
   // Relations
-  shop                Shop            @relation("ShopTickets", fields: [shop_id], references: [shop_id])
-  branch              Branch?         @relation("BranchTickets", fields: [branch_id], references: [branch_id])
-  created_by          User            @relation("TicketCreator", fields: [created_by_user_id], references: [user_id])
-  cancelled_by        User?           @relation("TicketCanceller", fields: [cancelled_by_id], references: [user_id])
-  reopened_by         User?           @relation("TicketReopener", fields: [reopened_by_id], references: [user_id])
-  attachments         TicketAttachment[]
-  statusHistory   TicketStatusHistory[] @relation("TicketStatusHistory")
+  shop          Shop                  @relation("ShopTickets", fields: [shop_id], references: [shop_id])
+  branch        Branch?               @relation("BranchTickets", fields: [branch_id], references: [branch_id])
+  created_by    User                  @relation("TicketCreator", fields: [created_by_user_id], references: [user_id])
+  cancelled_by  User?                 @relation("TicketCanceller", fields: [cancelled_by_id], references: [user_id])
+  reopened_by   User?                 @relation("TicketReopener", fields: [reopened_by_id], references: [user_id])
+  attachments   TicketAttachment[]
+  statusHistory TicketStatusHistory[] @relation("TicketStatusHistory")
+
   @@index([shop_id])
   @@index([branch_id])
   @@index([status])
@@ -632,126 +569,80 @@ model Ticket {
   @@map("tickets")
 }
 
-
-// ============================================
-// TICKET ATTACHMENT MODEL
-// ============================================
-
 model TicketAttachment {
-  attachment_id   String    @id @default(uuid()) @db.Uuid
-  ticket_id       String    @db.Uuid
-  
-  storage_key     String    @db.Text      // File path on disk
-  original_name   String    @db.VarChar(255)
-  mime_type       String    @db.VarChar(100)
-  file_size       Int                     // In bytes
-  
-  uploaded_at     DateTime  @default(now()) @db.Timestamptz(6)
-  
-  ticket          Ticket    @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
-  
+  attachment_id String   @id @default(uuid()) @db.Uuid
+  ticket_id     String   @db.Uuid
+  storage_key   String   @db.Text
+  original_name String   @db.VarChar(255)
+  mime_type     String   @db.VarChar(100)
+  file_size     Int
+  uploaded_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  ticket Ticket @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+
   @@index([ticket_id])
   @@map("ticket_attachments")
 }
-// ============================================
-// TICKET STATUS HISTORY MODEL (NEW)
-// ============================================
 
 model TicketStatusHistory {
   id              String        @id @default(uuid()) @db.Uuid
   ticket_id       String        @db.Uuid
-  
-  // Who made the change
-  changed_by_type String        @db.VarChar(20)  // "USER" | "CADMIN"
+  changed_by_type String        @db.VarChar(20) // "USER" | "CADMIN"
   changed_by_id   String        @db.Uuid
   changed_by_name String        @db.VarChar(100)
-  
-  // Status change
   from_status     TicketStatus?
   to_status       TicketStatus
-  
-  // Optional note
   note            String?       @db.Text
-  
-  // Timestamp
   created_at      DateTime      @default(now()) @db.Timestamptz(6)
-  
-  // Relation
-  ticket          Ticket        @relation("TicketStatusHistory", fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
-  
+
+  ticket Ticket @relation("TicketStatusHistory", fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+
   @@index([ticket_id])
   @@index([created_at])
   @@map("ticket_status_history")
 }
 
 // ============================================
-// ENQUIRY ENUMS
-// ============================================
-
-enum EnquiryStatus {
-  PENDING
-  IN_PROGRESS
-  REPLIED
-  CLOSED
-}
-
-// ============================================
-// ENQUIRY MODEL
+// ENQUIRIES
 // ============================================
 
 model Enquiry {
-  enquiry_id      String          @id @default(uuid()) @db.Uuid
-  enquiry_number  String          @unique @db.VarChar(30)
-  
-  // Contact Info
-  name            String          @db.VarChar(100)
-  email           String          @db.VarChar(255)
-  phone           String?         @db.VarChar(20)
-  message         String          @db.Text
-  
-  // Status
-  status          EnquiryStatus   @default(PENDING)
-  
+  enquiry_id     String        @id @default(uuid()) @db.Uuid
+  enquiry_number String        @unique @db.VarChar(30)
+  name           String        @db.VarChar(100)
+  email          String        @db.VarChar(255)
+  phone          String?       @db.VarChar(20)
+  message        String        @db.Text
+  status         EnquiryStatus @default(PENDING)
+
   // Timestamps
-  created_at      DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime        @updatedAt @db.Timestamptz(6)
-  
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
   // Relations
-  replies         EnquiryReply[]
-  
+  replies EnquiryReply[]
+
   @@index([status])
   @@index([created_at])
   @@index([email])
   @@map("enquiries")
 }
 
-// ============================================
-// ENQUIRY REPLY MODEL
-// ============================================
-
 model EnquiryReply {
-  reply_id        String          @id @default(uuid()) @db.Uuid
-  enquiry_id      String          @db.Uuid
-  
-  // Admin who replied
-  replied_by_id   String          @db.Uuid
-  
-  // Reply content
-  subject         String          @db.VarChar(200)
-  message         String          @db.Text
-  
-  // Email tracking
-  email_sent      Boolean         @default(false)
-  email_sent_at   DateTime?       @db.Timestamptz(6)
-  email_error     String?         @db.Text
-  
-  // Timestamp
-  created_at      DateTime        @default(now()) @db.Timestamptz(6)
-  
+  reply_id      String    @id @default(uuid()) @db.Uuid
+  enquiry_id    String    @db.Uuid
+  replied_by_id String    @db.Uuid
+  subject       String    @db.VarChar(200)
+  message       String    @db.Text
+  email_sent    Boolean   @default(false)
+  email_sent_at DateTime? @db.Timestamptz(6)
+  email_error   String?   @db.Text
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+
   // Relations
-  enquiry         Enquiry         @relation(fields: [enquiry_id], references: [enquiry_id], onDelete: Cascade)
-  replied_by      CAdmin          @relation("EnquiryRepliedBy", fields: [replied_by_id], references: [cadmin_id])
-  
+  enquiry    Enquiry @relation(fields: [enquiry_id], references: [enquiry_id], onDelete: Cascade)
+  replied_by CAdmin  @relation("EnquiryRepliedBy", fields: [replied_by_id], references: [cadmin_id])
+
   @@index([enquiry_id])
   @@index([replied_by_id])
   @@map("enquiry_replies")

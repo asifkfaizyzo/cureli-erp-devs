@@ -8,18 +8,39 @@ const StyledDateFilter = ({ label, date, setDate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dropdownPosition, setDropdownPosition] = useState(null);
+  const [positionAbove, setPositionAbove] = useState(false);
   const triggerRef = useRef(null);
   const dropdownRef = useRef(null);
+
+  // Calendar dropdown height (approximate)
+  const DROPDOWN_HEIGHT = 320;
 
   // Calculate position before opening
   const updatePosition = useCallback(() => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-      });
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      // Determine if we should position above or below
+      const shouldPositionAbove = spaceBelow < DROPDOWN_HEIGHT && spaceAbove > spaceBelow;
+      setPositionAbove(shouldPositionAbove);
+
+      if (shouldPositionAbove) {
+        // Position above the trigger
+        setDropdownPosition({
+          bottom: window.innerHeight - rect.top + 4,
+          left: rect.left,
+          width: rect.width,
+        });
+      } else {
+        // Position below the trigger
+        setDropdownPosition({
+          top: rect.bottom + 4,
+          left: rect.left,
+          width: rect.width,
+        });
+      }
     }
   }, []);
 
@@ -135,16 +156,34 @@ const StyledDateFilter = ({ label, date, setDate }) => {
 
   const isActive = Boolean(date);
 
+  // Build position style based on whether above or below
+  const getPositionStyle = () => {
+    if (!dropdownPosition) return {};
+    
+    if (positionAbove) {
+      return {
+        bottom: dropdownPosition.bottom,
+        left: dropdownPosition.left,
+      };
+    } else {
+      return {
+        top: dropdownPosition.top,
+        left: dropdownPosition.left,
+      };
+    }
+  };
+
   // Only render dropdown when open AND position is calculated
   const dropdown = isOpen && dropdownPosition
     ? createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[9999] p-4 w-64 bg-white border border-gray-200 rounded-xl shadow-xl animate-in fade-in slide-in-from-top-2"
-          style={{
-            top: dropdownPosition.top,
-            left: dropdownPosition.left,
-          }}
+          className={`
+            fixed z-[9999] p-4 w-64 bg-white border border-gray-200 rounded-xl shadow-xl
+            animate-in fade-in duration-150
+            ${positionAbove ? "slide-in-from-bottom-2" : "slide-in-from-top-2"}
+          `}
+          style={getPositionStyle()}
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
@@ -176,6 +215,30 @@ const StyledDateFilter = ({ label, date, setDate }) => {
 
           {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-y-1 justify-items-center">{renderCalendar()}</div>
+
+          {/* Quick Actions */}
+          <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between">
+            <button
+              onClick={() => {
+                const today = new Date();
+                const offset = today.getTimezoneOffset();
+                const adjustedDate = new Date(today.getTime() - offset * 60 * 1000);
+                setDate(adjustedDate.toISOString().split("T")[0]);
+                setIsOpen(false);
+              }}
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              Today
+            </button>
+            {date && (
+              <button
+                onClick={handleClear}
+                className="text-xs text-gray-500 hover:text-red-600 font-medium"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>,
         document.body
       )

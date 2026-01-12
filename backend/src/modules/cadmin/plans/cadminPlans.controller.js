@@ -34,6 +34,7 @@ export async function listPlansController(req, res) {
       search,
       status,
       type,
+      has_active_promo = false,
       sort_by = "created_at",
       sort_order = "desc",
       include_deleted = false,
@@ -45,6 +46,7 @@ export async function listPlansController(req, res) {
       search,
       status,
       type,
+      has_active_promo,
       sort_by,
       sort_order,
       include_deleted,
@@ -132,6 +134,10 @@ export async function createPlanController(req, res) {
       return fail(res, err.message, 400);
     }
 
+    if (err.code === "SHOP_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+
     return fail(res, err.message || "Failed to create plan", 500);
   }
 }
@@ -173,6 +179,10 @@ export async function updatePlanController(req, res) {
     }
 
     if (err.code === "DELETED") {
+      return fail(res, err.message, 400);
+    }
+
+    if (err.code === "VALIDATION_ERROR") {
       return fail(res, err.message, 400);
     }
 

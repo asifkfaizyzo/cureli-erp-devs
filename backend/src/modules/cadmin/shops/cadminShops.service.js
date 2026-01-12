@@ -4,12 +4,11 @@ import prisma from "../../../config/prisma.js";
 import fs from "fs";
 import path from "path";
 
-// ✅ Import the correct updateShopVerificationStatus from cadminDocs
+// Import the correct updateShopVerificationStatus from cadminDocs
 import { createVerificationLog } from "../cadminDocs/cadminDocs.service.js";
 
 /**
  * Helper: Update shop verification status based on document statuses
- * ✅ Single source of truth - matches cadminDocs logic exactly
  */
 async function updateShopVerificationStatus(shop_id) {
   const allFiles = await prisma.shopFile.findMany({
@@ -46,7 +45,23 @@ async function updateShopVerificationStatus(shop_id) {
 }
 
 /**
+ * Helper: Check if promo_free_until is currently active
+ */
+function isPromoActive(promoFreeUntil) {
+  if (!promoFreeUntil) return false;
+  return new Date(promoFreeUntil) > new Date();
+}
+
+/**
+ * Helper: Calculate total duration in months
+ */
+function getTotalDurationMonths(billingCycleMonths, bonusMonths) {
+  return (billingCycleMonths || 12) + (bonusMonths || 0);
+}
+
+/**
  * Update shop subscription (create new subscription with new plan)
+ * Now supports bonus_months for extended duration
  */
 export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
   // Check if shop exists
@@ -63,7 +78,7 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
     throw err;
   }
 
-  // Check if plan exists
+  // Check if plan exists and is ACTIVE
   const plan = await prisma.plan.findUnique({
     where: { plan_id },
   });
@@ -74,10 +89,28 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
     throw err;
   }
 
-  // Calculate dates
+  if (plan.status !== "ACTIVE") {
+    const err = new Error("Plan is not active");
+    err.code = "PLAN_NOT_ACTIVE";
+    throw err;
+  }
+
+  // Calculate dates with bonus_months support
   const startDate = new Date();
-  const endDate = new Date();
-  endDate.setFullYear(endDate.getFullYear() + 1); // 1 year from now
+  const totalMonths = getTotalDurationMonths(plan.billing_cycle_months, plan.bonus_months);
+  
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + totalMonths);
+
+  // If promo_free_until is active, adjust end_date
+  // The subscription starts free, then continues from promo_free_until + duration
+  let effectiveStartDate = startDate;
+  if (isPromoActive(plan.promo_free_until)) {
+    // End date = promo_free_until + total duration
+    effectiveStartDate = new Date(plan.promo_free_until);
+    endDate.setTime(effectiveStartDate.getTime());
+    endDate.setMonth(endDate.getMonth() + totalMonths);
+  }
 
   const renewalDate = new Date(endDate);
   renewalDate.setDate(renewalDate.getDate() - 30); // 30 days before end
@@ -103,7 +136,7 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
         plan_id,
         status: "active",
         billing_cycle: "yearly",
-        payment_status: "paid", // Free - auto-paid
+        payment_status: isPromoActive(plan.promo_free_until) ? "free_promo" : "paid",
         start_date: startDate,
         end_date: endDate,
         renewal_date: renewalDate,
@@ -125,7 +158,7 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
     return newSubscription;
   });
 
-  // Fetch updated subscription with plan details
+  // Fetch updated subscription with plan details (including promo fields)
   const subscription = await prisma.shopSubscription.findUnique({
     where: { subscription_id: result.subscription_id },
     include: {
@@ -133,8 +166,15 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
         select: {
           plan_id: true,
           name: true,
+          type: true,
+          price: true,
+          compare_at_price: true,
           max_branches: true,
           max_users: true,
+          billing_cycle_months: true,
+          bonus_months: true,
+          promo_free_until: true,
+          is_featured: true,
         },
       },
     },
@@ -143,7 +183,18 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id) {
   return {
     subscription_id: subscription.subscription_id,
     shop_id: subscription.shop_id,
-    plan: subscription.plan,
+    plan: {
+      ...subscription.plan,
+      price: Number(subscription.plan.price),
+      compare_at_price: subscription.plan.compare_at_price 
+        ? Number(subscription.plan.compare_at_price) 
+        : null,
+      is_promo_active: isPromoActive(subscription.plan.promo_free_until),
+      total_duration_months: getTotalDurationMonths(
+        subscription.plan.billing_cycle_months,
+        subscription.plan.bonus_months
+      ),
+    },
     status: subscription.status,
     billing_cycle: subscription.billing_cycle,
     payment_status: subscription.payment_status,
@@ -163,7 +214,7 @@ export async function uploadShopDocument({
   shop_id,
   file_type,
   file,
-  uploaded_by, // This is cadmin_id
+  uploaded_by,
 }) {
   // Check if shop exists
   const shop = await prisma.shop.findUnique({
@@ -216,7 +267,7 @@ export async function uploadShopDocument({
         storage_key: storageKey,
         mime_type: mimeType,
         file_size: fileSize,
-        status: "uploaded", // ✅ Reset to "uploaded" (consistent with user uploads)
+        status: "uploaded",
         verification_notes: null,
         resubmission_count: existingDoc.resubmission_count + 1,
         last_resubmitted_at: new Date(),
@@ -226,39 +277,36 @@ export async function uploadShopDocument({
       },
     });
 
-    // ✅ FIX: Use correct field names for FileVerificationLog
     await createVerificationLog({
       file_id: shopFile.file_id,
       shop_id,
-      cadmin_id: uploaded_by, // ✅ Correct field name
-      actor_type: "admin", // ✅ Required field
+      cadmin_id: uploaded_by,
+      actor_type: "admin",
       action: "replaced_by_admin",
-      reason: `Document replaced by admin`, // ✅ Correct field name
+      reason: `Document replaced by admin`,
     });
   } else {
-    // ✅ FIX: Use correct field name "uploaded_by" instead of "user_id"
     shopFile = await prisma.shopFile.create({
       data: {
         shop_id,
-        uploaded_by: shop.owner.user_id, // ✅ Correct field name
+        uploaded_by: shop.owner.user_id,
         file_type,
         original_name: originalName,
         storage_key: storageKey,
         mime_type: mimeType,
         file_size: fileSize,
-        status: "uploaded", // ✅ Consistent status value
+        status: "uploaded",
         resubmission_count: 0,
       },
     });
 
-    // ✅ FIX: Use correct field names for FileVerificationLog
     await createVerificationLog({
       file_id: shopFile.file_id,
       shop_id,
-      cadmin_id: uploaded_by, // ✅ Correct field name
-      actor_type: "admin", // ✅ Required field
+      cadmin_id: uploaded_by,
+      actor_type: "admin",
       action: "uploaded_by_admin",
-      reason: `Document uploaded by admin`, // ✅ Correct field name
+      reason: `Document uploaded by admin`,
     });
   }
 
@@ -280,7 +328,6 @@ export async function uploadShopDocument({
 /**
  * List shops with filters, sorting, and pagination
  */
-
 export async function listShops({
   page = 1,
   limit = 10,
@@ -300,7 +347,7 @@ export async function listShops({
   // Build where clause
   const where = {};
 
-  // Search filter (business_name, legal_name, GST, owner name, city)
+  // Search filter
   if (search && search.trim()) {
     const searchTerm = search.trim();
     where.OR = [
@@ -353,23 +400,21 @@ export async function listShops({
     }
   }
 
-  // ✅ FIX: Subscription status filter - use AND array for complex conditions
+  // Subscription status filter
   if (subscription_status) {
     if (subscription_status === "active") {
-      // Must have a current subscription that is active
       where.AND = [
         ...(where.AND || []),
         { current_subscription_id: { not: null } },
         {
           currentSubscription: {
-            status: { in: ["active", "trial"] }, // Include trial as active
+            status: { in: ["active", "trial"] },
             is_active: true,
             end_date: { gte: new Date() },
           },
         },
       ];
     } else if (subscription_status === "expired") {
-      // Has subscription but it's expired/cancelled OR end_date passed
       where.AND = [
         ...(where.AND || []),
         { current_subscription_id: { not: null } },
@@ -387,15 +432,13 @@ export async function listShops({
     }
   }
 
-  // ✅ FIX: Build orderBy - suspended shops at end when not specifically filtering for inactive
+  // Build orderBy
   let orderBy = [];
 
-  // If not filtering by is_active, push inactive to end
   if (is_active === undefined) {
-    orderBy.push({ is_active: "desc" }); // active (true) first, then inactive (false)
+    orderBy.push({ is_active: "desc" });
   }
 
-  // Then apply user's sort preference
   if (sort_by === "owner") {
     orderBy.push({ owner: { full_name: sort_order } });
   } else if (sort_by === "subscription") {
@@ -444,6 +487,10 @@ export async function listShops({
               select: {
                 plan_id: true,
                 name: true,
+                type: true,
+                bonus_months: true,
+                promo_free_until: true,
+                is_featured: true,
               },
             },
           },
@@ -460,7 +507,7 @@ export async function listShops({
     prisma.shop.count({ where }),
   ]);
 
-  // Format response
+  // Format response with promo info
   const formattedShops = shops.map((shop) => ({
     shop_id: shop.shop_id,
     business_name: shop.business_name,
@@ -489,9 +536,14 @@ export async function listShops({
       ? {
           subscription_id: shop.currentSubscription.subscription_id,
           name: shop.currentSubscription.plan?.name || "Unknown",
+          type: shop.currentSubscription.plan?.type || "PRE_MADE",
           status: shop.currentSubscription.status,
           is_active: shop.currentSubscription.is_active,
           end_date: shop.currentSubscription.end_date,
+          // Promo info
+          bonus_months: shop.currentSubscription.plan?.bonus_months || 0,
+          is_promo_active: isPromoActive(shop.currentSubscription.plan?.promo_free_until),
+          is_featured: shop.currentSubscription.plan?.is_featured || false,
         }
       : null,
     counts: {
@@ -515,7 +567,6 @@ export async function listShops({
 /**
  * Get single shop with full details
  */
-
 export async function getShopById(shop_id) {
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
@@ -618,9 +669,15 @@ export async function getShopById(shop_id) {
             select: {
               plan_id: true,
               name: true,
+              type: true,
+              price: true,
+              compare_at_price: true,
               max_branches: true,
               max_users: true,
-              price: true,
+              billing_cycle_months: true,
+              bonus_months: true,
+              promo_free_until: true,
+              is_featured: true,
             },
           },
         },
@@ -642,8 +699,15 @@ export async function getShopById(shop_id) {
             select: {
               plan_id: true,
               name: true,
+              type: true,
+              price: true,
+              compare_at_price: true,
               max_branches: true,
               max_users: true,
+              billing_cycle_months: true,
+              bonus_months: true,
+              promo_free_until: true,
+              is_featured: true,
             },
           },
         },
@@ -690,7 +754,7 @@ export async function getShopById(shop_id) {
     throw err;
   }
 
-  // ✅ Get verification logs with explicit field selection
+  // Get verification logs
   const verificationLogs = await prisma.fileVerificationLog.findMany({
     where: { shop_id },
     select: {
@@ -708,8 +772,30 @@ export async function getShopById(shop_id) {
     take: 50,
   });
 
+  // Format plan prices and add computed fields
+  const formatPlan = (plan) => {
+    if (!plan) return null;
+    return {
+      ...plan,
+      price: Number(plan.price),
+      compare_at_price: plan.compare_at_price ? Number(plan.compare_at_price) : null,
+      is_promo_active: isPromoActive(plan.promo_free_until),
+      total_duration_months: getTotalDurationMonths(plan.billing_cycle_months, plan.bonus_months),
+    };
+  };
+
   return {
     ...shop,
+    currentSubscription: shop.currentSubscription
+      ? {
+          ...shop.currentSubscription,
+          plan: formatPlan(shop.currentSubscription.plan),
+        }
+      : null,
+    subscriptions: shop.subscriptions.map((sub) => ({
+      ...sub,
+      plan: formatPlan(sub.plan),
+    })),
     verificationLogs,
   };
 }
@@ -718,7 +804,6 @@ export async function getShopById(shop_id) {
  * Update shop details
  */
 export async function updateShop(shop_id, updates, cadmin_id) {
-  // Check if shop exists
   const existingShop = await prisma.shop.findUnique({
     where: { shop_id },
   });
@@ -729,7 +814,6 @@ export async function updateShop(shop_id, updates, cadmin_id) {
     throw err;
   }
 
-  // If updating GST, check for duplicates
   if (updates.gst_number && updates.gst_number !== existingShop.gst_number) {
     const duplicateGst = await prisma.shop.findFirst({
       where: {
@@ -745,7 +829,6 @@ export async function updateShop(shop_id, updates, cadmin_id) {
     }
   }
 
-  // Update shop
   const updatedShop = await prisma.shop.update({
     where: { shop_id },
     data: {
@@ -764,7 +847,7 @@ export async function updateShop(shop_id, updates, cadmin_id) {
       state: true,
       pincode: true,
       verification_status: true,
-      verification_notes: true, // ✅ FIX: Correct field name
+      verification_notes: true,
       is_active: true,
       updated_at: true,
     },
@@ -777,7 +860,6 @@ export async function updateShop(shop_id, updates, cadmin_id) {
  * Toggle shop active status
  */
 export async function toggleShopActive(shop_id, is_active, cadmin_id) {
-  // Check if shop exists
   const existingShop = await prisma.shop.findUnique({
     where: { shop_id },
     include: {
@@ -796,7 +878,6 @@ export async function toggleShopActive(shop_id, is_active, cadmin_id) {
     throw err;
   }
 
-  // Update shop active status
   const updatedShop = await prisma.shop.update({
     where: { shop_id },
     data: {
@@ -815,7 +896,7 @@ export async function toggleShopActive(shop_id, is_active, cadmin_id) {
 }
 
 /**
- * Get shop statistics (for header cards)
+ * Get shop statistics
  */
 export async function getShopStats() {
   const [
@@ -828,6 +909,7 @@ export async function getShopStats() {
     activeShops,
     inactiveShops,
     withSubscription,
+    withActivePromo,
   ] = await Promise.all([
     prisma.shop.count(),
     prisma.shop.count({ where: { verification_status: "verified" } }),
@@ -845,6 +927,18 @@ export async function getShopStats() {
         },
       },
     }),
+    // Count shops with active promo subscriptions
+    prisma.shop.count({
+      where: {
+        currentSubscription: {
+          isNot: null,
+          is_active: true,
+          plan: {
+            promo_free_until: { gt: new Date() },
+          },
+        },
+      },
+    }),
   ]);
 
   return {
@@ -857,5 +951,6 @@ export async function getShopStats() {
     activeShops,
     inactiveShops,
     withSubscription,
+    withActivePromo,
   };
 }

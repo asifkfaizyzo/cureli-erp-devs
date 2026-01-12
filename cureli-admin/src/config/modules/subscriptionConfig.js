@@ -76,11 +76,17 @@ export const CARD_THEMES = {
     accentColor: "text-[#05015A]",
     borderAccent: "border-blue-200",
   },
-  highlighted: {
+  featured: {
     gradient: "from-violet-100 to-purple-100",
     hoverGradient: "hover:from-violet-600 hover:to-purple-600",
     accentColor: "text-violet-600",
     borderAccent: "border-violet-300",
+  },
+  promo: {
+    gradient: "from-amber-50 to-orange-100",
+    hoverGradient: "hover:from-amber-500 hover:to-orange-500",
+    accentColor: "text-amber-600",
+    borderAccent: "border-amber-300",
   },
 };
 
@@ -131,21 +137,124 @@ export const BILLING = {
 };
 
 // ============================================
-// HELPERS
+// PROMO HELPERS
+// ============================================
+
+/**
+ * Check if promo_free_until is currently active
+ * @param {Object} plan - Plan object
+ * @returns {boolean}
+ */
+export const isPromoActive = (plan) => {
+  if (!plan?.promo_free_until) return false;
+  return new Date(plan.promo_free_until) > new Date();
+};
+
+/**
+ * Check if plan has any active promotional features
+ * @param {Object} plan - Plan object
+ * @returns {boolean}
+ */
+export const hasActivePromo = (plan) => {
+  if (!plan) return false;
+  
+  const hasComparePrice = plan.compare_at_price && plan.compare_at_price > plan.price;
+  const hasBonusMonths = plan.bonus_months && plan.bonus_months > 0;
+  const hasFreeUntil = isPromoActive(plan);
+  
+  return hasComparePrice || hasBonusMonths || hasFreeUntil;
+};
+
+/**
+ * Get total subscription duration in months
+ * @param {Object} plan - Plan object
+ * @returns {number}
+ */
+export const getTotalDurationMonths = (plan) => {
+  if (!plan) return 12;
+  return (plan.billing_cycle_months || 12) + (plan.bonus_months || 0);
+};
+
+/**
+ * Calculate discount percentage
+ * @param {Object} plan - Plan object
+ * @returns {number|null}
+ */
+export const getDiscountPercentage = (plan) => {
+  if (!plan?.compare_at_price || !plan?.price) return null;
+  if (plan.compare_at_price <= plan.price) return null;
+  
+  const discount = ((plan.compare_at_price - plan.price) / plan.compare_at_price) * 100;
+  return Math.round(discount);
+};
+
+/**
+ * Format promo free until date for display
+ * @param {Object} plan - Plan object
+ * @returns {string|null}
+ */
+export const formatPromoDate = (plan) => {
+  if (!plan?.promo_free_until) return null;
+  
+  const date = new Date(plan.promo_free_until);
+  return date.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+/**
+ * Get promo badge text for bonus months
+ * @param {Object} plan - Plan object
+ * @returns {string|null}
+ */
+export const getBonusMonthsBadge = (plan) => {
+  if (!plan?.bonus_months || plan.bonus_months <= 0) return null;
+  return `+${plan.bonus_months} months free`;
+};
+
+/**
+ * Get promo badge text for free until
+ * @param {Object} plan - Plan object
+ * @returns {string|null}
+ */
+export const getFreeUntilBadge = (plan) => {
+  if (!isPromoActive(plan)) return null;
+  return `Free until ${formatPromoDate(plan)}`;
+};
+
+// ============================================
+// CARD THEME HELPERS
 // ============================================
 
 /**
  * Determines card theme based on plan properties
+ * Priority: promo active > free > featured > default
+ * @param {Object} plan - Plan object
+ * @returns {Object} Theme configuration
  */
 export const getCardTheme = (plan) => {
+  // Active promo gets special treatment
+  if (isPromoActive(plan)) return CARD_THEMES.promo;
+  
+  // Free plans
   if (plan.price === 0) return CARD_THEMES.free;
-  if (plan.is_highlighted) return CARD_THEMES.highlighted;
+  
+  // Featured plans
+  if (plan.is_featured) return CARD_THEMES.featured;
+  
   return CARD_THEMES.default;
 };
 
+// ============================================
+// FEATURE GENERATION
+// ============================================
+
 /**
  * Generates feature list from plan limits
- * Now uses max_users and max_branches from backend
+ * @param {Object} plan - Plan object
+ * @returns {string[]}
  */
 export const generateFeatures = (plan) => {
   const features = [];
@@ -171,22 +280,62 @@ export const generateFeatures = (plan) => {
     }
   }
   
+  // Add duration feature if bonus months exist
+  const totalMonths = getTotalDurationMonths(plan);
+  if (plan.bonus_months && plan.bonus_months > 0) {
+    features.push(`${totalMonths} months access`);
+  }
+  
   return features;
 };
 
+// ============================================
+// PRICE FORMATTING
+// ============================================
+
 /**
  * Formats price for display
- * Backend stores price in paisa, we convert to rupees for display
+ * @param {number} price - Price in Rupees
+ * @returns {string}
  */
 export const formatPrice = (price) => {
   if (price === 0) return "FREE";
-  // Price is already in rupees from our API formatting
   return `${BILLING.currency}${Number(price).toLocaleString("en-IN")}`;
 };
 
 /**
+ * Format compare-at price with strike-through styling info
+ * @param {Object} plan - Plan object
+ * @returns {Object|null} { original, current, savings, percentage }
+ */
+export const formatPriceComparison = (plan) => {
+  if (!plan?.compare_at_price || plan.compare_at_price <= plan.price) {
+    return null;
+  }
+  
+  const original = plan.compare_at_price;
+  const current = plan.price;
+  const savings = original - current;
+  const percentage = getDiscountPercentage(plan);
+  
+  return {
+    original: formatPrice(original),
+    current: formatPrice(current),
+    savings: formatPrice(savings),
+    percentage,
+  };
+};
+
+// ============================================
+// PLAN NAME VALIDATION
+// ============================================
+
+/**
  * Checks if plan name is available for activation
- * Used in frontend validation before API call
+ * @param {string} name - Plan name to check
+ * @param {Array} plans - Array of existing plans
+ * @param {string|null} excludeId - Plan ID to exclude from check
+ * @returns {boolean}
  */
 export const isNameAvailable = (name, plans, excludeId = null) => {
   return !plans.some(
@@ -199,7 +348,9 @@ export const isNameAvailable = (name, plans, excludeId = null) => {
 
 /**
  * Generates cloned plan name (frontend helper)
- * Backend does this too, but we show preview in confirm modal
+ * @param {string} originalName - Original plan name
+ * @param {Array} existingPlans - Array of existing plans
+ * @returns {string}
  */
 export const generateCloneName = (originalName, existingPlans) => {
   let baseName = originalName.replace(/\s*\(Copy(?:\s*\d+)?\)\s*$/, "");

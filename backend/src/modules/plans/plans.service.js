@@ -1,21 +1,51 @@
-// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\plans\plans.service.js
+// src/modules/plans/plans.service.js
 
 import prisma from "../../config/prisma.js";
 
 /**
  * Format plan record for API response
- * Price stays in paisa - frontend converts to rupees
+ * All prices are in RUPEES (not paisa)
  */
 function formatPlan(plan) {
+  const now = new Date();
+  
+  // Check if promo is currently active
+  const isPromoActive = plan.promo_free_until 
+    ? new Date(plan.promo_free_until) > now 
+    : false;
+
+  // Calculate total duration
+  const billingCycleMonths = plan.billing_cycle_months || 12;
+  const bonusMonths = plan.bonus_months || 0;
+  const totalDurationMonths = billingCycleMonths + bonusMonths;
+
   return {
     plan_id: plan.plan_id,
     name: plan.name,
     description: plan.description,
-    price: Number(plan.price), // BigInt -> Number (still in paisa)
+    
+    // Pricing (in Rupees)
+    price: Number(plan.price),
+    compare_at_price: plan.compare_at_price ? Number(plan.compare_at_price) : null,
+    
+    // Limits
     max_branches: plan.max_branches,
     max_users: plan.max_users,
-    is_highlighted: plan.is_highlighted,
+    
+    // Duration
+    billing_cycle_months: billingCycleMonths,
+    bonus_months: bonusMonths,
+    total_duration_months: totalDurationMonths,
+    
+    // Promotional
+    promo_free_until: plan.promo_free_until,
+    is_promo_active: isPromoActive,
+    
+    // Flags
+    is_featured: plan.is_featured,
     is_customizable: plan.is_customizable,
+    
+    // Timestamps
     created_at: plan.created_at,
     updated_at: plan.updated_at,
   };
@@ -23,7 +53,7 @@ function formatPlan(plan) {
 
 /**
  * Return ACTIVE + PRE_MADE plans for customer selection
- * Ordered: Free plans first (price=0), then by price ascending, then by name
+ * Ordered: By price ascending, then by name
  */
 export async function getActivePlans() {
   const plans = await prisma.plan.findMany({

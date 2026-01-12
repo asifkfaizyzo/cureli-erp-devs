@@ -4,6 +4,7 @@
 
 import prisma from "../../../config/prisma.js";
 import { SubscriptionStatus } from "../../../config/subscription.js";
+
 // ============================================
 // CONSTANTS
 // ============================================
@@ -35,6 +36,21 @@ function createError(message, code) {
   const err = new Error(message);
   err.code = code;
   return err;
+}
+
+/**
+ * Check if promo_free_until is currently active
+ */
+function isPromoActive(promoFreeUntil) {
+  if (!promoFreeUntil) return false;
+  return new Date(promoFreeUntil) > new Date();
+}
+
+/**
+ * Get total subscription duration in months
+ */
+function getTotalDurationMonths(billingCycleMonths, bonusMonths) {
+  return (billingCycleMonths || 12) + (bonusMonths || 0);
 }
 
 async function getSubscriberCount(plan_id) {
@@ -111,20 +127,43 @@ async function logPlanActivity({
 
 /**
  * Format plan for API response
- * Includes shop info for CUSTOM plans
+ * Includes all new promo fields and computed values
  */
 function formatPlan(plan, subscriberCount = 0) {
+  const promoActive = isPromoActive(plan.promo_free_until);
+  const totalDuration = getTotalDurationMonths(plan.billing_cycle_months, plan.bonus_months);
+  
   return {
     plan_id: plan.plan_id,
     name: plan.name,
     description: plan.description,
     type: plan.type,
+    
+    // Pricing
     price: Number(plan.price),
+    compare_at_price: plan.compare_at_price ? Number(plan.compare_at_price) : null,
+    
+    // Limits
     max_users: plan.max_users,
     max_branches: plan.max_branches,
+    
+    // Billing duration
+    billing_cycle_months: plan.billing_cycle_months,
+    bonus_months: plan.bonus_months,
+    total_duration_months: totalDuration,
+    
+    // Promotional access
+    promo_free_until: plan.promo_free_until,
+    is_promo_active: promoActive,
+    
+    // Flags
+    is_featured: plan.is_featured,
+    is_customizable: plan.is_customizable,
+    
+    // Status & counts
     status: plan.status,
-    is_highlighted: plan.is_highlighted,
     subscriber_count: subscriberCount,
+    
     // Custom plan shop info
     created_for_shop_id: plan.created_for_shop_id,
     created_for_shop: plan.createdForShop
@@ -133,12 +172,16 @@ function formatPlan(plan, subscriberCount = 0) {
           business_name: plan.createdForShop.business_name,
         }
       : null,
+    
+    // Metadata
     created_by: plan.created_by,
     created_at: plan.created_at,
     updated_at: plan.updated_at,
     activated_at: plan.activated_at,
     suspended_at: plan.suspended_at,
     deleted_at: plan.deleted_at,
+    
+    // Creator info
     creator: plan.creator
       ? {
           cadmin_id: plan.creator.cadmin_id,
@@ -157,7 +200,8 @@ export async function listPlans({
   limit = 20,
   search,
   status,
-  type,  // NEW: type filter
+  type,
+  has_active_promo = false,
   sort_by = "created_at",
   sort_order = "desc",
   include_deleted = false,
@@ -174,9 +218,16 @@ export async function listPlans({
     where.status = status;
   }
 
-  // NEW: Filter by type
+  // Filter by type
   if (type) {
     where.type = type;
+  }
+
+  // Filter by active promo
+  if (has_active_promo) {
+    where.promo_free_until = {
+      gt: new Date(),
+    };
   }
 
   if (search && search.trim()) {
@@ -257,19 +308,25 @@ export async function listPlans({
 }
 
 // ============================================
-// GET PLAN STATS (unchanged - excludes custom from counts)
+// GET PLAN STATS
 // ============================================
 
 export async function getPlanStats() {
   // Only count PRE_MADE plans in stats
   const baseWhere = { deleted_at: null, type: PLAN_TYPE.PRE_MADE };
   
-  const [total, draft, active, deprecated, suspended] = await Promise.all([
+  const [total, draft, active, deprecated, suspended, withActivePromo] = await Promise.all([
     prisma.plan.count({ where: baseWhere }),
     prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.DRAFT } }),
     prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.ACTIVE } }),
     prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.DEPRECATED } }),
     prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.SUSPENDED } }),
+    prisma.plan.count({ 
+      where: { 
+        ...baseWhere, 
+        promo_free_until: { gt: new Date() } 
+      } 
+    }),
   ]);
 
   return {
@@ -278,6 +335,7 @@ export async function getPlanStats() {
     active,
     deprecated,
     suspended,
+    with_active_promo: withActivePromo,
   };
 }
 
@@ -322,12 +380,37 @@ export async function createPlan(data, cadmin_id) {
     name, 
     description, 
     price, 
+    compare_at_price,
     max_users, 
-    max_branches, 
-    is_highlighted,
+    max_branches,
+    billing_cycle_months = 12,
+    bonus_months = 0,
+    promo_free_until,
+    is_featured,
     type = PLAN_TYPE.PRE_MADE,
     created_for_shop_id = null,
   } = data;
+
+  // Validate compare_at_price > price
+  if (compare_at_price !== null && compare_at_price !== undefined) {
+    if (compare_at_price <= price) {
+      throw createError(
+        "Compare-at price must be greater than the actual price",
+        "VALIDATION_ERROR"
+      );
+    }
+  }
+
+  // Validate promo_free_until is in the future
+  if (promo_free_until) {
+    const promoDate = new Date(promo_free_until);
+    if (promoDate <= new Date()) {
+      throw createError(
+        "Promo free until date must be in the future",
+        "VALIDATION_ERROR"
+      );
+    }
+  }
 
   // Validate shop exists if custom plan
   if (type === PLAN_TYPE.CUSTOM && created_for_shop_id) {
@@ -344,12 +427,30 @@ export async function createPlan(data, cadmin_id) {
     data: {
       name: name.trim(),
       description: description?.trim() || null,
+      type,
+      
+      // Pricing
       price: BigInt(price),
+      compare_at_price: compare_at_price ? BigInt(compare_at_price) : null,
+      
+      // Limits
       max_users,
       max_branches,
-      is_highlighted: is_highlighted || false,
-      type,
+      
+      // Billing duration
+      billing_cycle_months,
+      bonus_months,
+      
+      // Promotional access
+      promo_free_until: promo_free_until ? new Date(promo_free_until) : null,
+      
+      // Flags
+      is_featured: is_featured || false,
+      
+      // Custom plan link
       created_for_shop_id: type === PLAN_TYPE.CUSTOM ? created_for_shop_id : null,
+      
+      // Lifecycle
       status: PLAN_STATUS.DRAFT,
       created_by: cadmin_id,
     },
@@ -378,6 +479,9 @@ export async function createPlan(data, cadmin_id) {
       name: plan.name,
       type: plan.type,
       shop_id: plan.created_for_shop_id,
+      has_promo: !!promo_free_until,
+      has_compare_price: !!compare_at_price,
+      bonus_months: bonus_months,
     },
   });
 
@@ -408,19 +512,79 @@ export async function updatePlan(plan_id, updates, cadmin_id) {
     );
   }
 
+  // Validate compare_at_price > price
+  const newPrice = updates.price !== undefined ? updates.price : Number(existingPlan.price);
+  const newCompareAtPrice = updates.compare_at_price !== undefined 
+    ? updates.compare_at_price 
+    : (existingPlan.compare_at_price ? Number(existingPlan.compare_at_price) : null);
+
+  if (newCompareAtPrice !== null && newCompareAtPrice <= newPrice) {
+    throw createError(
+      "Compare-at price must be greater than the actual price",
+      "VALIDATION_ERROR"
+    );
+  }
+
+  // Validate promo_free_until is in the future (only if being set to a new value)
+  if (updates.promo_free_until !== undefined && updates.promo_free_until !== null) {
+    const promoDate = new Date(updates.promo_free_until);
+    if (promoDate <= new Date()) {
+      throw createError(
+        "Promo free until date must be in the future",
+        "VALIDATION_ERROR"
+      );
+    }
+  }
+
   const changes = {};
-  // Note: type and created_for_shop_id are NOT allowed to be updated
-  const allowedFields = ["name", "description", "price", "max_users", "max_branches", "is_highlighted"];
+  const allowedFields = [
+    "name", 
+    "description", 
+    "price", 
+    "compare_at_price",
+    "max_users", 
+    "max_branches",
+    "billing_cycle_months",
+    "bonus_months",
+    "promo_free_until",
+    "is_featured",
+  ];
   const updateData = {};
 
   for (const field of allowedFields) {
     if (updates[field] !== undefined) {
-      const oldValue = field === "price" ? Number(existingPlan[field]) : existingPlan[field];
-      const newValue = field === "price" ? updates[field] : updates[field];
+      let oldValue;
+      let newValue;
 
-      if (oldValue !== newValue) {
+      if (field === "price" || field === "compare_at_price") {
+        oldValue = existingPlan[field] ? Number(existingPlan[field]) : null;
+        newValue = updates[field];
+      } else if (field === "promo_free_until") {
+        oldValue = existingPlan[field] ? existingPlan[field].toISOString() : null;
+        newValue = updates[field] ? new Date(updates[field]).toISOString() : null;
+      } else {
+        oldValue = existingPlan[field];
+        newValue = updates[field];
+      }
+
+      // Check if value actually changed
+      const hasChanged = oldValue !== newValue && 
+        !(oldValue === null && newValue === null);
+
+      if (hasChanged) {
         changes[field] = { old: oldValue, new: newValue };
-        updateData[field] = field === "price" ? BigInt(newValue) : newValue;
+        
+        if (field === "price") {
+          updateData[field] = BigInt(newValue);
+        } else if (field === "compare_at_price") {
+          updateData[field] = newValue ? BigInt(newValue) : null;
+        } else if (field === "promo_free_until") {
+          updateData[field] = newValue ? new Date(newValue) : null;
+        } else if (field === "name" || field === "description") {
+          updateData[field] = typeof newValue === "string" ? newValue.trim() : newValue;
+        } else {
+          updateData[field] = newValue;
+        }
       }
     }
   }
@@ -428,9 +592,6 @@ export async function updatePlan(plan_id, updates, cadmin_id) {
   if (Object.keys(updateData).length === 0) {
     return formatPlan(existingPlan, 0);
   }
-
-  if (updateData.name) updateData.name = updateData.name.trim();
-  if (updateData.description) updateData.description = updateData.description.trim();
 
   const updatedPlan = await prisma.plan.update({
     where: { plan_id },
@@ -518,6 +679,10 @@ export async function activatePlan(plan_id, cadmin_id) {
     action: "activated",
     from_status: PLAN_STATUS.DRAFT,
     to_status: PLAN_STATUS.ACTIVE,
+    meta: {
+      has_promo: isPromoActive(activatedPlan.promo_free_until),
+      bonus_months: activatedPlan.bonus_months,
+    },
   });
 
   return formatPlan(activatedPlan, 0);
@@ -671,16 +836,35 @@ export async function clonePlan(plan_id, cadmin_id, customName = null) {
   const cloneName = customName?.trim() || (await generateCloneName(originalPlan.name));
 
   // Cloned plan is always PRE_MADE and not linked to any shop
+  // Promo fields are copied EXCEPT promo_free_until (reset to null)
   const clonedPlan = await prisma.plan.create({
     data: {
       name: cloneName,
       description: originalPlan.description,
+      type: PLAN_TYPE.PRE_MADE, // Clones are always PRE_MADE
+      
+      // Pricing - copy both
       price: originalPlan.price,
+      compare_at_price: originalPlan.compare_at_price,
+      
+      // Limits
       max_users: originalPlan.max_users,
       max_branches: originalPlan.max_branches,
-      is_highlighted: false,
-      type: PLAN_TYPE.PRE_MADE, // Clones are always PRE_MADE
+      
+      // Billing duration - copy both
+      billing_cycle_months: originalPlan.billing_cycle_months,
+      bonus_months: originalPlan.bonus_months,
+      
+      // Promotional access - reset to null (admin should set new date)
+      promo_free_until: null,
+      
+      // Flags
+      is_featured: false, // Don't copy featured status
+      
+      // Custom plan link - never copy
       created_for_shop_id: null,
+      
+      // Lifecycle
       status: PLAN_STATUS.DRAFT,
       created_by: cadmin_id,
     },
@@ -708,6 +892,8 @@ export async function clonePlan(plan_id, cadmin_id, customName = null) {
     meta: {
       cloned_from: originalPlan.plan_id,
       original_name: originalPlan.name,
+      copied_fields: ["price", "compare_at_price", "billing_cycle_months", "bonus_months"],
+      reset_fields: ["promo_free_until", "is_featured"],
     },
   });
 

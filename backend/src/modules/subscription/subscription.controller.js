@@ -1,4 +1,5 @@
-//Q:\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\subscription\subscription.controller.js
+// src/modules/subscription/subscription.controller.js
+
 import { success, fail } from "../../utils/response.js";
 import {
   getVisiblePlans,
@@ -16,6 +17,10 @@ import {
 } from "./subscription.service.js";
 import prisma from "../../config/prisma.js";
 
+// ============================================
+// GET PLANS
+// ============================================
+
 /**
  * GET /plans - Get all available plans
  */
@@ -29,6 +34,10 @@ export async function getPlansController(req, res) {
   }
 }
 
+// ============================================
+// GET USER DETAILS
+// ============================================
+
 /**
  * GET /user-details - Get current user details for Razorpay prefill
  */
@@ -36,7 +45,6 @@ export async function getUserDetailsController(req, res) {
   try {
     const user_id = req.user.user_id;
     const user = await getUserDetails(user_id);
-
     return success(res, { user });
   } catch (err) {
     console.error("getUserDetailsController error:", err);
@@ -49,9 +57,13 @@ export async function getUserDetailsController(req, res) {
   }
 }
 
+// ============================================
+// SELECT PLAN
+// ============================================
+
 /**
  * POST /select - Select a plan
- * For FREE plans: Activates immediately
+ * For FREE plans (price = 0 OR promo active): Activates immediately
  * For PAID plans: Creates Razorpay order
  */
 export async function selectPlanController(req, res) {
@@ -61,11 +73,7 @@ export async function selectPlanController(req, res) {
     const user_id = req.user.user_id;
 
     if (!shop_id) {
-      return fail(
-        res,
-        "Shop not found. Please complete shop setup first.",
-        400
-      );
+      return fail(res, "Shop not found. Please complete shop setup first.", 400);
     }
 
     // Check if shop already has active subscription
@@ -88,62 +96,68 @@ export async function selectPlanController(req, res) {
     // Get user details for Razorpay prefill
     const user = await getUserDetails(user_id);
 
-    // Check if FREE plan
-    const isFree = Number(plan.price) === 0;
+    // Check if plan is effectively free (price = 0 OR promo active)
+    const isPriceZero = Number(plan.price) === 0;
+    const isPromoActive = plan.promo_free_until && new Date(plan.promo_free_until) > new Date();
+    const isEffectivelyFree = isPriceZero || isPromoActive;
 
-    if (isFree) {
-      // FREE PLAN - Activate immediately
-      const subscription = await createFreeSubscription({ shop_id, plan });
+    if (isEffectivelyFree) {
+      // FREE PLAN (Standard or Promo) - Activate immediately
+      const subscription = await createFreeSubscription({ 
+        shop_id, 
+        plan, 
+        isPromoApplied: isPromoActive && !isPriceZero 
+      });
 
-      return success(
-        res,
-        {
-          is_free: true,
-          subscription: {
-            subscription_id: subscription.subscription_id,
-            status: subscription.status,
-            start_date: subscription.start_date,
-            end_date: subscription.end_date,
-          },
-          plan: {
-            plan_id: plan.plan_id,
-            name: plan.name,
-          },
-          redirect: "dashboard",
+      const message = isPromoActive && !isPriceZero
+        ? "Promo plan activated! Enjoy free access until the promo period ends."
+        : "Free plan activated successfully!";
+
+      return success(res, {
+        is_free: true,
+        is_promo_applied: isPromoActive && !isPriceZero,
+        subscription: {
+          subscription_id: subscription.subscription_id,
+          status: subscription.status,
+          start_date: subscription.start_date,
+          end_date: subscription.end_date,
+          grace_period_until: subscription.grace_period_until,
         },
-        "Free plan activated successfully!"
-      );
+        plan: {
+          plan_id: plan.plan_id,
+          name: plan.name,
+          promo_free_until: plan.promo_free_until,
+        },
+        redirect: "dashboard",
+      }, message);
     }
 
     // PAID PLAN - Create Razorpay order
     const orderData = await createPaidSubscription({ shop_id, plan, user });
 
-    return success(
-      res,
-      {
-        is_free: false,
-        subscription_id: orderData.subscription.subscription_id,
-        razorpay: {
-          key: orderData.razorpay_key,
-          order_id: orderData.razorpay_order_id,
-          amount: orderData.amount,
-          currency: orderData.currency,
-          name: "Cureli ERP",
-          description: `${plan.name} - Annual Subscription`,
-          prefill: {
-            name: orderData.user_name || "",
-            email: orderData.user_email || "",
-            contact: orderData.user_phone || "",
-          },
-        },
-        plan: {
-          plan_id: plan.plan_id,
-          name: plan.name,
-          price: Number(plan.price),
+    return success(res, {
+      is_free: false,
+      subscription_id: orderData.subscription.subscription_id,
+      razorpay: {
+        key: orderData.razorpay_key,
+        order_id: orderData.razorpay_order_id,
+        amount: orderData.amount, // In paisa for Razorpay SDK
+        currency: orderData.currency,
+        name: "Cureli ERP",
+        description: `${plan.name} - Annual Subscription`,
+        prefill: {
+          name: orderData.user_name || "",
+          email: orderData.user_email || "",
+          contact: orderData.user_phone || "",
         },
       },
-      "Payment order created"
-    );
+      plan: {
+        plan_id: plan.plan_id,
+        name: plan.name,
+        price: Number(plan.price), // In rupees for display
+      },
+    }, "Payment order created");
+
   } catch (err) {
     console.error("selectPlanController error:", err);
 
@@ -157,6 +171,10 @@ export async function selectPlanController(req, res) {
     return fail(res, "Plan selection failed. Please try again.", 500);
   }
 }
+
+// ============================================
+// CONFIRM PAYMENT
+// ============================================
 
 /**
  * POST /confirm - Confirm payment after Razorpay checkout
@@ -177,32 +195,26 @@ export async function confirmPaymentController(req, res) {
       subscription_id,
     });
 
-    return success(
-      res,
-      {
-        subscription: {
-          subscription_id: subscription.subscription_id,
-          status: subscription.status,
-          start_date: subscription.start_date,
-          end_date: subscription.end_date,
-        },
-        plan: {
-          plan_id: subscription.plan.plan_id,
-          name: subscription.plan.name,
-        },
-        redirect: "dashboard",
+    return success(res, {
+      subscription: {
+        subscription_id: subscription.subscription_id,
+        status: subscription.status,
+        start_date: subscription.start_date,
+        end_date: subscription.end_date,
+        grace_period_until: subscription.grace_period_until,
       },
-      "Payment successful! Subscription activated."
-    );
+      plan: {
+        plan_id: subscription.plan.plan_id,
+        name: subscription.plan.name,
+      },
+      redirect: "dashboard",
+    }, "Payment successful! Subscription activated.");
+
   } catch (err) {
     console.error("confirmPaymentController error:", err);
 
     if (err.code === "INVALID_SIGNATURE") {
-      return fail(
-        res,
-        "Payment verification failed. Please contact support.",
-        400
-      );
+      return fail(res, "Payment verification failed. Please contact support.", 400);
     }
     if (err.code === "TRANSACTION_NOT_FOUND") {
       return fail(res, "Transaction not found", 404);
@@ -211,13 +223,13 @@ export async function confirmPaymentController(req, res) {
       return fail(res, "Invalid subscription", 400);
     }
 
-    return fail(
-      res,
-      "Payment confirmation failed. Please contact support.",
-      500
-    );
+    return fail(res, "Payment confirmation failed. Please contact support.", 500);
   }
 }
+
+// ============================================
+// GET SUBSCRIPTION STATUS
+// ============================================
 
 /**
  * GET /status - Get current subscription status
@@ -226,13 +238,16 @@ export async function subscriptionStatusController(req, res) {
   try {
     const shop_id = req.user.shop_id;
     const status = await getSubscriptionStatus(shop_id);
-
     return success(res, { subscription: status });
   } catch (err) {
     console.error("subscriptionStatusController error:", err);
     return fail(res, "Failed to fetch subscription status", 500);
   }
 }
+
+// ============================================
+// GET SUBSCRIPTION HISTORY
+// ============================================
 
 /**
  * GET /history - Get subscription history
@@ -241,13 +256,16 @@ export async function subscriptionHistoryController(req, res) {
   try {
     const shop_id = req.user.shop_id;
     const history = await getSubscriptionHistory(shop_id);
-
     return success(res, { history });
   } catch (err) {
     console.error("subscriptionHistoryController error:", err);
     return fail(res, "Failed to fetch subscription history", 500);
   }
 }
+
+// ============================================
+// GET MY SUBSCRIPTION
+// ============================================
 
 /**
  * GET /my - Get current user's active subscription
@@ -275,6 +293,9 @@ export async function getMySubscription(req, res) {
                 price: true,
                 max_users: true,
                 max_branches: true,
+                billing_cycle_months: true,
+                bonus_months: true,
+                promo_free_until: true,
               },
             },
           },
@@ -290,46 +311,64 @@ export async function getMySubscription(req, res) {
     }
 
     const sub = shop.currentSubscription;
+    const now = new Date();
 
-    const isValid =
-      sub &&
+    // Check if subscription is valid
+    const isValid = sub &&
       sub.is_active &&
       sub.status === "active" &&
-      new Date(sub.end_date) > new Date();
+      new Date(sub.end_date) > now;
+
+    // Check if in grace period
+    const isInGracePeriod = sub &&
+      sub.grace_period_until &&
+      new Date(sub.end_date) <= now &&
+      new Date(sub.grace_period_until) > now;
 
     return success(res, {
-      has_active_subscription: isValid,
-      current_plan: isValid
+      has_active_subscription: isValid || isInGracePeriod,
+      is_in_grace_period: isInGracePeriod,
+      current_plan: isValid || isInGracePeriod
         ? {
             plan_id: sub.plan.plan_id,
             name: sub.plan.name,
             price: Number(sub.plan.price),
             expires_at: sub.end_date,
+            grace_period_until: sub.grace_period_until,
             max_branches: sub.plan.max_branches,
             max_users: sub.plan.max_users,
           }
         : null,
-      subscription: isValid
+      subscription: isValid || isInGracePeriod
         ? {
             subscription_id: sub.subscription_id,
             status: sub.status,
             start_date: sub.start_date,
             end_date: sub.end_date,
             renewal_date: sub.renewal_date,
+            grace_period_until: sub.grace_period_until,
             branch_limit: sub.branch_limit_snapshot,
             user_limit: sub.user_limit_snapshot,
           }
         : null,
     });
+
   } catch (err) {
     console.error("getMySubscription error:", err);
     return fail(res, "Failed to fetch subscription status", 500);
   }
 }
 
+// ============================================
+// PLAN CHANGE CONTROLLERS
+// ============================================
+
+/**
+ * POST /change - Change subscription plan
+ */
 export async function changePlanController(req, res) {
   try {
-    const { plan_id, users_to_disable, branches_to_deactivate } = req.validated;
+    const { plan_id, users_to_disable, branches_to_deactivate, user_reassignments } = req.validated;
     const { shop_id, user_id } = req.user;
 
     if (!shop_id) {
@@ -342,6 +381,7 @@ export async function changePlanController(req, res) {
       target_plan_id: plan_id,
       users_to_disable,
       branches_to_deactivate,
+      user_reassignments,
     });
 
     // UPGRADE: Return Razorpay order
@@ -361,6 +401,7 @@ export async function changePlanController(req, res) {
       plan: result.plan,
       disabled_users: result.disabled_users || 0,
       deactivated_branches: result.deactivated_branches || 0,
+      reassigned_users: result.reassigned_users || 0,
     }, "Plan changed successfully");
 
   } catch (err) {
@@ -375,6 +416,8 @@ export async function changePlanController(req, res) {
       MUST_KEEP_ONE_BRANCH: 400,
       INVALID_USER: 400,
       INVALID_BRANCH: 400,
+      INVALID_REASSIGNMENT_TARGET: 400,
+      INVALID_TARGET_BRANCH: 400,
     };
 
     const status = errorMap[err.code] || 500;
@@ -383,8 +426,7 @@ export async function changePlanController(req, res) {
 }
 
 /**
- * GET /api/subscriptions/change/preview/:plan_id
- * Preview plan change impact
+ * GET /change/preview/:plan_id - Preview plan change impact
  */
 export async function previewPlanChangeController(req, res) {
   try {
@@ -396,8 +438,8 @@ export async function previewPlanChangeController(req, res) {
     }
 
     const preview = await analyzePlanChangeService(shop_id, plan_id);
-
     return success(res, preview);
+
   } catch (err) {
     console.error("previewPlanChangeController error:", err);
 
@@ -413,8 +455,7 @@ export async function previewPlanChangeController(req, res) {
 }
 
 /**
- * GET /api/subscriptions/downgrade/compliance/:plan_id
- * Get data needed for compliance modal
+ * GET /downgrade/compliance/:plan_id - Get compliance data for downgrade modal
  */
 export async function getDowngradeComplianceController(req, res) {
   try {
@@ -426,8 +467,8 @@ export async function getDowngradeComplianceController(req, res) {
     }
 
     const complianceData = await getComplianceDataService(shop_id, plan_id);
-
     return success(res, complianceData);
+
   } catch (err) {
     console.error("getDowngradeComplianceController error:", err);
 
@@ -440,8 +481,7 @@ export async function getDowngradeComplianceController(req, res) {
 }
 
 /**
- * POST /api/subscriptions/:subscription_id/cancel
- * Cancel pending subscription
+ * POST /:subscription_id/cancel - Cancel pending subscription
  */
 export async function cancelPendingSubscriptionController(req, res) {
   try {
@@ -453,8 +493,8 @@ export async function cancelPendingSubscriptionController(req, res) {
     }
 
     await cancelPendingSubscriptionService(subscription_id, shop_id);
-
     return success(res, null, "Pending subscription cancelled");
+
   } catch (err) {
     console.error("cancelPendingSubscriptionController error:", err);
 
