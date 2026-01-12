@@ -1,4 +1,4 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\auth\auth.service.js
+//backend\src\modules\auth\auth.service.js
 import prisma from "../../config/prisma.js";
 import { hashPassword } from "../../utils/hash.js";
 import { generateResetToken, hashToken } from "../../utils/tokens.js";
@@ -6,15 +6,9 @@ import { sendMail } from "../../utils/email.js";
 import jwt from "jsonwebtoken";
 import { ACCESS_SECRET, REFRESH_SECRET, ACCESS_EXPIRES, REFRESH_EXPIRES } from "../../config/jwt.js";
 
-/**
- * Create owner user, shop and main branch in a transaction.
- * Returns { user, shop, branch, tokens }
- */
 export async function createOwnerAccount({ first_name, last_name, email, password }) {
-  // check existing email
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    // if existing user was google signup, instruct login with google
     if (existing.login_provider === "google") {
       const err = new Error("Email already registered via Google. Please login with Google.");
       err.code = "EMAIL_GOOGLE_EXISTS";
@@ -25,7 +19,6 @@ export async function createOwnerAccount({ first_name, last_name, email, passwor
     throw err;
   }
 
-  // hash password
   const password_hash = await hashPassword(password);
 
   const user = await prisma.user.create({
@@ -42,10 +35,8 @@ export async function createOwnerAccount({ first_name, last_name, email, passwor
     },
   });
 
-
-  // issue tokens
   const accessToken = jwt.sign(
-    { user_id: user.user_id,  role: user.role, status: user.status },
+    { user_id: user.user_id, role: user.role, status: user.status },
     ACCESS_SECRET,
     { expiresIn: ACCESS_EXPIRES }
   );
@@ -62,30 +53,23 @@ export async function createOwnerAccount({ first_name, last_name, email, passwor
   };
 }
 
-
 export async function requestPasswordReset(email) {
-  // Find user by email
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
-    // Don't reveal if email exists (security best practice)
-    // But still return success to prevent email enumeration
     return { success: true };
   }
 
-  // Check if user uses Google login
   if (user.login_provider === "google" && !user.password_hash) {
     const err = new Error("This account uses Google login. Please sign in with Google.");
     err.code = "GOOGLE_ACCOUNT";
     throw err;
   }
 
-  // Generate reset token
   const resetToken = generateResetToken();
   const hashedToken = hashToken(resetToken);
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-  // Save hashed token to database
   await prisma.user.update({
     where: { user_id: user.user_id },
     data: {
@@ -94,10 +78,8 @@ export async function requestPasswordReset(email) {
     },
   });
 
-  // Create reset link
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
-  // Send email
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #000060;">Reset Your Password</h2>
@@ -133,17 +115,14 @@ export async function requestPasswordReset(email) {
   return { success: true };
 }
 
-
 export async function resetPassword(token, newPassword) {
-  // Hash the token to match database
   const hashedToken = hashToken(token);
 
-  // Find user with valid token
   const user = await prisma.user.findFirst({
     where: {
       reset_token: hashedToken,
       reset_token_expires: {
-        gt: new Date(), // Token not expired
+        gt: new Date(),
       },
     },
   });
@@ -154,10 +133,8 @@ export async function resetPassword(token, newPassword) {
     throw err;
   }
 
-  // Hash new password
   const password_hash = await hashPassword(newPassword);
 
-  // Update password and clear reset token
   await prisma.user.update({
     where: { user_id: user.user_id },
     data: {

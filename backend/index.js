@@ -39,7 +39,7 @@ import cadminPlansRoutes from "./src/modules/cadmin/plans/cadminPlans.routes.js"
 import cadminAdminRoutes from "./src/modules/cadmin/admins/cadminAdmin.routes.js";
 import cadminProfileRoutes from "./src/modules/cadmin/profile/cadminProfile.routes.js";
 import cadminTicketsRoutes from "./src/modules/cadmin/tickets/cadminTickets.routes.js";
-
+import cadminSubscriptionsRoutes from "./src/modules/cadmin/subscriptions/cadminSubscriptions.routes.js";
 import { initializeCronJobs } from "./src/cron/jobs.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -229,6 +229,7 @@ app.use("/cadmin", cadminAdminRoutes);
 app.use("/cadmin", cadminProfileRoutes);
 app.use("/cadmin/tickets", cadminTicketsRoutes);
 app.use("/cadmin/enquiries", enquiriesRoutes);
+app.use("/cadmin", cadminSubscriptionsRoutes);
 // ============================================
 // Health Check
 // ============================================
