@@ -1,23 +1,19 @@
 // src/pages/settings/components/AddEditUserModal.jsx
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   X,
   User,
   Phone,
-  Mail,
   AtSign,
   Lock,
   Eye,
   EyeOff,
-  Shield,
-  Building2,
   Loader2,
   CheckCircle2,
   XCircle,
   AlertCircle,
-  ChevronDown,
 } from "lucide-react";
 
 import {
@@ -27,6 +23,7 @@ import {
   checkPhoneAvailability,
 } from "../../../../api/users";
 import { fetchBranchesDropdown } from "../../../../api/branches";
+import StyledSelect from "../../../../components/common/StyledSelect";
 
 // Debounce hook
 const useDebounce = (value, delay) => {
@@ -43,20 +40,10 @@ const useDebounce = (value, delay) => {
   return debouncedValue;
 };
 
-// Role options
-const ROLES = [
-  {
-    value: "branch_admin",
-    label: "Branch Admin",
-    description: "Manage branch & staff",
-    icon: Shield,
-  },
-  {
-    value: "staff",
-    label: "Staff",
-    description: "Day-to-day operations",
-    icon: User,
-  },
+// Role options for StyledSelect
+const ROLE_OPTIONS = [
+  { value: "branch_admin", label: "Branch Admin" },
+  { value: "staff", label: "Staff" },
 ];
 
 /**
@@ -81,7 +68,6 @@ const AddEditUserModal = ({
     full_name: user?.full_name || "",
     phone_number: user?.phone_number || "",
     username: user?.username || "",
-    email: user?.email || "",
     password: "",
     confirmPassword: "",
     role: user?.role || (isSuperAdmin ? "" : "staff"),
@@ -243,13 +229,6 @@ const AddEditUserModal = ({
       newErrors.username = "Username is taken";
     }
 
-    // Email (OPTIONAL - only validate format if provided)
-    if (formData.email && formData.email.trim()) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-        newErrors.email = "Invalid email format";
-      }
-    }
-
     // Password (required for create, optional for edit)
     if (!isEditMode) {
       if (!formData.password) {
@@ -306,9 +285,6 @@ const AddEditUserModal = ({
         if (formData.username.toLowerCase() !== user.username.toLowerCase()) {
           updates.username = formData.username.toLowerCase();
         }
-        if (formData.email !== (user.email || "")) {
-          updates.email = formData.email.trim() || null;
-        }
 
         // SA only fields
         if (isSuperAdmin) {
@@ -332,7 +308,6 @@ const AddEditUserModal = ({
           full_name: formData.full_name.trim(),
           phone_number: formData.phone_number.replace(/\D/g, ""),
           username: formData.username.toLowerCase(),
-          email: formData.email.trim() || null, // Send null if empty
           password: formData.password,
           role: formData.role,
           branch_id: formData.branch_id,
@@ -366,9 +341,15 @@ const AddEditUserModal = ({
   };
 
   // Get available roles based on current user role
-  const availableRoles = isSuperAdmin
-    ? ROLES
-    : ROLES.filter((r) => r.value === "staff");
+  const availableRoleOptions = isSuperAdmin
+    ? ROLE_OPTIONS
+    : ROLE_OPTIONS.filter((r) => r.value === "staff");
+
+  // Convert branches to options for StyledSelect
+  const branchOptions = branches.map((branch) => ({
+    value: branch.branch_id,
+    label: branch.is_main ? `${branch.branch_name} (Main)` : branch.branch_name,
+  }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -512,33 +493,6 @@ const AddEditUserModal = ({
               </div>
             </div>
 
-            {/* Email (Optional) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email <span className="text-gray-400 text-xs font-normal">(optional)</span>
-              </label>
-              <div className="relative">
-                <Mail
-                  size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
-                  placeholder="john@example.com"
-                  className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
-                    errors.email
-                      ? "border-red-400 focus:ring-red-400/30 focus:border-red-400"
-                      : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
-                  }`}
-                />
-              </div>
-              {errors.email && (
-                <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-              )}
-            </div>
-
             {/* Password Fields (Create mode only) */}
             {!isEditMode && (
               <div className="grid grid-cols-2 gap-4">
@@ -627,47 +581,23 @@ const AddEditUserModal = ({
               </div>
             )}
 
-            {/* Role & Branch Row */}
+            {/* Role & Branch Row - Using StyledSelect */}
             <div className="grid grid-cols-2 gap-4">
               {/* Role */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Role <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Shield
-                    size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <select
-                    value={formData.role}
-                    onChange={(e) => handleChange("role", e.target.value)}
-                    disabled={!isSuperAdmin && isEditMode}
-                    className={`w-full pl-10 pr-8 py-2.5 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 appearance-none cursor-pointer transition-all ${
-                      errors.role
-                        ? "border-red-400 focus:ring-red-400/30 focus:border-red-400"
-                        : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
-                    } ${
-                      !isSuperAdmin && isEditMode
-                        ? "bg-gray-100 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    <option value="">Select role</option>
-                    {availableRoles.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={16}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                  />
-                </div>
-                {errors.role && (
-                  <p className="text-red-500 text-xs mt-1">{errors.role}</p>
-                )}
+                <StyledSelect
+                  label={
+                    <span>
+                      Role <span className="text-red-500">*</span>
+                    </span>
+                  }
+                  value={formData.role}
+                  onChange={(value) => handleChange("role", value)}
+                  options={availableRoleOptions}
+                  placeholder="Select role"
+                  error={errors.role}
+                  disabled={!isSuperAdmin && isEditMode}
+                />
                 {!isSuperAdmin && (
                   <p className="text-gray-500 text-xs mt-1">
                     You can only create staff members
@@ -677,42 +607,19 @@ const AddEditUserModal = ({
 
               {/* Branch */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Branch <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Building2
-                    size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <select
-                    value={formData.branch_id}
-                    onChange={(e) => handleChange("branch_id", e.target.value)}
-                    disabled={!isSuperAdmin}
-                    className={`w-full pl-10 pr-8 py-2.5 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 appearance-none cursor-pointer transition-all ${
-                      errors.branch_id
-                        ? "border-red-400 focus:ring-red-400/30 focus:border-red-400"
-                        : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
-                    } ${!isSuperAdmin ? "bg-gray-100 cursor-not-allowed" : ""}`}
-                  >
-                    <option value="">Select branch</option>
-                    {branches.map((branch) => (
-                      <option key={branch.branch_id} value={branch.branch_id}>
-                        {branch.branch_name}
-                        {branch.is_main ? " (Main)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={16}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                  />
-                </div>
-                {errors.branch_id && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.branch_id}
-                  </p>
-                )}
+                <StyledSelect
+                  label={
+                    <span>
+                      Branch <span className="text-red-500">*</span>
+                    </span>
+                  }
+                  value={formData.branch_id}
+                  onChange={(value) => handleChange("branch_id", value)}
+                  options={branchOptions}
+                  placeholder="Select branch"
+                  error={errors.branch_id}
+                  disabled={!isSuperAdmin}
+                />
                 {!isSuperAdmin && (
                   <p className="text-gray-500 text-xs mt-1">
                     Users will be added to your branch

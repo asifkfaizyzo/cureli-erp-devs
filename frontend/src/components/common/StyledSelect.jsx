@@ -1,4 +1,4 @@
-// components/common/StyledSelect.jsx
+// frontend\src\components\common\StyledSelect.jsx
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";

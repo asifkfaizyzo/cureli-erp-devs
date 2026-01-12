@@ -379,15 +379,7 @@ export async function verifyLoginOtpController(req, res) {
     let nextStep = -1; // Default: dashboard
     const shopStatus = user.shop?.verification_status;
 
-    console.log("🔍 LOGIN DEBUG:", {
-      user_id: user.user_id,
-      role: user.role,
-      status: user.status,
-      branch_id: user.branch_id,
-      shop_verification_status: shopStatus,
-      onboarding_step: user.onboarding_step,
-    });
-
+    
     // Staff and Branch Admin: Created verified, go straight to dashboard
     if (user.role === "staff" || user.role === "branch_admin") {
       nextStep = -1;

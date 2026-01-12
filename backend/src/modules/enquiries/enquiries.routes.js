@@ -33,9 +33,8 @@ const enquirySubmitLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.path.startsWith("/admin"),
-  keyGenerator: (req) => {
-    return req.ip || req.headers["x-forwarded-for"] || "unknown";
-  },
+  // Use default keyGenerator (handles IPv6 properly) or remove this entirely
+  // The default already uses req.ip with proper IPv6 handling
 });
 
 // Stricter limiter for spam prevention - 10 per hour
@@ -49,9 +48,7 @@ const strictEnquiryLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.path.startsWith("/admin"),
-  keyGenerator: (req) => {
-    return req.ip || req.headers["x-forwarded-for"] || "unknown";
-  },
+  // Use default keyGenerator (handles IPv6 properly) or remove this entirely
 });
 
 // PUBLIC ROUTES
