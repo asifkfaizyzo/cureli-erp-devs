@@ -1,31 +1,817 @@
-// src/components/purchase/PurchaseRowFixed.jsx
-import { memo, useState, useRef, useEffect } from "react";
+// // src/pages/purchase/billing/components/PurchaseRowFixed.jsx
+// import { memo, useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
+// import { Search, X } from "lucide-react";
 
-const PurchaseRowFixed = memo(({
+// const FIELD_ORDER = [
+//   "name", "hsn", "batch", "mfac", "rack", "exp", "pack", 
+//   "qty", "price", "discountPercent", "schemePercent", "sRate", 
+//   "mrp", "sch"
+// ];
+
+// const PurchaseRowFixed = memo(forwardRef(({
+//   index,
+//   item,
+//   onChange,
+//   onProductSelect,
+//   productMaster = [],
+//   rowNumber = 1,
+//   isEven = false,
+//   isLast = false,
+//   onRemoveRow,
+//   rowsLength,
+//   onNavigateToNextRow,
+//   onNavigateToPrevRow,
+//   onCreateNewRow,
+//   initialRowCount,
+// }, ref) => {
+//   const [showProductDropdown, setShowProductDropdown] = useState(false);
+//   const [productSearch, setProductSearch] = useState("");
+//   const [highlightedIndex, setHighlightedIndex] = useState(0);
+//   const dropdownRef = useRef(null);
+//   const rowRef = useRef(null);
+  
+//   // Field refs
+//   const fieldRefs = useRef({});
+
+//   // Filtered products
+//   const filteredProducts = productMaster.filter(p =>
+//     p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
+//     p.hsn?.toLowerCase().includes(productSearch.toLowerCase())
+//   ).slice(0, 8);
+
+//   // Expose methods to parent
+//   useImperativeHandle(ref, () => ({
+//     focusFirstField: () => {
+//       const firstField = fieldRefs.current[FIELD_ORDER[0]];
+//       if (firstField) {
+//         firstField.focus();
+//         firstField.select?.();
+//       }
+//     },
+//     focusLastField: () => {
+//       const lastField = fieldRefs.current[FIELD_ORDER[FIELD_ORDER.length - 1]];
+//       if (lastField) {
+//         lastField.focus();
+//         lastField.select?.();
+//       }
+//     },
+//     focusField: (fieldKey) => {
+//       const field = fieldRefs.current[fieldKey];
+//       if (field) {
+//         field.focus();
+//         field.select?.();
+//       }
+//     },
+//     scrollIntoView: () => {
+//       rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+//     }
+//   }), []);
+
+//   // Register field ref
+//   const registerFieldRef = useCallback((fieldKey, inputRef) => {
+//     if (inputRef) {
+//       fieldRefs.current[fieldKey] = inputRef;
+//     }
+//   }, []);
+
+//   // Get current field index
+//   const getCurrentFieldIndex = useCallback(() => {
+//     const activeElement = document.activeElement;
+//     for (let i = 0; i < FIELD_ORDER.length; i++) {
+//       if (fieldRefs.current[FIELD_ORDER[i]] === activeElement) {
+//         return i;
+//       }
+//     }
+//     return -1;
+//   }, []);
+
+//   // Focus next field in current row
+//   const focusNextFieldInRow = useCallback(() => {
+//     const currentIndex = getCurrentFieldIndex();
+//     if (currentIndex === -1) return false;
+    
+//     const nextIndex = currentIndex + 1;
+    
+//     // If we're at the last field
+//     if (nextIndex >= FIELD_ORDER.length) {
+//       return false; // Signal to move to next row
+//     }
+    
+//     const nextField = fieldRefs.current[FIELD_ORDER[nextIndex]];
+//     if (nextField) {
+//       nextField.focus();
+//       nextField.select?.();
+//       return true;
+//     }
+//     return false;
+//   }, [getCurrentFieldIndex]);
+
+//   // Focus previous field in current row
+//   const focusPrevFieldInRow = useCallback(() => {
+//     const currentIndex = getCurrentFieldIndex();
+//     if (currentIndex === -1) return false;
+    
+//     const prevIndex = currentIndex - 1;
+    
+//     // If we're at the first field
+//     if (prevIndex < 0) {
+//       return false; // Signal to move to prev row
+//     }
+    
+//     const prevField = fieldRefs.current[FIELD_ORDER[prevIndex]];
+//     if (prevField) {
+//       prevField.focus();
+//       prevField.select?.();
+//       return true;
+//     }
+//     return false;
+//   }, [getCurrentFieldIndex]);
+
+//   // Handle keyboard navigation
+//   const handleKeyDown = useCallback((e, fieldKey) => {
+//     // Close dropdown on Escape
+//     if (e.key === "Escape") {
+//       setShowProductDropdown(false);
+//       return;
+//     }
+
+//     // Handle dropdown navigation
+//     if (showProductDropdown && filteredProducts.length > 0) {
+//       if (e.key === "ArrowDown") {
+//         e.preventDefault();
+//         setHighlightedIndex(prev => 
+//           prev < filteredProducts.length - 1 ? prev + 1 : 0
+//         );
+//         return;
+//       }
+//       if (e.key === "ArrowUp") {
+//         e.preventDefault();
+//         setHighlightedIndex(prev => 
+//           prev > 0 ? prev - 1 : filteredProducts.length - 1
+//         );
+//         return;
+//       }
+//       if (e.key === "Enter" && fieldKey === "name") {
+//         e.preventDefault();
+//         if (filteredProducts[highlightedIndex]) {
+//           onProductSelect(index, filteredProducts[highlightedIndex]);
+//           setShowProductDropdown(false);
+//           // Move to next field after selection
+//           setTimeout(() => {
+//             const nextField = fieldRefs.current["hsn"];
+//             if (nextField) {
+//               nextField.focus();
+//               nextField.select?.();
+//             }
+//           }, 50);
+//         }
+//         return;
+//       }
+//     }
+
+//     // Enter key - move to next field or next row
+//     if (e.key === "Enter") {
+//       e.preventDefault();
+      
+//       const movedWithinRow = focusNextFieldInRow();
+      
+//       if (!movedWithinRow) {
+//         // We're at the last field of this row
+//         if (isLast) {
+//           // Last row - create new row
+//           onCreateNewRow?.();
+//         } else {
+//           // Move to next row's first field
+//           onNavigateToNextRow?.(index);
+//         }
+//       }
+//       return;
+//     }
+
+//     // Tab key navigation
+//     if (e.key === "Tab") {
+//       if (e.shiftKey) {
+//         e.preventDefault();
+//         const movedWithinRow = focusPrevFieldInRow();
+//         if (!movedWithinRow && index > 0) {
+//           onNavigateToPrevRow?.(index);
+//         }
+//       } else {
+//         e.preventDefault();
+//         const movedWithinRow = focusNextFieldInRow();
+//         if (!movedWithinRow) {
+//           if (isLast) {
+//             onCreateNewRow?.();
+//           } else {
+//             onNavigateToNextRow?.(index);
+//           }
+//         }
+//       }
+//       return;
+//     }
+
+//     // Ctrl+Backspace - remove row
+//     if (e.ctrlKey && e.key === "Backspace" && onRemoveRow) {
+//       e.preventDefault();
+//       onRemoveRow(index);
+//       return;
+//     }
+
+//     // Arrow Up - move to same field in previous row
+//     if (e.key === "ArrowUp" && e.altKey) {
+//       e.preventDefault();
+//       if (index > 0) {
+//         onNavigateToPrevRow?.(index, fieldKey);
+//       }
+//       return;
+//     }
+
+//     // Arrow Down - move to same field in next row
+//     if (e.key === "ArrowDown" && e.altKey) {
+//       e.preventDefault();
+//       if (!isLast) {
+//         onNavigateToNextRow?.(index, fieldKey);
+//       }
+//       return;
+//     }
+//   }, [
+//     showProductDropdown, 
+//     filteredProducts, 
+//     highlightedIndex, 
+//     index, 
+//     isLast, 
+//     focusNextFieldInRow, 
+//     focusPrevFieldInRow,
+//     onNavigateToNextRow,
+//     onNavigateToPrevRow,
+//     onCreateNewRow,
+//     onRemoveRow,
+//     onProductSelect
+//   ]);
+
+//   // Close dropdown on outside click
+//   useEffect(() => {
+//     const handleClickOutside = (e) => {
+//       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+//         setShowProductDropdown(false);
+//       }
+//     };
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => document.removeEventListener("mousedown", handleClickOutside);
+//   }, []);
+
+//   // Reset highlighted index when products change
+//   useEffect(() => {
+//     setHighlightedIndex(0);
+//   }, [productSearch]);
+
+//   const formatNumber = (value, decimals = 2) => {
+//     return Number(value || 0).toFixed(decimals);
+//   };
+
+//   const handleChange = useCallback((key, value) => {
+//     onChange(index, key, value);
+//   }, [index, onChange]);
+
+//   // Styles
+//   const inputBase = `
+//     w-full h-full bg-transparent border-0 outline-none
+//     text-slate-800 text-[11px] 2xl:text-xs
+//     focus:bg-indigo-50 focus:ring-2 focus:ring-indigo-400 focus:ring-inset
+//     transition-all duration-150
+//     disabled:text-slate-500 disabled:bg-slate-50
+//     placeholder:text-slate-400
+//   `;
+  
+//   const cellBase = "border-b border-r border-slate-200 last:border-r-0 p-0";
+
+//   // Check if row has data
+//   const hasData = item.name || item.qty || item.price;
+
+//   return (
+//     <tr 
+//       ref={rowRef}
+//       className={`
+//         group transition-all duration-150
+//         ${isEven ? 'bg-white' : 'bg-slate-50/50'}
+//         hover:bg-indigo-50/40 
+//         focus-within:bg-indigo-50/60 focus-within:shadow-sm
+//         ${hasData ? 'border-l-2 border-l-indigo-400' : 'border-l-2 border-l-transparent'}
+//       `}
+//     >
+//       {/* 1. ROW NUMBER */}
+//       <td className={`${cellBase} w-[40px] text-center sticky left-0 z-10 bg-inherit`}>
+//         <div className="flex items-center justify-center h-full py-2">
+//           <span className={`
+//             inline-flex items-center justify-center w-6 h-6 rounded-full
+//             transition-all duration-200
+//             ${hasData 
+//               ? 'bg-indigo-500 text-white shadow-sm' 
+//               : 'bg-slate-200 text-slate-500'
+//             }
+//             font-bold text-[10px]
+//           `}>
+//             {rowNumber}
+//           </span>
+//         </div>
+//       </td>
+
+//       {/* 2. ITEM DESCRIPTION */}
+//       <td className={`${cellBase} min-w-[250px] relative`} ref={dropdownRef}>
+//         <div className="relative">
+//           <input
+//             ref={el => registerFieldRef("name", el)}
+//             type="text"
+//             value={showProductDropdown ? productSearch : (item.name || "")}
+//             onChange={(e) => {
+//               const value = e.target.value;
+//               setProductSearch(value);
+//               setShowProductDropdown(true);
+//               handleChange("name", value);
+//             }}
+//             onFocus={() => {
+//               setProductSearch(item.name || "");
+//               if (productMaster.length > 0) setShowProductDropdown(true);
+//             }}
+//             onBlur={() => {
+//               // Delay to allow click on dropdown
+//               setTimeout(() => setShowProductDropdown(false), 150);
+//             }}
+//             onKeyDown={(e) => handleKeyDown(e, "name")}
+//             className={`${inputBase} px-3 py-2.5 font-medium text-left pr-8`}
+//             placeholder="Type to search medicine..."
+//           />
+          
+//           {/* Search icon */}
+//           {!item.name && (
+//             <Search size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300" />
+//           )}
+          
+//           {/* Clear button */}
+//           {item.name && (
+//             <button
+//               onClick={() => {
+//                 handleChange("name", "");
+//                 setProductSearch("");
+//               }}
+//               className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-200 rounded-full transition-colors"
+//             >
+//               <X size={12} className="text-slate-400" />
+//             </button>
+//           )}
+
+//           {/* Dropdown */}
+//           {showProductDropdown && filteredProducts.length > 0 && (
+//             <div className="absolute top-full left-0 z-50 bg-white border border-slate-200 rounded-lg shadow-xl max-h-52 overflow-auto w-full mt-1">
+//               {filteredProducts.map((product, idx) => (
+//                 <div
+//                   key={product.id || idx}
+//                   onClick={() => {
+//                     onProductSelect(index, product);
+//                     setShowProductDropdown(false);
+//                   }}
+//                   className={`
+//                     px-3 py-2.5 cursor-pointer text-xs border-b border-slate-100 last:border-b-0 
+//                     transition-colors duration-100
+//                     ${idx === highlightedIndex 
+//                       ? 'bg-indigo-50 border-l-2 border-l-indigo-500' 
+//                       : 'hover:bg-slate-50 border-l-2 border-l-transparent'
+//                     }
+//                   `}
+//                 >
+//                   <div className="font-semibold text-slate-800">{product.name}</div>
+//                   <div className="flex gap-3 mt-0.5">
+//                     <span className="text-[10px] text-slate-500">HSN: {product.hsn || '-'}</span>
+//                     {product.pack && <span className="text-[10px] text-slate-500">Pack: {product.pack}</span>}
+//                   </div>
+//                 </div>
+//               ))}
+              
+//               {/* Keyboard hint */}
+//               <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-[9px] text-slate-400 flex gap-2">
+//                 <span>↑↓ Navigate</span>
+//                 <span>⏎ Select</span>
+//                 <span>Esc Close</span>
+//               </div>
+//             </div>
+//           )}
+//         </div>
+//       </td>
+
+//       {/* 3. HSN */}
+//       <td className={`${cellBase} w-[80px]`}>
+//         <input 
+//           ref={el => registerFieldRef("hsn", el)} 
+//           type="text" 
+//           value={item.hsn || ""} 
+//           onChange={(e) => handleChange("hsn", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "hsn")}
+//           className={`${inputBase} px-2 py-2.5 text-center font-mono text-[10px]`} 
+//           placeholder="HSN"
+//         />
+//       </td>
+
+//       {/* 4. Batch */}
+//       <td className={`${cellBase} w-[80px]`}>
+//         <input 
+//           ref={el => registerFieldRef("batch", el)} 
+//           type="text" 
+//           value={item.batch || ""} 
+//           onChange={(e) => handleChange("batch", e.target.value.toUpperCase())}
+//           onKeyDown={(e) => handleKeyDown(e, "batch")}
+//           className={`${inputBase} px-2 py-2.5 text-center font-mono text-[10px]`} 
+//           placeholder="Batch"
+//         />
+//       </td>
+
+//       {/* 5. Company */}
+//       <td className={`${cellBase} w-[100px]`}>
+//         <input 
+//           ref={el => registerFieldRef("mfac", el)} 
+//           type="text" 
+//           value={item.mfac || ""} 
+//           onChange={(e) => handleChange("mfac", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "mfac")}
+//           className={`${inputBase} px-2 py-2.5 text-left text-[10px]`} 
+//           placeholder="Company"
+//         />
+//       </td>
+
+//       {/* 6. Rack */}
+//       <td className={`${cellBase} w-[60px]`}>
+//         <input 
+//           ref={el => registerFieldRef("rack", el)} 
+//           type="text" 
+//           value={item.rack || ""} 
+//           onChange={(e) => handleChange("rack", e.target.value.toUpperCase())}
+//           onKeyDown={(e) => handleKeyDown(e, "rack")}
+//           className={`${inputBase} px-2 py-2.5 text-center font-medium`} 
+//           placeholder="Rack"
+//         />
+//       </td>
+
+//       {/* 7. Expiry */}
+//       <td className={`${cellBase} w-[80px]`}>
+//         <input 
+//           ref={el => registerFieldRef("exp", el)} 
+//           type="text" 
+//           value={item.exp || ""} 
+//           onChange={(e) => handleChange("exp", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "exp")}
+//           className={`${inputBase} px-2 py-2.5 text-center font-mono text-[10px]`} 
+//           placeholder="MM/YY"
+//         />
+//       </td>
+
+//       {/* 8. Pack */}
+//       <td className={`${cellBase} w-[70px]`}>
+//         <input 
+//           ref={el => registerFieldRef("pack", el)} 
+//           type="text" 
+//           value={item.pack || ""} 
+//           onChange={(e) => handleChange("pack", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "pack")}
+//           className={`${inputBase} px-2 py-2.5 text-center`} 
+//           placeholder="Pack"
+//         />
+//       </td>
+
+//       {/* 9. Quantity */}
+//       <td className={`${cellBase} w-[70px] bg-amber-50/50`}>
+//         <input 
+//           ref={el => registerFieldRef("qty", el)} 
+//           type="number" 
+//           value={item.qty || ""} 
+//           onChange={(e) => handleChange("qty", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "qty")}
+//           className={`${inputBase} px-2 py-2.5 text-center font-bold text-amber-700`} 
+//           placeholder="Qty" 
+//           min="0"
+//         />
+//       </td>
+
+//       {/* 10. Rate */}
+//       <td className={`${cellBase} w-[80px] bg-blue-50/50`}>
+//         <input 
+//           ref={el => registerFieldRef("price", el)} 
+//           type="number" 
+//           value={item.price || ""} 
+//           onChange={(e) => handleChange("price", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "price")}
+//           className={`${inputBase} px-2 py-2.5 text-right font-bold text-blue-700`} 
+//           placeholder="Rate" 
+//           min="0" 
+//           step="0.01"
+//         />
+//       </td>
+
+//       {/* 11. Discount % */}
+//       <td className={`${cellBase} w-[70px]`}>
+//         <input 
+//           ref={el => registerFieldRef("discountPercent", el)} 
+//           type="number" 
+//           value={item.discountPercent || ""} 
+//           onChange={(e) => handleChange("discountPercent", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "discountPercent")}
+//           className={`${inputBase} px-2 py-2.5 text-right text-indigo-600 font-semibold`} 
+//           placeholder="Disc%" 
+//           min="0" 
+//           max="100"
+//         />
+//       </td>
+
+//       {/* 12. Scheme % */}
+//       <td className={`${cellBase} w-[90px]`}>
+//         <input 
+//           ref={el => registerFieldRef("schemePercent", el)} 
+//           type="number" 
+//           value={item.schemePercent || ""} 
+//           onChange={(e) => handleChange("schemePercent", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "schemePercent")}
+//           className={`${inputBase} px-2 py-2.5 text-right text-teal-600 font-semibold`} 
+//           placeholder="Sch%" 
+//           min="0" 
+//           max="100"
+//         />
+//       </td>
+
+//       {/* 13. S-Rate */}
+//       <td className={`${cellBase} w-[80px] bg-gradient-to-r from-purple-50 to-indigo-50`}>
+//         <input 
+//           ref={el => registerFieldRef("sRate", el)} 
+//           type="number" 
+//           value={item.sRate || ""} 
+//           onChange={(e) => handleChange("sRate", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "sRate")}
+//           className={`${inputBase} px-2 py-2.5 text-right font-bold text-purple-700`} 
+//           placeholder="S-Rate" 
+//           min="0" 
+//           step="0.01"
+//         />
+//       </td>
+
+//       {/* 14. Amount (Read-only) */}
+//       <td className={`${cellBase} w-[100px] bg-gradient-to-r from-emerald-50 to-green-50`}>
+//         <div className="px-2 py-2.5 text-right">
+//           <span className={`
+//             font-bold text-sm
+//             ${Number(item.amount) > 0 ? 'text-emerald-700' : 'text-slate-400'}
+//           `}>
+//             {Number(item.amount) > 0 ? formatNumber(item.amount) : '0.00'}
+//           </span>
+//         </div>
+//       </td>
+
+//       {/* 15. MRP */}
+//       <td className={`${cellBase} w-[70px]`}>
+//         <input 
+//           ref={el => registerFieldRef("mrp", el)} 
+//           type="number" 
+//           value={item.mrp || ""} 
+//           onChange={(e) => handleChange("mrp", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "mrp")}
+//           className={`${inputBase} px-2 py-2.5 text-right text-slate-600`} 
+//           placeholder="MRP" 
+//           min="0"
+//         />
+//       </td>
+
+//       {/* 16. Free */}
+//       <td className={`${cellBase} w-[60px]`}>
+//         <input 
+//           ref={el => registerFieldRef("sch", el)} 
+//           type="text" 
+//           value={item.sch || ""} 
+//           onChange={(e) => handleChange("sch", e.target.value)}
+//           onKeyDown={(e) => handleKeyDown(e, "sch")}
+//           className={`${inputBase} px-2 py-2.5 text-center font-semibold text-emerald-600`} 
+//           placeholder="Free"
+//         />
+//       </td>
+//     </tr>
+//   );
+// }));
+
+// PurchaseRowFixed.displayName = 'PurchaseRowFixed';
+// export default PurchaseRowFixed;
+
+// src/pages/purchase/billing/components/PurchaseRowFixed.jsx
+import { memo, useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
+import { Search, X } from "lucide-react";
+
+const FIELD_ORDER = [
+  "name", "hsn", "batch", "mfac", "rack", "exp", "pack", 
+  "qty", "price", "discountPercent", "schemePercent", "sRate", 
+  "mrp", "sch"
+];
+
+const PurchaseRowFixed = memo(forwardRef(({
   index,
   item,
   onChange,
   onProductSelect,
   productMaster = [],
-  registerFieldRef,
-  focusNextField,
-  focusPrevField,
+  rowNumber = 1,
   isEven = false,
   isLast = false,
-  rowNumber = 1,
-}) => {
+  onRemoveRow,
+  rowsLength,
+  onNavigateToNextRow,
+  onNavigateToPrevRow,
+  onCreateNewRow,
+  rowHeight = 40,
+}, ref) => {
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const dropdownRef = useRef(null);
+  const rowRef = useRef(null);
+  const fieldRefs = useRef({});
 
-  // Filter products based on search
   const filteredProducts = productMaster.filter(p =>
     p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
     p.hsn?.toLowerCase().includes(productSearch.toLowerCase())
-  ).slice(0, 10);
+  ).slice(0, 8);
 
-  // Close dropdown when clicking outside
+  // Expose methods to parent
+  useImperativeHandle(ref, () => ({
+    focusFirstField: () => {
+      const firstField = fieldRefs.current[FIELD_ORDER[0]];
+      if (firstField) {
+        firstField.focus();
+        firstField.select?.();
+      }
+    },
+    focusLastField: () => {
+      const lastField = fieldRefs.current[FIELD_ORDER[FIELD_ORDER.length - 1]];
+      if (lastField) {
+        lastField.focus();
+        lastField.select?.();
+      }
+    },
+    focusField: (fieldKey) => {
+      const field = fieldRefs.current[fieldKey];
+      if (field) {
+        field.focus();
+        field.select?.();
+      }
+    },
+    scrollIntoView: () => {
+      rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }), []);
+
+  const registerFieldRef = useCallback((fieldKey, inputRef) => {
+    if (inputRef) {
+      fieldRefs.current[fieldKey] = inputRef;
+    }
+  }, []);
+
+  const getCurrentFieldIndex = useCallback(() => {
+    const activeElement = document.activeElement;
+    for (let i = 0; i < FIELD_ORDER.length; i++) {
+      if (fieldRefs.current[FIELD_ORDER[i]] === activeElement) {
+        return i;
+      }
+    }
+    return -1;
+  }, []);
+
+  const focusNextFieldInRow = useCallback(() => {
+    const currentIndex = getCurrentFieldIndex();
+    if (currentIndex === -1) return false;
+    
+    const nextIndex = currentIndex + 1;
+    if (nextIndex >= FIELD_ORDER.length) {
+      return false;
+    }
+    
+    const nextField = fieldRefs.current[FIELD_ORDER[nextIndex]];
+    if (nextField) {
+      nextField.focus();
+      nextField.select?.();
+      return true;
+    }
+    return false;
+  }, [getCurrentFieldIndex]);
+
+  const focusPrevFieldInRow = useCallback(() => {
+    const currentIndex = getCurrentFieldIndex();
+    if (currentIndex === -1) return false;
+    
+    const prevIndex = currentIndex - 1;
+    if (prevIndex < 0) {
+      return false;
+    }
+    
+    const prevField = fieldRefs.current[FIELD_ORDER[prevIndex]];
+    if (prevField) {
+      prevField.focus();
+      prevField.select?.();
+      return true;
+    }
+    return false;
+  }, [getCurrentFieldIndex]);
+
+  const handleKeyDown = useCallback((e, fieldKey) => {
+    if (e.key === "Escape") {
+      setShowProductDropdown(false);
+      return;
+    }
+
+    if (showProductDropdown && filteredProducts.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightedIndex(prev => 
+          prev < filteredProducts.length - 1 ? prev + 1 : 0
+        );
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightedIndex(prev => 
+          prev > 0 ? prev - 1 : filteredProducts.length - 1
+        );
+        return;
+      }
+      if (e.key === "Enter" && fieldKey === "name") {
+        e.preventDefault();
+        if (filteredProducts[highlightedIndex]) {
+          onProductSelect(index, filteredProducts[highlightedIndex]);
+          setShowProductDropdown(false);
+          setTimeout(() => {
+            const nextField = fieldRefs.current["hsn"];
+            if (nextField) {
+              nextField.focus();
+              nextField.select?.();
+            }
+          }, 50);
+        }
+        return;
+      }
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const movedWithinRow = focusNextFieldInRow();
+      if (!movedWithinRow) {
+        if (isLast) {
+          onCreateNewRow?.();
+        } else {
+          onNavigateToNextRow?.(index);
+        }
+      }
+      return;
+    }
+
+    if (e.key === "Tab") {
+      if (e.shiftKey) {
+        e.preventDefault();
+        const movedWithinRow = focusPrevFieldInRow();
+        if (!movedWithinRow && index > 0) {
+          onNavigateToPrevRow?.(index);
+        }
+      } else {
+        e.preventDefault();
+        const movedWithinRow = focusNextFieldInRow();
+        if (!movedWithinRow) {
+          if (isLast) {
+            onCreateNewRow?.();
+          } else {
+            onNavigateToNextRow?.(index);
+          }
+        }
+      }
+      return;
+    }
+
+    if (e.ctrlKey && e.key === "Backspace" && onRemoveRow) {
+      e.preventDefault();
+      onRemoveRow(index);
+      return;
+    }
+
+    if (e.key === "ArrowUp" && e.altKey) {
+      e.preventDefault();
+      if (index > 0) {
+        onNavigateToPrevRow?.(index, fieldKey);
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown" && e.altKey) {
+      e.preventDefault();
+      if (!isLast) {
+        onNavigateToNextRow?.(index, fieldKey);
+      }
+      return;
+    }
+  }, [
+    showProductDropdown, filteredProducts, highlightedIndex, index, isLast, 
+    focusNextFieldInRow, focusPrevFieldInRow, onNavigateToNextRow, onNavigateToPrevRow, 
+    onCreateNewRow, onRemoveRow, onProductSelect
+  ]);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -36,371 +822,241 @@ const PurchaseRowFixed = memo(({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Helper for consistent number formatting
-  const formatNumber = (value, decimals = 2) => {
-    const num = Number(value || 0);
-    return num.toFixed(decimals);
-  };
-
-  // Handle field change
-  const handleChange = (key, value) => {
-    onChange(index, key, value);
-  };
-
-  // Handle keyboard navigation
-  const handleKeyDown = (e, fieldIndex) => {
-    if (e.key === "Tab" && !e.shiftKey) {
-      e.preventDefault();
-      focusNextField(index, fieldIndex);
-    } else if (e.key === "Tab" && e.shiftKey) {
-      e.preventDefault();
-      focusPrevField(index, fieldIndex);
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      focusNextField(index, fieldIndex);
-    }
-  };
-
-  // Handle product dropdown keyboard navigation
-  const handleProductKeyDown = (e, fieldIndex) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlightedIndex(prev => Math.min(prev + 1, filteredProducts.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlightedIndex(prev => Math.max(prev - 1, 0));
-    } else if (e.key === "Enter" && showProductDropdown && filteredProducts.length > 0) {
-      e.preventDefault();
-      selectProduct(filteredProducts[highlightedIndex]);
-    } else if (e.key === "Escape") {
-      setShowProductDropdown(false);
-    } else if (e.key === "Tab") {
-      setShowProductDropdown(false);
-      handleKeyDown(e, fieldIndex);
-    }
-  };
-
-  // Select product from dropdown
-  const selectProduct = (product) => {
-    onProductSelect(index, product);
-    setProductSearch("");
-    setShowProductDropdown(false);
+  useEffect(() => {
     setHighlightedIndex(0);
+  }, [productSearch]);
+
+  const formatNumber = (value, decimals = 2) => {
+    return Number(value || 0).toFixed(decimals);
   };
 
-  // Common input styles
+  const handleChange = useCallback((key, value) => {
+    onChange(index, key, value);
+  }, [index, onChange]);
+
+  // ✅ Compact input styles - NO OVERFLOW
   const inputBase = `
     w-full h-full bg-transparent border-0 outline-none
-    text-slate-800 text-[11px] 2xl:text-xs
-    focus:bg-indigo-50 focus:ring-1 focus:ring-indigo-400 focus:ring-inset
-    transition-colors duration-150
-    disabled:text-slate-500 disabled:bg-slate-50
+    text-slate-800 text-[10px] 2xl:text-[11px]
+    focus:bg-indigo-50 focus:ring-1 focus:ring-inset focus:ring-indigo-400
+    transition-all duration-100
+    placeholder:text-slate-300
+    truncate
   `;
-
-  const cellBase = "border-b border-r border-slate-200 last:border-r-0";
-  const textMuted = "text-slate-500";
-  const textPrimary = "text-slate-800";
+  
+  const cellBase = "border-b border-r border-slate-200 last:border-r-0 p-0 overflow-hidden";
+  const hasData = item.name || item.qty || item.price;
 
   return (
     <tr 
+      ref={rowRef}
+      style={{ height: `${rowHeight}px` }}
       className={`
-        group
-        transition-colors duration-150
+        group transition-all duration-100
         ${isEven ? 'bg-white' : 'bg-slate-50/50'}
-        hover:bg-indigo-50/50
-        focus-within:bg-indigo-50/70
-        ${isLast ? 'border-b-2 border-slate-300' : ''}
+        hover:bg-indigo-50/40 
+        focus-within:bg-indigo-50/60
+        ${hasData ? 'border-l-2 border-l-indigo-400' : 'border-l-2 border-l-transparent'}
       `}
     >
-      {/* ROW NUMBER (#) - Readonly */}
-      <td className={`
-        ${cellBase} 
-        w-[40px] 
-        text-center 
-        font-bold 
-        text-[10px]
-        bg-gradient-to-r from-slate-100 to-slate-50
-        text-slate-500
-        select-none
-        sticky left-0 z-10
-      `}>
-        <div className="flex items-center justify-center h-full py-2">
+      {/* 1. ROW NUMBER - 3% */}
+      <td className={`${cellBase} w-[3%] text-center`}>
+        <div className="flex items-center justify-center h-full">
           <span className={`
-            inline-flex items-center justify-center
-            w-6 h-6 rounded-full
-            ${item.name ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500'}
-            font-semibold text-[10px]
-            transition-colors duration-200
+            inline-flex items-center justify-center w-5 h-5 rounded-full text-[9px] font-bold
+            ${hasData ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-500'}
           `}>
             {rowNumber}
           </span>
         </div>
       </td>
 
-      {/* MFAC / RACK - Fields 0 & 1 */}
-      <td className={`${cellBase} p-0 min-w-[80px]`}>
-        <div className="flex flex-col">
+      {/* 2. ITEM DESCRIPTION - 18% */}
+      <td className={`${cellBase} w-[18%] relative`} ref={dropdownRef}>
+        <div className="relative h-full">
           <input
-            ref={(el) => registerFieldRef(0, el)}
+            ref={el => registerFieldRef("name", el)}
             type="text"
-            value={item.mfac || ""}
-            onChange={(e) => handleChange("mfac", e.target.value)}
-            onKeyDown={(e) => handleKeyDown(e, 0)}
-            className={`${inputBase} px-2 py-1 font-medium text-center border-b border-slate-100`}
-            placeholder="Mfac"
+            value={showProductDropdown ? productSearch : (item.name || "")}
+            onChange={(e) => {
+              const value = e.target.value;
+              setProductSearch(value);
+              setShowProductDropdown(true);
+              handleChange("name", value);
+            }}
+            onFocus={() => {
+              setProductSearch(item.name || "");
+              if (productMaster.length > 0) setShowProductDropdown(true);
+            }}
+            onBlur={() => setTimeout(() => setShowProductDropdown(false), 150)}
+            onKeyDown={(e) => handleKeyDown(e, "name")}
+            className={`${inputBase} px-2 py-1.5 font-medium text-left`}
+            placeholder="Search..."
           />
-          <input
-            ref={(el) => registerFieldRef(1, el)}
-            type="text"
-            value={item.rack || ""}
-            onChange={(e) => handleChange("rack", e.target.value)}
-            onKeyDown={(e) => handleKeyDown(e, 1)}
-            className={`${inputBase} px-2 py-1 text-[9px] text-center text-slate-600`}
-            placeholder="Rack"
-          />
-        </div>
-      </td>
-
-      {/* DESCRIPTION / HSN - Fields 2 & 3 */}
-      <td className={`${cellBase} p-0 min-w-[200px] relative`} ref={dropdownRef}>
-        <div className="flex flex-col">
-          {/* Product Name Input with Autocomplete */}
-          <div className="relative">
-            <input
-              ref={(el) => registerFieldRef(2, el)}
-              type="text"
-              value={showProductDropdown ? productSearch : (item.name || "")}
-              onChange={(e) => {
-                setProductSearch(e.target.value);
-                setShowProductDropdown(true);
-                setHighlightedIndex(0);
-                if (!showProductDropdown) {
-                  handleChange("name", e.target.value);
-                }
-              }}
-              onFocus={() => {
-                setProductSearch(item.name || "");
-                setShowProductDropdown(true);
-              }}
-              onKeyDown={(e) => handleProductKeyDown(e, 2)}
-              className={`${inputBase} px-2 py-1 font-semibold border-b border-slate-100`}
-              placeholder="Search product..."
-            />
-            
-            {/* Product Dropdown */}
-            {showProductDropdown && filteredProducts.length > 0 && (
-              <div className="absolute top-full left-0 center-0 z-50 bg-white border border-slate-200 rounded-b-lg shadow-lg max-h-48 overflow-auto">
-                {filteredProducts.map((product, idx) => (
-                  <div
-                    key={product.id || idx}
-                    onClick={() => selectProduct(product)}
-                    className={`
-                      px-3 py-2 cursor-pointer text-xs border-b border-slate-100 last:border-b-0
-                      ${idx === highlightedIndex ? 'bg-indigo-50 text-indigo-900' : 'hover:bg-slate-50'}
-                    `}
-                  >
-                    <div className="font-medium text-slate-800">{product.name}</div>
-                    <div className="text-[10px] text-slate-500 flex gap-3 mt-0.5">
-                      <span>HSN: {product.hsn || '-'}</span>
-                      <span>Pack: {product.pack || '-'}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
           
-          {/* HSN Input */}
-          <input
-            ref={(el) => registerFieldRef(3, el)}
-            type="text"
-            value={item.hsn || ""}
-            onChange={(e) => handleChange("hsn", e.target.value)}
-            onKeyDown={(e) => handleKeyDown(e, 3)}
-            className={`${inputBase} px-2 py-1 text-[9px] text-slate-600 font-mono`}
-            placeholder="HSN"
-          />
+          {item.name && (
+            <button
+              onClick={() => {
+                handleChange("name", "");
+                setProductSearch("");
+              }}
+              className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-200 rounded-full"
+            >
+              <X size={10} className="text-slate-400" />
+            </button>
+          )}
+
+          {showProductDropdown && filteredProducts.length > 0 && (
+            <div className="absolute top-full left-0 z-50 bg-white border border-slate-200 rounded-lg shadow-xl max-h-44 overflow-auto w-64 mt-0.5">
+              {filteredProducts.map((product, idx) => (
+                <div
+                  key={product.id || idx}
+                  onClick={() => {
+                    onProductSelect(index, product);
+                    setShowProductDropdown(false);
+                  }}
+                  className={`
+                    px-2 py-1.5 cursor-pointer text-[10px] border-b border-slate-100 last:border-b-0 
+                    ${idx === highlightedIndex ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : 'hover:bg-slate-50 border-l-2 border-l-transparent'}
+                  `}
+                >
+                  <div className="font-medium text-slate-800 truncate">{product.name}</div>
+                  <div className="text-[9px] text-slate-400">HSN: {product.hsn || '-'}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </td>
 
-      {/* PACK - Field 4 */}
-      <td className={`${cellBase} p-0`}>
-        <input
-          ref={(el) => registerFieldRef(4, el)}
-          type="text"
-          value={item.pack || ""}
+      {/* 3. HSN - 6% */}
+      <td className={`${cellBase} w-[6%]`}>
+        <input ref={el => registerFieldRef("hsn", el)} type="text" value={item.hsn || ""} 
+          onChange={(e) => handleChange("hsn", e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, "hsn")}
+          className={`${inputBase} px-1 py-1.5 text-center font-mono text-[9px]`} 
+          placeholder="HSN"/>
+      </td>
+
+      {/* 4. Batch - 6% */}
+      <td className={`${cellBase} w-[6%]`}>
+        <input ref={el => registerFieldRef("batch", el)} type="text" value={item.batch || ""} 
+          onChange={(e) => handleChange("batch", e.target.value.toUpperCase())}
+          onKeyDown={(e) => handleKeyDown(e, "batch")}
+          className={`${inputBase} px-1 py-1.5 text-center font-mono text-[9px]`} 
+          placeholder="Batch"/>
+      </td>
+
+      {/* 5. Company - 8% */}
+      <td className={`${cellBase} w-[8%]`}>
+        <input ref={el => registerFieldRef("mfac", el)} type="text" value={item.mfac || ""} 
+          onChange={(e) => handleChange("mfac", e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, "mfac")}
+          className={`${inputBase} px-1 py-1.5 text-left`} 
+          placeholder="Company"/>
+      </td>
+
+      {/* 6. Rack - 4% */}
+      <td className={`${cellBase} w-[4%]`}>
+        <input ref={el => registerFieldRef("rack", el)} type="text" value={item.rack || ""} 
+          onChange={(e) => handleChange("rack", e.target.value.toUpperCase())}
+          onKeyDown={(e) => handleKeyDown(e, "rack")}
+          className={`${inputBase} px-1 py-1.5 text-center`} 
+          placeholder="Rack"/>
+      </td>
+
+      {/* 7. Expiry - 5% */}
+      <td className={`${cellBase} w-[5%]`}>
+        <input ref={el => registerFieldRef("exp", el)} type="text" value={item.exp || ""} 
+          onChange={(e) => handleChange("exp", e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, "exp")}
+          className={`${inputBase} px-1 py-1.5 text-center font-mono text-[9px]`} 
+          placeholder="MM/YY"/>
+      </td>
+
+      {/* 8. Pack - 4% */}
+      <td className={`${cellBase} w-[4%]`}>
+        <input ref={el => registerFieldRef("pack", el)} type="text" value={item.pack || ""} 
           onChange={(e) => handleChange("pack", e.target.value)}
-          onKeyDown={(e) => handleKeyDown(e, 4)}
-          className={`${inputBase} px-2 py-2 text-center font-medium`}
-          placeholder="-"
-        />
+          onKeyDown={(e) => handleKeyDown(e, "pack")}
+          className={`${inputBase} px-1 py-1.5 text-center`} 
+          placeholder="Pack"/>
       </td>
 
-      {/* BATCH / EXP - Fields 5 & 6 */}
-      <td className={`${cellBase} p-0`}>
-        <div className="flex flex-col">
-          <input
-            ref={(el) => registerFieldRef(5, el)}
-            type="text"
-            value={item.batch || ""}
-            onChange={(e) => handleChange("batch", e.target.value)}
-            onKeyDown={(e) => handleKeyDown(e, 5)}
-            className={`${inputBase} px-2 py-1 text-center font-medium border-b border-slate-100`}
-            placeholder="Batch"
-          />
-          <input
-            ref={(el) => registerFieldRef(6, el)}
-            type="text"
-            value={item.exp || ""}
-            onChange={(e) => handleChange("exp", e.target.value)}
-            onKeyDown={(e) => handleKeyDown(e, 6)}
-            className={`${inputBase} px-2 py-1 text-[9px] text-center text-amber-600`}
-            placeholder="MM/YY"
-          />
-        </div>
-      </td>
-
-      {/* QTY - Field 7 */}
-      <td className={`${cellBase} p-0`}>
-        <input
-          ref={(el) => registerFieldRef(7, el)}
-          type="number"
-          min="0"
-          value={item.qty || ""}
+      {/* 9. Quantity - 5% */}
+      <td className={`${cellBase} w-[5%] bg-amber-50/50`}>
+        <input ref={el => registerFieldRef("qty", el)} type="number" value={item.qty || ""} 
           onChange={(e) => handleChange("qty", e.target.value)}
-          onKeyDown={(e) => handleKeyDown(e, 7)}
-          className={`${inputBase} px-2 py-2 text-center font-semibold text-emerald-700`}
-          placeholder="0"
-        />
+          onKeyDown={(e) => handleKeyDown(e, "qty")}
+          className={`${inputBase} px-1 py-1.5 text-center font-bold text-amber-700`} 
+          placeholder="0" min="0"/>
       </td>
 
-      {/* SCH - Field 8 */}
-      <td className={`${cellBase} p-0`}>
-        <input
-          ref={(el) => registerFieldRef(8, el)}
-          type="number"
-          min="0"
-          value={item.sch || ""}
-          onChange={(e) => handleChange("sch", e.target.value)}
-          onKeyDown={(e) => handleKeyDown(e, 8)}
-          className={`${inputBase} px-2 py-2 text-center`}
-          placeholder="0"
-        />
-      </td>
-
-      {/* MRP - Field 9 */}
-      <td className={`${cellBase} p-0`}>
-        <input
-          ref={(el) => registerFieldRef(9, el)}
-          type="number"
-          min="0"
-          step="0.01"
-          value={item.mrp || ""}
-          onChange={(e) => handleChange("mrp", e.target.value)}
-          onKeyDown={(e) => handleKeyDown(e, 9)}
-          className={`${inputBase} px-2 py-2 text-center font-mono`}
-          placeholder="0.00"
-        />
-      </td>
-
-      {/* PRICE - Field 10 */}
-      <td className={`${cellBase} p-0`}>
-        <input
-          ref={(el) => registerFieldRef(10, el)}
-          type="number"
-          min="0"
-          step="0.01"
-          value={item.price || ""}
+      {/* 10. Rate - 6% */}
+      <td className={`${cellBase} w-[6%] bg-blue-50/50`}>
+        <input ref={el => registerFieldRef("price", el)} type="number" value={item.price || ""} 
           onChange={(e) => handleChange("price", e.target.value)}
-          onKeyDown={(e) => handleKeyDown(e, 10)}
-          className={`${inputBase} px-2 py-2 text-center font-mono`}
-          placeholder="0.00"
-        />
+          onKeyDown={(e) => handleKeyDown(e, "price")}
+          className={`${inputBase} px-1 py-1.5 text-right font-bold text-blue-700`} 
+          placeholder="0.00" min="0" step="0.01"/>
       </td>
 
-      {/* SCHEME - Field 11 (schemePercent editable, schemeAmount readonly) */}
-      <td className={`${cellBase} p-0`}>
-        <div className="flex flex-col">
-          <input
-            ref={(el) => registerFieldRef(11, el)}
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={item.schemePercent || ""}
-            onChange={(e) => handleChange("schemePercent", e.target.value)}
-            onKeyDown={(e) => handleKeyDown(e, 11)}
-            className={`${inputBase} px-2 py-1 text-center text-[10px] border-b border-slate-100`}
-            placeholder="0.00"
-          />
-          <div className="px-2 py-1 text-center font-mono text-slate-700 bg-slate-50/50 text-[10px]">
-            {formatNumber(item.schemeAmount)}
-          </div>
+      {/* 11. Discount % - 5% */}
+      <td className={`${cellBase} w-[5%]`}>
+        <input ref={el => registerFieldRef("discountPercent", el)} type="number" value={item.discountPercent || ""} 
+          onChange={(e) => handleChange("discountPercent", e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, "discountPercent")}
+          className={`${inputBase} px-1 py-1.5 text-center text-indigo-600 font-semibold`} 
+          placeholder="0" min="0" max="100"/>
+      </td>
+
+      {/* 12. Scheme % - 5% */}
+      <td className={`${cellBase} w-[5%]`}>
+        <input ref={el => registerFieldRef("schemePercent", el)} type="number" value={item.schemePercent || ""} 
+          onChange={(e) => handleChange("schemePercent", e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, "schemePercent")}
+          className={`${inputBase} px-1 py-1.5 text-center text-teal-600 font-semibold`} 
+          placeholder="0" min="0" max="100"/>
+      </td>
+
+      {/* 13. S-Rate - 6% */}
+      <td className={`${cellBase} w-[6%] bg-purple-50/50`}>
+        <input ref={el => registerFieldRef("sRate", el)} type="number" value={item.sRate || ""} 
+          onChange={(e) => handleChange("sRate", e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, "sRate")}
+          className={`${inputBase} px-1 py-1.5 text-right font-bold text-purple-700`} 
+          placeholder="0.00" min="0" step="0.01"/>
+      </td>
+
+      {/* 14. Amount - 8% */}
+      <td className={`${cellBase} w-[8%] bg-emerald-50/50`}>
+        <div className="px-1 py-1.5 text-right">
+          <span className={`font-bold text-[11px] ${Number(item.amount) > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
+            {Number(item.amount) > 0 ? formatNumber(item.amount) : '0.00'}
+          </span>
         </div>
       </td>
 
-      {/* DISCOUNT - Field 12 (discountPercent editable, discountAmount readonly) */}
-      <td className={`${cellBase} p-0`}>
-        <div className="flex flex-col">
-          <input
-            ref={(el) => registerFieldRef(12, el)}
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={item.discountPercent || ""}
-            onChange={(e) => handleChange("discountPercent", e.target.value)}
-            onKeyDown={(e) => handleKeyDown(e, 12)}
-            className={`${inputBase} px-2 py-1 text-center text-[10px] border-b border-slate-100`}
-            placeholder="0.00"
-          />
-          <div className={`px-2 py-1 text-center font-mono bg-slate-50/50 text-[10px] ${
-            Number(item.discountAmount) > 0 ? 'text-rose-600' : 'text-slate-700'
-          }`}>
-            {formatNumber(item.discountAmount)}
-          </div>
-        </div>
+      {/* 15. MRP - 5% */}
+      <td className={`${cellBase} w-[5%]`}>
+        <input ref={el => registerFieldRef("mrp", el)} type="number" value={item.mrp || ""} 
+          onChange={(e) => handleChange("mrp", e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, "mrp")}
+          className={`${inputBase} px-1 py-1.5 text-right text-slate-600`} 
+          placeholder="0" min="0"/>
       </td>
 
-      {/* TAXABLE VALUE - Readonly */}
-      <td className={`${cellBase} px-2 py-2 text-center font-mono font-medium ${textPrimary} bg-slate-50/30`}>
-        {formatNumber(item.taxableValue)}
-      </td>
-
-      {/* CGST % - Readonly */}
-      <td className={`${cellBase} px-2 py-2 text-center bg-blue-50/40`}>
-        <span className="text-[10px] text-blue-700 font-medium">
-          {formatNumber(item.cgstPercent)}%
-        </span>
-      </td>
-
-      {/* CGST AMT - Readonly */}
-      <td className={`${cellBase} px-2 py-2 text-center font-mono ${textPrimary} bg-blue-50/40`}>
-        {formatNumber(item.cgstAmount)}
-      </td>
-
-      {/* SGST % - Readonly */}
-      <td className={`${cellBase} px-2 py-2 text-center bg-emerald-50/40`}>
-        <span className="text-[10px] text-emerald-700 font-medium">
-          {formatNumber(item.sgstPercent)}%
-        </span>
-      </td>
-
-      {/* SGST AMT - Readonly */}
-      <td className={`${cellBase} px-2 py-2 text-center font-mono ${textPrimary} bg-emerald-50/40`}>
-        {formatNumber(item.sgstAmount)}
-      </td>
-
-      {/* AMOUNT - Readonly */}
-      <td className={`${cellBase} px-2 py-2 text-center border-r-0 bg-gradient-to-r from-indigo-50/50 to-indigo-100/50`}>
-        <span className="font-bold text-[#05015A] font-mono text-[12px]">
-          ₹{formatNumber(item.amount)}
-        </span>
+      {/* 16. Free - 4% */}
+      <td className={`${cellBase} w-[4%]`}>
+        <input ref={el => registerFieldRef("sch", el)} type="text" value={item.sch || ""} 
+          onChange={(e) => handleChange("sch", e.target.value)}
+          onKeyDown={(e) => handleKeyDown(e, "sch")}
+          className={`${inputBase} px-1 py-1.5 text-center font-semibold text-emerald-600`} 
+          placeholder="0"/>
       </td>
     </tr>
   );
-});
+}));
 
 PurchaseRowFixed.displayName = 'PurchaseRowFixed';
-
 export default PurchaseRowFixed;
