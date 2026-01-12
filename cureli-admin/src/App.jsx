@@ -15,13 +15,14 @@ import UserPage from "./pages/Users-management/UserPage";
 import CAdminForgotPassword from "./pages/Cadmin-Login/CAdminForgotPassword";
 import CAdminResetPassword from "./pages/Cadmin-Login/CAdminResetPassword";
 import VerificationPage from "./pages/User-Shop-Verifications/VerificationPage";
-import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
 import ShopsPage from "./pages/shops-management/ShopsPage";
 import AdminsPage from "./pages/Cadmin-management/AdminsPage";
-import SubscriptionOverviewPage from "./pages/Subscription-management/SubscriptionOverviewPage";
 
+// Subscription Management
+import RiskMonitorPage from "./pages/Subscription-management/RiskMonitorPage";
+import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
 
-// Communications Pages (NEW STRUCTURE)
+// Communications Pages
 import CommunicationsPage from "./pages/Communications/CommunicationsPage";
 import TicketsPage from "./pages/Communications/pages/Tickets/TicketsPage";
 import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage";
@@ -96,8 +97,10 @@ function App() {
           <Route path="/users" element={<UserPage />} />
           <Route path="/shops" element={<ShopsPage />} />
           <Route path="/verification" element={<VerificationPage />} />
-          <Route path="/subscriptions" element={<SubscriptionOverviewPage />} />
-<Route path="/subscriptions/manage" element={<SubscriptionPage />} />
+          
+          {/* Subscription Management */}
+          <Route path="/subscriptions" element={<RiskMonitorPage />} />
+          <Route path="/subscriptions/manage" element={<SubscriptionPage />} />
 
           <Route path="/audits" element={<div>Audits Page</div>} />
           <Route path="/settings" element={<div>Settings Page</div>} />
