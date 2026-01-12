@@ -1,3 +1,4 @@
+//backend\src\modules\auth\auth.schema.js
 import { z } from "zod";
 
 export const loginSchema = z.object({
@@ -10,7 +11,6 @@ export const loginSchema = z.object({
       "Password must include uppercase, lowercase, number, and symbol"
     ),
 });
-
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),

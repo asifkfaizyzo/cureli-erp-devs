@@ -1,5 +1,4 @@
-// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\auth\login.controller.js
-
+//backend\src\modules\auth\login.controller.js
 import prisma from "../../config/prisma.js";
 import { comparePassword } from "../../utils/hash.js";
 import jwt from "jsonwebtoken";
@@ -17,10 +16,6 @@ import {
   invalidateUserSession,
   validateUserSession,
 } from "../../utils/session.js";
-
-// ============================================
-// ONBOARDING CONTROLLERS
-// ============================================
 
 export async function getOnboardingStatusController(req, res) {
   try {
@@ -95,30 +90,21 @@ export async function updateOnboardingStepController(req, res) {
   }
 }
 
-
-
 export async function completeOnboardingController(req, res) {
   try {
     const user_id = req.user.user_id;
 
-    // ✅ Get current user to check if this is first-time verification
     const user = await prisma.user.findUnique({
       where: { user_id },
       select: { first_verified_at: true },
     });
 
-    // Build update data
     const updateData = {
       first_login_after_verification: true,
     };
 
-    // ✅ NEW: Only set first_verified_at if this is the FIRST time
-    // This preserves the original date for returning users
     if (!user?.first_verified_at) {
       updateData.first_verified_at = new Date();
-      console.log("📅 First-time verification complete for user:", user_id);
-    } else {
-      console.log("🔄 Returning user verification complete for user:", user_id);
     }
 
     await prisma.user.update({
@@ -132,10 +118,6 @@ export async function completeOnboardingController(req, res) {
     return fail(res, "Failed to complete onboarding", 500);
   }
 }
-
-// ============================================
-// LOGIN CONTROLLER
-// ============================================
 
 export async function loginController(req, res) {
   try {
@@ -215,17 +197,10 @@ export async function loginController(req, res) {
   }
 }
 
-
-// ============================================
-// RESEND LOGIN OTP CONTROLLER
-// ============================================
-
-
 export async function resendLoginOtpController(req, res) {
   try {
     const { temp_token } = req.validated;
 
-    // Verify temp token
     let decoded;
     try {
       decoded = jwt.verify(temp_token, TEMP_TOKEN_SECRET);
@@ -237,16 +212,13 @@ export async function resendLoginOtpController(req, res) {
       return fail(res, "Invalid token", 401);
     }
 
-    // Resend OTP
-    await sendLoginOtp(decoded.user_id, true); // true = isResend
+    await sendLoginOtp(decoded.user_id, true);
 
-    // Get user for phone hint
     const user = await prisma.user.findUnique({
       where: { user_id: decoded.user_id },
       select: { phone_number: true },
     });
 
-    // Issue a new temp token with fresh expiry
     const newTempToken = jwt.sign(
       { user_id: decoded.user_id, purpose: "login_otp" },
       TEMP_TOKEN_SECRET,
@@ -276,7 +248,6 @@ export async function resendLoginOtpController(req, res) {
     }
 
     if (err.code === "OTP_COOLDOWN") {
-      // Return with waitTime so frontend can sync timer
       return fail(res, err.message, 429, { waitTime: err.waitTime || 30 });
     }
 
@@ -287,15 +258,11 @@ export async function resendLoginOtpController(req, res) {
     return fail(res, "Failed to resend OTP", 500);
   }
 }
-// ============================================
-// VERIFY LOGIN OTP — UPDATED WITH branch_id
-// ============================================
 
 export async function verifyLoginOtpController(req, res) {
   try {
     const { temp_token, otp } = req.validated;
 
-    // Verify temp token
     let decoded;
     try {
       decoded = jwt.verify(temp_token, TEMP_TOKEN_SECRET);
@@ -307,19 +274,15 @@ export async function verifyLoginOtpController(req, res) {
       return fail(res, "Invalid token", 401);
     }
 
-    // Verify OTP with MessageCentral
     await verifyLoginOtp(decoded.user_id, otp);
 
-    // ============================================
-    // UPDATED: Fetch user WITH branch relation
-    // ============================================
     const user = await prisma.user.findUnique({
       where: { user_id: decoded.user_id },
       include: {
         shop: {
           select: {
             verification_status: true,
-             business_name: true,
+            business_name: true,
           },
         },
         branch: {
@@ -335,16 +298,12 @@ export async function verifyLoginOtpController(req, res) {
       return fail(res, "User not found", 404);
     }
 
-    // Create session (invalidates existing sessions)
     const sessionToken = await createUserSession(user.user_id, req);
 
-    // ============================================
-    // UPDATED: JWT payload now includes branch_id
-    // ============================================
     const jwtPayload = {
       user_id: user.user_id,
       shop_id: user.shop_id,
-      branch_id: user.branch_id || null, // NEW: branch context
+      branch_id: user.branch_id || null,
       role: user.role,
       status: user.status,
       session_id: sessionToken,
@@ -354,67 +313,46 @@ export async function verifyLoginOtpController(req, res) {
       expiresIn: ACCESS_EXPIRES,
     });
 
-    // Refresh token also includes branch_id for token refresh
     const refreshToken = jwt.sign(
       {
         user_id: user.user_id,
-        branch_id: user.branch_id || null, // NEW
+        branch_id: user.branch_id || null,
         session_id: sessionToken,
       },
       REFRESH_SECRET,
       { expiresIn: REFRESH_EXPIRES }
     );
 
-    // Set refresh token cookie
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // ============================================
-    // UPDATED: Role-aware next_step logic
-    // ============================================
-    let nextStep = -1; // Default: dashboard
+    let nextStep = -1;
     const shopStatus = user.shop?.verification_status;
 
-    
-    // Staff and Branch Admin: Created verified, go straight to dashboard
     if (user.role === "staff" || user.role === "branch_admin") {
       nextStep = -1;
-      console.log(`✅ ${user.role} → dashboard`);
-    }
-    // Super Admin: May still be in onboarding
-    else if (user.role === "super_admin") {
+    } else if (user.role === "super_admin") {
       if (user.status === "pending_setup") {
-        // Still in onboarding wizard
         nextStep = user.onboarding_step || 4;
-        console.log("📋 super_admin in onboarding, step:", nextStep);
       } else if (user.status === "pending_verification") {
-        // Documents submitted, awaiting review
         if (shopStatus === "partially_rejected" || shopStatus === "rejected") {
-          nextStep = 14; // Resubmission page
+          nextStep = 14;
         } else {
-          nextStep = 12; // Pending review page
+          nextStep = 12;
         }
-        console.log("⏳ super_admin pending verification, step:", nextStep);
       } else if (user.status === "verified" || user.status === "active") {
-        // Fully verified
         if (!user.first_login_after_verification) {
-          nextStep = 15; // Success/welcome page
+          nextStep = 15;
         } else {
-          nextStep = -1; // Dashboard
+          nextStep = -1;
         }
-        console.log("✅ super_admin verified, step:", nextStep);
       }
     }
 
-    console.log("📍 FINAL next_step:", nextStep);
-
-    // ============================================
-    // UPDATED: Response includes branch info
-    // ============================================
     return success(
       res,
       {
@@ -422,10 +360,10 @@ export async function verifyLoginOtpController(req, res) {
         next_step: nextStep,
         user_id: user.user_id,
         shop_id: user.shop_id,
-        branch_id: user.branch_id || null, // NEW
-        branch_name: user.branch?.branch_name || null, // NEW
+        branch_id: user.branch_id || null,
+        branch_name: user.branch?.branch_name || null,
         shop_name: user.shop?.business_name || null,
-        role: user.role, // NEW
+        role: user.role,
         user_name: `${user.first_name} ${user.last_name || ""}`.trim(),
       },
       "Login successful"
@@ -447,10 +385,6 @@ export async function verifyLoginOtpController(req, res) {
   }
 }
 
-// ============================================
-// TOKEN REFRESH — UPDATED WITH branch_id
-// ============================================
-
 export async function refreshTokenController(req, res) {
   try {
     const refreshToken = req.cookies.refresh_token;
@@ -466,7 +400,6 @@ export async function refreshTokenController(req, res) {
       return fail(res, "Invalid refresh token", 401);
     }
 
-    // Validate session is still active
     if (decoded.session_id) {
       const session = await validateUserSession(
         decoded.user_id,
@@ -489,15 +422,12 @@ export async function refreshTokenController(req, res) {
       }
     }
 
-    // ============================================
-    // UPDATED: Fetch fresh user data including branch_id
-    // ============================================
     const user = await prisma.user.findUnique({
       where: { user_id: decoded.user_id },
       select: {
         user_id: true,
         shop_id: true,
-        branch_id: true, // NEW
+        branch_id: true,
         role: true,
         status: true,
         is_active: true,
@@ -508,14 +438,11 @@ export async function refreshTokenController(req, res) {
       return fail(res, "Invalid user", 401);
     }
 
-    // ============================================
-    // UPDATED: New access token includes branch_id
-    // ============================================
     const accessToken = jwt.sign(
       {
         user_id: user.user_id,
         shop_id: user.shop_id,
-        branch_id: user.branch_id || null, // NEW
+        branch_id: user.branch_id || null,
         role: user.role,
         status: user.status,
         session_id: decoded.session_id,
@@ -530,10 +457,6 @@ export async function refreshTokenController(req, res) {
     return fail(res, "Invalid refresh token", 401);
   }
 }
-
-// ============================================
-// LOGOUT CONTROLLER (unchanged)
-// ============================================
 
 export async function logoutController(req, res) {
   try {

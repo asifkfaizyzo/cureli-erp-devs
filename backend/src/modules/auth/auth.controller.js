@@ -1,9 +1,8 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\auth\auth.controller.js
-
+//backend\src\modules\auth\auth.controller.js
 import prisma from "../../config/prisma.js";
 import { fail, success } from "../../utils/response.js";
 import jwt from "jsonwebtoken";
-import { ACCESS_SECRET, ACCESS_EXPIRES,REFRESH_SECRET } from "../../config/jwt.js";
+import { ACCESS_SECRET, ACCESS_EXPIRES, REFRESH_SECRET } from "../../config/jwt.js";
 import { requestPasswordReset, resetPassword } from "./auth.service.js";
 
 export async function refreshTokenController(req, res) {
@@ -24,7 +23,6 @@ export async function refreshTokenController(req, res) {
       return fail(res, "Invalid user", 401);
     }
     
-    // Issue new access token
     const accessToken = jwt.sign(
       {
         user_id: user.user_id,
@@ -37,15 +35,10 @@ export async function refreshTokenController(req, res) {
     );
     
     return success(res, { access_token: accessToken });
-    
   } catch (err) {
     return fail(res, "Invalid refresh token", 401);
   }
 }
-
-
-
-
 
 export async function forgotPasswordController(req, res) {
   try {
