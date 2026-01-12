@@ -247,24 +247,26 @@ const App = () => {
                     path="/reset-password"
                     element={<ResetPasswordPage />}
                   />
-<Route
-                      path="/plan-selection"
-                      element={<PlanSelectionPage />}
-                    />
+                  
                   {/* ============================================ */}
                   {/* ONBOARDING ROUTES (Special guard) */}
                   {/* ============================================ */}
                   <Route element={<OnboardingGuard />}>
                     <Route path="/onboarding" element={<OnboardingPage />} />
-                    <Route path="/verification" element={<VerificationPage />} />
+                    <Route
+                      path="/verification"
+                      element={<VerificationPage />}
+                    />
                   </Route>
 
                   {/* ============================================ */}
                   {/* POST-VERIFICATION ROUTES (Token required) */}
                   {/* ============================================ */}
                   <Route element={<AuthGuard />}>
-                    
-
+                  <Route
+                    path="/plan-selection"
+                    element={<PlanSelectionPage />}
+                  />
                     {/* Setup Routes */}
                     <Route path="/setup" element={<SetupRouter />} />
                     <Route element={<SetupLayout />}>
@@ -272,10 +274,7 @@ const App = () => {
                         path="/setup/branches"
                         element={<SetupBranchesPage />}
                       />
-                      <Route
-                        path="/setup/users"
-                        element={<SetupUsersPage />}
-                      />
+                      <Route path="/setup/users" element={<SetupUsersPage />} />
                       <Route
                         path="/setup/review"
                         element={<SetupReviewPage />}
