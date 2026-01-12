@@ -409,13 +409,6 @@ const PurchaseTable = ({
         {/* Scroll Indicator Bar */}
         {hasOverflow && (
           <div className="shrink-0 h-1 bg-slate-100 relative">
-            {/* <div 
-              className="absolute h-full bg-indigo-400 rounded-full transition-all duration-150"
-              style={{
-                width: `${(visibleRows / totalRows) * 100}%`,
-                left: `${((scrollInfo.currentTopRow - 1) / totalRows) * 100}%`,
-              }}
-            /> */}
           </div>
         )}
       </div>
