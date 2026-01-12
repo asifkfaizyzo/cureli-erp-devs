@@ -203,7 +203,36 @@ export async function completeSetup({ shop_id, user_id, branches, users }) {
     }
   }
 
-  // Step 4: Create everything in a transaction
+  // ============================================
+  // Step 4: Validate Branch Admin constraint
+  // Each branch can only have ONE branch_admin
+  // ============================================
+  const branchAdminAssignments = new Map(); // temp_id -> user full_name
+  
+  for (const userData of users) {
+    if (userData.role === "branch_admin") {
+      const branchTempId = userData.branch_temp_id;
+      
+      if (branchAdminAssignments.has(branchTempId)) {
+        // Find branch name for better error message
+        const branchData = branches.find((b) => b.temp_id === branchTempId);
+        const branchName = branchData?.branch_name || "Unknown branch";
+        const existingAdmin = branchAdminAssignments.get(branchTempId);
+        
+        const err = new Error(
+          `Branch "${branchName}" has multiple Branch Admins assigned: ` +
+          `"${existingAdmin}" and "${userData.full_name}". ` +
+          `Each branch can only have one Branch Admin.`
+        );
+        err.code = "DUPLICATE_BRANCH_ADMIN";
+        throw err;
+      }
+      
+      branchAdminAssignments.set(branchTempId, userData.full_name);
+    }
+  }
+
+  // Step 5: Create everything in a transaction
   const result = await prisma.$transaction(async (tx) => {
     // Create a map to store temp_id -> real branch_id
     const branchIdMap = new Map();

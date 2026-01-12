@@ -119,6 +119,9 @@ export async function completeSetupController(req, res) {
     if (err.code === "NO_SUBSCRIPTION") {
       return fail(res, err.message, 400);
     }
+    if (err.code === "DUPLICATE_BRANCH_ADMIN") {
+      return fail(res, err.message, 400);
+    }
 
     return fail(res, "Failed to complete setup. Please try again.", 500);
   }
