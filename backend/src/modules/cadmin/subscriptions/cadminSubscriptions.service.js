@@ -6,28 +6,18 @@ import prisma from "../../../config/prisma.js";
 // HELPER FUNCTIONS
 // ============================================
 
-/**
- * Create error with code for controller handling
- */
 function createError(message, code) {
   const err = new Error(message);
   err.code = code;
   return err;
 }
 
-/**
- * Add days to a date
- */
 function addDays(date, days) {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
 }
 
-/**
- * Calculate days remaining until a target date
- * Returns negative if date is in the past
- */
 function getDaysRemaining(targetDate) {
   if (!targetDate) return null;
   const now = new Date();
@@ -36,14 +26,10 @@ function getDaysRemaining(targetDate) {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
-/**
- * Format subscription data for API response
- */
 function formatSubscriptionForList(subscription, category) {
   const shop = subscription.shop;
   const plan = subscription.plan;
 
-  // Calculate days left based on category
   let daysLeft = null;
   if (category === "expiring") {
     daysLeft = getDaysRemaining(subscription.end_date);
@@ -52,35 +38,29 @@ function formatSubscriptionForList(subscription, category) {
   }
 
   return {
-    // Subscription info
     subscription_id: subscription.subscription_id,
     status: subscription.status,
     payment_status: subscription.payment_status,
     is_active: subscription.is_active,
 
-    // Dates
     start_date: subscription.start_date,
     end_date: subscription.end_date,
     grace_period_until: subscription.grace_period_until,
     updated_at: subscription.updated_at,
 
-    // Computed
     days_left: daysLeft,
     is_critical: daysLeft !== null && daysLeft <= 3,
 
-    // Shop info
     shop_id: shop?.shop_id || null,
     shop_name: shop?.business_name || "Unknown Shop",
     shop_city: shop?.city || "",
     shop_state: shop?.state || "",
     shop_is_active: shop?.is_active ?? true,
 
-    // Owner info
     owner_name: shop?.owner?.full_name || "",
     owner_email: shop?.owner?.email || "",
     owner_phone: shop?.owner?.phone_number || "",
 
-    // Plan info
     plan_id: plan?.plan_id || null,
     plan_name: plan?.name || "Unknown Plan",
     plan_type: plan?.type || "PRE_MADE",
@@ -124,19 +104,17 @@ const subscriptionIncludes = {
 };
 
 // ============================================
-// GET AT-RISK SUBSCRIPTIONS
+// GET AT-RISK SUBSCRIPTIONS (FIXED)
 // ============================================
 
 export async function getAtRiskSubscriptions(rangeDays = 30) {
   const now = new Date();
   const rangeEnd = addDays(now, rangeDays);
 
-  // Execute all three queries in parallel
   const [expiring, gracePeriod, suspended] = await Promise.all([
     // ----------------------------------------
-    // 1. EXPIRING SOON
-    // Subscriptions that will expire within the range
-    // Have NOT entered grace period yet
+    // 1. EXPIRING SOON (FIXED)
+    // Date-driven only. Grace existence is irrelevant.
     // ----------------------------------------
     prisma.shopSubscription.findMany({
       where: {
@@ -144,11 +122,6 @@ export async function getAtRiskSubscriptions(rangeDays = 30) {
           gte: now,
           lte: rangeEnd,
         },
-        // Not yet in grace period
-        OR: [
-          { grace_period_until: null },
-          { grace_period_until: { lt: now } },
-        ],
         is_active: true,
         status: "active",
       },
@@ -158,18 +131,14 @@ export async function getAtRiskSubscriptions(rangeDays = 30) {
 
     // ----------------------------------------
     // 2. IN GRACE PERIOD
-    // Subscriptions where:
-    // - end_date has passed (or about to)
-    // - grace_period_until is in the future
-    // - still active (not suspended yet)
     // ----------------------------------------
     prisma.shopSubscription.findMany({
       where: {
-        grace_period_until: {
-          gte: now,
-        },
         end_date: {
-          lt: now, // Already past end date
+          lt: now,
+        },
+        grace_period_until: {
+          gt: now,
         },
         is_active: true,
       },
@@ -179,7 +148,6 @@ export async function getAtRiskSubscriptions(rangeDays = 30) {
 
     // ----------------------------------------
     // 3. SUSPENDED
-    // Subscriptions that are no longer active
     // ----------------------------------------
     prisma.shopSubscription.findMany({
       where: {
@@ -187,32 +155,31 @@ export async function getAtRiskSubscriptions(rangeDays = 30) {
       },
       include: subscriptionIncludes,
       orderBy: { updated_at: "desc" },
-      take: 100, // Limit to prevent huge response
+      take: 100,
     }),
   ]);
 
-  // Format responses
-  const formattedExpiring = expiring.map((sub) =>
-    formatSubscriptionForList(sub, "expiring")
+  const formattedExpiring = expiring.map((s) =>
+    formatSubscriptionForList(s, "expiring")
   );
-  const formattedGracePeriod = gracePeriod.map((sub) =>
-    formatSubscriptionForList(sub, "gracePeriod")
+  const formattedGrace = gracePeriod.map((s) =>
+    formatSubscriptionForList(s, "gracePeriod")
   );
-  const formattedSuspended = suspended.map((sub) =>
-    formatSubscriptionForList(sub, "suspended")
+  const formattedSuspended = suspended.map((s) =>
+    formatSubscriptionForList(s, "suspended")
   );
 
   return {
     expiring: formattedExpiring,
-    gracePeriod: formattedGracePeriod,
+    gracePeriod: formattedGrace,
     suspended: formattedSuspended,
     counts: {
       expiring: formattedExpiring.length,
-      gracePeriod: formattedGracePeriod.length,
+      gracePeriod: formattedGrace.length,
       suspended: formattedSuspended.length,
       total:
         formattedExpiring.length +
-        formattedGracePeriod.length +
+        formattedGrace.length +
         formattedSuspended.length,
     },
     meta: {
@@ -223,7 +190,7 @@ export async function getAtRiskSubscriptions(rangeDays = 30) {
 }
 
 // ============================================
-// GET SUBSCRIPTION BY ID
+// GET SUBSCRIPTION BY ID (UNCHANGED)
 // ============================================
 
 export async function getSubscriptionById(subscriptionId) {
@@ -292,7 +259,6 @@ export async function getSubscriptionById(subscriptionId) {
     throw createError("Subscription not found", "NOT_FOUND");
   }
 
-  // Calculate derived fields
   const daysUntilExpiry = getDaysRemaining(subscription.end_date);
   const daysUntilGraceEnd = getDaysRemaining(subscription.grace_period_until);
 
@@ -303,7 +269,6 @@ export async function getSubscriptionById(subscriptionId) {
     billing_cycle: subscription.billing_cycle,
     is_active: subscription.is_active,
 
-    // Dates
     start_date: subscription.start_date,
     end_date: subscription.end_date,
     renewal_date: subscription.renewal_date,
@@ -311,17 +276,18 @@ export async function getSubscriptionById(subscriptionId) {
     created_at: subscription.created_at,
     updated_at: subscription.updated_at,
 
-    // Snapshots
     branch_limit_snapshot: subscription.branch_limit_snapshot,
     user_limit_snapshot: subscription.user_limit_snapshot,
 
-    // Computed
     days_until_expiry: daysUntilExpiry,
     days_until_grace_end: daysUntilGraceEnd,
     is_expired: daysUntilExpiry !== null && daysUntilExpiry < 0,
-    is_in_grace: daysUntilGraceEnd !== null && daysUntilGraceEnd >= 0,
+    is_in_grace:
+      daysUntilExpiry !== null &&
+      daysUntilExpiry < 0 &&
+      daysUntilGraceEnd !== null &&
+      daysUntilGraceEnd >= 0,
 
-    // Related data
     shop: subscription.shop,
     plan: {
       ...subscription.plan,
@@ -336,6 +302,13 @@ export async function getSubscriptionById(subscriptionId) {
     })),
   };
 }
+
+// ============================================
+// ALL OTHER METHODS BELOW ARE UNCHANGED
+// (sendPaymentReminder, extendGracePeriod,
+//  forceSuspendSubscription, reactivateSubscription)
+// ============================================
+
 
 // ============================================
 // SEND PAYMENT REMINDER

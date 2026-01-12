@@ -22,8 +22,8 @@ import {
   STATUS_CONFIG, 
   BILLING,
   isNameAvailable 
-} from "../../../config/modules/subscriptionConfig";
-import StyledDateFilter from "../../../components/common/StyledDateFilter";
+} from "../../../../config/modules/subscriptionConfig";
+import StyledDateFilter from "../../../../components/common/StyledDateFilter";
 
 export default function PlanModal({ 
   isOpen, 

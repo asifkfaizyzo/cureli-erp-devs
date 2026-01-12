@@ -1,6 +1,6 @@
 import {
   Plus,
-  CreditCard,
+  BadgeIndianRupee,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -11,11 +11,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useToast } from "../../components/common/Toast";
 
 // Components
-import PlanCard from "./comps/PlanCard";
-import PlanModal from "./comps/PlanModal";
-import CreatePlanModal from "./comps/CreatePlanModal";
-import ConfirmActionModal from "./comps/ConfirmActionModal";
-import PlanFilterBar from "./comps/PlanFilterBar";
+import PlanCard from "./comps/plans/PlanCard";
+import PlanModal from "./comps/plans/PlanModal";
+import CreatePlanModal from "./comps/plans/CreatePlanModal";
+import ConfirmActionModal from "./comps/plans/ConfirmActionModal";
+import PlanFilterBar from "./comps/plans/PlanFilterBar";
 
 // Config
 import {
@@ -469,7 +469,7 @@ export default function SubscriptionPage() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-[#05015A] rounded-xl shadow-lg shadow-[#05015A]/20">
-            <CreditCard className="text-white" size={22} />
+            <BadgeIndianRupee className="text-white" size={22} />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-[#05015A]">
@@ -615,7 +615,7 @@ export default function SubscriptionPage() {
         /* Empty State */
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200">
           <div className="p-5 bg-gray-100 rounded-full mb-5">
-            <CreditCard size={48} className="text-gray-400" />
+            <BadgeIndianRupee size={48} className="text-gray-400" />
           </div>
           <h3 className="text-xl font-semibold text-gray-700 mb-2">
             {planTypeFilter === "CUSTOM" ? "No Custom Plans" : "No Plans Found"}
