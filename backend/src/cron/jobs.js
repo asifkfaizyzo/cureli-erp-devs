@@ -1,4 +1,4 @@
-// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\cron\jobs.js
+// backend/src/cron/jobs.js
 
 import cron from "node-cron";
 import { transitionDeprecatedPlans } from "../modules/cadmin/plans/cadminPlans.service.js";
@@ -9,24 +9,35 @@ import {
   cleanupOldDeletionLogs,
 } from "../utils/cleanup.js";
 
-/**
- * Session cleanup - runs every hour
- */
+// NEW IMPORTS
+import {
+  transitionExpiredToGrace,
+  suspendExpiredGrace,
+  transitionPendingToOverdue,
+  getSubscriptionsDueForReminders,
+} from "../modules/subscription/subscription.service.js";
+
+import { notifyAsync, NOTIFICATION_EVENTS } from "../modules/notifications/index.js";
+
+// ============================================
+// SESSION CLEANUP - Every hour
+// ============================================
+
 async function runSessionCleanup() {
   try {
     const count = await cleanupExpiredSessions();
     if (count > 0) {
-      console.log(`🧹 [CRON] Cleaned up ${count} expired sessions`);
+      console.log(`[CRON] Cleaned up ${count} expired sessions`);
     }
   } catch (err) {
     console.error("[CRON] Session cleanup failed:", err);
   }
 }
 
-/**
- * Plan Status Transition Job
- * Runs daily at 2:00 AM
- */
+// ============================================
+// PLAN STATUS TRANSITION - Daily at 2:00 AM
+// ============================================
+
 function initializePlanTransitionJob() {
   cron.schedule("0 2 * * *", async () => {
     console.log("[CRON] Starting plan status transition check...");
@@ -49,27 +60,173 @@ function initializePlanTransitionJob() {
   console.log("[CRON] Plan transition job scheduled (daily at 2:00 AM)");
 }
 
-/**
- * Initialize all cron jobs
- */
-export function initializeCronJobs() {
-  console.log("⏰ Initializing cron jobs...");
+// ============================================
+// CRON 1: SUBSCRIPTION LIFECYCLE (Every hour)
+// ============================================
 
-  // ============================================
-  // SESSION CLEANUP - Every hour
-  // ============================================
+function initializeSubscriptionLifecycleJob() {
+  cron.schedule("0 * * * *", async () => {
+    console.log("[CRON] Starting subscription lifecycle check...");
+
+    try {
+      // 1. Expired → Grace Period
+      const graceResult = await transitionExpiredToGrace();
+      if (graceResult.transitioned > 0) {
+        console.log(`[CRON] Expired → Grace: ${graceResult.transitioned} subscriptions`);
+
+        for (const r of graceResult.results) {
+          console.log(`       - ${r.shop_name}: grace until ${r.grace_period_until.toISOString().split("T")[0]}`);
+
+          // SEND GRACE STARTED EMAIL
+          notifyAsync({
+            type: NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_STARTED,
+            context: {
+              shop_id: r.shop_id,
+              shop_name: r.shop_name,
+              end_date: r.end_date,
+              grace_period_until: r.grace_period_until,
+            },
+          });
+        }
+      }
+
+      // 2. Grace Expired → Suspended
+      const suspendResult = await suspendExpiredGrace();
+      if (suspendResult.suspended > 0) {
+        console.log(`[CRON] Grace → Suspended: ${suspendResult.suspended} subscriptions`);
+
+        for (const r of suspendResult.results) {
+          console.log(`       - ${r.shop_name} (${r.shop_id}): SUSPENDED`);
+
+          // SEND SUSPENDED EMAIL
+          notifyAsync({
+            type: NOTIFICATION_EVENTS.SUBSCRIPTION_SUSPENDED,
+            context: {
+              shop_id: r.shop_id,
+              shop_name: r.shop_name,
+            },
+          });
+        }
+      }
+
+      console.log(`[CRON] Subscription lifecycle complete`);
+      console.log(`       Grace: ${graceResult.transitioned} | Suspended: ${suspendResult.suspended}`);
+    } catch (err) {
+      console.error("[CRON] Subscription lifecycle job failed:", err);
+    }
+  });
+
+  console.log("[CRON] Subscription lifecycle job scheduled (every hour)");
+}
+
+// ============================================
+// CRON 2: PAYMENT STATUS SYNC - Daily at 1:00 AM
+// ============================================
+
+function initializePaymentStatusSyncJob() {
+  cron.schedule("0 1 * * *", async () => {
+    console.log("[CRON] Starting payment status sync...");
+
+    try {
+      const result = await transitionPendingToOverdue();
+
+      if (result.updated > 0) {
+        console.log(`[CRON] Pending → Overdue: ${result.updated} subscriptions`);
+      }
+
+      console.log(`[CRON] Payment status sync complete`);
+    } catch (err) {
+      console.error("[CRON] Payment status sync failed:", err);
+    }
+  });
+
+  console.log("[CRON] Payment status sync job scheduled (daily at 1:00 AM)");
+}
+
+// ============================================
+// CRON 3: REMINDERS & FINAL WARNINGS - Daily at 9:00 AM
+// ============================================
+
+function initializeReminderJob() {
+  cron.schedule("0 9 * * *", async () => {
+    console.log("[CRON] Starting reminder emails...");
+
+    try {
+      const reminders = await getSubscriptionsDueForReminders();
+
+      // 7 DAYS BEFORE EXPIRY
+      if (reminders.expiring7Days.length > 0) {
+        console.log(`[CRON] Expiring in 7 days: ${reminders.expiring7Days.length} shops`);
+        for (const sub of reminders.expiring7Days) {
+          notifyAsync({
+            type: NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_7_DAYS,
+            context: {
+              shop_id: sub.shop_id,
+              shop_name: sub.shop.business_name,
+              end_date: sub.end_date,
+              plan_name: sub.plan?.name || "Standard",
+              daysLeft: 7,
+            },
+          });
+        }
+      }
+
+      // 3 DAYS BEFORE EXPIRY
+      if (reminders.expiring3Days.length > 0) {
+        console.log(`[CRON] Expiring in 3 days: ${reminders.expiring3Days.length} shops`);
+        for (const sub of reminders.expiring3Days) {
+          notifyAsync({
+            type: NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_3_DAYS,
+            context: {
+              shop_id: sub.shop_id,
+              shop_name: sub.shop.business_name,
+              end_date: sub.end_date,
+              plan_name: sub.plan?.name || "Standard",
+              daysLeft: 3,
+            },
+          });
+        }
+      }
+
+      // GRACE ENDING TOMORROW
+      if (reminders.graceEndingSoon.length > 0) {
+        console.log(`[CRON] Grace ending tomorrow: ${reminders.graceEndingSoon.length} shops`);
+        for (const sub of reminders.graceEndingSoon) {
+          notifyAsync({
+            type: NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_ENDING,
+            context: {
+              shop_id: sub.shop_id,
+              shop_name: sub.shop.business_name,
+              grace_period_until: sub.grace_period_until,
+            },
+          });
+        }
+      }
+
+      console.log("[CRON] All reminder emails dispatched");
+    } catch (err) {
+      console.error("[CRON] Reminder job failed:", err);
+    }
+  });
+
+  console.log("[CRON] Reminder job scheduled (daily at 9:00 AM)");
+}
+
+// ============================================
+// INITIALIZE ALL CRON JOBS
+// ============================================
+
+export function initializeCronJobs() {
+  console.log("Initializing cron jobs...");
+
   setInterval(runSessionCleanup, 60 * 60 * 1000);
-  // Run once on startup
   runSessionCleanup();
 
-  // ============================================
-  // PLAN TRANSITION - Daily at 2:00 AM
-  // ============================================
   initializePlanTransitionJob();
+  initializeSubscriptionLifecycleJob();     // Now sends emails!
+  initializePaymentStatusSyncJob();
+  initializeReminderJob();                  // Now sends 7-day, 3-day, final warning!
 
-  // ============================================
-  // CLEANUP OLD PENDING USERS - Daily at 3:00 AM
-  // ============================================
   cron.schedule("0 3 * * *", async () => {
     console.log("🧹 [CRON] Running pending users cleanup...");
     try {
@@ -80,9 +237,6 @@ export function initializeCronJobs() {
     }
   });
 
-  // ============================================
-  // CLEANUP INCOMPLETE USERS - Daily at 3:15 AM
-  // ============================================
   cron.schedule("15 3 * * *", async () => {
     console.log("🧹 [CRON] Running incomplete users cleanup...");
     try {
@@ -93,9 +247,6 @@ export function initializeCronJobs() {
     }
   });
 
-  // ============================================
-  // CLEANUP OLD DELETION LOGS - Daily at 3:30 AM
-  // ============================================
   cron.schedule("30 3 * * *", async () => {
     console.log("🧹 [CRON] Running deletion logs cleanup...");
     try {
@@ -106,9 +257,12 @@ export function initializeCronJobs() {
     }
   });
 
-  console.log("✅ All cron jobs initialized:");
+  console.log("All cron jobs initialized:");
   console.log("   - Session cleanup: Every hour");
   console.log("   - Plan transition: Daily at 2:00 AM");
+  console.log("   - Subscription lifecycle + emails: Every hour");
+  console.log("   - Payment status sync: Daily at 1:00 AM");
+  console.log("   - Reminder emails (7d/3d/final): Daily at 9:00 AM");
   console.log("   - Pending users cleanup: Daily at 3:00 AM");
   console.log("   - Incomplete users cleanup: Daily at 3:15 AM");
   console.log("   - Deletion logs cleanup: Daily at 3:30 AM");

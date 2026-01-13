@@ -1,17 +1,8 @@
 // backend/src/modules/enquiries/enquiries.service.js
-import prisma from "../../config/prisma.js";
-import { sendMail } from "../../utils/email.js";
 
-// HTML escape function for XSS prevention in emails
-const escapeHtml = (text) => {
-  if (!text) return "";
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-};
+import prisma from "../../config/prisma.js";
+import { notify } from "../notifications/index.js";
+import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 
 // Sanitize search input for LIKE patterns
 const sanitizeSearchPattern = (search) => {
@@ -51,6 +42,18 @@ export const createEnquiry = async (data) => {
       status: "PENDING",
     },
   });
+
+  
+  notify({
+    type: NOTIFICATION_EVENTS.ENQUIRY_RECEIVED,
+    context: {
+      email: enquiry.email,
+      name: enquiry.name,
+      enquiry_number: enquiry.enquiry_number,
+      message: enquiry.message,
+    },
+  }).catch(console.error);
+  
 
   return enquiry;
 };
@@ -152,118 +155,25 @@ export const replyToEnquiry = async (enquiryId, adminId, data) => {
   const adminName = admin?.name || "Support Team";
   const adminEmail = admin?.email || process.env.MAIL_USER || "support@cureli.com";
 
-  // Escape HTML to prevent XSS in emails
-  const escapedName = escapeHtml(enquiry.name);
-  const escapedSubject = escapeHtml(data.subject);
-  const escapedMessage = escapeHtml(data.message);
-  const escapedAdminName = escapeHtml(adminName);
-
-  const emailHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <style>
-        body { 
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-          line-height: 1.6; 
-          color: #333; 
-          margin: 0; 
-          padding: 0; 
-        }
-        .container { 
-          max-width: 600px; 
-          margin: 0 auto; 
-          padding: 20px; 
-        }
-        .header { 
-          background: linear-gradient(135deg, #000060, #1a1a8f); 
-          color: white; 
-          padding: 30px; 
-          text-align: center; 
-          border-radius: 10px 10px 0 0; 
-        }
-        .content { 
-          background: #f9f9f9; 
-          padding: 30px; 
-          border: 1px solid #e0e0e0; 
-        }
-        .message-box { 
-          background: white; 
-          padding: 20px; 
-          border-radius: 8px; 
-          margin: 20px 0; 
-          border-left: 4px solid #000060; 
-        }
-        .footer { 
-          background: #333; 
-          color: #aaa; 
-          padding: 20px; 
-          text-align: center; 
-          font-size: 12px; 
-          border-radius: 0 0 10px 10px; 
-        }
-        .reference { 
-          color: #666; 
-          font-size: 14px; 
-        }
-        .signature {
-          margin-top: 25px;
-          padding-top: 15px;
-          border-top: 1px solid #e0e0e0;
-        }
-        .signature-name {
-          color: #000060;
-          font-weight: 600;
-        }
-        .signature-email {
-          color: #666;
-          font-size: 13px;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1 style="margin: 0;">Cureli ERP</h1>
-          <p style="margin: 10px 0 0;">Response to Your Enquiry</p>
-        </div>
-        <div class="content">
-          <p>Dear <strong>${escapedName}</strong>,</p>
-          <p>Thank you for reaching out to us. Here is our response to your enquiry:</p>
-          
-          <div class="message-box">
-            <h3 style="margin-top: 0; color: #000060;">${escapedSubject}</h3>
-            <div style="white-space: pre-wrap;">${escapedMessage}</div>
-          </div>
-          
-          <p class="reference">Reference: <strong>${enquiry.enquiry_number}</strong></p>
-          
-          <p>If you have any further questions, please don't hesitate to reply to this email.</p>
-          
-          <div class="signature">
-            <p style="margin: 0;">Best regards,</p>
-            <p class="signature-name" style="margin: 5px 0 0;">${escapedAdminName}</p>
-            <p class="signature-email" style="margin: 2px 0 0;">${adminEmail}</p>
-            <p style="margin: 8px 0 0; font-size: 12px; color: #888;">Cureli ERP Support Team</p>
-          </div>
-        </div>
-        <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} Cureli ERP. All rights reserved.</p>
-          <p>Response sent by ${escapedAdminName}</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-
   let emailSent = false;
   let emailError = null;
 
   try {
-    await sendMail(enquiry.email, data.subject, emailHtml);
-    emailSent = true;
+    // ✅ Send reply notification via centralized system
+    const result = await notify({
+      type: NOTIFICATION_EVENTS.ENQUIRY_REPLIED,
+      context: {
+        email: enquiry.email,
+        name: enquiry.name,
+        enquiry_number: enquiry.enquiry_number,
+        reply_subject: data.subject,
+        reply_message: data.message,
+        admin_name: adminName,
+        admin_email: adminEmail,
+      },
+    });
+
+    emailSent = result.success && result.channels?.email?.sent > 0;
   } catch (err) {
     emailError = err.message;
     console.error("Failed to send email:", err);
@@ -336,7 +246,6 @@ export const deleteEnquiry = async (enquiryId) => {
     throw new Error("Enquiry not found");
   }
 
-  // Delete replies first (if not using cascade delete)
   await prisma.enquiryReply.deleteMany({
     where: { enquiry_id: enquiryId },
   });

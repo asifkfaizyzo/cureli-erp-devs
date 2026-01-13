@@ -86,7 +86,7 @@ function App() {
             PUBLIC ROUTES (No Layout)
         ══════════════════════════════════════════════════════ */}
         <Route path="/login" element={<AdminLoginPage />} />
-        <Route path="/forgot-password" element={<CAdminForgotPassword />} />
+        <Route path="/admin-forgot-password" element={<CAdminForgotPassword />} />
         <Route path="/reset-password" element={<CAdminResetPassword />} />
 
         {/* ══════════════════════════════════════════════════════

@@ -64,7 +64,7 @@ const CAdminForgotPassword = () => {
 
           <button
             className="w-full bg-[#000060] text-white py-3 rounded-xl mt-4 hover:bg-[#000060d1] transition"
-            onClick={() => navigate("/cadmin-login")}
+            onClick={() => navigate("/login")}
           >
             Back to Login
           </button>
@@ -81,7 +81,7 @@ const CAdminForgotPassword = () => {
         className="w-full max-w-md bg-white rounded-xl shadow-md p-8"
       >
         <button
-          onClick={() => navigate("/cadmin-login")}
+          onClick={() => navigate("/login")}
           className="flex items-center gap-2 text-[#000060] hover:underline mb-6"
         >
           <IoArrowBack />

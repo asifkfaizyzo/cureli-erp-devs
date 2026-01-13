@@ -1,10 +1,12 @@
-//backend\src\modules\auth\auth.service.js
+// backend/src/modules/auth/auth.service.js
+
 import prisma from "../../config/prisma.js";
 import { hashPassword } from "../../utils/hash.js";
 import { generateResetToken, hashToken } from "../../utils/tokens.js";
-import { sendMail } from "../../utils/email.js";
 import jwt from "jsonwebtoken";
 import { ACCESS_SECRET, REFRESH_SECRET, ACCESS_EXPIRES, REFRESH_EXPIRES } from "../../config/jwt.js";
+import { notify } from "../notifications/index.js";
+import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 
 export async function createOwnerAccount({ first_name, last_name, email, password }) {
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -57,6 +59,7 @@ export async function requestPasswordReset(email) {
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
+    // Don't reveal whether email exists
     return { success: true };
   }
 
@@ -80,37 +83,16 @@ export async function requestPasswordReset(email) {
 
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #000060;">Reset Your Password</h2>
-      <p>Hi ${user.first_name},</p>
-      <p>You requested to reset your password for your Cureli account.</p>
-      <p>Click the button below to reset your password:</p>
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${resetUrl}" 
-           style="background-color: #000060; color: white; padding: 12px 30px; 
-                  text-decoration: none; border-radius: 8px; display: inline-block;">
-          Reset Password
-        </a>
-      </div>
-      <p style="color: #666; font-size: 14px;">
-        Or copy and paste this link into your browser:<br/>
-        <a href="${resetUrl}" style="color: #000060;">${resetUrl}</a>
-      </p>
-      <p style="color: #666; font-size: 14px;">
-        <strong>This link will expire in 15 minutes.</strong>
-      </p>
-      <p style="color: #666; font-size: 14px;">
-        If you didn't request this, please ignore this email. Your password will remain unchanged.
-      </p>
-      <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;"/>
-      <p style="color: #999; font-size: 12px;">
-        Cureli ERP - Pharmacy Management System
-      </p>
-    </div>
-  `;
-
-  await sendMail(user.email, "Reset Your Password - Cureli", html);
+  // ✅ Send notification via centralized system
+  await notify({
+    type: NOTIFICATION_EVENTS.PASSWORD_RESET_REQUESTED,
+    context: {
+      email: user.email,
+      name: user.first_name,
+      resetUrl,
+      expires_in_minutes: 15,
+    },
+  });
 
   return { success: true };
 }

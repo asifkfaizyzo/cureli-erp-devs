@@ -2,6 +2,8 @@
 
 import prisma from "../../config/prisma.js";
 import fs from "fs";
+import { notifyAsync } from "../notifications/index.js";  // ✅ ADD THIS
+import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";  // ✅ ADD THIS
 
 // ============================================
 // CONSTANTS
@@ -65,7 +67,7 @@ function sanitizeLogData(data) {
 // ============================================
 async function generateTicketNumber(shop_id, tx, attempt = 1) {
   const shopCode = shop_id.substring(0, 4).toUpperCase();
-  
+
   // Use a more robust approach: get the highest ticket number and increment
   const lastTicket = await tx.ticket.findFirst({
     where: { shop_id },
@@ -74,7 +76,7 @@ async function generateTicketNumber(shop_id, tx, attempt = 1) {
   });
 
   let sequentialNumber;
-  
+
   if (lastTicket && lastTicket.ticket_number) {
     // Extract the number from the last ticket (format: TKT-XXXX-00001)
     const parts = lastTicket.ticket_number.split("-");
@@ -142,7 +144,8 @@ function transformTicket(ticket) {
     reopen_reason: ticket.reopen_reason,
 
     attachments: ticket.attachments || [],
-    attachment_count: ticket._count?.attachments || ticket.attachments?.length || 0,
+    attachment_count:
+      ticket._count?.attachments || ticket.attachments?.length || 0,
 
     created_at: ticket.created_at,
     updated_at: ticket.updated_at,
@@ -157,7 +160,12 @@ const ticketInclude = {
     select: { branch_id: true, branch_name: true },
   },
   created_by: {
-    select: { user_id: true, full_name: true, role: true },
+    select: { 
+      user_id: true, 
+      full_name: true, 
+      role: true,
+      email: true  // ✅ ADD THIS LINE
+    },
   },
   cancelled_by: {
     select: { user_id: true, full_name: true, role: true },
@@ -182,7 +190,7 @@ const ticketInclude = {
 // ============================================
 async function checkDuplicateTicket(shop_id, user_id, subject) {
   const ONE_MINUTE_AGO = new Date(Date.now() - 60 * 1000);
-  
+
   const recentTicket = await prisma.ticket.findFirst({
     where: {
       shop_id,
@@ -193,7 +201,9 @@ async function checkDuplicateTicket(shop_id, user_id, subject) {
   });
 
   if (recentTicket) {
-    const err = new Error("Please wait before creating another ticket. You can only create one ticket per minute.");
+    const err = new Error(
+      "Please wait before creating another ticket. You can only create one ticket per minute."
+    );
     err.code = "RATE_LIMIT_EXCEEDED";
     throw err;
   }
@@ -211,7 +221,9 @@ async function checkDuplicateTicket(shop_id, user_id, subject) {
   });
 
   if (duplicateSubject) {
-    const err = new Error("A ticket with the same subject was recently created. Please check your existing tickets.");
+    const err = new Error(
+      "A ticket with the same subject was recently created. Please check your existing tickets."
+    );
     err.code = "DUPLICATE_TICKET";
     throw err;
   }
@@ -220,7 +232,13 @@ async function checkDuplicateTicket(shop_id, user_id, subject) {
 // ============================================
 // Validate Branch Ownership
 // ============================================
-async function validateBranchOwnership(shop_id, branch_id, user_id, user_branch_id, role) {
+async function validateBranchOwnership(
+  shop_id,
+  branch_id,
+  user_id,
+  user_branch_id,
+  role
+) {
   // Super admins can create tickets for any branch
   if (role === "super_admin") {
     // Just validate the branch exists and belongs to the shop
@@ -280,13 +298,28 @@ export async function createTicket({
 }) {
   // Sanitized logging
   console.log("=== CREATE TICKET ===");
-  console.log("Data:", sanitizeLogData({ shop_id, branch_id, user_id, category, files_count: files.length }));
+  console.log(
+    "Data:",
+    sanitizeLogData({
+      shop_id,
+      branch_id,
+      user_id,
+      category,
+      files_count: files.length,
+    })
+  );
 
   // 1. Check for duplicate/rate limiting
   await checkDuplicateTicket(shop_id, user_id, subject);
 
   // 2. Validate branch ownership
-  await validateBranchOwnership(shop_id, branch_id, user_id, user_branch_id, user_role);
+  await validateBranchOwnership(
+    shop_id,
+    branch_id,
+    user_id,
+    user_branch_id,
+    user_role
+  );
 
   try {
     const ticket = await prisma.$transaction(async (tx) => {
@@ -305,7 +338,8 @@ export async function createTicket({
           category,
           subject: subject.trim(),
           description: description?.trim() || null,
-          other_category_text: category === "OTHER" ? other_category_text?.trim() : null,
+          other_category_text:
+            category === "OTHER" ? other_category_text?.trim() : null,
           preferred_slot,
           status: "PENDING",
         },
@@ -335,6 +369,27 @@ export async function createTicket({
       where: { ticket_id: ticket.ticket_id },
       include: ticketInclude,
     });
+    // ============================================
+    // ✅ SEND TICKET CREATED EMAIL
+    // ============================================
+    if (completeTicket.created_by?.email) {
+      notifyAsync({
+        type: NOTIFICATION_EVENTS.TICKET_CREATED,
+        context: {
+          ticket_id: completeTicket.ticket_id,
+          ticket_number: completeTicket.ticket_number,
+          subject: completeTicket.subject,
+          category: completeTicket.category,
+          // Direct recipient info
+          email: completeTicket.created_by.email,
+          name: completeTicket.created_by.full_name || "Customer",
+        },
+      });
+    } else {
+      console.warn(
+        `⚠️ No email for ticket ${completeTicket.ticket_number} creator`
+      );
+    }
 
     return transformTicket(completeTicket);
   } catch (error) {
@@ -356,8 +411,13 @@ export async function createTicket({
     }
 
     // Handle unique constraint violation (race condition fallback)
-    if (error.code === "P2002" && error.meta?.target?.includes("ticket_number")) {
-      const err = new Error("Failed to generate unique ticket number. Please try again.");
+    if (
+      error.code === "P2002" &&
+      error.meta?.target?.includes("ticket_number")
+    ) {
+      const err = new Error(
+        "Failed to generate unique ticket number. Please try again."
+      );
       err.code = "TICKET_NUMBER_CONFLICT";
       throw err;
     }
@@ -397,10 +457,7 @@ export async function getTickets({
   } else if (requester_role === "branch_admin") {
     if (requester_branch_id) {
       andConditions.push({
-        OR: [
-          { branch_id: requester_branch_id },
-          { branch_id: null },
-        ],
+        OR: [{ branch_id: requester_branch_id }, { branch_id: null }],
       });
     }
   }
@@ -512,7 +569,9 @@ export async function cancelTicket(ticket_id, shop_id, user_id, reason) {
       err.code = "ALREADY_CANCELLED";
       throw err;
     }
-    const err = new Error(`Cannot cancel a ${ticket.status.toLowerCase()} ticket`);
+    const err = new Error(
+      `Cannot cancel a ${ticket.status.toLowerCase()} ticket`
+    );
     err.code = "INVALID_STATUS_TRANSITION";
     throw err;
   }
@@ -578,7 +637,9 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
     include: ticketInclude,
   });
 
-  console.log(`Ticket ${ticket.ticket_number} reopened. Count: ${updatedTicket.reopen_count}/${REOPEN_LIMIT}`);
+  console.log(
+    `Ticket ${ticket.ticket_number} reopened. Count: ${updatedTicket.reopen_count}/${REOPEN_LIMIT}`
+  );
 
   return transformTicket(updatedTicket);
 }
@@ -586,42 +647,48 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
 // ============================================
 // Get Ticket Stats
 // ============================================
-export async function getTicketStats(shop_id, requester_role, requester_branch_id) {
+export async function getTicketStats(
+  shop_id,
+  requester_role,
+  requester_branch_id
+) {
   const andConditions = [{ shop_id }];
 
   if (requester_role === "branch_admin" && requester_branch_id) {
     andConditions.push({
-      OR: [
-        { branch_id: requester_branch_id },
-        { branch_id: null },
-      ],
+      OR: [{ branch_id: requester_branch_id }, { branch_id: null }],
     });
   }
 
   const where = { AND: andConditions };
 
   try {
-    const [statusCounts, categoryCounts, totalCount, recentCount] = await Promise.all([
-      prisma.ticket.groupBy({
-        by: ["status"],
-        where,
-        _count: { status: true },
-      }),
-      prisma.ticket.groupBy({
-        by: ["category"],
-        where,
-        _count: { category: true },
-      }),
-      prisma.ticket.count({ where }),
-      prisma.ticket.count({
-        where: {
-          AND: [
-            ...andConditions,
-            { created_at: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
-          ],
-        },
-      }),
-    ]);
+    const [statusCounts, categoryCounts, totalCount, recentCount] =
+      await Promise.all([
+        prisma.ticket.groupBy({
+          by: ["status"],
+          where,
+          _count: { status: true },
+        }),
+        prisma.ticket.groupBy({
+          by: ["category"],
+          where,
+          _count: { category: true },
+        }),
+        prisma.ticket.count({ where }),
+        prisma.ticket.count({
+          where: {
+            AND: [
+              ...andConditions,
+              {
+                created_at: {
+                  gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+                },
+              },
+            ],
+          },
+        }),
+      ]);
 
     const byStatus = {
       PENDING: 0,
@@ -660,7 +727,12 @@ export async function getTicketStats(shop_id, requester_role, requester_branch_i
 // ============================================
 // Check Access
 // ============================================
-export async function canAccessTicket(ticket_id, shop_id, requester_role, requester_branch_id) {
+export async function canAccessTicket(
+  ticket_id,
+  shop_id,
+  requester_role,
+  requester_branch_id
+) {
   try {
     const ticket = await prisma.ticket.findFirst({
       where: { ticket_id, shop_id },
@@ -670,7 +742,9 @@ export async function canAccessTicket(ticket_id, shop_id, requester_role, reques
     if (!ticket) return false;
     if (requester_role === "super_admin") return true;
 
-    return ticket.branch_id === requester_branch_id || ticket.branch_id === null;
+    return (
+      ticket.branch_id === requester_branch_id || ticket.branch_id === null
+    );
   } catch (error) {
     console.error("canAccessTicket error:", error.message);
     return false;

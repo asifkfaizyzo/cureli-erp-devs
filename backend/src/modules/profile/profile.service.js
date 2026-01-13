@@ -2,12 +2,13 @@
 
 import prisma from "../../config/prisma.js";
 import { comparePassword, hashPassword } from "../../utils/hash.js";
-import { sendMail } from "../../utils/email.js";
 import { getMCAuthToken } from "../../providers/messageCentral/token.js";
 import { mcSendOtp } from "../../providers/messageCentral/sendOtp.js";
 import { mcValidateOtp } from "../../providers/messageCentral/validateOtp.js";
 import crypto from "crypto";
 import { hashSessionToken } from "../../utils/session.js";
+import { notifyAsync, notify } from "../notifications/index.js";
+import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 
 // ============================================
 // GET PROFILE
@@ -44,7 +45,6 @@ export async function getProfileData(user_id) {
     throw err;
   }
 
-  // Get shop details
   const shop = await prisma.shop.findUnique({
     where: { shop_id: user.shop_id },
     select: {
@@ -66,7 +66,6 @@ export async function getProfileData(user_id) {
     },
   });
 
-  // Correct user count
   const usersUsed = await prisma.user.count({
     where: {
       shop_id: user.shop_id,
@@ -75,7 +74,6 @@ export async function getProfileData(user_id) {
     },
   });
 
-  // Get subscription details
   let subscription = null;
 
   if (shop.current_subscription_id) {
@@ -272,18 +270,16 @@ export async function changeUserPassword(user_id, current_password, new_password
     },
   });
 
+  // ✅ Send password changed notification
   if (user.email) {
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #000060;">Password Changed</h2>
-        <p>Hi ${user.full_name},</p>
-        <p>Your password was successfully changed on ${new Date().toLocaleString()}.</p>
-        <p>If you did not make this change, please contact support immediately.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;"/>
-        <p style="color: #999; font-size: 12px;">Cureli ERP - Pharmacy Management System</p>
-      </div>
-    `;
-    await sendMail(user.email, "Password Changed - Cureli", html).catch(console.error);
+    notifyAsync({
+      type: NOTIFICATION_EVENTS.PASSWORD_CHANGED,
+      context: {
+        email: user.email,
+        name: user.full_name,
+        changed_at: new Date().toLocaleString(),
+      },
+    });
   }
 
   return { success: true };
@@ -410,23 +406,16 @@ export async function initiateEmailChangeService(user_id, current_password, new_
     },
   });
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #000060;">Verify Your New Email</h2>
-      <p>Hi ${user.full_name},</p>
-      <p>You requested to change your email address to this one.</p>
-      <p>Your verification code is:</p>
-      <div style="text-align: center; margin: 30px 0;">
-        <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #000060;">${otp}</span>
-      </div>
-      <p style="color: #666; font-size: 14px;">This code expires in 10 minutes.</p>
-      <p style="color: #666; font-size: 14px;">If you didn't request this, please ignore this email.</p>
-      <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;"/>
-      <p style="color: #999; font-size: 12px;">Cureli ERP - Pharmacy Management System</p>
-    </div>
-  `;
-
-  await sendMail(new_email, "Verify Your New Email - Cureli", html);
+  // ✅ Send OTP to new email via centralized system
+  await notify({
+    type: NOTIFICATION_EVENTS.EMAIL_CHANGE_OTP,
+    context: {
+      email: new_email,
+      name: user.full_name,
+      otp,
+      expires_in_minutes: 10,
+    },
+  });
 
   return { success: true, email: new_email };
 }
@@ -502,31 +491,31 @@ export async function verifyEmailChangeService(user_id, otp) {
     },
   });
 
+  // ✅ Notify old email about the change
   if (oldEmail) {
-    const htmlOld = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #000060;">Email Address Changed</h2>
-        <p>Hi ${user.full_name},</p>
-        <p>Your email address has been changed from <strong>${oldEmail}</strong> to <strong>${newEmail}</strong>.</p>
-        <p>If you did not make this change, please contact support immediately.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;"/>
-        <p style="color: #999; font-size: 12px;">Cureli ERP - Pharmacy Management System</p>
-      </div>
-    `;
-    await sendMail(oldEmail, "Email Address Changed - Cureli", htmlOld).catch(console.error);
+    notifyAsync({
+      type: NOTIFICATION_EVENTS.EMAIL_CHANGED,
+      context: {
+        email: oldEmail,
+        name: user.full_name,
+        old_email: oldEmail,
+        new_email: newEmail,
+        notification_type: "old_email",
+      },
+    });
   }
 
-  const htmlNew = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #000060;">Email Verified Successfully</h2>
-      <p>Hi ${user.full_name},</p>
-      <p>Your email has been successfully changed to this address.</p>
-      <p>You will now receive all communications at this email.</p>
-      <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;"/>
-      <p style="color: #999; font-size: 12px;">Cureli ERP - Pharmacy Management System</p>
-    </div>
-  `;
-  await sendMail(newEmail, "Welcome to Cureli", htmlNew).catch(console.error);
+  // ✅ Notify new email - welcome confirmation
+  notifyAsync({
+    type: NOTIFICATION_EVENTS.EMAIL_CHANGED,
+    context: {
+      email: newEmail,
+      name: user.full_name,
+      old_email: oldEmail,
+      new_email: newEmail,
+      notification_type: "new_email",
+    },
+  });
 
   return { success: true, new_email: newEmail };
 }
@@ -552,7 +541,6 @@ export async function initiatePhoneChangeOldService(user_id) {
     throw err;
   }
 
-  // Check cooldown
   if (user.phone_change_expires && new Date() < new Date(user.phone_change_expires)) {
     const secondsRemaining = Math.ceil((new Date(user.phone_change_expires) - new Date()) / 1000);
     if (secondsRemaining > 240) {
@@ -657,13 +645,12 @@ export async function verifyPhoneChangeOldOtpService(user_id, otp) {
     throw err;
   }
 
-  // Mark old phone as verified
   await prisma.user.update({
     where: { user_id },
     data: {
       phone_change_old_verified: true,
-      phone_change_verification_id: null, // Clear old verification ID
-      phone_change_expires: new Date(Date.now() + 10 * 60 * 1000), // 10 min to enter new phone
+      phone_change_verification_id: null,
+      phone_change_expires: new Date(Date.now() + 10 * 60 * 1000),
     },
   });
 
@@ -689,14 +676,12 @@ export async function initiatePhoneChangeNewService(user_id, new_phone) {
     throw err;
   }
 
-  // Check if old phone was verified
   if (!user.phone_change_old_verified) {
     const err = new Error("Please verify your current phone first");
     err.code = "OLD_NOT_VERIFIED";
     throw err;
   }
 
-  // Check if verification window expired
   if (new Date() > new Date(user.phone_change_expires)) {
     await clearPhoneChangeState(user_id);
     const err = new Error("Session expired. Please start again.");
@@ -704,14 +689,12 @@ export async function initiatePhoneChangeNewService(user_id, new_phone) {
     throw err;
   }
 
-  // Check if new phone is same as current
   if (user.phone_number === new_phone) {
     const err = new Error("New phone is same as current phone");
     err.code = "SAME_PHONE";
     throw err;
   }
 
-  // Check if new phone already exists
   const existingUser = await prisma.user.findFirst({
     where: {
       phone_number: new_phone,
@@ -725,7 +708,6 @@ export async function initiatePhoneChangeNewService(user_id, new_phone) {
     throw err;
   }
 
-  // Send OTP to new phone
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
     process.env.MC_PASSWORD
@@ -755,7 +737,7 @@ export async function initiatePhoneChangeNewService(user_id, new_phone) {
 }
 
 // ============================================
-// PHONE CHANGE - PASSWORD METHOD: VERIFY PASSWORD & SEND OTP TO NEW
+// PHONE CHANGE - PASSWORD METHOD
 // ============================================
 export async function initiatePhoneChangeWithPasswordService(user_id, current_password, new_phone) {
   const user = await prisma.user.findUnique({
@@ -773,7 +755,6 @@ export async function initiatePhoneChangeWithPasswordService(user_id, current_pa
     throw err;
   }
 
-  // Verify password
   const isValid = await comparePassword(current_password, user.password_hash);
   if (!isValid) {
     const err = new Error("Incorrect password");
@@ -781,14 +762,12 @@ export async function initiatePhoneChangeWithPasswordService(user_id, current_pa
     throw err;
   }
 
-  // Check if new phone is same as current
   if (user.phone_number === new_phone) {
     const err = new Error("New phone is same as current phone");
     err.code = "SAME_PHONE";
     throw err;
   }
 
-  // Check if new phone already exists
   const existingUser = await prisma.user.findFirst({
     where: {
       phone_number: new_phone,
@@ -802,7 +781,6 @@ export async function initiatePhoneChangeWithPasswordService(user_id, current_pa
     throw err;
   }
 
-  // Check cooldown
   if (user.phone_change_expires && new Date() < new Date(user.phone_change_expires)) {
     const secondsRemaining = Math.ceil((new Date(user.phone_change_expires) - new Date()) / 1000);
     if (secondsRemaining > 240) {
@@ -813,7 +791,6 @@ export async function initiatePhoneChangeWithPasswordService(user_id, current_pa
     }
   }
 
-  // Send OTP to new phone
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
     process.env.MC_PASSWORD
@@ -830,12 +807,11 @@ export async function initiatePhoneChangeWithPasswordService(user_id, current_pa
   const verificationId = data?.verificationId || data?.verificationID || data?.verification_id;
   const timeout = Number(data?.timeout || data?.time || 300);
 
-  // Save state - mark old as verified since password was used
   await prisma.user.update({
     where: { user_id },
     data: {
       phone_change_verification_id: verificationId,
-      phone_change_old_verified: true, // Password verification counts
+      phone_change_old_verified: true,
       phone_change_new_number: new_phone,
       phone_change_expires: new Date(Date.now() + timeout * 1000),
     },
@@ -915,7 +891,6 @@ export async function verifyPhoneChangeNewService(user_id, otp) {
   const oldPhone = user.phone_number;
   const newPhone = user.phone_change_new_number;
 
-  // Update phone number and clear change state
   await prisma.user.update({
     where: { user_id },
     data: {
@@ -928,7 +903,6 @@ export async function verifyPhoneChangeNewService(user_id, otp) {
     },
   });
 
-  // Log activity
   await prisma.activityLog.create({
     data: {
       user_id,
@@ -937,19 +911,17 @@ export async function verifyPhoneChangeNewService(user_id, otp) {
     },
   });
 
-  // Send email notification if email exists
+  // ✅ Send phone changed notification via email
   if (user.email) {
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #000060;">Phone Number Changed</h2>
-        <p>Hi ${user.full_name},</p>
-        <p>Your phone number has been changed from <strong>${oldPhone}</strong> to <strong>${newPhone}</strong>.</p>
-        <p>If you did not make this change, please contact support immediately.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;"/>
-        <p style="color: #999; font-size: 12px;">Cureli ERP - Pharmacy Management System</p>
-      </div>
-    `;
-    await sendMail(user.email, "Phone Number Changed - Cureli", html).catch(console.error);
+    notifyAsync({
+      type: NOTIFICATION_EVENTS.PHONE_CHANGED,
+      context: {
+        email: user.email,
+        name: user.full_name,
+        old_phone: oldPhone,
+        new_phone: newPhone,
+      },
+    });
   }
 
   return { success: true, new_phone: newPhone };
