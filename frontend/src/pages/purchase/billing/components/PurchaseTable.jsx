@@ -344,12 +344,12 @@ const PurchaseTable = ({
                 <th className="w-[4%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">Rack</th>
                 <th className="w-[5%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">Exp</th>
                 <th className="w-[4%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">Pack</th>
-                <th className="w-[5%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30 bg-amber-500/20">Qty</th>
-                <th className="w-[6%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-right pr-2 border-r border-slate-600/30 bg-blue-500/20">Rate</th>
+                <th className="w-[5%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">Qty</th>
+                <th className="w-[6%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-right pr-2 border-r border-slate-600/30">Rate</th>
                 <th className="w-[5%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">Disc%</th>
                 <th className="w-[5%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">Sch%</th>
-                <th className="w-[6%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-right pr-2 border-r border-slate-600/30 bg-purple-500/30">S-Rate</th>
-                <th className="w-[8%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-right pr-2 border-r border-slate-600/30 bg-emerald-500/20">Amount</th>
+                <th className="w-[6%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-right pr-2 border-r border-slate-600/30 ">S-Rate</th>
+                <th className="w-[8%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-right pr-2 border-r border-slate-600/30">Amount</th>
                 <th className="w-[5%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-right pr-2 border-r border-slate-600/30">MRP</th>
                 <th className="w-[4%] px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center">Free</th>
               </tr>
