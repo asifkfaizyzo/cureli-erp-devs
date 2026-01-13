@@ -481,7 +481,7 @@ const PurchaseTable = ({
           )}
         </div>
         <div className="hidden sm:flex items-center gap-1 text-slate-400 text-[7px]">
-          <kbd className="px-0.5 py-0.5 bg-white border border-slate-200 rounded font-mono">Ctrl+⌫</kbd>
+          <kbd className="px-0.5 py-0.5 bg-white border border-slate-200 rounded font-mono">Ctrl+BackSpace ⌫</kbd>
           <span>Delete row</span>
         </div>
       </div>
