@@ -267,8 +267,14 @@ export async function subscriptionHistoryController(req, res) {
 // GET MY SUBSCRIPTION
 // ============================================
 
+// ============================================
+// GET MY SUBSCRIPTION (WITH GRACE GUARD)
+// ============================================
+
 /**
  * GET /my - Get current user's active subscription
+ * 
+ * ⚠️ UPDATED: Includes read-time grace guard
  */
 export async function getMySubscription(req, res) {
   try {
@@ -310,18 +316,43 @@ export async function getMySubscription(req, res) {
       });
     }
 
-    const sub = shop.currentSubscription;
+    let sub = shop.currentSubscription;
     const now = new Date();
 
-    // Check if subscription is valid
-    const isValid = sub &&
-      sub.is_active &&
+    if (!sub) {
+      return success(res, {
+        has_active_subscription: false,
+        current_plan: null,
+      });
+    }
+
+    // ⚠️ READ-TIME GRACE GUARD
+    // If subscription is expired, active, and has no grace period set, heal it
+    const endDate = new Date(sub.end_date);
+    const isExpired = endDate < now;
+    const isActive = sub.is_active && sub.status === 'active';
+    const hasNoGrace = !sub.grace_period_until;
+
+    if (isExpired && isActive && hasNoGrace) {
+      const gracePeriodUntil = new Date(endDate);
+      gracePeriodUntil.setDate(gracePeriodUntil.getDate() + 7);
+
+      // Persist the grace period
+      await prisma.shopSubscription.update({
+        where: { subscription_id: sub.subscription_id },
+        data: { grace_period_until: gracePeriodUntil },
+      });
+
+      sub.grace_period_until = gracePeriodUntil;
+      console.log(`[GRACE GUARD] Healed subscription ${sub.subscription_id} via getMySubscription`);
+    }
+
+    // Recalculate status after potential heal
+    const isValid = sub.is_active &&
       sub.status === "active" &&
       new Date(sub.end_date) > now;
 
-    // Check if in grace period
-    const isInGracePeriod = sub &&
-      sub.grace_period_until &&
+    const isInGracePeriod = sub.grace_period_until &&
       new Date(sub.end_date) <= now &&
       new Date(sub.grace_period_until) > now;
 

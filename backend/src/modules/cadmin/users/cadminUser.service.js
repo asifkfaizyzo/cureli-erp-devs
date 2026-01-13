@@ -1,16 +1,16 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\cadmin\users\cadminUser.service.js
+// backend/src/modules/cadmin/users/cadminUser.service.js
 
 import prisma from "../../../config/prisma.js";
 import { generateResetToken, hashToken } from "../../../utils/resetToken.js";
 import { hashPassword } from "../../../utils/hash.js";
-import { sendMail } from "../../../utils/email.js";
+import { notify } from "../../notifications/index.js";
+import { NOTIFICATION_EVENTS } from "../../notifications/notification.events.js";
 
 export async function getUsersService(query = {}) {
   const page = Math.max(Number(query.page) || 1, 1);
-  const limit = Math.min(Number(query.limit) || 10, 200); // cap limit
+  const limit = Math.min(Number(query.limit) || 10, 200);
   const skip = (page - 1) * limit;
 
-  // Build where clause
   const where = {};
 
   if (query.status) {
@@ -19,9 +19,6 @@ export async function getUsersService(query = {}) {
   }
 
   if (query.role) {
-    // Accept values as provided by frontend (e.g., "Super Admin", "Staff")
-    // Map to DB role if necessary; assume DB role is stored similarly or normalized.
-    // If your DB uses snake_case roles (e.g., super_admin) extend mapping here.
     const roleVal = mapRoleToDb(query.role);
     if (roleVal) where.role = roleVal;
     else where.role = query.role;
@@ -37,8 +34,6 @@ export async function getUsersService(query = {}) {
   }
 
   if (query.last_login) {
-    // Filter by exact date (server timezone UTC). user sends YYYY-MM-DD
-    // We'll match last_login_at between start and end of that day.
     const d = new Date(query.last_login);
     if (!isNaN(d)) {
       const start = new Date(
@@ -51,7 +46,6 @@ export async function getUsersService(query = {}) {
     }
   }
 
-  // Sorting mapping
   const sortKey = (query.sort || "created_at").toLowerCase();
   let orderBy = { created_at: "desc" };
 
@@ -67,7 +61,6 @@ export async function getUsersService(query = {}) {
     orderBy = { created_at: dir };
   }
 
-  // Total count
   const [total, users] = await Promise.all([
     prisma.user.count({ where }),
     prisma.user.findMany({
@@ -95,7 +88,7 @@ export async function getUsersService(query = {}) {
     name: u.full_name,
     username: u.username,
     email: u.email,
-    role: formatRole(u.role), // convert DB role to label expected by UI
+    role: formatRole(u.role),
     is_active: u.is_active,
     lastLogin: u.last_login_at ? formatDateDDMMYYYY(u.last_login_at) : "Never",
     created_at: u.created_at,
@@ -113,7 +106,6 @@ export async function getUsersService(query = {}) {
 }
 
 export async function getUserByIdService(id) {
-  // fetch core user with relations needed for modal
   const u = await prisma.user.findUnique({
     where: { user_id: id },
     include: {
@@ -153,7 +145,6 @@ export async function getUserByIdService(id) {
     throw e;
   }
 
-  // find currentSubscription (if shop.current_subscription_id present)
   let currentSubscription = null;
   if (u.shop && u.shop.current_subscription_id) {
     const sub = await prisma.shopSubscription.findUnique({
@@ -166,11 +157,9 @@ export async function getUserByIdService(id) {
     u.shop.subscriptions &&
     u.shop.subscriptions.length > 0
   ) {
-    // fallback to latest subscription in included subscriptions
     currentSubscription = u.shop.subscriptions[0] || null;
   }
 
-  // format activity logs to match frontend shape
   const activityLogs = (u.activityLogs || []).map((a) => ({
     id: a.activity_id,
     action: a.action,
@@ -180,7 +169,6 @@ export async function getUserByIdService(id) {
     created_at: a.created_at,
   }));
 
-  // shop users mapping (for UsersTab)
   const shopUsers = (u.shop?.users || []).map((su) => ({
     user_id: su.user_id,
     full_name: su.full_name,
@@ -189,7 +177,6 @@ export async function getUserByIdService(id) {
     status: su.status,
   }));
 
-  // branches mapping
   const branches = (u.shop?.branches || []).map((b) => ({
     branch_id: b.branch_id,
     branch_name: b.branch_name,
@@ -198,7 +185,6 @@ export async function getUserByIdService(id) {
     is_active: b.is_active,
   }));
 
-  // shopFiles formatted
   const shopFiles = (u.shopFiles || []).map((f) => ({
     file_id: f.file_id,
     shop_id: f.shop_id,
@@ -215,7 +201,6 @@ export async function getUserByIdService(id) {
     verified_at: f.verified_at,
   }));
 
-  // basic shop summary counts
   let shopCounts = {};
   if (u.shop) {
     const counts = await prisma.shop.findUnique({
@@ -250,7 +235,6 @@ export async function getUserByIdService(id) {
     created_at: u.created_at,
     updated_at: u.updated_at,
 
-    // relations (flat)
     shop: u.shop
       ? {
           shop_id: u.shop.shop_id,
@@ -295,11 +279,6 @@ export async function getUserByIdService(id) {
   };
 }
 
-/**
- * updateUserService
- * allowed updates: first_name, last_name, full_name, username, role
- * role changes create activity log (only if actually changed)
- */
 export async function updateUserService(id, payload = {}, actorCAdmin = null) {
   const allowed = {};
   if (payload.first_name != null) allowed.first_name = payload.first_name;
@@ -314,16 +293,12 @@ export async function updateUserService(id, payload = {}, actorCAdmin = null) {
     throw e;
   }
 
-  // fetch existing user for diff and validations
   const existing = await prisma.user.findUnique({ where: { user_id: id } });
   if (!existing) {
     const e = new Error("User not found");
     e.status = 404;
     throw e;
   }
-
-  // Prevent role demotion of a Super Admin via cadmin (optional rule)
-  // If you want that restriction, enforce here. For now allow but ensure mapping.
 
   const updated = await prisma.user.update({
     where: { user_id: id },
@@ -343,7 +318,6 @@ export async function updateUserService(id, payload = {}, actorCAdmin = null) {
     },
   });
 
-  // create activity log entries for fields changed
   const changes = [];
   if (allowed.first_name && allowed.first_name !== existing.first_name)
     changes.push("first_name");
@@ -383,10 +357,6 @@ export async function updateUserService(id, payload = {}, actorCAdmin = null) {
   };
 }
 
-/**
- * toggleUserAccessService
- * toggle is_active boolean and log the action
- */
 export async function toggleUserAccessService(
   id,
   is_active,
@@ -410,12 +380,11 @@ export async function toggleUserAccessService(
     },
   });
 
-  // create log
   await prisma.activityLog.create({
     data: {
       activity_id: cryptoRandomUUID(),
       user_id: id,
-      action: is_active ? "status_change" : "status_change",
+      action: "status_change",
       description: is_active ? "Activated by cadmin" : "Suspended by cadmin",
       ip_address: actorCAdmin?.ip_address || null,
       user_agent: actorCAdmin?.user_agent || null,
@@ -431,9 +400,7 @@ export async function toggleUserAccessService(
 }
 
 /**
- * resetUserPasswordService
- * - generate reset token, save hashed token and expiry on user
- * - send email using sendMail util and HTML template
+ * Reset user password - triggered by CAdmin
  */
 export async function resetUserPasswordService(userId, actorCAdmin = null) {
   const user = await prisma.user.findUnique({ where: { user_id: userId } });
@@ -448,9 +415,9 @@ export async function resetUserPasswordService(userId, actorCAdmin = null) {
     throw e;
   }
 
-  const resetToken = generateResetToken(); // plain token
-  const hashed = hashToken(resetToken); // stored hashed
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+  const resetToken = generateResetToken();
+  const hashed = hashToken(resetToken);
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
   await prisma.user.update({
     where: { user_id: userId },
@@ -464,24 +431,18 @@ export async function resetUserPasswordService(userId, actorCAdmin = null) {
     process.env.ERP_FRONTEND_ORIGIN || process.env.ADMIN_FRONTEND_ORIGIN
   }/reset-password?token=${resetToken}&uid=${userId}`;
 
-  // Build email HTML (small template)
-  const html = `
-    <div style="font-family: Arial, sans-serif; padding: 20px; background:#f6f7fb;">
-      <div style="max-width:600px;margin:0 auto;background:white;padding:24px;border-radius:12px;">
-        <h2 style="color:#000060">Reset your password</h2>
-        <p>Hello ${user.full_name || user.email},</p>
-        <p>We received a request to reset your password. Click the button below to set a new password. This link will expire in 15 minutes.</p>
-        <div style="text-align:center;margin:24px 0;">
-          <a href="${resetUrl}" style="background:#000060;color:white;padding:12px 20px;border-radius:8px;text-decoration:none;">Reset Password</a>
-        </div>
-        <p style="font-size:12px;color:#666">If you did not request this, ignore this email.</p>
-      </div>
-    </div>
-  `;
+  // ✅ Send notification via centralized system
+  await notify({
+    type: NOTIFICATION_EVENTS.PASSWORD_RESET_REQUESTED,
+    context: {
+      email: user.email,
+      name: user.full_name || user.email,
+      resetUrl,
+      expires_in_minutes: 15,
+    },
+  });
 
-  await sendMail(user.email, "Reset your password", html);
-
-  // create activity log
+  // Create activity log
   await prisma.activityLog.create({
     data: {
       activity_id: cryptoRandomUUID(),
@@ -527,10 +488,8 @@ function mapRoleToDb(roleLabel) {
   return roleLabel;
 }
 
-// cryptoRandomUUID shim to avoid Node < 14 mismatch
 function cryptoRandomUUID() {
   if (typeof crypto !== "undefined" && crypto.randomUUID)
     return crypto.randomUUID();
-  // fallback
   return require("crypto").randomUUID();
 }

@@ -1,7 +1,10 @@
+// backend/src/modules/pending/pending.service.js
+
 import prisma from "../../config/prisma.js";
 import { hashPassword } from "../../utils/hash.js";
 import { generateOtp, hashOtp, verifyOtp } from "../../utils/otp.js";
-import { sendMail } from "../../utils/email.js";
+import { notify } from "../notifications/index.js";
+import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 
 import { getMCAuthToken } from "../../providers/messageCentral/token.js";
 import { mcSendOtp } from "../../providers/messageCentral/sendOtp.js";
@@ -9,10 +12,8 @@ import { mcValidateOtp } from "../../providers/messageCentral/validateOtp.js";
 
 /**
  * Delete pending users older than expiry window (in minutes).
- * Use CASE: remove abandoned pending signups so duplicates don't block future signups.
  */
 export async function cleanupExpiredPendingUsers(expiryMinutes = 10) {
-  // expiryMinutes default 10 (you said 10min)
   try {
     const cutoff = new Date(Date.now() - expiryMinutes * 60 * 1000);
 
@@ -22,11 +23,9 @@ export async function cleanupExpiredPendingUsers(expiryMinutes = 10) {
       },
     });
 
-    // deleted.count contains number removed (Prisma response shape)
     return deleted;
   } catch (err) {
     console.error("cleanupExpiredPendingUsers error:", err);
-    // swallow error to not block signup flows
     return null;
   }
 }
@@ -37,7 +36,6 @@ export async function createPendingUser({
   email,
   password,
 }) {
-  // Check if already a REAL user
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
     const err = new Error("Email already registered. Please login.");
@@ -45,19 +43,16 @@ export async function createPendingUser({
     throw err;
   }
 
-  // Check if already pending
   const existingPending = await prisma.pendingUser.findUnique({
     where: { email },
   });
 
   if (existingPending) {
-    // 🔥 Delete old incomplete signup
     await prisma.pendingUser.delete({
       where: { pending_id: existingPending.pending_id },
     });
   }
 
-  // Create new pending user
   const password_hash = await hashPassword(password);
 
   const pending = await prisma.pendingUser.create({
@@ -78,7 +73,6 @@ export async function createPendingUserFromGoogle({
   first_name,
   last_name,
 }) {
-  // 🔥 Check if google_id already exists in User table
   if (google_id) {
     const existingGoogleUser = await prisma.user.findUnique({
       where: { google_id },
@@ -93,7 +87,6 @@ export async function createPendingUserFromGoogle({
     }
   }
 
-  // Check if email already exists in User table
   const existingUser = await prisma.user.findUnique({
     where: { email },
   });
@@ -104,13 +97,11 @@ export async function createPendingUserFromGoogle({
     throw err;
   }
 
-  // Check if email exists in PendingUser table (ongoing signup)
   const existingPending = await prisma.pendingUser.findUnique({
     where: { email },
   });
 
   if (existingPending) {
-    // Update existing pending user with Google info and return it
     const updated = await prisma.pendingUser.update({
       where: { email },
       data: {
@@ -118,13 +109,12 @@ export async function createPendingUserFromGoogle({
         first_name,
         last_name,
         login_provider: "google",
-        email_verified: true, // Google emails are pre-verified
+        email_verified: true,
       },
     });
     return updated;
   }
 
-  // Create new pending user
   const pending = await prisma.pendingUser.create({
     data: {
       google_id,
@@ -132,7 +122,7 @@ export async function createPendingUserFromGoogle({
       first_name,
       last_name,
       login_provider: "google",
-      email_verified: true, // Google emails are pre-verified
+      email_verified: true,
     },
   });
 
@@ -176,17 +166,14 @@ export async function sendEmailOtp(pending_id, isResend = false) {
     throw err;
   }
 
-  // Check cooldown - prevent OTP spam
+  // Check cooldown
   if (pending.email_otp_expires) {
     const expiresAt = new Date(pending.email_otp_expires);
     const now = new Date();
 
-    // OTP validity is 5 minutes, so we can calculate when it was sent
     const otpSentAt = new Date(expiresAt.getTime() - 5 * 60 * 1000);
     const secondsSinceSent = (now - otpSentAt) / 1000;
 
-    // For resend, allow after 30 seconds
-    // For initial send (during signup flow), allow after 60 seconds
     const cooldownSeconds = isResend ? 30 : 60;
 
     if (secondsSinceSent < cooldownSeconds) {
@@ -200,30 +187,27 @@ export async function sendEmailOtp(pending_id, isResend = false) {
     }
   }
 
-  const otp = generateOtp(); // "1234" (4 digits)
+  const otp = generateOtp();
   const hash = await hashOtp(otp);
 
   await prisma.pendingUser.update({
     where: { pending_id },
     data: {
       email_otp_hash: hash,
-      email_otp_expires: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes validity
+      email_otp_expires: new Date(Date.now() + 5 * 60 * 1000),
     },
   });
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #000060;">Your Cureli Email Verification Code</h2>
-      <p>Your verification code is:</p>
-      <div style="background: #f5f5f5; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px;">
-        <h1 style="color: #000060; letter-spacing: 8px; margin: 0;">${otp}</h1>
-      </div>
-      <p style="color: #666;">This code will expire in 5 minutes.</p>
-      <p style="color: #999; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
-    </div>
-  `;
-
-  await sendMail(pending.email, "Your Cureli Verification Code", html);
+  // ✅ Send OTP via centralized notification system
+  await notify({
+    type: NOTIFICATION_EVENTS.EMAIL_VERIFICATION_OTP,
+    context: {
+      email: pending.email,
+      name: pending.first_name,
+      otp,
+      expires_in_minutes: 5,
+    },
+  });
 
   return { success: true };
 }
@@ -245,14 +229,12 @@ export async function verifyEmailOtp(pending_id, otp) {
     throw err;
   }
 
-  // Check expiry
   if (new Date() > new Date(pending.email_otp_expires)) {
     const err = new Error("OTP expired");
     err.code = "OTP_EXPIRED";
     throw err;
   }
 
-  // Compare OTP
   const isValid = await verifyOtp(otp, pending.email_otp_hash);
   if (!isValid) {
     const err = new Error("Invalid OTP");
@@ -260,7 +242,6 @@ export async function verifyEmailOtp(pending_id, otp) {
     throw err;
   }
 
-  // Update pending user to mark email verified
   await prisma.pendingUser.update({
     where: { pending_id },
     data: {
@@ -288,7 +269,6 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     throw err;
   }
 
-  // ✅ CHECK 1: Phone already registered in User table
   const existingUser = await prisma.user.findFirst({
     where: { phone_number: phone },
     select: { user_id: true },
@@ -300,12 +280,11 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     throw err;
   }
 
-  // ✅ CHECK 2: Phone already used by another pending signup
   const existingPending = await prisma.pendingUser.findFirst({
     where: {
       phone,
-      sms_verified: true, // Only block if they've already verified it
-      NOT: { pending_id }, // Exclude current user
+      sms_verified: true,
+      NOT: { pending_id },
     },
     select: { pending_id: true },
   });
@@ -316,7 +295,6 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     throw err;
   }
 
-  // Check cooldown - prevent OTP spam
   if (pending.sms_otp_expires) {
     const expiresAt = new Date(pending.sms_otp_expires);
     const now = new Date();
@@ -401,14 +379,12 @@ export async function verifySmsOtp(pending_id, code) {
     throw err;
   }
 
-  // Check expiry
   if (new Date() > new Date(pending.sms_otp_expires)) {
     const err = new Error("OTP expired");
     err.code = "OTP_EXPIRED";
     throw err;
   }
 
-  // Validate OTP with Message Central
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
     process.env.MC_PASSWORD
@@ -426,7 +402,6 @@ export async function verifySmsOtp(pending_id, code) {
     throw err;
   }
 
-  // Success case
   if (result.verificationStatus === "VERIFICATION_COMPLETED") {
     await prisma.pendingUser.update({
       where: { pending_id },
@@ -440,7 +415,6 @@ export async function verifySmsOtp(pending_id, code) {
     return true;
   }
 
-  // Handle error codes from Message Central
   const respCode = Number(result.responseCode || result.response_code || 0);
 
   if (respCode === 702) {
@@ -461,14 +435,12 @@ export async function verifySmsOtp(pending_id, code) {
     throw err;
   }
 
-  // Fallback for unknown errors
   const err = new Error("Invalid / failed verification");
   err.code = "INVALID_OTP";
   throw err;
 }
 
 export async function setUsername(pending_id, username) {
-  // Check if pending user exists
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
   });
@@ -478,7 +450,6 @@ export async function setUsername(pending_id, username) {
     throw err;
   }
 
-  // Must verify both email AND phone first (policy A)
   if (!pending.email_verified) {
     const err = new Error("Email must be verified before choosing username");
     err.code = "EMAIL_NOT_VERIFIED";
@@ -490,7 +461,6 @@ export async function setUsername(pending_id, username) {
     throw err;
   }
 
-  // Check global username uniqueness in REAL users
   const existsInUsers = await prisma.user.findUnique({ where: { username } });
   if (existsInUsers) {
     const err = new Error("Username already taken");
@@ -498,7 +468,6 @@ export async function setUsername(pending_id, username) {
     throw err;
   }
 
-  // Check in PENDING users (other users who are mid-signup)
   const existsInPending = await prisma.pendingUser.findFirst({
     where: { username, NOT: { pending_id } },
   });
@@ -509,7 +478,6 @@ export async function setUsername(pending_id, username) {
     throw err;
   }
 
-  // Update pending user
   await prisma.pendingUser.update({
     where: { pending_id },
     data: { username },
@@ -517,21 +485,15 @@ export async function setUsername(pending_id, username) {
 
   return true;
 }
-// Add this service function to your existing pending.service.js
 
-/**
- * Check if a username is available and generate suggestions if taken
- */
 export async function checkUsernameAvailabilityWithSuggestions(username) {
   const normalizedUsername = username.toLowerCase().trim();
 
-  // Check in User table
   const existingUser = await prisma.user.findUnique({
     where: { username: normalizedUsername },
     select: { user_id: true },
   });
 
-  // Check in PendingUser table
   const existingPending = await prisma.pendingUser.findFirst({
     where: { username: normalizedUsername },
     select: { pending_id: true },
@@ -547,7 +509,6 @@ export async function checkUsernameAvailabilityWithSuggestions(username) {
     };
   }
 
-  // Generate suggestions if username is taken
   const suggestions = await generateAvailableUsernames(normalizedUsername, 4);
 
   return {
@@ -557,34 +518,26 @@ export async function checkUsernameAvailabilityWithSuggestions(username) {
   };
 }
 
-/**
- * Generate available username suggestions based on a base username
- */
 async function generateAvailableUsernames(baseUsername, count = 4) {
   const suggestions = [];
-  const maxAttempts = 20; // Prevent infinite loop
+  const maxAttempts = 20;
   let attempts = 0;
 
-  // Different suffix patterns to try
   const generateVariations = (base) => {
     const variations = [];
 
-    // Add random 2-digit numbers
     for (let i = 0; i < 5; i++) {
       variations.push(`${base}${Math.floor(Math.random() * 90 + 10)}`);
     }
 
-    // Add random 3-digit numbers
     for (let i = 0; i < 5; i++) {
       variations.push(`${base}${Math.floor(Math.random() * 900 + 100)}`);
     }
 
-    // Add underscore + random numbers
     for (let i = 0; i < 5; i++) {
       variations.push(`${base}_${Math.floor(Math.random() * 90 + 10)}`);
     }
 
-    // Add timestamp-based suffix
     const timestamp = Date.now().toString().slice(-4);
     variations.push(`${base}_${timestamp}`);
 
@@ -597,7 +550,6 @@ async function generateAvailableUsernames(baseUsername, count = 4) {
     if (suggestions.length >= count || attempts >= maxAttempts) break;
     attempts++;
 
-    // Check if variation is available
     const existsInUsers = await prisma.user.findUnique({
       where: { username: variation },
       select: { user_id: true },
@@ -619,6 +571,7 @@ async function generateAvailableUsernames(baseUsername, count = 4) {
 
   return suggestions;
 }
+
 export async function finalizePendingSignup(pending_id) {
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
@@ -648,7 +601,6 @@ export async function finalizePendingSignup(pending_id) {
     throw err;
   }
 
-  // Build user data conditionally
   const userData = {
     first_name: pending.first_name,
     last_name: pending.last_name,
@@ -663,7 +615,6 @@ export async function finalizePendingSignup(pending_id) {
     is_active: true,
   };
 
-  // Only add google_id if it actually exists
   if (pending.google_id) {
     userData.google_id = pending.google_id;
   }
@@ -672,7 +623,6 @@ export async function finalizePendingSignup(pending_id) {
     data: userData,
   });
 
-  // NOW create the shop row linked to this user
   const shop = await prisma.shop.create({
     data: {
       owner_user_id: user.user_id,
@@ -684,13 +634,11 @@ export async function finalizePendingSignup(pending_id) {
     },
   });
 
-  // Link shop_id to user table
   await prisma.user.update({
     where: { user_id: user.user_id },
     data: { shop_id: shop.shop_id },
   });
 
-  // Delete pending user
   await prisma.pendingUser.delete({ where: { pending_id } });
 
   return { user, shop };

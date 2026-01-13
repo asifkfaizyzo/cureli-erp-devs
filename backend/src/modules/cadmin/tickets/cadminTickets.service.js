@@ -1,7 +1,8 @@
 // backend/src/modules/cadmin/tickets/cadminTickets.service.js
 
 import prisma from "../../../config/prisma.js";
-import { sendTicketStatusEmail } from "../../../utils/ticketEmails.js";
+import { notifyAsync } from "../../notifications/index.js";
+import { NOTIFICATION_EVENTS } from "../../notifications/notification.events.js";
 
 /**
  * ============================================
@@ -391,21 +392,22 @@ export async function updateTicketStatus(ticket_id, status, note, cadmin_id) {
     ]);
 
     // ============================================
-    // SEND EMAIL NOTIFICATION (async, non-blocking)
+    // ✅ SEND EMAIL NOTIFICATION via centralized system
     // ============================================
     if (ticket.created_by?.email) {
-      // Fire and forget - don't await to avoid slowing down response
-      sendTicketStatusEmail({
-        userEmail: ticket.created_by.email,
-        userName: ticket.created_by.full_name || "Customer",
-        ticketNumber: ticket.ticket_number,
-        subject: ticket.subject,
-        fromStatus: previousStatus,
-        toStatus: status,
-        adminNote: note || null,
-      }).catch((err) => {
-        // Log error but don't fail the request
-        console.error("Failed to send ticket status email:", err);
+      notifyAsync({
+        type: NOTIFICATION_EVENTS.TICKET_STATUS_CHANGED,
+        context: {
+          ticket_id: ticket.ticket_id,
+          ticket_number: ticket.ticket_number,
+          subject: ticket.subject,
+          from_status: previousStatus,
+          to_status: status,
+          admin_note: note || null,
+          // Direct recipient info
+          email: ticket.created_by.email,
+          name: ticket.created_by.full_name || "Customer",
+        },
       });
     } else {
       console.warn(`⚠️ No email for ticket ${ticket.ticket_number} creator - skipping notification`);
