@@ -1,6 +1,7 @@
 // src/modules/cadmin/subscriptions/cadminSubscriptions.service.js
 
 import prisma from "../../../config/prisma.js";
+import { notify, notifyAsync, NOTIFICATION_EVENTS } from "../../notifications/index.js";
 
 // ============================================
 // HELPER FUNCTIONS
@@ -104,7 +105,7 @@ const subscriptionIncludes = {
 };
 
 // ============================================
-// GET AT-RISK SUBSCRIPTIONS (FIXED)
+// GET AT-RISK SUBSCRIPTIONS
 // ============================================
 
 export async function getAtRiskSubscriptions(rangeDays = 30) {
@@ -112,10 +113,7 @@ export async function getAtRiskSubscriptions(rangeDays = 30) {
   const rangeEnd = addDays(now, rangeDays);
 
   const [expiring, gracePeriod, suspended] = await Promise.all([
-    // ----------------------------------------
-    // 1. EXPIRING SOON (FIXED)
-    // Date-driven only. Grace existence is irrelevant.
-    // ----------------------------------------
+    // 1. EXPIRING SOON
     prisma.shopSubscription.findMany({
       where: {
         end_date: {
@@ -129,9 +127,7 @@ export async function getAtRiskSubscriptions(rangeDays = 30) {
       orderBy: { end_date: "asc" },
     }),
 
-    // ----------------------------------------
     // 2. IN GRACE PERIOD
-    // ----------------------------------------
     prisma.shopSubscription.findMany({
       where: {
         end_date: {
@@ -146,9 +142,7 @@ export async function getAtRiskSubscriptions(rangeDays = 30) {
       orderBy: { grace_period_until: "asc" },
     }),
 
-    // ----------------------------------------
     // 3. SUSPENDED
-    // ----------------------------------------
     prisma.shopSubscription.findMany({
       where: {
         is_active: false,
@@ -190,7 +184,7 @@ export async function getAtRiskSubscriptions(rangeDays = 30) {
 }
 
 // ============================================
-// GET SUBSCRIPTION BY ID (UNCHANGED)
+// GET SUBSCRIPTION BY ID
 // ============================================
 
 export async function getSubscriptionById(subscriptionId) {
@@ -304,13 +298,6 @@ export async function getSubscriptionById(subscriptionId) {
 }
 
 // ============================================
-// ALL OTHER METHODS BELOW ARE UNCHANGED
-// (sendPaymentReminder, extendGracePeriod,
-//  forceSuspendSubscription, reactivateSubscription)
-// ============================================
-
-
-// ============================================
 // SEND PAYMENT REMINDER
 // ============================================
 
@@ -363,28 +350,57 @@ export async function sendPaymentReminder(subscriptionId, method, cadminId) {
   if (method === "sms" && !owner.phone_number) {
     throw createError("Owner phone not available", "NO_PHONE");
   }
+  if (method === "both" && (!owner.email || !owner.phone_number)) {
+    throw createError("Both email and phone are required for this method", "MISSING_CONTACT");
+  }
 
-  // TODO: Implement actual email/SMS sending via your providers
-  // For now, we log and return success
-  
-  const reminderData = {
+  // Calculate days remaining
+  const now = new Date();
+  const isInGrace = subscription.end_date < now && subscription.grace_period_until > now;
+  const deadlineDate = isInGrace ? subscription.grace_period_until : subscription.end_date;
+  const daysRemaining = getDaysRemaining(deadlineDate);
+
+  // Determine channels based on method
+  const channels = [];
+  if (method === "email" || method === "both") channels.push("email");
+  if (method === "sms" || method === "both") channels.push("sms");
+
+  // ✅ Send notification using the notification service
+  const notificationResult = await notify({
+    type: NOTIFICATION_EVENTS.SUBSCRIPTION_PAYMENT_REMINDER,
+    context: {
+      shop_id: subscription.shop.shop_id,
+      recipientName: owner.full_name,
+      email: owner.email,
+      phone_number: owner.phone_number,
+      shop_name: subscription.shop.business_name,
+      plan_name: subscription.plan.name,
+      plan_price: Number(subscription.plan.price),
+      end_date: subscription.end_date,
+      grace_period_until: subscription.grace_period_until,
+      days_remaining: daysRemaining,
+      is_in_grace: isInGrace,
+    },
+    channels: channels,
+    // Direct audience override - send to this specific user
+    audience: [
+      {
+        user_id: owner.user_id,
+        email: owner.email,
+        phone_number: owner.phone_number,
+        full_name: owner.full_name,
+      },
+    ],
+  });
+
+  console.log(`[REMINDER] Sent via ${method}:`, {
     subscription_id: subscriptionId,
     shop_name: subscription.shop.business_name,
-    owner_name: owner.full_name,
-    plan_name: subscription.plan.name,
-    plan_price: Number(subscription.plan.price),
-    end_date: subscription.end_date,
-    grace_period_until: subscription.grace_period_until,
-    days_remaining: getDaysRemaining(
-      subscription.grace_period_until || subscription.end_date
-    ),
-  };
+    result: notificationResult,
+  });
 
-  console.log(`[REMINDER] Method: ${method}`, reminderData);
-
-  // Return what was "sent"
   return {
-    success: true,
+    success: notificationResult.success,
     method,
     sent_to:
       method === "email"
@@ -395,6 +411,7 @@ export async function sendPaymentReminder(subscriptionId, method, cadminId) {
     shop_name: subscription.shop.business_name,
     sent_at: new Date().toISOString(),
     sent_by: cadminId,
+    notification_result: notificationResult,
   };
 }
 
@@ -412,13 +429,27 @@ export async function extendGracePeriod(subscriptionId, days, reason, cadminId) 
     throw createError("Reason must be at least 10 characters", "VALIDATION_ERROR");
   }
 
-  // Fetch current subscription
+  // Fetch current subscription with owner details
   const subscription = await prisma.shopSubscription.findUnique({
     where: { subscription_id: subscriptionId },
     include: {
       shop: {
         select: {
+          shop_id: true,
           business_name: true,
+          owner: {
+            select: {
+              user_id: true,
+              full_name: true,
+              email: true,
+              phone_number: true,
+            },
+          },
+        },
+      },
+      plan: {
+        select: {
+          name: true,
         },
       },
     },
@@ -436,14 +467,12 @@ export async function extendGracePeriod(subscriptionId, days, reason, cadminId) 
   }
 
   // Calculate new grace end date
-  // If already in grace, extend from current grace_period_until
-  // If not in grace yet, extend from end_date
   const baseDate = subscription.grace_period_until || subscription.end_date;
   const previousGraceEnd = subscription.grace_period_until;
   const newGraceEnd = addDays(new Date(baseDate), days);
 
   // Update subscription
-  const updated = await prisma.shopSubscription.update({
+  await prisma.shopSubscription.update({
     where: { subscription_id: subscriptionId },
     data: {
       grace_period_until: newGraceEnd,
@@ -451,7 +480,32 @@ export async function extendGracePeriod(subscriptionId, days, reason, cadminId) 
     },
   });
 
-  // TODO: Log this action to audit table
+  // ✅ Send notification to shop owner
+  const owner = subscription.shop?.owner;
+  if (owner?.email) {
+    notifyAsync({
+      type: NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_EXTENDED,
+      context: {
+        shop_id: subscription.shop.shop_id,
+        recipientName: owner.full_name,
+        email: owner.email,
+        shop_name: subscription.shop.business_name,
+        plan_name: subscription.plan?.name,
+        days_extended: days,
+        previous_grace_end: previousGraceEnd,
+        new_grace_end: newGraceEnd,
+        reason: reason.trim(),
+      },
+      audience: [
+        {
+          user_id: owner.user_id,
+          email: owner.email,
+          phone_number: owner.phone_number,
+          full_name: owner.full_name,
+        },
+      ],
+    });
+  }
 
   return {
     subscription_id: subscriptionId,
@@ -475,7 +529,7 @@ export async function forceSuspendSubscription(subscriptionId, reason, cadminId)
     throw createError("Reason must be at least 10 characters", "VALIDATION_ERROR");
   }
 
-  // Fetch subscription
+  // Fetch subscription with owner details
   const subscription = await prisma.shopSubscription.findUnique({
     where: { subscription_id: subscriptionId },
     include: {
@@ -483,6 +537,20 @@ export async function forceSuspendSubscription(subscriptionId, reason, cadminId)
         select: {
           shop_id: true,
           business_name: true,
+          owner: {
+            select: {
+              user_id: true,
+              full_name: true,
+              email: true,
+              phone_number: true,
+            },
+          },
+        },
+      },
+      plan: {
+        select: {
+          name: true,
+          price: true,
         },
       },
     },
@@ -518,8 +586,33 @@ export async function forceSuspendSubscription(subscriptionId, reason, cadminId)
     });
   });
 
-  // TODO: Log to audit table
-  // TODO: Send notification to shop owner
+  // ✅ Send suspension notification to shop owner
+  const owner = subscription.shop?.owner;
+  if (owner?.email) {
+    notifyAsync({
+      type: NOTIFICATION_EVENTS.SUBSCRIPTION_SUSPENDED,
+      context: {
+        shop_id: subscription.shop.shop_id,
+        recipientName: owner.full_name,
+        email: owner.email,
+        shop_name: subscription.shop.business_name,
+        plan_name: subscription.plan?.name,
+        plan_price: subscription.plan?.price ? Number(subscription.plan.price) : null,
+        suspension_reason: reason.trim(),
+        suspended_at: new Date().toISOString(),
+        // Provide a way for them to contact support or pay
+        support_email: process.env.SUPPORT_EMAIL || "support@cureli.in",
+      },
+      audience: [
+        {
+          user_id: owner.user_id,
+          email: owner.email,
+          phone_number: owner.phone_number,
+          full_name: owner.full_name,
+        },
+      ],
+    });
+  }
 
   return {
     subscription_id: subscriptionId,
@@ -551,7 +644,7 @@ export async function reactivateSubscription(
     throw createError("Extension days must be between 1 and 365", "VALIDATION_ERROR");
   }
 
-  // Fetch subscription
+  // Fetch subscription with owner details
   const subscription = await prisma.shopSubscription.findUnique({
     where: { subscription_id: subscriptionId },
     include: {
@@ -559,6 +652,20 @@ export async function reactivateSubscription(
         select: {
           shop_id: true,
           business_name: true,
+          owner: {
+            select: {
+              user_id: true,
+              full_name: true,
+              email: true,
+              phone_number: true,
+            },
+          },
+        },
+      },
+      plan: {
+        select: {
+          name: true,
+          price: true,
         },
       },
     },
@@ -601,8 +708,35 @@ export async function reactivateSubscription(
     });
   });
 
-  // TODO: Log to audit table
-  // TODO: Send notification to shop owner
+  // ✅ Send reactivation notification to shop owner
+  // Using SUBSCRIPTION_RENEWED as it's the closest match
+  const owner = subscription.shop?.owner;
+  if (owner?.email) {
+    notifyAsync({
+      type: NOTIFICATION_EVENTS.SUBSCRIPTION_RENEWED,
+      context: {
+        shop_id: subscription.shop.shop_id,
+        recipientName: owner.full_name,
+        email: owner.email,
+        shop_name: subscription.shop.business_name,
+        plan_name: subscription.plan?.name,
+        start_date: now,
+        end_date: newEndDate,
+        grace_period_until: newGraceEnd,
+        extend_days: extendDays,
+        reactivation_reason: reason.trim(),
+        is_reactivation: true, // Template can use this to customize message
+      },
+      audience: [
+        {
+          user_id: owner.user_id,
+          email: owner.email,
+          phone_number: owner.phone_number,
+          full_name: owner.full_name,
+        },
+      ],
+    });
+  }
 
   return {
     subscription_id: subscriptionId,

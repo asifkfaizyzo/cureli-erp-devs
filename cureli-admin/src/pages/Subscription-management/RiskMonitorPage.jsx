@@ -423,7 +423,7 @@ export default function RiskMonitorPage() {
                          disabled:opacity-50 flex-shrink-0"
             >
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-              <span className="hidden sm:inline">Refresh</span>
+              
             </button>
           </div>
         </div>

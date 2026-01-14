@@ -13,10 +13,10 @@ import { getAllTickets, getTicketById } from "../../../../api/cadminTickets";
 import TicketsTable from "./components/TicketsTable";
 import TicketDetailsModal from "./components/TicketDetailsModal";
 import StyledSelect from "../../../../components/common/StyledSelect";
-import StyledDateFilter from "../../../../components/common/StyledDateFilter"; // ✅ NEW IMPORT
+import StyledDateFilter from "../../../../components/common/StyledDateFilter";
 import useDebounce from "../../../../hooks/useDebounce";
 import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
-import toast from "react-hot-toast";
+import { useToast } from "../../../../components/common/Toast"; // ✅ FIXED IMPORT
 import {
   STATUS_OPTIONS,
   CATEGORY_OPTIONS,
@@ -24,6 +24,7 @@ import {
 } from "../../../../config/ticketConfigs";
 
 const TicketsPage = () => {
+  const toast = useToast(); // ✅ ADD THIS
   const rowsPerPage = useDynamicRowCount();
 
   // Data state
@@ -110,7 +111,7 @@ const TicketsPage = () => {
     } catch (err) {
       console.error("Failed to fetch tickets:", err);
       setError(err.response?.data?.message || "Failed to fetch tickets");
-      toast.error("Failed to load tickets");
+      toast.error("Load Failed", "Failed to load tickets"); // ✅ FIXED
       setTickets([]);
       setTotalItems(0);
     } finally {
@@ -126,6 +127,7 @@ const TicketsPage = () => {
     dateFrom,
     dateTo,
     sortConfig,
+    toast, // ✅ ADD toast to dependencies
   ]);
 
   // Fetch on dependency changes
@@ -148,7 +150,6 @@ const TicketsPage = () => {
 
   // Handlers
   const handleSortChange = useCallback((column) => {
-    // Map frontend column names to backend sort fields
     const columnMapping = {
       ticket: "ticket_number",
       createdAt: "created_at",
@@ -156,7 +157,6 @@ const TicketsPage = () => {
       status: "status",
     };
 
-    // Get the backend field name
     const backendColumn = columnMapping[column] || column;
 
     setSortConfig((prev) => ({
@@ -184,16 +184,17 @@ const TicketsPage = () => {
       setSelectedTicket(response.data.data.ticket);
     } catch (err) {
       console.error("Failed to fetch ticket details:", err);
-      toast.error("Failed to load ticket details");
+      toast.error("Load Failed", "Failed to load ticket details"); // ✅ FIXED
       setSelectedTicket(ticket);
     } finally {
       setLoadingTicketDetails(false);
     }
-  }, []);
+  }, [toast]); // ✅ ADD toast to dependencies
 
   const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest ticket data..."); // ✅ FIXED (removed 3rd arg if not needed)
     fetchTickets();
-  }, [fetchTickets]);
+  }, [fetchTickets, toast]); // ✅ ADD toast to dependencies
 
   const handleCloseModal = useCallback(() => {
     setIsDetailsModalOpen(false);
@@ -231,7 +232,6 @@ const TicketsPage = () => {
                        disabled:opacity-50 flex-shrink-0"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
 
@@ -318,14 +318,12 @@ const TicketsPage = () => {
                   placeholder="All Priorities"
                 />
 
-                {/* ✅ REPLACED: Date From with StyledDateFilter */}
                 <StyledDateFilter
                   label="Date From"
                   date={dateFrom}
                   setDate={setDateFrom}
                 />
 
-                {/* ✅ REPLACED: Date To with StyledDateFilter */}
                 <StyledDateFilter
                   label="Date To"
                   date={dateTo}

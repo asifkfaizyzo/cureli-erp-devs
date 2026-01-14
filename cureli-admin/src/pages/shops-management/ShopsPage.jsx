@@ -20,6 +20,7 @@ import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 // ... existing OPTIONS constants ...
 
 const ShopsPage = () => {
+  
   const toast = useToast();
   const rowsPerPage = useDynamicRowCount();
   
@@ -148,6 +149,7 @@ const ShopsPage = () => {
 
   // Handlers
   const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest Shops data...", 2000);
     fetchShops();
   }, [fetchShops]);
 
@@ -246,7 +248,7 @@ const ShopsPage = () => {
                        disabled:opacity-50 flex-shrink-0"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            <span className="hidden sm:inline">Refresh</span>
+            
           </button>
         </div>
 
