@@ -163,7 +163,7 @@ const EnquiriesPage = () => {
 
   // Manual refresh handler - with toast
   const handleRefresh = useCallback(() => {
-    toast.info("Refreshing", "Loading latest enquiries...");
+    toast.info("Data Refreshed", "Loading latest enquiries...");
     fetchEnquiries();
     fetchStats();
   }, [toast, fetchEnquiries, fetchStats]);

@@ -188,7 +188,7 @@ const CommunicationsPage = () => {
 
   // Manual refresh handler - with toast
   const handleRefresh = useCallback(() => {
-    toast.info("Refreshing", "Loading latest data...");
+    toast.info("Data Refreshed", "Loading latest data...");
     fetchTicketStats();
     fetchEnquiryStats();
   }, [toast, fetchTicketStats, fetchEnquiryStats]);

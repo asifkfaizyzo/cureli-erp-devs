@@ -149,7 +149,7 @@ const ShopsPage = () => {
 
   // Handlers
   const handleRefresh = useCallback(() => {
-    toast.info("Refreshing", "Loading latest Shops data...", 2000);
+    toast.info("Data Refreshed", "Loading latest Shops data...", 2000);
     fetchShops();
   }, [fetchShops]);
 

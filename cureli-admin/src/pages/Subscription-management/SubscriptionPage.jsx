@@ -134,7 +134,7 @@ export default function SubscriptionPage() {
 
   // Manual refresh handler - with toast
   const handleRefresh = useCallback(() => {
-    toast.info("Refreshing", "Loading latest plans...");
+    toast.info("Data Refreshed", "Loading latest plans...");
     fetchPlans();
   }, [toast, fetchPlans]);
 

@@ -117,9 +117,9 @@ export default function RiskMonitorPage() {
 
         // ✅ Show success toast on manual refresh
         if (showSuccessToast) {
-          toast.success(
+          toast.info(
             "Data Refreshed",
-            "Risk monitor data has been updated successfully."
+            "Loading latest Subscribers data...."
           );
         }
       } catch (err) {
