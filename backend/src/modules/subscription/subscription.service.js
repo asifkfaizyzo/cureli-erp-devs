@@ -608,6 +608,7 @@ export async function cancelPendingSubscriptionService(subscription_id, shop_id)
 
 /**
  * Analyze what happens when switching to a new plan
+ * ⚠️ UPDATED: Now detects "renew" when same plan is selected
  */
 export async function analyzePlanChangeService(shop_id, target_plan_id) {
   const shop = await prisma.shop.findUnique({
@@ -652,12 +653,14 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
   const activeUsers = shop._count.users;
   const activeBranches = shop._count.branches;
 
+  // ⚠️ RENEWAL DETECTION
   if (currentPlan.plan_id === target_plan_id) {
     return {
-      direction: "no_change",
+      direction: "renew",
       hasImpact: false,
       currentPlan: formatPlanForResponse(currentPlan),
       targetPlan: formatPlanForResponse(targetPlan),
+      usage: { activeUsers, activeBranches },
     };
   }
 
@@ -787,7 +790,8 @@ export async function getComplianceDataService(shop_id, target_plan_id) {
 // ============================================
 
 /**
- * Execute plan change (upgrade or downgrade)
+ * Execute plan change (upgrade, downgrade, or renewal)
+ * ⚠️ UPDATED: Now handles renewal
  */
 export async function changePlanService({
   shop_id,
@@ -799,9 +803,8 @@ export async function changePlanService({
 }) {
   const analysis = await analyzePlanChangeService(shop_id, target_plan_id);
 
-  if (analysis.direction === "no_change") {
-    throw createError("Target plan is the same as current plan", "SAME_PLAN");
-  }
+  // ⚠️ REMOVED: Old "no_change" error
+  // Now we allow "renew" direction
 
   const targetPlan = await prisma.plan.findFirst({
     where: {
@@ -816,10 +819,32 @@ export async function changePlanService({
     select: { full_name: true, email: true, phone_number: true },
   });
 
+  // Get current subscription for renewal
+  const shop = await prisma.shop.findUnique({
+    where: { shop_id },
+    include: {
+      currentSubscription: {
+        include: { plan: true },
+      },
+    },
+  });
+
+  // ⚠️ NEW: Handle renewal
+  if (analysis.direction === "renew") {
+    return await executeRenewal(
+      shop_id,
+      targetPlan,
+      shop.currentSubscription,
+      user
+    );
+  }
+
+  // Existing upgrade logic
   if (analysis.direction === "upgrade") {
     return await executeUpgrade(shop_id, targetPlan, user);
   }
 
+  // Existing downgrade logic
   return await executeDowngrade(
     shop_id,
     targetPlan,
@@ -900,6 +925,111 @@ async function executeUpgrade(shop_id, targetPlan, user) {
       currency: RAZORPAY_CURRENCY,
       name: "Cureli ERP",
       description: `${targetPlan.name} - Annual Subscription (Upgrade)`,
+      prefill: {
+        name: user.full_name || "",
+        email: user.email || "",
+        contact: user.phone_number || "",
+      },
+    },
+    plan: formatPlanForResponse(targetPlan),
+  };
+}
+
+// ============================================
+// EXECUTE RENEWAL
+// ============================================
+
+/**
+ * Execute plan renewal (same plan, extend subscription)
+ * ⚠️ NEW: Handles renewing the same plan
+ * 
+ * Key differences from upgrade:
+ * - Uses current end_date as reference (ignoring grace)
+ * - Clears grace_period_until on new subscription
+ * - Creates new subscription record
+ */
+async function executeRenewal(shop_id, targetPlan, currentSubscription, user) {
+  const now = new Date();
+  
+  // ⚠️ CRITICAL: Start new period from CURRENT end_date, not today
+  // This ensures user doesn't lose remaining time (even in grace period)
+  const currentEndDate = new Date(currentSubscription.end_date);
+  const referenceDate = currentEndDate > now ? currentEndDate : now;
+  
+  // Calculate dates for renewal
+  const billingCycleMonths = targetPlan.billing_cycle_months || 12;
+  const bonusMonths = targetPlan.bonus_months || 0;
+  const totalMonths = billingCycleMonths + bonusMonths;
+  
+  const start_date = new Date(referenceDate);
+  const end_date = new Date(referenceDate);
+  end_date.setMonth(end_date.getMonth() + totalMonths);
+  const renewal_date = new Date(end_date);
+
+  // Create pending subscription for renewal
+  const subscription = await prisma.shopSubscription.create({
+    data: {
+      shop_id,
+      plan_id: targetPlan.plan_id,
+      status: "pending",
+      payment_status: "pending",
+      billing_cycle: "yearly",
+      start_date,
+      end_date,
+      renewal_date,
+      grace_period_until: null,  // ⚠️ No grace pre-granted
+      branch_limit_snapshot: targetPlan.max_branches,
+      user_limit_snapshot: targetPlan.max_users,
+      is_active: false,  // Will activate on payment
+    },
+  });
+
+  // Create Razorpay order
+  const priceInRupees = Number(targetPlan.price);
+  const amountInPaisa = Math.round(priceInRupees * 100);
+
+  const razorpayOrder = await razorpay.orders.create({
+    amount: amountInPaisa,
+    currency: RAZORPAY_CURRENCY,
+    receipt: subscription.subscription_id,
+    notes: {
+      shop_id,
+      plan_id: targetPlan.plan_id,
+      plan_name: targetPlan.name,
+      subscription_id: subscription.subscription_id,
+      type: "renewal",
+    },
+  });
+
+  // Log transaction
+  await prisma.paymentTransaction.create({
+    data: {
+      shop_id,
+      subscription_id: subscription.subscription_id,
+      provider: "razorpay",
+      provider_order_id: razorpayOrder.id,
+      amount: BigInt(priceInRupees),
+      currency: RAZORPAY_CURRENCY,
+      status: "created",
+      meta: {
+        plan_name: targetPlan.name,
+        type: "renewal",
+        extended_from: currentSubscription.end_date,
+        created_at: new Date().toISOString(),
+      },
+    },
+  });
+
+  return {
+    requires_payment: true,
+    subscription_id: subscription.subscription_id,
+    razorpay: {
+      key: process.env.RAZORPAY_KEY_ID,
+      order_id: razorpayOrder.id,
+      amount: amountInPaisa,
+      currency: RAZORPAY_CURRENCY,
+      name: "Cureli ERP",
+      description: `${targetPlan.name} - Plan Renewal`,
       prefill: {
         name: user.full_name || "",
         email: user.email || "",

@@ -1,5 +1,3 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\SubscriptionCard.jsx
-
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
@@ -14,12 +12,14 @@ import {
   Zap,
   BadgeCheck,
   ClockFading,
+  AlertCircle as AlertCircleIcon,
+  RefreshCw,
 } from "lucide-react";
 
 /**
  * SubscriptionCard
  * Displays subscription and plan information - Horizontal Layout
- * All 4 stat cards in a row, both usage bars in a row below
+ * ⚠️ UPDATED: Shows renewal warnings and button when expiry is near
  */
 const SubscriptionCard = ({ subscription }) => {
   const navigate = useNavigate();
@@ -120,6 +120,12 @@ const SubscriptionCard = ({ subscription }) => {
   const branchColors = getUsageColor(branchPercentage);
   const userColors = getUsageColor(userPercentage);
 
+  // ⚠️ NEW: Renewal warning logic
+  const daysRemaining = subscription.days_remaining || 0;
+  const isInGrace = subscription.is_in_grace_period || false;
+  const needsRenewal = daysRemaining <= 30 || isInGrace;
+  const isUrgent = daysRemaining <= 7 || isInGrace;
+
   // Usage Bar Component - Horizontal
   const UsageBar = ({ icon: Icon, label, used, limit, percentage, colors }) => (
     <div className="flex-1 p-4 bg-gray-50 rounded-xl border border-gray-100">
@@ -153,23 +159,44 @@ const SubscriptionCard = ({ subscription }) => {
     value,
     isStatus = false,
     statusConfig = null,
+    isWarning = false,
   }) => (
-    <div className="flex-1 flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 min-w-0">
+    <div className={`flex-1 flex items-center gap-3 p-4 rounded-xl border min-w-0 ${
+      isWarning ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-100"
+    }`}>
       <div
         className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-          isStatus ? statusConfig?.bgColor : "bg-[#000060]/10"
+          isWarning 
+            ? "bg-red-100" 
+            : isStatus 
+              ? statusConfig?.bgColor 
+              : "bg-[#000060]/10"
         }`}
       >
         <Icon
           size={18}
-          className={isStatus ? statusConfig?.textColor : "text-[#000060]"}
+          className={
+            isWarning 
+              ? "text-red-600" 
+              : isStatus 
+                ? statusConfig?.textColor 
+                : "text-[#000060]"
+          }
         />
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-gray-500 font-medium truncate">{label}</p>
+        <p className={`text-xs font-medium truncate ${
+          isWarning ? "text-red-600" : "text-gray-500"
+        }`}>
+          {label}
+        </p>
         <p
           className={`text-sm font-bold truncate ${
-            isStatus ? statusConfig?.textColor : "text-gray-900"
+            isWarning 
+              ? "text-red-700" 
+              : isStatus 
+                ? statusConfig?.textColor 
+                : "text-gray-900"
           }`}
         >
           {value}
@@ -201,15 +228,74 @@ const SubscriptionCard = ({ subscription }) => {
             <StatusIcon size={12} />
             {statusConfig.label}
           </span>
-          <button
-            onClick={() => navigate("/settings/upgrade")}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#000060] hover:bg-[#000060]/10 rounded-lg transition-colors"
-          >
-            Upgrade
-            <ArrowRight size={14} />
-          </button>
+          
+          {/* ⚠️ NEW: Show Renew button when needed */}
+          {needsRenewal ? (
+            <button
+              onClick={() => navigate("/settings/upgrade")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                isUrgent
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-amber-600 text-white hover:bg-amber-700"
+              }`}
+            >
+              <RefreshCw size={14} />
+              {isInGrace ? "Renew Now" : "Renew"}
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/settings/upgrade")}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#000060] hover:bg-[#000060]/10 rounded-lg transition-colors"
+            >
+              Upgrade
+              <ArrowRight size={14} />
+            </button>
+          )}
         </div>
       </div>
+
+      {/* ⚠️ NEW: Grace Period Warning Banner */}
+      {isInGrace && (
+        <div className="px-6 py-3 bg-red-50 border-b border-red-200 flex items-center gap-3">
+          <AlertCircleIcon size={18} className="text-red-600 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-900">
+              Subscription Expired - Grace Period Active
+            </p>
+            <p className="text-xs text-red-700 mt-0.5">
+              Your subscription ended on {formatDate(subscription.end_date)}.
+              Grace period ends on {formatDate(subscription.grace_period_until)}.
+              Renew now to avoid service interruption.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ NEW: Renewal Warning (30 days, not grace) */}
+      {!isInGrace && needsRenewal && (
+        <div className={`px-6 py-3 border-b flex items-center gap-3 ${
+          isUrgent 
+            ? "bg-red-50 border-red-200" 
+            : "bg-amber-50 border-amber-200"
+        }`}>
+          <AlertCircleIcon size={18} className={`flex-shrink-0 ${
+            isUrgent ? "text-red-600" : "text-amber-600"
+          }`} />
+          <div className="flex-1">
+            <p className={`text-sm font-semibold ${
+              isUrgent ? "text-red-900" : "text-amber-900"
+            }`}>
+              Plan Expiring Soon
+            </p>
+            <p className={`text-xs mt-0.5 ${
+              isUrgent ? "text-red-700" : "text-amber-700"
+            }`}>
+              Your subscription ends in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}.
+              Renew now to continue uninterrupted access.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="p-6 flex-1 flex flex-col gap-5">
@@ -233,11 +319,13 @@ const SubscriptionCard = ({ subscription }) => {
               icon={ClockFading}
               label="Valid Until"
               value={formatDate(subscription.end_date)}
+              isWarning={needsRenewal}
             />
             <StatCard
               icon={Clock}
               label="Days Remaining"
-              value={`${subscription.days_remaining} days`}
+              value={`${daysRemaining} days`}
+              isWarning={needsRenewal}
             />
           </div>
         </div>

@@ -1,4 +1,4 @@
-// src/components/Shops/tabs/ShopDocumentsTab.jsx
+// src/pages/Users-management/comps/UserDocumentsTab.jsx
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
@@ -17,11 +17,13 @@ import {
   RotateCcw,
   Maximize2,
   Minimize2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
-// Required document types
+// Required document types for shops
 const REQUIRED_TYPES = [
   "drug_license",
   "pharmacy_registration",
@@ -45,10 +47,11 @@ const FILE_TYPE_LABELS = {
   fssai_license: "FSSAI License",
 };
 
-const ShopDocumentsTab = ({ shop }) => {
-  const documents = shop?.shopFiles || [];
+const UserDocumentsTab = ({ user }) => {
+  const documents = user?.shopFiles || [];
   const [previewFile, setPreviewFile] = useState(null);
   const [expandedCards, setExpandedCards] = useState({});
+  const isStaff = user?.role === "Staff";
 
   // Zoom and pan state
   const [zoom, setZoom] = useState(1);
@@ -148,6 +151,7 @@ const ShopDocumentsTab = ({ shop }) => {
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error("Download failed:", error);
+      // Fallback: try direct download
       const link = document.createElement("a");
       link.href = getFileUrl(doc.storage_key);
       link.download = doc.original_name || `${doc.file_type}_document`;
@@ -262,7 +266,7 @@ const ShopDocumentsTab = ({ shop }) => {
         {/* Main Content */}
         <div className="p-3">
           {/* Header Row */}
-          <div className="flex items-center gap-2.5 mb-3">
+          <div className="flex items-center gap-2.5 mb-4">
             {/* Status Dot + Icon */}
             <div className="relative">
               <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center">
@@ -295,6 +299,7 @@ const ShopDocumentsTab = ({ shop }) => {
 
             {/* Quick Actions */}
             <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+              {/* View/Preview */}
               <button
                 onClick={() => setPreviewFile(doc)}
                 className="p-1.5 rounded-md hover:bg-indigo-50 text-indigo-600 transition"
@@ -303,6 +308,7 @@ const ShopDocumentsTab = ({ shop }) => {
                 <Eye size={14} />
               </button>
 
+              {/* Download */}
               {doc.storage_key && (
                 <button
                   onClick={(e) => handleDownload(doc, e)}
@@ -313,6 +319,7 @@ const ShopDocumentsTab = ({ shop }) => {
                 </button>
               )}
 
+              {/* Open in New Tab */}
               {doc.storage_key && (
                 <button
                   onClick={(e) => handleOpenInNewTab(doc, e)}
@@ -323,12 +330,17 @@ const ShopDocumentsTab = ({ shop }) => {
                 </button>
               )}
 
+              {/* Expand/Collapse Toggle */}
               <button
                 onClick={() => toggleCardExpansion(doc.file_id)}
                 className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 transition"
                 title={isExpanded ? "Collapse" : "Expand"}
               >
-                {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                {isExpanded ? (
+                  <Minimize2 size={14} />
+                ) : (
+                  <Maximize2 size={14} />
+                )}
               </button>
             </div>
           </div>
@@ -352,6 +364,7 @@ const ShopDocumentsTab = ({ shop }) => {
                 {doc.user.full_name}
               </span>
             )}
+            {/* Status Tag */}
             <span
               className={`px-1.5 py-0.5 rounded font-medium ml-auto
                 ${doc.status === "verified" ? "bg-emerald-100 text-emerald-700" : ""}
@@ -381,6 +394,7 @@ const ShopDocumentsTab = ({ shop }) => {
         {/* Expanded Content */}
         {isExpanded && (
           <div className="border-t border-gray-100 p-3">
+            {/* Preview Section */}
             <div className="bg-gray-50 rounded-lg overflow-hidden">
               {doc.mime_type?.includes("image") ? (
                 <div className="relative h-64 flex items-center justify-center">
@@ -466,6 +480,18 @@ const ShopDocumentsTab = ({ shop }) => {
     );
   };
 
+  // Staff users don't see documents
+  if (isStaff) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
+        <FileText size={48} className="mx-auto text-gray-300 mb-3" />
+        <p className="text-gray-500">
+          Documents not available for staff members
+        </p>
+      </div>
+    );
+  }
+
   if (documents.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
@@ -477,13 +503,13 @@ const ShopDocumentsTab = ({ shop }) => {
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="space-y-2">
         {/* Stats Summary */}
         <div className="bg-white rounded-xl border border-gray-100 p-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
               <FileText size={16} />
-              Documents: {stats.total}
+              Uploaded Documents: {stats.total}
             </h3>
             <div className="flex gap-3 text-xs">
               <span className="flex items-center gap-1 text-emerald-600">
@@ -504,26 +530,15 @@ const ShopDocumentsTab = ({ shop }) => {
 
         {/* Required Documents */}
         {requiredDocs.length > 0 && (
-          <div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {requiredDocs.map((doc) => renderDocumentCard(doc, false))}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {requiredDocs.map((doc) => renderDocumentCard(doc, false))}
           </div>
         )}
 
         {/* Optional Documents */}
         {optionalDocs.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-sm font-semibold text-gray-700">Optional Documents</h3>
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                {optionalDocs.length}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {optionalDocs.map((doc) => renderDocumentCard(doc, true))}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {optionalDocs.map((doc) => renderDocumentCard(doc, true))}
           </div>
         )}
       </div>
@@ -549,9 +564,12 @@ const ShopDocumentsTab = ({ shop }) => {
                 <FileText size={20} className="text-white" />
                 <div>
                   <h3 className="text-white font-medium text-sm">
-                    {FILE_TYPE_LABELS[previewFile.file_type] || previewFile.file_type}
+                    {FILE_TYPE_LABELS[previewFile.file_type] ||
+                      previewFile.file_type}
                   </h3>
-                  <p className="text-white/60 text-xs">{previewFile.original_name}</p>
+                  <p className="text-white/60 text-xs">
+                    {previewFile.original_name}
+                  </p>
                 </div>
               </div>
 
@@ -590,6 +608,7 @@ const ShopDocumentsTab = ({ shop }) => {
 
               {/* Right Actions */}
               <div className="flex items-center gap-1">
+                {/* Download */}
                 <button
                   onClick={(e) => handleDownload(previewFile, e)}
                   className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
@@ -597,6 +616,8 @@ const ShopDocumentsTab = ({ shop }) => {
                 >
                   <Download size={18} />
                 </button>
+
+                {/* Open in New Tab */}
                 <button
                   onClick={(e) => handleOpenInNewTab(previewFile, e)}
                   className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
@@ -604,13 +625,21 @@ const ShopDocumentsTab = ({ shop }) => {
                 >
                   <ExternalLink size={18} />
                 </button>
+
+                {/* Fullscreen Toggle */}
                 <button
                   onClick={() => setIsFullscreen(!isFullscreen)}
                   className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
                   title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                 >
-                  {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                  {isFullscreen ? (
+                    <Minimize2 size={18} />
+                  ) : (
+                    <Maximize2 size={18} />
+                  )}
                 </button>
+
+                {/* Close */}
                 <button
                   onClick={() => setPreviewFile(null)}
                   className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors ml-2"
@@ -629,12 +658,14 @@ const ShopDocumentsTab = ({ shop }) => {
             >
               {previewFile.mime_type?.includes("image") ? (
                 <>
+                  {/* Zoom hint */}
                   {zoom === 1 && (
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-2 z-10">
                       <span>Scroll to zoom • Drag to pan when zoomed</span>
                     </div>
                   )}
 
+                  {/* Image with zoom and pan */}
                   <div
                     className={`relative transition-transform ${
                       isDragging ? "cursor-grabbing" : zoom > 1 ? "cursor-grab" : "cursor-default"
@@ -723,4 +754,4 @@ const ShopDocumentsTab = ({ shop }) => {
   );
 };
 
-export default ShopDocumentsTab;
+export default UserDocumentsTab;

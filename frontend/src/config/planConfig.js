@@ -17,44 +17,55 @@ export const BILLING = {
 
 export const CARD_THEMES = {
   // Free plans (price = 0) - Green theme
+  // ⚠️ FIXED: Added hoverGradientRaw for overlay approach
   free: {
     gradient: "from-emerald-50 to-teal-100",
-    hoverGradient: "hover:from-emerald-600 hover:to-teal-600",
+    hoverGradient: "from-emerald-600 to-teal-600", // Raw colors for overlay
     accentColor: "text-emerald-600",
     borderAccent: "border-emerald-300",
-    buttonBg: "bg-emerald-600 hover:bg-emerald-700",
+    buttonBg: "bg-emerald-600 hover:bg-emerald-700 text-white",
     badgeBg: "bg-emerald-600",
   },
 
-  // Featured plans - Purple theme (ALWAYS if is_featured, regardless of promos)
+  // Featured plans - Purple theme
+  // ⚠️ FIXED: Lightened hover gradient from 600 to 500
   featured: {
     gradient: "from-violet-50 to-purple-100",
-    hoverGradient: "hover:from-violet-600 hover:to-purple-600",
+    hoverGradient: "from-violet-500 to-purple-500", // Lighter than before
     accentColor: "text-violet-600",
     borderAccent: "border-violet-300",
-    buttonBg: "bg-violet-600 hover:bg-violet-700",
+    buttonBg: "bg-violet-600 hover:bg-violet-700 text-white",
     badgeBg: "bg-violet-600",
   },
 
-  // Default paid plans - Navy Blue theme (NOT light blue)
- default: {
-  gradient: "from-blue-50 to-indigo-100",
-  hoverGradient: "hover:from-[#1a1a8c] hover:to-[#2a2a9c]",
-  accentColor: "text-[#000060]",
-  borderAccent: "border-blue-200",
-  buttonBg: "bg-[#000060]  group-hover:bg-white group-hover:text-[#000060]",
-  badgeBg: "bg-[#000060]",
-},
+  // Default paid plans - Navy Blue theme
+  default: {
+    gradient: "from-blue-50 to-indigo-100",
+    hoverGradient: "from-[#1a1a8c] to-[#2a2a9c]",
+    accentColor: "text-[#000060]",
+    borderAccent: "border-blue-200",
+    buttonBg: "bg-[#000060] hover:bg-[#000080] text-white",
+    badgeBg: "bg-[#000060]",
+  },
 
   // Custom plan - Orange theme
   custom: {
     gradient: "from-amber-50 to-orange-100",
-    hoverGradient: "hover:from-amber-600 hover:to-orange-600",
+    hoverGradient: "from-amber-500 to-orange-500",
     accentColor: "text-amber-600",
     borderAccent: "border-amber-300 border-dashed",
-    buttonBg: "bg-amber-600 hover:bg-amber-700",
+    buttonBg: "bg-amber-600 hover:bg-amber-700 text-white",
     badgeBg: "bg-amber-600",
   },
+
+  // ⚠️ NEW: Current/Active plan special theme
+  current: {
+  gradient: "from-slate-100 via-gray-50 to-slate-100",
+  borderAccent: "border-slate-400",
+  glowColor: "ring-slate-300",
+  accentColor: "text-slate-700",
+  badgeBg: "bg-gradient-to-r from-slate-600 to-slate-700",
+},
 };
 
 // ============================================

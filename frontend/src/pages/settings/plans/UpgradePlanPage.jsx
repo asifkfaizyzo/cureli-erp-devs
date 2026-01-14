@@ -17,13 +17,18 @@ import {
 } from "lucide-react";
 
 // API
-import { getPlans, getMySubscription, changePlan, confirmPayment, cancelPendingSubscription } from "../../../api/subscription";
+import {
+  getPlans,
+  getMySubscription,
+  changePlan,
+  confirmPayment,
+  cancelPendingSubscription,
+} from "../../../api/subscription";
 import { fetchUserLimits } from "../../../api/users";
 import { fetchBranchLimits } from "../../../api/branches";
 
 // Utils & Config
 import { analyzePlanChange } from "../../../utils/planChangeUtils";
-import { formatPrice, getCardTheme, generateFeatures, BILLING } from "../../../config/planConfig";
 
 // Components
 import CurrentPlanBanner from "./comps/CurrentPlanBanner";
@@ -32,7 +37,7 @@ import DowngradeWarningModal from "./comps/DowngradeWarningModal";
 import ComplianceModal from "./comps/ComplianceModal";
 import FinalConfirmationModal from "./comps/FinalConfirmationModal";
 import UpgradeConfirmModal from "./comps/UpgradeConfirmModal";
-
+import RenewalConfirmModal from "./comps/RenewalConfirmModal";
 /**
  * UpgradePlanPage
  * Plan management page for Super Admin
@@ -40,32 +45,32 @@ import UpgradeConfirmModal from "./comps/UpgradeConfirmModal";
  */
 const UpgradePlanPage = () => {
   const navigate = useNavigate();
-  
+
   // ============================================
   // STATE
   // ============================================
-  
+
   // Data
   const [plans, setPlans] = useState([]);
   const [currentSubscription, setCurrentSubscription] = useState(null);
   const [usage, setUsage] = useState({ activeUsers: 0, activeBranches: 0 });
-  
+
   // UI State
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Selected plan & analysis
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [planAnalysis, setPlanAnalysis] = useState(null);
-  
+
   // Modal state machine
   const [modalState, setModalState] = useState(null);
   // null | "upgrade_confirm" | "downgrade_warning" | "compliance" | "final_confirm"
-  
+
   // Processing state
   const [processing, setProcessing] = useState(false);
   const [modalError, setModalError] = useState("");
-  
+
   // Compliance selections (for downgrade)
   const [complianceData, setComplianceData] = useState({
     usersToDisable: [],
@@ -75,24 +80,26 @@ const UpgradePlanPage = () => {
   // ============================================
   // DATA LOADING
   // ============================================
-  
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Fetch all data in parallel
-      const [plansRes, subscriptionRes, userLimitsRes, branchLimitsRes] = await Promise.all([
-        getPlans(),
-        getMySubscription(),
-        fetchUserLimits(),
-        fetchBranchLimits(),
-      ]);
-      
+      const [plansRes, subscriptionRes, userLimitsRes, branchLimitsRes] =
+        await Promise.all([
+          getPlans(),
+          getMySubscription(),
+          fetchUserLimits(),
+          fetchBranchLimits(),
+        ]);
+
       // Plans
-      const plansData = plansRes.data?.data?.plans || plansRes.data?.plans || [];
+      const plansData =
+        plansRes.data?.data?.plans || plansRes.data?.plans || [];
       setPlans(plansData);
-      
+
       // Current subscription
       const subData = subscriptionRes.data?.data || subscriptionRes.data;
       if (subData?.has_active_subscription && subData?.current_plan) {
@@ -103,7 +110,7 @@ const UpgradePlanPage = () => {
       } else {
         setCurrentSubscription(null);
       }
-      
+
       // Usage counts
       const userCount = userLimitsRes.data?.current_count || 0;
       const branchCount = branchLimitsRes.data?.current_count || 0;
@@ -111,7 +118,6 @@ const UpgradePlanPage = () => {
         activeUsers: userCount,
         activeBranches: branchCount,
       });
-      
     } catch (err) {
       console.error("Failed to load data:", err);
       setError("Failed to load plan information. Please try again.");
@@ -119,7 +125,7 @@ const UpgradePlanPage = () => {
       setLoading(false);
     }
   }, []);
-  
+
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -127,28 +133,25 @@ const UpgradePlanPage = () => {
   // ============================================
   // PLAN SELECTION HANDLER
   // ============================================
-  
+
   const handleSelectPlan = (plan) => {
-    // Can't select current plan
-    if (currentSubscription?.plan?.plan_id === plan.plan_id) {
-      alert("This is your current plan.");
-      return;
-    }
-    
     // Analyze the change
     const analysis = analyzePlanChange(
       currentSubscription?.plan || { max_users: 0, max_branches: 0, price: 0 },
       plan,
       usage
     );
-    
+
     setSelectedPlan(plan);
     setPlanAnalysis(analysis);
     setModalError("");
     setComplianceData({ usersToDisable: [], branchesToDeactivate: [] });
-    
+
     // Determine which modal to show
-    if (analysis.direction === "upgrade") {
+    if (analysis.direction === "renew") {
+      // ⚠️ NEW: Show renewal confirmation modal
+      setModalState("renew_confirm");
+    } else if (analysis.direction === "upgrade") {
       setModalState("upgrade_confirm");
     } else if (analysis.direction === "downgrade") {
       setModalState("downgrade_warning");
@@ -156,21 +159,57 @@ const UpgradePlanPage = () => {
       alert("No change detected.");
     }
   };
+  // ============================================
+  // RENEWAL FLOW (NEW)
+  // ============================================
+
+  const handleRenewConfirm = async () => {
+    if (!selectedPlan || processing) return;
+
+    setProcessing(true);
+    setModalError("");
+
+    try {
+      const response = await changePlan({ plan_id: selectedPlan.plan_id });
+      const data = response.data.data;
+
+      if (data.requires_payment) {
+        // Open Razorpay
+        openRazorpayCheckout({
+          ...data.razorpay,
+          subscription_id: data.subscription_id,
+          plan_name: selectedPlan.name,
+        });
+      } else {
+        // Shouldn't happen for renewal, but handle it
+        alert("Plan renewed successfully!");
+        handleCloseModals();
+        loadData();
+      }
+    } catch (err) {
+      console.error("Renewal error:", err);
+      setModalError(
+        err.response?.data?.message ||
+          "Failed to process renewal. Please try again."
+      );
+      setProcessing(false);
+    }
+  };
 
   // ============================================
   // UPGRADE FLOW
   // ============================================
-  
+
   const handleUpgradeConfirm = async () => {
     if (!selectedPlan || processing) return;
-    
+
     setProcessing(true);
     setModalError("");
-    
+
     try {
       const response = await changePlan({ plan_id: selectedPlan.plan_id });
       const data = response.data.data;
-      
+
       if (data.requires_payment) {
         // Open Razorpay
         openRazorpayCheckout({
@@ -186,11 +225,14 @@ const UpgradePlanPage = () => {
       }
     } catch (err) {
       console.error("Upgrade error:", err);
-      setModalError(err.response?.data?.message || "Failed to process upgrade. Please try again.");
+      setModalError(
+        err.response?.data?.message ||
+          "Failed to process upgrade. Please try again."
+      );
       setProcessing(false);
     }
   };
-  
+
   const openRazorpayCheckout = (data) => {
     const options = {
       key: data.key,
@@ -214,7 +256,9 @@ const UpgradePlanPage = () => {
           loadData();
         } catch (err) {
           console.error("Payment confirmation error:", err);
-          setModalError("Payment was successful but activation failed. Please contact support.");
+          setModalError(
+            "Payment was successful but activation failed. Please contact support."
+          );
           setProcessing(false);
         }
       },
@@ -232,9 +276,9 @@ const UpgradePlanPage = () => {
         backdropclose: false,
       },
     };
-    
+
     const rzp = new window.Razorpay(options);
-    
+
     rzp.on("payment.failed", async function (response) {
       console.error("Payment failed:", response.error);
       try {
@@ -242,17 +286,19 @@ const UpgradePlanPage = () => {
       } catch (err) {
         console.error("Failed to cancel pending subscription:", err);
       }
-      setModalError(response.error.description || "Payment failed. Please try again.");
+      setModalError(
+        response.error.description || "Payment failed. Please try again."
+      );
       setProcessing(false);
     });
-    
+
     rzp.open();
   };
 
   // ============================================
   // DOWNGRADE FLOW
   // ============================================
-  
+
   const handleDowngradeWarningAccept = () => {
     // Move to compliance modal if there's impact, otherwise to final confirm
     if (planAnalysis?.hasImpact) {
@@ -261,39 +307,41 @@ const UpgradePlanPage = () => {
       setModalState("final_confirm");
     }
   };
-  
+
   const handleComplianceComplete = (data) => {
     setComplianceData(data);
     setModalState("final_confirm");
   };
-  
+
   const handleFinalConfirm = async () => {
     if (!selectedPlan || processing) return;
-    
+
     setProcessing(true);
     setModalError("");
-    
+
     try {
       const response = await changePlan({
         plan_id: selectedPlan.plan_id,
         users_to_disable: complianceData.usersToDisable,
         branches_to_deactivate: complianceData.branchesToDeactivate,
       });
-      
+
       const data = response.data.data;
-      
+
       let message = "Plan changed successfully!";
       if (data.disabled_users > 0 || data.deactivated_branches > 0) {
         message += ` ${data.disabled_users} user(s) disabled, ${data.deactivated_branches} branch(es) deactivated.`;
       }
-      
+
       alert(message);
       handleCloseModals();
       loadData();
-      
     } catch (err) {
       console.error("Downgrade error:", err);
-      setModalError(err.response?.data?.message || "Failed to change plan. Please try again.");
+      setModalError(
+        err.response?.data?.message ||
+          "Failed to change plan. Please try again."
+      );
       setProcessing(false);
     }
   };
@@ -301,7 +349,7 @@ const UpgradePlanPage = () => {
   // ============================================
   // MODAL MANAGEMENT
   // ============================================
-  
+
   const handleCloseModals = () => {
     if (processing) return;
     setModalState(null);
@@ -311,11 +359,11 @@ const UpgradePlanPage = () => {
     setProcessing(false);
     setComplianceData({ usersToDisable: [], branchesToDeactivate: [] });
   };
-  
+
   const handleBackToWarning = () => {
     setModalState("downgrade_warning");
   };
-  
+
   const handleBackToCompliance = () => {
     setModalState("compliance");
   };
@@ -323,7 +371,7 @@ const UpgradePlanPage = () => {
   // ============================================
   // NAVIGATION
   // ============================================
-  
+
   const handleBackToProfile = () => {
     navigate("/settings/profile");
   };
@@ -331,7 +379,7 @@ const UpgradePlanPage = () => {
   // ============================================
   // LOADING STATE
   // ============================================
-  
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -346,7 +394,7 @@ const UpgradePlanPage = () => {
   // ============================================
   // ERROR STATE
   // ============================================
-  
+
   if (error && plans.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -354,7 +402,9 @@ const UpgradePlanPage = () => {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
             <AlertCircle size={32} className="text-red-500" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900">Failed to load plans</h3>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Failed to load plans
+          </h3>
           <p className="text-gray-500">{error}</p>
           <div className="flex gap-3">
             <button
@@ -380,7 +430,7 @@ const UpgradePlanPage = () => {
   // ============================================
   // MAIN RENDER
   // ============================================
-  
+
   return (
     <div className="h-full flex flex-col gap-6 p-1 overflow-auto">
       {/* Header - Clean with back button */}
@@ -393,22 +443,20 @@ const UpgradePlanPage = () => {
           >
             <ArrowLeft size={20} />
           </button>
-          
+
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-[#000060]/10 rounded-xl flex items-center justify-center">
               <CreditCard size={24} className="text-[#000060]" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                Manage Plans
-              </h1>
+              <h1 className="text-xl font-bold text-gray-900">Manage Plans</h1>
               <p className="text-sm text-gray-500">
                 View and change your subscription plan
               </p>
             </div>
           </div>
         </div>
-        
+
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -421,15 +469,12 @@ const UpgradePlanPage = () => {
           <span className="text-sm">Refresh</span>
         </motion.button>
       </div>
-      
+
       {/* Current Plan Banner */}
       {currentSubscription && (
-        <CurrentPlanBanner 
-          subscription={currentSubscription} 
-          usage={usage}
-        />
+        <CurrentPlanBanner subscription={currentSubscription} usage={usage} />
       )}
-      
+
       {/* Error Banner (non-critical) */}
       {error && plans.length > 0 && (
         <motion.div
@@ -449,11 +494,13 @@ const UpgradePlanPage = () => {
           </button>
         </motion.div>
       )}
-      
+
       {/* Plans Section */}
       <div className="flex-1">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Plans</h2>
-        
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Available Plans
+        </h2>
+
         <div className="flex flex-wrap justify-center gap-6">
           {plans.map((plan) => (
             <PlanCard
@@ -465,12 +512,12 @@ const UpgradePlanPage = () => {
               disabled={processing}
             />
           ))}
-          
+
           {/* Custom Plan Card */}
           <CustomPlanCard />
         </div>
       </div>
-      
+
       {/* Footer Note */}
       <div className="text-center py-4 flex-shrink-0">
         <p className="text-gray-500 text-sm">
@@ -483,11 +530,11 @@ const UpgradePlanPage = () => {
           </a>
         </p>
       </div>
-      
+
       {/* ============================================ */}
       {/* MODALS */}
       {/* ============================================ */}
-      
+
       {/* Upgrade Confirm Modal */}
       {modalState === "upgrade_confirm" && selectedPlan && (
         <UpgradeConfirmModal
@@ -499,7 +546,7 @@ const UpgradePlanPage = () => {
           error={modalError}
         />
       )}
-      
+
       {/* Downgrade Warning Modal */}
       {modalState === "downgrade_warning" && selectedPlan && planAnalysis && (
         <DowngradeWarningModal
@@ -510,7 +557,7 @@ const UpgradePlanPage = () => {
           onClose={handleCloseModals}
         />
       )}
-      
+
       {/* Compliance Modal */}
       {modalState === "compliance" && selectedPlan && planAnalysis && (
         <ComplianceModal
@@ -521,7 +568,18 @@ const UpgradePlanPage = () => {
           onClose={handleCloseModals}
         />
       )}
-      
+      {/* ⚠️ NEW: Renewal Confirm Modal */}
+      {modalState === "renew_confirm" && selectedPlan && (
+        <RenewalConfirmModal
+          plan={selectedPlan}
+          currentSubscription={currentSubscription}
+          onConfirm={handleRenewConfirm}
+          onClose={handleCloseModals}
+          loading={processing}
+          error={modalError}
+        />
+      )}
+
       {/* Final Confirmation Modal */}
       {modalState === "final_confirm" && selectedPlan && (
         <FinalConfirmationModal
@@ -530,7 +588,11 @@ const UpgradePlanPage = () => {
           complianceData={complianceData}
           hasImpact={planAnalysis?.hasImpact}
           onConfirm={handleFinalConfirm}
-          onBack={planAnalysis?.hasImpact ? handleBackToCompliance : handleBackToWarning}
+          onBack={
+            planAnalysis?.hasImpact
+              ? handleBackToCompliance
+              : handleBackToWarning
+          }
           onClose={handleCloseModals}
           loading={processing}
           error={modalError}

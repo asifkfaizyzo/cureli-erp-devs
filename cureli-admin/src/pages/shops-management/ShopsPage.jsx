@@ -1,6 +1,7 @@
-// cureli-admin/src/pages/shops-management/ShopsPage.jsx
+// src/pages/shops-management/ShopsPage.jsx
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom"; // ✅ ADD THIS
 import {
   HousePlus,
   RefreshCw,
@@ -16,42 +17,22 @@ import { getShops } from "../../api/cadminShops";
 import { useToast } from "../../components/common/Toast";
 import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 
-// ✅ FIXED: Use lowercase values to match backend
-const VERIFICATION_OPTIONS = [
-  { value: "", label: "All Verification" },
-  { value: "verified", label: "Verified" },
-  { value: "pending", label: "Pending" },
-  { value: "pending_review", label: "Pending Review" },
-  { value: "partially_rejected", label: "Partially Rejected" },
-  { value: "rejected", label: "Rejected" },
-];
-
-// ✅ These are standard subscription status values
-// If your backend uses different values, update these
-const SUBSCRIPTION_OPTIONS = [
-  { value: "", label: "All Subscriptions" },
-  { value: "active", label: "Active" },
-  { value: "expired", label: "Expired" },
-  { value: "trial", label: "Trial" },
-  { value: "cancelled", label: "Cancelled" },
-  { value: "pending", label: "Pending" },
-];
-
-const ACTIVE_OPTIONS = [
-  { value: "", label: "All Status" },
-  { value: "true", label: "Active" },   // ✅ Changed from "Active" to "true"
-  { value: "false", label: "Inactive" }, // ✅ Changed from "Inactive" to "false"
-];
+// ... existing OPTIONS constants ...
 
 const ShopsPage = () => {
   const toast = useToast();
   const rowsPerPage = useDynamicRowCount();
+  
+  // ✅ ADD: Get URL search params
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Filters
-  const [searchText, setSearchText] = useState("");
+  // ✅ CHANGED: Initialize from URL param
+  const initialSearch = searchParams.get("search") || "";
+  const [searchText, setSearchText] = useState(initialSearch);
+  
   const [verificationFilter, setVerificationFilter] = useState("");
   const [subscriptionFilter, setSubscriptionFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState("");
@@ -69,6 +50,20 @@ const ShopsPage = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // ✅ ADD: Sync URL params to state when URL changes
+  useEffect(() => {
+    const searchFromUrl = searchParams.get("search");
+    if (searchFromUrl && searchFromUrl !== searchText) {
+      setSearchText(searchFromUrl);
+      // Optionally clear filters when coming from external link
+      setVerificationFilter("");
+      setSubscriptionFilter("");
+      setActiveFilter("");
+      setDateFilter("");
+      setCurrentPage(1);
+    }
+  }, [searchParams]); // Only depend on searchParams, not searchText to avoid loop
 
   // Count active filters
   const activeFiltersCount = useMemo(() => {
@@ -96,13 +91,12 @@ const ShopsPage = () => {
         search: searchText || undefined,
         verification_status: verificationFilter || undefined,
         subscription_status: subscriptionFilter || undefined,
-        is_active: activeFilter || undefined, // ✅ Now sends "true" or "false" string
+        is_active: activeFilter || undefined,
         date_start: dateFilter || undefined,
         sort_by: sortConfig.sortBy,
         sort_order: sortConfig.order,
       };
 
-      // Remove undefined values
       Object.keys(params).forEach(
         (key) => params[key] === undefined && delete params[key]
       );
@@ -163,7 +157,21 @@ const ShopsPage = () => {
     setSubscriptionFilter("");
     setActiveFilter("");
     setDateFilter("");
-  }, []);
+    // ✅ ADD: Clear URL params
+    searchParams.delete("search");
+    setSearchParams(searchParams);
+  }, [searchParams, setSearchParams]);
+
+  // ✅ ADD: Update search with URL sync
+  const handleSearchChange = useCallback((value) => {
+    setSearchText(value);
+    if (value) {
+      setSearchParams({ search: value });
+    } else {
+      searchParams.delete("search");
+      setSearchParams(searchParams);
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleShopUpdate = useCallback(
     (shopId, updates) => {
@@ -174,7 +182,6 @@ const ShopsPage = () => {
           )
         );
 
-        // Show appropriate success toast based on update type
         if (updates.is_active !== undefined) {
           toast.success(
             updates.is_active ? "Shop Activated" : "Shop Deactivated",
@@ -246,7 +253,7 @@ const ShopsPage = () => {
         {/* Search & Filters */}
         <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {/* Search Input */}
+            {/* Search Input - ✅ CHANGED to use handleSearchChange */}
             <div className="relative flex-1 min-w-[200px]">
               <Search
                 size={18}
@@ -256,7 +263,7 @@ const ShopsPage = () => {
                 type="text"
                 placeholder="Search by shop name, email, or phone..."
                 value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)} // ✅ CHANGED
                 className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
                            bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20 
                            focus:border-[#000060] transition-all"
@@ -264,7 +271,7 @@ const ShopsPage = () => {
               {searchText && (
                 <button
                   type="button"
-                  onClick={() => setSearchText("")}
+                  onClick={() => handleSearchChange("")} // ✅ CHANGED
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded
                              text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
                 >

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useToast } from "../../components/common/Toast";
+import { useMenuStore } from "../../store/useMenuStore";
 
 // Components
 import PlanCard from "./comps/plans/PlanCard";
@@ -76,6 +77,10 @@ export default function SubscriptionPage() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const sliderRef = useRef(null);
+  const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
+  useEffect(() => {
+    setBreadcrumbs(["Subscriptions", "Plans"]);
+  }, [setBreadcrumbs]);
 
   // ============================================
   // DATA FETCHING
@@ -372,14 +377,14 @@ export default function SubscriptionPage() {
       };
 
       // Handle optional promo fields - send null to clear
-      updateData.compare_at_price = updatedPlan.compare_at_price 
-        ? Number(updatedPlan.compare_at_price) 
+      updateData.compare_at_price = updatedPlan.compare_at_price
+        ? Number(updatedPlan.compare_at_price)
         : null;
-      
-      updateData.bonus_months = updatedPlan.bonus_months 
-        ? Number(updatedPlan.bonus_months) 
+
+      updateData.bonus_months = updatedPlan.bonus_months
+        ? Number(updatedPlan.bonus_months)
         : 0;
-      
+
       updateData.promo_free_until = updatedPlan.promo_free_until || null;
 
       const response = await updatePlan(updatedPlan.plan_id, updateData);

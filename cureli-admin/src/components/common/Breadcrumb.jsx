@@ -15,6 +15,7 @@ const BREADCRUMB_PATHS = {
   "Shops": "/shops",
   "Verification": "/verification",
   "Subscriptions": "/subscriptions",
+   "Plans": "/subscriptions/manage",
   "Audits": "/audits",
   "Admins": "/admins",
   "Settings": "/settings",

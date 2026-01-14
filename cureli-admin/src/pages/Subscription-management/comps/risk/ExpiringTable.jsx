@@ -1,6 +1,6 @@
 // src/pages/Subscription-management/comps/risk/ExpiringTable.jsx
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Clock, ChevronUp, ChevronDown } from "lucide-react";
 import TableSkeleton from "../../../../components/common/TableSkeleton";
 import TableEmptyState from "../../../../components/common/TableEmptyState";
@@ -16,7 +16,6 @@ import {
   getPaymentStatusBadge,
 } from "../../../../config/modules/subscriptionRiskConfig";
 
-// Updated columns without actions
 const COLUMNS = [
   { key: "slNo", label: "#", width: 50, sortable: false, align: "left" },
   { key: "shop_name", label: "Shop Name", width: 220, sortable: true, align: "left" },
@@ -36,13 +35,11 @@ export default function ExpiringTable({
   emptyTitle,
   emptySubtitle,
   onViewDetails,
+  sortConfig = { sortBy: null, order: null },
+  onSortChange,
 }) {
   const { styles, heights } = TABLE_CONFIG;
 
-  // Sort state
-  const [sortConfig, setSortConfig] = useState({ sortBy: null, order: null });
-
-  // Column widths for resizing
   const [columnWidths, setColumnWidths] = useState(() => {
     const widths = {};
     COLUMNS.forEach((col) => {
@@ -52,16 +49,12 @@ export default function ExpiringTable({
   });
   const [resizing, setResizing] = useState(null);
 
-  // Computed values
   const startIndex = (currentPage - 1) * rowsPerPage;
   const hasData = data.length > 0;
   const showTable = loading || hasData;
   const showEmpty = !loading && !hasData;
   const showPagination = !loading && totalItems > 0;
 
-  // ============================================
-  // COLUMN RESIZING
-  // ============================================
   const handleMouseDown = (columnKey, e) => {
     if (columnKey === "slNo") return;
     e.preventDefault();
@@ -95,23 +88,10 @@ export default function ExpiringTable({
     };
   }, [resizing, handleMouseMove, handleMouseUp]);
 
-  // ============================================
-  // HANDLERS
-  // ============================================
   const handleRowClick = (subscription) => {
     onViewDetails?.(subscription);
   };
 
-  const handleSortChange = (columnKey) => {
-    setSortConfig((prev) => {
-      const order = prev.sortBy === columnKey && prev.order === "asc" ? "desc" : "asc";
-      return { sortBy: columnKey, order };
-    });
-  };
-
-  // ============================================
-  // SORTABLE HEADER
-  // ============================================
   const SortableHeader = ({ column }) => {
     const isActive = sortConfig.sortBy === column.key;
     const isAsc = isActive && sortConfig.order === "asc";
@@ -126,7 +106,7 @@ export default function ExpiringTable({
           className={`flex items-center ${styles.header.cell} ${
             column.sortable ? "cursor-pointer select-none" : ""
           } ${column.align === "center" ? "justify-center" : "justify-between"}`}
-          onClick={() => column.sortable && handleSortChange(column.key)}
+          onClick={() => column.sortable && onSortChange?.(column.key)}
         >
           <span>{column.label}</span>
           {column.sortable && (
@@ -156,15 +136,11 @@ export default function ExpiringTable({
     );
   };
 
-  // ============================================
-  // RENDER
-  // ============================================
   return (
     <div className={styles.container.wrapper}>
       {showTable && (
         <div className="flex-1 min-h-0 overflow-auto">
           <table className="w-full border-collapse text-sm" style={{ minWidth: "700px" }}>
-            {/* Header */}
             <thead className="sticky top-0 z-10">
               <tr className={styles.header.row}>
                 {COLUMNS.map((col) => (
@@ -173,7 +149,6 @@ export default function ExpiringTable({
               </tr>
             </thead>
 
-            {/* Body */}
             <tbody>
               {loading ? (
                 <TableSkeleton
@@ -192,12 +167,10 @@ export default function ExpiringTable({
                       className={getClickableRowClass(index, subscription.is_critical)}
                       style={{ height: `${heights.bodyRow}px` }}
                     >
-                      {/* # */}
                       <td className={`${styles.cell.base} ${styles.cell.muted} font-medium`}>
                         {startIndex + index + 1}
                       </td>
 
-                      {/* Shop Name */}
                       <td className={`${styles.cell.base} ${styles.cell.primary}`}>
                         <div className="flex flex-col">
                           <span className="font-medium truncate max-w-[200px]">
@@ -209,19 +182,16 @@ export default function ExpiringTable({
                         </div>
                       </td>
 
-                      {/* Plan Name */}
                       <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
                         <span className="truncate max-w-[130px] block">
                           {subscription.plan_name}
                         </span>
                       </td>
 
-                      {/* Expires On */}
                       <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
                         {formatDate(subscription.end_date)}
                       </td>
 
-                      {/* Days Left */}
                       <td className={`${styles.cell.base} ${styles.cell.center}`}>
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${daysStyle}`}
@@ -231,7 +201,6 @@ export default function ExpiringTable({
                         </span>
                       </td>
 
-                      {/* Payment Status */}
                       <td className={`${styles.cell.base} ${styles.cell.center}`}>
                         <span
                           className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium border min-w-[80px] ${paymentBadge.className}`}

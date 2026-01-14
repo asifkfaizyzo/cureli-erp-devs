@@ -54,18 +54,18 @@ function getTotalDurationMonths(billingCycleMonths, bonusMonths) {
 }
 
 async function getSubscriberCount(plan_id) {
-  const count = await prisma.shopSubscription.count({
+  return prisma.shopSubscription.count({
     where: {
       plan_id,
-      status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.EXPIRED] },
-      // Include expired within grace period
-      end_date: {
-        gte: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
-      },
+      is_active: true,
+      OR: [
+        { end_date: { gte: new Date() } },
+        { grace_period_until: { gte: new Date() } },
+      ],
     },
   });
-  return count;
 }
+
 
 async function isNameAvailable(name, excludeId = null) {
   const existing = await prisma.plan.findFirst({
