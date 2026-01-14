@@ -143,6 +143,7 @@ const UserPage = () => {
 
   // Handlers
   const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest Users data...", 2000);
     fetchUsers();
   }, [fetchUsers]);
 
@@ -235,7 +236,7 @@ const UserPage = () => {
                        disabled:opacity-50 flex-shrink-0"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            <span className="hidden sm:inline">Refresh</span>
+            
           </button>
         </div>
 

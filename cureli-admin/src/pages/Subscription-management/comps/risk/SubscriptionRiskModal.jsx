@@ -30,7 +30,7 @@ import {
 import ExtendGraceModal from "./modals/ExtendGraceModal";
 import ReminderConfirmModal from "./modals/ReminderConfirmModal";
 import SuspendConfirmModal from "./modals/SuspendConfirmModal";
-import ReactivateConfirmModal from "./modals/ReactivateConfirmModal";
+// import ReactivateConfirmModal from "./modals/ReactivateConfirmModal";
 
 // API imports - FIXED: Using correct function names from cadminSubscriptions
 import {
@@ -105,23 +105,23 @@ export default function SubscriptionRiskModal({
     }
   };
 
-  const handleReactivate = async (reason, extendDays) => {
-    setActionLoading(true);
-    try {
-      await reactivateSubscription(subscription.subscription_id, { 
-        reason, 
-        extend_days: extendDays 
-      });
-      toast.success("Subscription Reactivated", "The subscription is now active.");
-      setActiveModal(null);
-      onActionComplete?.();
-      onClose(true);
-    } catch (err) {
-      toast.error("Failed to Reactivate", err.response?.data?.message || "Please try again.");
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  // const handleReactivate = async (reason, extendDays) => {
+  //   setActionLoading(true);
+  //   try {
+  //     await reactivateSubscription(subscription.subscription_id, { 
+  //       reason, 
+  //       extend_days: extendDays 
+  //     });
+  //     toast.success("Subscription Reactivated", "The subscription is now active.");
+  //     setActiveModal(null);
+  //     onActionComplete?.();
+  //     onClose(true);
+  //   } catch (err) {
+  //     toast.error("Failed to Reactivate", err.response?.data?.message || "Please try again.");
+  //   } finally {
+  //     setActionLoading(false);
+  //   }
+  // };
 
   const handleNavigateToShop = () => {
     onClose();
@@ -179,16 +179,16 @@ export default function SubscriptionRiskModal({
             onClick: () => setActiveModal("suspend"),
           },
         ];
-      case "suspended":
-        return [
-          {
-            id: "reactivate",
-            label: "Reactivate",
-            icon: CheckCircle,
-            color: "emerald",
-            onClick: () => setActiveModal("reactivate"),
-          },
-        ];
+      // case "suspended":
+      //   return [
+      //     {
+      //       id: "reactivate",
+      //       label: "Reactivate",
+      //       icon: CheckCircle,
+      //       color: "emerald",
+      //       onClick: () => setActiveModal("reactivate"),
+      //     },
+      //   ];
       default:
         return [];
     }
@@ -482,13 +482,13 @@ export default function SubscriptionRiskModal({
         loading={actionLoading}
       />
 
-      <ReactivateConfirmModal
+      {/* <ReactivateConfirmModal
         isOpen={activeModal === "reactivate"}
         onClose={() => setActiveModal(null)}
         onConfirm={handleReactivate}
         subscription={subscription}
         loading={actionLoading}
-      />
+      /> */}
     </>
   );
 }

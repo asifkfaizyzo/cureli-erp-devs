@@ -31,8 +31,10 @@ export const NOTIFICATION_EVENTS = {
   SUBSCRIPTION_EXPIRED: "SUBSCRIPTION_EXPIRED",
   SUBSCRIPTION_GRACE_STARTED: "SUBSCRIPTION_GRACE_STARTED",
   SUBSCRIPTION_GRACE_ENDING: "SUBSCRIPTION_GRACE_ENDING",
+  SUBSCRIPTION_GRACE_EXTENDED: "SUBSCRIPTION_GRACE_EXTENDED", // ✅ NEW
   SUBSCRIPTION_SUSPENDED: "SUBSCRIPTION_SUSPENDED",
   SUBSCRIPTION_RENEWED: "SUBSCRIPTION_RENEWED",
+  SUBSCRIPTION_PAYMENT_REMINDER: "SUBSCRIPTION_PAYMENT_REMINDER", // ✅ NEW
 
   // ─────────────────────────────────────────
   // PAYMENTS
@@ -51,8 +53,15 @@ export const NOTIFICATION_EVENTS = {
   USER_INVITED: "USER_INVITED",
   USER_DEACTIVATED: "USER_DEACTIVATED",
 
+  // ─────────────────────────────────────────
+  // ENQUIRIES
+  // ─────────────────────────────────────────
   ENQUIRY_RECEIVED: "ENQUIRY_RECEIVED",
   ENQUIRY_REPLIED: "ENQUIRY_REPLIED",
+  
+  // ─────────────────────────────────────────
+  // ACCOUNT SECURITY
+  // ─────────────────────────────────────────
   EMAIL_VERIFICATION_OTP: "EMAIL_VERIFICATION_OTP",
   EMAIL_CHANGE_OTP: "EMAIL_CHANGE_OTP",
   EMAIL_CHANGED: "EMAIL_CHANGED",
@@ -65,6 +74,25 @@ export const NOTIFICATION_EVENTS = {
 // ============================================
 
 export const EVENT_CONFIG = {
+  // ... existing configs ...
+
+  // ✅ NEW: Payment Reminder (manual by CAdmin)
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_PAYMENT_REMINDER]: {
+    description: "Manual payment reminder sent by CAdmin",
+    defaultChannels: ["email"], // Can be overridden to include 'sms'
+    audienceType: "shop_owner",
+    priority: "high",
+  },
+
+  // ✅ NEW: Grace Period Extended
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_EXTENDED]: {
+    description: "Grace period extended by CAdmin",
+    defaultChannels: ["email"],
+    audienceType: "shop_owner",
+    priority: "normal",
+  },
+
+  // ... rest of existing configs ...
   [NOTIFICATION_EVENTS.ENQUIRY_RECEIVED]: {
     description: "Enquiry confirmation sent to user",
     defaultChannels: ["email"],

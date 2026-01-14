@@ -141,6 +141,7 @@ export default function RiskMonitorPage() {
   // ============================================
 
   const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest Subscribers data...", 2000);
     fetchData();
   }, [fetchData]);
 
@@ -361,7 +362,7 @@ export default function RiskMonitorPage() {
                          disabled:opacity-50 flex-shrink-0"
             >
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-              <span className="hidden sm:inline">Refresh</span>
+              
             </button>
           </div>
         </div>

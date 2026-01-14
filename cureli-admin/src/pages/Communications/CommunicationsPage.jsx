@@ -8,7 +8,6 @@ import {
   Radio,
   Clock,
   AlertCircle,
-  CheckCircle,
   TrendingUp,
   ArrowRight,
   Loader2,
@@ -18,6 +17,7 @@ import { getEnquiryStats } from "../../api/cadminEnquiries";
 import { getAllTickets } from "../../api/cadminTickets";
 import { useNavigate } from "react-router-dom";
 import { useMenuStore } from "../../store/useMenuStore";
+import { useToast } from "../../components/common/Toast";
 
 // ============================================
 // STAT ITEM COMPONENT
@@ -123,6 +123,7 @@ const CommunicationCard = ({
 // MAIN PAGE
 // ============================================
 const CommunicationsPage = () => {
+  const toast = useToast();
   const [ticketStats, setTicketStats] = useState(null);
   const [enquiryStats, setEnquiryStats] = useState(null);
   const [loadingTickets, setLoadingTickets] = useState(true);
@@ -178,14 +179,19 @@ const CommunicationsPage = () => {
     }
   }, []);
 
-  const fetchAllStats = useCallback(() => {
+  // Initial load - no toast, runs once on mount
+  useEffect(() => {
     fetchTicketStats();
     fetchEnquiryStats();
-  }, [fetchTicketStats, fetchEnquiryStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => {
-    fetchAllStats();
-  }, [fetchAllStats]);
+  // Manual refresh handler - with toast
+  const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest data...");
+    fetchTicketStats();
+    fetchEnquiryStats();
+  }, [toast, fetchTicketStats, fetchEnquiryStats]);
 
   // Calculate totals
   const totalTickets = ticketStats?.total || 0;
@@ -265,7 +271,7 @@ const CommunicationsPage = () => {
   ];
 
   return (
-    <div className=" space-y-5 font-poppins">
+    <div className="space-y-5 font-poppins">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -279,7 +285,7 @@ const CommunicationsPage = () => {
         </div>
 
         <button
-          onClick={fetchAllStats}
+          onClick={handleRefresh}
           disabled={loadingTickets || loadingEnquiries}
           className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 
                      transition-colors disabled:opacity-50"
@@ -292,68 +298,68 @@ const CommunicationsPage = () => {
       </div>
 
       {/* Summary Bar */}
-<div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-  <div className="flex items-center justify-between">
-    <div className="flex items-center gap-2">
-      <div className="w-1 h-8 bg-blue-600 rounded-full" />
-      <p className="text-sm font-medium text-gray-700">Quick Overview</p>
-    </div>
-    
-    <div className="flex items-center gap-6">
-      {/* Tickets */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-          <Ticket className="w-5 h-5 text-blue-600" />
-        </div>
-        <div>
-          <p className="text-xl font-bold text-gray-900">
-            {loadingTickets ? "..." : totalTickets}
-          </p>
-          <p className="text-xs text-gray-500">Tickets</p>
+      <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-8 bg-blue-600 rounded-full" />
+            <p className="text-sm font-medium text-gray-700">Quick Overview</p>
+          </div>
+          
+          <div className="flex items-center gap-6">
+            {/* Tickets */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                <Ticket className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">
+                  {loadingTickets ? "..." : totalTickets}
+                </p>
+                <p className="text-xs text-gray-500">Tickets</p>
+              </div>
+            </div>
+
+            <div className="w-px h-10 bg-gray-200" />
+
+            {/* Enquiries */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
+                <Mail className="w-5 h-5 text-violet-600" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">
+                  {loadingEnquiries ? "..." : totalEnquiries}
+                </p>
+                <p className="text-xs text-gray-500">Enquiries</p>
+              </div>
+            </div>
+
+            <div className="w-px h-10 bg-gray-200" />
+
+            {/* Pending */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">
+                  {loadingTickets || loadingEnquiries 
+                    ? "..." 
+                    : pendingTickets + pendingEnquiries
+                  }
+                </p>
+                <p className="text-xs text-gray-500">Pending</p>
+              </div>
+              {/* Optional: Pending badge indicator */}
+              {!loadingTickets && !loadingEnquiries && (pendingTickets + pendingEnquiries) > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                  Action needed
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-
-      <div className="w-px h-10 bg-gray-200" />
-
-      {/* Enquiries */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
-          <Mail className="w-5 h-5 text-violet-600" />
-        </div>
-        <div>
-          <p className="text-xl font-bold text-gray-900">
-            {loadingEnquiries ? "..." : totalEnquiries}
-          </p>
-          <p className="text-xs text-gray-500">Enquiries</p>
-        </div>
-      </div>
-
-      <div className="w-px h-10 bg-gray-200" />
-
-      {/* Pending */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
-          <AlertCircle className="w-5 h-5 text-amber-600" />
-        </div>
-        <div>
-          <p className="text-xl font-bold text-gray-900">
-            {loadingTickets || loadingEnquiries 
-              ? "..." 
-              : pendingTickets + pendingEnquiries
-            }
-          </p>
-          <p className="text-xs text-gray-500">Pending</p>
-        </div>
-        {/* Optional: Pending badge indicator */}
-        {!loadingTickets && !loadingEnquiries && (pendingTickets + pendingEnquiries) > 0 && (
-          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
-            Action needed
-          </span>
-        )}
-      </div>
-    </div>
-  </div>
-</div>
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

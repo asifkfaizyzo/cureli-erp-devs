@@ -1,3 +1,4 @@
+//cureli-admin\src\pages\Subscription-management\SubscriptionPage.jsx
 import {
   Plus,
   BadgeIndianRupee,
@@ -78,6 +79,7 @@ export default function SubscriptionPage() {
   const [canScrollRight, setCanScrollRight] = useState(false);
   const sliderRef = useRef(null);
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
+  
   useEffect(() => {
     setBreadcrumbs(["Subscriptions", "Plans"]);
   }, [setBreadcrumbs]);
@@ -113,12 +115,13 @@ export default function SubscriptionPage() {
       console.error("Failed to fetch plans:", err);
       const errorMsg = err.response?.data?.message || "Failed to load plans";
       setError(errorMsg);
-      toast.error("Failed to Load Plans", errorMsg);
+      toast.error("Load Failed", errorMsg);
     } finally {
       setLoading(false);
     }
   }, [planTypeFilter, toast]);
 
+  // Initial load and when planTypeFilter changes
   useEffect(() => {
     fetchPlans();
   }, [fetchPlans]);
@@ -128,6 +131,12 @@ export default function SubscriptionPage() {
     setFilter("all");
     setSearchQuery("");
   }, [planTypeFilter]);
+
+  // Manual refresh handler - with toast
+  const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest plans...");
+    fetchPlans();
+  }, [toast, fetchPlans]);
 
   // ============================================
   // DERIVED DATA
@@ -263,6 +272,7 @@ export default function SubscriptionPage() {
       }
 
       if (response?.success) {
+        // Refresh without showing toast (action already shows success toast below)
         await fetchPlans();
 
         const actionMessages = {
@@ -338,6 +348,7 @@ export default function SubscriptionPage() {
         if (planTypeFilter === "CUSTOM") {
           setPlanTypeFilter("PRE_MADE");
         }
+        // Refresh without showing toast (we show success toast below)
         await fetchPlans();
         setCreateModalOpen(false);
 
@@ -390,6 +401,7 @@ export default function SubscriptionPage() {
       const response = await updatePlan(updatedPlan.plan_id, updateData);
 
       if (response?.success) {
+        // Refresh without showing toast (we show success toast below)
         await fetchPlans();
         setPlanModalOpen(false);
         setSelectedPlan(null);
@@ -438,7 +450,7 @@ export default function SubscriptionPage() {
           </h3>
           <p className="text-gray-500 text-sm">{error}</p>
           <button
-            onClick={fetchPlans}
+            onClick={handleRefresh}
             className="flex items-center gap-2 px-4 py-2 bg-[#05015A] text-white rounded-lg text-sm font-medium hover:bg-[#0a0280] transition-all"
           >
             <RefreshCw size={16} />
@@ -488,7 +500,7 @@ export default function SubscriptionPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchPlans}
+            onClick={handleRefresh}
             disabled={loading}
             className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all"
             title="Refresh plans"

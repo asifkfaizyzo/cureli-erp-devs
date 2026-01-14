@@ -140,9 +140,9 @@ const AdminsPage = () => {
   const handleSortChange = useCallback((column) => {
     // Map frontend column names to backend sort fields
     const columnMapping = {
-      'name': 'name',
-      'role': 'role',
-      'lastLogin': 'last_login_at', // ✅ Map to backend field
+      name: "name",
+      role: "role",
+      lastLogin: "last_login_at", // ✅ Map to backend field
     };
 
     // Get the backend field name
@@ -150,7 +150,8 @@ const AdminsPage = () => {
 
     setSortConfig((prev) => ({
       sortBy: backendColumn,
-      order: prev.sortBy === backendColumn && prev.order === "asc" ? "desc" : "asc",
+      order:
+        prev.sortBy === backendColumn && prev.order === "asc" ? "desc" : "asc",
     }));
   }, []);
 
@@ -195,6 +196,7 @@ const AdminsPage = () => {
   );
 
   const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest Admins...");
     fetchAdmins();
   }, [fetchAdmins]);
 
@@ -246,6 +248,14 @@ const AdminsPage = () => {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={handleOpenAddModal}
+              className="px-4 py-2 bg-[#000060] text-white rounded-lg
+                         hover:shadow-lg hover:shadow-[#000060]/25 transition-all flex items-center gap-2 flex-shrink-0"
+            >
+              <UserPlus size={16} />
+              <span className="hidden sm:inline">Add Admin</span>
+            </button>
+            <button
               onClick={handleRefresh}
               disabled={loading}
               className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
@@ -253,16 +263,6 @@ const AdminsPage = () => {
                          disabled:opacity-50 flex-shrink-0"
             >
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
-
-            <button
-              onClick={handleOpenAddModal}
-              className="px-4 py-2 bg-gradient-to-r from-[#000060] to-[#0000a0] text-white rounded-lg
-                         hover:shadow-lg hover:shadow-[#000060]/25 transition-all flex items-center gap-2 flex-shrink-0"
-            >
-              <UserPlus size={16} />
-              <span className="hidden sm:inline">Add Admin</span>
             </button>
           </div>
         </div>

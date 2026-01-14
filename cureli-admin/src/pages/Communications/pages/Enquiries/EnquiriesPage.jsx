@@ -21,7 +21,7 @@ import EnquiryReplyModal from "./components/EnquiryReplyModal";
 import ConfirmDialog from "../../../../components/common/ConfirmDialog";
 import StyledSelect from "../../../../components/common/StyledSelect";
 import useDebounce from "../../../../hooks/useDebounce";
-import useDynamicRowCount from "../../../../hooks/useDynamicRowCount"; // ✅ Correct hook name
+import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
@@ -33,7 +33,7 @@ const STATUS_OPTIONS = [
 
 const EnquiriesPage = () => {
   const toast = useToast();
-  const rowsPerPage = useDynamicRowCount(); // ✅ Use correct hook
+  const rowsPerPage = useDynamicRowCount();
 
   // Data state
   const [enquiries, setEnquiries] = useState([]);
@@ -113,7 +113,7 @@ const EnquiriesPage = () => {
     } catch (err) {
       console.error("Failed to fetch enquiries:", err);
       setError("Failed to load enquiries. Please try again.");
-      toast.error("Failed to load enquiries");
+      toast.error("Load Failed", "Failed to load enquiries"); // ✅ Fixed: 2 arguments
       setEnquiries([]);
       setTotalItems(0);
     } finally {
@@ -146,10 +146,11 @@ const EnquiriesPage = () => {
     }
   }, []);
 
-  // Fetch on dependency changes
+  // Initial load - runs once on mount
   useEffect(() => {
     fetchEnquiries();
-  }, [fetchEnquiries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, rowsPerPage, debouncedSearch, statusFilter]);
 
   useEffect(() => {
     fetchStats();
@@ -160,11 +161,12 @@ const EnquiriesPage = () => {
     setCurrentPage(1);
   }, [debouncedSearch, statusFilter]);
 
-  // Handlers
+  // Manual refresh handler - with toast
   const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest enquiries...");
     fetchEnquiries();
     fetchStats();
-  }, [fetchEnquiries, fetchStats]);
+  }, [toast, fetchEnquiries, fetchStats]);
 
   const handleClearFilters = useCallback(() => {
     setSearchText("");
@@ -200,7 +202,9 @@ const EnquiriesPage = () => {
       toast.success("Deleted", `Enquiry ${selectedEnquiry.enquiry_number} has been deleted.`);
       setIsDeleteDialogOpen(false);
       setSelectedEnquiry(null);
-      handleRefresh();
+      // Refresh without showing toast (since we just showed success toast)
+      fetchEnquiries();
+      fetchStats();
     } catch (err) {
       console.error("Failed to delete enquiry:", err);
       toast.error("Delete Failed", "Could not delete the enquiry. Please try again.");
@@ -213,12 +217,16 @@ const EnquiriesPage = () => {
     setIsReplyModalOpen(false);
     setIsDetailsModalOpen(false);
     setSelectedEnquiry(null);
-    handleRefresh();
-  }, [handleRefresh]);
+    // Refresh without showing toast (reply modal already showed success toast)
+    fetchEnquiries();
+    fetchStats();
+  }, [fetchEnquiries, fetchStats]);
 
   const handleStatusChange = useCallback(() => {
-    handleRefresh();
-  }, [handleRefresh]);
+    // Refresh without showing toast
+    fetchEnquiries();
+    fetchStats();
+  }, [fetchEnquiries, fetchStats]);
 
   const handleCloseDetailsModal = useCallback(() => {
     setIsDetailsModalOpen(false);
@@ -264,7 +272,6 @@ const EnquiriesPage = () => {
                        disabled:opacity-50 flex-shrink-0"
           >
             <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
-            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
 

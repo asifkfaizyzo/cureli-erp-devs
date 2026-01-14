@@ -206,7 +206,7 @@ const VerificationPage = () => {
                        disabled:opacity-50 flex-shrink-0"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            <span className="hidden sm:inline">Refresh</span>
+            
           </button>
         </div>
 
