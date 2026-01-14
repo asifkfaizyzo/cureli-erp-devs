@@ -1,29 +1,33 @@
-//cureli-admin\src\pages\Subscription-management\SubscriptionPage.jsx
+// cureli-admin/src/pages/Subscription-management/SubscriptionPage.jsx
+
 import {
   Plus,
   BadgeIndianRupee,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   AlertCircle,
   RefreshCw,
+  Search,
+  X,
+  Package,
+  CheckCircle,
+  Clock,
+  Ban,
+  Sparkles,
+  Archive,
 } from "lucide-react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "../../components/common/Toast";
 import { useMenuStore } from "../../store/useMenuStore";
+import Pagination from "../../components/common/Pagination";
 
 // Components
 import PlanCard from "./comps/plans/PlanCard";
 import PlanModal from "./comps/plans/PlanModal";
 import CreatePlanModal from "./comps/plans/CreatePlanModal";
 import ConfirmActionModal from "./comps/plans/ConfirmActionModal";
-import PlanFilterBar from "./comps/plans/PlanFilterBar";
 
 // Config
-import {
-  PLAN_STATUS,
-  generateCloneName,
-} from "../../config/modules/subscriptionConfig";
+import { generateCloneName, PLAN_STATUS } from "../../config/modules/subscriptionConfig";
 
 // API
 import {
@@ -38,8 +42,21 @@ import {
   deletePlan,
 } from "../../api/cadminPlans";
 
+// Plans per page (2 rows × 4 columns = 8)
+const PLANS_PER_PAGE = 8;
+
+// Status filter options - using UPPERCASE to match backend values
+const STATUS_FILTERS = [
+  { key: "all", label: "All", icon: Package },
+  { key: PLAN_STATUS.ACTIVE, label: "Active", icon: CheckCircle },
+  { key: PLAN_STATUS.DRAFT, label: "Draft", icon: Clock },
+  { key: PLAN_STATUS.DEPRECATED, label: "Deprecated", icon: Archive },
+  { key: PLAN_STATUS.SUSPENDED, label: "Suspended", icon: Ban },
+];
+
 export default function SubscriptionPage() {
   const toast = useToast();
+  const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
 
   // ============================================
   // STATE
@@ -57,10 +74,13 @@ export default function SubscriptionPage() {
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Plan type filter (PRE_MADE or CUSTOM)
+  // Filters
   const [planTypeFilter, setPlanTypeFilter] = useState("PRE_MADE");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Modal states
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -74,12 +94,6 @@ export default function SubscriptionPage() {
     newName: null,
   });
 
-  // Slider
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const sliderRef = useRef(null);
-  const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
-  
   useEffect(() => {
     setBreadcrumbs(["Subscriptions", "Plans"]);
   }, [setBreadcrumbs]);
@@ -93,7 +107,6 @@ export default function SubscriptionPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch plans based on current type filter
       const [plansResponse, statsResponse] = await Promise.all([
         getPlans({
           limit: 100,
@@ -121,18 +134,22 @@ export default function SubscriptionPage() {
     }
   }, [planTypeFilter, toast]);
 
-  // Initial load and when planTypeFilter changes
   useEffect(() => {
     fetchPlans();
   }, [fetchPlans]);
 
-  // Reset status filter when switching plan types
+  // Reset filters when switching plan types
   useEffect(() => {
-    setFilter("all");
+    setStatusFilter("all");
     setSearchQuery("");
+    setCurrentPage(1);
   }, [planTypeFilter]);
 
-  // Manual refresh handler - with toast
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
   const handleRefresh = useCallback(() => {
     toast.info("Refreshing", "Loading latest plans...");
     fetchPlans();
@@ -142,56 +159,33 @@ export default function SubscriptionPage() {
   // DERIVED DATA
   // ============================================
 
-  // Filter plans based on search and status filter
-  const filteredPlans = plans.filter((p) => {
-    const matchesSearch =
-      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
-    if (!matchesSearch) return false;
-    if (filter === "all") return true;
-    return p.status === filter;
-  });
+  // Filter plans based on search and status
+  const filteredPlans = useMemo(() => {
+    return plans.filter((p) => {
+      const matchesSearch =
+        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
+      if (!matchesSearch) return false;
+      if (statusFilter === "all") return true;
+      return p.status === statusFilter;
+    });
+  }, [plans, searchQuery, statusFilter]);
 
-  // Plan counts for filter badges
-  const planCounts = {
-    total: stats.total,
-    draft: stats.draft,
-    active: stats.active,
-    deprecated: stats.deprecated,
-    suspended: stats.suspended,
-    with_active_promo: stats.with_active_promo || 0,
-  };
+  // Paginate filtered plans
+  const paginatedPlans = useMemo(() => {
+    const startIndex = (currentPage - 1) * PLANS_PER_PAGE;
+    return filteredPlans.slice(startIndex, startIndex + PLANS_PER_PAGE);
+  }, [filteredPlans, currentPage]);
 
-  const showNavigation = filteredPlans.length > 4;
+  // Stats for current filter - use stats from API for accuracy
+  const planCounts = useMemo(() => ({
+    all: plans.length,
+    [PLAN_STATUS.ACTIVE]: stats.active || plans.filter((p) => p.status === PLAN_STATUS.ACTIVE).length,
+    [PLAN_STATUS.DRAFT]: stats.draft || plans.filter((p) => p.status === PLAN_STATUS.DRAFT).length,
+    [PLAN_STATUS.DEPRECATED]: stats.deprecated || plans.filter((p) => p.status === PLAN_STATUS.DEPRECATED).length,
+    [PLAN_STATUS.SUSPENDED]: stats.suspended || plans.filter((p) => p.status === PLAN_STATUS.SUSPENDED).length,
+  }), [plans, stats]);
 
-  // ============================================
-  // SLIDER FUNCTIONS
-  // ============================================
-  const checkScrollPosition = useCallback(() => {
-    if (sliderRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = sliderRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
-    }
-  }, []);
-
-  const scrollSlider = (direction) => {
-    if (sliderRef.current) {
-      const scrollAmount = direction === "left" ? -320 : 320;
-      sliderRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
-      setTimeout(checkScrollPosition, 300);
-    }
-  };
-
-  useEffect(() => {
-    checkScrollPosition();
-    window.addEventListener("resize", checkScrollPosition);
-    const timeout = setTimeout(checkScrollPosition, 100);
-
-    return () => {
-      window.removeEventListener("resize", checkScrollPosition);
-      clearTimeout(timeout);
-    };
-  }, [filteredPlans.length, checkScrollPosition]);
+  const hasActiveFilters = searchQuery.trim().length > 0 || statusFilter !== "all";
 
   // ============================================
   // PLAN ACTIONS
@@ -240,7 +234,6 @@ export default function SubscriptionPage() {
 
   const handleConfirmAction = async () => {
     const { action, plan, newName } = confirmModal;
-
     setActionLoading(true);
 
     try {
@@ -250,29 +243,23 @@ export default function SubscriptionPage() {
         case "activate":
           response = await activatePlan(plan.plan_id);
           break;
-
         case "suspend":
           response = await suspendPlan(plan.plan_id);
           break;
-
         case "reactivate":
           response = await reactivatePlan(plan.plan_id);
           break;
-
         case "clone":
           response = await clonePlan(plan.plan_id, newName);
           break;
-
         case "delete":
           response = await deletePlan(plan.plan_id);
           break;
-
         default:
           break;
       }
 
       if (response?.success) {
-        // Refresh without showing toast (action already shows success toast below)
         await fetchPlans();
 
         const actionMessages = {
@@ -288,22 +275,13 @@ export default function SubscriptionPage() {
           actionMessages[action]
         );
 
-        if (action === "clone") {
-          if (planTypeFilter === "CUSTOM") {
-            setPlanTypeFilter("PRE_MADE");
-          }
-          setTimeout(() => {
-            if (sliderRef.current) {
-              sliderRef.current.scrollTo({ left: 0, behavior: "smooth" });
-            }
-          }, 100);
+        if (action === "clone" && planTypeFilter === "CUSTOM") {
+          setPlanTypeFilter("PRE_MADE");
         }
       }
     } catch (err) {
       console.error(`Failed to ${action} plan:`, err);
-      const errorMsg =
-        err.response?.data?.message || `Failed to ${action} plan`;
-      setError(errorMsg);
+      const errorMsg = err.response?.data?.message || `Failed to ${action} plan`;
       toast.error(
         `${action.charAt(0).toUpperCase() + action.slice(1)} Failed`,
         errorMsg
@@ -329,15 +307,12 @@ export default function SubscriptionPage() {
         type: "PRE_MADE",
       };
 
-      // Add optional promo fields
       if (formData.compare_at_price) {
         apiData.compare_at_price = Number(formData.compare_at_price);
       }
-
       if (formData.bonus_months) {
         apiData.bonus_months = Number(formData.bonus_months);
       }
-
       if (formData.promo_free_until) {
         apiData.promo_free_until = formData.promo_free_until;
       }
@@ -348,25 +323,15 @@ export default function SubscriptionPage() {
         if (planTypeFilter === "CUSTOM") {
           setPlanTypeFilter("PRE_MADE");
         }
-        // Refresh without showing toast (we show success toast below)
         await fetchPlans();
         setCreateModalOpen(false);
+        setCurrentPage(1);
 
-        toast.success(
-          "Plan Created",
-          `${formData.name} has been created successfully.`
-        );
-
-        setTimeout(() => {
-          if (sliderRef.current) {
-            sliderRef.current.scrollTo({ left: 0, behavior: "smooth" });
-          }
-        }, 100);
+        toast.success("Plan Created", `${formData.name} has been created successfully.`);
       }
     } catch (err) {
       console.error("Failed to create plan:", err);
       const errorMsg = err.response?.data?.message || "Failed to create plan";
-      setError(errorMsg);
       toast.error("Creation Failed", errorMsg);
     } finally {
       setActionLoading(false);
@@ -385,40 +350,36 @@ export default function SubscriptionPage() {
         max_branches: updatedPlan.max_branches,
         billing_cycle_months: updatedPlan.billing_cycle_months || 12,
         is_featured: updatedPlan.is_featured,
+        compare_at_price: updatedPlan.compare_at_price
+          ? Number(updatedPlan.compare_at_price)
+          : null,
+        bonus_months: updatedPlan.bonus_months
+          ? Number(updatedPlan.bonus_months)
+          : 0,
+        promo_free_until: updatedPlan.promo_free_until || null,
       };
-
-      // Handle optional promo fields - send null to clear
-      updateData.compare_at_price = updatedPlan.compare_at_price
-        ? Number(updatedPlan.compare_at_price)
-        : null;
-
-      updateData.bonus_months = updatedPlan.bonus_months
-        ? Number(updatedPlan.bonus_months)
-        : 0;
-
-      updateData.promo_free_until = updatedPlan.promo_free_until || null;
 
       const response = await updatePlan(updatedPlan.plan_id, updateData);
 
       if (response?.success) {
-        // Refresh without showing toast (we show success toast below)
         await fetchPlans();
         setPlanModalOpen(false);
         setSelectedPlan(null);
 
-        toast.success(
-          "Plan Updated",
-          `${updatedPlan.name} has been updated successfully.`
-        );
+        toast.success("Plan Updated", `${updatedPlan.name} has been updated successfully.`);
       }
     } catch (err) {
       console.error("Failed to update plan:", err);
       const errorMsg = err.response?.data?.message || "Failed to update plan";
-      setError(errorMsg);
       toast.error("Update Failed", errorMsg);
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
   };
 
   // ============================================
@@ -426,7 +387,7 @@ export default function SubscriptionPage() {
   // ============================================
   if (loading) {
     return (
-      <div className="w-full min-h-[400px] flex items-center justify-center">
+      <div className="w-full min-h-[500px] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 size={40} className="text-[#05015A] animate-spin" />
           <p className="text-gray-500 text-sm">Loading plans...</p>
@@ -440,14 +401,12 @@ export default function SubscriptionPage() {
   // ============================================
   if (error && plans.length === 0) {
     return (
-      <div className="w-full min-h-[400px] flex items-center justify-center">
+      <div className="w-full min-h-[500px] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 max-w-md text-center">
           <div className="p-4 bg-red-100 rounded-full">
             <AlertCircle size={40} className="text-red-500" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800">
-            Failed to Load Plans
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-800">Failed to Load Plans</h3>
           <p className="text-gray-500 text-sm">{error}</p>
           <button
             onClick={handleRefresh}
@@ -465,35 +424,30 @@ export default function SubscriptionPage() {
   // RENDER - MAIN
   // ============================================
   return (
-    <div className="w-full min-w-0 overflow-hidden px-2">
-      {/* Error Banner (for non-critical errors) */}
+    <div className="w-full h-full min-w-0 flex flex-col gap-4 overflow-hidden">
+      {/* Error Banner */}
       {error && plans.length > 0 && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+        <div className="flex-shrink-0 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertCircle size={16} className="text-red-500" />
             <span className="text-red-700 text-sm">{error}</span>
           </div>
-          <button
-            onClick={() => setError(null)}
-            className="text-red-500 hover:text-red-700"
-          >
-            ×
+          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
+            <X size={16} />
           </button>
         </div>
       )}
 
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
+      <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#05015A] rounded-xl shadow-lg shadow-[#05015A]/20">
-            <BadgeIndianRupee className="text-white" size={22} />
+          <div className="w-10 h-10 bg-[#05015A] rounded-xl flex items-center justify-center shadow-lg shadow-[#05015A]/20">
+            <BadgeIndianRupee className="text-white" size={20} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-[#05015A]">
-              Subscription Plans
-            </h1>
+            <h1 className="text-xl font-bold text-gray-900">Subscription Plans</h1>
             <p className="text-sm text-gray-500">
-              Manage your billing plans and pricing tiers
+              {stats.total} total plans • {stats.active} active
             </p>
           </div>
         </div>
@@ -502,32 +456,20 @@ export default function SubscriptionPage() {
           <button
             onClick={handleRefresh}
             disabled={loading}
-            className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all"
+            className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-50"
             title="Refresh plans"
           >
             <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
           </button>
 
-          {/* Only show Create Plan button on PRE_MADE view */}
           {planTypeFilter === "PRE_MADE" && (
             <button
               onClick={() => setCreateModalOpen(true)}
               disabled={actionLoading}
-              className="
-                group flex items-center gap-2 
-                bg-[#05015A] text-white 
-                px-5 py-2.5 rounded-xl text-sm font-semibold
-                shadow-lg shadow-[#05015A]/25
-                hover:bg-[#0a0280] hover:shadow-xl
-                active:scale-[0.98]
-                transition-all duration-300
-                disabled:opacity-50 disabled:cursor-not-allowed
-              "
+              className="flex items-center gap-2 bg-[#05015A] text-white px-4 py-2.5 rounded-xl text-sm font-semibold
+                         shadow-lg shadow-[#05015A]/25 hover:bg-[#0a0280] transition-all disabled:opacity-50"
             >
-              <Plus
-                size={18}
-                className="transition-transform duration-300 group-hover:rotate-90"
-              />
+              <Plus size={18} />
               Create Plan
             </button>
           )}
@@ -535,155 +477,189 @@ export default function SubscriptionPage() {
       </div>
 
       {/* Filter Bar */}
-      <PlanFilterBar
-        planTypeFilter={planTypeFilter}
-        setPlanTypeFilter={setPlanTypeFilter}
-        filter={filter}
-        setFilter={setFilter}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        planCounts={planCounts}
-      />
-
-      {/* Plans Slider */}
-      {filteredPlans.length > 0 ? (
-        <div className="relative w-full overflow-hidden">
-          {/* Left Arrow */}
-          {showNavigation && canScrollLeft && (
-            <button
-              onClick={() => scrollSlider("left")}
-              className="
-                absolute left-2 top-1/2 -translate-y-1/2 z-10
-                p-2.5 rounded-full shadow-lg border-2
-                bg-[#05015A] text-white border-[#05015A] 
-                hover:bg-[#0a0280] hover:scale-110 
-                transition-all duration-300
-              "
-            >
-              <ChevronLeft size={22} />
-            </button>
-          )}
-
-          {/* Slider Container */}
-          <div
-            ref={sliderRef}
-            onScroll={checkScrollPosition}
-            className="flex gap-4 overflow-x-auto scroll-smooth py-3"
-            style={{
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-              paddingLeft: showNavigation ? "56px" : "4px",
-              paddingRight: showNavigation ? "56px" : "4px",
-            }}
-          >
-            {filteredPlans.map((plan) => (
-              <div
-                key={plan.plan_id}
-                className="flex-shrink-0 w-[280px] min-w-[280px]"
-              >
-                <PlanCard plan={plan} onAction={handlePlanAction} />
-              </div>
-            ))}
-          </div>
-
-          {/* Right Arrow */}
-          {showNavigation && canScrollRight && (
-            <button
-              onClick={() => scrollSlider("right")}
-              className="
-                absolute right-2 top-1/2 -translate-y-1/2 z-10
-                p-2.5 rounded-full shadow-lg border-2
-                bg-[#05015A] text-white border-[#05015A] 
-                hover:bg-[#0a0280] hover:scale-110 
-                transition-all duration-300
-              "
-            >
-              <ChevronRight size={22} />
-            </button>
-          )}
-
-          {/* Pagination Dots */}
-          {showNavigation && (
-            <div className="flex justify-center gap-2 mt-4">
-              {Array.from({ length: Math.ceil(filteredPlans.length / 4) }).map(
-                (_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      if (sliderRef.current) {
-                        sliderRef.current.scrollTo({
-                          left: index * 4 * 296,
-                          behavior: "smooth",
-                        });
-                        setTimeout(checkScrollPosition, 300);
-                      }
-                    }}
-                    className="
-                      w-2 h-2 rounded-full bg-gray-300 
-                      hover:bg-[#05015A] transition-all duration-300
-                    "
-                  />
-                )
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        /* Empty State */
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200">
-          <div className="p-5 bg-gray-100 rounded-full mb-5">
-            <BadgeIndianRupee size={48} className="text-gray-400" />
-          </div>
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">
-            {planTypeFilter === "CUSTOM" ? "No Custom Plans" : "No Plans Found"}
-          </h3>
-          <p className="text-gray-500 mb-5 text-center max-w-md">
-            {planTypeFilter === "CUSTOM"
-              ? "Custom plans are created when assigning subscriptions to individual shops."
-              : searchQuery
-              ? `No plans match "${searchQuery}". Try a different search term.`
-              : filter !== "all"
-              ? "No plans match the selected filter. Try changing your filter options."
-              : "Get started by creating your first subscription plan."}
-          </p>
-          {planTypeFilter === "PRE_MADE" &&
-          (searchQuery || filter !== "all") ? (
-            <button
-              onClick={() => {
-                setFilter("all");
-                setSearchQuery("");
-              }}
-              className="
-                px-6 py-2.5 bg-[#05015A] text-white rounded-xl 
-                text-sm font-semibold hover:bg-[#0a0280] 
-                transition-all duration-300
-              "
-            >
-              Clear Filters
-            </button>
-          ) : planTypeFilter === "PRE_MADE" ? (
-            <button
-              onClick={() => setCreateModalOpen(true)}
-              className="
-                px-6 py-2.5 bg-[#05015A] text-white rounded-xl 
-                text-sm font-semibold hover:bg-[#0a0280] 
-                transition-all duration-300
-              "
-            >
-              Create First Plan
-            </button>
-          ) : (
+      <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200 p-4 space-y-4">
+        {/* Plan Type Toggle + Search */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Plan Type Toggle */}
+          <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setPlanTypeFilter("PRE_MADE")}
-              className="
-                px-6 py-2.5 bg-violet-600 text-white rounded-xl 
-                text-sm font-semibold hover:bg-violet-700 
-                transition-all duration-300
-              "
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                planTypeFilter === "PRE_MADE"
+                  ? "bg-white text-[#05015A] shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
             >
-              View Pre-made Plans
+              Pre-made Plans
             </button>
-          )}
+            <button
+              onClick={() => setPlanTypeFilter("CUSTOM")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                planTypeFilter === "CUSTOM"
+                  ? "bg-white text-violet-600 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Custom Plans
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search plans..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-10 pl-10 pr-10 border border-gray-200 rounded-lg text-sm 
+                         bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#05015A]/20 
+                         focus:border-[#05015A] transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded text-gray-400 hover:text-gray-600"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Status Filters - Only show for PRE_MADE */}
+        {planTypeFilter === "PRE_MADE" && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {STATUS_FILTERS.map((filterOption) => {
+              const Icon = filterOption.icon;
+              const count = planCounts[filterOption.key] || 0;
+              const isActive = statusFilter === filterOption.key;
+
+              // Skip deprecated and suspended if count is 0
+              if (
+                (filterOption.key === PLAN_STATUS.DEPRECATED || filterOption.key === PLAN_STATUS.SUSPENDED) &&
+                count === 0
+              ) {
+                return null;
+              }
+
+              return (
+                <button
+                  key={filterOption.key}
+                  onClick={() => setStatusFilter(filterOption.key)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                    ${isActive
+                      ? "bg-[#05015A] text-white shadow-sm"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                >
+                  <Icon size={14} />
+                  {filterOption.label}
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                    isActive ? "bg-white/20 text-white" : "bg-gray-200 text-gray-600"
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+
+            {/* Promo Filter */}
+            {stats.with_active_promo > 0 && (
+              <button
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium 
+                           bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 
+                           border border-amber-200 hover:border-amber-300 transition-all"
+              >
+                <Sparkles size={14} />
+                With Promo
+                <span className="px-1.5 py-0.5 rounded-full text-xs bg-amber-100">
+                  {stats.with_active_promo}
+                </span>
+              </button>
+            )}
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={handleClearFilters}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 
+                           hover:bg-red-50 rounded-lg transition-all ml-auto"
+              >
+                <X size={14} />
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Info text for Custom Plans */}
+        {planTypeFilter === "CUSTOM" && (
+          <div className="text-sm text-gray-500 italic">
+            Custom plans are created specifically for individual shops when assigning subscriptions.
+          </div>
+        )}
+      </div>
+
+      {/* Plans Grid */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        {paginatedPlans.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
+            {paginatedPlans.map((plan) => (
+              <PlanCard key={plan.plan_id} plan={plan} onAction={handlePlanAction} />
+            ))}
+          </div>
+        ) : (
+          /* Empty State */
+          <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border-2 border-dashed border-gray-200">
+            <div className="p-5 bg-gray-100 rounded-full mb-4">
+              <BadgeIndianRupee size={40} className="text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              {planTypeFilter === "CUSTOM" ? "No Custom Plans" : "No Plans Found"}
+            </h3>
+            <p className="text-gray-500 mb-5 text-center max-w-md text-sm">
+              {planTypeFilter === "CUSTOM"
+                ? "Custom plans are created when assigning subscriptions to individual shops."
+                : hasActiveFilters
+                ? "No plans match your current filters. Try adjusting your search or filter criteria."
+                : "Get started by creating your first subscription plan."}
+            </p>
+            {planTypeFilter === "PRE_MADE" && hasActiveFilters ? (
+              <button
+                onClick={handleClearFilters}
+                className="px-5 py-2.5 bg-[#05015A] text-white rounded-xl text-sm font-semibold hover:bg-[#0a0280] transition-all"
+              >
+                Clear Filters
+              </button>
+            ) : planTypeFilter === "PRE_MADE" ? (
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                className="px-5 py-2.5 bg-[#05015A] text-white rounded-xl text-sm font-semibold hover:bg-[#0a0280] transition-all"
+              >
+                Create First Plan
+              </button>
+            ) : (
+              <button
+                onClick={() => setPlanTypeFilter("PRE_MADE")}
+                className="px-5 py-2.5 bg-violet-600 text-white rounded-xl text-sm font-semibold hover:bg-violet-700 transition-all"
+              >
+                View Pre-made Plans
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {filteredPlans.length > PLANS_PER_PAGE && (
+        <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200">
+          <Pagination
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalItems={filteredPlans.length}
+            rowsPerPage={PLANS_PER_PAGE}
+          />
         </div>
       )}
 
@@ -712,12 +688,7 @@ export default function SubscriptionPage() {
       <ConfirmActionModal
         isOpen={confirmModal.open}
         onClose={() =>
-          setConfirmModal({
-            open: false,
-            action: null,
-            plan: null,
-            newName: null,
-          })
+          setConfirmModal({ open: false, action: null, plan: null, newName: null })
         }
         onConfirm={handleConfirmAction}
         action={confirmModal.action}
