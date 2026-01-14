@@ -11,6 +11,7 @@ const PurchaseTable = ({
   importVersion,
   visibleRows = 8,
   rowHeight = 36,
+  onAddNewProduct, // ✅ NEW: Handler for adding new products
 }) => {
   const tableContainerRef = useRef(null);
   const tableBodyRef = useRef(null);
@@ -232,12 +233,12 @@ const PurchaseTable = ({
       newRows[idx] = {
         ...newRows[idx],
         name: product.name,
-        hsn: product.hsn || newRows[idx].hsn,
+        hsn: product.hsnCode || product.hsn || newRows[idx].hsn,
         pack: product.pack || newRows[idx].pack,
-        rack: product.rack || newRows[idx].rack,
-        mfac: product.mfac || newRows[idx].mfac,
-        cgstPercent: product.cgstPercent || newRows[idx].cgstPercent,
-        sgstPercent: product.sgstPercent || newRows[idx].sgstPercent,
+        rack: product.rackNo || product.rack || newRows[idx].rack,
+        mfac: product.manufacturer || product.mfac || newRows[idx].mfac,
+        cgstPercent: product.gst ? (Number(product.gst) / 2).toString() : (product.cgstPercent || newRows[idx].cgstPercent),
+        sgstPercent: product.gst ? (Number(product.gst) / 2).toString() : (product.sgstPercent || newRows[idx].sgstPercent),
       };
       newRows[idx] = calculateRow(newRows[idx]);
       return newRows;
@@ -260,6 +261,14 @@ const PurchaseTable = ({
   const filledRows = rows.filter(r => r.name).length;
   const totalRows = rows.length;
   const hasOverflow = totalRows > visibleRows;
+  const newProductsCount = rows.filter(row => {
+    if (!row.name || !row.name.trim()) return false;
+    return !productMaster.some(product => 
+      product.name.toLowerCase() === row.name.toLowerCase() ||
+      product.name.toLowerCase().includes(row.name.toLowerCase()) ||
+      row.name.toLowerCase().includes(product.name.toLowerCase())
+    );
+  }).length;
 
   return (
     <div className="h-full w-full flex flex-col bg-white" ref={tableContainerRef}>
@@ -271,6 +280,17 @@ const PurchaseTable = ({
             <span className="text-[10px] font-bold text-indigo-600">{filledRows}</span>
             <span className="text-[8px] text-slate-400">/ {totalRows}</span>
           </div>
+
+          {/* ✅ NEW: Show new products indicator */}
+          {newProductsCount > 0 && (
+            <>
+              <div className="h-3 w-px bg-slate-300" />
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 rounded border border-yellow-300 text-[8px]">
+                <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
+                <span className="text-yellow-700 font-medium">{newProductsCount} new</span>
+              </div>
+            </>
+          )}
           
           {hasOverflow && (
             <>
@@ -445,6 +465,7 @@ const PurchaseTable = ({
                   onNavigateToPrevRow={handleNavigateToPrevRow}
                   onCreateNewRow={handleCreateNewRow}
                   rowHeight={rowHeight}
+                  onAddNewProduct={onAddNewProduct} // ✅ NEW: Pass handler
                 />
               ))}
             </tbody>
@@ -477,6 +498,12 @@ const PurchaseTable = ({
             <>
               <span className="text-slate-300">•</span>
               <span className="text-indigo-600 font-medium">{filledRows} items</span>
+            </>
+          )}
+          {newProductsCount > 0 && (
+            <>
+              <span className="text-slate-300">•</span>
+              <span className="text-yellow-600 font-medium">{newProductsCount} new products</span>
             </>
           )}
         </div>

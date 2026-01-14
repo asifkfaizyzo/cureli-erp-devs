@@ -10,6 +10,8 @@ import PurchaseSummaryCard from "./components/PurchaseSummaryCard";
 import PurchaseInvoicePrint from "./components/PurchaseInvoicePrint";
 import LoadingOverlay from "../../../components/common/LoadingOverlay";
 import SupplierModal from "../../suppliers/components/SupplierModal";
+import ProductMasterModal from "../../../components/common/ProductMasterModal";
+import BatchProductModal from "../../../components/common/BatchProductModal";
 
 // Hooks
 import { usePurchaseCalculation, calculateRow } from "../../../hooks/purchase/usePurchaseCalculation";
@@ -35,18 +37,54 @@ const PurchasePage = () => {
   const toast = useToast();
   const printRef = useRef(null);
 
-  // ✅ NEW: Modal State for Adding New Supplier
+  // ✅ Modal States
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [batchProductModalOpen, setBatchProductModalOpen] = useState(false);
+  const [pendingProductData, setPendingProductData] = useState(null);
+  const [newProductsFromImport, setNewProductsFromImport] = useState([]);
 
-  // Get responsive config (visibleRows, rowHeight)
-  const { visibleRows, rowHeight, viewportHeight, breakpointName } = useResponsiveRowCount();
+  // ✅ Product Master State
+  const [productMaster, setProductMaster] = useState([
+    // Sample data - replace with actual data from your API
+    {
+      id: 1,
+      productId: "PRD-001",
+      name: "DOLO 650 TAB",
+      manufacturer: "MICRO LABS",
+      category: "Medical",
+      subCategory: "Tablets",
+      genericName: "Paracetamol",
+      schedule: "Schedule H",
+      rackNo: "A1",
+      hsnCode: "3004",
+      gst: "12",
+      cgstPercent: "6",
+      sgstPercent: "6",
+    },
+    // Add more sample products as needed
+  ]);
+
+  // Get responsive config
+  const { visibleRows, rowHeight } = useResponsiveRowCount();
   
   // Custom Hooks
   const { rows, setRows, importRows, getFilledRows, importVersion } = usePurchaseRows(visibleRows);
   const { summary } = usePurchaseCalculation(rows);
   const { supplier, setSupplier, suppliersList, setSuppliersList, selectSupplier, validateSupplier } = usePurchaseSupplier(summary.total);
-  const { isLoading, handleImportFile, handleExportExcel } = usePurchaseImportExport(importRows, supplier, toast);
+  const { isLoading, handleImportFile, handleExportExcel } = usePurchaseImportExport(
+    (importedRows, newProducts = []) => {
+      if (newProducts.length > 0) {
+        setNewProductsFromImport(newProducts);
+        setBatchProductModalOpen(true);
+      }
+      importRows(importedRows);
+    }, 
+    supplier, 
+    toast,
+    productMaster
+  );
 
   // Print Handler
   const handlePrint = useReactToPrint({
@@ -94,15 +132,13 @@ const PurchasePage = () => {
     handleExportExcel(rows);
   }, [handleExportExcel, rows]);
 
-  // ✅ NEW: Handle opening the add supplier modal
+  // ✅ Supplier Modal Handlers
   const handleAddNewSupplier = useCallback((supplierName) => {
     setNewSupplierName(supplierName);
     setSupplierModalOpen(true);
   }, []);
 
-  // ✅ NEW: Handle saving new supplier from modal
   const handleSupplierSave = useCallback((newSupplier) => {
-    // Generate a unique ID for the new supplier
     const supplierId = `SUP-${Date.now().toString().slice(-6)}`;
     const supplierWithId = {
       ...newSupplier,
@@ -110,10 +146,7 @@ const PurchasePage = () => {
       supplierId,
     };
 
-    // Add to suppliers list
     setSuppliersList(prev => [supplierWithId, ...prev]);
-
-    // Auto-select the new supplier
     setSupplier(prev => ({
       ...prev,
       supplierName: newSupplier.name,
@@ -122,14 +155,62 @@ const PurchasePage = () => {
       address: newSupplier.address || "",
     }));
 
-    // Close modal
     setSupplierModalOpen(false);
     setNewSupplierName("");
-
     toast.success("Supplier Added", `${newSupplier.name} has been added and selected.`);
   }, [setSupplier, setSuppliersList, toast]);
 
-  // ✅ NEW: Prepare supplier data for modal (pre-fill name)
+  // ✅ Product Modal Handlers
+  const handleAddNewProduct = useCallback((productData) => {
+    setPendingProductData(productData);
+    setProductModalOpen(true);
+  }, []);
+
+  const handleProductSave = useCallback((newProduct) => {
+    // Add to product master
+    setProductMaster(prev => [newProduct, ...prev]);
+    
+    // Update the pending row if any
+    if (pendingProductData) {
+      const { rowIndex } = pendingProductData;
+      setRows(prev => {
+        const newRows = [...prev];
+        newRows[rowIndex] = {
+          ...newRows[rowIndex],
+          name: newProduct.name,
+          mfac: newProduct.manufacturer,
+          hsn: newProduct.hsnCode,
+          rack: newProduct.rackNo,
+          cgstPercent: newProduct.gst ? (Number(newProduct.gst) / 2).toString() : "6",
+          sgstPercent: newProduct.gst ? (Number(newProduct.gst) / 2).toString() : "6",
+        };
+        newRows[rowIndex] = calculateRow(newRows[rowIndex]);
+        return newRows;
+      });
+    }
+    
+    setProductModalOpen(false);
+    setPendingProductData(null);
+    toast.success("Product Added", `${newProduct.name} has been added to the system.`);
+  }, [pendingProductData, setRows, setProductMaster, toast]);
+
+  // ✅ Batch Product Import Handlers
+  const handleBatchProductSave = useCallback((savedProducts) => {
+    if (savedProducts.length > 0) {
+      setProductMaster(prev => [...savedProducts, ...prev]);
+      toast.success("Products Added", `${savedProducts.length} new products added to the system.`);
+    }
+    setBatchProductModalOpen(false);
+    setNewProductsFromImport([]);
+  }, [setProductMaster, toast]);
+
+  const handleBatchProductSkip = useCallback(() => {
+    setBatchProductModalOpen(false);
+    setNewProductsFromImport([]);
+    toast.info("Import Completed", "Import completed. New products were skipped.");
+  }, [toast]);
+
+  // Supplier data for modal
   const newSupplierData = {
     supplierId: "NEW",
     name: newSupplierName,
@@ -162,11 +243,12 @@ const PurchasePage = () => {
         <PurchaseTable
           rows={rows}
           setRows={setRows}
-          productMaster={[]}
+          productMaster={productMaster}
           calculateRow={calculateRow}
           importVersion={importVersion}
           visibleRows={visibleRows}
           rowHeight={rowHeight}
+          onAddNewProduct={handleAddNewProduct} // ✅ Pass the handler
         />
       </div>
 
@@ -178,7 +260,7 @@ const PurchasePage = () => {
             setSupplier={setSupplier}
             suppliersList={suppliersList}
             onSupplierSelect={selectSupplier}
-            onAddNewSupplier={handleAddNewSupplier} // ✅ NEW: Pass handler
+            onAddNewSupplier={handleAddNewSupplier}
           />
         </div>
         <div className="w-80 2xl:w-72">
@@ -198,7 +280,9 @@ const PurchasePage = () => {
         </div>
       </div>
 
-      {/* ✅ NEW: Supplier Modal for Adding New Supplier */}
+      {/* ✅ Modals */}
+      
+      {/* Supplier Modal */}
       <SupplierModal
         open={supplierModalOpen}
         mode="edit"
@@ -209,8 +293,34 @@ const PurchasePage = () => {
         }}
         onSave={handleSupplierSave}
       />
+
+      {/* Product Master Modal */}
+      <ProductMasterModal
+        open={productModalOpen}
+        onClose={() => {
+          setProductModalOpen(false);
+          setPendingProductData(null);
+        }}
+        onSave={handleProductSave}
+        initialData={pendingProductData ? {
+          name: pendingProductData.productName,
+          manufacturer: pendingProductData.manufacturer || '',
+          hsnCode: pendingProductData.hsn || '',
+        } : {}}
+        mode="create"
+      />
+
+      {/* Batch Product Modal for Import */}
+      <BatchProductModal
+        open={batchProductModalOpen}
+        onClose={() => setBatchProductModalOpen(false)}
+        newProducts={newProductsFromImport}
+        onSaveAll={handleBatchProductSave}
+        onSkipAll={handleBatchProductSkip}
+      />
     </div>
   );
 };
 
 export default PurchasePage;
+
