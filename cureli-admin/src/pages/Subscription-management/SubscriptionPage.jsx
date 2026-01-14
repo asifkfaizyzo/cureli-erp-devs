@@ -151,7 +151,7 @@ export default function SubscriptionPage() {
   }, [searchQuery, statusFilter]);
 
   const handleRefresh = useCallback(() => {
-    toast.info("Refreshing", "Loading latest plans...");
+    toast.info("Data Refreshed", "Loading latest plans...");
     fetchPlans();
   }, [toast, fetchPlans]);
 

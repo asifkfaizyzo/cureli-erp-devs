@@ -143,7 +143,7 @@ const UserPage = () => {
 
   // Handlers
   const handleRefresh = useCallback(() => {
-    toast.info("Refreshing", "Loading latest Users data...", 2000);
+    toast.info("Data Refreshed", "Loading latest Users data...", 2000);
     fetchUsers();
   }, [fetchUsers]);
 

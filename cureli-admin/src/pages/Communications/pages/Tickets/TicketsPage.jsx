@@ -192,7 +192,7 @@ const TicketsPage = () => {
   }, [toast]); // ✅ ADD toast to dependencies
 
   const handleRefresh = useCallback(() => {
-    toast.info("Refreshing", "Loading latest ticket data..."); // ✅ FIXED (removed 3rd arg if not needed)
+    toast.info("Data Refreshed", "Loading latest ticket data..."); // ✅ FIXED (removed 3rd arg if not needed)
     fetchTickets();
   }, [fetchTickets, toast]); // ✅ ADD toast to dependencies
 

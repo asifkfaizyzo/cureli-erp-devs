@@ -423,7 +423,7 @@ const ShopDetailsModal = ({
   const handleRefresh = () => {
     if (shop?.shop_id) {
       fetchShopDetails(shop.shop_id);
-      toast.info("Refreshing", "Loading latest shop data...", 2000);
+      toast.info("RefData Refreshedreshing", "Loading latest shop data...", 2000);
     }
   };
 

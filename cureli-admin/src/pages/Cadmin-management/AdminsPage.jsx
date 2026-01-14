@@ -196,7 +196,7 @@ const AdminsPage = () => {
   );
 
   const handleRefresh = useCallback(() => {
-    toast.info("Refreshing", "Loading latest Admins...");
+    toast.info("Data Refreshed", "Loading latest Admins...");
     fetchAdmins();
   }, [fetchAdmins]);
 

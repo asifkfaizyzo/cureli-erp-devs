@@ -201,7 +201,7 @@ const ShopEditModal = ({ shop: basicShop, isOpen, onClose }) => {
   const handleRefresh = () => {
     if (shop?.shop_id) {
       fetchShopDetails(shop.shop_id);
-      toast.info("Refreshing", "Loading latest shop data...", 2000);
+      toast.info("Data Refreshed", "Loading latest shop data...", 2000);
     }
   };
 
