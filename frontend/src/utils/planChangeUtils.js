@@ -19,11 +19,15 @@ const normalizeLimit = (val) => (val === -1 ? Infinity : val);
  * @param {Object} usage - Current active usage { activeUsers, activeBranches }
  * @returns {Object} Analysis result
  */
+/**
+ * Analyze plan change direction and impact
+ * ⚠️ UPDATED: Now handles "renew" direction
+ */
 export function analyzePlanChange(currentPlan, targetPlan, usage = {}) {
-  // Same plan = no change
+  // ⚠️ NEW: Same plan = renewal
   if (currentPlan.plan_id === targetPlan.plan_id) {
     return {
-      direction: "no_change",
+      direction: "renew",
       hasImpact: false,
       excessUsers: 0,
       excessBranches: 0,
@@ -32,7 +36,9 @@ export function analyzePlanChange(currentPlan, targetPlan, usage = {}) {
     };
   }
 
-  // Normalize limits for comparison
+  // ... rest of existing logic stays the same
+  const normalizeLimit = (val) => (val === -1 ? Infinity : val);
+
   const current = {
     maxUsers: normalizeLimit(currentPlan.max_users),
     maxBranches: normalizeLimit(currentPlan.max_branches),
@@ -43,13 +49,11 @@ export function analyzePlanChange(currentPlan, targetPlan, usage = {}) {
     maxBranches: normalizeLimit(targetPlan.max_branches),
   };
 
-  // Check for any limit decrease = DOWNGRADE
   const userDecrease = target.maxUsers < current.maxUsers;
   const branchDecrease = target.maxBranches < current.maxBranches;
   const isDowngrade = userDecrease || branchDecrease;
 
   if (isDowngrade) {
-    // Calculate excess (how many need to be disabled/deactivated)
     const activeUsers = usage.activeUsers || 0;
     const activeBranches = usage.activeBranches || 0;
 
@@ -70,7 +74,6 @@ export function analyzePlanChange(currentPlan, targetPlan, usage = {}) {
       excessBranches,
       targetPlan,
       currentPlan,
-      // Detailed breakdown for UI
       compliance: {
         users: {
           current: activeUsers,
@@ -88,7 +91,6 @@ export function analyzePlanChange(currentPlan, targetPlan, usage = {}) {
     };
   }
 
-  // Check for upgrade (any limit increase, no decrease)
   const userIncrease = target.maxUsers > current.maxUsers;
   const branchIncrease = target.maxBranches > current.maxBranches;
   const isUpgrade = (userIncrease || branchIncrease) && !isDowngrade;
@@ -104,8 +106,6 @@ export function analyzePlanChange(currentPlan, targetPlan, usage = {}) {
     };
   }
 
-  // Edge case: Same limits, different plan (shouldn't happen with proper plan design)
-  // Treat as upgrade if price is higher, otherwise no_change
   if (targetPlan.price > currentPlan.price) {
     return {
       direction: "upgrade",
@@ -163,6 +163,7 @@ export function checkCompliance(targetPlan, activeUsersAfterDisable, activeBranc
 
 /**
  * Get button text based on plan comparison
+ * ⚠️ UPDATED: Added "renew" case
  */
 export function getPlanActionText(direction, isCurrent) {
   if (isCurrent) return "Current Plan";
@@ -172,11 +173,12 @@ export function getPlanActionText(direction, isCurrent) {
       return "Upgrade";
     case "downgrade":
       return "Downgrade";
+    case "renew":
+      return "Renew Plan";
     default:
       return "Select";
   }
 }
-
 /**
  * Get button style classes based on plan comparison
  */

@@ -22,25 +22,25 @@ const COLLAPSED_WIDTH = 72;
 
 // Responsive expanded widths based on screen width
 const EXPANDED_WIDTH_CONFIG = {
-  '2xl': 280,   // >= 1536px (large monitors)
-  'xl': 220,    // >= 1280px (standard desktop)
-  'lg': 200,    // >= 1024px (small desktop / large laptop)
-  'md': 180,    // >= 768px (tablet / small laptop)
-  'sm': 160,    // < 768px (mobile - if sidebar is shown)
-  'default': 200,
+  "2xl": 280, // >= 1536px (large monitors)
+  xl: 220, // >= 1280px (standard desktop)
+  lg: 200, // >= 1024px (small desktop / large laptop)
+  md: 180, // >= 768px (tablet / small laptop)
+  sm: 160, // < 768px (mobile - if sidebar is shown)
+  default: 200,
 };
 
 // Get expanded width based on screen size
 const getExpandedWidth = () => {
-  if (typeof window === 'undefined') return EXPANDED_WIDTH_CONFIG.default;
-  
+  if (typeof window === "undefined") return EXPANDED_WIDTH_CONFIG.default;
+
   const width = window.innerWidth;
-  
-  if (width >= 1536) return EXPANDED_WIDTH_CONFIG['2xl'];
-  if (width >= 1280) return EXPANDED_WIDTH_CONFIG['xl'];
-  if (width >= 1024) return EXPANDED_WIDTH_CONFIG['lg'];
-  if (width >= 768) return EXPANDED_WIDTH_CONFIG['md'];
-  return EXPANDED_WIDTH_CONFIG['sm'];
+
+  if (width >= 1536) return EXPANDED_WIDTH_CONFIG["2xl"];
+  if (width >= 1280) return EXPANDED_WIDTH_CONFIG["xl"];
+  if (width >= 1024) return EXPANDED_WIDTH_CONFIG["lg"];
+  if (width >= 768) return EXPANDED_WIDTH_CONFIG["md"];
+  return EXPANDED_WIDTH_CONFIG["sm"];
 };
 
 const SIDEBAR_TRANSITION = {
@@ -131,6 +131,10 @@ const CHILD_ROUTES = {
     parentId: "communications",
     breadcrumbs: ["Communications", "Broadcast"],
   },
+  "/subscriptions/manage": {
+    parentId: "subscriptions",
+    breadcrumbs: ["Subscriptions", "Plans"], 
+  },
 };
 
 /* ───────────────── Menu Item Component ───────────────── */
@@ -196,8 +200,8 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       setExpandedWidth(getExpandedWidth());
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   /* ───────────── navigation handler ───────────── */

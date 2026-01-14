@@ -3,6 +3,8 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useSubscriptionStore, selectNeedsRenewal } from "../../store/useSubscriptionStore";
+import { useAuthStore, selectIsSuperAdmin } from "../../store/useAuthStore";
 import {
   LayoutGrid,
   Layers,
@@ -48,6 +50,7 @@ const MenuItem = ({
   openMenuId,
   onToggle,
   onNavigate,
+  showBadge = false, // ⚠️ NEW: Badge prop
 }) => {
   const Icon = item.icon;
   const isParent = item.submenu?.length > 0;
@@ -66,6 +69,10 @@ const MenuItem = ({
     }
   };
 
+  // ⚠️ NEW: Super admin & renewal check for submenu items
+  const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
+  const needsRenewal = useSubscriptionStore(selectNeedsRenewal);
+
   return (
     <div className="flex flex-col">
       <motion.button
@@ -83,7 +90,13 @@ const MenuItem = ({
         whileTap={{ scale: 0.98 }}
       >
         <div className="absolute left-0 w-[56px] flex justify-center">
-          <Icon size={20} />
+          <div className="relative">
+            <Icon size={20} />
+            {/* ⚠️ NEW: Red badge for renewal warning */}
+            {showBadge && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
+            )}
+          </div>
         </div>
 
         <motion.span
@@ -108,6 +121,17 @@ const MenuItem = ({
             <ChevronDown size={16} />
           </motion.div>
         )}
+
+        {/* ⚠️ NEW: Expanded badge with text */}
+        {showBadge && isExpanded && (
+          <motion.span
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute right-3 px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full"
+          >
+            !
+          </motion.span>
+        )}
       </motion.button>
 
       <AnimatePresence>
@@ -122,6 +146,9 @@ const MenuItem = ({
             {item.submenu.map((sub) => {
               const SubIcon = sub.icon;
               const isSubActive = activeMenu === sub.id;
+              
+              // ⚠️ NEW: Check if this submenu item needs badge
+              const subShowBadge = isSuperAdmin && needsRenewal && sub.id === "settings-upgrade";
 
               return (
                 <motion.button
@@ -131,7 +158,7 @@ const MenuItem = ({
                     onNavigate(sub);
                   }}
                   className={`
-                    flex items-center h-9 px-3 rounded-lg text-sm
+                    flex items-center h-9 px-3 rounded-lg text-sm relative
                     ${
                       isSubActive
                         ? "bg-blue-50 text-[#05015A]"
@@ -140,8 +167,18 @@ const MenuItem = ({
                   `}
                   whileHover={{ x: 4 }}
                 >
-                  <SubIcon size={16} className="mr-2 opacity-70" />
+                  <div className="relative mr-2">
+                    <SubIcon size={16} className="opacity-70" />
+                    {subShowBadge && (
+                      <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
+                    )}
+                  </div>
                   <span>{sub.label}</span>
+                  {subShowBadge && (
+                    <span className="ml-auto px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full">
+                      !
+                    </span>
+                  )}
                 </motion.button>
               );
             })}
@@ -168,14 +205,22 @@ const Sidebar = () => {
 
   const permissions = useMenuPermissions();
 
+  // ⚠️ NEW: Subscription status for renewal badge
+  const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
+  const needsRenewal = useSubscriptionStore(selectNeedsRenewal);
+  const loadSubscriptionStatus = useSubscriptionStore((s) => s.loadSubscriptionStatus);
+
   const isExpanded = hovered;
 
+  // ⚠️ NEW: Load subscription status on mount (super admin only)
+  useEffect(() => {
+    if (isSuperAdmin) {
+      loadSubscriptionStatus();
+    }
+  }, [isSuperAdmin, loadSubscriptionStatus]);
+
   /* ───────────── menu data with permission keys ───────────── */
-  // Full menu items including hidden ones (for route handling)
   const allMenuItems = useMemo(() => [
-    // ════════════════════════════════════════════════════════════
-    // DASHBOARD
-    // ════════════════════════════════════════════════════════════
     {
       id: "dashboard",
       label: "Dashboard",
@@ -184,10 +229,6 @@ const Sidebar = () => {
       breadcrumbs: ["Dashboard"],
       permissionKey: "dashboard",
     },
-
-    // ════════════════════════════════════════════════════════════
-    // SALES
-    // ════════════════════════════════════════════════════════════
     {
       id: "sales",
       label: "Sales",
@@ -212,10 +253,6 @@ const Sidebar = () => {
         },
       ],
     },
-
-    // ════════════════════════════════════════════════════════════
-    // PURCHASE
-    // ════════════════════════════════════════════════════════════
     {
       id: "purchase",
       label: "Purchase",
@@ -240,10 +277,6 @@ const Sidebar = () => {
         },
       ],
     },
-
-    // ════════════════════════════════════════════════════════════
-    // INVENTORY
-    // ════════════════════════════════════════════════════════════
     {
       id: "inventory",
       label: "Inventory",
@@ -252,10 +285,6 @@ const Sidebar = () => {
       breadcrumbs: ["Inventory"],
       permissionKey: "inventory",
     },
-
-    // ════════════════════════════════════════════════════════════
-    // SUPPLIERS
-    // ════════════════════════════════════════════════════════════
     {
       id: "suppliers",
       label: "Suppliers",
@@ -264,10 +293,6 @@ const Sidebar = () => {
       breadcrumbs: ["Suppliers"],
       permissionKey: "suppliers",
     },
-
-    // ════════════════════════════════════════════════════════════
-    // REPORTS
-    // ════════════════════════════════════════════════════════════
     {
       id: "reports",
       label: "Report",
@@ -308,10 +333,6 @@ const Sidebar = () => {
         },
       ],
     },
-
-    // ════════════════════════════════════════════════════════════
-    // SETTINGS (with submenu)
-    // ════════════════════════════════════════════════════════════
     {
       id: "settings",
       label: "Settings",
@@ -342,29 +363,25 @@ const Sidebar = () => {
           breadcrumbs: ["Settings", "Profile"],
           permissionKey: "settingsProfile",
         },
-        
         {
           id: "settings-upgrade",
           label: "Plans",
           icon: CreditCard,
           path: "/settings/upgrade",
-          breadcrumbs:  ["Settings", "Profile", "Plans"],
+          breadcrumbs: ["Settings", "Profile", "Plans"],
           permissionKey: "settingsUpgrade",
-          hidden: true, 
+          hidden: true,
         },
       ],
     },
   ], []);
 
-  /* ───────────── Filter menu items for DISPLAY (excludes hidden) ───────────── */
   const visibleMenuItems = useMemo(() => {
     return allMenuItems
       .map((item) => {
         if (item.submenu?.length > 0) {
           const visibleSubmenu = item.submenu.filter((sub) => {
-            // Exclude hidden items
             if (sub.hidden) return false;
-            
             const subPermission = permissions[sub.permissionKey];
             return subPermission?.visible !== false && !subPermission?.disabled;
           });
@@ -379,7 +396,6 @@ const Sidebar = () => {
           };
         }
 
-        // Exclude hidden items
         if (item.hidden) return false;
 
         const itemPermission = permissions[item.permissionKey];
@@ -392,7 +408,6 @@ const Sidebar = () => {
       .filter(Boolean);
   }, [allMenuItems, permissions]);
 
-  /* ───────────── All accessible items for ROUTING (includes hidden) ───────────── */
   const allAccessibleItems = useMemo(() => {
     return allMenuItems
       .map((item) => {
@@ -422,7 +437,6 @@ const Sidebar = () => {
       .filter(Boolean);
   }, [allMenuItems, permissions]);
 
-  /* ───────────── navigation handler ───────────── */
   const handleNavigation = useCallback(
     (item) => {
       navigate(item.path);
@@ -441,8 +455,6 @@ const Sidebar = () => {
     }, 100);
   }, []);
 
-  /* 1️⃣ ROUTE → SIDEBAR SYNC + AUTO-OPEN PARENT */
-  // Uses allAccessibleItems to handle hidden routes too
   useEffect(() => {
     const currentPath = location.pathname;
 
@@ -465,7 +477,6 @@ const Sidebar = () => {
     }
   }, [location.pathname, allAccessibleItems, setActiveMenu, setBreadcrumbs]);
 
-  /* 2️⃣ AUTO-OPEN PARENT WHEN CHILD ACTIVE */
   useEffect(() => {
     if (isManualToggle.current) {
       return;
@@ -480,7 +491,6 @@ const Sidebar = () => {
     }
   }, [activeMenu, allAccessibleItems, openMenuId]);
 
-  /* 3️⃣ DASHBOARD FALLBACK */
   useEffect(() => {
     const isValid =
       allAccessibleItems.some((m) => m.id === activeMenu) ||
@@ -516,18 +526,26 @@ const Sidebar = () => {
       transition={SIDEBAR_TRANSITION}
     >
       <nav className="pt-6 px-2 flex flex-col gap-2">
-        {/* Only render visible menu items */}
-        {visibleMenuItems.map((item) => (
-          <MenuItem
-            key={item.id}
-            item={item}
-            activeMenu={activeMenu}
-            isExpanded={isExpanded}
-            openMenuId={openMenuId}
-            onToggle={handleToggleSubmenu}
-            onNavigate={handleNavigation}
-          />
-        ))}
+        {visibleMenuItems.map((item) => {
+          // ⚠️ NEW: Show badge on Settings parent if Plans submenu needs renewal
+          const showBadge = 
+            isSuperAdmin && 
+            needsRenewal && 
+            item.id === "settings";
+
+          return (
+            <MenuItem
+              key={item.id}
+              item={item}
+              activeMenu={activeMenu}
+              isExpanded={isExpanded}
+              openMenuId={openMenuId}
+              onToggle={handleToggleSubmenu}
+              onNavigate={handleNavigation}
+              showBadge={showBadge}
+            />
+          );
+        })}
       </nav>
     </motion.aside>
   );

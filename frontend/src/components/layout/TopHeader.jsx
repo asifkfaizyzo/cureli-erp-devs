@@ -9,7 +9,7 @@ import {
   Clock,
   Calendar,
   User,
-  Ticket ,
+  Ticket,
   Shield,
   Building2,
   Store,
@@ -31,6 +31,7 @@ import { PERMISSIONS } from "../../config/permissions";
 import { logoutUser } from "../../api/auth";
 import { fetchBranchesDropdown, switchBranch } from "../../api/branches";
 import ConfirmDialog from "../common/ConfirmDialog";
+import { useSubscriptionStore, selectNeedsRenewal, selectDaysRemaining, selectIsInGrace } from "../../store/useSubscriptionStore";
 
 const TopHeader = () => {
   const navigate = useNavigate();
@@ -47,6 +48,12 @@ const TopHeader = () => {
   const logout = useAuthStore((state) => state.logout);
   const setBranchContext = useAuthStore((state) => state.setBranchContext);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  // ⚠️ NEW: Subscription status
+  const needsRenewal = useSubscriptionStore(selectNeedsRenewal);
+  const daysRemaining = useSubscriptionStore(selectDaysRemaining);
+  const isInGrace = useSubscriptionStore(selectIsInGrace);
+  const loadSubscriptionStatus = useSubscriptionStore((s) => s.loadSubscriptionStatus);
 
   const branchId = user?.branch_id || null;
   const shopId = user?.shop_id || null;
@@ -113,9 +120,6 @@ const TopHeader = () => {
     .toUpperCase()
     .slice(0, 2);
 
-  // ============================================
-  // SORTED BRANCHES - Main branch first, then alphabetically
-  // ============================================
   const sortedBranches = useMemo(() => {
     if (!branches.length) return [];
 
@@ -126,28 +130,19 @@ const TopHeader = () => {
     });
   }, [branches]);
 
-  // Find selected branch from list (for Super Admin)
   const selectedBranch = selectedBranchId
     ? branches.find((b) => b.branch_id === selectedBranchId)
     : null;
 
-  // ============================================
-  // FIXED: Display names based on role
-  // ============================================
-  
-  // For Super Admin: Show "All Branches" or selected branch
-  // For Branch Admin/Staff: Show their assigned branch from store
   const isAllBranches = isSuperAdmin && selectedBranchId === null;
 
   const displayBranchName = useMemo(() => {
     if (isSuperAdmin) {
-      // Super Admin can see "All Branches" or a specific branch
       if (isAllBranches) {
         return "All Branches";
       }
       return selectedBranch?.branch_name || branchName || "Select Branch";
     } else {
-      // Branch Admin / Staff - always show their assigned branch
       return branchName || "My Branch";
     }
   }, [isSuperAdmin, isAllBranches, selectedBranch, branchName]);
@@ -266,12 +261,18 @@ const TopHeader = () => {
     }
   }, [canSwitchBranches, shopId, fetchBranchesData]);
 
-  // Initialize with "All Branches" (null) for Super Admin
   useEffect(() => {
     if (isSuperAdmin && branchId) {
       setSelectedBranchId(branchId);
     }
   }, [isSuperAdmin, branchId]);
+
+  // ⚠️ NEW: Load subscription status on mount (super admin only)
+  useEffect(() => {
+    if (isSuperAdmin && shopId) {
+      loadSubscriptionStatus();
+    }
+  }, [isSuperAdmin, shopId, loadSubscriptionStatus]);
 
   useEffect(() => {
     if (isAuthenticated && user?.user_id) {
@@ -397,13 +398,11 @@ const TopHeader = () => {
     }
   };
 
-  // Open logout confirmation dialog
   const handleLogoutClick = () => {
     setShowProfileMenu(false);
     setShowLogoutConfirm(true);
   };
 
-  // Confirm logout
   const handleLogoutConfirm = async () => {
     setIsLoggingOut(true);
     try {
@@ -417,7 +416,6 @@ const TopHeader = () => {
     }
   };
 
-  // Cancel logout
   const handleLogoutCancel = () => {
     setShowLogoutConfirm(false);
   };
@@ -453,6 +451,38 @@ const TopHeader = () => {
     });
   };
 
+  // ⚠️ NEW: Renewal Pill Component
+  const RenewalPill = () => {
+    if (!isSuperAdmin || !needsRenewal) return null;
+
+    const isUrgent = daysRemaining <= 7 || isInGrace;
+
+    return (
+      <button
+        onClick={() => navigate("/settings/upgrade")}
+        className={`
+          flex items-center gap-2 h-10 px-3 rounded-lg
+          border transition-all duration-150 font-medium text-sm
+          ${
+            isUrgent
+              ? "bg-red-50 border-red-300 text-red-700 hover:bg-red-100"
+              : "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
+          }
+        `}
+      >
+        <CreditCard size={15} />
+        <span className="hidden sm:block">
+          {isInGrace
+            ? "Grace Period"
+            : `Plan: ${daysRemaining} day${daysRemaining !== 1 ? "s" : ""} left`}
+        </span>
+        {isUrgent && (
+          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+        )}
+      </button>
+    );
+  };
+
   // ============================================
   // RENDER
   // ============================================
@@ -467,7 +497,6 @@ const TopHeader = () => {
         <div className="h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* ==================== LEFT SECTION ==================== */}
           <div className="flex items-center gap-3 md:gap-4">
-            {/* Logo & Brand */}
             <div className="flex items-center gap-2.5">
               <div className="relative">
                 <img src={logo} alt="Cureli" className="h-9 w-auto sm:h-10" />
@@ -484,7 +513,6 @@ const TopHeader = () => {
 
             <div className="hidden md:block w-px h-8 bg-gray-200 ml-1" />
 
-            {/* Shop Name Badge */}
             <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-100">
               <Store size={14} className="text-[#000060]" />
               <span className="text-sm font-medium text-gray-700 max-w-[150px] truncate">
@@ -494,7 +522,6 @@ const TopHeader = () => {
 
             <div className="hidden lg:block w-px h-8 bg-gray-200" />
 
-            {/* Date & Time */}
             <div className="hidden md:flex items-center gap-3">
               <div className="flex items-center gap-1.5 text-gray-500">
                 <Calendar size={14} />
@@ -511,7 +538,7 @@ const TopHeader = () => {
 
           {/* ==================== RIGHT SECTION ==================== */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* ==================== BRANCH SELECTOR (Super Admin Only) ==================== */}
+            {/* Branch Selector */}
             {canSwitchBranches && (
               <div className="relative" ref={branchRef}>
                 <button
@@ -548,10 +575,8 @@ const TopHeader = () => {
                   />
                 </button>
 
-                {/* Branch Dropdown */}
                 {showBranchSelector && (
                   <div className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden z-50">
-                    {/* Header */}
                     <div className="px-3 py-2.5 bg-gray-50/80 border-b border-gray-100">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -566,7 +591,6 @@ const TopHeader = () => {
                       </div>
                     </div>
 
-                    {/* Branch List */}
                     <div className="max-h-64 overflow-y-auto py-1">
                       {isBranchesLoading && branches.length === 0 ? (
                         <div className="px-3 py-6 text-center">
@@ -578,7 +602,6 @@ const TopHeader = () => {
                         </div>
                       ) : (
                         <>
-                          {/* All Branches Option */}
                           <button
                             onClick={handleSelectAllBranches}
                             disabled={isSwitchingBranch}
@@ -629,12 +652,10 @@ const TopHeader = () => {
                             )}
                           </button>
 
-                          {/* Divider */}
                           {sortedBranches.length > 0 && (
                             <div className="my-1 mx-3 border-t border-gray-100" />
                           )}
 
-                          {/* Individual Branches */}
                           {sortedBranches.map((branch) => {
                             const isSelected =
                               selectedBranchId === branch.branch_id;
@@ -721,7 +742,6 @@ const TopHeader = () => {
                       )}
                     </div>
 
-                    {/* Footer */}
                     <div className="px-3 py-2 bg-gray-50/50 border-t border-gray-100">
                       <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
@@ -738,8 +758,6 @@ const TopHeader = () => {
               </div>
             )}
 
-            {/* ==================== FIXED: Non-SA Branch Display ==================== */}
-            {/* Branch Admin & Staff - Show their assigned branch (no dropdown) */}
             {!canSwitchBranches && (
               <div className="hidden sm:flex items-center gap-2 h-10 px-3 rounded-lg bg-gray-50 border border-gray-100">
                 <Building2 size={14} className="text-[#000060]" />
@@ -751,7 +769,14 @@ const TopHeader = () => {
 
             <div className="w-px h-8 bg-gray-200" />
 
-            {/* ==================== NOTIFICATIONS ==================== */}
+            {/* ⚠️ NEW: Renewal Pill (Super Admin Only) */}
+            <RenewalPill />
+
+            {needsRenewal && isSuperAdmin && (
+              <div className="w-px h-8 bg-gray-200" />
+            )}
+
+            {/* Notifications */}
             <div className="relative" ref={notificationRef}>
               <button
                 onClick={() => {
@@ -896,7 +921,7 @@ const TopHeader = () => {
 
             <div className="w-px h-8 bg-gray-200" />
 
-            {/* ==================== PROFILE SECTION ==================== */}
+            {/* Profile Section */}
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -962,41 +987,17 @@ const TopHeader = () => {
                   </div>
 
                   <div className="py-2">
-                    {/* <button
-                      onClick={() => handleProfileNavigation("/profile")}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      <User size={16} className="text-gray-400" />
-                      <span className="text-sm">My Profile</span>
-                    </button> */}
-
-                    {/* {canViewSettings && (
-                      <button
-                        onClick={() => handleProfileNavigation("/settings")}
-                        className="w-full px-4 py-2.5 flex items-center gap-3 text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <Settings size={16} className="text-gray-400" />
-                        <span className="text-sm">Settings</span>
-                        {!canManageSettings && (
-                          <span className="ml-auto text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                            View only
-                          </span>
-                        )}
-                      </button>
-                    )} */}
-
                     <button
-  onClick={() => {
-    navigate("/tickets");
-    setShowProfileMenu(false); // Close dropdown
-  }}
-  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 
-             flex items-center gap-3 transition-colors"
->
-  <Ticket size={16} className="text-gray-500" />
-  <span>Tickets</span>
-</button>
-
+                      onClick={() => {
+                        navigate("/tickets");
+                        setShowProfileMenu(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 
+                                 flex items-center gap-3 transition-colors"
+                    >
+                      <Ticket size={16} className="text-gray-500" />
+                      <span>Tickets</span>
+                    </button>
                   </div>
 
                   <div className="border-t border-gray-100 p-2">
@@ -1015,7 +1016,6 @@ const TopHeader = () => {
         </div>
       </header>
 
-      {/* ==================== LOGOUT CONFIRMATION DIALOG ==================== */}
       <ConfirmDialog
         isOpen={showLogoutConfirm}
         onClose={handleLogoutCancel}
