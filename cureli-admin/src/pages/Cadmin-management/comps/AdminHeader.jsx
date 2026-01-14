@@ -1,6 +1,7 @@
 import { Search, Plus, X, Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import StyledSelect from "../../../components/common/StyledSelect";
+import { useToast } from "../../../components/common/Toast";
 
 const AdminHeader = ({
   searchText,
@@ -14,6 +15,7 @@ const AdminHeader = ({
   onAddAdmin,
   loading = false,
 }) => {
+  const toast = useToast();
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef(null);
 
@@ -34,6 +36,7 @@ const AdminHeader = ({
     setSearchText("");
     setStatusFilter("");
     setRoleFilter("");
+    toast.info("Filters Cleared", "All filters have been reset.");
   };
 
   // CSV EXPORT
@@ -73,14 +76,23 @@ const AdminHeader = ({
   };
 
   const exportVisibleAdmins = () => {
-    const blob = generateCSV(admins);
-    if (!blob) return alert("No admins available to export.");
+    try {
+      const blob = generateCSV(admins);
+      if (!blob) {
+        toast.warning("No Data", "No admins available to export.");
+        return;
+      }
 
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `admins_export_${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
-    setShowExportMenu(false);
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `admins_export_${new Date().toISOString().split("T")[0]}.csv`;
+      link.click();
+      setShowExportMenu(false);
+      toast.success("Export Successful", `${admins.length} admin(s) exported to CSV.`);
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Export Failed", "Could not export admins. Please try again.");
+    }
   };
 
   return (
@@ -221,3 +233,4 @@ const AdminHeader = ({
 };
 
 export default AdminHeader;
+

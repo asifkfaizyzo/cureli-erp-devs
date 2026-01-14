@@ -20,6 +20,7 @@ import Pagination from "../../../components/common/Pagination";
 import ShopDetailsModal from "./ShopDetailsModal";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import { toggleShopActive } from "../../../api/cadminShops";
+import { useToast } from "../../../components/common/Toast";
 
 // ============================================
 // COLUMN CONFIGURATION
@@ -31,7 +32,7 @@ const COLUMNS = {
   businessType: { key: 'business_type', label: 'Type', width: 130, sortable: true, align: 'left' },
   plan: { key: 'plan', label: 'Plan', width: 120, sortable: false, align: 'center' },
   verification: { key: 'verification', label: 'Verification', width: 130, sortable: false, align: 'center' },
-  actions: { key: 'actions', label: 'Actions', width: 80, sortable: false, align: 'center' }, // ✅ Reduced width (was 100)
+  actions: { key: 'actions', label: 'Actions', width: 80, sortable: false, align: 'center' },
 };
 
 const ShopsTable = ({
@@ -46,6 +47,7 @@ const ShopsTable = ({
   onRefresh,
   onShopUpdate,
 }) => {
+  const toast = useToast();
   const { styles, heights } = TABLE_CONFIG;
 
   // Modal states
@@ -123,14 +125,14 @@ const ShopsTable = ({
   // ACTION HANDLERS (Must stop propagation!)
   // ============================================
   const handleEditClick = (e, shop) => {
-    e.stopPropagation(); // ⚠️ CRITICAL: Prevent row click
+    e.stopPropagation();
     setSelectedShop(shop);
     setModalMode("edit");
     setIsModalOpen(true);
   };
 
   const handleSuspendClick = (e, shop) => {
-    e.stopPropagation(); // ⚠️ CRITICAL: Prevent row click
+    e.stopPropagation();
     setShopToSuspend(shop);
     setShowSuspendConfirm(true);
   };
@@ -143,10 +145,27 @@ const ShopsTable = ({
       await toggleShopActive(shopToSuspend.shop_id, newIsActive);
       onShopUpdate?.(shopToSuspend.shop_id, { is_active: newIsActive });
       setShowSuspendConfirm(false);
+      
+      if (newIsActive) {
+        toast.success(
+          "Shop Activated",
+          `"${shopToSuspend.business_name}" has been activated successfully.`
+        );
+      } else {
+        toast.success(
+          "Shop Suspended",
+          `"${shopToSuspend.business_name}" has been suspended.`
+        );
+      }
+      
       setShopToSuspend(null);
     } catch (err) {
       console.error("Suspend/Activate failed:", err);
-      alert(err.response?.data?.message || "Failed to update shop status");
+      const errorMessage = err.response?.data?.message || "Failed to update shop status";
+      toast.error(
+        "Action Failed",
+        errorMessage
+      );
     } finally {
       setSuspendLoading(false);
     }
@@ -301,7 +320,7 @@ const ShopsTable = ({
                 shops.map((shop, index) => (
                   <tr
                     key={shop.shop_id}
-                    onClick={() => handleRowClick(shop)} // 👈 Row click opens view modal
+                    onClick={() => handleRowClick(shop)}
                     className={getClickableRowClass(index, !shop.is_active)}
                     style={{ height: `${heights.bodyRow}px` }}
                   >
@@ -425,4 +444,3 @@ const ShopsTable = ({
 };
 
 export default ShopsTable;
-

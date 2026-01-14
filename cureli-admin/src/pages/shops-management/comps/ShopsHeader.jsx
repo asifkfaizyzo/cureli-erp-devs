@@ -4,6 +4,7 @@ import { Search, X, Download, FileSpreadsheet } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import StyledSelect from "../../../components/common/StyledSelect";
 import StyledDateFilter from "../../../components/common/StyledDateFilter";
+import { useToast } from "../../../components/common/Toast";
 
 const ShopsHeader = ({
   searchText,
@@ -19,6 +20,7 @@ const ShopsHeader = ({
   shops = [],
   totalItems = 0,
 }) => {
+  const toast = useToast();
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const exportMenuRef = useRef(null);
@@ -47,6 +49,7 @@ const ShopsHeader = ({
     setActiveFilter("");
     setDateFilter("");
     setSearchText("");
+    toast.info("Filters Cleared", "All filters have been reset.");
   };
 
   // CSV generator
@@ -92,15 +95,43 @@ const ShopsHeader = ({
   };
 
   const exportVisibleShops = () => {
-    const blob = generateCSV(shops);
-    if (!blob) return alert("No shops available to export.");
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `shops_export_${
-      new Date().toISOString().split("T")[0]
-    }.csv`;
-    link.click();
-    setShowExportMenu(false);
+    try {
+      const blob = generateCSV(shops);
+      if (!blob) {
+        toast.warning("No Data", "No shops available to export.");
+        return;
+      }
+
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `shops_export_${new Date().toISOString().split("T")[0]}.csv`;
+      link.click();
+      setShowExportMenu(false);
+      toast.success("Export Successful", `${shops.length} shop(s) exported to CSV.`);
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Export Failed", "Could not export shops. Please try again.");
+    }
+  };
+
+  const exportAllShops = () => {
+    try {
+      const blob = generateCSV(shops);
+      if (!blob) {
+        toast.warning("No Data", "No shops available to export.");
+        return;
+      }
+
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `shops_all_export_${new Date().toISOString().split("T")[0]}.csv`;
+      link.click();
+      setShowExportMenu(false);
+      toast.success("Export Successful", `${shops.length} shop(s) exported to CSV.`);
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Export Failed", "Could not export shops. Please try again.");
+    }
   };
 
   // Toggle menu with position calculation
@@ -261,7 +292,7 @@ const ShopsHeader = ({
               <div className="h-px bg-gray-100" />
 
               <button
-                onClick={exportVisibleShops}
+                onClick={exportAllShops}
                 className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 
                            flex items-center gap-3 transition-colors"
               >
