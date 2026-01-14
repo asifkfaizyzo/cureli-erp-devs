@@ -326,7 +326,7 @@ export async function uploadShopDocument({
 }
 
 /**
- * List shops with filters, sorting, and pagination
+ * ✅ UPDATED: List shops with filters, sorting, pagination, and UUID search support
  */
 export async function listShops({
   page = 1,
@@ -347,24 +347,35 @@ export async function listShops({
   // Build where clause
   const where = {};
 
-  // Search filter
+  // ✅ UPDATED: Search filter with UUID support
   if (search && search.trim()) {
     const searchTerm = search.trim();
-    where.OR = [
-      { business_name: { contains: searchTerm, mode: "insensitive" } },
-      { legal_name: { contains: searchTerm, mode: "insensitive" } },
-      { gst_number: { contains: searchTerm, mode: "insensitive" } },
-      { city: { contains: searchTerm, mode: "insensitive" } },
-      {
-        owner: {
-          OR: [
-            { full_name: { contains: searchTerm, mode: "insensitive" } },
-            { email: { contains: searchTerm, mode: "insensitive" } },
-            { username: { contains: searchTerm, mode: "insensitive" } },
-          ],
+    
+    // Check if search term is a UUID (shop_id)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchTerm);
+    
+    if (isUUID) {
+      // ✅ Exact match by shop_id
+      where.shop_id = searchTerm;
+    } else {
+      // ✅ Text search across multiple fields
+      where.OR = [
+        { business_name: { contains: searchTerm, mode: "insensitive" } },
+        { legal_name: { contains: searchTerm, mode: "insensitive" } },
+        { gst_number: { contains: searchTerm, mode: "insensitive" } },
+        { city: { contains: searchTerm, mode: "insensitive" } },
+        {
+          owner: {
+            OR: [
+              { full_name: { contains: searchTerm, mode: "insensitive" } },
+              { email: { contains: searchTerm, mode: "insensitive" } },
+              { username: { contains: searchTerm, mode: "insensitive" } },
+              { phone_number: { contains: searchTerm } },
+            ],
+          },
         },
-      },
-    ];
+      ];
+    }
   }
 
   // Verification status filter
@@ -473,6 +484,7 @@ export async function listShops({
             full_name: true,
             email: true,
             username: true,
+            phone_number: true,
             is_active: true,
           },
         },
@@ -529,6 +541,7 @@ export async function listShops({
           full_name: shop.owner.full_name,
           email: shop.owner.email,
           username: shop.owner.username,
+          phone_number: shop.owner.phone_number,
           is_active: shop.owner.is_active,
         }
       : null,
@@ -563,6 +576,8 @@ export async function listShops({
     },
   };
 }
+
+// ... rest of your existing functions (getShopById, updateShop, toggleShopActive, getShopStats) remain the same ...
 
 /**
  * Get single shop with full details

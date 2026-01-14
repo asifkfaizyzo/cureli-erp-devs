@@ -61,6 +61,13 @@ export default function RiskMonitorPage() {
   const [activeTab, setActiveTab] = useState(RISK_TABS.EXPIRING);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Sort state for each tab
+  const [sortConfigs, setSortConfigs] = useState({
+    [RISK_TABS.EXPIRING]: { sortBy: "end_date", order: "asc" },
+    [RISK_TABS.GRACE_PERIOD]: { sortBy: "grace_period_until", order: "asc" },
+    [RISK_TABS.SUSPENDED]: { sortBy: "updated_at", order: "desc" },
+  });
+
   // Pagination state for each tab
   const [currentPages, setCurrentPages] = useState({
     [RISK_TABS.EXPIRING]: 1,
@@ -85,7 +92,14 @@ export default function RiskMonitorPage() {
     setError(null);
 
     try {
-      const response = await getAtRiskSubscriptions({ range: timeRange });
+      const currentSort = sortConfigs[activeTab];
+
+      const response = await getAtRiskSubscriptions({
+        range: timeRange,
+        sort_by: currentSort.sortBy,
+        sort_order: currentSort.order,
+      });
+
       const result = response.data?.data || response.data;
 
       setData({
@@ -107,20 +121,20 @@ export default function RiskMonitorPage() {
     } finally {
       setLoading(false);
     }
-  }, [timeRange, toast]);
+  }, [timeRange, activeTab, sortConfigs, toast]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Reset pages when time range changes
+  // Reset pages when time range or sort changes
   useEffect(() => {
     setCurrentPages({
       [RISK_TABS.EXPIRING]: 1,
       [RISK_TABS.GRACE_PERIOD]: 1,
       [RISK_TABS.SUSPENDED]: 1,
     });
-  }, [timeRange]);
+  }, [timeRange, sortConfigs]);
 
   // ============================================
   // HANDLERS
@@ -134,7 +148,24 @@ export default function RiskMonitorPage() {
     setTimeRange(newRange);
   }, []);
 
-  // Smooth tab transition handler
+  const handleSortChange = useCallback(
+    (column) => {
+      setSortConfigs((prev) => {
+        const currentSort = prev[activeTab];
+        const order =
+          currentSort.sortBy === column && currentSort.order === "asc"
+            ? "desc"
+            : "asc";
+
+        return {
+          ...prev,
+          [activeTab]: { sortBy: column, order },
+        };
+      });
+    },
+    [activeTab]
+  );
+
   const handleTabChange = useCallback(
     (tabId) => {
       if (tabId === activeTab || isTabTransitioning) return;
@@ -206,20 +237,19 @@ export default function RiskMonitorPage() {
     [data]
   );
 
-  const currentTabData = useMemo(() => {
-    return getCurrentTabData(displayedTab);
-  }, [displayedTab, getCurrentTabData]);
+  const currentTabData = useMemo(
+    () => getCurrentTabData(displayedTab),
+    [displayedTab, getCurrentTabData]
+  );
 
   const currentPage = currentPages[activeTab] || 1;
   const totalItems = currentTabData.length;
 
-  // Paginate the data
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
     return currentTabData.slice(startIndex, startIndex + rowsPerPage);
   }, [currentTabData, currentPage, rowsPerPage]);
 
-  // Get category for modal
   const getModalCategory = () => {
     switch (displayedTab) {
       case RISK_TABS.EXPIRING:
@@ -233,7 +263,6 @@ export default function RiskMonitorPage() {
     }
   };
 
-  // Check if time filter should be disabled
   const isTimeFilterDisabled = displayedTab === RISK_TABS.GRACE_PERIOD;
 
   // ============================================
@@ -248,6 +277,8 @@ export default function RiskMonitorPage() {
       rowsPerPage,
       totalItems,
       onViewDetails: handleViewDetails,
+      sortConfig: sortConfigs[displayedTab],
+      onSortChange: handleSortChange,
     };
 
     switch (displayedTab) {

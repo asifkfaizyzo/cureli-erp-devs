@@ -22,7 +22,7 @@ import {
   User,
 } from "lucide-react";
 import DetailRow from "../../../components/common/DetailRow";
-
+import UserDocumentsTab from "./UserDocumentsTab";
 // ═══════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════
@@ -600,120 +600,7 @@ export const ShopDetails = ({ user }) => {
 // DOCUMENTS TAB
 // ═══════════════════════════════════════════════════════════
 export const DocumentsTab = ({ user }) => {
-  const docs = user.shopFiles || [];
-  const isStaff = user.role === "Staff";
-
-  if (isStaff || docs.length === 0) {
-    return (
-      <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
-        <FileText size={48} className="mx-auto text-gray-300 mb-3" />
-        <p className="text-gray-500">
-          {isStaff
-            ? "Documents not available for this role"
-            : "No documents uploaded"}
-        </p>
-      </div>
-    );
-  }
-
-  const getFileTypeLabel = (fileType) => {
-    const labels = {
-      drug_license: "Drug License",
-      gst_certificate: "GST Certificate",
-      pharmacy_registration: "Pharmacy Registration",
-      business_pan: "Business PAN",
-      address_proof: "Address Proof",
-      shop_license: "Shop & Establishment License",
-    };
-    return (
-      labels[fileType] ||
-      fileType?.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-    );
-  };
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "verified":
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-            <CheckCircle size={10} /> Verified
-          </span>
-        );
-      case "rejected":
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-            <XCircle size={10} /> Rejected
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-            <Clock size={10} /> Pending
-          </span>
-        );
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-          Uploaded Documents ({docs.length})
-        </h3>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {docs.map((doc) => (
-          <div
-            key={doc.file_id}
-            className="group bg-white rounded-xl border border-gray-100 p-4 hover:border-indigo-200 hover:shadow-md transition-all duration-200"
-          >
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center flex-shrink-0">
-                <FileText size={24} className="text-indigo-500" />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold text-gray-800 truncate">
-                    {getFileTypeLabel(doc.file_type)}
-                  </p>
-                  {getStatusBadge(doc.status)}
-                </div>
-                <p className="text-xs text-gray-500 mt-1 truncate">
-                  {doc.original_name}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {formatDate(doc.uploaded_at)} •{" "}
-                  {formatFileSize(doc.file_size)}
-                </p>
-                {doc.verification_notes && (
-                  <p className="text-xs text-orange-600 mt-1 bg-orange-50 px-2 py-1 rounded">
-                    {doc.verification_notes}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
-                  title="Preview"
-                >
-                  <ExternalLink size={16} />
-                </button>
-                <button
-                  className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
-                  title="Download"
-                >
-                  <CloudDownload size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <UserDocumentsTab user={user} />;
 };
 
 // ═══════════════════════════════════════════════════════════

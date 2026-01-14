@@ -16,7 +16,6 @@ import {
   getPaymentStatusBadge,
 } from "../../../../config/modules/subscriptionRiskConfig";
 
-// Updated columns without actions
 const COLUMNS = [
   { key: "slNo", label: "#", width: 50, sortable: false, align: "left" },
   { key: "shop_name", label: "Shop Name", width: 220, sortable: true, align: "left" },
@@ -36,10 +35,10 @@ export default function GracePeriodTable({
   emptyTitle,
   emptySubtitle,
   onViewDetails,
+  sortConfig = { sortBy: null, order: null },
+  onSortChange,
 }) {
   const { styles, heights } = TABLE_CONFIG;
-
-  const [sortConfig, setSortConfig] = useState({ sortBy: null, order: null });
 
   const [columnWidths, setColumnWidths] = useState(() => {
     const widths = {};
@@ -56,7 +55,6 @@ export default function GracePeriodTable({
   const showEmpty = !loading && !hasData;
   const showPagination = !loading && totalItems > 0;
 
-  // Column resizing handlers
   const handleMouseDown = (columnKey, e) => {
     if (columnKey === "slNo") return;
     e.preventDefault();
@@ -94,13 +92,6 @@ export default function GracePeriodTable({
     onViewDetails?.(subscription);
   };
 
-  const handleSortChange = (columnKey) => {
-    setSortConfig((prev) => {
-      const order = prev.sortBy === columnKey && prev.order === "asc" ? "desc" : "asc";
-      return { sortBy: columnKey, order };
-    });
-  };
-
   const SortableHeader = ({ column }) => {
     const isActive = sortConfig.sortBy === column.key;
     const isAsc = isActive && sortConfig.order === "asc";
@@ -115,7 +106,7 @@ export default function GracePeriodTable({
           className={`flex items-center ${styles.header.cell} ${
             column.sortable ? "cursor-pointer select-none" : ""
           } ${column.align === "center" ? "justify-center" : "justify-between"}`}
-          onClick={() => column.sortable && handleSortChange(column.key)}
+          onClick={() => column.sortable && onSortChange?.(column.key)}
         >
           <span>{column.label}</span>
           {column.sortable && (
