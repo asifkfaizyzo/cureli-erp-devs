@@ -1,7 +1,6 @@
-// src/pages/settings/UsersPage.jsx
+// src/pages/settings/users/UsersPage.jsx
 
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
 import {
   Users,
   Plus,
@@ -11,6 +10,7 @@ import {
 
 import { usePermission } from "../../../hooks/usePermission";
 import { useToast } from "../../../components/common/Toast/ToastContainer";
+import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 import {
   fetchUsers,
   fetchUserLimits,
@@ -34,6 +34,9 @@ const UsersPage = () => {
   const { isSuperAdmin, isBranchAdmin, branchId } = usePermission();
   const toast = useToast();
 
+  // ✅ Use dynamic row count based on screen height
+  const rowsPerPage = useDynamicRowCount();
+
   // ============================================
   // STATE
   // ============================================
@@ -42,12 +45,8 @@ const UsersPage = () => {
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [limits, setLimits] = useState(null);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    total_pages: 0,
-  });
+  const [totalItems, setTotalItems] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -57,7 +56,7 @@ const UsersPage = () => {
     status: "active",
   });
 
-  // Sorting
+  // Sorting - ✅ Match the pattern from CAdmin
   const [sortConfig, setSortConfig] = useState({
     sort_by: "created_at",
     sort_order: "desc",
@@ -66,7 +65,6 @@ const UsersPage = () => {
   // UI State
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   // Modals
   const [showAddEditModal, setShowAddEditModal] = useState(false);
@@ -113,15 +111,15 @@ const UsersPage = () => {
     }
   }, [toast]);
 
-  // Fetch users
+  // ✅ Fetch users - Updated to use rowsPerPage from hook
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
       const params = {
-        page: pagination.page,
-        limit: pagination.limit,
+        page: currentPage,
+        limit: rowsPerPage,
         sort_by: sortConfig.sort_by,
         sort_order: sortConfig.sort_order,
       };
@@ -140,26 +138,17 @@ const UsersPage = () => {
 
       if (response.success) {
         setUsers(response.data.users || []);
-        setPagination((prev) => ({
-          ...prev,
-          total: response.data.pagination.total,
-          total_pages: response.data.pagination.total_pages,
-        }));
+        setTotalItems(response.data.pagination.total || 0);
       }
     } catch (err) {
       console.error("Failed to fetch users:", err);
       const errorMessage = err.response?.data?.message || "Failed to load users. Please try again.";
       setError(errorMessage);
-      
-      toast.error(
-        "Load Failed",
-        errorMessage,
-        5000
-      );
+      toast.error("Load Failed", errorMessage, 5000);
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, sortConfig, filters, isSuperAdmin, toast]);
+  }, [currentPage, rowsPerPage, sortConfig, filters, isSuperAdmin, toast]);
 
   // Initial load
   useEffect(() => {
@@ -170,30 +159,28 @@ const UsersPage = () => {
   // Load users on filter/page/sort change
   useEffect(() => {
     loadUsers();
-  }, [loadUsers, refreshKey]);
+  }, [loadUsers]);
+
+  // ✅ Reset to page 1 when filters or sort changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, sortConfig]);
 
   // ============================================
   // HANDLERS
   // ============================================
 
-  const handleRefresh = () => {
-    setRefreshKey((prev) => prev + 1);
-    toast.info(
-      "Refreshing",
-      "Reloading user data...",
-      2000
-    );
-  };
-
-  const handlePageChange = (newPage) => {
-    setPagination((prev) => ({ ...prev, page: newPage }));
-  };
+  const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest user data...", 2000);
+    loadUsers();
+    loadLimits();
+  }, [loadUsers, loadLimits, toast]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
-    setPagination((prev) => ({ ...prev, page: 1 })); // Reset to first page
   };
 
+  // ✅ Sort handler - matches CAdmin pattern
   const handleSortChange = (column) => {
     setSortConfig((prev) => ({
       sort_by: column,
@@ -232,26 +219,13 @@ const UsersPage = () => {
     if (shouldRefresh) {
       handleRefresh();
       
-      // Show appropriate toast based on result
       if (result) {
         if (result.type === 'created') {
-          toast.success(
-            "User Created",
-            `${result.userName} has been successfully added to the system.`,
-            4000
-          );
+          toast.success("User Created", `${result.userName} has been successfully added.`, 4000);
         } else if (result.type === 'updated') {
-          toast.success(
-            "User Updated",
-            `${result.userName}'s information has been successfully updated.`,
-            4000
-          );
+          toast.success("User Updated", `${result.userName}'s information updated.`, 4000);
         } else if (result.type === 'password_reset') {
-          toast.success(
-            "Password Reset",
-            `Password has been reset for ${result.userName}.`,
-            4000
-          );
+          toast.success("Password Reset", `Password reset for ${result.userName}.`, 4000);
         }
       }
     }
@@ -262,95 +236,97 @@ const UsersPage = () => {
   // ============================================
 
   return (
-    <div className="h-full flex flex-col gap-4 p-1">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-[#000060] flex items-center gap-2">
-            <Users size={24} />
-            User Management
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isSuperAdmin 
-              ? "Manage all users across branches" 
-              : "Manage staff members in your branch"
-            }
-          </p>
+    // ✅ FIXED: Added min-w-0 and overflow-hidden for proper flex shrinking
+    <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
+      {/* Header - flex-shrink-0 to prevent shrinking */}
+      <div className="flex-shrink-0 flex flex-col gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
+              <Users size={20} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate">
+                User Management
+              </h1>
+              <p className="text-sm text-gray-500">
+                {isSuperAdmin 
+                  ? `${totalItems} total user${totalItems !== 1 ? "s" : ""} across branches`
+                  : `${totalItems} staff member${totalItems !== 1 ? "s" : ""} in your branch`
+                }
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Refresh Button */}
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 
+                         rounded-lg transition-colors disabled:opacity-50"
+              title="Refresh"
+            >
+              <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+            </button>
+
+            {/* Add User Button */}
+            <button
+              onClick={handleAddUser}
+              disabled={!limits?.can_add}
+              className={`
+                flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm
+                ${limits?.can_add
+                  ? 'bg-[#000060] text-white hover:bg-[#000080]'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }
+              `}
+              title={!limits?.can_add ? "User limit reached" : "Add new user"}
+            >
+              <Plus size={18} />
+              <span className="hidden sm:inline">Add User</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Refresh Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleRefresh}
-            disabled={loading}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-            title="Refresh"
-          >
-            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-          </motion.button>
+        {/* Limit Banner */}
+        {limits && <UserLimitBanner limits={limits} />}
 
-          {/* Add User Button */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleAddUser}
-            disabled={!limits?.can_add}
-            className={`
-              flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors shadow-md
-              ${limits?.can_add
-                ? 'bg-[#000060] text-white hover:bg-[#000080]'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }
-            `}
-            title={!limits?.can_add ? "User limit reached" : "Add new user"}
-          >
-            <Plus size={18} />
-            Add User
-          </motion.button>
-        </div>
+        {/* Filters */}
+        <UserFilters
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          branches={branches}
+          showBranchFilter={isSuperAdmin}
+        />
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={18} />
+              <span className="text-sm">{error}</span>
+            </div>
+            <button
+              onClick={handleRefresh}
+              className="text-red-700 hover:text-red-900 font-medium underline text-sm"
+            >
+              Retry
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Limit Banner */}
-      {limits && (
-        <UserLimitBanner limits={limits} />
-      )}
-
-      {/* Filters */}
-      <UserFilters
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        branches={branches}
-        showBranchFilter={isSuperAdmin}
-      />
-
-      {/* Error State */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700"
-        >
-          <AlertCircle size={20} />
-          <span>{error}</span>
-          <button
-            onClick={handleRefresh}
-            className="ml-auto text-sm font-medium hover:underline"
-          >
-            Retry
-          </button>
-        </motion.div>
-      )}
-
-      {/* User Table */}
-      <div className="flex-1 min-h-0">
+      {/* ✅ Table Container - Takes remaining height with proper overflow */}
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <UserListTable
           users={users}
           loading={loading}
-          pagination={pagination}
+          totalItems={totalItems}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          rowsPerPage={rowsPerPage}
           sortConfig={sortConfig}
-          onPageChange={handlePageChange}
           onSortChange={handleSortChange}
           onEdit={handleEditUser}
           onResetPassword={handleResetPassword}
@@ -362,7 +338,7 @@ const UsersPage = () => {
         />
       </div>
 
-      {/* Add/Edit Modal */}
+      {/* Modals */}
       {showAddEditModal && (
         <AddEditUserModal
           user={selectedUser}
@@ -373,7 +349,6 @@ const UsersPage = () => {
         />
       )}
 
-      {/* Reset Password Modal */}
       {showResetPasswordModal && selectedUser && (
         <ResetPasswordModal
           user={selectedUser}
