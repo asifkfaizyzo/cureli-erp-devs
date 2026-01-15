@@ -26,20 +26,8 @@ const makeEmptyRow = () => ({
 const BillingPage = () => {
   const toast = useToast();
 
-  const [targetRowCount, setTargetRowCount] = useState(() => {
-    // Initialize immediately based on screen size
-    const width = window.innerWidth;
-    if (width >= 2560) return 17;
-    if (width >= 1920) return 16;
-    if (width >= 1440) return 10;
-    if (width >= 1366) return 6;
-    return 6;
-  });
-
-  // Initialize rows with the calculated count
-  const [rows, setRows] = useState(() =>
-    Array.from({ length: targetRowCount }).map(makeEmptyRow)
-  );
+  const [targetRowCount, setTargetRowCount] = useState(8); // Default for small screens
+  const [rows, setRows] = useState([]);
 
   const [customer, setCustomer] = useState({
     id: "123564",
@@ -50,21 +38,22 @@ const BillingPage = () => {
     payment: "Cash",
   });
 
-  // 1. RESPONSIVE LOGIC
+  // 1. RESPONSIVE LOGIC (Provided by you)
   useEffect(() => {
     const updateLayout = () => {
       const width = window.innerWidth;
-      let count = 6;
+      let count = 6; // Default / Mobile
 
-      if (width >= 2560) count = 17;
-      else if (width >= 1920) count = 16;
-      else if (width >= 1440) count = 10;
-      else if (width >= 1366) count = 6;
+      if (width >= 2560) count = 17;       // 4k / 27 inch
+      else if (width >= 1920) count = 16;  // 1080p Full HD
+      else if (width >= 1440) count = 10;  // 19 inch / high res laptop
+      else if (width >= 1366) count = 6;   // 14 inch laptop
       else count = 6;
 
       setTargetRowCount(count);
     };
 
+    updateLayout();
     window.addEventListener("resize", updateLayout);
     return () => window.removeEventListener("resize", updateLayout);
   }, []);
@@ -72,32 +61,13 @@ const BillingPage = () => {
   // 2. Update Rows when targetRowCount changes
   useEffect(() => {
     setRows((prev) => {
-      // If no rows exist, create initial rows
-      if (prev.length === 0) {
-        return Array.from({ length: targetRowCount }).map(makeEmptyRow);
-      }
-
-      // If we need more rows
       if (prev.length < targetRowCount) {
         const needed = targetRowCount - prev.length;
         return [...prev, ...Array.from({ length: needed }).map(makeEmptyRow)];
       }
-
-      // If we need fewer rows (only remove empty rows from the end)
-      if (prev.length > targetRowCount) {
-        // Keep filled rows, only trim empty ones
-        const hasData = (row) =>
-          Object.keys(row).some(
-            (k) => k !== "mrp" && k !== "amount" && k !== "tax" && k !== "taxAmt" && k !== "disc" && row[k] !== "" && row[k] !== 0
-          );
-        
-        const filledRows = prev.filter(hasData);
-        if (filledRows.length >= targetRowCount) {
-          return prev; // Don't remove rows with data
-        }
-      }
-
-      return prev;
+      return prev.length > 0
+        ? prev
+        : Array.from({ length: targetRowCount }).map(makeEmptyRow);
     });
   }, [targetRowCount]);
 
@@ -119,20 +89,31 @@ const BillingPage = () => {
 
   // ---------------- ACTIONS ----------------
   const handleSave = () => {
-    toast.success("Bill Saved", "The bill has been saved successfully.");
+    toast.success(
+      "Bill Saved",
+      "The bill has been saved successfully."
+    );
   };
 
   const handleSavePrint = () => {
     handleSave();
-    toast.info("Print Started", "Preparing bill for printing.", 2000);
+    toast.info(
+      "Print Started",
+      "Preparing bill for printing.",
+      2000
+    );
     setTimeout(() => window.print(), 500);
   };
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1 gap-1 font-sans">
+
       {/* HEADER */}
       <div className="shrink-0">
-        <BillingHeader onSave={handleSave} onSavePrint={handleSavePrint} />
+        <BillingHeader
+          onSave={handleSave}
+          onSavePrint={handleSavePrint}
+        />
       </div>
 
       {/* TABLE */}
@@ -144,9 +125,13 @@ const BillingPage = () => {
 
       {/* FOOTER */}
       <div className="shrink-0 flex gap-2 h-[170px] 2xl:h-[200px]">
-        <CustomerDetailsCard customer={customer} setCustomer={setCustomer} />
+        <CustomerDetailsCard
+          customer={customer}
+          setCustomer={setCustomer}
+        />
         <BillingSummaryCard summary={summary} />
       </div>
+
     </div>
   );
 };
