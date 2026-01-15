@@ -26,6 +26,7 @@ import {
 } from "../../../api/subscription";
 import { fetchUserLimits } from "../../../api/users";
 import { fetchBranchLimits } from "../../../api/branches";
+import { useToast } from "../../../components/common/Toast"; // ✅ ADDED
 
 // Utils & Config
 import { analyzePlanChange } from "../../../utils/planChangeUtils";
@@ -47,6 +48,7 @@ import RenewalConfirmModal from "./comps/RenewalConfirmModal";
  */
 const UpgradePlanPage = () => {
   const navigate = useNavigate();
+  const toast = useToast(); // ✅ ADDED
 
   // ============================================
   // STATE
@@ -67,7 +69,6 @@ const UpgradePlanPage = () => {
 
   // Modal state machine
   const [modalState, setModalState] = useState(null);
-  // null | "upgrade_confirm" | "downgrade_warning" | "compliance" | "final_confirm"
 
   // Processing state
   const [processing, setProcessing] = useState(false);
@@ -88,7 +89,6 @@ const UpgradePlanPage = () => {
     setError(null);
 
     try {
-      // Fetch all data in parallel
       const [plansRes, subscriptionRes, userLimitsRes, branchLimitsRes] =
         await Promise.all([
           getPlans(),
@@ -103,7 +103,6 @@ const UpgradePlanPage = () => {
       const normalizedPlans = normalizePlans(plansData);
       setPlans(normalizedPlans);
 
-      // Current subscription
       const subData = subscriptionRes.data?.data || subscriptionRes.data;
       if (subData?.has_active_subscription && subData?.current_plan) {
         setCurrentSubscription({
@@ -114,20 +113,25 @@ const UpgradePlanPage = () => {
         setCurrentSubscription(null);
       }
 
-      // Usage counts
       const userCount = userLimitsRes.data?.current_count || 0;
       const branchCount = branchLimitsRes.data?.current_count || 0;
       setUsage({
         activeUsers: userCount,
         activeBranches: branchCount,
       });
+
+      // ✅ ADDED: Success toast on refresh (optional)
+      // toast.success("Data Loaded", "Plan information updated.");
     } catch (err) {
       console.error("Failed to load data:", err);
-      setError("Failed to load plan information. Please try again.");
+      const errorMsg = "Failed to load plan information. Please try again.";
+      setError(errorMsg);
+      // ✅ ADDED: Error toast
+      toast.error("Load Failed", errorMsg);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     loadData();
@@ -138,7 +142,6 @@ const UpgradePlanPage = () => {
   // ============================================
 
   const handleSelectPlan = (plan) => {
-    // Analyze the change
     const analysis = analyzePlanChange(
       currentSubscription?.plan || { max_users: 0, max_branches: 0, price: 0 },
       plan,
@@ -150,7 +153,6 @@ const UpgradePlanPage = () => {
     setModalError("");
     setComplianceData({ usersToDisable: [], branchesToDeactivate: [] });
 
-    // Determine which modal to show
     if (analysis.direction === "renew") {
       setModalState("renew_confirm");
     } else if (analysis.direction === "upgrade") {
@@ -158,7 +160,8 @@ const UpgradePlanPage = () => {
     } else if (analysis.direction === "downgrade") {
       setModalState("downgrade_warning");
     } else {
-      alert("No change detected.");
+      // ✅ CHANGED: Alert to Toast
+      toast.info("No Change", "You're already on this plan.");
     }
   };
 
@@ -189,10 +192,12 @@ const UpgradePlanPage = () => {
       }
     } catch (err) {
       console.error("Renewal error:", err);
-      setModalError(
+      const errorMsg =
         err.response?.data?.message ||
-          "Failed to process renewal. Please try again."
-      );
+        "Failed to process renewal. Please try again.";
+      setModalError(errorMsg);
+      // ✅ ADDED: Error toast
+      toast.error("Renewal Failed", errorMsg);
       setProcessing(false);
     }
   };
@@ -224,10 +229,12 @@ const UpgradePlanPage = () => {
       }
     } catch (err) {
       console.error("Upgrade error:", err);
-      setModalError(
+      const errorMsg =
         err.response?.data?.message ||
-          "Failed to process upgrade. Please try again."
-      );
+        "Failed to process upgrade. Please try again.";
+      setModalError(errorMsg);
+      // ✅ ADDED: Error toast
+      toast.error("Upgrade Failed", errorMsg);
       setProcessing(false);
     }
   };
@@ -250,14 +257,20 @@ const UpgradePlanPage = () => {
             razorpay_signature: response.razorpay_signature,
             subscription_id: data.subscription_id,
           });
-          alert("Payment successful! Your plan has been upgraded.");
+          // ✅ CHANGED: Alert to Toast
+          toast.success(
+            "Payment Successful",
+            `Your plan has been upgraded to ${data.plan_name}!`
+          );
           handleCloseModals();
           loadData();
         } catch (err) {
           console.error("Payment confirmation error:", err);
-          setModalError(
-            "Payment was successful but activation failed. Please contact support."
-          );
+          const errorMsg =
+            "Payment was successful but activation failed. Please contact support.";
+          setModalError(errorMsg);
+          // ✅ ADDED: Error toast
+          toast.error("Activation Failed", errorMsg);
           setProcessing(false);
         }
       },
@@ -268,7 +281,8 @@ const UpgradePlanPage = () => {
           } catch (err) {
             console.error("Failed to cancel pending subscription:", err);
           }
-          setModalError("Payment was cancelled.");
+          // ✅ CHANGED: setModalError to Toast
+          toast.warning("Payment Cancelled", "Your payment was cancelled.");
           setProcessing(false);
         },
         escape: false,
@@ -285,9 +299,10 @@ const UpgradePlanPage = () => {
       } catch (err) {
         console.error("Failed to cancel pending subscription:", err);
       }
-      setModalError(
-        response.error.description || "Payment failed. Please try again."
-      );
+      const errorMsg = response.error.description || "Payment failed. Please try again.";
+      setModalError(errorMsg);
+      // ✅ ADDED: Error toast
+      toast.error("Payment Failed", errorMsg);
       setProcessing(false);
     });
 
@@ -326,20 +341,23 @@ const UpgradePlanPage = () => {
 
       const data = response.data.data;
 
+      // ✅ CHANGED: Alert to Toast with details
       let message = "Plan changed successfully!";
       if (data.disabled_users > 0 || data.deactivated_branches > 0) {
-        message += ` ${data.disabled_users} user(s) disabled, ${data.deactivated_branches} branch(es) deactivated.`;
+        message = `Plan downgraded. ${data.disabled_users} user(s) disabled, ${data.deactivated_branches} branch(es) deactivated.`;
       }
 
-      alert(message);
+      toast.success("Plan Changed", message);
       handleCloseModals();
       loadData();
     } catch (err) {
       console.error("Downgrade error:", err);
-      setModalError(
+      const errorMsg =
         err.response?.data?.message ||
-          "Failed to change plan. Please try again."
-      );
+        "Failed to change plan. Please try again.";
+      setModalError(errorMsg);
+      // ✅ ADDED: Error toast
+      toast.error("Downgrade Failed", errorMsg);
       setProcessing(false);
     }
   };
@@ -472,25 +490,7 @@ const UpgradePlanPage = () => {
         <CurrentPlanBanner subscription={currentSubscription} usage={usage} />
       )}
 
-      {/* Error Banner (non-critical) */}
-      {error && plans.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <AlertCircle size={20} className="text-red-500" />
-            <span className="text-red-700 text-sm">{error}</span>
-          </div>
-          <button
-            onClick={() => setError(null)}
-            className="text-red-500 hover:text-red-700 font-bold text-xl"
-          >
-            ×
-          </button>
-        </motion.div>
-      )}
+      {/* ✅ REMOVED: Error Banner (using toast instead) */}
 
       {/* Plans Section */}
       <div className="flex-1">
@@ -527,7 +527,6 @@ const UpgradePlanPage = () => {
         </p>
       </div>
 
-      {/* ============================================ */}
       {/* MODALS */}
       {/* ============================================ */}
 
@@ -595,7 +594,7 @@ const UpgradePlanPage = () => {
 };
 
 // ============================================
-// CUSTOM PLAN CARD (Static)
+// CUSTOM PLAN CARD
 // ============================================
 
 function CustomPlanCard() {
