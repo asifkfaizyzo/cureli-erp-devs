@@ -37,14 +37,36 @@ const handleMaintenanceMode = (data) => {
 };
 
 // ============================================
-// REQUEST INTERCEPTOR - Attach access token
+// REQUEST INTERCEPTOR - Attach access token + branch context
 // ============================================
 API.interceptors.request.use(
   (config) => {
+    // 1. Attach access token
     const token = localStorage.getItem("access_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // 2. Attach branch context headers (NEW)
+    // This allows backend to know the operating mode without guessing
+    const state = useAuthStore.getState();
+    const { branchContext } = state;
+
+    if (branchContext) {
+      // Always send the mode
+      config.headers["x-branch-mode"] = branchContext.mode;
+
+      // Only send branch_id when in BRANCH mode
+      if (branchContext.mode === "BRANCH" && branchContext.branch_id) {
+        config.headers["x-branch-id"] = branchContext.branch_id;
+      }
+
+      // Optional: Send branch name for logging/debugging
+      if (branchContext.branch_name) {
+        config.headers["x-branch-name"] = encodeURIComponent(branchContext.branch_name);
+      }
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -72,6 +94,23 @@ API.interceptors.response.use(
         handleMaintenanceMode(data);
         // Return a pending promise to stop further processing
         return new Promise(() => {});
+      }
+    }
+
+    // ✅ Handle branch context errors (NEW)
+    if (error.response?.status === 403) {
+      const errorCode = error.response.data?.code;
+      
+      if (errorCode === "BRANCH_REQUIRED") {
+        // Backend rejected write operation in GLOBAL mode
+        console.warn("🚫 Backend rejected: Write operation requires BRANCH mode");
+        // The BranchRequiredGuard should have caught this, but backend is the final authority
+        // We could show a toast here if needed
+      }
+      
+      if (errorCode === "BRANCH_MISMATCH") {
+        // Branch ID doesn't match user's allowed branches
+        console.warn("🚫 Backend rejected: Branch access not allowed");
       }
     }
 

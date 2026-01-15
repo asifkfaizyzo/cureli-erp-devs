@@ -11,27 +11,45 @@ import {
 
 /**
  * ============================================
- * AUTH STORE
+ * AUTH STORE - v2 with Branch Context
  * ============================================
  *
- * Centralized authentication state management.
+ * ARCHITECTURAL RULES:
+ * 1. branchContext.mode is EXPLICIT - never inferred from null
+ * 2. GLOBAL mode = aggregated view, NO writes allowed
+ * 3. BRANCH mode = single branch, full CRUD allowed
+ * 4. Only super_admin can switch modes
+ * 5. branch_admin/staff are ALWAYS in BRANCH mode (their assigned branch)
  *
  * State shape:
  * {
  *   isAuthenticated: boolean,
- *   isInitialized: boolean,    // Has the store been hydrated?
- *   isLoading: boolean,        // Loading state for async operations
- *   user: {
- *     user_id: string,
- *     shop_id: string | null,
+ *   isInitialized: boolean,
+ *   isLoading: boolean,
+ *   user: { user_id, shop_id, role, status, name } | null,
+ *   permissions: string[],
+ *   shopName: string | null,
+ *   branchContext: {
+ *     mode: "GLOBAL" | "BRANCH",
  *     branch_id: string | null,
- *     role: "super_admin" | "branch_admin" | "staff",
- *     status: string,
- *     name: string,
- *   } | null,
- *   permissions: string[],     // Cached permissions from backend
+ *     branch_name: string | null
+ *   }
  * }
  */
+
+// ============================================
+// CONSTANTS
+// ============================================
+const BRANCH_MODE = {
+  GLOBAL: "GLOBAL",
+  BRANCH: "BRANCH",
+};
+
+const initialBranchContext = {
+  mode: BRANCH_MODE.GLOBAL,
+  branch_id: null,
+  branch_name: null,
+};
 
 const initialState = {
   isAuthenticated: false,
@@ -40,7 +58,7 @@ const initialState = {
   user: null,
   permissions: [],
   shopName: null,
-  branchName: null,
+  branchContext: { ...initialBranchContext },
 };
 
 export const useAuthStore = create(
@@ -60,34 +78,70 @@ export const useAuthStore = create(
         const token = localStorage.getItem("access_token");
 
         if (token && !isTokenExpired(token)) {
-          const user = getUserFromToken(token);
+          const tokenUser = getUserFromToken(token);
 
-          if (user) {
+          if (tokenUser) {
+            const role = tokenUser.role;
+            const isSuperAdmin = role === "super_admin";
+
+            // Get persisted state (zustand will have already hydrated)
+            const persistedState = get();
+
+            // Determine branch context based on role
+            let branchContext;
+
+            if (isSuperAdmin) {
+              // SA: Use persisted branchContext if valid, else default to GLOBAL
+              if (
+                persistedState.branchContext?.mode === BRANCH_MODE.BRANCH &&
+                persistedState.branchContext?.branch_id
+              ) {
+                branchContext = persistedState.branchContext;
+              } else {
+                branchContext = {
+                  mode: BRANCH_MODE.GLOBAL,
+                  branch_id: null,
+                  branch_name: null,
+                };
+              }
+            } else {
+              // branch_admin/staff: ALWAYS BRANCH mode with their assigned branch
+              branchContext = {
+                mode: BRANCH_MODE.BRANCH,
+                branch_id: tokenUser.branch_id || null,
+                branch_name: localStorage.getItem("branch_name") || null,
+              };
+            }
+
             set({
               isAuthenticated: true,
               isInitialized: true,
               isLoading: false,
               user: {
-                ...user,
+                user_id: tokenUser.user_id,
+                shop_id: tokenUser.shop_id,
+                role: tokenUser.role,
+                status: tokenUser.status,
                 name: localStorage.getItem("user_name") || "",
               },
-              branchName: localStorage.getItem("branch_name") || null,
               shopName: localStorage.getItem("shop_name") || null,
+              branchContext,
             });
 
-            console.log("🔐 Auth initialized from token:", user.role);
+            console.log("🔐 Auth initialized:", {
+              role,
+              branchMode: branchContext.mode,
+              branchId: branchContext.branch_id,
+            });
             return;
           }
         }
 
         // No valid token
         set({
-          isAuthenticated: false,
+          ...initialState,
           isInitialized: true,
           isLoading: false,
-          user: null,
-          permissions: [],
-          shopName: null,  
         });
 
         console.log("🔓 Auth initialized: No valid token");
@@ -108,12 +162,12 @@ export const useAuthStore = create(
           shop_id,
           branch_id,
           branch_name,
-          shop_name,  
+          shop_name,
           role,
           user_name,
         } = data;
 
-        // Store token
+        // Store token and metadata
         localStorage.setItem("access_token", access_token);
         localStorage.setItem("user_id", user_id);
         if (shop_id) localStorage.setItem("shop_id", shop_id);
@@ -121,8 +175,28 @@ export const useAuthStore = create(
         if (branch_name) localStorage.setItem("branch_name", branch_name);
         if (shop_name) localStorage.setItem("shop_name", shop_name);
 
-        // Get user from token for complete info
+        // Get complete user info from token
         const tokenUser = getUserFromToken(access_token);
+        const isSuperAdmin = role === "super_admin";
+
+        // Determine initial branch context based on role
+        let branchContext;
+
+        if (isSuperAdmin) {
+          // SA starts in GLOBAL mode (must explicitly select branch for writes)
+          branchContext = {
+            mode: BRANCH_MODE.GLOBAL,
+            branch_id: null,
+            branch_name: null,
+          };
+        } else {
+          // branch_admin/staff: locked to their branch
+          branchContext = {
+            mode: BRANCH_MODE.BRANCH,
+            branch_id: branch_id || tokenUser?.branch_id || null,
+            branch_name: branch_name || null,
+          };
+        }
 
         set({
           isAuthenticated: true,
@@ -131,16 +205,18 @@ export const useAuthStore = create(
           user: {
             user_id,
             shop_id,
-            branch_id: branch_id || tokenUser?.branch_id || null,
             role: role || tokenUser?.role,
             status: tokenUser?.status,
             name: user_name || "",
           },
-          branchName: branch_name || null,
           shopName: shop_name || null,
+          branchContext,
         });
 
-        console.log("🔐 Auth set:", role);
+        console.log("🔐 Auth set:", {
+          role,
+          branchMode: branchContext.mode,
+        });
       },
 
       /**
@@ -163,14 +239,11 @@ export const useAuthStore = create(
         localStorage.removeItem("branch_name");
         localStorage.removeItem("shop_name");
 
-        // Reset state
+        // Reset state completely
         set({
-          isAuthenticated: false,
+          ...initialState,
+          isInitialized: true,
           isLoading: false,
-          user: null,
-          permissions: [],
-          branchName: null,
-          shopName: null,
         });
 
         console.log("🔓 Logged out");
@@ -180,6 +253,99 @@ export const useAuthStore = create(
        * Set loading state
        */
       setLoading: (isLoading) => set({ isLoading }),
+
+      // ============================================
+      // BRANCH CONTEXT MANAGEMENT
+      // ============================================
+
+      /**
+       * Switch to GLOBAL mode (aggregated view, no writes)
+       * Only super_admin can call this
+       */
+      setGlobalBranch: () => {
+        const { user } = get();
+
+        if (!user || user.role !== "super_admin") {
+          console.warn("❌ setGlobalBranch: Only super_admin can switch to GLOBAL mode");
+          return false;
+        }
+
+        set({
+          branchContext: {
+            mode: BRANCH_MODE.GLOBAL,
+            branch_id: null,
+            branch_name: null,
+          },
+        });
+
+        console.log("🌐 Switched to GLOBAL mode");
+        return true;
+      },
+
+      /**
+       * Switch to BRANCH mode with specific branch
+       * @param {string} branch_id - Branch UUID
+       * @param {string} branch_name - Branch display name
+       */
+      setBranch: (branch_id, branch_name) => {
+        const { user } = get();
+
+        if (!user) {
+          console.warn("❌ setBranch: No authenticated user");
+          return false;
+        }
+
+        // Non-SA users can only be set to their assigned branch (handled at login)
+        if (user.role !== "super_admin") {
+          console.warn("❌ setBranch: Only super_admin can switch branches");
+          return false;
+        }
+
+        if (!branch_id) {
+          console.warn("❌ setBranch: branch_id is required for BRANCH mode");
+          return false;
+        }
+
+        set({
+          branchContext: {
+            mode: BRANCH_MODE.BRANCH,
+            branch_id,
+            branch_name: branch_name || null,
+          },
+        });
+
+        // Also update localStorage for branch_name (for non-SA consistency)
+        if (branch_name) {
+          localStorage.setItem("branch_name", branch_name);
+        }
+
+        console.log("🏢 Switched to BRANCH mode:", { branch_id, branch_name });
+        return true;
+      },
+
+      /**
+       * Check if currently in GLOBAL mode
+       */
+      isGlobalMode: () => {
+        const { branchContext } = get();
+        return branchContext.mode === BRANCH_MODE.GLOBAL;
+      },
+
+      /**
+       * Check if currently in BRANCH mode
+       */
+      isBranchMode: () => {
+        const { branchContext } = get();
+        return branchContext.mode === BRANCH_MODE.BRANCH;
+      },
+
+      /**
+       * Check if writes are allowed (must be in BRANCH mode)
+       */
+      canWrite: () => {
+        const { branchContext } = get();
+        return branchContext.mode === BRANCH_MODE.BRANCH && !!branchContext.branch_id;
+      },
 
       // ============================================
       // PERMISSION CHECKS
@@ -248,7 +414,7 @@ export const useAuthStore = create(
       },
 
       // ============================================
-      // BRANCH CONTEXT
+      // CONVENIENCE GETTERS
       // ============================================
 
       /**
@@ -257,43 +423,6 @@ export const useAuthStore = create(
       isSuperAdmin: () => {
         const { user } = get();
         return user?.role === "super_admin";
-      },
-
-      /**
-       * Get current branch context
-       * SA can switch branches, others are locked to their branch
-       */
-      getBranchContext: () => {
-        const { user, branchName } = get();
-
-        if (!user) return null;
-
-        return {
-          branch_id: user.branch_id,
-          branch_name: branchName,
-          canSwitch: user.role === "super_admin",
-        };
-      },
-
-      /**
-       * Update branch context (for SA branch switching)
-       * @param {string} branch_id
-       * @param {string} branch_name
-       */
-      setBranchContext: (branch_id, branch_name) => {
-        const { user } = get();
-
-        if (!user || user.role !== "super_admin") {
-          console.warn("Only super_admin can switch branches");
-          return;
-        }
-
-        set({
-          user: { ...user, branch_id },
-          branchName: branch_name,
-        });
-
-        localStorage.setItem("branch_name", branch_name);
       },
 
       // ============================================
@@ -337,14 +466,29 @@ export const useAuthStore = create(
     }),
     {
       name: "cureli-auth-storage",
-      version: 1,
-      // Only persist minimal state - token is in localStorage
+      version: 2, // Bumped version for migration
+      // Only persist what's needed
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         user: state.user,
-        branchName: state.branchName,
         shopName: state.shopName,
+        branchContext: state.branchContext, // NEW: Persist branch context
       }),
+      // Handle migration from v1 (had branchName) to v2 (has branchContext)
+      migrate: (persistedState, version) => {
+        if (version === 1) {
+          // Migrate from old format
+          const oldBranchName = persistedState.branchName;
+          delete persistedState.branchName;
+          
+          persistedState.branchContext = {
+            mode: BRANCH_MODE.GLOBAL,
+            branch_id: null,
+            branch_name: oldBranchName || null,
+          };
+        }
+        return persistedState;
+      },
     }
   )
 );
@@ -358,6 +502,18 @@ export const selectIsInitialized = (state) => state.isInitialized;
 export const selectIsLoading = (state) => state.isLoading;
 export const selectUser = (state) => state.user;
 export const selectUserRole = (state) => state.user?.role;
-export const selectBranchId = (state) => state.user?.branch_id;
 export const selectIsSuperAdmin = (state) => state.user?.role === "super_admin";
 export const selectShopName = (state) => state.shopName;
+
+// NEW: Branch context selectors
+export const selectBranchContext = (state) => state.branchContext;
+export const selectBranchMode = (state) => state.branchContext.mode;
+export const selectBranchId = (state) => state.branchContext.branch_id;
+export const selectBranchName = (state) => state.branchContext.branch_name;
+export const selectIsGlobalMode = (state) => state.branchContext.mode === "GLOBAL";
+export const selectIsBranchMode = (state) => state.branchContext.mode === "BRANCH";
+export const selectCanWrite = (state) => 
+  state.branchContext.mode === "BRANCH" && !!state.branchContext.branch_id;
+
+// Export constants for use elsewhere
+export { BRANCH_MODE };

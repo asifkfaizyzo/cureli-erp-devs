@@ -1,7 +1,7 @@
 // src/components/layout/TopHeader.jsx
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom"; // Added useLocation
 import {
   Bell,
   ChevronDown,
@@ -25,44 +25,64 @@ import {
 } from "lucide-react";
 import logo from "../../assets/icons/cureli.svg";
 
-import { useAuthStore } from "../../store/useAuthStore";
+import { 
+  useAuthStore, 
+  selectBranchContext, 
+  selectIsSuperAdmin,
+  selectIsGlobalMode,
+  BRANCH_MODE 
+} from "../../store/useAuthStore";
 import { usePermission } from "../../hooks/usePermission";
 import { PERMISSIONS } from "../../config/permissions";
 import { logoutUser } from "../../api/auth";
 import { fetchBranchesDropdown, switchBranch } from "../../api/branches";
 import ConfirmDialog from "../common/ConfirmDialog";
 import { useSubscriptionStore, selectNeedsRenewal, selectDaysRemaining, selectIsInGrace } from "../../store/useSubscriptionStore";
+import { useToast } from "../common/Toast"; // NEW: Import toast
+
+// NEW: Define write routes that require BRANCH mode
+const WRITE_ROUTES = [
+  "/Salesbilling",
+  "/purchase-billing",
+];
 
 const TopHeader = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // NEW: Get current location
+  const toast = useToast(); // NEW: Toast hook
+  
   const profileRef = useRef(null);
   const notificationRef = useRef(null);
   const branchRef = useRef(null);
 
   // ============================================
-  // AUTH STORE & PERMISSIONS
+  // AUTH STORE (Single Source of Truth)
   // ============================================
   const user = useAuthStore((state) => state.user);
-  const branchName = useAuthStore((state) => state.branchName);
   const shopName = useAuthStore((state) => state.shopName);
   const logout = useAuthStore((state) => state.logout);
-  const setBranchContext = useAuthStore((state) => state.setBranchContext);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  
+  // Branch context from store (not local state)
+  const branchContext = useAuthStore(selectBranchContext);
+  const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
+  const isGlobalMode = useAuthStore(selectIsGlobalMode);
+  const setGlobalBranch = useAuthStore((state) => state.setGlobalBranch);
+  const setBranch = useAuthStore((state) => state.setBranch);
 
-  // ⚠️ NEW: Subscription status
+  // Subscription status
   const needsRenewal = useSubscriptionStore(selectNeedsRenewal);
   const daysRemaining = useSubscriptionStore(selectDaysRemaining);
   const isInGrace = useSubscriptionStore(selectIsInGrace);
   const loadSubscriptionStatus = useSubscriptionStore((s) => s.loadSubscriptionStatus);
 
-  const branchId = user?.branch_id || null;
   const shopId = user?.shop_id || null;
   const userRole = user?.role || null;
 
   const { hasPermission } = usePermission();
 
   // ============================================
-  // LOCAL STATE
+  // LOCAL STATE (UI only, not source of truth)
   // ============================================
   const [dateTime, setDateTime] = useState({
     time: "",
@@ -81,7 +101,6 @@ const TopHeader = () => {
   const [isSwitchingBranch, setIsSwitchingBranch] = useState(false);
 
   const [branches, setBranches] = useState([]);
-  const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [notificationError, setNotificationError] = useState(null);
 
@@ -89,9 +108,11 @@ const TopHeader = () => {
   // DERIVED VALUES
   // ============================================
   const canSwitchBranches = hasPermission(PERMISSIONS.BRANCHES_SWITCH);
-  const canViewSettings = hasPermission(PERMISSIONS.SETTINGS_VIEW);
-  const canManageSettings = hasPermission(PERMISSIONS.SETTINGS_MANAGE);
-  const isSuperAdmin = userRole === "super_admin";
+
+  // NEW: Check if currently on a write route
+  const isOnWriteRoute = useMemo(() => {
+    return WRITE_ROUTES.includes(location.pathname);
+  }, [location.pathname]);
 
   const roleConfig = {
     super_admin: {
@@ -122,7 +143,6 @@ const TopHeader = () => {
 
   const sortedBranches = useMemo(() => {
     if (!branches.length) return [];
-
     return [...branches].sort((a, b) => {
       if (a.is_main && !b.is_main) return -1;
       if (!a.is_main && b.is_main) return 1;
@@ -130,22 +150,28 @@ const TopHeader = () => {
     });
   }, [branches]);
 
+  // Derive from branchContext
+  const selectedBranchId = branchContext.mode === BRANCH_MODE.BRANCH 
+    ? branchContext.branch_id 
+    : null;
+
   const selectedBranch = selectedBranchId
     ? branches.find((b) => b.branch_id === selectedBranchId)
     : null;
 
-  const isAllBranches = isSuperAdmin && selectedBranchId === null;
+  // Use store state directly
+  const isAllBranches = isSuperAdmin && isGlobalMode;
 
   const displayBranchName = useMemo(() => {
     if (isSuperAdmin) {
       if (isAllBranches) {
         return "All Branches";
       }
-      return selectedBranch?.branch_name || branchName || "Select Branch";
+      return selectedBranch?.branch_name || branchContext.branch_name || "Select Branch";
     } else {
-      return branchName || "My Branch";
+      return branchContext.branch_name || "My Branch";
     }
-  }, [isSuperAdmin, isAllBranches, selectedBranch, branchName]);
+  }, [isSuperAdmin, isAllBranches, selectedBranch, branchContext.branch_name]);
 
   const displayShopName = shopName || "My Business";
 
@@ -153,16 +179,8 @@ const TopHeader = () => {
 
   const notificationIconMap = {
     invoice: { icon: FileText, color: "text-blue-500", bgColor: "bg-blue-50" },
-    payment: {
-      icon: CreditCard,
-      color: "text-green-500",
-      bgColor: "bg-green-50",
-    },
-    alert: {
-      icon: AlertCircle,
-      color: "text-orange-500",
-      bgColor: "bg-orange-50",
-    },
+    payment: { icon: CreditCard, color: "text-green-500", bgColor: "bg-green-50" },
+    alert: { icon: AlertCircle, color: "text-orange-500", bgColor: "bg-orange-50" },
     stock: { icon: Package, color: "text-red-500", bgColor: "bg-red-50" },
     default: { icon: Bell, color: "text-gray-500", bgColor: "bg-gray-50" },
   };
@@ -261,13 +279,7 @@ const TopHeader = () => {
     }
   }, [canSwitchBranches, shopId, fetchBranchesData]);
 
-  useEffect(() => {
-    if (isSuperAdmin && branchId) {
-      setSelectedBranchId(branchId);
-    }
-  }, [isSuperAdmin, branchId]);
-
-  // ⚠️ NEW: Load subscription status on mount (super admin only)
+  // Load subscription status on mount (super admin only)
   useEffect(() => {
     if (isSuperAdmin && shopId) {
       loadSubscriptionStatus();
@@ -287,10 +299,7 @@ const TopHeader = () => {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setShowProfileMenu(false);
       }
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(e.target)
-      ) {
+      if (notificationRef.current && !notificationRef.current.contains(e.target)) {
         setShowNotifications(false);
       }
       if (branchRef.current && !branchRef.current.contains(e.target)) {
@@ -320,18 +329,35 @@ const TopHeader = () => {
   // HANDLERS
   // ============================================
 
+  /**
+   * Switch to GLOBAL mode (All Branches)
+   * NEW: If on a write route, redirect to dashboard with toast
+   */
   const handleSelectAllBranches = () => {
-    setSelectedBranchId(null);
-    setBranchContext(null, "All Branches");
     setShowBranchSelector(false);
-
-    window.dispatchEvent(
-      new CustomEvent("branchChanged", {
-        detail: { branchId: null, branchName: "All Branches" },
-      })
-    );
+    
+    // Check if currently on a write route
+    if (isOnWriteRoute) {
+      // First navigate to dashboard
+      navigate("/dashboard");
+      
+      // Then set global mode
+      setGlobalBranch();
+      
+      // Show informative toast
+      toast.info(
+        "Switched to All Branches",
+        "Select a specific branch to create bills or purchases"
+      );
+    } else {
+      // Not on a write route, just switch mode
+      setGlobalBranch();
+    }
   };
 
+  /**
+   * Switch to specific branch
+   */
   const handleBranchChange = async (branch) => {
     if (branch.branch_id === selectedBranchId) {
       setShowBranchSelector(false);
@@ -343,19 +369,9 @@ const TopHeader = () => {
       const response = await switchBranch(branch.branch_id);
 
       if (response.success) {
-        setSelectedBranchId(branch.branch_id);
-        setBranchContext(branch.branch_id, response.data.branch_name);
+        // Single source of truth - just update store
+        setBranch(branch.branch_id, response.data.branch_name);
         setShowBranchSelector(false);
-
-        window.dispatchEvent(
-          new CustomEvent("branchChanged", {
-            detail: {
-              branchId: branch.branch_id,
-              branchName: response.data.branch_name,
-            },
-          })
-        );
-
         fetchNotificationsData();
       }
     } catch (error) {
@@ -420,11 +436,6 @@ const TopHeader = () => {
     setShowLogoutConfirm(false);
   };
 
-  const handleProfileNavigation = (path) => {
-    setShowProfileMenu(false);
-    navigate(path);
-  };
-
   const getNotificationIcon = (type) => {
     return notificationIconMap[type] || notificationIconMap.default;
   };
@@ -441,8 +452,7 @@ const TopHeader = () => {
 
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins} min ago`;
-    if (diffHours < 24)
-      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
     if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
 
     return notifDate.toLocaleDateString("en-IN", {
@@ -451,7 +461,7 @@ const TopHeader = () => {
     });
   };
 
-  // ⚠️ NEW: Renewal Pill Component
+  // Renewal Pill Component
   const RenewalPill = () => {
     if (!isSuperAdmin || !needsRenewal) return null;
 
@@ -463,10 +473,9 @@ const TopHeader = () => {
         className={`
           flex items-center gap-2 h-10 px-3 rounded-lg
           border transition-all duration-150 font-medium text-sm
-          ${
-            isUrgent
-              ? "bg-red-50 border-red-300 text-red-700 hover:bg-red-100"
-              : "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
+          ${isUrgent
+            ? "bg-red-50 border-red-300 text-red-700 hover:bg-red-100"
+            : "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
           }
         `}
       >
@@ -547,10 +556,9 @@ const TopHeader = () => {
                   className={`
                     flex items-center gap-2.5 h-10 px-3 rounded-lg
                     border transition-all duration-150
-                    ${
-                      showBranchSelector
-                        ? "border-[#000060]/30 bg-[#000060]/[0.03] shadow-sm"
-                        : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
+                    ${showBranchSelector
+                      ? "border-[#000060]/30 bg-[#000060]/[0.03] shadow-sm"
+                      : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
                     }
                     disabled:opacity-50 disabled:cursor-not-allowed
                   `}
@@ -583,10 +591,7 @@ const TopHeader = () => {
                           Select Branch
                         </span>
                         {isBranchesLoading && (
-                          <Loader2
-                            size={12}
-                            className="animate-spin text-gray-400"
-                          />
+                          <Loader2 size={12} className="animate-spin text-gray-400" />
                         )}
                       </div>
                     </div>
@@ -594,56 +599,40 @@ const TopHeader = () => {
                     <div className="max-h-64 overflow-y-auto py-1">
                       {isBranchesLoading && branches.length === 0 ? (
                         <div className="px-3 py-6 text-center">
-                          <Loader2
-                            size={20}
-                            className="animate-spin text-gray-300 mx-auto mb-2"
-                          />
+                          <Loader2 size={20} className="animate-spin text-gray-300 mx-auto mb-2" />
                           <p className="text-xs text-gray-400">Loading...</p>
                         </div>
                       ) : (
                         <>
+                          {/* All Branches Option */}
                           <button
                             onClick={handleSelectAllBranches}
                             disabled={isSwitchingBranch}
                             className={`
                               w-full px-3 py-2.5 flex items-center gap-3
                               transition-colors duration-100
-                              ${
-                                isAllBranches
-                                  ? "bg-[#000060]/[0.04]"
-                                  : "hover:bg-gray-50"
-                              }
+                              ${isAllBranches ? "bg-[#000060]/[0.04]" : "hover:bg-gray-50"}
                               disabled:opacity-50
                             `}
                           >
-                            <div
-                              className={`
+                            <div className={`
                               w-8 h-8 rounded-md flex items-center justify-center
                               ${isAllBranches ? "bg-[#000060]/10" : "bg-gray-100"}
-                            `}
-                            >
+                            `}>
                               <Layers
                                 size={14}
-                                className={
-                                  isAllBranches
-                                    ? "text-[#000060]"
-                                    : "text-gray-500"
-                                }
+                                className={isAllBranches ? "text-[#000060]" : "text-gray-500"}
                               />
                             </div>
 
                             <div className="flex-1 text-left">
-                              <span
-                                className={`text-sm font-medium ${
-                                  isAllBranches
-                                    ? "text-[#000060]"
-                                    : "text-gray-700"
-                                }`}
-                              >
+                              <span className={`text-sm font-medium ${
+                                isAllBranches ? "text-[#000060]" : "text-gray-700"
+                              }`}>
                                 All Branches
                               </span>
                               <p className="text-[10px] text-gray-400 mt-0.5">
-                                View combined data
+                                View combined data (read-only)
                               </p>
                             </div>
 
@@ -656,9 +645,9 @@ const TopHeader = () => {
                             <div className="my-1 mx-3 border-t border-gray-100" />
                           )}
 
+                          {/* Individual Branches */}
                           {sortedBranches.map((branch) => {
-                            const isSelected =
-                              selectedBranchId === branch.branch_id;
+                            const isSelected = selectedBranchId === branch.branch_id;
                             const isMain = branch.is_main;
 
                             return (
@@ -669,33 +658,17 @@ const TopHeader = () => {
                                 className={`
                                   w-full px-3 py-2.5 flex items-center gap-3
                                   transition-colors duration-100
-                                  ${
-                                    isSelected
-                                      ? "bg-[#000060]/[0.04]"
-                                      : "hover:bg-gray-50"
-                                  }
+                                  ${isSelected ? "bg-[#000060]/[0.04]" : "hover:bg-gray-50"}
                                   disabled:opacity-50
                                 `}
                               >
-                                <div
-                                  className={`
+                                <div className={`
                                   w-8 h-8 rounded-md flex items-center justify-center relative
-                                  ${
-                                    isMain
-                                      ? "bg-[#000060]/10"
-                                      : isSelected
-                                      ? "bg-[#000060]/10"
-                                      : "bg-gray-100"
-                                  }
-                                `}
-                                >
+                                  ${isMain ? "bg-[#000060]/10" : isSelected ? "bg-[#000060]/10" : "bg-gray-100"}
+                                `}>
                                   <Building2
                                     size={14}
-                                    className={
-                                      isMain || isSelected
-                                        ? "text-[#000060]"
-                                        : "text-gray-500"
-                                    }
+                                    className={isMain || isSelected ? "text-[#000060]" : "text-gray-500"}
                                   />
                                   {isMain && (
                                     <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#000060] rounded-full" />
@@ -704,13 +677,9 @@ const TopHeader = () => {
 
                                 <div className="flex-1 text-left min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <span
-                                      className={`text-sm font-medium truncate ${
-                                        isSelected
-                                          ? "text-[#000060]"
-                                          : "text-gray-700"
-                                      }`}
-                                    >
+                                    <span className={`text-sm font-medium truncate ${
+                                      isSelected ? "text-[#000060]" : "text-gray-700"
+                                    }`}>
                                       {branch.branch_name}
                                     </span>
                                     {isMain && (
@@ -722,10 +691,7 @@ const TopHeader = () => {
                                 </div>
 
                                 {isSelected && (
-                                  <Check
-                                    size={14}
-                                    className="text-[#000060] flex-shrink-0"
-                                  />
+                                  <Check size={14} className="text-[#000060] flex-shrink-0" />
                                 )}
                               </button>
                             );
@@ -733,9 +699,7 @@ const TopHeader = () => {
 
                           {sortedBranches.length === 0 && !isBranchesLoading && (
                             <div className="px-3 py-4 text-center">
-                              <p className="text-xs text-gray-400">
-                                No branches found
-                              </p>
+                              <p className="text-xs text-gray-400">No branches found</p>
                             </div>
                           )}
                         </>
@@ -744,11 +708,13 @@ const TopHeader = () => {
 
                     <div className="px-3 py-2 bg-gray-50/50 border-t border-gray-100">
                       <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                          isAllBranches ? "bg-blue-500" : "bg-green-500"
+                        }`} />
                         <span>
-                          Viewing:{" "}
+                          Mode:{" "}
                           <span className="text-gray-600 font-medium">
-                            {displayBranchName}
+                            {isAllBranches ? "Global (Read-only)" : displayBranchName}
                           </span>
                         </span>
                       </div>
@@ -769,7 +735,7 @@ const TopHeader = () => {
 
             <div className="w-px h-8 bg-gray-200" />
 
-            {/* ⚠️ NEW: Renewal Pill (Super Admin Only) */}
+            {/* Renewal Pill (Super Admin Only) */}
             <RenewalPill />
 
             {needsRenewal && isSuperAdmin && (
@@ -815,9 +781,7 @@ const TopHeader = () => {
                       >
                         <RefreshCw
                           size={14}
-                          className={`text-gray-400 ${
-                            isNotificationsLoading ? "animate-spin" : ""
-                          }`}
+                          className={`text-gray-400 ${isNotificationsLoading ? "animate-spin" : ""}`}
                         />
                       </button>
                     </div>
@@ -826,23 +790,13 @@ const TopHeader = () => {
                   <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
                     {isNotificationsLoading && notifications.length === 0 ? (
                       <div className="px-4 py-8 text-center">
-                        <Loader2
-                          size={24}
-                          className="animate-spin text-gray-400 mx-auto mb-2"
-                        />
-                        <p className="text-sm text-gray-500">
-                          Loading notifications...
-                        </p>
+                        <Loader2 size={24} className="animate-spin text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">Loading notifications...</p>
                       </div>
                     ) : notificationError ? (
                       <div className="px-4 py-8 text-center">
-                        <AlertCircle
-                          size={24}
-                          className="text-red-400 mx-auto mb-2"
-                        />
-                        <p className="text-sm text-gray-500">
-                          {notificationError}
-                        </p>
+                        <AlertCircle size={24} className="text-red-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">{notificationError}</p>
                         <button
                           onClick={fetchNotificationsData}
                           className="mt-2 text-sm text-[#000060] hover:underline"
@@ -853,9 +807,7 @@ const TopHeader = () => {
                     ) : notifications.length === 0 ? (
                       <div className="px-4 py-8 text-center">
                         <Bell size={24} className="text-gray-300 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500">
-                          No notifications yet
-                        </p>
+                        <p className="text-sm text-gray-500">No notifications yet</p>
                       </div>
                     ) : (
                       notifications.map((notification) => {
@@ -870,13 +822,8 @@ const TopHeader = () => {
                               notification.unread ? "bg-blue-50/30" : ""
                             }`}
                           >
-                            <div
-                              className={`p-2 rounded-lg ${iconConfig.bgColor} flex-shrink-0`}
-                            >
-                              <IconComponent
-                                size={16}
-                                className={iconConfig.color}
-                              />
+                            <div className={`p-2 rounded-lg ${iconConfig.bgColor} flex-shrink-0`}>
+                              <IconComponent size={16} className={iconConfig.color} />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
@@ -894,10 +841,7 @@ const TopHeader = () => {
                                 {formatNotificationTime(notification.created_at)}
                               </p>
                             </div>
-                            <ChevronRight
-                              size={14}
-                              className="text-gray-300 flex-shrink-0 mt-1"
-                            />
+                            <ChevronRight size={14} className="text-gray-300 flex-shrink-0 mt-1" />
                           </button>
                         );
                       })
@@ -936,9 +880,7 @@ const TopHeader = () => {
                   <span className="text-sm font-semibold text-gray-800 leading-tight">
                     {userName}
                   </span>
-                  <span
-                    className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${currentRole.color}`}
-                  >
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${currentRole.color}`}>
                     {currentRole.label}
                   </span>
                 </div>
@@ -959,15 +901,9 @@ const TopHeader = () => {
                         {userInitials}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 truncate">
-                          {userName}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                          @{user?.username || "user"}
-                        </p>
-                        <span
-                          className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded mt-1 ${currentRole.color}`}
-                        >
+                        <p className="font-semibold text-gray-800 truncate">{userName}</p>
+                        <p className="text-xs text-gray-500 truncate">@{user?.username || "user"}</p>
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded mt-1 ${currentRole.color}`}>
                           <currentRole.icon size={10} />
                           {currentRole.label}
                         </span>
@@ -981,8 +917,13 @@ const TopHeader = () => {
                       <span className="truncate">{displayShopName}</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                      <Building2 size={12} />
+                      {isAllBranches ? <Layers size={12} /> : <Building2 size={12} />}
                       <span className="truncate">{displayBranchName}</span>
+                      {isAllBranches && (
+                        <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
+                          READ-ONLY
+                        </span>
+                      )}
                     </div>
                   </div>
 
