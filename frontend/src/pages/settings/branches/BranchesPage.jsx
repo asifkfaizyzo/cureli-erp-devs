@@ -1,11 +1,17 @@
-// src/pages/settings/BranchesPage.jsx
+// src/pages/settings/branches/BranchesPage.jsx
 
-import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
-import { Building2, Plus, AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  Building2,
+  Plus,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 
 import { usePermission } from "../../../hooks/usePermission";
 import { useToast } from "../../../components/common/Toast/ToastContainer";
+import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 import { fetchBranches, fetchBranchLimits } from "../../../api/branches";
 
 // Components
@@ -15,24 +21,25 @@ import AddEditBranchModal from "./comps/AddEditBranchModal";
 
 /**
  * BranchesPage
- * Branch management page (SA only for full access, BA view-only for own branch)
  */
 const BranchesPage = () => {
-  const { isSuperAdmin, isBranchAdmin, branchId } = usePermission();
+  const { isSuperAdmin, isBranchAdmin } = usePermission();
   const toast = useToast();
+  const rowsPerPage = useDynamicRowCount();
 
   // ============================================
   // STATE
   // ============================================
-
-  // Data
   const [branches, setBranches] = useState([]);
   const [limits, setLimits] = useState(null);
-
-  // UI State
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Sorting - client-side since branches are typically small dataset
+  const [sortConfig, setSortConfig] = useState({
+    sort_by: "branch_name",
+    sort_order: "asc",
+  });
 
   // Modals
   const [showAddEditModal, setShowAddEditModal] = useState(false);
@@ -41,11 +48,8 @@ const BranchesPage = () => {
   // ============================================
   // DATA FETCHING
   // ============================================
-
-  // Fetch branch limits (SA only)
   const loadLimits = useCallback(async () => {
     if (!isSuperAdmin) return;
-
     try {
       const response = await fetchBranchLimits();
       if (response.success) {
@@ -53,69 +57,96 @@ const BranchesPage = () => {
       }
     } catch (err) {
       console.error("Failed to fetch limits:", err);
-      toast.warning(
-        "Limits Unavailable",
-        "Could not load branch limits information.",
-        4000
-      );
+      toast.warning("Limits Unavailable", "Could not load branch limits.", 4000);
     }
   }, [isSuperAdmin, toast]);
 
-  // Fetch branches
   const loadBranches = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
       const response = await fetchBranches({ include_inactive: isSuperAdmin });
-
       if (response.success) {
         setBranches(response.data.branches || []);
       }
     } catch (err) {
       console.error("Failed to fetch branches:", err);
-      const errorMessage = err.response?.data?.message || "Failed to load branches. Please try again.";
+      const errorMessage = err.response?.data?.message || "Failed to load branches.";
       setError(errorMessage);
-      
-      toast.error(
-        "Load Failed",
-        errorMessage,
-        5000
-      );
+      toast.error("Load Failed", errorMessage, 5000);
     } finally {
       setLoading(false);
     }
   }, [isSuperAdmin, toast]);
 
-  // Initial load
   useEffect(() => {
     loadLimits();
     loadBranches();
-  }, [loadLimits, loadBranches, refreshKey]);
+  }, [loadLimits, loadBranches]);
+
+  // ============================================
+  // SORTED BRANCHES (Client-side)
+  // ============================================
+  const sortedBranches = useMemo(() => {
+    if (!branches.length) return [];
+
+    const sorted = [...branches].sort((a, b) => {
+      const { sort_by, sort_order } = sortConfig;
+      let aVal = a[sort_by];
+      let bVal = b[sort_by];
+
+      // Handle special sort keys
+      if (sort_by === "is_active") {
+        aVal = a.is_active ? 1 : 0;
+        bVal = b.is_active ? 1 : 0;
+      } else if (sort_by === "user_count") {
+        aVal = a.user_count || 0;
+        bVal = b.user_count || 0;
+      } else if (sort_by === "city") {
+        aVal = `${a.city || ""} ${a.state || ""}`.toLowerCase();
+        bVal = `${b.city || ""} ${b.state || ""}`.toLowerCase();
+      } else if (typeof aVal === "string") {
+        aVal = (aVal || "").toLowerCase();
+        bVal = (bVal || "").toLowerCase();
+      }
+
+      if (aVal < bVal) return sort_order === "asc" ? -1 : 1;
+      if (aVal > bVal) return sort_order === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    // Keep main branch at top always
+    const mainBranch = sorted.find((b) => b.is_main);
+    const otherBranches = sorted.filter((b) => !b.is_main);
+    return mainBranch ? [mainBranch, ...otherBranches] : sorted;
+  }, [branches, sortConfig]);
 
   // ============================================
   // HANDLERS
   // ============================================
+  const handleRefresh = useCallback(() => {
+    toast.info("Refreshing", "Loading latest branch data...", 2000);
+    loadLimits();
+    loadBranches();
+  }, [loadLimits, loadBranches, toast]);
 
-  const handleRefresh = () => {
-    setRefreshKey((k) => k + 1);
-    toast.info(
-      "Refreshing",
-      "Reloading branch data...",
-      2000
-    );
+  // ✅ Sort handler - MATCHES UserListTable pattern
+  const handleSortChange = (column) => {
+    setSortConfig((prev) => ({
+      sort_by: column,
+      sort_order: prev.sort_by === column && prev.sort_order === "asc" ? "desc" : "asc",
+    }));
   };
 
   const handleAddBranch = () => {
     if (!limits?.can_add) {
       toast.warning(
         "Branch Limit Reached",
-        `You have reached the maximum of ${limits?.max_allowed || 0} branches. Please upgrade your plan.`,
+        `Maximum of ${limits?.max_allowed || 0} branches. Please upgrade.`,
         5000
       );
       return;
     }
-    
     setSelectedBranch(null);
     setShowAddEditModal(true);
   };
@@ -128,57 +159,41 @@ const BranchesPage = () => {
   const handleModalClose = (shouldRefresh = false, result = null) => {
     setShowAddEditModal(false);
     setSelectedBranch(null);
-
     if (shouldRefresh) {
       handleRefresh();
-      
-      // Show appropriate toast based on result
-      if (result) {
-        if (result.type === 'created') {
-          toast.success(
-            "Branch Created",
-            `${result.branchName} has been successfully added to the system.`,
-            4000
-          );
-        } else if (result.type === 'updated') {
-          toast.success(
-            "Branch Updated",
-            `${result.branchName}'s information has been successfully updated.`,
-            4000
-          );
-        }
+      if (result?.type === "created") {
+        toast.success("Branch Created", `${result.branchName} added.`, 4000);
+      } else if (result?.type === "updated") {
+        toast.success("Branch Updated", `${result.branchName} updated.`, 4000);
       }
     }
   };
 
   // ============================================
-  // RENDER
+  // RENDER - BA (Read-only)
   // ============================================
-
-  // BA sees read-only view
   if (isBranchAdmin) {
     return (
-      <div className="h-full flex flex-col gap-4 p-1">
-        {/* Header */}
-        <div>
-          <h1 className="text-xl font-bold text-[#000060] flex items-center gap-2">
-            <Building2 size={24} />
-            Branch Information
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">View your branch details</p>
+      <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
+        <div className="flex-shrink-0 flex flex-col gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
+              <Building2 size={20} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate">Branch Information</h1>
+              <p className="text-sm text-gray-500">View your branch details</p>
+            </div>
+          </div>
         </div>
 
-        {/* BA Branch Info Card */}
-        <div className="flex-1">
+        <div className="flex-1 min-h-0 overflow-auto">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 size={32} className="animate-spin text-gray-400" />
             </div>
           ) : branches.length > 0 ? (
-            <BranchInfoCard
-              branch={branches[0]}
-              onEdit={() => handleEditBranch(branches[0])}
-            />
+            <BranchInfoCard branch={branches[0]} onEdit={() => handleEditBranch(branches[0])} />
           ) : (
             <div className="flex items-center justify-center h-full text-gray-500">
               No branch information available
@@ -186,207 +201,155 @@ const BranchesPage = () => {
           )}
         </div>
 
-        {/* Edit Modal for BA (own branch only) */}
         {showAddEditModal && selectedBranch && (
-          <AddEditBranchModal
-            branch={selectedBranch}
-            onClose={handleModalClose}
-            isSuperAdmin={false}
-          />
+          <AddEditBranchModal branch={selectedBranch} onClose={handleModalClose} isSuperAdmin={false} />
         )}
       </div>
     );
   }
 
-  // SA sees full management view
+  // ============================================
+  // RENDER - SA (Full management)
+  // ============================================
   return (
-    <div className="h-full flex flex-col gap-4 p-1">
+    <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-[#000060] flex items-center gap-2">
-            <Building2 size={24} />
-            Branch Management
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage all branches for your business
-          </p>
+      <div className="flex-shrink-0 flex flex-col gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
+              <Building2 size={20} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate">Branch Management</h1>
+              <p className="text-sm text-gray-500">
+                {branches.length} branch{branches.length !== 1 ? "es" : ""} in your business
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              title="Refresh"
+            >
+              <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+            </button>
+
+            <button
+              onClick={handleAddBranch}
+              disabled={!limits?.can_add}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm ${
+                limits?.can_add
+                  ? "bg-[#000060] text-white hover:bg-[#000080]"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+              title={!limits?.can_add ? "Branch limit reached" : "Add new branch"}
+            >
+              <Plus size={18} />
+              <span className="hidden sm:inline">Add Branch</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Refresh Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleRefresh}
-            disabled={loading}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-            title="Refresh"
-          >
-            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-          </motion.button>
+        {limits && <BranchLimitBanner limits={limits} />}
 
-          {/* Add Branch Button */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleAddBranch}
-            disabled={!limits?.can_add}
-            className={`
-              flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors shadow-md
-              ${limits?.can_add
-                ? 'bg-[#000060] text-white hover:bg-[#000080]'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }
-            `}
-            title={!limits?.can_add ? "Branch limit reached" : "Add new branch"}
-          >
-            <Plus size={18} />
-            Add Branch
-          </motion.button>
-        </div>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={18} />
+              <span className="text-sm">{error}</span>
+            </div>
+            <button onClick={handleRefresh} className="text-red-700 hover:text-red-900 font-medium underline text-sm">
+              Retry
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Limit Banner */}
-      {limits && <BranchLimitBanner limits={limits} />}
-
-      {/* Error State */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700"
-        >
-          <AlertCircle size={20} />
-          <span>{error}</span>
-          <button
-            onClick={handleRefresh}
-            className="ml-auto text-sm font-medium hover:underline"
-          >
-            Retry
-          </button>
-        </motion.div>
-      )}
-
-      {/* Branch Table */}
-      <div className="flex-1 min-h-0">
+      {/* Table */}
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <BranchListTable
-          branches={branches}
+          branches={sortedBranches}
           loading={loading}
+          rowsPerPage={rowsPerPage}
+          sortConfig={sortConfig}
+          onSortChange={handleSortChange}
           onEdit={handleEditBranch}
           onRefresh={handleRefresh}
           toast={toast}
         />
       </div>
 
-      {/* Add/Edit Modal */}
       {showAddEditModal && (
-        <AddEditBranchModal
-          branch={selectedBranch}
-          onClose={handleModalClose}
-          isSuperAdmin={true}
-        />
+        <AddEditBranchModal branch={selectedBranch} onClose={handleModalClose} isSuperAdmin={true} />
       )}
     </div>
   );
 };
 
 /**
- * BranchInfoCard - Read-only branch info for BA
+ * BranchInfoCard - Read-only for BA
  */
 const BranchInfoCard = ({ branch, onEdit }) => {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm"
-    >
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-[#000060]/10 rounded-xl flex items-center justify-center">
+    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+      <div className="flex items-start justify-between mb-6 gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-14 h-14 bg-[#000060]/10 rounded-xl flex items-center justify-center flex-shrink-0">
             <Building2 size={28} className="text-[#000060]" />
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              {branch.branch_name}
-            </h2>
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-gray-900 truncate">{branch.branch_name}</h2>
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                branch.is_main
-                  ? "bg-emerald-100 text-emerald-700"
-                  : "bg-blue-100 text-blue-700"
+                branch.is_main ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
               }`}
             >
               {branch.is_main ? "Main Branch" : "Branch"}
             </span>
           </div>
         </div>
-
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+        <button
           onClick={onEdit}
-          className="px-4 py-2 text-[#000060] border border-[#000060] rounded-lg font-medium hover:bg-[#000060]/5 transition-colors"
+          className="px-4 py-2 text-[#000060] border border-[#000060] rounded-lg font-medium hover:bg-[#000060]/5 transition-colors flex-shrink-0"
         >
           Edit Details
-        </motion.button>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Address */}
-        <div>
+        <div className="min-w-0">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Address</h3>
-          <p className="text-gray-900">
-            {[
-              branch.address_line_1,
-              branch.address_line_2,
-              branch.city,
-              branch.state,
-              branch.pincode,
-            ]
+          <p className="text-gray-900 truncate">
+            {[branch.address_line_1, branch.address_line_2, branch.city, branch.state, branch.pincode]
               .filter(Boolean)
               .join(", ") || "Not provided"}
           </p>
         </div>
-
-        {/* Contact */}
-        <div>
+        <div className="min-w-0">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Contact</h3>
-          <p className="text-gray-900">
-            {branch.contact_number || "Not provided"}
-          </p>
-          {branch.alternate_number && (
-            <p className="text-gray-600 text-sm mt-1">
-              Alt: {branch.alternate_number}
-            </p>
-          )}
+          <p className="text-gray-900">{branch.contact_number || "Not provided"}</p>
+          {branch.alternate_number && <p className="text-gray-600 text-sm mt-1">Alt: {branch.alternate_number}</p>}
         </div>
-
-        {/* User Count */}
         <div>
-          <h3 className="text-sm font-medium text-gray-500 mb-2">
-            Team Members
-          </h3>
-          <p className="text-gray-900">
-            {branch.user_count || 0} user{branch.user_count !== 1 ? "s" : ""}
-          </p>
+          <h3 className="text-sm font-medium text-gray-500 mb-2">Team Members</h3>
+          <p className="text-gray-900">{branch.user_count || 0} user{branch.user_count !== 1 ? "s" : ""}</p>
         </div>
-
-        {/* Status */}
         <div>
           <h3 className="text-sm font-medium text-gray-500 mb-2">Status</h3>
           <span
             className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              branch.is_active
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-red-100 text-red-600"
+              branch.is_active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
             }`}
           >
             {branch.is_active ? "Active" : "Inactive"}
           </span>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 

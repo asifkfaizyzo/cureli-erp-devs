@@ -1,8 +1,8 @@
-// src/pages/settings/components/UserListTable.jsx
+// src/pages/settings/users/comps/UserListTable.jsx
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Shield,
   User,
@@ -13,8 +13,6 @@ import {
   UserCheck,
   ChevronUp,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Building2,
   Phone,
   Mail,
@@ -24,25 +22,24 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-import { deleteUser, reactivateUser } from "../../../../api/users";
-import { formatRole, getRoleBadgeClasses, getStatusBadgeClasses } from "../../../../api/users";
+import { deleteUser, reactivateUser, formatRole } from "../../../../api/users";
 import ConfirmDialog from "../../../../components/common/ConfirmDialog";
 import TableSkeleton from "../../../../components/common/TableSkeleton";
 import TableEmptyState from "../../../../components/common/TableEmptyState";
 import Pagination from "../../../../components/common/Pagination";
-import { TABLE_CONFIG } from "../../../../config/tableConfig";
+import { TABLE_CONFIG, getRoleBadgeStyle } from "../../../../config/tableConfig";
 
 // ============================================
 // COLUMN CONFIGURATION
 // ============================================
 const COLUMNS = {
-  user: { key: 'user', label: 'User', width: 180, sortable: true, align: 'left' },
-  role: { key: 'role', label: 'Role', width: 200, sortable: true, align: 'left' },
-  branch: { key: 'branch', label: 'Branch', width: 150, sortable: false, align: 'left' },
-  contact: { key: 'contact', label: 'Contact', width: 180, sortable: false, align: 'left' },
-  status: { key: 'status', label: 'Status', width: 120, sortable: false, align: 'center' },
-  lastLogin: { key: 'last_login_at', label: 'Last Login', width: 100, sortable: true, align: 'left' },
-  actions: { key: 'actions', label: 'Actions', width: 100, sortable: false, align: 'center' },
+  user: { key: 'user', sortKey: 'full_name', label: 'User', width: 200, sortable: true, align: 'left' },
+  role: { key: 'role', sortKey: 'role', label: 'Role', width: 140, sortable: true, align: 'left' },
+  branch: { key: 'branch', sortKey: null, label: 'Branch', width: 150, sortable: false, align: 'left' },
+  contact: { key: 'contact', sortKey: null, label: 'Contact', width: 180, sortable: false, align: 'left' },
+  status: { key: 'status', sortKey: null, label: 'Status', width: 100, sortable: false, align: 'center' },
+  lastLogin: { key: 'lastLogin', sortKey: 'last_login_at', label: 'Last Login', width: 110, sortable: true, align: 'left' },
+  actions: { key: 'actions', sortKey: null, label: 'Actions', width: 80, sortable: false, align: 'center' },
 };
 
 /**
@@ -99,17 +96,11 @@ const ActionMenu = ({
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.1 }}
       className="fixed w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] py-1"
-      style={{
-        top: position.top,
-        left: position.left,
-      }}
+      style={{ top: position.top, left: position.left }}
     >
       {canEdit && (
         <button
-          onClick={() => {
-            onClose();
-            onEdit(user);
-          }}
+          onClick={() => { onClose(); onEdit(user); }}
           className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
         >
           <Edit2 size={14} />
@@ -119,10 +110,7 @@ const ActionMenu = ({
 
       {canResetPassword && (
         <button
-          onClick={() => {
-            onClose();
-            onResetPassword(user);
-          }}
+          onClick={() => { onClose(); onResetPassword(user); }}
           className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
         >
           <Key size={14} />
@@ -134,10 +122,7 @@ const ActionMenu = ({
         <>
           {(canEdit || canResetPassword) && <div className="border-t border-gray-100 my-1" />}
           <button
-            onClick={() => {
-              onClose();
-              onReactivate(user);
-            }}
+            onClick={() => { onClose(); onReactivate(user); }}
             className="w-full flex items-center gap-2 px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
           >
             <UserCheck size={14} />
@@ -150,10 +135,7 @@ const ActionMenu = ({
         <>
           <div className="border-t border-gray-100 my-1" />
           <button
-            onClick={() => {
-              onClose();
-              onDeactivate(user);
-            }}
+            onClick={() => { onClose(); onDeactivate(user); }}
             className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
           >
             <UserX size={14} />
@@ -163,9 +145,7 @@ const ActionMenu = ({
       )}
 
       {!hasAnyAction && (
-        <p className="px-4 py-2 text-sm text-gray-400 italic">
-          No actions available
-        </p>
+        <p className="px-4 py-2 text-sm text-gray-400 italic">No actions available</p>
       )}
     </motion.div>,
     document.body
@@ -178,9 +158,11 @@ const ActionMenu = ({
 const UserListTable = ({
   users,
   loading,
-  pagination,
+  totalItems,
+  currentPage,
+  setCurrentPage,
+  rowsPerPage,
   sortConfig,
-  onPageChange,
   onSortChange,
   onEdit,
   onResetPassword,
@@ -191,24 +173,16 @@ const UserListTable = ({
   toast,
 }) => {
   const { styles, heights } = TABLE_CONFIG;
-  
-  const [actionMenuState, setActionMenuState] = useState({
-    userId: null,
-    position: null,
-  });
+
+  // Menu state
+  const [actionMenuState, setActionMenuState] = useState({ userId: null, position: null });
   const [processingUserId, setProcessingUserId] = useState(null);
-  const [confirmDialog, setConfirmDialog] = useState({
-    isOpen: false,
-    type: null,
-    user: null,
-  });
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, user: null });
   
-  // Column resizing state
+  // Column resizing
   const [columnWidths, setColumnWidths] = useState(() => {
     const widths = {};
-    Object.values(COLUMNS).forEach(col => {
-      widths[col.key] = col.width;
-    });
+    Object.values(COLUMNS).forEach(col => { widths[col.key] = col.width; });
     return widths;
   });
   const [resizing, setResizing] = useState(null);
@@ -216,26 +190,22 @@ const UserListTable = ({
   const actionButtonRefs = useRef({});
 
   // ============================================
-  // COLUMN RESIZING HANDLERS
+  // COLUMN RESIZING
   // ============================================
   const handleMouseDown = (column, e) => {
     e.preventDefault();
     e.stopPropagation();
-    setResizing({
-      column,
-      startX: e.clientX,
-      startWidth: columnWidths[column],
-    });
+    setResizing({ column, startX: e.clientX, startWidth: columnWidths[column] });
   };
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = useCallback((e) => {
     if (!resizing) return;
     const diff = e.clientX - resizing.startX;
     const newWidth = Math.max(50, resizing.startWidth + diff);
     setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
-  };
+  }, [resizing]);
 
-  const handleMouseUp = () => setResizing(null);
+  const handleMouseUp = useCallback(() => setResizing(null), []);
 
   useEffect(() => {
     if (resizing) {
@@ -246,7 +216,7 @@ const UserListTable = ({
         window.removeEventListener("mouseup", handleMouseUp);
       };
     }
-  }, [resizing]);
+  }, [resizing, handleMouseMove, handleMouseUp]);
 
   // ============================================
   // PERMISSION CHECKS
@@ -268,13 +238,8 @@ const UserListTable = ({
     return false;
   };
 
-  const canDeactivateUser = (user) => {
-    return isSuperAdmin && user.is_active;
-  };
-
-  const canReactivateUser = (user) => {
-    return isSuperAdmin && !user.is_active;
-  };
+  const canDeactivateUser = (user) => isSuperAdmin && user.is_active;
+  const canReactivateUser = (user) => isSuperAdmin && !user.is_active;
 
   // ============================================
   // MENU POSITION CALCULATION
@@ -291,15 +256,9 @@ const UserListTable = ({
     let top = rect.bottom + padding;
     let left = rect.right - menuWidth;
 
-    if (top + menuHeight > window.innerHeight) {
-      top = rect.top - menuHeight - padding;
-    }
-    if (left < padding) {
-      left = padding;
-    }
-    if (left + menuWidth > window.innerWidth - padding) {
-      left = window.innerWidth - menuWidth - padding;
-    }
+    if (top + menuHeight > window.innerHeight) top = rect.top - menuHeight - padding;
+    if (left < padding) left = padding;
+    if (left + menuWidth > window.innerWidth - padding) left = window.innerWidth - menuWidth - padding;
 
     return { top, left };
   }, []);
@@ -316,24 +275,14 @@ const UserListTable = ({
     }
   };
 
-  const handleCloseMenu = () => {
-    setActionMenuState({ userId: null, position: null });
-  };
+  const handleCloseMenu = () => setActionMenuState({ userId: null, position: null });
 
   const handleDeactivateClick = (user) => {
-    setConfirmDialog({
-      isOpen: true,
-      type: 'deactivate',
-      user,
-    });
+    setConfirmDialog({ isOpen: true, type: 'deactivate', user });
   };
 
   const handleReactivateClick = (user) => {
-    setConfirmDialog({
-      isOpen: true,
-      type: 'reactivate',
-      user,
-    });
+    setConfirmDialog({ isOpen: true, type: 'reactivate', user });
   };
 
   const handleConfirmAction = async () => {
@@ -344,56 +293,41 @@ const UserListTable = ({
     try {
       if (type === 'deactivate') {
         await deleteUser(user.user_id);
-        toast.success(
-          "User Deactivated",
-          `${user.full_name} has been deactivated and can no longer log in.`,
-          4000
-        );
+        toast.success("User Deactivated", `${user.full_name} can no longer log in.`, 4000);
       } else if (type === 'reactivate') {
         await reactivateUser(user.user_id);
-        toast.success(
-          "User Reactivated",
-          `${user.full_name} has been reactivated and can now log in.`,
-          4000
-        );
+        toast.success("User Reactivated", `${user.full_name} can now log in.`, 4000);
       }
       onRefresh();
     } catch (err) {
       console.error(`Failed to ${type} user:`, err);
-      const errorMessage = err.response?.data?.message || `Failed to ${type} user. Please try again.`;
-      toast.error(
-        `${type === 'deactivate' ? 'Deactivation' : 'Reactivation'} Failed`,
-        errorMessage,
-        5000
-      );
+      const errorMessage = err.response?.data?.message || `Failed to ${type} user.`;
+      toast.error(`${type === 'deactivate' ? 'Deactivation' : 'Reactivation'} Failed`, errorMessage, 5000);
     } finally {
       setProcessingUserId(null);
     }
   };
 
-  const handleCancelAction = () => {
-    setConfirmDialog({ isOpen: false, type: null, user: null });
-  };
-
   // ============================================
-  // HEADER COMPONENTS
+  // SORTABLE HEADER COMPONENT
   // ============================================
-  const SortableHeader = ({ column }) => {
-    const config = COLUMNS[column];
-    const isActive = sortConfig?.sort_by === config.key;
+  const SortableHeader = ({ columnKey }) => {
+    const config = COLUMNS[columnKey];
+    const sortKey = config.sortKey || config.key;
+    const isActive = sortConfig?.sort_by === sortKey;
     const isAsc = isActive && sortConfig?.sort_order === "asc";
     const isDesc = isActive && sortConfig?.sort_order === "desc";
 
     return (
       <th
-        style={{ width: columnWidths[column], minWidth: 50 }}
+        style={{ width: columnWidths[columnKey], minWidth: 50 }}
         className="relative group"
       >
         <div
           className={`flex items-center justify-between ${styles.header.cell} ${
             config.sortable ? "cursor-pointer select-none" : ""
           }`}
-          onClick={() => config.sortable && onSortChange?.(config.key)}
+          onClick={() => config.sortable && onSortChange?.(sortKey)}
         >
           <span>{config.label}</span>
           {config.sortable && (
@@ -415,31 +349,7 @@ const UserListTable = ({
         </div>
         {/* Resize Handle */}
         <div
-          onMouseDown={(e) => handleMouseDown(column, e)}
-          className={styles.header.resizeHandle}
-        />
-      </th>
-    );
-  };
-
-  const TableHeader = ({ column }) => {
-    const config = COLUMNS[column];
-    
-    if (config.sortable) {
-      return <SortableHeader column={column} />;
-    }
-
-    return (
-      <th
-        style={{ width: columnWidths[column], minWidth: 50 }}
-        className={`relative group ${config.align === 'center' ? 'text-center' : ''}`}
-      >
-        <div className={styles.header.cell}>
-          {config.label}
-        </div>
-        {/* Resize Handle */}
-        <div
-          onMouseDown={(e) => handleMouseDown(column, e)}
+          onMouseDown={(e) => handleMouseDown(columnKey, e)}
           className={styles.header.resizeHandle}
         />
       </th>
@@ -447,7 +357,31 @@ const UserListTable = ({
   };
 
   // ============================================
-  // STATUS BADGE COMPONENT
+  // NON-SORTABLE HEADER
+  // ============================================
+  const TableHeader = ({ columnKey }) => {
+    const config = COLUMNS[columnKey];
+    
+    if (config.sortable) {
+      return <SortableHeader columnKey={columnKey} />;
+    }
+
+    return (
+      <th
+        style={{ width: columnWidths[columnKey], minWidth: 50 }}
+        className={`relative group ${config.align === 'center' ? 'text-center' : ''}`}
+      >
+        <div className={styles.header.cell}>{config.label}</div>
+        <div
+          onMouseDown={(e) => handleMouseDown(columnKey, e)}
+          className={styles.header.resizeHandle}
+        />
+      </th>
+    );
+  };
+
+  // ============================================
+  // STATUS BADGE
   // ============================================
   const StatusBadge = ({ isActive }) => {
     if (isActive) {
@@ -480,33 +414,30 @@ const UserListTable = ({
   return (
     <>
       <div className={styles.container.wrapper}>
-        {/* Table - Show when loading OR has data */}
         {showTable && (
           <div className="flex-1 min-h-0 overflow-auto">
             <table className="w-full border-collapse text-sm" style={{ minWidth: "900px" }}>
-              {/* Table Header */}
+              {/* Header */}
               <thead className="sticky top-0 z-10">
                 <tr className={styles.header.row}>
-                  <SortableHeader column="user" />
-                  <SortableHeader column="role" />
-                  <TableHeader column="branch" />
-                  <TableHeader column="contact" />
-                  <TableHeader column="status" />
-                  <SortableHeader column="lastLogin" />
-                  <TableHeader column="actions" />
+                  <SortableHeader columnKey="user" />
+                  <SortableHeader columnKey="role" />
+                  <TableHeader columnKey="branch" />
+                  <TableHeader columnKey="contact" />
+                  <TableHeader columnKey="status" />
+                  <SortableHeader columnKey="lastLogin" />
+                  <TableHeader columnKey="actions" />
                 </tr>
               </thead>
 
-              {/* Table Body */}
+              {/* Body */}
               <tbody>
                 {loading ? (
-                  // Skeleton Loading Rows
                   <TableSkeleton
-                    rows={pagination.limit}
+                    rows={rowsPerPage}
                     columns={Object.keys(COLUMNS).filter(k => k !== 'actions')}
                   />
                 ) : (
-                  // Actual Data Rows
                   users.map((user, index) => {
                     const RoleIcon = user.role === "branch_admin" ? Shield : User;
                     const isProcessing = processingUserId === user.user_id;
@@ -522,30 +453,30 @@ const UserListTable = ({
                         {/* User */}
                         <td className={`${styles.cell.base} ${styles.cell.primary}`}>
                           <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              user.is_active ? "bg-[#05015A]/10" : "bg-gray-200"
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              user.is_active ? "bg-[#000060]/10" : "bg-gray-200"
                             }`}>
                               <span className={`font-semibold text-sm ${
-                                user.is_active ? "text-[#05015A]" : "text-gray-400"
+                                user.is_active ? "text-[#000060]" : "text-gray-400"
                               }`}>
-                                {user.full_name.charAt(0).toUpperCase()}
+                                {user.full_name?.charAt(0)?.toUpperCase() || "?"}
                               </span>
                             </div>
-                            <div>
-                              <p className={`font-medium ${!user.is_active ? 'text-gray-500' : ''}`}>
+                            <div className="min-w-0">
+                              <p className={`font-medium truncate ${!user.is_active ? 'text-gray-500' : ''}`}>
                                 {user.full_name}
                                 {!user.is_active && (
                                   <Ban size={14} className="inline-block ml-2 text-red-400" />
                                 )}
                               </p>
-                              <p className={`text-xs ${styles.cell.muted}`}>@{user.username}</p>
+                              <p className={`text-xs ${styles.cell.muted} truncate`}>@{user.username}</p>
                             </div>
                           </div>
                         </td>
 
                         {/* Role */}
-                        <td className={`${styles.cell.base}`}>
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getRoleBadgeClasses(user.role)}`}>
+                        <td className={styles.cell.base}>
+                          <span className={getRoleBadgeStyle(user.role)}>
                             <RoleIcon size={12} />
                             {formatRole(user.role)}
                           </span>
@@ -553,23 +484,23 @@ const UserListTable = ({
 
                         {/* Branch */}
                         <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
-                          <div className="flex items-center gap-1">
-                            <Building2 size={14} className="text-gray-400" />
-                            {user.branch_name || "—"}
+                          <div className="flex items-center gap-1.5">
+                            <Building2 size={14} className="text-gray-400 flex-shrink-0" />
+                            <span className="truncate">{user.branch_name || "—"}</span>
                           </div>
                         </td>
 
                         {/* Contact */}
                         <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
-                          <div className="flex flex-col gap-0.5 text-sm">
-                            <div className="flex items-center gap-1">
-                              <Phone size={12} className="text-gray-400" />
-                              {user.phone_number}
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <Phone size={12} className="text-gray-400 flex-shrink-0" />
+                              <span className="text-sm">{user.phone_number}</span>
                             </div>
                             {user.email && (
-                              <div className="flex items-center gap-1 text-xs text-gray-500">
-                                <Mail size={12} className="text-gray-400" />
-                                {user.email}
+                              <div className="flex items-center gap-1.5">
+                                <Mail size={12} className="text-gray-400 flex-shrink-0" />
+                                <span className="text-xs text-gray-500 truncate">{user.email}</span>
                               </div>
                             )}
                           </div>
@@ -593,7 +524,7 @@ const UserListTable = ({
                         </td>
 
                         {/* Actions */}
-                        <td className={`${styles.cell.base}`}>
+                        <td className={styles.cell.base}>
                           <div className={styles.actions.container}>
                             {isProcessing ? (
                               <Loader2 size={15} className="animate-spin text-gray-400" />
@@ -630,14 +561,14 @@ const UserListTable = ({
         {/* Pagination */}
         {showPagination && (
           <Pagination
-            currentPage={pagination.page}
-            setCurrentPage={onPageChange}
-            totalItems={pagination.total}
-            rowsPerPage={pagination.limit}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalItems={totalItems}
+            rowsPerPage={rowsPerPage}
           />
         )}
 
-        {/* Action Menu (Portal) */}
+        {/* Action Menu Portal */}
         <AnimatePresence>
           {actionMenuState.userId && (
             <ActionMenu
@@ -660,13 +591,13 @@ const UserListTable = ({
       {/* Confirm Dialog */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
-        onClose={handleCancelAction}
+        onClose={() => setConfirmDialog({ isOpen: false, type: null, user: null })}
         onConfirm={handleConfirmAction}
         title={confirmDialog.type === 'deactivate' ? 'Deactivate User?' : 'Reactivate User?'}
         message={
           confirmDialog.type === 'deactivate'
-            ? `Are you sure you want to deactivate "${confirmDialog.user?.full_name}"? They will no longer be able to log in to the system.`
-            : `Are you sure you want to reactivate "${confirmDialog.user?.full_name}"? They will regain access to the system.`
+            ? `Are you sure you want to deactivate "${confirmDialog.user?.full_name}"? They will no longer be able to log in.`
+            : `Are you sure you want to reactivate "${confirmDialog.user?.full_name}"? They will regain access.`
         }
         confirmText={confirmDialog.type === 'deactivate' ? 'Deactivate' : 'Reactivate'}
         cancelText="Cancel"
