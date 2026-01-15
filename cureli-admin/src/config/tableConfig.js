@@ -18,9 +18,9 @@ export const TABLE_CONFIG = {
   // Format: { minHeight: rowCount }
   // ============================================
   rowBreakpoints: {
-    1440: 12,  // 1440p+ / 27" monitors / 4K (reduced slightly for taller rows)
-    1080: 9,   // 1080p Full HD
-    900: 7,    // 900p / smaller monitors
+    1440: 13,  // 1440p+ / 27" monitors / 4K (reduced slightly for taller rows)
+    1080: 10,   // 1080p Full HD
+    900: 9,    // 900p / smaller monitors
     800: 8,    // Tablets / small laptops
     0: 5,      // Mobile / fallback (minimum)
   },
