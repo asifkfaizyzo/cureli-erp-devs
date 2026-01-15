@@ -16,6 +16,7 @@ import { fetchBranches, fetchBranchLimits } from "../../../api/branches";
 
 // Components
 import BranchLimitBanner from "./comps/BranchLimitBanner";
+import BranchFilters from "./comps/BranchFilters";
 import BranchListTable from "./comps/BranchListTable";
 import AddEditBranchModal from "./comps/AddEditBranchModal";
 
@@ -34,6 +35,12 @@ const BranchesPage = () => {
   const [limits, setLimits] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Filters
+  const [filters, setFilters] = useState({
+    search: "",
+    status: "active", // "active" | "inactive" | "" (all)
+  });
 
   // Sorting - client-side since branches are typically small dataset
   const [sortConfig, setSortConfig] = useState({
@@ -65,6 +72,7 @@ const BranchesPage = () => {
     setLoading(true);
     setError(null);
     try {
+      // Always fetch all branches (including inactive) for SA, filtering is done client-side
       const response = await fetchBranches({ include_inactive: isSuperAdmin });
       if (response.success) {
         setBranches(response.data.branches || []);
@@ -85,12 +93,42 @@ const BranchesPage = () => {
   }, [loadLimits, loadBranches]);
 
   // ============================================
-  // SORTED BRANCHES (Client-side)
+  // FILTERED & SORTED BRANCHES (Client-side)
   // ============================================
-  const sortedBranches = useMemo(() => {
+  const filteredAndSortedBranches = useMemo(() => {
     if (!branches.length) return [];
 
-    const sorted = [...branches].sort((a, b) => {
+    // Step 1: Filter
+    let filtered = [...branches];
+
+    // Search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter((branch) => {
+        const searchableFields = [
+          branch.branch_name,
+          branch.city,
+          branch.state,
+          branch.address_line_1,
+          branch.contact_number,
+          branch.pincode,
+        ];
+        return searchableFields.some(
+          (field) => field && field.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    // Status filter
+    if (filters.status === "active") {
+      filtered = filtered.filter((branch) => branch.is_active);
+    } else if (filters.status === "inactive") {
+      filtered = filtered.filter((branch) => !branch.is_active);
+    }
+    // If status is "", show all
+
+    // Step 2: Sort
+    const sorted = filtered.sort((a, b) => {
       const { sort_by, sort_order } = sortConfig;
       let aVal = a[sort_by];
       let bVal = b[sort_by];
@@ -119,7 +157,11 @@ const BranchesPage = () => {
     const mainBranch = sorted.find((b) => b.is_main);
     const otherBranches = sorted.filter((b) => !b.is_main);
     return mainBranch ? [mainBranch, ...otherBranches] : sorted;
-  }, [branches, sortConfig]);
+  }, [branches, filters, sortConfig]);
+
+  // Total counts for display
+  const totalBranches = branches.length;
+  const filteredCount = filteredAndSortedBranches.length;
 
   // ============================================
   // HANDLERS
@@ -130,7 +172,10 @@ const BranchesPage = () => {
     loadBranches();
   }, [loadLimits, loadBranches, toast]);
 
-  // ✅ Sort handler - MATCHES UserListTable pattern
+  const handleFilterChange = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
   const handleSortChange = (column) => {
     setSortConfig((prev) => ({
       sort_by: column,
@@ -223,7 +268,9 @@ const BranchesPage = () => {
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-gray-900 truncate">Branch Management</h1>
               <p className="text-sm text-gray-500">
-                {branches.length} branch{branches.length !== 1 ? "es" : ""} in your business
+                {filteredCount === totalBranches
+                  ? `${totalBranches} branch${totalBranches !== 1 ? "es" : ""} in your business`
+                  : `Showing ${filteredCount} of ${totalBranches} branches`}
               </p>
             </div>
           </div>
@@ -254,8 +301,13 @@ const BranchesPage = () => {
           </div>
         </div>
 
+        {/* Limit Banner */}
         {limits && <BranchLimitBanner limits={limits} />}
 
+        {/* Filters */}
+        <BranchFilters filters={filters} onFilterChange={handleFilterChange} />
+
+        {/* Error State */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -272,7 +324,7 @@ const BranchesPage = () => {
       {/* Table */}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <BranchListTable
-          branches={sortedBranches}
+          branches={filteredAndSortedBranches}
           loading={loading}
           rowsPerPage={rowsPerPage}
           sortConfig={sortConfig}
@@ -283,6 +335,7 @@ const BranchesPage = () => {
         />
       </div>
 
+      {/* Modal */}
       {showAddEditModal && (
         <AddEditBranchModal branch={selectedBranch} onClose={handleModalClose} isSuperAdmin={true} />
       )}
