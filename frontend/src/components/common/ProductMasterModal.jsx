@@ -7,6 +7,23 @@ import {
   ChevronRight
 } from 'lucide-react';
 
+// ✅ FIXED: Move FormField component OUTSIDE to prevent re-creation
+const FormField = ({ label, required, error, children, className = '' }) => (
+  <div className={`space-y-1 ${className}`}>
+    <label className="flex items-center gap-1 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+      {label}
+      {required && <span className="text-red-500">*</span>}
+    </label>
+    {children}
+    {error && (
+      <p className="flex items-center gap-1 text-xs text-red-600">
+        <AlertTriangle size={10} />
+        {error}
+      </p>
+    )}
+  </div>
+);
+
 const ProductMasterModal = ({ 
   open, 
   onClose, 
@@ -140,23 +157,7 @@ const ProductMasterModal = ({
     }
   };
 
-  // Compact Input Field Component
-  const FormField = ({ label, required, error, children, className = '' }) => (
-    <div className={`space-y-1 ${className}`}>
-      <label className="flex items-center gap-1 text-xs font-semibold text-slate-600 uppercase tracking-wide">
-        {label}
-        {required && <span className="text-red-500">*</span>}
-      </label>
-      {children}
-      {error && (
-        <p className="flex items-center gap-1 text-xs text-red-600">
-          <AlertTriangle size={10} />
-          {error}
-        </p>
-      )}
-    </div>
-  );
-
+  // ✅ Define CSS classes outside JSX for better performance
   const inputClass = (hasError) => `
     w-full px-3 py-2 text-sm bg-white border rounded-lg transition-all duration-150 outline-none
     ${hasError 
@@ -577,3 +578,4 @@ const ProductMasterModal = ({
 };
 
 export default ProductMasterModal;
+
