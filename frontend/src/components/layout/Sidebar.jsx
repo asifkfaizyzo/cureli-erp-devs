@@ -4,7 +4,12 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSubscriptionStore, selectNeedsRenewal } from "../../store/useSubscriptionStore";
-import { useAuthStore, selectIsSuperAdmin } from "../../store/useAuthStore";
+import { 
+  useAuthStore, 
+  selectIsSuperAdmin, 
+  selectIsGlobalMode,
+  selectBranchContext 
+} from "../../store/useAuthStore";
 import {
   LayoutGrid,
   Layers,
@@ -18,9 +23,11 @@ import {
   Building2,
   UserCircle,
   CreditCard,
+  AlertTriangle,
 } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 import { useMenuPermissions } from "../../hooks/usePermission";
+import { useToast } from "../common/Toast";
 
 /* ───────────────── constants ───────────────── */
 const COLLAPSED_WIDTH = 72;
@@ -42,6 +49,12 @@ const SUBMENU_VARIANTS = {
   },
 };
 
+// NEW: Define write routes that require BRANCH mode
+const WRITE_ROUTES = [
+  "/Salesbilling",
+  "/purchase-billing",
+];
+
 /* ───────────────── Menu Item ───────────────── */
 const MenuItem = ({
   item,
@@ -50,7 +63,9 @@ const MenuItem = ({
   openMenuId,
   onToggle,
   onNavigate,
-  showBadge = false, // ⚠️ NEW: Badge prop
+  showBadge = false,
+  isDisabled = false, // NEW: Disabled state for write routes in GLOBAL mode
+  disabledReason = "", // NEW: Reason for disabled state
 }) => {
   const Icon = item.icon;
   const isParent = item.submenu?.length > 0;
@@ -65,11 +80,12 @@ const MenuItem = ({
     if (isParent) {
       onToggle(item.id);
     } else {
-      onNavigate(item);
+      onNavigate(item, isDisabled, disabledReason);
     }
   };
 
-  // ⚠️ NEW: Super admin & renewal check for submenu items
+  // Branch context for submenu items
+  const isGlobalMode = useAuthStore(selectIsGlobalMode);
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
   const needsRenewal = useSubscriptionStore(selectNeedsRenewal);
 
@@ -77,24 +93,32 @@ const MenuItem = ({
     <div className="flex flex-col">
       <motion.button
         onClick={handleClick}
+        disabled={isDisabled && !isParent}
         className={`
           relative flex items-center w-full h-11 rounded-xl
           transition-colors duration-200
-          ${
-            isActive
+          ${isDisabled && !isParent
+            ? "opacity-50 cursor-not-allowed bg-gray-50"
+            : isActive
               ? "bg-[#05015A] text-white shadow-lg shadow-blue-900/20"
               : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }
         `}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        whileHover={isDisabled ? {} : { scale: 1.02 }}
+        whileTap={isDisabled ? {} : { scale: 0.98 }}
       >
         <div className="absolute left-0 w-[56px] flex justify-center">
           <div className="relative">
             <Icon size={20} />
-            {/* ⚠️ NEW: Red badge for renewal warning */}
+            {/* Badge for renewal warning */}
             {showBadge && (
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
+            )}
+            {/* NEW: Warning icon for disabled write routes */}
+            {isDisabled && !isParent && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full ring-2 ring-white flex items-center justify-center">
+                <AlertTriangle size={8} className="text-white" />
+              </span>
             )}
           </div>
         </div>
@@ -122,7 +146,7 @@ const MenuItem = ({
           </motion.div>
         )}
 
-        {/* ⚠️ NEW: Expanded badge with text */}
+        {/* Expanded badge with text */}
         {showBadge && isExpanded && (
           <motion.span
             initial={{ opacity: 0, scale: 0.8 }}
@@ -130,6 +154,17 @@ const MenuItem = ({
             className="absolute right-3 px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full"
           >
             !
+          </motion.span>
+        )}
+
+        {/* NEW: Disabled indicator for write routes */}
+        {isDisabled && isExpanded && !isParent && (
+          <motion.span
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute right-3 px-2 py-0.5 bg-amber-500 text-white text-[9px] font-bold rounded-full"
+          >
+            SELECT BRANCH
           </motion.span>
         )}
       </motion.button>
@@ -147,36 +182,52 @@ const MenuItem = ({
               const SubIcon = sub.icon;
               const isSubActive = activeMenu === sub.id;
               
-              // ⚠️ NEW: Check if this submenu item needs badge
+              // Check if submenu item needs badge
               const subShowBadge = isSuperAdmin && needsRenewal && sub.id === "settings-upgrade";
+              
+              // NEW: Check if submenu item is a write route and should be disabled
+              const isSubWriteRoute = WRITE_ROUTES.includes(sub.path);
+              const isSubDisabled = isSubWriteRoute && isSuperAdmin && isGlobalMode;
 
               return (
                 <motion.button
                   key={sub.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onNavigate(sub);
+                    onNavigate(sub, isSubDisabled, "Select a branch to create transactions");
                   }}
+                  disabled={isSubDisabled}
                   className={`
                     flex items-center h-9 px-3 rounded-lg text-sm relative
-                    ${
-                      isSubActive
+                    ${isSubDisabled
+                      ? "opacity-50 cursor-not-allowed bg-gray-50/50"
+                      : isSubActive
                         ? "bg-blue-50 text-[#05015A]"
                         : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                     }
                   `}
-                  whileHover={{ x: 4 }}
+                  whileHover={isSubDisabled ? {} : { x: 4 }}
                 >
                   <div className="relative mr-2">
                     <SubIcon size={16} className="opacity-70" />
                     {subShowBadge && (
                       <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
                     )}
+                    {isSubDisabled && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full flex items-center justify-center">
+                        <AlertTriangle size={6} className="text-white" />
+                      </span>
+                    )}
                   </div>
                   <span>{sub.label}</span>
                   {subShowBadge && (
                     <span className="ml-auto px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full">
                       !
+                    </span>
+                  )}
+                  {isSubDisabled && (
+                    <span className="ml-auto px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-bold rounded">
+                      BRANCH
                     </span>
                   )}
                 </motion.button>
@@ -202,17 +253,19 @@ const Sidebar = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
 
   const permissions = useMenuPermissions();
 
-  // ⚠️ NEW: Subscription status for renewal badge
+  // Branch context for write route awareness
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
+  const isGlobalMode = useAuthStore(selectIsGlobalMode);
   const needsRenewal = useSubscriptionStore(selectNeedsRenewal);
   const loadSubscriptionStatus = useSubscriptionStore((s) => s.loadSubscriptionStatus);
 
   const isExpanded = hovered;
 
-  // ⚠️ NEW: Load subscription status on mount (super admin only)
+  // Load subscription status on mount (super admin only)
   useEffect(() => {
     if (isSuperAdmin) {
       loadSubscriptionStatus();
@@ -242,6 +295,7 @@ const Sidebar = () => {
           path: "/Salesbilling",
           breadcrumbs: ["Sales", "Billing"],
           permissionKey: "salesBilling",
+          isWriteRoute: true, // NEW: Mark as write route
         },
         {
           id: "sales-invoices",
@@ -266,6 +320,7 @@ const Sidebar = () => {
           path: "/purchase-billing",
           breadcrumbs: ["Purchase", "Billing"],
           permissionKey: "purchaseBilling",
+          isWriteRoute: true, // NEW: Mark as write route
         },
         {
           id: "purchase-invoices",
@@ -437,13 +492,25 @@ const Sidebar = () => {
       .filter(Boolean);
   }, [allMenuItems, permissions]);
 
+  /**
+   * REFACTORED: Navigation handler with write route awareness
+   */
   const handleNavigation = useCallback(
-    (item) => {
+    (item, isDisabled = false, disabledReason = "") => {
+      // NEW: Check if this is a write route being accessed in GLOBAL mode
+      if (isDisabled) {
+        toast.warning(
+          "Branch Required",
+          disabledReason || "Please select a specific branch to access this feature"
+        );
+        return; // Block navigation
+      }
+
       navigate(item.path);
       setActiveMenu(item.id);
       setBreadcrumbs(item.breadcrumbs);
     },
-    [navigate, setActiveMenu, setBreadcrumbs]
+    [navigate, setActiveMenu, setBreadcrumbs, toast]
   );
 
   const handleToggleSubmenu = useCallback((id) => {
@@ -527,11 +594,12 @@ const Sidebar = () => {
     >
       <nav className="pt-6 px-2 flex flex-col gap-2">
         {visibleMenuItems.map((item) => {
-          // ⚠️ NEW: Show badge on Settings parent if Plans submenu needs renewal
-          const showBadge = 
-            isSuperAdmin && 
-            needsRenewal && 
-            item.id === "settings";
+          // Show badge on Settings parent if Plans submenu needs renewal
+          const showBadge = isSuperAdmin && needsRenewal && item.id === "settings";
+          
+          // NEW: Check if this is a write route that should be disabled
+          const isWriteRoute = WRITE_ROUTES.includes(item.path);
+          const isDisabled = isWriteRoute && isSuperAdmin && isGlobalMode;
 
           return (
             <MenuItem
@@ -543,6 +611,8 @@ const Sidebar = () => {
               onToggle={handleToggleSubmenu}
               onNavigate={handleNavigation}
               showBadge={showBadge}
+              isDisabled={isDisabled}
+              disabledReason="Select a branch to create transactions"
             />
           );
         })}

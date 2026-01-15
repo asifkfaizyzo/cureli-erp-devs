@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { getPlans, selectPlan, confirmPayment, cancelPendingSubscription } from "../../api/subscription";
+import { normalizePlans } from "../../utils/normalizePlan"; // ✅ NEW IMPORT
 import PlanCard from "./comps/PlanCard";
 import CustomPlanCard from "./comps/CustomPlanCard";
 import PlanConfirmModal from "./comps/PlanConfirmModal";
@@ -43,7 +44,10 @@ const PlanSelectionPage = () => {
       const res = await getPlans();
       const backendPlans = res.data?.data?.plans || [];
 
-      setPlans(backendPlans);
+      // ✅ NORMALIZE PLANS - Silently disable expired promos
+      const normalizedPlans = normalizePlans(backendPlans);
+
+      setPlans(normalizedPlans);
     } catch (err) {
       console.error("Failed to load plans:", err);
       setError(
