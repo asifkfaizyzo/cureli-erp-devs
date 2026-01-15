@@ -14,6 +14,7 @@ import {
   Ban,
   Sparkles,
   Archive,
+  AlertTriangle,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "../../components/common/Toast";
@@ -28,6 +29,9 @@ import ConfirmActionModal from "./comps/plans/ConfirmActionModal";
 
 // Config
 import { generateCloneName, PLAN_STATUS } from "../../config/modules/subscriptionConfig";
+
+// Utils - ✅ NEW IMPORT
+import { normalizePlans, countPlansNeedingReview } from "../../utils/normalizePlan";
 
 // API
 import {
@@ -118,7 +122,21 @@ export default function SubscriptionPage() {
       ]);
 
       if (plansResponse.success) {
-        setPlans(plansResponse.data.plans || []);
+        const rawPlans = plansResponse.data.plans || [];
+        
+        // ✅ NORMALIZE PLANS with flagForReview for C-Admin
+        const normalizedPlans = normalizePlans(rawPlans, { flagForReview: true });
+        
+        setPlans(normalizedPlans);
+        
+        // ✅ Show warning toast if there are plans needing review
+        const reviewCount = countPlansNeedingReview(normalizedPlans);
+        if (reviewCount > 0) {
+          toast.warning(
+            "Expired Promos Detected",
+            `${reviewCount} plan(s) have expired promos that need attention.`
+          );
+        }
       }
 
       if (statsResponse.success) {
@@ -158,6 +176,11 @@ export default function SubscriptionPage() {
   // ============================================
   // DERIVED DATA
   // ============================================
+
+  // ✅ Count plans needing review
+  const plansNeedingReview = useMemo(() => {
+    return countPlansNeedingReview(plans);
+  }, [plans]);
 
   // Filter plans based on search and status
   const filteredPlans = useMemo(() => {
@@ -389,7 +412,7 @@ export default function SubscriptionPage() {
     return (
       <div className="w-full min-h-[500px] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 size={40} className="text-[#05015A] animate-spin" />
+          <Loader2 size={40} className="text-[#000060] animate-spin" />
           <p className="text-gray-500 text-sm">Loading plans...</p>
         </div>
       </div>
@@ -410,7 +433,7 @@ export default function SubscriptionPage() {
           <p className="text-gray-500 text-sm">{error}</p>
           <button
             onClick={handleRefresh}
-            className="flex items-center gap-2 px-4 py-2 bg-[#05015A] text-white rounded-lg text-sm font-medium hover:bg-[#0a0280] transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-[#000060] text-white rounded-lg text-sm font-medium hover:bg-[#000080] transition-all"
           >
             <RefreshCw size={16} />
             Retry
@@ -424,13 +447,13 @@ export default function SubscriptionPage() {
   // RENDER - MAIN
   // ============================================
   return (
-    <div className="w-full h-full min-w-0 flex flex-col gap-4 overflow-hidden">
+    <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
       {/* Error Banner */}
       {error && plans.length > 0 && (
-        <div className="flex-shrink-0 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between">
+        <div className="flex-shrink-0 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <AlertCircle size={16} className="text-red-500" />
-            <span className="text-red-700 text-sm">{error}</span>
+            <AlertCircle size={18} />
+            <span className="text-sm">{error}</span>
           </div>
           <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
             <X size={16} />
@@ -438,167 +461,212 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#05015A] rounded-xl flex items-center justify-center shadow-lg shadow-[#05015A]/20">
-            <BadgeIndianRupee className="text-white" size={20} />
+      {/* ✅ NEW: Expired Promo Warning Banner */}
+      {plansNeedingReview > 0 && (
+        <div className="flex-shrink-0 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={18} className="text-amber-600" />
+            <span className="text-sm font-medium">
+              {plansNeedingReview} plan{plansNeedingReview !== 1 ? 's' : ''} with expired promos need attention
+            </span>
+            <span className="text-xs text-amber-600">
+              (Look for plans with warning indicators)
+            </span>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Subscription Plans</h1>
-            <p className="text-sm text-gray-500">
-              {stats.total} total plans • {stats.active} active
-            </p>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex-shrink-0 flex flex-col gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
+              <BadgeIndianRupee size={20} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate">
+                Subscription Plans
+              </h1>
+              <p className="text-sm text-gray-500">
+                {stats.total} total plan{stats.total !== 1 ? "s" : ""} • {stats.active} active
+                {plansNeedingReview > 0 && (
+                  <span className="text-amber-600 ml-2">
+                    • {plansNeedingReview} need review
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {planTypeFilter === "PRE_MADE" && (
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-[#000060] text-white rounded-lg
+                           hover:shadow-lg hover:shadow-[#000060]/25 transition-all flex items-center gap-2
+                           disabled:opacity-50"
+              >
+                <Plus size={16} />
+                <span className="hidden sm:inline">Create Plan</span>
+              </button>
+            )}
+
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
+                         hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
+                         disabled:opacity-50 flex-shrink-0"
+              title="Refresh plans"
+            >
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleRefresh}
-            disabled={loading}
-            className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-50"
-            title="Refresh plans"
-          >
-            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-          </button>
+        {/* Filter Bar */}
+        <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
+          {/* Plan Type Toggle + Search */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            {/* Plan Type Toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1 flex-shrink-0">
+              <button
+                onClick={() => setPlanTypeFilter("PRE_MADE")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  planTypeFilter === "PRE_MADE"
+                    ? "bg-white text-[#000060] shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Pre-made Plans
+              </button>
+              <button
+                onClick={() => setPlanTypeFilter("CUSTOM")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  planTypeFilter === "CUSTOM"
+                    ? "bg-white text-violet-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Custom Plans
+              </button>
+            </div>
 
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search plans..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
+                           bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20 
+                           focus:border-[#000060] transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded 
+                             text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Status Filters - Only show for PRE_MADE */}
           {planTypeFilter === "PRE_MADE" && (
-            <button
-              onClick={() => setCreateModalOpen(true)}
-              disabled={actionLoading}
-              className="flex items-center gap-2 bg-[#05015A] text-white px-4 py-2.5 rounded-xl text-sm font-semibold
-                         shadow-lg shadow-[#05015A]/25 hover:bg-[#0a0280] transition-all disabled:opacity-50"
-            >
-              <Plus size={18} />
-              Create Plan
-            </button>
+            <div className="pt-3 border-t border-gray-200">
+              <div className="flex items-center gap-2 flex-wrap">
+                {STATUS_FILTERS.map((filterOption) => {
+                  const Icon = filterOption.icon;
+                  const count = planCounts[filterOption.key] || 0;
+                  const isActive = statusFilter === filterOption.key;
+
+                  // Skip deprecated and suspended if count is 0
+                  if (
+                    (filterOption.key === PLAN_STATUS.DEPRECATED || filterOption.key === PLAN_STATUS.SUSPENDED) &&
+                    count === 0
+                  ) {
+                    return null;
+                  }
+
+                  return (
+                    <button
+                      key={filterOption.key}
+                      onClick={() => setStatusFilter(filterOption.key)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                        ${isActive
+                          ? "bg-[#000060] text-white shadow-sm"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                    >
+                      <Icon size={14} />
+                      {filterOption.label}
+                      <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                        isActive ? "bg-white/20 text-white" : "bg-gray-200 text-gray-600"
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {/* Promo Filter */}
+                {stats.with_active_promo > 0 && (
+                  <button
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium 
+                               bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 
+                               border border-amber-200 hover:border-amber-300 transition-all"
+                  >
+                    <Sparkles size={14} />
+                    With Promo
+                    <span className="px-1.5 py-0.5 rounded-full text-xs bg-amber-100">
+                      {stats.with_active_promo}
+                    </span>
+                  </button>
+                )}
+
+                {/* ✅ NEW: Needs Review Filter */}
+                {plansNeedingReview > 0 && (
+                  <button
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium 
+                               bg-red-50 text-red-700 border border-red-200 hover:border-red-300 transition-all"
+                  >
+                    <AlertTriangle size={14} />
+                    Needs Review
+                    <span className="px-1.5 py-0.5 rounded-full text-xs bg-red-100">
+                      {plansNeedingReview}
+                    </span>
+                  </button>
+                )}
+
+                {/* Clear Filters */}
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleClearFilters}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-600 hover:text-red-700 
+                               hover:bg-red-50 rounded-lg transition-all ml-auto"
+                  >
+                    <X size={16} />
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Info text for Custom Plans */}
+          {planTypeFilter === "CUSTOM" && (
+            <div className="text-sm text-gray-500 italic">
+              Custom plans are created specifically for individual shops when assigning subscriptions.
+            </div>
           )}
         </div>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200 p-4 space-y-4">
-        {/* Plan Type Toggle + Search */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Plan Type Toggle */}
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setPlanTypeFilter("PRE_MADE")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                planTypeFilter === "PRE_MADE"
-                  ? "bg-white text-[#05015A] shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Pre-made Plans
-            </button>
-            <button
-              onClick={() => setPlanTypeFilter("CUSTOM")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                planTypeFilter === "CUSTOM"
-                  ? "bg-white text-violet-600 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Custom Plans
-            </button>
-          </div>
-
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search plans..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 pl-10 pr-10 border border-gray-200 rounded-lg text-sm 
-                         bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#05015A]/20 
-                         focus:border-[#05015A] transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded text-gray-400 hover:text-gray-600"
-              >
-                <X size={16} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Status Filters - Only show for PRE_MADE */}
-        {planTypeFilter === "PRE_MADE" && (
-          <div className="flex items-center gap-2 flex-wrap">
-            {STATUS_FILTERS.map((filterOption) => {
-              const Icon = filterOption.icon;
-              const count = planCounts[filterOption.key] || 0;
-              const isActive = statusFilter === filterOption.key;
-
-              // Skip deprecated and suspended if count is 0
-              if (
-                (filterOption.key === PLAN_STATUS.DEPRECATED || filterOption.key === PLAN_STATUS.SUSPENDED) &&
-                count === 0
-              ) {
-                return null;
-              }
-
-              return (
-                <button
-                  key={filterOption.key}
-                  onClick={() => setStatusFilter(filterOption.key)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
-                    ${isActive
-                      ? "bg-[#05015A] text-white shadow-sm"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                >
-                  <Icon size={14} />
-                  {filterOption.label}
-                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-                    isActive ? "bg-white/20 text-white" : "bg-gray-200 text-gray-600"
-                  }`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-
-            {/* Promo Filter */}
-            {stats.with_active_promo > 0 && (
-              <button
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium 
-                           bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 
-                           border border-amber-200 hover:border-amber-300 transition-all"
-              >
-                <Sparkles size={14} />
-                With Promo
-                <span className="px-1.5 py-0.5 rounded-full text-xs bg-amber-100">
-                  {stats.with_active_promo}
-                </span>
-              </button>
-            )}
-
-            {/* Clear Filters */}
-            {hasActiveFilters && (
-              <button
-                onClick={handleClearFilters}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:text-red-700 
-                           hover:bg-red-50 rounded-lg transition-all ml-auto"
-              >
-                <X size={14} />
-                Clear filters
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Info text for Custom Plans */}
-        {planTypeFilter === "CUSTOM" && (
-          <div className="text-sm text-gray-500 italic">
-            Custom plans are created specifically for individual shops when assigning subscriptions.
-          </div>
-        )}
       </div>
 
       {/* Plans Grid */}
@@ -606,7 +674,13 @@ export default function SubscriptionPage() {
         {paginatedPlans.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
             {paginatedPlans.map((plan) => (
-              <PlanCard key={plan.plan_id} plan={plan} onAction={handlePlanAction} />
+              <PlanCard 
+                key={plan.plan_id} 
+                plan={plan} 
+                onAction={handlePlanAction}
+                // ✅ Pass the review flag to PlanCard for visual indication
+                needsReview={plan._needs_review}
+              />
             ))}
           </div>
         ) : (
@@ -628,14 +702,14 @@ export default function SubscriptionPage() {
             {planTypeFilter === "PRE_MADE" && hasActiveFilters ? (
               <button
                 onClick={handleClearFilters}
-                className="px-5 py-2.5 bg-[#05015A] text-white rounded-xl text-sm font-semibold hover:bg-[#0a0280] transition-all"
+                className="px-5 py-2.5 bg-[#000060] text-white rounded-xl text-sm font-semibold hover:bg-[#000080] transition-all"
               >
                 Clear Filters
               </button>
             ) : planTypeFilter === "PRE_MADE" ? (
               <button
                 onClick={() => setCreateModalOpen(true)}
-                className="px-5 py-2.5 bg-[#05015A] text-white rounded-xl text-sm font-semibold hover:bg-[#0a0280] transition-all"
+                className="px-5 py-2.5 bg-[#000060] text-white rounded-xl text-sm font-semibold hover:bg-[#000080] transition-all"
               >
                 Create First Plan
               </button>

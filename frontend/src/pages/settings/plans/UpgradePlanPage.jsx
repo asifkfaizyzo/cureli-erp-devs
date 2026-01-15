@@ -29,6 +29,7 @@ import { fetchBranchLimits } from "../../../api/branches";
 
 // Utils & Config
 import { analyzePlanChange } from "../../../utils/planChangeUtils";
+import { normalizePlans } from "../../../utils/normalizePlan"; // ✅ NEW IMPORT
 
 // Components
 import CurrentPlanBanner from "./comps/CurrentPlanBanner";
@@ -38,6 +39,7 @@ import ComplianceModal from "./comps/ComplianceModal";
 import FinalConfirmationModal from "./comps/FinalConfirmationModal";
 import UpgradeConfirmModal from "./comps/UpgradeConfirmModal";
 import RenewalConfirmModal from "./comps/RenewalConfirmModal";
+
 /**
  * UpgradePlanPage
  * Plan management page for Super Admin
@@ -95,10 +97,11 @@ const UpgradePlanPage = () => {
           fetchBranchLimits(),
         ]);
 
-      // Plans
+      // Plans - ✅ NORMALIZE PLANS
       const plansData =
         plansRes.data?.data?.plans || plansRes.data?.plans || [];
-      setPlans(plansData);
+      const normalizedPlans = normalizePlans(plansData);
+      setPlans(normalizedPlans);
 
       // Current subscription
       const subData = subscriptionRes.data?.data || subscriptionRes.data;
@@ -149,7 +152,6 @@ const UpgradePlanPage = () => {
 
     // Determine which modal to show
     if (analysis.direction === "renew") {
-      // ⚠️ NEW: Show renewal confirmation modal
       setModalState("renew_confirm");
     } else if (analysis.direction === "upgrade") {
       setModalState("upgrade_confirm");
@@ -159,8 +161,9 @@ const UpgradePlanPage = () => {
       alert("No change detected.");
     }
   };
+
   // ============================================
-  // RENEWAL FLOW (NEW)
+  // RENEWAL FLOW
   // ============================================
 
   const handleRenewConfirm = async () => {
@@ -174,14 +177,12 @@ const UpgradePlanPage = () => {
       const data = response.data.data;
 
       if (data.requires_payment) {
-        // Open Razorpay
         openRazorpayCheckout({
           ...data.razorpay,
           subscription_id: data.subscription_id,
           plan_name: selectedPlan.name,
         });
       } else {
-        // Shouldn't happen for renewal, but handle it
         alert("Plan renewed successfully!");
         handleCloseModals();
         loadData();
@@ -211,14 +212,12 @@ const UpgradePlanPage = () => {
       const data = response.data.data;
 
       if (data.requires_payment) {
-        // Open Razorpay
         openRazorpayCheckout({
           ...data.razorpay,
           subscription_id: data.subscription_id,
           plan_name: selectedPlan.name,
         });
       } else {
-        // Shouldn't happen for upgrade, but handle it
         alert("Plan upgraded successfully!");
         handleCloseModals();
         loadData();
@@ -300,7 +299,6 @@ const UpgradePlanPage = () => {
   // ============================================
 
   const handleDowngradeWarningAccept = () => {
-    // Move to compliance modal if there's impact, otherwise to final confirm
     if (planAnalysis?.hasImpact) {
       setModalState("compliance");
     } else {
@@ -433,10 +431,9 @@ const UpgradePlanPage = () => {
 
   return (
     <div className="h-full flex flex-col gap-6 p-1 overflow-auto">
-      {/* Header - Clean with back button */}
+      {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
-          {/* Back Button */}
           <button
             onClick={handleBackToProfile}
             className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
@@ -513,7 +510,6 @@ const UpgradePlanPage = () => {
             />
           ))}
 
-          {/* Custom Plan Card */}
           <CustomPlanCard />
         </div>
       </div>
@@ -535,7 +531,6 @@ const UpgradePlanPage = () => {
       {/* MODALS */}
       {/* ============================================ */}
 
-      {/* Upgrade Confirm Modal */}
       {modalState === "upgrade_confirm" && selectedPlan && (
         <UpgradeConfirmModal
           plan={selectedPlan}
@@ -547,7 +542,6 @@ const UpgradePlanPage = () => {
         />
       )}
 
-      {/* Downgrade Warning Modal */}
       {modalState === "downgrade_warning" && selectedPlan && planAnalysis && (
         <DowngradeWarningModal
           currentPlan={currentSubscription?.plan}
@@ -558,7 +552,6 @@ const UpgradePlanPage = () => {
         />
       )}
 
-      {/* Compliance Modal */}
       {modalState === "compliance" && selectedPlan && planAnalysis && (
         <ComplianceModal
           targetPlan={selectedPlan}
@@ -568,7 +561,7 @@ const UpgradePlanPage = () => {
           onClose={handleCloseModals}
         />
       )}
-      {/* ⚠️ NEW: Renewal Confirm Modal */}
+
       {modalState === "renew_confirm" && selectedPlan && (
         <RenewalConfirmModal
           plan={selectedPlan}
@@ -580,7 +573,6 @@ const UpgradePlanPage = () => {
         />
       )}
 
-      {/* Final Confirmation Modal */}
       {modalState === "final_confirm" && selectedPlan && (
         <FinalConfirmationModal
           currentPlan={currentSubscription?.plan}

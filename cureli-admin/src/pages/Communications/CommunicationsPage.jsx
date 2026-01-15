@@ -111,8 +111,8 @@ const CommunicationCard = ({
       {/* Action */}
       {!isComingSoon && (
         <div className="flex items-center gap-1.5 mt-4 pt-4 border-t border-gray-100">
-          <span className="text-xs font-medium text-[#05015A]">View all</span>
-          <ArrowRight className="w-3.5 h-3.5 text-[#05015A]" />
+          <span className="text-xs font-medium text-[#000060]">View all</span>
+          <ArrowRight className="w-3.5 h-3.5 text-[#000060]" />
         </div>
       )}
     </div>
@@ -270,114 +270,120 @@ const CommunicationsPage = () => {
     },
   ];
 
+  const isLoading = loadingTickets || loadingEnquiries;
+
   return (
-    <div className="space-y-5 font-poppins">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#05015A] rounded-xl flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Communications</h1>
-            <p className="text-xs text-gray-500">Manage customer interactions</p>
-          </div>
-        </div>
-
-        <button
-          onClick={handleRefresh}
-          disabled={loadingTickets || loadingEnquiries}
-          className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 
-                     transition-colors disabled:opacity-50"
-        >
-          <RefreshCw 
-            size={16} 
-            className={loadingTickets || loadingEnquiries ? "animate-spin" : ""} 
-          />
-        </button>
-      </div>
-
-      {/* Summary Bar */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-8 bg-blue-600 rounded-full" />
-            <p className="text-sm font-medium text-gray-700">Quick Overview</p>
-          </div>
-          
-          <div className="flex items-center gap-6">
-            {/* Tickets */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                <Ticket className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-gray-900">
-                  {loadingTickets ? "..." : totalTickets}
-                </p>
-                <p className="text-xs text-gray-500">Tickets</p>
-              </div>
+    <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
+      {/* Header - ✅ FIXED: Now matches UserPage exactly */}
+      <div className="flex-shrink-0 flex flex-col gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
+              <MessageSquare size={20} className="text-white" />
             </div>
-
-            <div className="w-px h-10 bg-gray-200" />
-
-            {/* Enquiries */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
-                <Mail className="w-5 h-5 text-violet-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-gray-900">
-                  {loadingEnquiries ? "..." : totalEnquiries}
-                </p>
-                <p className="text-xs text-gray-500">Enquiries</p>
-              </div>
-            </div>
-
-            <div className="w-px h-10 bg-gray-200" />
-
-            {/* Pending */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-gray-900">
-                  {loadingTickets || loadingEnquiries 
-                    ? "..." 
-                    : pendingTickets + pendingEnquiries
-                  }
-                </p>
-                <p className="text-xs text-gray-500">Pending</p>
-              </div>
-              {/* Optional: Pending badge indicator */}
-              {!loadingTickets && !loadingEnquiries && (pendingTickets + pendingEnquiries) > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
-                  Action needed
-                </span>
-              )}
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate">
+                Communications
+              </h1>
+              <p className="text-sm text-gray-500">
+                Manage customer interactions
+              </p>
             </div>
           </div>
+
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
+                       hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
+                       disabled:opacity-50 flex-shrink-0"
+          >
+            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+          </button>
         </div>
       </div>
 
-      {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {channels.map((channel) => (
-          <CommunicationCard
-            key={channel.id}
-            title={channel.title}
-            description={channel.description}
-            icon={channel.icon}
-            path={channel.path}
-            breadcrumbs={channel.breadcrumbs}
-            iconBg={channel.iconBg}
-            iconColor={channel.iconColor}
-            stats={channel.stats}
-            isLoading={channel.isLoading}
-            isComingSoon={channel.isComingSoon}
-          />
-        ))}
+      {/* Content */}
+      <div className="flex-1 min-h-0 overflow-auto space-y-4">
+        {/* Summary Bar */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-8 bg-blue-600 rounded-full" />
+              <p className="text-sm font-medium text-gray-700">Quick Overview</p>
+            </div>
+            
+            <div className="flex items-center gap-6 flex-wrap">
+              {/* Tickets */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                  <Ticket className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-gray-900">
+                    {loadingTickets ? "..." : totalTickets}
+                  </p>
+                  <p className="text-xs text-gray-500">Tickets</p>
+                </div>
+              </div>
+
+              <div className="w-px h-10 bg-gray-200 hidden sm:block" />
+
+              {/* Enquiries */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
+                  <Mail className="w-5 h-5 text-violet-600" />
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-gray-900">
+                    {loadingEnquiries ? "..." : totalEnquiries}
+                  </p>
+                  <p className="text-xs text-gray-500">Enquiries</p>
+                </div>
+              </div>
+
+              <div className="w-px h-10 bg-gray-200 hidden sm:block" />
+
+              {/* Pending */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-gray-900">
+                    {isLoading ? "..." : pendingTickets + pendingEnquiries}
+                  </p>
+                  <p className="text-xs text-gray-500">Pending</p>
+                </div>
+                {/* Optional: Pending badge indicator */}
+                {!isLoading && (pendingTickets + pendingEnquiries) > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                    Action needed
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {channels.map((channel) => (
+            <CommunicationCard
+              key={channel.id}
+              title={channel.title}
+              description={channel.description}
+              icon={channel.icon}
+              path={channel.path}
+              breadcrumbs={channel.breadcrumbs}
+              iconBg={channel.iconBg}
+              iconColor={channel.iconColor}
+              stats={channel.stats}
+              isLoading={channel.isLoading}
+              isComingSoon={channel.isComingSoon}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import {
   X,
   Filter,
   RefreshCw,
-  MessageSquare,
+  Mail,
   AlertCircle,
 } from "lucide-react";
 import {
@@ -252,7 +252,7 @@ const EnquiriesPage = () => {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
-              <MessageSquare size={20} className="text-white" />
+              <Mail size={20} className="text-white" />
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-gray-900 truncate">
