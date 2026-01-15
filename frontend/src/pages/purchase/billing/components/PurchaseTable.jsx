@@ -518,3 +518,4 @@ const PurchaseTable = ({
 
 export default PurchaseTable;
 
+ 
