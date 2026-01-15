@@ -13,10 +13,27 @@ import {
   Phone,
   Users,
   Loader2,
-  AlertCircle,
+  CheckCircle,
+  Ban,
 } from "lucide-react";
 
 import { deleteBranch, reactivateBranch } from "../../../../api/branches";
+import ConfirmDialog from "../../../../components/common/ConfirmDialog";
+import TableSkeleton from "../../../../components/common/TableSkeleton";
+import TableEmptyState from "../../../../components/common/TableEmptyState";
+import { TABLE_CONFIG } from "../../../../config/tableConfig";
+
+// ============================================
+// COLUMN CONFIGURATION
+// ============================================
+const COLUMNS = {
+  branch: { key: 'branch', label: 'Branch', width: 200, sortable: false, align: 'left' },
+  address: { key: 'address', label: 'Address', width: 220, sortable: false, align: 'left' },
+  contact: { key: 'contact', label: 'Contact', width: 150, sortable: false, align: 'left' },
+  users: { key: 'users', label: 'Users', width: 80, sortable: false, align: 'center' },
+  status: { key: 'status', label: 'Status', width: 100, sortable: false, align: 'center' },
+  actions: { key: 'actions', label: 'Actions', width: 80, sortable: false, align: 'center' },
+};
 
 /**
  * ActionMenu Component
@@ -26,7 +43,7 @@ const ActionMenu = ({
   position,
   onClose,
   onEdit,
-  onDelete,
+  onDeactivate,
   onReactivate,
 }) => {
   const menuRef = useRef(null);
@@ -106,7 +123,7 @@ const ActionMenu = ({
           <button
             onClick={() => {
               onClose();
-              onDelete(branch);
+              onDeactivate(branch);
             }}
             className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
           >
@@ -135,21 +152,75 @@ const BranchListTable = ({
   loading,
   onEdit,
   onRefresh,
+  toast,
 }) => {
+  const { styles, heights } = TABLE_CONFIG;
+
   const [actionMenuState, setActionMenuState] = useState({
     branchId: null,
     position: null,
   });
   const [processingBranchId, setProcessingBranchId] = useState(null);
-  const [error, setError] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    type: null,
+    branch: null,
+  });
+
+  // Column resizing state
+  const [columnWidths, setColumnWidths] = useState(() => {
+    const widths = {};
+    Object.values(COLUMNS).forEach(col => {
+      widths[col.key] = col.width;
+    });
+    return widths;
+  });
+  const [resizing, setResizing] = useState(null);
+
   const actionButtonRefs = useRef({});
 
+  // ============================================
+  // COLUMN RESIZING HANDLERS
+  // ============================================
+  const handleMouseDown = (column, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizing({
+      column,
+      startX: e.clientX,
+      startWidth: columnWidths[column],
+    });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!resizing) return;
+    const diff = e.clientX - resizing.startX;
+    const newWidth = Math.max(50, resizing.startWidth + diff);
+    setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
+  };
+
+  const handleMouseUp = () => setResizing(null);
+
+  useEffect(() => {
+    if (resizing) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+  }, [resizing]);
+
+  // ============================================
+  // MENU POSITION CALCULATION
+  // ============================================
   const calculateMenuPosition = useCallback((branchId) => {
     const buttonEl = actionButtonRefs.current[branchId];
     if (!buttonEl) return null;
 
     const rect = buttonEl.getBoundingClientRect();
-    const menuWidth = 176; // w-44
+    const menuWidth = 176;
     const menuHeight = 120;
     const padding = 8;
 
@@ -169,6 +240,9 @@ const BranchListTable = ({
     return { top, left };
   }, []);
 
+  // ============================================
+  // ACTION HANDLERS
+  // ============================================
   const handleActionClick = (branchId) => {
     if (actionMenuState.branchId === branchId) {
       setActionMenuState({ branchId: null, position: null });
@@ -176,57 +250,79 @@ const BranchListTable = ({
       const position = calculateMenuPosition(branchId);
       setActionMenuState({ branchId, position });
     }
-    setError(null);
   };
 
   const handleCloseMenu = () => {
     setActionMenuState({ branchId: null, position: null });
   };
 
-  const handleDelete = async (branch) => {
-    if (!confirm(`Are you sure you want to deactivate "${branch.branch_name}"?`)) {
+  const handleDeactivateClick = (branch) => {
+    if (branch.is_main) {
+      toast.warning(
+        "Cannot Deactivate",
+        "Main branch cannot be deactivated.",
+        4000
+      );
       return;
     }
 
+    setConfirmDialog({
+      isOpen: true,
+      type: 'deactivate',
+      branch,
+    });
+  };
+
+  const handleReactivateClick = (branch) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'reactivate',
+      branch,
+    });
+  };
+
+  const handleConfirmAction = async () => {
+    const { type, branch } = confirmDialog;
     setProcessingBranchId(branch.branch_id);
-    setError(null);
+    setConfirmDialog({ isOpen: false, type: null, branch: null });
 
     try {
-      await deleteBranch(branch.branch_id);
+      if (type === 'deactivate') {
+        await deleteBranch(branch.branch_id);
+        toast.success(
+          "Branch Deactivated",
+          `${branch.branch_name} has been deactivated successfully.`,
+          4000
+        );
+      } else if (type === 'reactivate') {
+        await reactivateBranch(branch.branch_id);
+        toast.success(
+          "Branch Reactivated",
+          `${branch.branch_name} has been reactivated successfully.`,
+          4000
+        );
+      }
       onRefresh();
     } catch (err) {
-      console.error("Failed to deactivate branch:", err);
-      setError({
-        branchId: branch.branch_id,
-        message: err.response?.data?.message || "Failed to deactivate branch",
-      });
+      console.error(`Failed to ${type} branch:`, err);
+      const errorMessage = err.response?.data?.message || `Failed to ${type} branch. Please try again.`;
+      toast.error(
+        `${type === 'deactivate' ? 'Deactivation' : 'Reactivation'} Failed`,
+        errorMessage,
+        5000
+      );
     } finally {
       setProcessingBranchId(null);
     }
   };
 
-  const handleReactivate = async (branch) => {
-    if (!confirm(`Are you sure you want to reactivate "${branch.branch_name}"?`)) {
-      return;
-    }
-
-    setProcessingBranchId(branch.branch_id);
-    setError(null);
-
-    try {
-      await reactivateBranch(branch.branch_id);
-      onRefresh();
-    } catch (err) {
-      console.error("Failed to reactivate branch:", err);
-      setError({
-        branchId: branch.branch_id,
-        message: err.response?.data?.message || "Failed to reactivate branch",
-      });
-    } finally {
-      setProcessingBranchId(null);
-    }
+  const handleCancelAction = () => {
+    setConfirmDialog({ isOpen: false, type: null, branch: null });
   };
 
+  // ============================================
+  // HELPER FUNCTIONS
+  // ============================================
   const formatAddress = (branch) => {
     const parts = [
       branch.address_line_1,
@@ -237,194 +333,244 @@ const BranchListTable = ({
     return parts.join(", ") || "No address";
   };
 
-  if (loading && branches.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-white rounded-xl border border-gray-200">
-        <div className="flex flex-col items-center gap-3 text-gray-500">
-          <Loader2 size={32} className="animate-spin" />
-          <p>Loading branches...</p>
-        </div>
-      </div>
-    );
-  }
+  // ============================================
+  // HEADER COMPONENT
+  // ============================================
+  const TableHeader = ({ column }) => {
+    const config = COLUMNS[column];
 
-  if (!loading && branches.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-white rounded-xl border border-gray-200">
-        <div className="flex flex-col items-center gap-3 text-gray-500 py-12">
-          <Building2 size={48} className="text-gray-300" />
-          <p className="text-lg font-medium">No branches found</p>
-          <p className="text-sm">Create your first branch to get started</p>
+      <th
+        style={{ width: columnWidths[column], minWidth: 50 }}
+        className={`relative group ${config.align === 'center' ? 'text-center' : ''}`}
+      >
+        <div className={styles.header.cell}>
+          {config.label}
         </div>
-      </div>
+        {/* Resize Handle */}
+        <div
+          onMouseDown={(e) => handleMouseDown(column, e)}
+          className={styles.header.resizeHandle}
+        />
+      </th>
     );
-  }
+  };
 
+  // ============================================
+  // STATUS BADGE COMPONENT
+  // ============================================
+  const StatusBadge = ({ isActive }) => {
+    if (isActive) {
+      return (
+        <span className={styles.badges.status.active}>
+          <CheckCircle size={12} />
+          Active
+        </span>
+      );
+    }
+    return (
+      <span className={styles.badges.status.inactive}>
+        <Ban size={12} />
+        Inactive
+      </span>
+    );
+  };
+
+  // ============================================
+  // COMPUTED VALUES
+  // ============================================
+  const hasData = branches.length > 0;
+  const showTable = loading || hasData;
+  const showEmptyState = !loading && !hasData;
+
+  // ============================================
+  // RENDER
+  // ============================================
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      {/* Table Header */}
-      <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
-        <div className="col-span-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-          Branch
-        </div>
-        <div className="col-span-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-          Address
-        </div>
-        <div className="col-span-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-          Contact
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-gray-600 uppercase tracking-wider text-center">
-          Users
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-gray-600 uppercase tracking-wider text-center">
-          Status
-        </div>
-        <div className="col-span-1 text-xs font-semibold text-gray-600 uppercase tracking-wider text-right">
-          Actions
-        </div>
-      </div>
+    <>
+      <div className={styles.container.wrapper}>
+        {/* Table - Show when loading OR has data */}
+        {showTable && (
+          <div className="flex-1 min-h-0 overflow-auto">
+            <table className="w-full border-collapse text-sm" style={{ minWidth: "800px" }}>
+              {/* Table Header */}
+              <thead className="sticky top-0 z-10">
+                <tr className={styles.header.row}>
+                  <TableHeader column="branch" />
+                  <TableHeader column="address" />
+                  <TableHeader column="contact" />
+                  <TableHeader column="users" />
+                  <TableHeader column="status" />
+                  <TableHeader column="actions" />
+                </tr>
+              </thead>
 
-      {/* Table Body */}
-      <div className="divide-y divide-gray-100">
-        {branches.map((branch) => {
-          const isProcessing = processingBranchId === branch.branch_id;
-          const hasError = error?.branchId === branch.branch_id;
+              {/* Table Body */}
+              <tbody>
+                {loading ? (
+                  // Skeleton Loading Rows
+                  <TableSkeleton
+                    rows={10}
+                    columns={Object.keys(COLUMNS).filter(k => k !== 'actions')}
+                  />
+                ) : (
+                  // Actual Data Rows
+                  branches.map((branch, index) => {
+                    const isProcessing = processingBranchId === branch.branch_id;
 
-          return (
-            <motion.div
-              key={branch.branch_id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: isProcessing ? 0.5 : 1 }}
-              className="relative"
-            >
-              {/* Error Banner */}
-              {hasError && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="px-6 py-2 bg-red-50 border-b border-red-200"
-                >
-                  <div className="flex items-center gap-2 text-sm text-red-700">
-                    <AlertCircle size={14} />
-                    <span>{error.message}</span>
-                    <button
-                      onClick={() => setError(null)}
-                      className="ml-auto text-xs font-medium hover:underline"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </motion.div>
-              )}
+                    return (
+                      <tr
+                        key={branch.branch_id ?? index}
+                        className={`${styles.row.base} ${
+                          index % 2 === 0 ? styles.row.even : styles.row.odd
+                        } ${styles.row.hover} ${!branch.is_active ? styles.row.disabled : ''}`}
+                        style={{ height: `${heights.bodyRow}px` }}
+                      >
+                        {/* Branch Info */}
+                        <td className={`${styles.cell.base} ${styles.cell.primary}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                              !branch.is_active
+                                ? "bg-gray-200"
+                                : branch.is_main
+                                ? "bg-emerald-100"
+                                : "bg-[#05015A]/10"
+                            }`}>
+                              <Building2 size={20} className={
+                                !branch.is_active
+                                  ? "text-gray-400"
+                                  : branch.is_main
+                                  ? "text-emerald-600"
+                                  : "text-[#05015A]"
+                              } />
+                            </div>
+                            <div>
+                              <p className={`font-medium ${!branch.is_active ? 'text-gray-500' : ''}`}>
+                                {branch.branch_name}
+                                {!branch.is_active && (
+                                  <Ban size={14} className="inline-block ml-2 text-red-400" />
+                                )}
+                              </p>
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                branch.is_main
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-gray-100 text-gray-600"
+                              }`}>
+                                {branch.is_main ? "Main" : "Branch"}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
 
-              {/* Row Content */}
-              <div className={`grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors items-center ${
-                !branch.is_active ? "bg-gray-50/50" : ""
-              }`}>
-                {/* Branch Info */}
-                <div className="col-span-4 flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    !branch.is_active
-                      ? "bg-gray-200"
-                      : branch.is_main
-                      ? "bg-emerald-100"
-                      : "bg-[#000060]/10"
-                  }`}>
-                    <Building2 size={20} className={
-                      !branch.is_active
-                        ? "text-gray-400"
-                        : branch.is_main
-                        ? "text-emerald-600"
-                        : "text-[#000060]"
-                    } />
-                  </div>
-                  <div>
-                    <p className={`font-medium ${branch.is_active ? "text-gray-900" : "text-gray-500"}`}>
-                      {branch.branch_name}
-                    </p>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                      branch.is_main
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-gray-100 text-gray-600"
-                    }`}>
-                      {branch.is_main ? "Main" : "Branch"}
-                    </span>
-                  </div>
-                </div>
+                        {/* Address */}
+                        <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
+                          <div className="flex items-start gap-1.5">
+                            <MapPin size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                            <span className="line-clamp-2">{formatAddress(branch)}</span>
+                          </div>
+                        </td>
 
-                {/* Address */}
-                <div className="col-span-3">
-                  <div className="flex items-start gap-1.5 text-sm text-gray-600">
-                    <MapPin size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                    <span className="line-clamp-2">{formatAddress(branch)}</span>
-                  </div>
-                </div>
+                        {/* Contact */}
+                        <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
+                          {branch.contact_number ? (
+                            <div className="flex items-center gap-1.5">
+                              <Phone size={14} className="text-gray-400" />
+                              {branch.contact_number}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
 
-                {/* Contact */}
-                <div className="col-span-2">
-                  {branch.contact_number ? (
-                    <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                      <Phone size={14} className="text-gray-400" />
-                      {branch.contact_number}
-                    </div>
-                  ) : (
-                    <span className="text-sm text-gray-400">—</span>
-                  )}
-                </div>
+                        {/* User Count */}
+                        <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                          <div className="inline-flex items-center gap-1">
+                            <Users size={14} className="text-gray-400" />
+                            <span className={styles.cell.muted}>{branch.user_count || 0}</span>
+                          </div>
+                        </td>
 
-                {/* User Count */}
-                <div className="col-span-1 text-center">
-                  <div className="inline-flex items-center gap-1 text-sm text-gray-600">
-                    <Users size={14} className="text-gray-400" />
-                    {branch.user_count || 0}
-                  </div>
-                </div>
+                        {/* Status */}
+                        <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                          <StatusBadge isActive={branch.is_active} />
+                        </td>
 
-                {/* Status */}
-                <div className="col-span-1 text-center">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    branch.is_active
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-red-100 text-red-600"
-                  }`}>
-                    {branch.is_active ? "Active" : "Inactive"}
-                  </span>
-                </div>
+                        {/* Actions */}
+                        <td className={`${styles.cell.base}`}>
+                          <div className={styles.actions.container}>
+                            {isProcessing ? (
+                              <Loader2 size={15} className="animate-spin text-gray-400" />
+                            ) : (
+                              <button
+                                ref={(el) => (actionButtonRefs.current[branch.branch_id] = el)}
+                                onClick={() => handleActionClick(branch.branch_id)}
+                                className={`${styles.actions.button.base} ${styles.actions.button.view}`}
+                                title="Actions"
+                              >
+                                <MoreVertical size={15} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-                {/* Actions */}
-                <div className="col-span-1 flex justify-end">
-                  {isProcessing ? (
-                    <Loader2 size={18} className="animate-spin text-gray-400" />
-                  ) : (
-                    <button
-                      ref={(el) => (actionButtonRefs.current[branch.branch_id] = el)}
-                      onClick={() => handleActionClick(branch.branch_id)}
-                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* Action Menu (Portal) */}
-      <AnimatePresence>
-        {actionMenuState.branchId && (
-          <ActionMenu
-            branch={branches.find((b) => b.branch_id === actionMenuState.branchId)}
-            position={actionMenuState.position}
-            onClose={handleCloseMenu}
-            onEdit={onEdit}
-            onDelete={handleDelete}
-            onReactivate={handleReactivate}
+        {/* Empty State */}
+        {showEmptyState && (
+          <TableEmptyState
+            icon={Building2}
+            title="No branches found"
+            subtitle="Create your first branch to get started"
           />
         )}
-      </AnimatePresence>
-    </div>
+
+        {/* Action Menu (Portal) */}
+        <AnimatePresence>
+          {actionMenuState.branchId && (
+            <ActionMenu
+              branch={branches.find((b) => b.branch_id === actionMenuState.branchId)}
+              position={actionMenuState.position}
+              onClose={handleCloseMenu}
+              onEdit={onEdit}
+              onDeactivate={handleDeactivateClick}
+              onReactivate={handleReactivateClick}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={handleCancelAction}
+        onConfirm={handleConfirmAction}
+        title={confirmDialog.type === 'deactivate' ? 'Deactivate Branch?' : 'Reactivate Branch?'}
+        message={
+          confirmDialog.type === 'deactivate' ? (
+            <>
+              Are you sure you want to deactivate <strong>{confirmDialog.branch?.branch_name}</strong>?
+              <span className="text-sm block mt-2 text-amber-600 font-medium">
+                All users in this branch will be moved to the main branch.
+              </span>
+            </>
+          ) : (
+            <>
+              Are you sure you want to reactivate <strong>{confirmDialog.branch?.branch_name}</strong>?
+            </>
+          )
+        }
+        confirmText={confirmDialog.type === 'deactivate' ? 'Deactivate' : 'Reactivate'}
+        cancelText="Cancel"
+        type={confirmDialog.type === 'deactivate' ? 'danger' : 'success'}
+        loading={processingBranchId === confirmDialog.branch?.branch_id}
+      />
+    </>
   );
 };
 
