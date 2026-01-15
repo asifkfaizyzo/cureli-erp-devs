@@ -129,6 +129,22 @@ async function applyGracePeriodGuard(subscription) {
 }
 
 // ============================================
+// HELPER: Calculate Days Remaining
+// ============================================
+
+/**
+ * Calculate days remaining until subscription end date
+ * @param {Date|string} endDate - Subscription end date
+ * @returns {number} Days remaining (minimum 0)
+ */
+function calculateDaysRemaining(endDate) {
+  const now = new Date();
+  const end = new Date(endDate);
+  const diffTime = end - now;
+  return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+}
+
+// ============================================
 // GET VISIBLE PLANS (For Customer Selection)
 // ============================================
 
@@ -480,7 +496,7 @@ export async function verifyAndActivateSubscription({
 /**
  * Get subscription status for a shop
  * 
- * ⚠️ UPDATED: Includes read-time grace guard
+ * ⚠️ UPDATED: Now includes days_remaining calculation
  */
 export async function getSubscriptionStatus(shop_id) {
   if (!shop_id) return null;
@@ -506,25 +522,43 @@ export async function getSubscriptionStatus(shop_id) {
 
   if (!subscription) return null;
 
-  // ⚠️ Apply read-time grace guard
+  // Apply read-time grace guard
   subscription = await applyGracePeriodGuard(subscription);
 
   const now = new Date();
   const endDate = new Date(subscription.end_date);
   const isExpired = endDate < now;
   
+  // ⚠️ FIX: Calculate days_remaining (this was missing!)
+  const daysRemaining = calculateDaysRemaining(subscription.end_date);
+  
   const isInGracePeriod = subscription.grace_period_until 
     ? new Date(subscription.grace_period_until) >= now && isExpired
     : false;
 
   return {
-    ...subscription,
+    subscription_id: subscription.subscription_id,
+    status: subscription.status,
+    payment_status: subscription.payment_status,
+    billing_cycle: subscription.billing_cycle,
+    start_date: subscription.start_date,
+    end_date: subscription.end_date,
+    renewal_date: subscription.renewal_date,
+    grace_period_until: subscription.grace_period_until,
+    branch_limit_snapshot: subscription.branch_limit_snapshot,
+    user_limit_snapshot: subscription.user_limit_snapshot,
+    is_active: subscription.is_active,
     plan: {
-      ...subscription.plan,
+      plan_id: subscription.plan.plan_id,
+      name: subscription.plan.name,
       price: Number(subscription.plan.price),
+      max_users: subscription.plan.max_users,
+      max_branches: subscription.plan.max_branches,
     },
+    // ⚠️ FIX: These fields are now included
     is_expired: isExpired,
     is_in_grace_period: isInGracePeriod,
+    days_remaining: daysRemaining,
   };
 }
 

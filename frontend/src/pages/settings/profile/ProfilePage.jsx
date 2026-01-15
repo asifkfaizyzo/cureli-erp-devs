@@ -11,6 +11,23 @@ import SessionsCard from "./comps/SessionsCard";
 
 import { getProfile } from "../../../api/profile";
 
+// Import subscription store
+import { useSubscriptionStore, selectNeedsRenewal } from "../../../store/useSubscriptionStore";
+import { useAuthStore, selectIsSuperAdmin } from "../../../store/useAuthStore";
+
+/* ───────────────── Renewal Badge Component ───────────────── */
+const RenewalBadge = ({ className = "" }) => (
+  <span 
+    className={`
+      inline-flex items-center justify-center 
+      w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full
+      ${className}
+    `}
+  >
+    !
+  </span>
+);
+
 /**
  * ProfilePage
  * Super Admin profile settings page - Horizontal Layout
@@ -20,6 +37,10 @@ const ProfilePage = () => {
   const [error, setError] = useState(null);
   const [profileData, setProfileData] = useState(null);
   const [activeTab, setActiveTab] = useState("personal");
+
+  // Subscription status for badge
+  const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
+  const needsRenewal = useSubscriptionStore(selectNeedsRenewal);
 
   // Fetch profile data
   const fetchProfile = async () => {
@@ -90,7 +111,7 @@ const ProfilePage = () => {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header Bar */}
-      <div className="flex-shrink-0  border-gray-200 px-1 py-3">
+      <div className="flex-shrink-0 border-gray-200 px-1 py-3">
         <div className="flex items-center justify-between">
           {/* Title & Tabs Container */}
           <div className="flex items-center gap-8">
@@ -106,6 +127,10 @@ const ProfilePage = () => {
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
+                
+                // Show badge on "Plan & Usage" tab when renewal is needed
+                const showBadge = isSuperAdmin && needsRenewal && tab.id === "subscription";
+
                 return (
                   <button
                     key={tab.id}
@@ -117,7 +142,12 @@ const ProfilePage = () => {
                     }`}
                   >
                     <Icon size={16} />
-                    {tab.label}
+                    <span>{tab.label}</span>
+                    
+                    {/* Red exclamation badge for Plan & Usage */}
+                    {showBadge && (
+                      <RenewalBadge />
+                    )}
                   </button>
                 );
               })}
