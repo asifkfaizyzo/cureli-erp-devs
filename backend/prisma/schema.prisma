@@ -22,13 +22,12 @@ enum CAdminRole {
   ACCOUNTING
 }
 
-  // --- Plans ---
-
+// --- Plans ---
 enum PlanStatus {
-  DRAFT      // Editable, not visible to customers
-  ACTIVE     // Live, immutable, accepts subscriptions
-  DEPRECATED // Suspended but has active subscribers
-  SUSPENDED  // Inactive, can be reactivated
+  DRAFT
+  ACTIVE
+  DEPRECATED
+  SUSPENDED
 }
 
 enum PlanType {
@@ -62,31 +61,78 @@ enum EnquiryStatus {
 }
 
 // ============================================
+// AUDIT LOG (APPEND-ONLY, COMPLIANCE-GRADE)
+// ============================================
+
+model AuditLog {
+  audit_id       String   @id @default(uuid()) @db.Uuid
+
+  // What happened
+  action         String   @db.VarChar(100)
+
+  // Who caused it
+  actor_type     String   @db.VarChar(20)
+  actor_id       String?  @db.Uuid
+  actor_role     String?  @db.VarChar(50)
+
+  // What was affected
+  entity_type    String   @db.VarChar(30)
+  entity_id      String?  @db.Uuid
+
+  // Scope context
+  shop_id        String?  @db.Uuid
+  branch_id      String?  @db.Uuid
+
+  // Grouping related events
+  correlation_id String?  @db.Uuid
+
+  // Why (optional)
+  reason_code    String?  @db.VarChar(50)
+
+  // Payload
+  metadata       Json?    @db.JsonB
+
+  // Request context
+  ip_address     String?  @db.Text
+  user_agent     String?  @db.Text
+
+  // When
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  // ========== INDEXES ==========
+  @@index([shop_id, created_at(sort: Desc)])
+  @@index([entity_type, entity_id, created_at(sort: Desc)])
+  @@index([actor_id, created_at(sort: Desc)])
+  @@index([action, created_at(sort: Desc)])
+  @@index([correlation_id])
+  @@index([created_at(sort: Desc)])
+
+  @@map("audit_logs")
+}
+
+// ============================================
 // CURELI ADMIN
 // ============================================
 
 model CAdmin {
-  cadmin_id    String     @id @default(uuid()) @db.Uuid
-  name         String     @db.Text
-  username     String     @unique @db.Text
-  email        String?    @unique @db.Text
-  phone_number String     @db.Text
-  password_hash String    @db.Text
-  role         CAdminRole @default(SUPER_ADMIN)
-  is_active    Boolean    @default(true)
+  cadmin_id         String     @id @default(uuid()) @db.Uuid
+  name              String     @db.Text
+  username          String     @unique @db.Text
+  email             String?    @unique @db.Text
+  phone_number      String     @db.Text
+  password_hash     String     @db.Text
+  role              CAdminRole @default(SUPER_ADMIN)
+  is_active         Boolean    @default(true)
 
-  // OTP & Password Reset
   verification_id     String?   @db.Text
   otp_expires         DateTime?
   reset_token         String?   @db.VarChar(500)
   reset_token_expires DateTime? @db.Timestamptz(6)
 
-  // Timestamps
   last_login_at DateTime?
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime  @updatedAt @db.Timestamptz(6)
 
-  // Relations
   createdPlans   Plan[]              @relation("PlanCreator")
   planActivities PlanActivityLog[]   @relation("PlanActivityByCAdmin")
   activityLogs   CAdminActivityLog[] @relation("CAdminActivityLogs")
@@ -129,19 +175,16 @@ model PendingUser {
   login_provider String  @default("password")
   username       String?
 
-  // Email Verification
   email_otp_hash    String?
   email_otp_expires DateTime?
-  email_verified    Boolean @default(false)
+  email_verified    Boolean   @default(false)
 
-  // Phone Verification
   phone               String?   @db.Text
   sms_verification_id String?   @db.Text
   sms_transaction_id  String?   @db.Text
   sms_otp_expires     DateTime? @db.Timestamptz
   sms_verified        Boolean   @default(false)
 
-  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
@@ -166,37 +209,30 @@ model User {
   is_active      Boolean @default(true)
   onboarding_step Int    @default(4)
 
-  // First Login Tracking
   first_login_after_verification Boolean   @default(false)
   first_verified_at              DateTime? @db.Timestamptz(6)
 
-  // Password Reset
   reset_token         String?   @db.VarChar(500)
   reset_token_expires DateTime? @db.Timestamptz(6)
 
-  // Phone Change Flow
   phone_change_new_number      String?   @db.Text
   phone_change_verification_id String?   @db.Text
   phone_change_old_verified    Boolean   @default(false)
   phone_change_expires         DateTime? @db.Timestamptz(6)
 
-  // Email Change Flow
   email_change_new_email       String?   @db.Text
   email_change_verification_id String?   @db.Text
   email_change_otp_hash        String?   @db.Text
   email_change_expires         DateTime? @db.Timestamptz(6)
 
-  // Login OTP
   login_verification_id String?   @db.Text
   login_otp_expires     DateTime? @db.Timestamptz(6)
   login_otp_attempts    Int       @default(0)
 
-  // Timestamps
   last_login_at DateTime? @db.Timestamptz(6)
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime  @updatedAt @db.Timestamptz(6)
 
-  // Relations
   shops_owned      Shop[]        @relation("OwnerOfShop")
   branch           Branch?       @relation(fields: [branch_id], references: [branch_id])
   shop             Shop?         @relation("UsersInShop", fields: [shop_id], references: [shop_id])
@@ -218,12 +254,11 @@ model UserSession {
   ip_address    String?  @db.Text
   is_active     Boolean  @default(true)
 
-  // Timestamps
   created_at     DateTime  @default(now()) @db.Timestamptz(6)
   last_active_at DateTime  @default(now()) @db.Timestamptz(6)
   expires_at     DateTime  @db.Timestamptz(6)
   ended_at       DateTime? @db.Timestamptz(6)
-  ended_reason   String?   @db.Text // "replaced" | "logout" | "expired" | "admin_force"
+  ended_reason   String?   @db.Text
 
   user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
 
@@ -255,11 +290,9 @@ model Shop {
   current_subscription_id String? @unique @db.Uuid
   is_active               Boolean @default(true)
 
-  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  // Relations
   branches            Branch[]
   owner               User                 @relation("OwnerOfShop", fields: [owner_user_id], references: [user_id])
   users               User[]               @relation("UsersInShop")
@@ -287,11 +320,9 @@ model Branch {
   alternate_number String?
   is_active        Boolean @default(true)
 
-  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  // Relations
   shop    Shop     @relation(fields: [shop_id], references: [shop_id])
   users   User[]
   tickets Ticket[] @relation("BranchTickets")
@@ -312,13 +343,11 @@ model ShopFile {
   resubmission_count Int       @default(0)
   uploaded_by        String    @db.Uuid
 
-  // Timestamps
   uploaded_at         DateTime  @default(now()) @db.Timestamptz(6)
   verified_at         DateTime? @db.Timestamptz(6)
   rejected_at         DateTime? @db.Timestamptz(6)
   last_resubmitted_at DateTime? @db.Timestamptz(6)
 
-  // Relations
   shop Shop @relation(fields: [shop_id], references: [shop_id])
   user User @relation(fields: [uploaded_by], references: [user_id])
 
@@ -338,23 +367,19 @@ model ShopSubscription {
   billing_cycle  String @default("yearly")
   payment_status String
 
-  // Dates
   start_date         DateTime  @db.Timestamptz(6)
   end_date           DateTime  @db.Timestamptz(6)
   renewal_date       DateTime  @db.Timestamptz(6)
   grace_period_until DateTime? @db.Timestamptz(6)
 
-  // Snapshots (limits at time of subscription)
   branch_limit_snapshot Int
   user_limit_snapshot   Int
 
   is_active Boolean @default(true)
 
-  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  // Relations
   plan                Plan                 @relation(fields: [plan_id], references: [plan_id])
   shop                Shop                 @relation("ShopSubscriptions", fields: [shop_id], references: [shop_id])
   paymentTransactions PaymentTransaction[] @relation("SubscriptionPayments")
@@ -373,40 +398,31 @@ model Plan {
   description String?  @db.Text
   type        PlanType @default(PRE_MADE)
 
-  // Pricing (in Rupees)
   price            BigInt
   compare_at_price BigInt?
 
-  // Limits
   max_branches Int
   max_users    Int
 
-  // Billing Duration
   billing_cycle_months Int @default(12)
   bonus_months         Int @default(0)
 
-  // Promotional Access
   promo_free_until DateTime? @db.Timestamptz(6)
 
-  // Flags
   is_customizable Boolean @default(false)
   is_featured     Boolean @default(false)
 
-  // Custom Plan Link
   created_for_shop_id String? @db.Uuid
 
-  // Lifecycle
   status     PlanStatus @default(ACTIVE)
   created_by String?    @db.Uuid
 
-  // Timestamps
   created_at   DateTime  @default(now()) @db.Timestamptz(6)
   updated_at   DateTime  @updatedAt @db.Timestamptz(6)
   activated_at DateTime? @db.Timestamptz(6)
   suspended_at DateTime? @db.Timestamptz(6)
   deleted_at   DateTime? @db.Timestamptz(6)
 
-  // Relations
   subscriptions  ShopSubscription[]
   creator        CAdmin?            @relation("PlanCreator", fields: [created_by], references: [cadmin_id])
   createdForShop Shop?              @relation("CustomPlanShop", fields: [created_for_shop_id], references: [shop_id])
@@ -431,7 +447,6 @@ model PlanActivityLog {
 
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
-  // Relations
   plan   Plan    @relation(fields: [plan_id], references: [plan_id])
   cadmin CAdmin? @relation("PlanActivityByCAdmin", fields: [cadmin_id], references: [cadmin_id])
 
@@ -453,16 +468,14 @@ model PaymentTransaction {
   provider            String
   provider_order_id   String? @unique
   provider_payment_id String? @unique
-  amount              BigInt  // In Rupees
+  amount              BigInt
   currency            String  @default("INR")
   status              String
   meta                Json?
 
-  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  // Relations
   shop         Shop              @relation("ShopPayments", fields: [shop_id], references: [shop_id])
   subscription ShopSubscription? @relation("SubscriptionPayments", fields: [subscription_id], references: [subscription_id])
 
@@ -470,7 +483,7 @@ model PaymentTransaction {
 }
 
 // ============================================
-// ACTIVITY LOGS
+// ACTIVITY LOGS (LEGACY — RETAINED)
 // ============================================
 
 model ActivityLog {
@@ -522,36 +535,32 @@ model FileVerificationLog {
 // ============================================
 
 model Ticket {
-  ticket_id          String         @id @default(uuid()) @db.Uuid
-  ticket_number      String         @unique @db.VarChar(30)
-  shop_id            String         @db.Uuid
-  branch_id          String?        @db.Uuid
-  created_by_user_id String         @db.Uuid
-  contact_number     String         @db.VarChar(15)
-  category           TicketCategory
-  subject            String         @db.VarChar(200)
-  description        String?        @db.Text
-  other_category_text String?       @db.VarChar(100)
-  preferred_slot     String         @db.VarChar(20)
-  status             TicketStatus   @default(PENDING)
-  admin_notes        String?        @db.Text
+  ticket_id           String         @id @default(uuid()) @db.Uuid
+  ticket_number       String         @unique @db.VarChar(30)
+  shop_id             String         @db.Uuid
+  branch_id           String?        @db.Uuid
+  created_by_user_id  String         @db.Uuid
+  contact_number      String         @db.VarChar(15)
+  category            TicketCategory
+  subject             String         @db.VarChar(200)
+  description         String?        @db.Text
+  other_category_text String?        @db.VarChar(100)
+  preferred_slot      String         @db.VarChar(20)
+  status              TicketStatus   @default(PENDING)
+  admin_notes         String?        @db.Text
 
-  // Cancellation
   cancelled_at        DateTime? @db.Timestamptz(6)
   cancelled_by_id     String?   @db.Uuid
   cancellation_reason String?   @db.Text
 
-  // Reopening
   reopened_at    DateTime? @db.Timestamptz(6)
   reopened_by_id String?   @db.Uuid
   reopen_count   Int       @default(0)
   reopen_reason  String?   @db.Text
 
-  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  // Relations
   shop          Shop                  @relation("ShopTickets", fields: [shop_id], references: [shop_id])
   branch        Branch?               @relation("BranchTickets", fields: [branch_id], references: [branch_id])
   created_by    User                  @relation("TicketCreator", fields: [created_by_user_id], references: [user_id])
@@ -587,7 +596,7 @@ model TicketAttachment {
 model TicketStatusHistory {
   id              String        @id @default(uuid()) @db.Uuid
   ticket_id       String        @db.Uuid
-  changed_by_type String        @db.VarChar(20) // "USER" | "CADMIN"
+  changed_by_type String        @db.VarChar(20)
   changed_by_id   String        @db.Uuid
   changed_by_name String        @db.VarChar(100)
   from_status     TicketStatus?
@@ -615,11 +624,9 @@ model Enquiry {
   message        String        @db.Text
   status         EnquiryStatus @default(PENDING)
 
-  // Timestamps
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  // Relations
   replies EnquiryReply[]
 
   @@index([status])
@@ -639,7 +646,6 @@ model EnquiryReply {
   email_error   String?   @db.Text
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
 
-  // Relations
   enquiry    Enquiry @relation(fields: [enquiry_id], references: [enquiry_id], onDelete: Cascade)
   replied_by CAdmin  @relation("EnquiryRepliedBy", fields: [replied_by_id], references: [cadmin_id])
 
