@@ -10,7 +10,7 @@ import helmet from "helmet";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-
+import { initializeCronJobs } from "./src/cron/jobs.js";
 // ═══════════════════════════════════════════════════════════
 // MIDDLEWARE IMPORTS
 // ═══════════════════════════════════════════════════════════
@@ -40,7 +40,8 @@ import cadminAdminRoutes from "./src/modules/cadmin/admins/cadminAdmin.routes.js
 import cadminProfileRoutes from "./src/modules/cadmin/profile/cadminProfile.routes.js";
 import cadminTicketsRoutes from "./src/modules/cadmin/tickets/cadminTickets.routes.js";
 import cadminSubscriptionsRoutes from "./src/modules/cadmin/subscriptions/cadminSubscriptions.routes.js";
-import { initializeCronJobs } from "./src/cron/jobs.js";
+import cadminAuditRoutes from './src/modules/cadmin/audit/cadminAudit.routes.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -227,9 +228,10 @@ app.use("/cadmin", cadminShopsRoutes);
 app.use("/cadmin", cadminPlansRoutes);
 app.use("/cadmin", cadminAdminRoutes);
 app.use("/cadmin", cadminProfileRoutes);
-app.use("/cadmin/tickets", cadminTicketsRoutes);
-app.use("/cadmin/enquiries", enquiriesRoutes);
+app.use("/cadmin", cadminTicketsRoutes);
+app.use("/cadmin", enquiriesRoutes);
 app.use("/cadmin", cadminSubscriptionsRoutes);
+app.use('/cadmin', cadminAuditRoutes);
 // ============================================
 // Health Check
 // ============================================

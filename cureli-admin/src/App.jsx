@@ -28,15 +28,20 @@ import TicketsPage from "./pages/Communications/pages/Tickets/TicketsPage";
 import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage";
 import BroadcastPage from "./pages/Communications/pages/Broadcast/BroadcastPage";
 
+// ═══════════════════════════════════════════════════════════
+// AUDIT PAGE - NEW IMPORT
+// ═══════════════════════════════════════════════════════════
+import AuditPage from "./pages/Audit/AuditPage";
+
 // Layout
 import AppLayout from "./components/layout/AppLayout";
 
 // Auth Provider
 import { AuthProvider } from "./context/AuthContext";
 
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 // Protected Layout - Wraps AppLayout with AuthProvider
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 const ProtectedLayout = () => {
   return (
     <AuthProvider>
@@ -102,7 +107,11 @@ function App() {
           <Route path="/subscriptions" element={<RiskMonitorPage />} />
           <Route path="/subscriptions/manage" element={<SubscriptionPage />} />
 
-          <Route path="/audits" element={<div>Audits Page</div>} />
+          {/* ═══════════════════════════════════════════════════════
+              AUDIT PAGE - UPDATED ROUTE
+          ═══════════════════════════════════════════════════════ */}
+          <Route path="/audits" element={<AuditPage />} />
+          
           <Route path="/settings" element={<div>Settings Page</div>} />
           <Route path="/admins" element={<AdminsPage />} />
 

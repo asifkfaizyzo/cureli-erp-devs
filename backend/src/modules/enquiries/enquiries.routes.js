@@ -53,7 +53,7 @@ const strictEnquiryLimiter = rateLimit({
 
 // PUBLIC ROUTES
 router.post(
-  "/",
+  "/enquiries",
   strictEnquiryLimiter,
   enquirySubmitLimiter,
   validate(createEnquirySchema, "body"),
@@ -62,23 +62,23 @@ router.post(
 
 // ADMIN ROUTES
 router.get(
-  "/admin/list",
+  "/enquiries/admin/list",
   requireCAdmin,
   validate(listEnquiriesSchema, "query"),
   listEnquiries
 );
 
-router.get("/admin/stats", requireCAdmin, getEnquiryStats);
+router.get("/enquiries/admin/stats", requireCAdmin, getEnquiryStats);
 
 router.get(
-  "/admin/:enquiryId",
+  "/enquiries/admin/:enquiryId",
   requireCAdmin,
   validate(enquiryIdParamSchema, "params"),
   getEnquiryDetails
 );
 
 router.post(
-  "/admin/:enquiryId/reply",
+  "/enquiries/admin/:enquiryId/reply",
   requireCAdmin,
   validate(enquiryIdParamSchema, "params"),
   validate(replyEnquirySchema, "body"),
@@ -86,7 +86,7 @@ router.post(
 );
 
 router.patch(
-  "/admin/:enquiryId/status",
+  "/enquiries/admin/:enquiryId/status",
   requireCAdmin,
   validate(enquiryIdParamSchema, "params"),
   validate(updateEnquiryStatusSchema, "body"),
@@ -94,7 +94,7 @@ router.patch(
 );
 
 router.delete(
-  "/admin/:enquiryId",
+  "/enquiries/admin/:enquiryId",
   requireCAdmin,
   validate(enquiryIdParamSchema, "params"),
   deleteEnquiry
