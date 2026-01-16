@@ -1,6 +1,7 @@
 // src/modules/branches/branches.controller.js
 
 import { success, fail } from "../../utils/response.js";
+import * as audit from "../audit/index.js";
 import {
   getBranchesByShop,
   getBranchById,
@@ -17,14 +18,10 @@ import {
 
 /**
  * ============================================
- * EXISTING CONTROLLERS (keep as-is)
+ * READ-ONLY CONTROLLERS (NO CHANGES NEEDED)
  * ============================================
  */
 
-/**
- * GET /api/branches
- * Get all branches for the user's shop
- */
 export async function getBranchesController(req, res) {
   try {
     const { shop_id, role, branch_id } = req.user;
@@ -66,10 +63,6 @@ export async function getBranchesController(req, res) {
   }
 }
 
-/**
- * GET /api/branches/dropdown
- * Get minimal branch data for dropdown (Super Admin only)
- */
 export async function getBranchesDropdownController(req, res) {
   try {
     const { shop_id, role } = req.user;
@@ -91,48 +84,6 @@ export async function getBranchesDropdownController(req, res) {
   }
 }
 
-/**
- * POST /api/branches/:branch_id/reactivate
- * Reactivate a deactivated branch
- * SA only
- */
-export async function reactivateBranchController(req, res) {
-  try {
-    const { branch_id } = req.params;
-    const { shop_id, role } = req.user;
-
-    if (!shop_id) {
-      return fail(res, "Shop not found", 400);
-    }
-
-    if (role !== "super_admin") {
-      return fail(res, "Only Super Admin can reactivate branches", 403);
-    }
-
-    const branch = await reactivateBranch(branch_id, shop_id);
-
-    return success(res, { branch }, "Branch reactivated successfully");
-  } catch (err) {
-    console.error("reactivateBranchController error:", err);
-
-    if (err.code === "BRANCH_NOT_FOUND") {
-      return fail(res, err.message, 404);
-    }
-    if (err.code === "ALREADY_ACTIVE") {
-      return fail(res, err.message, 400);
-    }
-    if (err.code === "BRANCH_LIMIT_EXCEEDED") {
-      return fail(res, err.message, 400);
-    }
-
-    return fail(res, "Failed to reactivate branch", 500);
-  }
-}
-
-/**
- * GET /api/branches/:branch_id
- * Get a single branch by ID
- */
 export async function getBranchController(req, res) {
   try {
     const { branch_id } = req.params;
@@ -156,10 +107,6 @@ export async function getBranchController(req, res) {
   }
 }
 
-/**
- * POST /api/branches/switch
- * Switch branch context (Super Admin only)
- */
 export async function switchBranchController(req, res) {
   try {
     const { branch_id } = req.validated || req.body;
@@ -200,10 +147,6 @@ export async function switchBranchController(req, res) {
   }
 }
 
-/**
- * GET /api/branches/current
- * Get current branch context
- */
 export async function getCurrentBranchController(req, res) {
   try {
     const { shop_id, branch_id } = req.user;
@@ -224,16 +167,6 @@ export async function getCurrentBranchController(req, res) {
   }
 }
 
-/**
- * ============================================
- * NEW CONTROLLERS
- * ============================================
- */
-
-/**
- * GET /api/branches/limits
- * Get current branch count vs plan limits
- */
 export async function getBranchLimitsController(req, res) {
   try {
     const { shop_id } = req.user;
@@ -251,124 +184,6 @@ export async function getBranchLimitsController(req, res) {
   }
 }
 
-/**
- * POST /api/branches
- * Create new branch (Super Admin only)
- */
-export async function createBranchController(req, res) {
-  try {
-    const { shop_id, role } = req.user;
-    const data = req.validated;
-
-    if (!shop_id) {
-      return fail(res, "Shop not found", 400);
-    }
-
-    // Only super admin can create branches
-    if (role !== "super_admin") {
-      return fail(res, "Only Super Admin can create branches", 403);
-    }
-
-    const branch = await createBranch(shop_id, data);
-
-    return success(res, { branch }, "Branch created successfully", 201);
-  } catch (err) {
-    console.error("createBranchController error:", err);
-
-    if (err.code === "BRANCH_LIMIT_EXCEEDED") {
-      return fail(res, err.message, 400);
-    }
-    if (err.code === "BRANCH_NAME_EXISTS") {
-      return fail(res, err.message, 400);
-    }
-
-    return fail(res, "Failed to create branch", 500);
-  }
-}
-
-/**
- * PUT /api/branches/:branch_id
- * Update existing branch
- * - SA: can update any branch
- * - BA: can only update their own branch
- */
-export async function updateBranchController(req, res) {
-  try {
-    const { branch_id } = req.params;
-    const { shop_id, role, branch_id: userBranchId } = req.user;
-    const data = req.validated;
-
-    if (!shop_id) {
-      return fail(res, "Shop not found", 400);
-    }
-
-    // Branch admin can only edit their own branch
-    if (role === "branch_admin" && branch_id !== userBranchId) {
-      return fail(res, "You can only edit your own branch", 403);
-    }
-
-    const branch = await updateBranch(branch_id, shop_id, data);
-
-    return success(res, { branch }, "Branch updated successfully");
-  } catch (err) {
-    console.error("updateBranchController error:", err);
-
-    if (err.code === "BRANCH_NOT_FOUND") {
-      return fail(res, err.message, 404);
-    }
-    if (err.code === "BRANCH_NAME_EXISTS") {
-      return fail(res, err.message, 400);
-    }
-
-    return fail(res, "Failed to update branch", 500);
-  }
-}
-
-/**
- * DELETE /api/branches/:branch_id
- * Deactivate branch (Super Admin only)
- */
-export async function deleteBranchController(req, res) {
-  try {
-    const { branch_id } = req.params;
-    const { shop_id, role } = req.user;
-
-    if (!shop_id) {
-      return fail(res, "Shop not found", 400);
-    }
-
-    // Only super admin can delete branches
-    if (role !== "super_admin") {
-      return fail(res, "Only Super Admin can delete branches", 403);
-    }
-
-    await deleteBranch(branch_id, shop_id);
-
-    return success(res, null, "Branch deactivated successfully");
-  } catch (err) {
-    console.error("deleteBranchController error:", err);
-
-    if (err.code === "BRANCH_NOT_FOUND") {
-      return fail(res, err.message, 404);
-    }
-    if (err.code === "CANNOT_DELETE_MAIN") {
-      return fail(res, err.message, 400);
-    }
-    if (err.code === "BRANCH_HAS_USERS") {
-      return fail(res, err.message, 400, {
-        code: err.code,
-        user_count: err.user_count,
-      });
-    }
-
-    return fail(res, "Failed to delete branch", 500);
-  }
-}
-
-/**
- * GET /api/branches/:branch_id/users
- * Get active users in a branch (for reassignment UI)
- */
 export async function getBranchUsersController(req, res) {
   try {
     const { branch_id } = req.params;
@@ -398,10 +213,6 @@ export async function getBranchUsersController(req, res) {
   }
 }
 
-/**
- * GET /api/branches/:branch_id/reassignment-options
- * Get branches available for user reassignment
- */
 export async function getReassignmentOptionsController(req, res) {
   try {
     const { branch_id } = req.params;
@@ -422,5 +233,160 @@ export async function getReassignmentOptionsController(req, res) {
   } catch (err) {
     console.error("getReassignmentOptionsController error:", err);
     return fail(res, "Failed to fetch reassignment options", 500);
+  }
+}
+
+/**
+ * ============================================
+ * AUDITABLE CONTROLLERS (UPDATED)
+ * ============================================
+ */
+
+// ✅ UPDATED: Extract audit context
+export async function createBranchController(req, res) {
+  try {
+    const { shop_id, role } = req.user;
+    const data = req.validated;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    // Only super admin can create branches
+    if (role !== "super_admin") {
+      return fail(res, "Only Super Admin can create branches", 403);
+    }
+
+    // Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
+    const branch = await createBranch(shop_id, data, auditContext);
+
+    return success(res, { branch }, "Branch created successfully", 201);
+  } catch (err) {
+    console.error("createBranchController error:", err);
+
+    if (err.code === "BRANCH_LIMIT_EXCEEDED") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "BRANCH_NAME_EXISTS") {
+      return fail(res, err.message, 400);
+    }
+
+    return fail(res, "Failed to create branch", 500);
+  }
+}
+
+// ✅ UPDATED: Extract audit context
+export async function updateBranchController(req, res) {
+  try {
+    const { branch_id } = req.params;
+    const { shop_id, role, branch_id: userBranchId } = req.user;
+    const data = req.validated;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    // Branch admin can only edit their own branch
+    if (role === "branch_admin" && branch_id !== userBranchId) {
+      return fail(res, "You can only edit your own branch", 403);
+    }
+
+    // Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
+    const branch = await updateBranch(branch_id, shop_id, data, auditContext);
+
+    return success(res, { branch }, "Branch updated successfully");
+  } catch (err) {
+    console.error("updateBranchController error:", err);
+
+    if (err.code === "BRANCH_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+    if (err.code === "BRANCH_NAME_EXISTS") {
+      return fail(res, err.message, 400);
+    }
+
+    return fail(res, "Failed to update branch", 500);
+  }
+}
+
+// ✅ UPDATED: Extract audit context
+export async function deleteBranchController(req, res) {
+  try {
+    const { branch_id } = req.params;
+    const { shop_id, role } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    // Only super admin can delete branches
+    if (role !== "super_admin") {
+      return fail(res, "Only Super Admin can delete branches", 403);
+    }
+
+    // Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
+    await deleteBranch(branch_id, shop_id, auditContext);
+
+    return success(res, null, "Branch deactivated successfully");
+  } catch (err) {
+    console.error("deleteBranchController error:", err);
+
+    if (err.code === "BRANCH_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+    if (err.code === "CANNOT_DELETE_MAIN") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "BRANCH_HAS_USERS") {
+      return fail(res, err.message, 400, {
+        code: err.code,
+        user_count: err.user_count,
+      });
+    }
+
+    return fail(res, "Failed to delete branch", 500);
+  }
+}
+
+// ✅ UPDATED: Extract audit context
+export async function reactivateBranchController(req, res) {
+  try {
+    const { branch_id } = req.params;
+    const { shop_id, role } = req.user;
+
+    if (!shop_id) {
+      return fail(res, "Shop not found", 400);
+    }
+
+    if (role !== "super_admin") {
+      return fail(res, "Only Super Admin can reactivate branches", 403);
+    }
+
+    // Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
+    const branch = await reactivateBranch(branch_id, shop_id, auditContext);
+
+    return success(res, { branch }, "Branch reactivated successfully");
+  } catch (err) {
+    console.error("reactivateBranchController error:", err);
+
+    if (err.code === "BRANCH_NOT_FOUND") {
+      return fail(res, err.message, 404);
+    }
+    if (err.code === "ALREADY_ACTIVE") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "BRANCH_LIMIT_EXCEEDED") {
+      return fail(res, err.message, 400);
+    }
+
+    return fail(res, "Failed to reactivate branch", 500);
   }
 }

@@ -1,9 +1,9 @@
-import { success, fail } from "../../utils/response.js";
-import { updateShopInfo, updateShopGst } from "./shop.services.js";
-
 // backend/src/modules/shop/shop.controller.js
 
 import prisma from "../../config/prisma.js";
+import { success, fail } from "../../utils/response.js";
+import { updateShopInfo, updateShopGst } from "./shop.services.js";
+import * as audit from "../audit/index.js";
 
 /**
  * GET /api/shop/verification-status
@@ -18,7 +18,6 @@ export async function getVerificationStatusController(req, res) {
       return fail(res, "No shop associated with your account", 400);
     }
 
-    // Get shop verification status
     const shop = await prisma.shop.findUnique({
       where: { shop_id },
       select: {
@@ -33,7 +32,6 @@ export async function getVerificationStatusController(req, res) {
       return fail(res, "Shop not found", 404);
     }
 
-    // Get user status too
     const user = await prisma.user.findUnique({
       where: { user_id },
       select: {
@@ -58,10 +56,11 @@ export async function getVerificationStatusController(req, res) {
 
 export async function updateShopInfoController(req, res) {
   try {
-    const data = req.validated; // validated by ZOD
-    const user_id = req.user.user_id; // from JWT
+    const data = req.validated;
+    const user_id = req.user.user_id;
+    const auditContext = audit.extractRequestContext(req);
 
-    await updateShopInfo(user_id, data);
+    await updateShopInfo(user_id, data, auditContext);
 
     return success(res, {}, "Business information updated");
   } catch (err) {
@@ -74,8 +73,9 @@ export async function updateShopGstController(req, res) {
   try {
     const data = req.validated;
     const user_id = req.user.user_id;
+    const auditContext = audit.extractRequestContext(req);
 
-    await updateShopGst(user_id, data);
+    await updateShopGst(user_id, data, auditContext);
 
     return success(res, {}, "Business GST updated");
   } catch (err) {

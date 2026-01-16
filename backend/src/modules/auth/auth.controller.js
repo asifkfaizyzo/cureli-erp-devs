@@ -4,7 +4,9 @@ import { fail, success } from "../../utils/response.js";
 import jwt from "jsonwebtoken";
 import { ACCESS_SECRET, ACCESS_EXPIRES, REFRESH_SECRET } from "../../config/jwt.js";
 import { requestPasswordReset, resetPassword } from "./auth.service.js";
+import * as audit from "../audit/index.js";
 
+// No changes needed - token refresh is not an auditable event
 export async function refreshTokenController(req, res) {
   try {
     const refreshToken = req.cookies.refresh_token;
@@ -40,6 +42,7 @@ export async function refreshTokenController(req, res) {
   }
 }
 
+// No changes needed - password reset request doesn't change state yet
 export async function forgotPasswordController(req, res) {
   try {
     const { email } = req.validated;
@@ -60,11 +63,15 @@ export async function forgotPasswordController(req, res) {
   }
 }
 
+// ✅ UPDATED: Extract audit context for password reset completion
 export async function resetPasswordController(req, res) {
   try {
     const { token, password } = req.validated;
 
-    await resetPassword(token, password);
+    // Extract audit context (IP, user agent)
+    const auditContext = audit.extractRequestContext(req);
+
+    await resetPassword(token, password, auditContext);
 
     return success(res, {}, "Password reset successful. You can now log in.");
   } catch (err) {

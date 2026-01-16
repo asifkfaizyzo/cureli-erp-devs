@@ -1,10 +1,61 @@
-// backend/src/modules/cadmin/users/cadminUser.service.js
+// ============================================
+// backend\src\modules\cadmin\users\cadminUser.service.js
+// ============================================
 
 import prisma from "../../../config/prisma.js";
 import { generateResetToken, hashToken } from "../../../utils/resetToken.js";
-import { hashPassword } from "../../../utils/hash.js";
 import { notify } from "../../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../../notifications/notification.events.js";
+import * as audit from "../../audit/index.js";
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+function formatDateDDMMYYYY(dt) {
+  const d = new Date(dt);
+  const day = `${d.getDate()}`.padStart(2, "0");
+  const month = `${d.getMonth() + 1}`.padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function formatRole(role) {
+  if (!role) return "Staff";
+  const r = role.toLowerCase();
+  if (r === "super_admin" || r === "super admin") return "Super Admin";
+  if (r === "branch_admin" || r === "branch admin") return "Branch Admin";
+  if (r === "staff") return "Staff";
+  return role
+    .split(/[_\s]+/)
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(" ");
+}
+
+function mapRoleToDb(roleLabel) {
+  if (!roleLabel) return null;
+  const r = roleLabel.toLowerCase();
+  if (r === "super admin" || r === "super_admin") return "super_admin";
+  if (r === "branch admin" || r === "branch_admin") return "branch_admin";
+  if (r === "staff") return "staff";
+  return roleLabel;
+}
+
+function cryptoRandomUUID() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID)
+    return crypto.randomUUID();
+  return require("crypto").randomUUID();
+}
+
+function createError(message, code) {
+  const err = new Error(message);
+  err.code = code;
+  return err;
+}
+
+// ============================================
+// GET USERS
+// ============================================
 
 export async function getUsersService(query = {}) {
   const page = Math.max(Number(query.page) || 1, 1);
@@ -105,6 +156,10 @@ export async function getUsersService(query = {}) {
   };
 }
 
+// ============================================
+// GET USER BY ID
+// ============================================
+
 export async function getUserByIdService(id) {
   const u = await prisma.user.findUnique({
     where: { user_id: id },
@@ -140,9 +195,7 @@ export async function getUserByIdService(id) {
   });
 
   if (!u) {
-    const e = new Error("User not found");
-    e.status = 404;
-    throw e;
+    throw createError("User not found", "NOT_FOUND");
   }
 
   let currentSubscription = null;
@@ -279,7 +332,11 @@ export async function getUserByIdService(id) {
   };
 }
 
-export async function updateUserService(id, payload = {}, actorCAdmin = null) {
+// ============================================
+// UPDATE USER
+// ============================================
+
+export async function updateUserService(id, payload = {}, cadmin_id, auditContext = {}) {
   const allowed = {};
   if (payload.first_name != null) allowed.first_name = payload.first_name;
   if (payload.last_name != null) allowed.last_name = payload.last_name;
@@ -288,150 +345,280 @@ export async function updateUserService(id, payload = {}, actorCAdmin = null) {
   if (payload.role != null) allowed.role = mapRoleToDb(payload.role);
 
   if (Object.keys(allowed).length === 0) {
-    const e = new Error("No valid fields provided for update");
-    e.status = 400;
-    throw e;
+    throw createError("No valid fields provided for update", "VALIDATION_ERROR");
   }
 
-  const existing = await prisma.user.findUnique({ where: { user_id: id } });
-  if (!existing) {
-    const e = new Error("User not found");
-    e.status = 404;
-    throw e;
-  }
-
-  const updated = await prisma.user.update({
+  const existing = await prisma.user.findUnique({ 
     where: { user_id: id },
-    data: allowed,
     select: {
       user_id: true,
       first_name: true,
       last_name: true,
-      full_name: true,
       username: true,
-      email: true,
       role: true,
-      is_active: true,
-      last_login_at: true,
-      created_at: true,
-      updated_at: true,
+      shop_id: true,
     },
   });
 
-  const changes = [];
-  if (allowed.first_name && allowed.first_name !== existing.first_name)
-    changes.push("first_name");
-  if (allowed.last_name && allowed.last_name !== existing.last_name)
-    changes.push("last_name");
-  if (allowed.username && allowed.username !== existing.username)
-    changes.push("username");
-  if (allowed.role && allowed.role !== existing.role) changes.push("role");
+  if (!existing) {
+    throw createError("User not found", "NOT_FOUND");
+  }
 
-  if (changes.length > 0) {
-    await prisma.activityLog.create({
+  // Track changes
+  const changes = {};
+  for (const [key, newValue] of Object.entries(allowed)) {
+    const oldValue = existing[key];
+    if (oldValue !== newValue) {
+      changes[key] = { old: oldValue, new: newValue };
+    }
+  }
+
+  if (Object.keys(changes).length === 0) {
+    // No actual changes
+    const formatted = await prisma.user.findUnique({
+      where: { user_id: id },
+      select: {
+        user_id: true,
+        first_name: true,
+        last_name: true,
+        full_name: true,
+        username: true,
+        email: true,
+        role: true,
+        is_active: true,
+        last_login_at: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
+    return formatUserResponse(formatted);
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { user_id: id },
+      data: allowed,
+      select: {
+        user_id: true,
+        first_name: true,
+        last_name: true,
+        full_name: true,
+        username: true,
+        email: true,
+        role: true,
+        is_active: true,
+        last_login_at: true,
+        created_at: true,
+        updated_at: true,
+        shop_id: true,
+      },
+    });
+
+    // Legacy activity log
+    const changedFields = Object.keys(changes);
+    const isRoleChange = changedFields.includes("role");
+
+    await tx.activityLog.create({
       data: {
         activity_id: cryptoRandomUUID(),
         user_id: id,
-        action: changes.includes("role") ? "role_change" : "profile_update",
-        description: `Fields changed: ${changes.join(", ")}`,
-        ip_address: actorCAdmin?.ip_address || null,
-        user_agent: actorCAdmin?.user_agent || null,
+        action: isRoleChange ? "role_change" : "profile_update",
+        description: `Fields changed by admin: ${changedFields.join(", ")}`,
+        ip_address: null,
+        user_agent: null,
       },
     });
-  }
 
-  return {
-    id: updated.user_id,
-    first_name: updated.first_name,
-    last_name: updated.last_name,
-    name: updated.full_name,
-    username: updated.username,
-    email: updated.email,
-    role: formatRole(updated.role),
-    is_active: updated.is_active,
-    lastLogin: updated.last_login_at
-      ? formatDateDDMMYYYY(updated.last_login_at)
-      : "Never",
-    created_at: updated.created_at,
-    updated_at: updated.updated_at,
-  };
+    // ✅ AUDIT: Determine action based on changes
+    let auditAction;
+    if (isRoleChange) {
+      auditAction = audit.AuditAction.USER_ROLE_CHANGED_BY_ADMIN;
+    } else {
+      auditAction = audit.AuditAction.USER_PROFILE_UPDATED_BY_ADMIN;
+    }
+
+    await audit.log({
+      action: auditAction,
+      entity_type: audit.EntityType.USER,
+      entity_id: id,
+      shop_id: updated.shop_id || null,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+      metadata: {
+        changed_fields: changedFields,
+        before: Object.fromEntries(
+          Object.entries(changes).map(([k, v]) => [k, v.old])
+        ),
+        after: Object.fromEntries(
+          Object.entries(changes).map(([k, v]) => [k, v.new])
+        ),
+        updated_by_cadmin_id: cadmin_id,
+        ...(isRoleChange && {
+          previous_role: changes.role.old,
+          new_role: changes.role.new,
+        }),
+      },
+    }, { tx });
+
+    return updated;
+  });
+
+  return formatUserResponse(result);
 }
 
-export async function toggleUserAccessService(
-  id,
-  is_active,
-  actorCAdmin = null
-) {
-  const existing = await prisma.user.findUnique({ where: { user_id: id } });
-  if (!existing) {
-    const e = new Error("User not found");
-    e.status = 404;
-    throw e;
-  }
+// ============================================
+// TOGGLE USER ACCESS
+// ============================================
 
-  const updated = await prisma.user.update({
+export async function toggleUserAccessService(id, is_active, cadmin_id, auditContext = {}) {
+  const existing = await prisma.user.findUnique({ 
     where: { user_id: id },
-    data: { is_active },
     select: {
       user_id: true,
       is_active: true,
+      shop_id: true,
       full_name: true,
-      username: true,
     },
   });
 
-  await prisma.activityLog.create({
-    data: {
-      activity_id: cryptoRandomUUID(),
-      user_id: id,
-      action: "status_change",
-      description: is_active ? "Activated by cadmin" : "Suspended by cadmin",
-      ip_address: actorCAdmin?.ip_address || null,
-      user_agent: actorCAdmin?.user_agent || null,
-    },
+  if (!existing) {
+    throw createError("User not found", "NOT_FOUND");
+  }
+
+  if (existing.is_active === is_active) {
+    // No change needed
+    return {
+      id: existing.user_id,
+      is_active: existing.is_active,
+      name: existing.full_name,
+      username: existing.username,
+    };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { user_id: id },
+      data: { is_active },
+      select: {
+        user_id: true,
+        is_active: true,
+        full_name: true,
+        username: true,
+        shop_id: true,
+      },
+    });
+
+    // Legacy activity log
+    await tx.activityLog.create({
+      data: {
+        activity_id: cryptoRandomUUID(),
+        user_id: id,
+        action: "status_change",
+        description: is_active ? "Activated by cadmin" : "Suspended by cadmin",
+        ip_address: null,
+        user_agent: null,
+      },
+    });
+
+    // ✅ AUDIT: User activated or suspended by admin
+    const auditAction = is_active
+      ? audit.AuditAction.USER_ACTIVATED_BY_ADMIN
+      : audit.AuditAction.USER_SUSPENDED_BY_ADMIN;
+
+    await audit.log({
+      action: auditAction,
+      entity_type: audit.EntityType.USER,
+      entity_id: id,
+      shop_id: updated.shop_id || null,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+      metadata: {
+        activated_by_cadmin_id: is_active ? cadmin_id : undefined,
+        reason: is_active ? "Activated by admin" : "Suspended by admin",
+        suspended_by_cadmin_id: !is_active ? cadmin_id : undefined,
+      },
+    }, { tx });
+
+    return updated;
   });
 
   return {
-    id: updated.user_id,
-    is_active: updated.is_active,
-    name: updated.full_name,
-    username: updated.username,
+    id: result.user_id,
+    is_active: result.is_active,
+    name: result.full_name,
+    username: result.username,
   };
 }
 
-/**
- * Reset user password - triggered by CAdmin
- */
-export async function resetUserPasswordService(userId, actorCAdmin = null) {
-  const user = await prisma.user.findUnique({ where: { user_id: userId } });
+// ============================================
+// RESET USER PASSWORD
+// ============================================
+
+export async function resetUserPasswordService(userId, cadmin_id, auditContext = {}) {
+  const user = await prisma.user.findUnique({ 
+    where: { user_id: userId },
+    select: {
+      user_id: true,
+      email: true,
+      full_name: true,
+      shop_id: true,
+    },
+  });
+
   if (!user) {
-    const e = new Error("User not found");
-    e.status = 404;
-    throw e;
+    throw createError("User not found", "NOT_FOUND");
   }
+
   if (!user.email) {
-    const e = new Error("User has no email");
-    e.status = 400;
-    throw e;
+    throw createError("User has no email", "NO_EMAIL");
   }
 
   const resetToken = generateResetToken();
   const hashed = hashToken(resetToken);
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-  await prisma.user.update({
-    where: { user_id: userId },
-    data: {
-      reset_token: hashed,
-      reset_token_expires: expiresAt,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { user_id: userId },
+      data: {
+        reset_token: hashed,
+        reset_token_expires: expiresAt,
+      },
+    });
+
+    // Legacy activity log
+    await tx.activityLog.create({
+      data: {
+        activity_id: cryptoRandomUUID(),
+        user_id: userId,
+        action: "password_change",
+        description: "Password reset link generated by cadmin",
+        ip_address: null,
+        user_agent: null,
+      },
+    });
+
+    // ✅ AUDIT: Password reset by admin
+    await audit.log({
+      action: audit.AuditAction.USER_PASSWORD_RESET_BY_ADMIN,
+      entity_type: audit.EntityType.USER,
+      entity_id: userId,
+      shop_id: user.shop_id || null,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+      metadata: {
+        reset_by_cadmin_id: cadmin_id,
+        method: 'email_link',
+        expires_in_minutes: 15,
+      },
+    }, { tx });
   });
 
   const resetUrl = `${
     process.env.ERP_FRONTEND_ORIGIN || process.env.ADMIN_FRONTEND_ORIGIN
   }/reset-password?token=${resetToken}&uid=${userId}`;
 
-  // ✅ Send notification via centralized system
+  // Send notification
   await notify({
     type: NOTIFICATION_EVENTS.PASSWORD_RESET_REQUESTED,
     context: {
@@ -442,54 +629,27 @@ export async function resetUserPasswordService(userId, actorCAdmin = null) {
     },
   });
 
-  // Create activity log
-  await prisma.activityLog.create({
-    data: {
-      activity_id: cryptoRandomUUID(),
-      user_id: userId,
-      action: "password_change",
-      description: "Password reset link generated by cadmin",
-      ip_address: actorCAdmin?.ip_address || null,
-      user_agent: actorCAdmin?.user_agent || null,
-    },
-  });
-
   return { success: true, email: user.email };
 }
 
-/* ----------------- helpers ----------------- */
+// ============================================
+// FORMAT HELPERS
+// ============================================
 
-function formatDateDDMMYYYY(dt) {
-  const d = new Date(dt);
-  const day = `${d.getDate()}`.padStart(2, "0");
-  const month = `${d.getMonth() + 1}`.padStart(2, "0");
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
-}
-
-function formatRole(role) {
-  if (!role) return "Staff";
-  const r = role.toLowerCase();
-  if (r === "super_admin" || r === "super admin") return "Super Admin";
-  if (r === "branch_admin" || r === "branch admin") return "Branch Admin";
-  if (r === "staff") return "Staff";
-  return role
-    .split(/[_\s]+/)
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(" ");
-}
-
-function mapRoleToDb(roleLabel) {
-  if (!roleLabel) return null;
-  const r = roleLabel.toLowerCase();
-  if (r === "super admin" || r === "super_admin") return "super_admin";
-  if (r === "branch admin" || r === "branch_admin") return "branch_admin";
-  if (r === "staff") return "staff";
-  return roleLabel;
-}
-
-function cryptoRandomUUID() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID)
-    return crypto.randomUUID();
-  return require("crypto").randomUUID();
+function formatUserResponse(u) {
+  return {
+    id: u.user_id,
+    first_name: u.first_name,
+    last_name: u.last_name,
+    name: u.full_name,
+    username: u.username,
+    email: u.email,
+    role: formatRole(u.role),
+    is_active: u.is_active,
+    lastLogin: u.last_login_at
+      ? formatDateDDMMYYYY(u.last_login_at)
+      : "Never",
+    created_at: u.created_at,
+    updated_at: u.updated_at,
+  };
 }

@@ -1,13 +1,18 @@
-// backend/src/modules/cadmin/tickets/cadminTickets.service.js
+// ============================================
+// backend\src\modules\cadmin\tickets\cadminTickets.service.js
+// ============================================
 
 import prisma from "../../../config/prisma.js";
 import { notifyAsync } from "../../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../../notifications/notification.events.js";
+import * as audit from "../../audit/index.js";
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
 
 /**
- * ============================================
- * PRIORITY CALCULATION HELPER
- * ============================================
+ * Calculate priority based on reopen count
  */
 function calculatePriority(reopenCount) {
   if (reopenCount === 0) return "LOW";
@@ -16,6 +21,9 @@ function calculatePriority(reopenCount) {
   return "CRITICAL";
 }
 
+/**
+ * Get reopen count range for priority filter
+ */
 function getPriorityReopenRange(priority) {
   switch (priority) {
     case "LOW":
@@ -32,10 +40,60 @@ function getPriorityReopenRange(priority) {
 }
 
 /**
- * ============================================
- * GET ALL TICKETS
- * ============================================
+ * Transform ticket for CAdmin response
  */
+function transformTicketForCAdmin(ticket) {
+  const priority = calculatePriority(ticket.reopen_count || 0);
+
+  return {
+    ticket_id: ticket.ticket_id,
+    ticket_number: ticket.ticket_number,
+
+    shop_id: ticket.shop_id,
+    shop_name: ticket.shop?.business_name || null,
+    branch_id: ticket.branch_id,
+    branch_name: ticket.branch?.branch_name || null,
+
+    created_by_user_id: ticket.created_by_user_id,
+    created_by_name: ticket.created_by?.full_name || null,
+    created_by_role: ticket.created_by?.role || null,
+    created_by_phone: ticket.created_by?.phone_number || null,
+    created_by_email: ticket.created_by?.email || null,
+
+    contact_number: ticket.contact_number,
+    category: ticket.category,
+    other_category_text: ticket.other_category_text,
+    subject: ticket.subject,
+    description: ticket.description,
+    preferred_slot: ticket.preferred_slot,
+
+    status: ticket.status,
+    priority,
+    admin_notes: ticket.admin_notes,
+
+    cancelled_at: ticket.cancelled_at,
+    cancelled_by_id: ticket.cancelled_by_id,
+    cancelled_by_name: ticket.cancelled_by?.full_name || null,
+    cancellation_reason: ticket.cancellation_reason,
+
+    reopened_at: ticket.reopened_at,
+    reopened_by_id: ticket.reopened_by_id,
+    reopened_by_name: ticket.reopened_by?.full_name || null,
+    reopen_count: ticket.reopen_count || 0,
+    reopen_reason: ticket.reopen_reason,
+
+    attachments: ticket.attachments || [],
+    attachment_count: ticket._count?.attachments || ticket.attachments?.length || 0,
+
+    created_at: ticket.created_at,
+    updated_at: ticket.updated_at,
+  };
+}
+
+// ============================================
+// GET ALL TICKETS
+// ============================================
+
 export async function getAllTickets({
   page = 1,
   limit = 10,
@@ -155,11 +213,40 @@ export async function getAllTickets({
   }
 }
 
-/**
- * ============================================
- * GET TICKET BY ID
- * ============================================
- */
+// ============================================
+// GET TICKET STATS
+// ============================================
+
+export async function getTicketStats() {
+  try {
+    const [total, pending, in_progress, resolved, closed, cancelled] =
+      await Promise.all([
+        prisma.ticket.count(),
+        prisma.ticket.count({ where: { status: "PENDING" } }),
+        prisma.ticket.count({ where: { status: "IN_PROGRESS" } }),
+        prisma.ticket.count({ where: { status: "RESOLVED" } }),
+        prisma.ticket.count({ where: { status: "CLOSED" } }),
+        prisma.ticket.count({ where: { status: "CANCELLED" } }),
+      ]);
+
+    return {
+      total,
+      pending,
+      in_progress,
+      resolved,
+      closed,
+      cancelled,
+    };
+  } catch (error) {
+    console.error("getTicketStats error:", error);
+    throw error;
+  }
+}
+
+// ============================================
+// GET TICKET BY ID
+// ============================================
+
 export async function getTicketById(ticket_id) {
   try {
     const ticket = await prisma.ticket.findUnique({
@@ -220,11 +307,10 @@ export async function getTicketById(ticket_id) {
   }
 }
 
-/**
- * ============================================
- * GET TICKET STATUS HISTORY
- * ============================================
- */
+// ============================================
+// GET TICKET STATUS HISTORY
+// ============================================
+
 export async function getTicketStatusHistory(ticket_id) {
   try {
     const ticket = await prisma.ticket.findUnique({
@@ -250,14 +336,19 @@ export async function getTicketStatusHistory(ticket_id) {
   }
 }
 
-/**
- * ============================================
- * UPDATE TICKET STATUS (WITH EMAIL NOTIFICATION)
- * ============================================
- */
-export async function updateTicketStatus(ticket_id, status, note, cadmin_id) {
+// ============================================
+// UPDATE TICKET STATUS
+// ============================================
+
+export async function updateTicketStatus(
+  ticket_id,
+  status,
+  note,
+  cadmin_id,
+  auditContext = {}
+) {
   try {
-    // Get ticket with creator info for email
+    // Get ticket with creator info
     const ticket = await prisma.ticket.findUnique({
       where: { ticket_id },
       include: {
@@ -266,6 +357,12 @@ export async function updateTicketStatus(ticket_id, status, note, cadmin_id) {
             user_id: true,
             full_name: true,
             email: true,
+          },
+        },
+        shop: {
+          select: {
+            shop_id: true,
+            business_name: true,
           },
         },
       },
@@ -277,7 +374,7 @@ export async function updateTicketStatus(ticket_id, status, note, cadmin_id) {
       throw err;
     }
 
-    // CAdmin cannot update cancelled tickets
+    // Cannot update cancelled tickets
     if (ticket.status === "CANCELLED") {
       const err = new Error("Cannot update a cancelled ticket");
       err.code = "CANNOT_UPDATE_CANCELLED";
@@ -325,9 +422,9 @@ export async function updateTicketStatus(ticket_id, status, note, cadmin_id) {
         : newNoteEntry;
     }
 
-    // Use transaction to update ticket and create history entry
-    const [updatedTicket, historyEntry] = await prisma.$transaction([
-      prisma.ticket.update({
+    // Use transaction to update ticket, create history, and audit log
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedTicket = await tx.ticket.update({
         where: { ticket_id },
         data: {
           status,
@@ -377,8 +474,10 @@ export async function updateTicketStatus(ticket_id, status, note, cadmin_id) {
             },
           },
         },
-      }),
-      prisma.ticketStatusHistory.create({
+      });
+
+      // Create legacy status history entry
+      await tx.ticketStatusHistory.create({
         data: {
           ticket_id,
           changed_by_type: "CADMIN",
@@ -388,12 +487,40 @@ export async function updateTicketStatus(ticket_id, status, note, cadmin_id) {
           to_status: status,
           note: note || null,
         },
-      }),
-    ]);
+      });
 
-    // ============================================
-    // ✅ SEND EMAIL NOTIFICATION via centralized system
-    // ============================================
+      // ✅ AUDIT: Determine which action to log
+      let auditAction;
+      if (status === "RESOLVED") {
+        auditAction = audit.AuditAction.TICKET_RESOLVED_BY_ADMIN;
+      } else if (status === "CLOSED") {
+        auditAction = audit.AuditAction.TICKET_CLOSED_BY_ADMIN;
+      } else {
+        auditAction = audit.AuditAction.TICKET_STATUS_UPDATED_BY_ADMIN;
+      }
+
+      await audit.log({
+        action: auditAction,
+        entity_type: audit.EntityType.TICKET,
+        entity_id: ticket_id,
+        shop_id: ticket.shop?.shop_id || null,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          ticket_number: ticket.ticket_number,
+          previous_status: previousStatus,
+          new_status: status,
+          updated_by_cadmin_id: cadmin_id,
+          note: note || null,
+          category: ticket.category,
+          reopen_count: ticket.reopen_count,
+        },
+      }, { tx });
+
+      return updatedTicket;
+    });
+
+    // ✅ Send notification to ticket creator
     if (ticket.created_by?.email) {
       notifyAsync({
         type: NOTIFICATION_EVENTS.TICKET_STATUS_CHANGED,
@@ -404,7 +531,6 @@ export async function updateTicketStatus(ticket_id, status, note, cadmin_id) {
           from_status: previousStatus,
           to_status: status,
           admin_note: note || null,
-          // Direct recipient info
           email: ticket.created_by.email,
           name: ticket.created_by.full_name || "Customer",
         },
@@ -413,101 +539,9 @@ export async function updateTicketStatus(ticket_id, status, note, cadmin_id) {
       console.warn(`⚠️ No email for ticket ${ticket.ticket_number} creator - skipping notification`);
     }
 
-    return transformTicketForCAdmin(updatedTicket);
+    return transformTicketForCAdmin(result);
   } catch (error) {
     console.error("updateTicketStatus error:", error);
     throw error;
   }
-}
-
-/**
- * ============================================
- * GET TICKET STATS
- * ============================================
- */
-export async function getTicketStats() {
-  try {
-    const [total, pending, in_progress, resolved, closed, cancelled] =
-      await Promise.all([
-        prisma.ticket.count(),
-        prisma.ticket.count({ where: { status: "PENDING" } }),
-        prisma.ticket.count({ where: { status: "IN_PROGRESS" } }),
-        prisma.ticket.count({ where: { status: "RESOLVED" } }),
-        prisma.ticket.count({ where: { status: "CLOSED" } }),
-        prisma.ticket.count({ where: { status: "CANCELLED" } }),
-      ]);
-
-    return {
-      total,
-      pending,
-      in_progress,
-      resolved,
-      closed,
-      cancelled,
-    };
-  } catch (error) {
-    console.error("getTicketStats error:", error);
-    throw error;
-  }
-}
-
-/**
- * ============================================
- * HELPER: Transform ticket for CAdmin response
- * ============================================
- */
-function transformTicketForCAdmin(ticket) {
-  const priority = calculatePriority(ticket.reopen_count || 0);
-
-  return {
-    ticket_id: ticket.ticket_id,
-    ticket_number: ticket.ticket_number,
-
-    // Shop & Branch
-    shop_id: ticket.shop_id,
-    shop_name: ticket.shop?.business_name || null,
-    branch_id: ticket.branch_id,
-    branch_name: ticket.branch?.branch_name || null,
-
-    // Creator info
-    created_by_user_id: ticket.created_by_user_id,
-    created_by_name: ticket.created_by?.full_name || null,
-    created_by_role: ticket.created_by?.role || null,
-    created_by_phone: ticket.created_by?.phone_number || null,
-    created_by_email: ticket.created_by?.email || null,
-
-    // Contact & Issue
-    contact_number: ticket.contact_number,
-    category: ticket.category,
-    other_category_text: ticket.other_category_text,
-    subject: ticket.subject,
-    description: ticket.description,
-    preferred_slot: ticket.preferred_slot,
-
-    // Status & Priority
-    status: ticket.status,
-    priority,
-    admin_notes: ticket.admin_notes,
-
-    // Cancellation (by user)
-    cancelled_at: ticket.cancelled_at,
-    cancelled_by_id: ticket.cancelled_by_id,
-    cancelled_by_name: ticket.cancelled_by?.full_name || null,
-    cancellation_reason: ticket.cancellation_reason,
-
-    // Reopening
-    reopened_at: ticket.reopened_at,
-    reopened_by_id: ticket.reopened_by_id,
-    reopened_by_name: ticket.reopened_by?.full_name || null,
-    reopen_count: ticket.reopen_count || 0,
-    reopen_reason: ticket.reopen_reason,
-
-    // Attachments
-    attachments: ticket.attachments || [],
-    attachment_count: ticket._count?.attachments || ticket.attachments?.length || 0,
-
-    // Timestamps
-    created_at: ticket.created_at,
-    updated_at: ticket.updated_at,
-  };
 }

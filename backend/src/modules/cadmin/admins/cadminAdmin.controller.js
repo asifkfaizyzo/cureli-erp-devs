@@ -1,4 +1,7 @@
+// src/modules/cadmin/admins/cadminAdmin.controller.js
+
 import { success, fail } from "../../../utils/response.js";
+import * as audit from "../../audit/index.js";
 import {
   getAdminsService,
   getAdminByIdService,
@@ -31,12 +34,8 @@ export async function getAdminByIdController(req, res) {
 
 export async function createAdminController(req, res) {
   try {
-    const actorMeta = {
-      cadmin_id: req.cadmin.cadmin_id,
-      ip_address: req.ip || req.headers["x-forwarded-for"] || null,
-      user_agent: req.headers["user-agent"] || null,
-    };
-    const admin = await createAdminService(req.validated, actorMeta);
+    const auditContext = audit.extractRequestContext(req);
+    const admin = await createAdminService(req.validated, auditContext);
     return success(res, admin, "Admin created successfully", 201);
   } catch (err) {
     console.error("cadmin.admins.create", err);
@@ -47,12 +46,8 @@ export async function createAdminController(req, res) {
 export async function updateAdminController(req, res) {
   try {
     const { id } = req.params;
-    const actorMeta = {
-      cadmin_id: req.cadmin.cadmin_id,
-      ip_address: req.ip || req.headers["x-forwarded-for"] || null,
-      user_agent: req.headers["user-agent"] || null,
-    };
-    const admin = await updateAdminService(id, req.validated, actorMeta);
+    const auditContext = audit.extractRequestContext(req);
+    const admin = await updateAdminService(id, req.validated, auditContext);
     return success(res, admin, "Admin updated successfully");
   } catch (err) {
     console.error("cadmin.admins.update", err);
@@ -64,12 +59,8 @@ export async function toggleAdminAccessController(req, res) {
   try {
     const { id } = req.params;
     const { is_active } = req.validated;
-    const actorMeta = {
-      cadmin_id: req.cadmin.cadmin_id,
-      ip_address: req.ip || req.headers["x-forwarded-for"] || null,
-      user_agent: req.headers["user-agent"] || null,
-    };
-    const result = await toggleAdminAccessService(id, is_active, actorMeta);
+    const auditContext = audit.extractRequestContext(req);
+    const result = await toggleAdminAccessService(id, is_active, auditContext);
     const message = is_active ? "Admin activated successfully" : "Admin suspended successfully";
     return success(res, result, message);
   } catch (err) {

@@ -1,22 +1,10 @@
 // ============================================
-// CADMIN PLANS CONTROLLER
+// backend\src\modules\cadmin\plans\cadminPlans.controller.js
 // ============================================
-// Handles HTTP request/response for plan management
-// Business logic is delegated to service layer
 
-import {
-  listPlans,
-  getPlanStats,
-  getPlanById,
-  createPlan,
-  updatePlan,
-  activatePlan,
-  suspendPlan,
-  reactivatePlan,
-  clonePlan,
-  softDeletePlan,
-} from "./cadminPlans.service.js";
+import * as svc from "./cadminPlans.service.js";
 import { success, fail } from "../../../utils/response.js";
+import * as audit from "../../audit/index.js";
 
 // ============================================
 // LIST PLANS
@@ -40,7 +28,7 @@ export async function listPlansController(req, res) {
       include_deleted = false,
     } = req.query;
 
-    const result = await listPlans({
+    const result = await svc.listPlans({
       page: Number(page),
       limit: Number(limit),
       search,
@@ -69,7 +57,7 @@ export async function listPlansController(req, res) {
  */
 export async function getPlanStatsController(req, res) {
   try {
-    const stats = await getPlanStats();
+    const stats = await svc.getPlanStats();
     return success(res, stats, "Plan stats fetched successfully");
   } catch (err) {
     console.error("getPlanStatsController error:", err);
@@ -93,7 +81,7 @@ export async function getPlanByIdController(req, res) {
       return fail(res, "Plan ID is required", 400);
     }
 
-    const plan = await getPlanById(plan_id);
+    const plan = await svc.getPlanById(plan_id);
 
     return success(res, plan, "Plan fetched successfully");
   } catch (err) {
@@ -124,7 +112,8 @@ export async function createPlanController(req, res) {
       return fail(res, "Admin authentication required", 401);
     }
 
-    const plan = await createPlan(data, cadmin_id);
+    const auditContext = audit.extractRequestContext(req);
+    const plan = await svc.createPlan(data, cadmin_id, auditContext);
 
     return success(res, plan, "Plan created successfully", 201);
   } catch (err) {
@@ -164,7 +153,8 @@ export async function updatePlanController(req, res) {
       return fail(res, "No fields to update", 400);
     }
 
-    const plan = await updatePlan(plan_id, updates, cadmin_id);
+    const auditContext = audit.extractRequestContext(req);
+    const plan = await svc.updatePlan(plan_id, updates, cadmin_id, auditContext);
 
     return success(res, plan, "Plan updated successfully");
   } catch (err) {
@@ -207,7 +197,8 @@ export async function activatePlanController(req, res) {
       return fail(res, "Plan ID is required", 400);
     }
 
-    const plan = await activatePlan(plan_id, cadmin_id);
+    const auditContext = audit.extractRequestContext(req);
+    const plan = await svc.activatePlan(plan_id, cadmin_id, auditContext);
 
     return success(res, plan, "Plan activated successfully");
   } catch (err) {
@@ -250,7 +241,8 @@ export async function suspendPlanController(req, res) {
       return fail(res, "Plan ID is required", 400);
     }
 
-    const result = await suspendPlan(plan_id, cadmin_id);
+    const auditContext = audit.extractRequestContext(req);
+    const result = await svc.suspendPlan(plan_id, cadmin_id, auditContext);
 
     const message = result.subscriber_count > 0
       ? `Plan deprecated. ${result.subscriber_count} active subscribers will continue until their term ends.`
@@ -289,7 +281,8 @@ export async function reactivatePlanController(req, res) {
       return fail(res, "Plan ID is required", 400);
     }
 
-    const plan = await reactivatePlan(plan_id, cadmin_id);
+    const auditContext = audit.extractRequestContext(req);
+    const plan = await svc.reactivatePlan(plan_id, cadmin_id, auditContext);
 
     return success(res, plan, "Plan reactivated successfully");
   } catch (err) {
@@ -333,7 +326,8 @@ export async function clonePlanController(req, res) {
       return fail(res, "Plan ID is required", 400);
     }
 
-    const plan = await clonePlan(plan_id, cadmin_id, customName);
+    const auditContext = audit.extractRequestContext(req);
+    const plan = await svc.clonePlan(plan_id, cadmin_id, customName, auditContext);
 
     return success(res, plan, "Plan cloned successfully", 201);
   } catch (err) {
@@ -368,7 +362,8 @@ export async function deletePlanController(req, res) {
       return fail(res, "Plan ID is required", 400);
     }
 
-    const plan = await softDeletePlan(plan_id, cadmin_id);
+    const auditContext = audit.extractRequestContext(req);
+    const plan = await svc.softDeletePlan(plan_id, cadmin_id, auditContext);
 
     return success(res, plan, "Plan deleted successfully");
   } catch (err) {

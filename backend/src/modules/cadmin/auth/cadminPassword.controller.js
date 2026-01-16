@@ -1,4 +1,7 @@
+// backend/src/modules/cadmin/auth/cadminPassword.controller.js
+
 import { success, fail } from "../../../utils/response.js";
+import * as audit from "../../audit/index.js";
 import {
   requestCAdminPasswordReset,
   resetCAdminPassword,
@@ -7,14 +10,9 @@ import {
 export async function forgotCAdminPasswordController(req, res) {
   try {
     const { email } = req.validated;
-
-    await requestCAdminPasswordReset(email);
-
-    return success(
-      res,
-      {},
-      "If that email exists, a reset link has been sent."
-    );
+    const auditContext = audit.extractRequestContext(req);
+    await requestCAdminPasswordReset(email, auditContext);
+    return success(res, {}, "If that email exists, a reset link has been sent.");
   } catch (err) {
     console.error("cadmin.forgot-password", err);
     return fail(res, "Failed to process request", 500);
@@ -24,9 +22,8 @@ export async function forgotCAdminPasswordController(req, res) {
 export async function resetCAdminPasswordController(req, res) {
   try {
     const { token, password } = req.validated;
-
-    await resetCAdminPassword(token, password);
-
+    const auditContext = audit.extractRequestContext(req);
+    await resetCAdminPassword(token, password, auditContext);
     return success(res, {}, "Password reset successful.");
   } catch (err) {
     if (err.code === "INVALID_TOKEN") {

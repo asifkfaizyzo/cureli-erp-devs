@@ -1,20 +1,18 @@
-// backend/src/modules/cadmin/tickets/cadminTickets.controller.js
+// ============================================
+// backend\src\modules\cadmin\tickets\cadminTickets.controller.js
+// ============================================
 
 import { success, fail } from "../../../utils/response.js";
-import {
-  getAllTickets,
-  getTicketById,
-  updateTicketStatus,
-  getTicketStats,
-  getTicketStatusHistory,
-} from "./cadminTickets.service.js";
+import * as svc from "./cadminTickets.service.js";
+import * as audit from "../../audit/index.js";
 
 /**
  * GET /cadmin/tickets
+ * List all tickets with filters
  */
 export async function getAllTicketsController(req, res) {
   try {
-    const result = await getAllTickets(req.validated);
+    const result = await svc.getAllTickets(req.validated);
     return success(res, result);
   } catch (err) {
     console.error("getAllTicketsController error:", err);
@@ -24,10 +22,11 @@ export async function getAllTicketsController(req, res) {
 
 /**
  * GET /cadmin/tickets/stats
+ * Get ticket statistics
  */
 export async function getTicketStatsController(req, res) {
   try {
-    const stats = await getTicketStats();
+    const stats = await svc.getTicketStats();
     return success(res, stats);
   } catch (err) {
     console.error("getTicketStatsController error:", err);
@@ -37,11 +36,12 @@ export async function getTicketStatsController(req, res) {
 
 /**
  * GET /cadmin/tickets/:ticket_id
+ * Get single ticket details
  */
 export async function getTicketByIdController(req, res) {
   try {
     const { ticket_id } = req.params;
-    const ticket = await getTicketById(ticket_id);
+    const ticket = await svc.getTicketById(ticket_id);
 
     if (!ticket) {
       return fail(res, "Ticket not found", 404);
@@ -56,11 +56,12 @@ export async function getTicketByIdController(req, res) {
 
 /**
  * GET /cadmin/tickets/:ticket_id/history
+ * Get ticket status change history
  */
 export async function getTicketHistoryController(req, res) {
   try {
     const { ticket_id } = req.params;
-    const history = await getTicketStatusHistory(ticket_id);
+    const history = await svc.getTicketStatusHistory(ticket_id);
     return success(res, { history });
   } catch (err) {
     console.error("getTicketHistoryController error:", err);
@@ -75,6 +76,7 @@ export async function getTicketHistoryController(req, res) {
 
 /**
  * PATCH /cadmin/tickets/:ticket_id/status
+ * Update ticket status (by admin)
  */
 export async function updateTicketStatusController(req, res) {
   try {
@@ -86,7 +88,14 @@ export async function updateTicketStatusController(req, res) {
       return fail(res, "Status is required", 400);
     }
 
-    const ticket = await updateTicketStatus(ticket_id, status, note, cadmin_id);
+    const auditContext = audit.extractRequestContext(req);
+    const ticket = await svc.updateTicketStatus(
+      ticket_id,
+      status,
+      note,
+      cadmin_id,
+      auditContext
+    );
 
     return success(res, { ticket }, "Ticket updated successfully");
   } catch (err) {

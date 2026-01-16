@@ -7,8 +7,9 @@ import jwt from "jsonwebtoken";
 import { ACCESS_SECRET, REFRESH_SECRET, ACCESS_EXPIRES, REFRESH_EXPIRES } from "../../config/jwt.js";
 import { notify } from "../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
+import * as audit from "../audit/index.js";
 
-export async function createOwnerAccount({ first_name, last_name, email, password }) {
+export async function createOwnerAccount({ first_name, last_name, email, password }, auditContext) {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     if (existing.login_provider === "google") {
@@ -37,6 +38,21 @@ export async function createOwnerAccount({ first_name, last_name, email, passwor
     },
   });
 
+  // Audit: User account created (will become shop owner)
+  await audit.log({
+    action: audit.AuditAction.USER_CREATED,
+    entity_type: audit.EntityType.USER,
+    entity_id: user.user_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      email: user.email,
+      role: user.role,
+      login_provider: user.login_provider,
+      is_owner_account: true,
+    },
+  });
+
   const accessToken = jwt.sign(
     { user_id: user.user_id, role: user.role, status: user.status },
     ACCESS_SECRET,
@@ -55,6 +71,7 @@ export async function createOwnerAccount({ first_name, last_name, email, passwor
   };
 }
 
+// No audit needed - just sends reset email (no state change yet)
 export async function requestPasswordReset(email) {
   const user = await prisma.user.findUnique({ where: { email } });
 
@@ -83,7 +100,6 @@ export async function requestPasswordReset(email) {
 
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
-  // ✅ Send notification via centralized system
   await notify({
     type: NOTIFICATION_EVENTS.PASSWORD_RESET_REQUESTED,
     context: {
@@ -97,7 +113,7 @@ export async function requestPasswordReset(email) {
   return { success: true };
 }
 
-export async function resetPassword(token, newPassword) {
+export async function resetPassword(token, newPassword, auditContext) {
   const hashedToken = hashToken(token);
 
   const user = await prisma.user.findFirst({
@@ -123,6 +139,23 @@ export async function resetPassword(token, newPassword) {
       password_hash,
       reset_token: null,
       reset_token_expires: null,
+    },
+  });
+
+  // Audit: Password reset completed (SECURITY ACTION - must not fail)
+  await audit.log({
+    action: audit.AuditAction.PASSWORD_RESET_COMPLETED,
+    entity_type: audit.EntityType.USER,
+    entity_id: user.user_id,
+    actor_type: audit.ActorType.ERP_USER,
+    actor_id: user.user_id, // User resetting their own password
+    actor_role: user.role,
+    shop_id: user.shop_id,
+    branch_id: user.branch_id,
+    ...auditContext, // For IP and user agent
+    reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+    metadata: {
+      reset_method: 'email_token',
     },
   });
 

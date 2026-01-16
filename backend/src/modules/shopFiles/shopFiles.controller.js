@@ -3,18 +3,16 @@
 import prisma from "../../config/prisma.js";
 import { success, fail } from "../../utils/response.js";
 import * as svc from "./shopFiles.service.js";
+import * as audit from "../audit/index.js";
 
 /**
  * Helper: Resolve shop_id for a user
- * Checks both user.shop_id (member) and owned shops (owner)
  */
 async function resolveShopId(user) {
-  // First check if shop_id is set on user token
   if (user.shop_id) {
     return user.shop_id;
   }
 
-  // Fallback: Check if user owns a shop
   const ownedShop = await prisma.shop.findFirst({
     where: { owner_user_id: user.user_id },
     select: { shop_id: true },
@@ -25,10 +23,7 @@ async function resolveShopId(user) {
 
 /**
  * GET /api/shop/files/verification-status
- * Returns verification status for the current user's shop
  */
-
-
 export async function getVerificationStatusController(req, res) {
   try {
     const user_id = req.user.user_id;
@@ -42,7 +37,6 @@ export async function getVerificationStatusController(req, res) {
       return fail(res, "No shop associated with your account", 400);
     }
 
-    // Get shop verification status
     const shop = await prisma.shop.findUnique({
       where: { shop_id },
       select: {
@@ -57,7 +51,6 @@ export async function getVerificationStatusController(req, res) {
       return fail(res, "Shop not found", 404);
     }
 
-    // Get user status
     const user = await prisma.user.findUnique({
       where: { user_id },
       select: {
@@ -83,7 +76,6 @@ export async function getVerificationStatusController(req, res) {
       user_status: user?.status,
       first_login_after_verification: user?.first_login_after_verification,
       first_verified_at: user?.first_verified_at,
-      // ✅ FIXED: Use first_verified_at to determine first-time vs returning
       is_first_verification: isFirstVerification,
       shop_id: shop.shop_id,
       business_name: shop.business_name,
@@ -97,7 +89,6 @@ export async function getVerificationStatusController(req, res) {
 
 /**
  * POST /api/shop/files/upload
- * Initial file upload during shop onboarding
  */
 export async function uploadShopFileController(req, res) {
   try {
@@ -118,6 +109,8 @@ export async function uploadShopFileController(req, res) {
       return fail(res, "No shop associated with your account", 400);
     }
 
+    const auditContext = audit.extractRequestContext(req);
+
     const fileData = {
       shop_id,
       user_id,
@@ -126,6 +119,7 @@ export async function uploadShopFileController(req, res) {
       mime_type: req.file.mimetype,
       file_size: req.file.size,
       storage_key: req.file.filename,
+      auditContext,
     };
 
     const file = await svc.uploadShopFile(fileData);
@@ -139,7 +133,6 @@ export async function uploadShopFileController(req, res) {
 
 /**
  * GET /api/shop/files/rejected
- * Get all rejected files for the owner's shop
  */
 export async function listRejectedController(req, res) {
   try {
@@ -169,7 +162,6 @@ export async function listRejectedController(req, res) {
 
 /**
  * POST /api/shop/files/:file_id/resubmit
- * Owner resubmits a rejected file
  */
 export async function resubmitController(req, res) {
   try {
@@ -185,6 +177,8 @@ export async function resubmitController(req, res) {
       return fail(res, "No file uploaded", 400);
     }
 
+    const auditContext = audit.extractRequestContext(req);
+
     const fileData = {
       file_id,
       shop_id,
@@ -193,6 +187,7 @@ export async function resubmitController(req, res) {
       mime_type: req.file.mimetype,
       file_size: req.file.size,
       owner_message,
+      auditContext,
     };
 
     const updated = await svc.resubmitFile(fileData);
@@ -212,7 +207,6 @@ export async function resubmitController(req, res) {
 
 /**
  * POST /api/shop/files/:file_id/message
- * Owner sends a message to admin about a file
  */
 export async function messageController(req, res) {
   try {

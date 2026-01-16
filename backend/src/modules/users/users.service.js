@@ -2,6 +2,7 @@
 
 import prisma from "../../config/prisma.js";
 import { hashPassword } from "../../utils/hash.js";
+import * as audit from "../audit/index.js";
 
 /**
  * ============================================
@@ -24,13 +25,11 @@ export async function getUsers({
   // Build where clause
   const where = {
     shop_id,
-    // Exclude super_admin from list (they're shop owners, not "users" to manage)
+    // Exclude super_admin from list
     role: { in: ["branch_admin", "staff"] },
   };
 
   // Branch filtering
-  // SA can filter by any branch or see all
-  // BA can only see their own branch
   if (requester_role === "super_admin") {
     if (branch_id) {
       where.branch_id = branch_id;
@@ -52,7 +51,7 @@ export async function getUsers({
     where.is_active = false;
   }
 
-  // Search filter (name, username, phone)
+  // Search filter
   if (search) {
     where.OR = [
       { full_name: { contains: search, mode: "insensitive" } },
@@ -180,11 +179,10 @@ export async function getUserById(user_id, shop_id) {
 
 /**
  * ============================================
- * GET USER LIMITS (usage vs plan)
+ * GET USER LIMITS
  * ============================================
  */
 export async function getUserLimits(shop_id) {
-  // Get shop with subscription
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
     include: {
@@ -220,7 +218,6 @@ export async function getUserLimits(shop_id) {
   const maxAllowed = subscription.user_limit_snapshot;
   const currentCount = shop._count.users;
 
-  // -1 means unlimited
   const canAdd = maxAllowed === -1 || currentCount < maxAllowed;
   const remaining =
     maxAllowed === -1 ? -1 : Math.max(0, maxAllowed - currentCount);
@@ -293,7 +290,6 @@ export async function checkPhoneAvailability(
  * ============================================
  * CHECK IF BRANCH HAS BRANCH ADMIN
  * ============================================
- * Returns the existing BA if found, null otherwise
  */
 export async function branchHasBranchAdmin(branch_id, exclude_user_id = null) {
   const where = {
@@ -328,6 +324,7 @@ export async function createUser({
   password,
   role,
   email,
+  auditContext = {}, // ✅ Accept audit context
 }) {
   // Validate branch belongs to shop
   const branch = await prisma.branch.findFirst({
@@ -354,9 +351,7 @@ export async function createUser({
     throw err;
   }
 
-  // ============================================
-  // CHECK: Only one Branch Admin per branch
-  // ============================================
+  // Check: Only one Branch Admin per branch
   if (role === "branch_admin") {
     const existingBA = await branchHasBranchAdmin(branch_id);
     if (existingBA) {
@@ -392,35 +387,61 @@ export async function createUser({
   const first_name = nameParts[0];
   const last_name = nameParts.slice(1).join(" ") || "";
 
-  // Create user
-  const user = await prisma.user.create({
-    data: {
-      shop_id,
-      branch_id,
-      first_name,
-      last_name,
-      full_name: full_name.trim(),
-      username: username.toLowerCase(),
-      phone_number,
-      email: email || null,
-      password_hash,
-      login_provider: "password",
-      role,
-      status: "verified",
-      is_active: true,
-      onboarding_step: 12, // Completed
-    },
-    select: {
-      user_id: true,
-      full_name: true,
-      username: true,
-      phone_number: true,
-      email: true,
-      role: true,
-      branch_id: true,
-      is_active: true,
-      created_at: true,
-    },
+  // Create user within transaction
+  const user = await prisma.$transaction(async (tx) => {
+    const newUser = await tx.user.create({
+      data: {
+        shop_id,
+        branch_id,
+        first_name,
+        last_name,
+        full_name: full_name.trim(),
+        username: username.toLowerCase(),
+        phone_number,
+        email: email || null,
+        password_hash,
+        login_provider: "password",
+        role,
+        status: "verified",
+        is_active: true,
+        onboarding_step: 12, // Completed
+      },
+      select: {
+        user_id: true,
+        full_name: true,
+        username: true,
+        phone_number: true,
+        email: true,
+        role: true,
+        branch_id: true,
+        is_active: true,
+        created_at: true,
+      },
+    });
+
+    // ✅ AUDIT LOG: User created
+    await audit.log(
+      {
+        action: audit.AuditAction.USER_CREATED,
+        entity_type: audit.EntityType.USER,
+        entity_id: newUser.user_id,
+        shop_id,
+        branch_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.USER_REQUEST,
+        metadata: {
+          username: newUser.username,
+          role: newUser.role,
+          email: newUser.email,
+          phone_number: newUser.phone_number,
+          branch_id,
+          created_by_role: auditContext.actor_role,
+        },
+      },
+      { tx }
+    );
+
+    return newUser;
   });
 
   return user;
@@ -431,7 +452,12 @@ export async function createUser({
  * UPDATE USER
  * ============================================
  */
-export async function updateUser(user_id, shop_id, updates) {
+export async function updateUser(
+  user_id,
+  shop_id,
+  updates,
+  auditContext = {} // ✅ Accept audit context
+) {
   // Get existing user
   const existingUser = await prisma.user.findFirst({
     where: {
@@ -453,8 +479,9 @@ export async function updateUser(user_id, shop_id, updates) {
     throw err;
   }
 
-  // Build update data
+  // Build update data & track changes for audit
   const updateData = {};
+  const changesSummary = [];
 
   // Name update
   if (updates.full_name) {
@@ -462,6 +489,10 @@ export async function updateUser(user_id, shop_id, updates) {
     updateData.first_name = nameParts[0];
     updateData.last_name = nameParts.slice(1).join(" ") || "";
     updateData.full_name = updates.full_name.trim();
+    
+    if (existingUser.full_name !== updateData.full_name) {
+      changesSummary.push('full_name');
+    }
   }
 
   // Phone update
@@ -479,6 +510,7 @@ export async function updateUser(user_id, shop_id, updates) {
       throw err;
     }
     updateData.phone_number = updates.phone_number;
+    changesSummary.push('phone_number');
   }
 
   // Username update
@@ -493,16 +525,16 @@ export async function updateUser(user_id, shop_id, updates) {
       throw err;
     }
     updateData.username = updates.username.toLowerCase();
+    changesSummary.push('username');
   }
 
   // Email update
-  if (updates.email !== undefined) {
+  if (updates.email !== undefined && updates.email !== existingUser.email) {
     updateData.email = updates.email || null;
+    changesSummary.push('email');
   }
 
-  // ============================================
   // Role update (SA only - with BA limit check)
-  // ============================================
   if (updates.role && updates.role !== existingUser.role) {
     // If changing TO branch_admin, check if branch already has one
     if (updates.role === "branch_admin") {
@@ -517,6 +549,7 @@ export async function updateUser(user_id, shop_id, updates) {
       }
     }
     updateData.role = updates.role;
+    changesSummary.push('role');
   }
 
   // Branch update (SA only)
@@ -550,40 +583,112 @@ export async function updateUser(user_id, shop_id, updates) {
     }
 
     updateData.branch_id = updates.branch_id;
+    changesSummary.push('branch_id');
   }
 
   // Active status update (SA only)
-  if (updates.is_active !== undefined) {
+  if (updates.is_active !== undefined && updates.is_active !== existingUser.is_active) {
     updateData.is_active = updates.is_active;
 
-    // If reactivating, set status back to verified
     if (updates.is_active === true) {
       updateData.status = "verified";
     } else {
       updateData.status = "inactive";
     }
+    changesSummary.push('is_active');
   }
 
-  // Perform update
-  const updatedUser = await prisma.user.update({
-    where: { user_id },
-    data: updateData,
-    select: {
-      user_id: true,
-      full_name: true,
-      username: true,
-      phone_number: true,
-      email: true,
-      role: true,
-      branch_id: true,
-      is_active: true,
-      updated_at: true,
-      branch: {
-        select: {
-          branch_name: true,
+  // If no changes, skip update
+  if (Object.keys(updateData).length === 0) {
+    return getUserById(user_id, shop_id);
+  }
+
+  // Perform update within transaction
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { user_id },
+      data: updateData,
+      select: {
+        user_id: true,
+        full_name: true,
+        username: true,
+        phone_number: true,
+        email: true,
+        role: true,
+        branch_id: true,
+        is_active: true,
+        updated_at: true,
+        branch: {
+          select: {
+            branch_name: true,
+          },
         },
       },
-    },
+    });
+
+    // ✅ AUDIT LOG: User profile updated
+    await audit.log(
+      {
+        action: audit.AuditAction.USER_PROFILE_UPDATED,
+        entity_type: audit.EntityType.USER,
+        entity_id: user_id,
+        shop_id,
+        branch_id: existingUser.branch_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.USER_REQUEST,
+        metadata: {
+          changed_fields: changesSummary,
+          previous_role: existingUser.role !== updateData.role ? existingUser.role : undefined,
+          new_role: updateData.role,
+          previous_branch_id: existingUser.branch_id !== updateData.branch_id ? existingUser.branch_id : undefined,
+          new_branch_id: updateData.branch_id,
+          updated_by_role: auditContext.actor_role,
+        },
+      },
+      { tx }
+    );
+
+    // ✅ AUDIT LOG: Role changed (if applicable)
+    if (updateData.role && existingUser.role !== updateData.role) {
+      await audit.log(
+        {
+          action: audit.AuditAction.USER_ROLE_CHANGED,
+          entity_type: audit.EntityType.USER,
+          entity_id: user_id,
+          shop_id,
+          branch_id: existingUser.branch_id,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+          metadata: {
+            previous_role: existingUser.role,
+            new_role: updateData.role,
+          },
+        },
+        { tx }
+      );
+    }
+
+    // ✅ AUDIT LOG: Branch changed (if applicable)
+    if (updateData.branch_id && existingUser.branch_id !== updateData.branch_id) {
+      await audit.log(
+        {
+          action: audit.AuditAction.USER_BRANCH_CHANGED,
+          entity_type: audit.EntityType.USER,
+          entity_id: user_id,
+          shop_id,
+          branch_id: existingUser.branch_id,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+          metadata: {
+            previous_branch_id: existingUser.branch_id,
+            new_branch_id: updateData.branch_id,
+          },
+        },
+        { tx }
+      );
+    }
+
+    return updated;
   });
 
   return {
@@ -597,7 +702,12 @@ export async function updateUser(user_id, shop_id, updates) {
  * DELETE (DEACTIVATE) USER
  * ============================================
  */
-export async function deleteUser(user_id, shop_id, requester_user_id) {
+export async function deleteUser(
+  user_id,
+  shop_id,
+  requester_user_id,
+  auditContext = {} // ✅ Accept audit context
+) {
   // Get user
   const user = await prisma.user.findFirst({
     where: {
@@ -640,26 +750,48 @@ export async function deleteUser(user_id, shop_id, requester_user_id) {
     throw err;
   }
 
-  // Soft delete
-  await prisma.user.update({
-    where: { user_id },
-    data: {
-      is_active: false,
-      status: "inactive",
-    },
-  });
+  // Soft delete within transaction
+  await prisma.$transaction(async (tx) => {
+    // Update user
+    await tx.user.update({
+      where: { user_id },
+      data: {
+        is_active: false,
+        status: "inactive",
+      },
+    });
 
-  // Invalidate all sessions
-  await prisma.userSession.updateMany({
-    where: {
-      user_id,
-      is_active: true,
-    },
-    data: {
-      is_active: false,
-      ended_at: new Date(),
-      ended_reason: "admin_force",
-    },
+    // Invalidate all sessions
+    await tx.userSession.updateMany({
+      where: {
+        user_id,
+        is_active: true,
+      },
+      data: {
+        is_active: false,
+        ended_at: new Date(),
+        ended_reason: "admin_force",
+      },
+    });
+
+    // ✅ AUDIT LOG: User deactivated
+    await audit.log(
+      {
+        action: audit.AuditAction.USER_DEACTIVATED,
+        entity_type: audit.EntityType.USER,
+        entity_id: user_id,
+        shop_id,
+        branch_id: user.branch_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          deactivated_user_role: user.role,
+          deactivated_user_username: user.username,
+          sessions_terminated: true,
+        },
+      },
+      { tx }
+    );
   });
 
   return { success: true };
@@ -670,7 +802,11 @@ export async function deleteUser(user_id, shop_id, requester_user_id) {
  * REACTIVATE USER
  * ============================================
  */
-export async function reactivateUser(user_id, shop_id) {
+export async function reactivateUser(
+  user_id,
+  shop_id,
+  auditContext = {} // ✅ Accept audit context
+) {
   const user = await prisma.user.findFirst({
     where: {
       user_id,
@@ -712,17 +848,39 @@ export async function reactivateUser(user_id, shop_id) {
     throw err;
   }
 
-  const updatedUser = await prisma.user.update({
-    where: { user_id },
-    data: {
-      is_active: true,
-      status: "verified",
-    },
-    select: {
-      user_id: true,
-      full_name: true,
-      is_active: true,
-    },
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { user_id },
+      data: {
+        is_active: true,
+        status: "verified",
+      },
+      select: {
+        user_id: true,
+        full_name: true,
+        is_active: true,
+      },
+    });
+
+    // ✅ AUDIT LOG: User reactivated
+    await audit.log(
+      {
+        action: audit.AuditAction.USER_REACTIVATED,
+        entity_type: audit.EntityType.USER,
+        entity_id: user_id,
+        shop_id,
+        branch_id: user.branch_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          reactivated_user_role: user.role,
+          reactivated_user_username: user.username,
+        },
+      },
+      { tx }
+    );
+
+    return updated;
   });
 
   return updatedUser;
@@ -733,7 +891,12 @@ export async function reactivateUser(user_id, shop_id) {
  * RESET PASSWORD
  * ============================================
  */
-export async function resetUserPassword(user_id, shop_id, new_password) {
+export async function resetUserPassword(
+  user_id,
+  shop_id,
+  new_password,
+  auditContext = {} // ✅ Accept audit context
+) {
   // Get user
   const user = await prisma.user.findFirst({
     where: {
@@ -748,7 +911,7 @@ export async function resetUserPassword(user_id, shop_id, new_password) {
     throw err;
   }
 
-  // Cannot reset super_admin password through this endpoint
+  // Cannot reset super_admin password
   if (user.role === "super_admin") {
     const err = new Error(
       "Cannot reset super admin password through this endpoint"
@@ -760,23 +923,45 @@ export async function resetUserPassword(user_id, shop_id, new_password) {
   // Hash new password
   const password_hash = await hashPassword(new_password);
 
-  // Update password
-  await prisma.user.update({
-    where: { user_id },
-    data: { password_hash },
-  });
+  await prisma.$transaction(async (tx) => {
+    // Update password
+    await tx.user.update({
+      where: { user_id },
+      data: { password_hash },
+    });
 
-  // Invalidate all sessions (force re-login)
-  await prisma.userSession.updateMany({
-    where: {
-      user_id,
-      is_active: true,
-    },
-    data: {
-      is_active: false,
-      ended_at: new Date(),
-      ended_reason: "admin_force",
-    },
+    // Invalidate all sessions
+    await tx.userSession.updateMany({
+      where: {
+        user_id,
+        is_active: true,
+      },
+      data: {
+        is_active: false,
+        ended_at: new Date(),
+        ended_reason: "admin_force",
+      },
+    });
+
+    // ✅ AUDIT LOG: Password reset by admin (SECURITY ACTION)
+    await audit.log(
+      {
+        action: audit.AuditAction.USER_PASSWORD_RESET_BY_ADMIN,
+        entity_type: audit.EntityType.USER,
+        entity_id: user_id,
+        shop_id,
+        branch_id: user.branch_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+        metadata: {
+          reset_by_role: auditContext.actor_role,
+          target_user_role: user.role,
+          target_username: user.username,
+          sessions_terminated: true,
+        },
+      },
+      { tx }
+    );
   });
 
   return { success: true };

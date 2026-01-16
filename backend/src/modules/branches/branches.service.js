@@ -1,16 +1,14 @@
 // src/modules/branches/branches.service.js
 
 import prisma from "../../config/prisma.js";
+import * as audit from "../audit/index.js";
 
 /**
  * ============================================
- * EXISTING FUNCTIONS (keep as-is)
+ * READ-ONLY FUNCTIONS (NO AUDIT NEEDED)
  * ============================================
  */
 
-/**
- * Get all branches for a shop
- */
 export async function getBranchesByShop(shop_id, options = {}) {
   const { include_inactive = false } = options;
 
@@ -57,9 +55,6 @@ export async function getBranchesByShop(shop_id, options = {}) {
   }));
 }
 
-/**
- * Get a single branch by ID
- */
 export async function getBranchById(branch_id, shop_id) {
   const branch = await prisma.branch.findFirst({
     where: {
@@ -100,9 +95,6 @@ export async function getBranchById(branch_id, shop_id) {
   };
 }
 
-/**
- * Get branch summary for header dropdown (minimal data)
- */
 export async function getBranchesForDropdown(shop_id) {
   const branches = await prisma.branch.findMany({
     where: {
@@ -129,9 +121,6 @@ export async function getBranchesForDropdown(shop_id) {
   }));
 }
 
-/**
- * Validate if user can access a branch
- */
 export async function canAccessBranch(user_id, branch_id, shop_id) {
   const user = await prisma.user.findUnique({
     where: { user_id },
@@ -158,9 +147,6 @@ export async function canAccessBranch(user_id, branch_id, shop_id) {
   return user.branch_id === branch_id;
 }
 
-/**
- * Get branch limits (usage vs plan)
- */
 export async function getBranchLimits(shop_id) {
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
@@ -194,7 +180,6 @@ export async function getBranchLimits(shop_id) {
   const maxAllowed = subscription.branch_limit_snapshot;
   const currentCount = shop._count.branches;
 
-  // -1 means unlimited
   const canAdd = maxAllowed === -1 || currentCount < maxAllowed;
   const remaining = maxAllowed === -1 ? -1 : Math.max(0, maxAllowed - currentCount);
 
@@ -206,9 +191,6 @@ export async function getBranchLimits(shop_id) {
   };
 }
 
-/**
- * Check if branch name is unique within shop
- */
 export async function isBranchNameUnique(shop_id, branch_name, exclude_branch_id = null) {
   const where = {
     shop_id,
@@ -231,10 +213,56 @@ export async function isBranchNameUnique(shop_id, branch_name, exclude_branch_id
   return !existing;
 }
 
+export async function getBranchActiveUsers(branch_id) {
+  const users = await prisma.user.findMany({
+    where: {
+      branch_id,
+      is_active: true,
+    },
+    select: {
+      user_id: true,
+      full_name: true,
+      role: true,
+    },
+  });
+
+  return users;
+}
+
+export async function getBranchesForReassignment(shop_id, exclude_branch_id) {
+  const branches = await prisma.branch.findMany({
+    where: {
+      shop_id,
+      is_active: true,
+      branch_id: { not: exclude_branch_id },
+    },
+    select: {
+      branch_id: true,
+      branch_name: true,
+      branch_type: true,
+    },
+    orderBy: [
+      { branch_type: "asc" },
+      { branch_name: "asc" },
+    ],
+  });
+
+  return branches.map((b) => ({
+    ...b,
+    is_main: b.branch_type === "main",
+  }));
+}
+
 /**
- * Create a new branch
+ * ============================================
+ * AUDITABLE FUNCTIONS
+ * ============================================
  */
-export async function createBranch(shop_id, data) {
+
+export async function createBranch(shop_id, data, auditContext, options = {}) {
+  const { tx } = options;
+  const db = tx || prisma;
+
   // Check plan limits
   const limits = await getBranchLimits(shop_id);
   if (!limits.can_add) {
@@ -254,13 +282,13 @@ export async function createBranch(shop_id, data) {
   }
 
   // Check if this is the first branch (make it main)
-  const existingBranches = await prisma.branch.count({
+  const existingBranches = await db.branch.count({
     where: { shop_id, is_active: true },
   });
   const isFirstBranch = existingBranches === 0;
 
   // Create branch
-  const branch = await prisma.branch.create({
+  const branch = await db.branch.create({
     data: {
       shop_id,
       branch_name: data.branch_name.trim(),
@@ -290,6 +318,23 @@ export async function createBranch(shop_id, data) {
     },
   });
 
+  // Audit: Branch created
+  await audit.log({
+    action: audit.AuditAction.BRANCH_CREATED,
+    entity_type: audit.EntityType.BRANCH,
+    entity_id: branch.branch_id,
+    shop_id: shop_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      branch_name: branch.branch_name,
+      branch_type: branch.branch_type,
+      city: branch.city,
+      state: branch.state,
+      is_first_branch: isFirstBranch,
+    },
+  }, { tx });
+
   return {
     ...branch,
     is_main: branch.branch_type === "main",
@@ -297,12 +342,12 @@ export async function createBranch(shop_id, data) {
   };
 }
 
-/**
- * Update an existing branch
- */
-export async function updateBranch(branch_id, shop_id, data) {
+export async function updateBranch(branch_id, shop_id, data, auditContext, options = {}) {
+  const { tx } = options;
+  const db = tx || prisma;
+
   // Get existing branch
-  const existingBranch = await prisma.branch.findFirst({
+  const existingBranch = await db.branch.findFirst({
     where: {
       branch_id,
       shop_id,
@@ -316,7 +361,10 @@ export async function updateBranch(branch_id, shop_id, data) {
   }
 
   // Check name uniqueness if name is being changed
-  if (data.branch_name && data.branch_name.trim().toLowerCase() !== existingBranch.branch_name.toLowerCase()) {
+  const nameChanged = data.branch_name && 
+    data.branch_name.trim().toLowerCase() !== existingBranch.branch_name.toLowerCase();
+  
+  if (nameChanged) {
     const isUnique = await isBranchNameUnique(shop_id, data.branch_name, branch_id);
     if (!isUnique) {
       const err = new Error("A branch with this name already exists");
@@ -327,34 +375,51 @@ export async function updateBranch(branch_id, shop_id, data) {
 
   // Build update data
   const updateData = {};
+  const changedFields = [];
 
   if (data.branch_name !== undefined) {
     updateData.branch_name = data.branch_name.trim();
+    if (nameChanged) changedFields.push('branch_name');
   }
   if (data.address_line_1 !== undefined) {
     updateData.address_line_1 = data.address_line_1 || null;
+    if (updateData.address_line_1 !== existingBranch.address_line_1) {
+      changedFields.push('address_line_1');
+    }
   }
   if (data.address_line_2 !== undefined) {
     updateData.address_line_2 = data.address_line_2 || null;
+    if (updateData.address_line_2 !== existingBranch.address_line_2) {
+      changedFields.push('address_line_2');
+    }
   }
   if (data.city !== undefined) {
     updateData.city = data.city || null;
+    if (updateData.city !== existingBranch.city) changedFields.push('city');
   }
   if (data.state !== undefined) {
     updateData.state = data.state || null;
+    if (updateData.state !== existingBranch.state) changedFields.push('state');
   }
   if (data.pincode !== undefined) {
     updateData.pincode = data.pincode || null;
+    if (updateData.pincode !== existingBranch.pincode) changedFields.push('pincode');
   }
   if (data.contact_number !== undefined) {
     updateData.contact_number = data.contact_number || null;
+    if (updateData.contact_number !== existingBranch.contact_number) {
+      changedFields.push('contact_number');
+    }
   }
   if (data.alternate_number !== undefined) {
     updateData.alternate_number = data.alternate_number || null;
+    if (updateData.alternate_number !== existingBranch.alternate_number) {
+      changedFields.push('alternate_number');
+    }
   }
 
   // Update branch
-  const updatedBranch = await prisma.branch.update({
+  const updatedBranch = await db.branch.update({
     where: { branch_id },
     data: updateData,
     select: {
@@ -380,6 +445,37 @@ export async function updateBranch(branch_id, shop_id, data) {
     },
   });
 
+  // Audit: Branch renamed (if name changed) or general update
+  if (nameChanged) {
+    await audit.log({
+      action: audit.AuditAction.BRANCH_RENAMED,
+      entity_type: audit.EntityType.BRANCH,
+      entity_id: branch_id,
+      shop_id: shop_id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        previous_name: existingBranch.branch_name,
+        new_name: updatedBranch.branch_name,
+        changed_fields: changedFields,
+      },
+    }, { tx });
+  } else if (changedFields.length > 0) {
+    // Log general update if other fields changed
+    await audit.log({
+      action: audit.AuditAction.BRANCH_RENAMED, // Reusing this action for updates
+      entity_type: audit.EntityType.BRANCH,
+      entity_id: branch_id,
+      shop_id: shop_id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        changed_fields: changedFields,
+        branch_name: updatedBranch.branch_name,
+      },
+    }, { tx });
+  }
+
   return {
     ...updatedBranch,
     is_main: updatedBranch.branch_type === "main",
@@ -388,31 +484,12 @@ export async function updateBranch(branch_id, shop_id, data) {
   };
 }
 
-/**
- * Get active users in a branch
- */
-export async function getBranchActiveUsers(branch_id) {
-  const users = await prisma.user.findMany({
-    where: {
-      branch_id,
-      is_active: true,
-    },
-    select: {
-      user_id: true,
-      full_name: true,
-      role: true,
-    },
-  });
+export async function deleteBranch(branch_id, shop_id, auditContext, options = {}) {
+  const { tx } = options;
+  const db = tx || prisma;
 
-  return users;
-}
-
-/**
- * Delete (deactivate) a branch
- */
-export async function deleteBranch(branch_id, shop_id) {
   // Get branch
-  const branch = await prisma.branch.findFirst({
+  const branch = await db.branch.findFirst({
     where: {
       branch_id,
       shop_id,
@@ -452,45 +529,33 @@ export async function deleteBranch(branch_id, shop_id) {
   }
 
   // Soft delete
-  await prisma.branch.update({
+  await db.branch.update({
     where: { branch_id },
     data: { is_active: false },
   });
 
+  // Audit: Branch deactivated
+  await audit.log({
+    action: audit.AuditAction.BRANCH_DEACTIVATED,
+    entity_type: audit.EntityType.BRANCH,
+    entity_id: branch_id,
+    shop_id: shop_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      branch_name: branch.branch_name,
+      reason: 'User requested deletion',
+    },
+  }, { tx });
+
   return { success: true };
 }
 
-/**
- * Get branches for user reassignment dropdown
- * Returns all active branches except the one being deleted
- */
-export async function getBranchesForReassignment(shop_id, exclude_branch_id) {
-  const branches = await prisma.branch.findMany({
-    where: {
-      shop_id,
-      is_active: true,
-      branch_id: { not: exclude_branch_id },
-    },
-    select: {
-      branch_id: true,
-      branch_name: true,
-      branch_type: true,
-    },
-    orderBy: [
-      { branch_type: "asc" },
-      { branch_name: "asc" },
-    ],
-  });
+export async function reactivateBranch(branch_id, shop_id, auditContext, options = {}) {
+  const { tx } = options;
+  const db = tx || prisma;
 
-  return branches.map((b) => ({
-    ...b,
-    is_main: b.branch_type === "main",
-  }));
-}
-
-
-export async function reactivateBranch(branch_id, shop_id) {
-  const branch = await prisma.branch.findFirst({
+  const branch = await db.branch.findFirst({
     where: {
       branch_id,
       shop_id,
@@ -519,7 +584,7 @@ export async function reactivateBranch(branch_id, shop_id) {
     throw err;
   }
 
-  const updatedBranch = await prisma.branch.update({
+  const updatedBranch = await db.branch.update({
     where: { branch_id },
     data: { is_active: true },
     select: {
@@ -528,6 +593,19 @@ export async function reactivateBranch(branch_id, shop_id) {
       is_active: true,
     },
   });
+
+  // Audit: Branch reactivated
+  await audit.log({
+    action: audit.AuditAction.BRANCH_REACTIVATED,
+    entity_type: audit.EntityType.BRANCH,
+    entity_id: branch_id,
+    shop_id: shop_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      branch_name: updatedBranch.branch_name,
+    },
+  }, { tx });
 
   return updatedBranch;
 }

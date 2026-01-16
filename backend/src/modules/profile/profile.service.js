@@ -9,10 +9,8 @@ import crypto from "crypto";
 import { hashSessionToken } from "../../utils/session.js";
 import { notifyAsync, notify } from "../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
+import * as audit from "../audit/index.js";
 
-// ============================================
-// GET PROFILE
-// ============================================
 export async function getProfileData(user_id) {
   const user = await prisma.user.findUnique({
     where: { user_id },
@@ -151,9 +149,6 @@ export async function getProfileData(user_id) {
   };
 }
 
-// ============================================
-// GET SESSIONS
-// ============================================
 export async function getUserSessions(user_id, currentSessionToken) {
   const sessions = await prisma.userSession.findMany({
     where: {
@@ -185,9 +180,6 @@ export async function getUserSessions(user_id, currentSessionToken) {
   }));
 }
 
-// ============================================
-// UPDATE BUSINESS INFO
-// ============================================
 export async function updateBusinessInfo(user_id, data) {
   const user = await prisma.user.findUnique({
     where: { user_id },
@@ -224,13 +216,17 @@ export async function updateBusinessInfo(user_id, data) {
   return { success: true };
 }
 
-// ============================================
-// CHANGE PASSWORD
-// ============================================
-export async function changeUserPassword(user_id, current_password, new_password) {
+export async function changeUserPassword(user_id, current_password, new_password, auditContext) {
   const user = await prisma.user.findUnique({
     where: { user_id },
-    select: { password_hash: true, email: true, full_name: true },
+    select: { 
+      password_hash: true, 
+      email: true, 
+      full_name: true,
+      role: true,
+      shop_id: true,
+      branch_id: true,
+    },
   });
 
   if (!user) {
@@ -270,7 +266,23 @@ export async function changeUserPassword(user_id, current_password, new_password
     },
   });
 
-  // ✅ Send password changed notification
+  // ✅ AUDIT: Security action
+  await audit.log({
+    action: audit.AuditAction.USER_PASSWORD_CHANGED,
+    entity_type: audit.EntityType.USER,
+    entity_id: user_id,
+    actor_type: audit.ActorType.ERP_USER,
+    actor_id: user_id,
+    actor_role: user.role,
+    shop_id: user.shop_id,
+    branch_id: user.branch_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+    metadata: {
+      method: 'self_change',
+    },
+  });
+
   if (user.email) {
     notifyAsync({
       type: NOTIFICATION_EVENTS.PASSWORD_CHANGED,
@@ -285,9 +297,6 @@ export async function changeUserPassword(user_id, current_password, new_password
   return { success: true };
 }
 
-// ============================================
-// LOGOUT SESSION
-// ============================================
 export async function logoutUserSession(user_id, session_id, currentSessionToken) {
   const session = await prisma.userSession.findUnique({
     where: { id: session_id },
@@ -325,9 +334,6 @@ export async function logoutUserSession(user_id, session_id, currentSessionToken
   return { success: true };
 }
 
-// ============================================
-// LOGOUT OTHER SESSIONS
-// ============================================
 export async function logoutAllOtherSessions(user_id, currentSessionToken) {
   const currentHashedToken = currentSessionToken ? hashSessionToken(currentSessionToken) : null;
 
@@ -355,9 +361,6 @@ export async function logoutAllOtherSessions(user_id, currentSessionToken) {
   return { success: true, count: result.count };
 }
 
-// ============================================
-// EMAIL CHANGE - INITIATE
-// ============================================
 export async function initiateEmailChangeService(user_id, current_password, new_email) {
   const user = await prisma.user.findUnique({
     where: { user_id },
@@ -406,7 +409,6 @@ export async function initiateEmailChangeService(user_id, current_password, new_
     },
   });
 
-  // ✅ Send OTP to new email via centralized system
   await notify({
     type: NOTIFICATION_EVENTS.EMAIL_CHANGE_OTP,
     context: {
@@ -420,15 +422,15 @@ export async function initiateEmailChangeService(user_id, current_password, new_
   return { success: true, email: new_email };
 }
 
-// ============================================
-// EMAIL CHANGE - VERIFY
-// ============================================
-export async function verifyEmailChangeService(user_id, otp) {
+export async function verifyEmailChangeService(user_id, otp, auditContext) {
   const user = await prisma.user.findUnique({
     where: { user_id },
     select: {
       email: true,
       full_name: true,
+      role: true,
+      shop_id: true,
+      branch_id: true,
       email_change_new_email: true,
       email_change_otp_hash: true,
       email_change_expires: true,
@@ -491,7 +493,24 @@ export async function verifyEmailChangeService(user_id, otp) {
     },
   });
 
-  // ✅ Notify old email about the change
+  // ✅ AUDIT: Email changed
+  await audit.log({
+    action: audit.AuditAction.USER_EMAIL_CHANGED,
+    entity_type: audit.EntityType.USER,
+    entity_id: user_id,
+    actor_type: audit.ActorType.ERP_USER,
+    actor_id: user_id,
+    actor_role: user.role,
+    shop_id: user.shop_id,
+    branch_id: user.branch_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      previous_email: oldEmail,
+      new_email: newEmail,
+    },
+  });
+
   if (oldEmail) {
     notifyAsync({
       type: NOTIFICATION_EVENTS.EMAIL_CHANGED,
@@ -505,7 +524,6 @@ export async function verifyEmailChangeService(user_id, otp) {
     });
   }
 
-  // ✅ Notify new email - welcome confirmation
   notifyAsync({
     type: NOTIFICATION_EVENTS.EMAIL_CHANGED,
     context: {
@@ -520,9 +538,6 @@ export async function verifyEmailChangeService(user_id, otp) {
   return { success: true, new_email: newEmail };
 }
 
-// ============================================
-// PHONE CHANGE - OTP METHOD - STEP 1: SEND OTP TO OLD
-// ============================================
 export async function initiatePhoneChangeOldService(user_id) {
   const user = await prisma.user.findUnique({
     where: { user_id },
@@ -580,9 +595,6 @@ export async function initiatePhoneChangeOldService(user_id) {
   return { success: true, timeout };
 }
 
-// ============================================
-// PHONE CHANGE - OTP METHOD - STEP 1b: VERIFY OLD OTP
-// ============================================
 export async function verifyPhoneChangeOldOtpService(user_id, otp) {
   const user = await prisma.user.findUnique({
     where: { user_id },
@@ -657,9 +669,6 @@ export async function verifyPhoneChangeOldOtpService(user_id, otp) {
   return { success: true };
 }
 
-// ============================================
-// PHONE CHANGE - OTP METHOD - STEP 2: SEND OTP TO NEW
-// ============================================
 export async function initiatePhoneChangeNewService(user_id, new_phone) {
   const user = await prisma.user.findUnique({
     where: { user_id },
@@ -736,9 +745,6 @@ export async function initiatePhoneChangeNewService(user_id, new_phone) {
   return { success: true, timeout, phone: new_phone };
 }
 
-// ============================================
-// PHONE CHANGE - PASSWORD METHOD
-// ============================================
 export async function initiatePhoneChangeWithPasswordService(user_id, current_password, new_phone) {
   const user = await prisma.user.findUnique({
     where: { user_id },
@@ -820,16 +826,16 @@ export async function initiatePhoneChangeWithPasswordService(user_id, current_pa
   return { success: true, timeout, phone: new_phone };
 }
 
-// ============================================
-// PHONE CHANGE - STEP 3: VERIFY NEW PHONE OTP
-// ============================================
-export async function verifyPhoneChangeNewService(user_id, otp) {
+export async function verifyPhoneChangeNewService(user_id, otp, auditContext) {
   const user = await prisma.user.findUnique({
     where: { user_id },
     select: {
       phone_number: true,
       full_name: true,
       email: true,
+      role: true,
+      shop_id: true,
+      branch_id: true,
       phone_change_verification_id: true,
       phone_change_old_verified: true,
       phone_change_new_number: true,
@@ -911,7 +917,24 @@ export async function verifyPhoneChangeNewService(user_id, otp) {
     },
   });
 
-  // ✅ Send phone changed notification via email
+  // ✅ AUDIT: Phone changed
+  await audit.log({
+    action: audit.AuditAction.USER_PHONE_CHANGED,
+    entity_type: audit.EntityType.USER,
+    entity_id: user_id,
+    actor_type: audit.ActorType.ERP_USER,
+    actor_id: user_id,
+    actor_role: user.role,
+    shop_id: user.shop_id,
+    branch_id: user.branch_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      previous_phone: oldPhone,
+      new_phone: newPhone,
+    },
+  });
+
   if (user.email) {
     notifyAsync({
       type: NOTIFICATION_EVENTS.PHONE_CHANGED,
@@ -927,9 +950,6 @@ export async function verifyPhoneChangeNewService(user_id, otp) {
   return { success: true, new_phone: newPhone };
 }
 
-// ============================================
-// HELPER: Clear phone change state
-// ============================================
 async function clearPhoneChangeState(user_id) {
   await prisma.user.update({
     where: { user_id },

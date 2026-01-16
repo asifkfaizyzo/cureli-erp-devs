@@ -5,12 +5,13 @@ import { generateResetToken, hashToken } from "../../../utils/resetToken.js";
 import { hashPassword } from "../../../utils/hash.js";
 import { notify } from "../../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../../notifications/notification.events.js";
+import * as audit from "../../audit/index.js";
 
-export async function requestCAdminPasswordReset(email) {
+export async function requestCAdminPasswordReset(email, auditContext = {}) {
   const admin = await prisma.cAdmin.findUnique({ where: { email } });
 
   if (!admin) {
-    // Avoid email enumeration
+    // Avoid email enumeration - silent return
     return { success: true };
   }
 
@@ -28,7 +29,7 @@ export async function requestCAdminPasswordReset(email) {
 
   const resetUrl = `${process.env.ADMIN_FRONTEND_ORIGIN}/admin-reset-password?token=${resetToken}`;
 
-  // ✅ Send notification via centralized system
+  // Send notification
   await notify({
     type: NOTIFICATION_EVENTS.CADMIN_PASSWORD_RESET_REQUESTED,
     context: {
@@ -39,10 +40,13 @@ export async function requestCAdminPasswordReset(email) {
     },
   });
 
+  // Note: We don't audit password reset *requests* to avoid spam logging
+  // Only successful resets are audited below
+
   return { success: true };
 }
 
-export async function resetCAdminPassword(token, newPassword) {
+export async function resetCAdminPassword(token, newPassword, auditContext = {}) {
   const hashed = hashToken(token);
 
   const admin = await prisma.cAdmin.findFirst({
@@ -60,13 +64,31 @@ export async function resetCAdminPassword(token, newPassword) {
 
   const newHash = await hashPassword(newPassword);
 
-  await prisma.cAdmin.update({
-    where: { cadmin_id: admin.cadmin_id },
-    data: {
-      password_hash: newHash,
-      reset_token: null,
-      reset_token_expires: null,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.cAdmin.update({
+      where: { cadmin_id: admin.cadmin_id },
+      data: {
+        password_hash: newHash,
+        reset_token: null,
+        reset_token_expires: null,
+      },
+    });
+
+    // ✅ AUDIT LOG: Password reset completed (SECURITY ACTION)
+    await audit.log({
+      action: audit.AuditAction.CADMIN_PASSWORD_RESET_COMPLETED,
+      entity_type: audit.EntityType.CADMIN,
+      entity_id: admin.cadmin_id,
+      actor_type: audit.ActorType.CADMIN,
+      actor_id: admin.cadmin_id,
+      actor_role: admin.role,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+      metadata: {
+        username: admin.username,
+        reset_method: 'email',
+      },
+    }, { tx });
   });
 
   return { success: true };

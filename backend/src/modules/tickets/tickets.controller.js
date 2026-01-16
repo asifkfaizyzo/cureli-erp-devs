@@ -2,6 +2,7 @@
 
 import { success, fail } from "../../utils/response.js";
 import * as svc from "./tickets.service.js";
+import * as audit from "../audit/index.js";
 
 /**
  * POST /api/tickets
@@ -31,6 +32,9 @@ export async function createTicketController(req, res) {
 
     const files = req.files || [];
 
+    // Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
     const ticket = await svc.createTicket({
       shop_id,
       branch_id: branch_id || userBranchId || null,
@@ -44,13 +48,13 @@ export async function createTicketController(req, res) {
       other_category_text,
       preferred_slot,
       files,
+      auditContext, // ✅ Pass audit context
     });
 
     return success(res, { ticket }, "Ticket created successfully", 201);
   } catch (err) {
     console.error("createTicketController error:", err.code, err.message);
 
-    // Handle specific error codes
     const errorCodeMap = {
       INVALID_BRANCH: 400,
       BRANCH_ACCESS_DENIED: 403,
@@ -183,7 +187,16 @@ export async function cancelTicketController(req, res) {
       return fail(res, "Ticket not found or access denied", 404);
     }
 
-    const ticket = await svc.cancelTicket(ticket_id, shop_id, user_id, reason.trim());
+    // Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
+    const ticket = await svc.cancelTicket(
+      ticket_id,
+      shop_id,
+      user_id,
+      reason.trim(),
+      auditContext // ✅ Pass audit context
+    );
 
     return success(res, { ticket }, "Ticket cancelled successfully");
   } catch (err) {
@@ -228,7 +241,16 @@ export async function reopenTicketController(req, res) {
       return fail(res, "Ticket not found or access denied", 404);
     }
 
-    const ticket = await svc.reopenTicket(ticket_id, shop_id, user_id, reason.trim());
+    // Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
+    const ticket = await svc.reopenTicket(
+      ticket_id,
+      shop_id,
+      user_id,
+      reason.trim(),
+      auditContext // ✅ Pass audit context
+    );
 
     return success(res, { ticket }, "Ticket reopened successfully");
   } catch (err) {

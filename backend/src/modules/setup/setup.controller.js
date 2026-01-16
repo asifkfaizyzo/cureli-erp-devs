@@ -6,6 +6,7 @@ import {
   checkPhoneAvailability,
   completeSetup,
 } from "./setup.service.js";
+import * as audit from "../audit/index.js";
 
 /**
  * GET /setup/status
@@ -83,12 +84,16 @@ export async function completeSetupController(req, res) {
       return fail(res, "Setup has already been completed", 400);
     }
 
+    // Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
     // Complete the setup
     const result = await completeSetup({
       shop_id,
       user_id,
       branches,
       users,
+      auditContext,
     });
 
     return success(

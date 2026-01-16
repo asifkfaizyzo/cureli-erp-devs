@@ -16,10 +16,8 @@ import {
   verifyPhoneChangeNewService,
   initiatePhoneChangeWithPasswordService,
 } from "./profile.service.js";
+import * as audit from "../audit/index.js";
 
-// ============================================
-// GET PROFILE
-// ============================================
 export async function getProfile(req, res) {
   try {
     const profile = await getProfileData(req.user.user_id);
@@ -35,9 +33,6 @@ export async function getProfile(req, res) {
   }
 }
 
-// ============================================
-// UPDATE BUSINESS INFO
-// ============================================
 export async function updateBusiness(req, res) {
   try {
     await updateBusinessInfo(req.user.user_id, req.body);
@@ -48,13 +43,13 @@ export async function updateBusiness(req, res) {
   }
 }
 
-// ============================================
-// CHANGE PASSWORD
-// ============================================
 export async function changePassword(req, res) {
   try {
     const { current_password, new_password } = req.body;
-    await changeUserPassword(req.user.user_id, current_password, new_password);
+    const auditContext = audit.extractRequestContext(req);
+    
+    await changeUserPassword(req.user.user_id, current_password, new_password, auditContext);
+    
     return success(res, { message: "Password changed successfully" });
   } catch (err) {
     console.error("changePassword error:", err);
@@ -66,9 +61,6 @@ export async function changePassword(req, res) {
   }
 }
 
-// ============================================
-// EMAIL CHANGE - INITIATE
-// ============================================
 export async function initiateEmailChange(req, res) {
   try {
     const { current_password, new_email } = req.body;
@@ -87,13 +79,13 @@ export async function initiateEmailChange(req, res) {
   }
 }
 
-// ============================================
-// EMAIL CHANGE - VERIFY
-// ============================================
 export async function verifyEmailChange(req, res) {
   try {
     const { otp } = req.body;
-    const result = await verifyEmailChangeService(req.user.user_id, otp);
+    const auditContext = audit.extractRequestContext(req);
+    
+    const result = await verifyEmailChangeService(req.user.user_id, otp, auditContext);
+    
     return success(res, { 
       message: "Email changed successfully",
       new_email: result.new_email,
@@ -108,9 +100,6 @@ export async function verifyEmailChange(req, res) {
   }
 }
 
-// ============================================
-// PHONE CHANGE - OTP METHOD - STEP 1: SEND OTP TO OLD
-// ============================================
 export async function initiatePhoneChangeOld(req, res) {
   try {
     const result = await initiatePhoneChangeOldService(req.user.user_id);
@@ -131,9 +120,6 @@ export async function initiatePhoneChangeOld(req, res) {
   }
 }
 
-// ============================================
-// PHONE CHANGE - OTP METHOD - STEP 1b: VERIFY OLD OTP
-// ============================================
 export async function verifyPhoneChangeOldOtp(req, res) {
   try {
     const { otp } = req.body;
@@ -151,9 +137,6 @@ export async function verifyPhoneChangeOldOtp(req, res) {
   }
 }
 
-// ============================================
-// PHONE CHANGE - OTP METHOD - STEP 2: SEND OTP TO NEW
-// ============================================
 export async function initiatePhoneChangeNew(req, res) {
   try {
     const { new_phone } = req.body;
@@ -173,13 +156,13 @@ export async function initiatePhoneChangeNew(req, res) {
   }
 }
 
-// ============================================
-// PHONE CHANGE - STEP 3: VERIFY NEW PHONE OTP
-// ============================================
 export async function verifyPhoneChangeNew(req, res) {
   try {
     const { otp } = req.body;
-    const result = await verifyPhoneChangeNewService(req.user.user_id, otp);
+    const auditContext = audit.extractRequestContext(req);
+    
+    const result = await verifyPhoneChangeNewService(req.user.user_id, otp, auditContext);
+    
     return success(res, { 
       message: "Phone number changed successfully",
       new_phone: result.new_phone,
@@ -194,9 +177,6 @@ export async function verifyPhoneChangeNew(req, res) {
   }
 }
 
-// ============================================
-// PHONE CHANGE - PASSWORD METHOD
-// ============================================
 export async function initiatePhoneChangeWithPassword(req, res) {
   try {
     const { current_password, new_phone } = req.body;
@@ -223,9 +203,6 @@ export async function initiatePhoneChangeWithPassword(req, res) {
   }
 }
 
-// ============================================
-// GET SESSIONS
-// ============================================
 export async function getSessions(req, res) {
   try {
     const sessions = await getUserSessions(req.user.user_id, req.user.session_id);
@@ -236,9 +213,6 @@ export async function getSessions(req, res) {
   }
 }
 
-// ============================================
-// LOGOUT SESSION
-// ============================================
 export async function logoutSession(req, res) {
   try {
     const { sessionId } = req.params;
@@ -257,9 +231,6 @@ export async function logoutSession(req, res) {
   }
 }
 
-// ============================================
-// LOGOUT OTHER SESSIONS
-// ============================================
 export async function logoutOtherSessions(req, res) {
   try {
     const result = await logoutAllOtherSessions(req.user.user_id, req.user.session_id);

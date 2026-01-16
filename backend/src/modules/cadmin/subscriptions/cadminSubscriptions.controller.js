@@ -1,28 +1,27 @@
-// src/modules/cadmin/subscriptions/cadminSubscriptions.controller.js
+// ============================================
+// backend\src\modules\cadmin\subscriptions\cadminSubscriptions.controller.js
+// ============================================
 
-import {
-  getAtRiskSubscriptions,
-  getSubscriptionById,
-  sendPaymentReminder,
-  extendGracePeriod,
-  forceSuspendSubscription,
-  reactivateSubscription,
-} from "./cadminSubscriptions.service.js";
+import * as svc from "./cadminSubscriptions.service.js";
 import { success, fail } from "../../../utils/response.js";
+import * as audit from "../../audit/index.js";
 
 // ============================================
 // GET AT-RISK SUBSCRIPTIONS
 // ============================================
 
+/**
+ * GET /cadmin/subscriptions/at-risk
+ * Get subscriptions expiring soon, in grace period, or suspended
+ */
 export async function getAtRiskController(req, res) {
   try {
     const { range = 30 } = req.query;
 
-    // Validate range
     const validRanges = [7, 14, 30];
     const rangeDays = validRanges.includes(Number(range)) ? Number(range) : 30;
 
-    const result = await getAtRiskSubscriptions(rangeDays);
+    const result = await svc.getAtRiskSubscriptions(rangeDays);
 
     return success(res, result, "At-risk subscriptions fetched successfully");
   } catch (err) {
@@ -35,6 +34,10 @@ export async function getAtRiskController(req, res) {
 // GET SUBSCRIPTION BY ID
 // ============================================
 
+/**
+ * GET /cadmin/subscriptions/:subscription_id
+ * Get detailed subscription information
+ */
 export async function getSubscriptionByIdController(req, res) {
   try {
     const { subscription_id } = req.params;
@@ -43,7 +46,7 @@ export async function getSubscriptionByIdController(req, res) {
       return fail(res, "Subscription ID is required", 400);
     }
 
-    const result = await getSubscriptionById(subscription_id);
+    const result = await svc.getSubscriptionById(subscription_id);
 
     return success(res, result, "Subscription fetched successfully");
   } catch (err) {
@@ -61,6 +64,10 @@ export async function getSubscriptionByIdController(req, res) {
 // SEND PAYMENT REMINDER
 // ============================================
 
+/**
+ * POST /cadmin/subscriptions/:subscription_id/remind
+ * Send payment reminder to shop owner
+ */
 export async function sendReminderController(req, res) {
   try {
     const { subscription_id } = req.params;
@@ -71,13 +78,13 @@ export async function sendReminderController(req, res) {
       return fail(res, "Subscription ID is required", 400);
     }
 
-    // Validate method
     const validMethods = ["email", "sms", "both"];
     if (!validMethods.includes(method)) {
       return fail(res, `Method must be one of: ${validMethods.join(", ")}`, 400);
     }
 
-    const result = await sendPaymentReminder(subscription_id, method, cadmin_id);
+    const auditContext = audit.extractRequestContext(req);
+    const result = await svc.sendPaymentReminder(subscription_id, method, cadmin_id, auditContext);
 
     return success(res, result, "Payment reminder sent successfully");
   } catch (err) {
@@ -91,6 +98,10 @@ export async function sendReminderController(req, res) {
       return fail(res, err.message, 400);
     }
 
+    if (err.code === "NO_EMAIL" || err.code === "NO_PHONE" || err.code === "MISSING_CONTACT") {
+      return fail(res, err.message, 400);
+    }
+
     return fail(res, err.message || "Failed to send reminder", 500);
   }
 }
@@ -99,6 +110,10 @@ export async function sendReminderController(req, res) {
 // EXTEND GRACE PERIOD
 // ============================================
 
+/**
+ * POST /cadmin/subscriptions/:subscription_id/extend-grace
+ * Extend grace period for a subscription
+ */
 export async function extendGraceController(req, res) {
   try {
     const { subscription_id } = req.params;
@@ -117,7 +132,8 @@ export async function extendGraceController(req, res) {
       return fail(res, "Reason (string) is required", 400);
     }
 
-    const result = await extendGracePeriod(subscription_id, days, reason, cadmin_id);
+    const auditContext = audit.extractRequestContext(req);
+    const result = await svc.extendGracePeriod(subscription_id, days, reason, cadmin_id, auditContext);
 
     return success(res, result, "Grace period extended successfully");
   } catch (err) {
@@ -139,6 +155,10 @@ export async function extendGraceController(req, res) {
 // FORCE SUSPEND SUBSCRIPTION
 // ============================================
 
+/**
+ * POST /cadmin/subscriptions/:subscription_id/suspend
+ * Force suspend a subscription
+ */
 export async function forceSuspendController(req, res) {
   try {
     const { subscription_id } = req.params;
@@ -153,7 +173,8 @@ export async function forceSuspendController(req, res) {
       return fail(res, "Reason (string) is required", 400);
     }
 
-    const result = await forceSuspendSubscription(subscription_id, reason, cadmin_id);
+    const auditContext = audit.extractRequestContext(req);
+    const result = await svc.forceSuspendSubscription(subscription_id, reason, cadmin_id, auditContext);
 
     return success(res, result, "Subscription suspended successfully");
   } catch (err) {
@@ -175,6 +196,10 @@ export async function forceSuspendController(req, res) {
 // REACTIVATE SUBSCRIPTION
 // ============================================
 
+/**
+ * POST /cadmin/subscriptions/:subscription_id/reactivate
+ * Reactivate a suspended subscription
+ */
 export async function reactivateController(req, res) {
   try {
     const { subscription_id } = req.params;
@@ -189,11 +214,13 @@ export async function reactivateController(req, res) {
       return fail(res, "Reason (string) is required", 400);
     }
 
-    const result = await reactivateSubscription(
+    const auditContext = audit.extractRequestContext(req);
+    const result = await svc.reactivateSubscription(
       subscription_id,
       reason,
       extend_days,
-      cadmin_id
+      cadmin_id,
+      auditContext
     );
 
     return success(res, result, "Subscription reactivated successfully");

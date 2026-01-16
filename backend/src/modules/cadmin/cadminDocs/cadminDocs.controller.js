@@ -2,6 +2,7 @@
 
 import * as svc from "./cadminDocs.service.js";
 import { success, fail } from "../../../utils/response.js";
+import * as audit from "../../audit/index.js";
 
 /**
  * GET /cadmin/files
@@ -87,7 +88,8 @@ export async function verifyFileController(req, res) {
       return fail(res, "File ID is required", 400);
     }
 
-    const result = await svc.verifyFile({ file_id, cadmin_id });
+    const auditContext = audit.extractRequestContext(req);
+    const result = await svc.verifyFile({ file_id, cadmin_id, auditContext });
 
     return success(res, result, "File verified successfully");
   } catch (err) {
@@ -114,7 +116,8 @@ export async function rejectFileController(req, res) {
       return fail(res, "Rejection reason is required", 400);
     }
 
-    const result = await svc.rejectFile({ file_id, cadmin_id, reason });
+    const auditContext = audit.extractRequestContext(req);
+    const result = await svc.rejectFile({ file_id, cadmin_id, reason, auditContext });
 
     return success(res, result, "File rejected");
   } catch (err) {
@@ -136,10 +139,12 @@ export async function batchUpdateFilesController(req, res) {
       return fail(res, "No files to update", 400);
     }
 
+    const auditContext = audit.extractRequestContext(req);
     const result = await svc.batchUpdateFiles({
       cadmin_id,
       verifyIds,
       rejectItems,
+      auditContext,
     });
 
     return success(res, result, `Updated ${result.updated} files`);

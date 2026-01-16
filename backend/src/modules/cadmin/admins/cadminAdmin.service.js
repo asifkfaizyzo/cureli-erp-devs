@@ -1,5 +1,8 @@
+// src/modules/cadmin/admins/cadminAdmin.service.js
+
 import prisma from "../../../config/prisma.js";
 import { hashPassword } from "../../../utils/hash.js";
+import * as audit from "../../audit/index.js";
 
 // ============================================
 // HELPERS
@@ -66,19 +69,15 @@ export async function getAdminsService(query) {
   const { page, limit, search, status, role, sort, order } = query;
   const skip = (page - 1) * limit;
 
-  // Build where clause
   const where = {};
 
-  // Status filter
   if (status === "active") where.is_active = true;
   else if (status === "inactive") where.is_active = false;
 
-  // Role filter
   if (role) {
     where.role = mapRoleToDb(role);
   }
 
-  // Search (OR across name, username, email)
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
@@ -87,11 +86,9 @@ export async function getAdminsService(query) {
     ];
   }
 
-  // Sorting
   const sortField = sort === "name" ? "name" : sort === "username" ? "username" : sort === "role" ? "role" : sort === "last_login_at" ? "last_login_at" : "created_at";
   const orderBy = { [sortField]: order };
 
-  // Query
   const [total, admins] = await Promise.all([
     prisma.cAdmin.count({ where }),
     prisma.cAdmin.findMany({
@@ -181,10 +178,10 @@ export async function getAdminByIdService(id) {
   };
 }
 
-export async function createAdminService(data, actorMeta) {
+export async function createAdminService(data, auditContext = {}) {
   const { name, username, phone, email, password, role, status } = data;
 
-  // Check unique username (case-insensitive)
+  // Check unique username
   const existingUsername = await prisma.cAdmin.findFirst({
     where: { username: { equals: username, mode: "insensitive" } },
   });
@@ -192,7 +189,7 @@ export async function createAdminService(data, actorMeta) {
     throw createError("Username already exists", 409);
   }
 
-  // Check unique email (case-insensitive)
+  // Check unique email
   const existingEmail = await prisma.cAdmin.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
   });
@@ -200,59 +197,75 @@ export async function createAdminService(data, actorMeta) {
     throw createError("Email already exists", 409);
   }
 
-  // Hash password
   const password_hash = await hashPassword(password);
 
-  // Create admin
-  const admin = await prisma.cAdmin.create({
-    data: {
-      name,
-      username: username.toLowerCase(),
-      phone_number: phone,
-      email: email.toLowerCase(),
-      password_hash,
-      role: role || "SUPER_ADMIN",
-      is_active: status === "Active",
-    },
-    select: {
-      cadmin_id: true,
-      name: true,
-      username: true,
-      phone_number: true,
-      email: true,
-      role: true,
-      is_active: true,
-      created_at: true,
-    },
-  });
+  const result = await prisma.$transaction(async (tx) => {
+    const admin = await tx.cAdmin.create({
+      data: {
+        name,
+        username: username.toLowerCase(),
+        phone_number: phone,
+        email: email.toLowerCase(),
+        password_hash,
+        role: role || "SUPER_ADMIN",
+        is_active: status === "Active",
+      },
+      select: {
+        cadmin_id: true,
+        name: true,
+        username: true,
+        phone_number: true,
+        email: true,
+        role: true,
+        is_active: true,
+        created_at: true,
+      },
+    });
 
-  // Log activity
-  await prisma.cAdminActivityLog.create({
-    data: {
-      cadmin_id: admin.cadmin_id,
-      performed_by_id: actorMeta.cadmin_id,
-      action: "admin_created",
-      description: "Admin account created",
-      ip_address: actorMeta.ip_address,
-      user_agent: actorMeta.user_agent,
-    },
+    // Legacy activity log
+    await tx.cAdminActivityLog.create({
+      data: {
+        cadmin_id: admin.cadmin_id,
+        performed_by_id: auditContext.actor_id,
+        action: "admin_created",
+        description: "Admin account created",
+        ip_address: auditContext.ip_address,
+        user_agent: auditContext.user_agent,
+      },
+    });
+
+    // ✅ AUDIT LOG: CAdmin created
+    await audit.log({
+      action: audit.AuditAction.CADMIN_CREATED,
+      entity_type: audit.EntityType.CADMIN,
+      entity_id: admin.cadmin_id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+      metadata: {
+        username: admin.username,
+        role: admin.role,
+        email: admin.email,
+        created_by_cadmin_id: auditContext.actor_id,
+      },
+    }, { tx });
+
+    return admin;
   });
 
   return {
-    id: admin.cadmin_id,
-    name: admin.name,
-    username: admin.username,
-    phone: admin.phone_number,
-    email: admin.email || "",
-    role: formatRole(admin.role),
-    status: formatStatus(admin.is_active),
+    id: result.cadmin_id,
+    name: result.name,
+    username: result.username,
+    phone: result.phone_number,
+    email: result.email || "",
+    role: formatRole(result.role),
+    status: formatStatus(result.is_active),
     lastLogin: "Never",
-    createdAt: formatDate(admin.created_at),
+    createdAt: formatDate(result.created_at),
   };
 }
 
-export async function updateAdminService(id, data, actorMeta) {
-  // Fetch existing
+export async function updateAdminService(id, data, auditContext = {}) {
   const existing = await prisma.cAdmin.findUnique({
     where: { cadmin_id: id },
   });
@@ -260,7 +273,6 @@ export async function updateAdminService(id, data, actorMeta) {
     throw createError("Admin not found", 404);
   }
 
-  // Build update data and track changes
   const updateData = {};
   const changes = {};
 
@@ -272,7 +284,6 @@ export async function updateAdminService(id, data, actorMeta) {
   if (data.username !== undefined) {
     const newUsername = data.username.toLowerCase();
     if (newUsername !== existing.username) {
-      // Check uniqueness
       const dup = await prisma.cAdmin.findFirst({
         where: {
           username: { equals: newUsername, mode: "insensitive" },
@@ -293,7 +304,6 @@ export async function updateAdminService(id, data, actorMeta) {
   if (data.email !== undefined) {
     const newEmail = data.email.toLowerCase();
     if (newEmail !== existing.email) {
-      // Check uniqueness
       const dup = await prisma.cAdmin.findFirst({
         where: {
           email: { equals: newEmail, mode: "insensitive" },
@@ -315,25 +325,6 @@ export async function updateAdminService(id, data, actorMeta) {
     throw createError("No changes detected", 400);
   }
 
-  // Update
-  const updated = await prisma.cAdmin.update({
-    where: { cadmin_id: id },
-    data: updateData,
-    select: {
-      cadmin_id: true,
-      name: true,
-      username: true,
-      phone_number: true,
-      email: true,
-      role: true,
-      is_active: true,
-      last_login_at: true,
-      created_at: true,
-      updated_at: true,
-    },
-  });
-
-  // Determine action type
   const hasRoleChange = !!changes.role;
   const action = hasRoleChange ? "role_updated" : "profile_updated";
   const changedFields = Object.keys(changes).join(", ");
@@ -341,36 +332,88 @@ export async function updateAdminService(id, data, actorMeta) {
     ? `Role changed from ${formatRole(changes.role.from)} to ${formatRole(changes.role.to)}`
     : `Updated: ${changedFields}`;
 
-  // Log activity
-  await prisma.cAdminActivityLog.create({
-    data: {
-      cadmin_id: id,
-      performed_by_id: actorMeta.cadmin_id,
-      action,
-      description,
-      changes,
-      ip_address: actorMeta.ip_address,
-      user_agent: actorMeta.user_agent,
-    },
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.cAdmin.update({
+      where: { cadmin_id: id },
+      data: updateData,
+      select: {
+        cadmin_id: true,
+        name: true,
+        username: true,
+        phone_number: true,
+        email: true,
+        role: true,
+        is_active: true,
+        last_login_at: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
+
+    // Legacy activity log
+    await tx.cAdminActivityLog.create({
+      data: {
+        cadmin_id: id,
+        performed_by_id: auditContext.actor_id,
+        action,
+        description,
+        changes,
+        ip_address: auditContext.ip_address,
+        user_agent: auditContext.user_agent,
+      },
+    });
+
+    // ✅ AUDIT LOG: CAdmin profile updated
+    await audit.log({
+      action: audit.AuditAction.CADMIN_PROFILE_UPDATED,
+      entity_type: audit.EntityType.CADMIN,
+      entity_id: id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+      metadata: {
+        changed_fields: Object.keys(changes),
+        before: Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v.from])),
+        after: Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v.to])),
+        changed_by_cadmin_id: auditContext.actor_id,
+      },
+    }, { tx });
+
+    // ✅ AUDIT LOG: Role changed (if applicable)
+    if (hasRoleChange) {
+      await audit.log({
+        action: audit.AuditAction.CADMIN_ROLE_CHANGED,
+        entity_type: audit.EntityType.CADMIN,
+        entity_id: id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          previous_role: changes.role.from,
+          new_role: changes.role.to,
+          changed_by_cadmin_id: auditContext.actor_id,
+        },
+      }, { tx });
+    }
+
+    return updated;
   });
 
   return {
-    id: updated.cadmin_id,
-    name: updated.name,
-    username: updated.username,
-    phone: updated.phone_number,
-    email: updated.email || "",
-    role: formatRole(updated.role),
-    status: formatStatus(updated.is_active),
-    lastLogin: formatDateTime(updated.last_login_at),
-    createdAt: formatDate(updated.created_at),
-    updatedAt: formatDate(updated.updated_at),
+    id: result.cadmin_id,
+    name: result.name,
+    username: result.username,
+    phone: result.phone_number,
+    email: result.email || "",
+    role: formatRole(result.role),
+    status: formatStatus(result.is_active),
+    lastLogin: formatDateTime(result.last_login_at),
+    createdAt: formatDate(result.created_at),
+    updatedAt: formatDate(result.updated_at),
   };
 }
 
-export async function toggleAdminAccessService(id, isActive, actorMeta) {
+export async function toggleAdminAccessService(id, isActive, auditContext = {}) {
   // Prevent self-deactivation
-  if (actorMeta.cadmin_id === id && !isActive) {
+  if (auditContext.actor_id === id && !isActive) {
     throw createError("Cannot deactivate your own account", 403);
   }
 
@@ -381,49 +424,70 @@ export async function toggleAdminAccessService(id, isActive, actorMeta) {
     throw createError("Admin not found", 404);
   }
 
-  // If deactivating a SUPER_ADMIN, check it's not the last one
+  // Prevent deactivating last Super Admin
   if (!isActive && existing.role === "SUPER_ADMIN") {
     const activeSuperAdmins = await prisma.cAdmin.count({
-      where: {
-        role: "SUPER_ADMIN",
-        is_active: true,
-      },
+      where: { role: "SUPER_ADMIN", is_active: true },
     });
     if (activeSuperAdmins <= 1) {
       throw createError("Cannot deactivate the last active Super Admin", 400);
     }
   }
 
-  // Update
-  const updated = await prisma.cAdmin.update({
-    where: { cadmin_id: id },
-    data: { is_active: isActive },
-    select: {
-      cadmin_id: true,
-      name: true,
-      is_active: true,
-    },
-  });
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.cAdmin.update({
+      where: { cadmin_id: id },
+      data: { is_active: isActive },
+      select: {
+        cadmin_id: true,
+        name: true,
+        username: true,
+        role: true,
+        is_active: true,
+      },
+    });
 
-  // Log activity
-  await prisma.cAdminActivityLog.create({
-    data: {
-      cadmin_id: id,
-      performed_by_id: actorMeta.cadmin_id,
-      action: "status_changed",
-      description: isActive ? "Admin activated" : "Admin suspended",
-      changes: { is_active: { from: existing.is_active, to: isActive } },
-      meta: { performed_by: actorMeta.cadmin_id },
-      ip_address: actorMeta.ip_address,
-      user_agent: actorMeta.user_agent,
-    },
+    // Legacy activity log
+    await tx.cAdminActivityLog.create({
+      data: {
+        cadmin_id: id,
+        performed_by_id: auditContext.actor_id,
+        action: "status_changed",
+        description: isActive ? "Admin activated" : "Admin suspended",
+        changes: { is_active: { from: existing.is_active, to: isActive } },
+        meta: { performed_by: auditContext.actor_id },
+        ip_address: auditContext.ip_address,
+        user_agent: auditContext.user_agent,
+      },
+    });
+
+    // ✅ AUDIT LOG: Activated or Suspended
+    const auditAction = isActive 
+      ? audit.AuditAction.CADMIN_ACTIVATED 
+      : audit.AuditAction.CADMIN_SUSPENDED;
+
+    await audit.log({
+      action: auditAction,
+      entity_type: audit.EntityType.CADMIN,
+      entity_id: id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+      metadata: {
+        username: updated.username,
+        role: updated.role,
+        reason: isActive ? "activated_by_admin" : "suspended_by_admin",
+        changed_by_cadmin_id: auditContext.actor_id,
+      },
+    }, { tx });
+
+    return updated;
   });
 
   return {
-    id: updated.cadmin_id,
-    name: updated.name,
-    status: formatStatus(updated.is_active),
-    isActive: updated.is_active,
+    id: result.cadmin_id,
+    name: result.name,
+    status: formatStatus(result.is_active),
+    isActive: result.is_active,
   };
 }
 
@@ -431,7 +495,6 @@ export async function getAdminActivityService(adminId, query) {
   const { page, limit, action } = query;
   const skip = (page - 1) * limit;
 
-  // Verify admin exists
   const admin = await prisma.cAdmin.findUnique({
     where: { cadmin_id: adminId },
     select: { cadmin_id: true },
@@ -440,13 +503,11 @@ export async function getAdminActivityService(adminId, query) {
     throw createError("Admin not found", 404);
   }
 
-  // Build where
   const where = { cadmin_id: adminId };
   if (action) {
     where.action = action;
   }
 
-  // Query
   const [total, activities] = await Promise.all([
     prisma.cAdminActivityLog.count({ where }),
     prisma.cAdminActivityLog.findMany({

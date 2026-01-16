@@ -5,14 +5,11 @@ import { hashPassword } from "../../utils/hash.js";
 import { generateOtp, hashOtp, verifyOtp } from "../../utils/otp.js";
 import { notify } from "../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
-
 import { getMCAuthToken } from "../../providers/messageCentral/token.js";
 import { mcSendOtp } from "../../providers/messageCentral/sendOtp.js";
 import { mcValidateOtp } from "../../providers/messageCentral/validateOtp.js";
+import * as audit from "../audit/index.js";
 
-/**
- * Delete pending users older than expiry window (in minutes).
- */
 export async function cleanupExpiredPendingUsers(expiryMinutes = 10) {
   try {
     const cutoff = new Date(Date.now() - expiryMinutes * 60 * 1000);
@@ -166,7 +163,6 @@ export async function sendEmailOtp(pending_id, isResend = false) {
     throw err;
   }
 
-  // Check cooldown
   if (pending.email_otp_expires) {
     const expiresAt = new Date(pending.email_otp_expires);
     const now = new Date();
@@ -198,7 +194,6 @@ export async function sendEmailOtp(pending_id, isResend = false) {
     },
   });
 
-  // ✅ Send OTP via centralized notification system
   await notify({
     type: NOTIFICATION_EVENTS.EMAIL_VERIFICATION_OTP,
     context: {
@@ -572,7 +567,7 @@ async function generateAvailableUsernames(baseUsername, count = 4) {
   return suggestions;
 }
 
-export async function finalizePendingSignup(pending_id) {
+export async function finalizePendingSignup(pending_id, auditContext) {
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
   });
@@ -637,6 +632,27 @@ export async function finalizePendingSignup(pending_id) {
   await prisma.user.update({
     where: { user_id: user.user_id },
     data: { shop_id: shop.shop_id },
+  });
+
+  // ✅ AUDIT: Shop account created
+  await audit.log({
+    action: audit.AuditAction.SHOP_ACCOUNT_CREATED,
+    entity_type: audit.EntityType.SHOP,
+    entity_id: shop.shop_id,
+    shop_id: shop.shop_id,
+    actor_type: audit.ActorType.ERP_USER,
+    actor_id: user.user_id,
+    actor_role: user.role,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      user_id: user.user_id,
+      email: user.email,
+      username: user.username,
+      phone_number: user.phone_number,
+      login_provider: user.login_provider,
+      pending_id,
+    },
   });
 
   await prisma.pendingUser.delete({ where: { pending_id } });

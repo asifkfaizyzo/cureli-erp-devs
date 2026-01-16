@@ -2,6 +2,7 @@
 import { success, fail } from "../../utils/response.js";
 import { verifyRecaptcha } from "../../utils/recaptcha.js";
 import * as enquiryService from "./enquiries.service.js";
+import * as audit from "../audit/index.js";
 
 // Logger utility - only logs in development
 const log = {
@@ -13,6 +14,7 @@ const log = {
   error: (...args) => console.error(...args),
 };
 
+// No changes needed - external submission, no authenticated user
 export const submitEnquiry = async (req, res) => {
   try {
     const { name, email, phone, message, recaptchaToken } = req.validated;
@@ -73,14 +75,13 @@ export const submitEnquiry = async (req, res) => {
       "Your enquiry has been submitted successfully!",
       201
     );
-    
-    
   } catch (error) {
     log.error("Submit enquiry error:", error);
     return fail(res, "Failed to submit enquiry. Please try again.", 500);
   }
 };
 
+// Read-only, no changes needed
 export const listEnquiries = async (req, res) => {
   try {
     // Use validated query params from middleware
@@ -117,6 +118,7 @@ export const listEnquiries = async (req, res) => {
   }
 };
 
+// Read-only, no changes needed
 export const getEnquiryStats = async (req, res) => {
   try {
     const stats = await enquiryService.getEnquiryStats();
@@ -130,6 +132,7 @@ export const getEnquiryStats = async (req, res) => {
   }
 };
 
+// Read-only, no changes needed
 export const getEnquiryDetails = async (req, res) => {
   try {
     const { enquiryId } = req.validatedParams;
@@ -151,6 +154,7 @@ export const getEnquiryDetails = async (req, res) => {
   }
 };
 
+// ✅ UPDATED: Extract audit context and pass to service
 export const replyToEnquiry = async (req, res) => {
   try {
     const { enquiryId } = req.validatedParams;
@@ -165,10 +169,15 @@ export const replyToEnquiry = async (req, res) => {
       return fail(res, "Subject and message are required", 400);
     }
 
-    const result = await enquiryService.replyToEnquiry(enquiryId, adminId, {
-      subject,
-      message,
-    });
+    // Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
+    const result = await enquiryService.replyToEnquiry(
+      enquiryId,
+      adminId,
+      { subject, message },
+      auditContext
+    );
 
     if (!result.emailSent) {
       log.error("Email send failed:", result.emailError);
@@ -197,6 +206,7 @@ export const replyToEnquiry = async (req, res) => {
   }
 };
 
+// ✅ UPDATED: Extract audit context and pass to service
 export const updateEnquiryStatus = async (req, res) => {
   try {
     const { enquiryId } = req.validatedParams;
@@ -210,7 +220,14 @@ export const updateEnquiryStatus = async (req, res) => {
       return fail(res, "Status is required", 400);
     }
 
-    const enquiry = await enquiryService.updateEnquiryStatus(enquiryId, status);
+    // Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
+    const enquiry = await enquiryService.updateEnquiryStatus(
+      enquiryId,
+      status,
+      auditContext
+    );
 
     log.info("✅ Enquiry status updated:", enquiryId, "->", status);
 
@@ -224,6 +241,7 @@ export const updateEnquiryStatus = async (req, res) => {
   }
 };
 
+// No changes needed - deletion not audited
 export const deleteEnquiry = async (req, res) => {
   try {
     const { enquiryId } = req.validatedParams;

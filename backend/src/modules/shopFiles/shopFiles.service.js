@@ -1,15 +1,12 @@
 // backend/src/modules/shopFiles/shopFiles.service.js
 
 import prisma from "../../config/prisma.js";
-import { createVerificationLog } from "../cadmin/cadminDocs/cadminDocs.service.js";
+import * as audit from "../audit/index.js";
 
 /**
  * UPLOAD SHOP FILE (Initial upload during onboarding)
- * fileData should contain:
- * { shop_id, user_id, file_type, original_name, mime_type, file_size, storage_key }
  */
 export async function uploadShopFile(fileData) {
-  // Validate shop
   const shop = await prisma.shop.findUnique({ 
     where: { shop_id: fileData.shop_id } 
   });
@@ -20,27 +17,45 @@ export async function uploadShopFile(fileData) {
     throw err;
   }
 
-  // Persist file row
-  const file = await prisma.shopFile.create({
-    data: {
+  const result = await prisma.$transaction(async (tx) => {
+    const file = await tx.shopFile.create({
+      data: {
+        shop_id: fileData.shop_id,
+        file_type: fileData.file_type,
+        storage_key: fileData.storage_key,
+        original_name: fileData.original_name,
+        mime_type: fileData.mime_type,
+        file_size: fileData.file_size,
+        uploaded_by: fileData.user_id,
+        status: "uploaded",
+      },
+    });
+
+    await tx.shop.update({
+      where: { shop_id: fileData.shop_id },
+      data: { verification_status: "pending_review" }
+    });
+
+    // ✅ AUDIT: Document uploaded by owner
+    await audit.log({
+      action: audit.AuditAction.SHOP_DOCUMENT_UPLOADED,
+      entity_type: audit.EntityType.DOCUMENT,
+      entity_id: file.file_id,
       shop_id: fileData.shop_id,
-      file_type: fileData.file_type,
-      storage_key: fileData.storage_key,
-      original_name: fileData.original_name,
-      mime_type: fileData.mime_type,
-      file_size: fileData.file_size,
-      uploaded_by: fileData.user_id,
-      status: "uploaded",  // Default: awaiting admin review
-    },
+      ...fileData.auditContext,
+      reason_code: audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        file_type: file.file_type,
+        original_name: file.original_name,
+        mime_type: file.mime_type,
+        file_size: file.file_size,
+      },
+    }, { tx });
+
+    return file;
   });
 
-  // Update shop to pending_review (files submitted, waiting for admin)
-  await prisma.shop.update({
-    where: { shop_id: fileData.shop_id },
-    data: { verification_status: "pending_review" }
-  });
-
-  // Map file_type to onboarding step
+  // Update onboarding step (outside transaction)
   const mapping = {
     drug_license: 7,
     pharmacy_registration: 8,
@@ -64,12 +79,11 @@ export async function uploadShopFile(fileData) {
     }
   }
 
-  return file;
+  return result;
 }
 
 /**
  * LIST REJECTED FILES FOR SHOP
- * Used by owner to see which files were rejected and need resubmission
  */
 export async function listRejectedFilesForShop(shop_id) {
   return prisma.shopFile.findMany({
@@ -79,7 +93,7 @@ export async function listRejectedFilesForShop(shop_id) {
       file_type: true,
       original_name: true,
       status: true,
-      verification_notes: true,        // Rejection reason
+      verification_notes: true,
       resubmission_count: true,
       uploaded_at: true,
       rejected_at: true,
@@ -91,17 +105,6 @@ export async function listRejectedFilesForShop(shop_id) {
 
 /**
  * RESUBMIT FILE (Owner resubmits a rejected file)
- * 
- * When user resubmits:
- * 1. Replace file storage (new upload)
- * 2. Reset file status to "uploaded" (back to pending admin review)
- * 3. Clear verification_notes (rejection reason)
- * 4. Increment resubmission_count (track how many times resubmitted)
- * 5. Update last_resubmitted_at (track when resubmitted)
- * 6. Reset shop to "pending_review" (since a file changed)
- * 7. Log the resubmission action
- * 
- * fileData: { file_id, shop_id, storage_key, original_name, mime_type, file_size, owner_message }
  */
 export async function resubmitFile({
   file_id,
@@ -111,6 +114,7 @@ export async function resubmitFile({
   mime_type,
   file_size,
   owner_message = null,
+  auditContext = {},
 }) {
   const old = await prisma.shopFile.findUnique({ where: { file_id } });
   
@@ -126,62 +130,82 @@ export async function resubmitFile({
     throw err;
   }
 
-  // Update file: reset to uploaded, clear rejection reason, increment counter
-  const updated = await prisma.shopFile.update({
-    where: { file_id },
-    data: {
-      storage_key,                      // New file
-      original_name,
-      mime_type,
-      file_size,
-      status: "uploaded",                // Reset to pending review
-      verification_notes: null,           // Clear rejection reason
-      verified_at: null,                  // Clear verification date
-      rejected_at: null,                  // Clear rejection date
-      last_resubmitted_at: new Date(),    // Track when resubmitted
-      resubmission_count: { increment: 1 }, // Increment counter
-      uploaded_at: new Date(),            // Update upload timestamp
-    },
-  });
-
-  // Reset shop status back to pending_review (a file was resubmitted)
-  await prisma.shop.update({
-    where: { shop_id },
-    data: { verification_status: "pending_review" }
-  });
-
-
-  const shop = await prisma.shop.findUnique({
-    where: { shop_id },
-    select: { owner_user_id: true }
-  });
-
-  if (shop?.owner_user_id) {
-    await prisma.user.update({
-      where: { user_id: shop.owner_user_id },
-      data: { 
-        status: "pending_verification",
-        first_login_after_verification: false // Reset this too
-      }
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.shopFile.update({
+      where: { file_id },
+      data: {
+        storage_key,
+        original_name,
+        mime_type,
+        file_size,
+        status: "uploaded",
+        verification_notes: null,
+        verified_at: null,
+        rejected_at: null,
+        last_resubmitted_at: new Date(),
+        resubmission_count: { increment: 1 },
+        uploaded_at: new Date(),
+      },
     });
-    console.log("✅ Reset user status to pending_verification");
-  }
-  // Log owner resubmission
-  await createVerificationLog({
-    file_id,
-    shop_id,
-    actor_type: "owner",
-    action: "resubmitted",
-    reason: owner_message || "File resubmitted by owner",
+
+    await tx.shop.update({
+      where: { shop_id },
+      data: { verification_status: "pending_review" }
+    });
+
+    const shop = await tx.shop.findUnique({
+      where: { shop_id },
+      select: { owner_user_id: true }
+    });
+
+    if (shop?.owner_user_id) {
+      await tx.user.update({
+        where: { user_id: shop.owner_user_id },
+        data: { 
+          status: "pending_verification",
+          first_login_after_verification: false
+        }
+      });
+      console.log("✅ Reset user status to pending_verification");
+    }
+
+    // Legacy log (for backward compatibility with UI that reads this table)
+    await tx.fileVerificationLog.create({
+      data: {
+        file_id,
+        shop_id,
+        actor_type: "owner",
+        action: "resubmitted",
+        reason: owner_message || "File resubmitted by owner",
+      },
+    });
+
+    // ✅ AUDIT: Document resubmitted
+    await audit.log({
+      action: audit.AuditAction.SHOP_DOCUMENT_RESUBMITTED,
+      entity_type: audit.EntityType.DOCUMENT,
+      entity_id: file_id,
+      shop_id: shop_id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        file_type: old.file_type,
+        resubmission_count: updated.resubmission_count,
+        owner_message: owner_message,
+        previous_status: old.status,
+        new_status: updated.status,
+      },
+    }, { tx });
+
+    return updated;
   });
 
-  return updated;
+  return result;
 }
 
 /**
  * OWNER MESSAGE TO ADMIN
- * Owner can leave a message on a rejected file (stored in verification logs)
- * This helps admin understand context for resubmission
+ * (Legacy feature — creates FileVerificationLog only, not audited)
  */
 export async function ownerMessage({ file_id, shop_id, message }) {
   const file = await prisma.shopFile.findUnique({ where: { file_id } });
@@ -198,12 +222,15 @@ export async function ownerMessage({ file_id, shop_id, message }) {
     throw err;
   }
 
-  await createVerificationLog({
-    file_id,
-    shop_id,
-    actor_type: "owner",
-    action: "owner_message",
-    reason: message.trim(),
+  // Legacy log only (not critical enough for audit trail)
+  await prisma.fileVerificationLog.create({
+    data: {
+      file_id,
+      shop_id,
+      actor_type: "owner",
+      action: "owner_message",
+      reason: message.trim(),
+    },
   });
 
   return { success: true };

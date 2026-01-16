@@ -1,3 +1,5 @@
+// backend/src/modules/cadmin/auth/cadminAuth.service.js
+
 import prisma from "../../../config/prisma.js";
 import { comparePassword } from "../../../utils/hash.js";
 import { getMCAuthToken } from "../../../providers/messageCentral/token.js";
@@ -8,12 +10,14 @@ import {
   generateCAdminRefreshToken,
   verifyCAdminRefreshToken,
 } from "../../../utils/cadminTokens.js";
-import { ADMIN_REFRESH_SECRET } from "../../../config/cadmin_jwt.js"; // 👈 ADD THIS IMPORT
+import { ADMIN_REFRESH_SECRET } from "../../../config/cadmin_jwt.js";
+import * as audit from "../../audit/index.js";
 
 /**
  * loginCAdminService
+ * Initiates OTP-based login
  */
-export async function loginCAdminService({ username, password }) {
+export async function loginCAdminService({ username, password, auditContext = {} }) {
   const cadmin = await prisma.cAdmin.findUnique({ where: { username } });
 
   if (!cadmin) {
@@ -72,7 +76,18 @@ export async function loginCAdminService({ username, password }) {
 
   return { phone_hint };
 }
-export async function loginCAdminDirectService({ username, password, req, res }) {
+
+/**
+ * loginCAdminDirectService
+ * Direct login without OTP (for development/special cases)
+ */
+export async function loginCAdminDirectService({ 
+  username, 
+  password, 
+  req, 
+  res, 
+  auditContext = {} 
+}) {
   const cadmin = await prisma.cAdmin.findUnique({ where: { username } });
 
   if (!cadmin) {
@@ -94,15 +109,30 @@ export async function loginCAdminDirectService({ username, password, req, res })
     throw err;
   }
 
-  // Update last login
-  await prisma.cAdmin.update({
-    where: { cadmin_id: cadmin.cadmin_id },
-    data: {
-      last_login_at: new Date(),
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.cAdmin.update({
+      where: { cadmin_id: cadmin.cadmin_id },
+      data: { last_login_at: new Date() },
+    });
+
+    // ✅ AUDIT LOG: Direct login success (SECURITY ACTION)
+    await audit.log({
+      action: audit.AuditAction.CADMIN_LOGIN_SUCCESS,
+      entity_type: audit.EntityType.CADMIN,
+      entity_id: cadmin.cadmin_id,
+      actor_type: audit.ActorType.CADMIN,
+      actor_id: cadmin.cadmin_id,
+      actor_role: cadmin.role,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+      metadata: {
+        username: cadmin.username,
+        login_method: 'direct',
+        session_type: 'direct_password',
+      },
+    }, { tx });
   });
 
-  // Generate tokens
   const accessPayload = {
     cadmin_id: cadmin.cadmin_id,
     username: cadmin.username,
@@ -112,34 +142,33 @@ export async function loginCAdminDirectService({ username, password, req, res })
   const accessToken = generateCAdminAccessToken(accessPayload);
   const refreshToken = generateCAdminRefreshToken(refreshPayload);
 
-  console.log("🔑 Direct login - tokens generated for:", cadmin.username);
-
   const cookieOptions = {
     httpOnly: true,
-    secure: false, // Set to true in production with HTTPS
+    secure: false,
     sameSite: "lax",
     path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   };
 
-  // Clear any existing cookies first
   res.clearCookie("cadmin_refresh_token", { path: "/" });
   res.clearCookie("cadmin_refresh_token", { path: "/cadmin" });
   res.clearCookie("cadmin_refresh_token", { path: "/cadmin/refresh" });
-
-  // Set new refresh token cookie
   res.cookie("cadmin_refresh_token", refreshToken, cookieOptions);
 
-  return {
-    access_token: accessToken,
-  };
+  return { access_token: accessToken };
 }
+
 /**
  * verifyCAdminOtpService
+ * Verifies OTP and completes login
  */
-// In cadminAuth.service.js - verifyCAdminOtpService
-
-export async function verifyCAdminOtpService({ username, otp, req, res }) {
+export async function verifyCAdminOtpService({ 
+  username, 
+  otp, 
+  req, 
+  res, 
+  auditContext = {} 
+}) {
   const cadmin = await prisma.cAdmin.findUnique({ where: { username } });
   if (!cadmin) {
     const err = new Error("Invalid user");
@@ -181,13 +210,32 @@ export async function verifyCAdminOtpService({ username, otp, req, res }) {
     throw err;
   }
 
-  await prisma.cAdmin.update({
-    where: { cadmin_id: cadmin.cadmin_id },
-    data: {
-      verification_id: null,
-      otp_expires: null,
-      last_login_at: new Date(),
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.cAdmin.update({
+      where: { cadmin_id: cadmin.cadmin_id },
+      data: {
+        verification_id: null,
+        otp_expires: null,
+        last_login_at: new Date(),
+      },
+    });
+
+    // ✅ AUDIT LOG: OTP login success (SECURITY ACTION)
+    await audit.log({
+      action: audit.AuditAction.CADMIN_LOGIN_SUCCESS,
+      entity_type: audit.EntityType.CADMIN,
+      entity_id: cadmin.cadmin_id,
+      actor_type: audit.ActorType.CADMIN,
+      actor_id: cadmin.cadmin_id,
+      actor_role: cadmin.role,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+      metadata: {
+        username: cadmin.username,
+        login_method: 'otp',
+        session_type: 'otp_verified',
+      },
+    }, { tx });
   });
 
   const accessPayload = {
@@ -199,65 +247,47 @@ export async function verifyCAdminOtpService({ username, otp, req, res }) {
   const accessToken = generateCAdminAccessToken(accessPayload);
   const refreshToken = generateCAdminRefreshToken(refreshPayload);
 
-  console.log("🔑 GENERATED REFRESH TOKEN:", refreshToken);
-
   const cookieOptions = {
     httpOnly: true,
     secure: false,
     sameSite: "lax",
-    path: "/",  // 👈 CHANGED TO ROOT PATH
+    path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   };
 
-  // 👇 CLEAR ANY EXISTING COOKIES FIRST (all possible paths)
   res.clearCookie("cadmin_refresh_token", { path: "/" });
   res.clearCookie("cadmin_refresh_token", { path: "/cadmin" });
   res.clearCookie("cadmin_refresh_token", { path: "/cadmin/refresh" });
-
-  console.log("Setting refresh token cookie with options:", cookieOptions);
   res.cookie("cadmin_refresh_token", refreshToken, cookieOptions);
 
-  return {
-    access_token: accessToken,
-  };
+  return { access_token: accessToken };
 }
 
 /**
  * refreshCAdminService
+ * Refreshes access token using refresh token
  */
 export async function refreshCAdminService({ req, res }) {
-  console.log("=== REFRESH ATTEMPT ===");
-  console.log("All cookies:", Object.keys(req.cookies || {}));
-
   const token = req.cookies?.cadmin_refresh_token;
-  console.log("🍪 COOKIE REFRESH TOKEN:", token);
 
   if (!token) {
-    console.log("❌ No refresh token cookie found");
     const err = new Error("Missing refresh token");
     err.status = 401;
     throw err;
   }
 
-  console.log("✅ Refresh token found");
-
   try {
-    console.log("Verifying with secret:", ADMIN_REFRESH_SECRET?.slice(0, 5) + "...");
     const payload = verifyCAdminRefreshToken(token);
-    console.log("✅ Token verified, cadmin_id:", payload.cadmin_id);
-
     const cadmin_id = payload.cadmin_id;
 
     const cadmin = await prisma.cAdmin.findUnique({ where: { cadmin_id } });
     if (!cadmin) {
-      console.log("❌ CAdmin not found in database");
       const err = new Error("Invalid refresh token");
       err.status = 401;
       throw err;
     }
 
     if (!cadmin.is_active) {
-      console.log("❌ CAdmin account is disabled");
       const err = new Error("Account disabled");
       err.status = 403;
       throw err;
@@ -268,7 +298,6 @@ export async function refreshCAdminService({ req, res }) {
       username: cadmin.username,
     });
 
-    // Generate new refresh token (rotation)
     const newRefreshToken = generateCAdminRefreshToken({
       cadmin_id: cadmin.cadmin_id,
     });
@@ -277,24 +306,17 @@ export async function refreshCAdminService({ req, res }) {
       httpOnly: true,
       secure: false,
       sameSite: "lax",
-      path: "/",  // 👈 ROOT PATH
+      path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     };
 
-    // Clear old cookies first
     res.clearCookie("cadmin_refresh_token", { path: "/" });
     res.clearCookie("cadmin_refresh_token", { path: "/cadmin" });
     res.clearCookie("cadmin_refresh_token", { path: "/cadmin/refresh" });
-
     res.cookie("cadmin_refresh_token", newRefreshToken, cookieOptions);
-    console.log("✅ New tokens generated and cookie refreshed for:", cadmin.username);
 
     return { access_token: accessToken };
   } catch (err) {
-    console.log("❌ Token verification failed:", err.message);
-    console.log("Error name:", err.name);
-
-    // Clear all possible cookies
     res.clearCookie("cadmin_refresh_token", { path: "/" });
     res.clearCookie("cadmin_refresh_token", { path: "/cadmin" });
     res.clearCookie("cadmin_refresh_token", { path: "/cadmin/refresh" });
@@ -305,11 +327,34 @@ export async function refreshCAdminService({ req, res }) {
   }
 }
 
-export async function logoutCAdminService({ req, res }) {
-  // Clear all possible paths
+/**
+ * logoutCAdminService
+ * Logs out CAdmin and clears session
+ */
+export async function logoutCAdminService({ req, res, auditContext = {} }) {
+  const cadmin_id = req.cadmin?.cadmin_id;
+
+  if (cadmin_id) {
+    // ✅ AUDIT LOG: Logout (SECURITY ACTION)
+    await audit.log({
+      action: audit.AuditAction.CADMIN_LOGOUT,
+      entity_type: audit.EntityType.CADMIN,
+      entity_id: cadmin_id,
+      actor_type: audit.ActorType.CADMIN,
+      actor_id: cadmin_id,
+      actor_role: req.cadmin?.role,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+      metadata: {
+        username: req.cadmin?.username,
+        logout_type: 'manual',
+      },
+    });
+  }
+
   res.clearCookie("cadmin_refresh_token", { path: "/" });
   res.clearCookie("cadmin_refresh_token", { path: "/cadmin" });
   res.clearCookie("cadmin_refresh_token", { path: "/cadmin/refresh" });
-  console.log("✅ Refresh token cookie cleared");
+
   return;
 }

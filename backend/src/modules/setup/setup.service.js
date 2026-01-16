@@ -1,6 +1,8 @@
 // src/modules/setup/setup.service.js
 import prisma from "../../config/prisma.js";
 import { hashPassword } from "../../utils/hash.js";
+import * as audit from "../audit/index.js";
+import crypto from "crypto";
 
 /**
  * Get setup status for a shop
@@ -102,7 +104,7 @@ export async function checkPhoneAvailability(phone_number) {
 /**
  * Complete setup - Create branches and users in a transaction
  */
-export async function completeSetup({ shop_id, user_id, branches, users }) {
+export async function completeSetup({ shop_id, user_id, branches, users, auditContext }) {
   // Step 1: Get shop and subscription limits
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
@@ -203,18 +205,14 @@ export async function completeSetup({ shop_id, user_id, branches, users }) {
     }
   }
 
-  // ============================================
   // Step 4: Validate Branch Admin constraint
-  // Each branch can only have ONE branch_admin
-  // ============================================
-  const branchAdminAssignments = new Map(); // temp_id -> user full_name
+  const branchAdminAssignments = new Map();
   
   for (const userData of users) {
     if (userData.role === "branch_admin") {
       const branchTempId = userData.branch_temp_id;
       
       if (branchAdminAssignments.has(branchTempId)) {
-        // Find branch name for better error message
         const branchData = branches.find((b) => b.temp_id === branchTempId);
         const branchName = branchData?.branch_name || "Unknown branch";
         const existingAdmin = branchAdminAssignments.get(branchTempId);
@@ -234,8 +232,8 @@ export async function completeSetup({ shop_id, user_id, branches, users }) {
 
   // Step 5: Create everything in a transaction
   const result = await prisma.$transaction(async (tx) => {
-    // Create a map to store temp_id -> real branch_id
     const branchIdMap = new Map();
+    const correlationId = crypto.randomUUID();
 
     // Create branches
     const createdBranches = [];
@@ -261,6 +259,28 @@ export async function completeSetup({ shop_id, user_id, branches, users }) {
       createdBranches.push(branch);
     }
 
+    // Audit: Branches created (batch)
+    if (createdBranches.length > 0) {
+      await audit.logMany(
+        createdBranches.map((branch) => ({
+          action: audit.AuditAction.BRANCH_CREATED,
+          entity_type: audit.EntityType.BRANCH,
+          entity_id: branch.branch_id,
+          shop_id: shop_id,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.USER_REQUEST,
+          metadata: {
+            branch_name: branch.branch_name,
+            branch_type: branch.branch_type,
+            city: branch.city,
+            state: branch.state,
+            created_during_setup: true,
+          },
+        })),
+        { tx, correlation_id: correlationId }
+      );
+    }
+
     // Create users
     const createdUsers = [];
     for (const userData of users) {
@@ -270,10 +290,8 @@ export async function completeSetup({ shop_id, user_id, branches, users }) {
         throw new Error(`Invalid branch assignment for user ${userData.full_name}`);
       }
 
-      // Hash password
       const password_hash = await hashPassword(userData.password);
 
-      // Parse name
       const nameParts = userData.full_name.trim().split(/\s+/);
       const first_name = nameParts[0];
       const last_name = nameParts.slice(1).join(" ") || "";
@@ -292,11 +310,33 @@ export async function completeSetup({ shop_id, user_id, branches, users }) {
           role: userData.role,
           status: "verified",
           is_active: true,
-          onboarding_step: 12, // Completed
+          onboarding_step: 12,
         },
       });
 
       createdUsers.push(user);
+    }
+
+    // Audit: Users created (batch)
+    if (createdUsers.length > 0) {
+      await audit.logMany(
+        createdUsers.map((user) => ({
+          action: audit.AuditAction.USER_CREATED,
+          entity_type: audit.EntityType.USER,
+          entity_id: user.user_id,
+          shop_id: shop_id,
+          branch_id: user.branch_id,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.USER_REQUEST,
+          metadata: {
+            username: user.username,
+            role: user.role,
+            phone_number: user.phone_number,
+            created_during_setup: true,
+          },
+        })),
+        { tx, correlation_id: correlationId }
+      );
     }
 
     // Update the Super Admin's status to active if still pending
@@ -306,6 +346,22 @@ export async function completeSetup({ shop_id, user_id, branches, users }) {
         status: "active",
       },
     });
+
+    // Audit: Shop setup completed
+    await audit.log({
+      action: audit.AuditAction.SHOP_SETUP_COMPLETED,
+      entity_type: audit.EntityType.SHOP,
+      entity_id: shop_id,
+      shop_id: shop_id,
+      ...auditContext,
+      correlation_id: correlationId,
+      reason_code: audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        branches_created: createdBranches.length,
+        users_created: createdUsers.length,
+        onboarding_step: 12,
+      },
+    }, { tx });
 
     return {
       branches: createdBranches,

@@ -1,19 +1,8 @@
 // src/modules/users/users.controller.js
 
 import { success, fail } from "../../utils/response.js";
-import {
-  getUsers,
-  getUserById,
-  getUserLimits,
-  createUser,
-  updateUser,
-  deleteUser,
-  reactivateUser,
-  resetUserPassword,
-  checkUsernameAvailability,
-  checkPhoneAvailability,
-  userBelongsToBranch,
-} from "./users.service.js";
+import * as svc from "./users.service.js";
+import * as audit from "../audit/index.js";
 
 /**
  * GET /api/users
@@ -33,7 +22,7 @@ export async function getUsersController(req, res) {
       return fail(res, "Shop not found", 400);
     }
 
-    const result = await getUsers({
+    const result = await svc.getUsers({
       shop_id,
       branch_id,
       role,
@@ -66,7 +55,7 @@ export async function getUserLimitsController(req, res) {
       return fail(res, "Shop not found", 400);
     }
 
-    const limits = await getUserLimits(shop_id);
+    const limits = await svc.getUserLimits(shop_id);
 
     return success(res, limits);
   } catch (err) {
@@ -92,7 +81,7 @@ export async function getUserController(req, res) {
       return fail(res, "Shop not found", 400);
     }
 
-    const user = await getUserById(user_id, shop_id);
+    const user = await svc.getUserById(user_id, shop_id);
 
     if (!user) {
       return fail(res, "User not found", 404);
@@ -150,8 +139,11 @@ export async function createUserController(req, res) {
       }
     }
 
+    // ✅ Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
     // Create user
-    const user = await createUser({
+    const user = await svc.createUser({
       shop_id,
       branch_id,
       full_name,
@@ -160,6 +152,7 @@ export async function createUserController(req, res) {
       password,
       role,
       email,
+      auditContext, // ✅ Pass context
     });
 
     return success(res, { user }, "User created successfully", 201);
@@ -206,7 +199,7 @@ export async function updateUserController(req, res) {
     }
 
     // Get target user first for validation
-    const targetUser = await getUserById(user_id, shop_id);
+    const targetUser = await svc.getUserById(user_id, shop_id);
 
     if (!targetUser) {
       return fail(res, "User not found", 404);
@@ -248,8 +241,16 @@ export async function updateUserController(req, res) {
       }
     }
 
+    // ✅ Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
     // Perform update
-    const updatedUser = await updateUser(user_id, shop_id, updates);
+    const updatedUser = await svc.updateUser(
+      user_id,
+      shop_id,
+      updates,
+      auditContext // ✅ Pass context
+    );
 
     return success(res, { user: updatedUser }, "User updated successfully");
   } catch (err) {
@@ -291,7 +292,15 @@ export async function deleteUserController(req, res) {
       return fail(res, "Shop not found", 400);
     }
 
-    await deleteUser(user_id, shop_id, requester_user_id);
+    // ✅ Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
+    await svc.deleteUser(
+      user_id,
+      shop_id,
+      requester_user_id,
+      auditContext // ✅ Pass context
+    );
 
     return success(res, null, "User deactivated successfully");
   } catch (err) {
@@ -333,7 +342,14 @@ export async function reactivateUserController(req, res) {
       return fail(res, "Only Super Admin can reactivate users", 403);
     }
 
-    const user = await reactivateUser(user_id, shop_id);
+    // ✅ Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
+    const user = await svc.reactivateUser(
+      user_id,
+      shop_id,
+      auditContext // ✅ Pass context
+    );
 
     return success(res, { user }, "User reactivated successfully");
   } catch (err) {
@@ -376,7 +392,7 @@ export async function resetPasswordController(req, res) {
     }
 
     // Get target user
-    const targetUser = await getUserById(user_id, shop_id);
+    const targetUser = await svc.getUserById(user_id, shop_id);
 
     if (!targetUser) {
       return fail(res, "User not found", 404);
@@ -414,8 +430,16 @@ export async function resetPasswordController(req, res) {
       }
     }
 
+    // ✅ Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
     // Reset password
-    await resetUserPassword(user_id, shop_id, new_password);
+    await svc.resetUserPassword(
+      user_id,
+      shop_id,
+      new_password,
+      auditContext // ✅ Pass context
+    );
 
     return success(res, null, "Password reset successfully");
   } catch (err) {
@@ -440,7 +464,7 @@ export async function checkUsernameController(req, res) {
   try {
     const { username, exclude_user_id } = req.validated;
 
-    const result = await checkUsernameAvailability(username, exclude_user_id);
+    const result = await svc.checkUsernameAvailability(username, exclude_user_id);
 
     return success(res, result);
   } catch (err) {
@@ -457,7 +481,7 @@ export async function checkPhoneController(req, res) {
   try {
     const { phone_number, exclude_user_id } = req.validated;
 
-    const result = await checkPhoneAvailability(phone_number, exclude_user_id);
+    const result = await svc.checkPhoneAvailability(phone_number, exclude_user_id);
 
     return success(res, result);
   } catch (err) {

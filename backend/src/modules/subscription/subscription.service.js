@@ -6,16 +6,9 @@ import {
   RAZORPAY_CURRENCY,
   verifyPaymentSignature,
 } from "../../config/razorpay.js";
-
-// ============================================
-// CONSTANTS
-// ============================================
+import * as audit from "../audit/index.js";
 
 const GRACE_PERIOD_DAYS = 7;
-
-// ============================================
-// HELPER: Create Error with Code
-// ============================================
 
 function createError(message, code) {
   const err = new Error(message);
@@ -23,29 +16,12 @@ function createError(message, code) {
   return err;
 }
 
-// ============================================
-// HELPER: Calculate Subscription Dates
-// ============================================
-
-/**
- * Calculate subscription dates based on plan configuration
- * 
- * UPDATED LOGIC (per Master Prompt):
- * - grace_period_until is ALWAYS null at creation
- * - Grace is earned, not pre-granted
- * - Cron will set grace_period_until after expiry
- * 
- * @param {Object} plan - Plan object from database
- * @returns {Object} { start_date, end_date, renewal_date, grace_period_until: null }
- */
 function calculateSubscriptionDates(plan) {
   const now = new Date();
   const start_date = new Date(now);
   
-  // Determine reference date for calculating end date
   let referenceDate = new Date(now);
   
-  // If promo is active, billing starts from promo end date
   if (plan.promo_free_until) {
     const promoDate = new Date(plan.promo_free_until);
     if (promoDate > now) {
@@ -53,68 +29,43 @@ function calculateSubscriptionDates(plan) {
     }
   }
 
-  // Calculate total months
   const billingCycleMonths = plan.billing_cycle_months || 12;
   const bonusMonths = plan.bonus_months || 0;
   const totalMonths = billingCycleMonths + bonusMonths;
   
-  // Calculate end date
   const end_date = new Date(referenceDate);
   end_date.setMonth(end_date.getMonth() + totalMonths);
 
-  // Renewal date is same as end date (informational only)
   const renewal_date = new Date(end_date);
 
-  // ⚠️ CRITICAL CHANGE: grace_period_until is NULL at creation
-  // Grace is earned after expiry, not pre-granted
   return { 
     start_date, 
     end_date, 
     renewal_date, 
-    grace_period_until: null  // ← CHANGED FROM calculated date
+    grace_period_until: null
   };
 }
 
-/**
- * Check if a plan is currently free (price = 0 OR promo active)
- * @param {Object} plan - Plan object
- * @returns {boolean}
- */
 function isPlanEffectivelyFree(plan) {
   const isPriceZero = Number(plan.price) === 0;
   const isPromoActive = plan.promo_free_until && new Date(plan.promo_free_until) > new Date();
   return isPriceZero || isPromoActive;
 }
 
-// ============================================
-// HELPER: Apply Grace Period Guard (Read-Time)
-// ============================================
-
-/**
- * Read-time grace guard - heals subscriptions that expired without grace set
- * 
- * This is a TEMPORARY SAFETY NET until cron fully owns lifecycle
- * 
- * @param {Object} subscription - Subscription record
- * @returns {Object} subscription (potentially updated)
- */
 async function applyGracePeriodGuard(subscription) {
   if (!subscription) return subscription;
   
   const now = new Date();
   const endDate = new Date(subscription.end_date);
   
-  // Check conditions for grace guard
   const isExpired = endDate < now;
   const isActive = subscription.is_active && subscription.status === 'active';
   const hasNoGrace = !subscription.grace_period_until;
   
   if (isExpired && isActive && hasNoGrace) {
-    // Calculate grace period
     const gracePeriodUntil = new Date(endDate);
     gracePeriodUntil.setDate(gracePeriodUntil.getDate() + GRACE_PERIOD_DAYS);
     
-    // Persist the grace period
     const updated = await prisma.shopSubscription.update({
       where: { subscription_id: subscription.subscription_id },
       data: { grace_period_until: gracePeriodUntil },
@@ -128,15 +79,6 @@ async function applyGracePeriodGuard(subscription) {
   return subscription;
 }
 
-// ============================================
-// HELPER: Calculate Days Remaining
-// ============================================
-
-/**
- * Calculate days remaining until subscription end date
- * @param {Date|string} endDate - Subscription end date
- * @returns {number} Days remaining (minimum 0)
- */
 function calculateDaysRemaining(endDate) {
   const now = new Date();
   const end = new Date(endDate);
@@ -144,14 +86,6 @@ function calculateDaysRemaining(endDate) {
   return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 }
 
-// ============================================
-// GET VISIBLE PLANS (For Customer Selection)
-// ============================================
-
-/**
- * Get plans available for customer selection
- * Only ACTIVE + PRE_MADE + not deleted
- */
 export async function getVisiblePlans() {
   const plans = await prisma.plan.findMany({
     where: {
@@ -179,7 +113,6 @@ export async function getVisiblePlans() {
     },
   });
 
-  // Format plans with computed fields
   const now = new Date();
   
   return plans.map(plan => ({
@@ -199,13 +132,6 @@ export async function getVisiblePlans() {
   }));
 }
 
-// ============================================
-// GET USER DETAILS (For Razorpay Prefill)
-// ============================================
-
-/**
- * Get user details for Razorpay prefill
- */
 export async function getUserDetails(user_id) {
   const user = await prisma.user.findUnique({
     where: { user_id },
@@ -226,13 +152,6 @@ export async function getUserDetails(user_id) {
   return user;
 }
 
-// ============================================
-// GET ACTIVE PLAN (Validated for Selection)
-// ============================================
-
-/**
- * Get plan by ID (must be active and available)
- */
 export async function getActivePlan(plan_id) {
   const plan = await prisma.plan.findFirst({
     where: {
@@ -249,17 +168,7 @@ export async function getActivePlan(plan_id) {
   return plan;
 }
 
-// ============================================
-// CREATE FREE SUBSCRIPTION
-// ============================================
-
-/**
- * Create subscription for FREE plan (Standard Free or Promo Free)
- * Activates immediately without payment
- * 
- * ⚠️ UPDATED: grace_period_until is NULL at creation
- */
-export async function createFreeSubscription({ shop_id, plan, isPromoApplied = false }) {
+export async function createFreeSubscription({ shop_id, plan, isPromoApplied = false, auditContext }) {
   const dates = calculateSubscriptionDates(plan);
 
   const subscription = await prisma.shopSubscription.create({
@@ -267,13 +176,13 @@ export async function createFreeSubscription({ shop_id, plan, isPromoApplied = f
       shop_id,
       plan_id: plan.plan_id,
       status: "active",
-      payment_status: "paid", // Free = no payment needed
+      payment_status: "paid",
       billing_cycle: "yearly",
       
       start_date: dates.start_date,
       end_date: dates.end_date,
       renewal_date: dates.renewal_date,
-      grace_period_until: null,  // ← EXPLICIT NULL (grace earned, not pre-granted)
+      grace_period_until: null,
 
       branch_limit_snapshot: plan.max_branches,
       user_limit_snapshot: plan.max_users,
@@ -281,13 +190,11 @@ export async function createFreeSubscription({ shop_id, plan, isPromoApplied = f
     },
   });
 
-  // Set as current subscription for shop
   await prisma.shop.update({
     where: { shop_id },
     data: { current_subscription_id: subscription.subscription_id },
   });
 
-  // Log the transaction (for promo tracking)
   if (isPromoApplied) {
     await prisma.paymentTransaction.create({
       data: {
@@ -307,23 +214,30 @@ export async function createFreeSubscription({ shop_id, plan, isPromoApplied = f
     });
   }
 
+  // Audit: Subscription created (free/promo)
+  await audit.log({
+    action: audit.AuditAction.SUBSCRIPTION_CREATED,
+    entity_type: audit.EntityType.SUBSCRIPTION,
+    entity_id: subscription.subscription_id,
+    shop_id: shop_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      plan_id: plan.plan_id,
+      plan_name: plan.name,
+      is_promo: isPromoApplied,
+      is_free: Number(plan.price) === 0,
+      start_date: subscription.start_date,
+      end_date: subscription.end_date,
+    },
+  });
+
   return subscription;
 }
 
-// ============================================
-// CREATE PAID SUBSCRIPTION (Pending Payment)
-// ============================================
-
-/**
- * Create subscription for PAID plan
- * Creates Razorpay order and returns payment details
- * 
- * ⚠️ UPDATED: grace_period_until is NULL at creation
- */
 export async function createPaidSubscription({ shop_id, plan, user }) {
   const dates = calculateSubscriptionDates(plan);
 
-  // 1. Create Pending Subscription
   const subscription = await prisma.shopSubscription.create({
     data: {
       shop_id,
@@ -332,19 +246,17 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
       payment_status: "pending",
       billing_cycle: "yearly",
       
-      // Dates will be recalculated on payment confirmation
       start_date: dates.start_date,
       end_date: dates.end_date,
       renewal_date: dates.renewal_date,
-      grace_period_until: null,  // ← EXPLICIT NULL
+      grace_period_until: null,
 
       branch_limit_snapshot: plan.max_branches,
       user_limit_snapshot: plan.max_users,
-      is_active: false, // Not active until payment confirmed
+      is_active: false,
     },
   });
 
-  // 2. Create Razorpay Order
   const priceInRupees = Number(plan.price);
   const amountInPaisa = Math.round(priceInRupees * 100);
 
@@ -360,7 +272,6 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
     },
   });
 
-  // 3. Store Payment Transaction
   await prisma.paymentTransaction.create({
     data: {
       shop_id,
@@ -392,22 +303,13 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
   };
 }
 
-// ============================================
-// VERIFY AND ACTIVATE SUBSCRIPTION
-// ============================================
-
-/**
- * Verify payment and activate subscription
- * 
- * ⚠️ UPDATED: grace_period_until stays NULL after activation
- */
 export async function verifyAndActivateSubscription({
   razorpay_order_id,
   razorpay_payment_id,
   razorpay_signature,
   subscription_id,
+  auditContext,
 }) {
-  // Step 1: Verify Razorpay signature
   const isValid = verifyPaymentSignature(
     razorpay_order_id,
     razorpay_payment_id,
@@ -418,7 +320,6 @@ export async function verifyAndActivateSubscription({
     throw createError("Payment verification failed - invalid signature", "INVALID_SIGNATURE");
   }
 
-  // Step 2: Find the payment transaction
   const transaction = await prisma.paymentTransaction.findUnique({
     where: { provider_order_id: razorpay_order_id },
     include: { subscription: true },
@@ -432,7 +333,6 @@ export async function verifyAndActivateSubscription({
     throw createError("Subscription mismatch", "SUBSCRIPTION_MISMATCH");
   }
 
-  // Step 3: Get plan to recalculate dates
   const subscription = await prisma.shopSubscription.findUnique({
     where: { subscription_id },
     include: { plan: true },
@@ -442,12 +342,9 @@ export async function verifyAndActivateSubscription({
     throw createError("Subscription not found", "SUBSCRIPTION_NOT_FOUND");
   }
 
-  // Step 4: Recalculate dates based on actual payment time
   const dates = calculateSubscriptionDates(subscription.plan);
 
-  // Step 5: Update everything in a transaction
   const result = await prisma.$transaction(async (tx) => {
-    // Update payment transaction
     await tx.paymentTransaction.update({
       where: { transaction_id: transaction.transaction_id },
       data: {
@@ -461,8 +358,6 @@ export async function verifyAndActivateSubscription({
       },
     });
 
-    // Activate subscription with final dates
-    // ⚠️ grace_period_until stays NULL
     const activatedSubscription = await tx.shopSubscription.update({
       where: { subscription_id },
       data: {
@@ -472,16 +367,33 @@ export async function verifyAndActivateSubscription({
         start_date: dates.start_date,
         end_date: dates.end_date,
         renewal_date: dates.renewal_date,
-        grace_period_until: null,  // ← EXPLICIT NULL
+        grace_period_until: null,
       },
       include: { plan: true },
     });
 
-    // Set as current subscription for shop
     await tx.shop.update({
       where: { shop_id: transaction.shop_id },
       data: { current_subscription_id: subscription_id },
     });
+
+    // Audit: Subscription activated
+    await audit.log({
+      action: audit.AuditAction.SUBSCRIPTION_ACTIVATED,
+      entity_type: audit.EntityType.SUBSCRIPTION,
+      entity_id: subscription_id,
+      shop_id: transaction.shop_id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        plan_id: activatedSubscription.plan.plan_id,
+        plan_name: activatedSubscription.plan.name,
+        payment_id: razorpay_payment_id,
+        amount: Number(transaction.amount),
+        start_date: activatedSubscription.start_date,
+        end_date: activatedSubscription.end_date,
+      },
+    }, { tx });
 
     return activatedSubscription;
   });
@@ -489,15 +401,6 @@ export async function verifyAndActivateSubscription({
   return result;
 }
 
-// ============================================
-// GET SUBSCRIPTION STATUS (WITH GRACE GUARD)
-// ============================================
-
-/**
- * Get subscription status for a shop
- * 
- * ⚠️ UPDATED: Now includes days_remaining calculation
- */
 export async function getSubscriptionStatus(shop_id) {
   if (!shop_id) return null;
 
@@ -522,14 +425,12 @@ export async function getSubscriptionStatus(shop_id) {
 
   if (!subscription) return null;
 
-  // Apply read-time grace guard
   subscription = await applyGracePeriodGuard(subscription);
 
   const now = new Date();
   const endDate = new Date(subscription.end_date);
   const isExpired = endDate < now;
   
-  // ⚠️ FIX: Calculate days_remaining (this was missing!)
   const daysRemaining = calculateDaysRemaining(subscription.end_date);
   
   const isInGracePeriod = subscription.grace_period_until 
@@ -555,20 +456,12 @@ export async function getSubscriptionStatus(shop_id) {
       max_users: subscription.plan.max_users,
       max_branches: subscription.plan.max_branches,
     },
-    // ⚠️ FIX: These fields are now included
     is_expired: isExpired,
     is_in_grace_period: isInGracePeriod,
     days_remaining: daysRemaining,
   };
 }
 
-// ============================================
-// GET SUBSCRIPTION HISTORY
-// ============================================
-
-/**
- * Get subscription history for a shop
- */
 export async function getSubscriptionHistory(shop_id) {
   if (!shop_id) return [];
 
@@ -595,13 +488,6 @@ export async function getSubscriptionHistory(shop_id) {
   }));
 }
 
-// ============================================
-// CANCEL PENDING SUBSCRIPTION
-// ============================================
-
-/**
- * Cancel pending subscription (e.g., user closed Razorpay popup)
- */
 export async function cancelPendingSubscriptionService(subscription_id, shop_id) {
   const subscription = await prisma.shopSubscription.findFirst({
     where: {
@@ -636,14 +522,7 @@ export async function cancelPendingSubscriptionService(subscription_id, shop_id)
   return { success: true };
 }
 
-// ============================================
-// PLAN CHANGE ANALYSIS
-// ============================================
 
-/**
- * Analyze what happens when switching to a new plan
- * ⚠️ UPDATED: Now detects "renew" when same plan is selected
- */
 export async function analyzePlanChangeService(shop_id, target_plan_id) {
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
@@ -687,7 +566,6 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
   const activeUsers = shop._count.users;
   const activeBranches = shop._count.branches;
 
-  // ⚠️ RENEWAL DETECTION
   if (currentPlan.plan_id === target_plan_id) {
     return {
       direction: "renew",
@@ -738,13 +616,6 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
   };
 }
 
-// ============================================
-// GET COMPLIANCE DATA FOR DOWNGRADE
-// ============================================
-
-/**
- * Get compliance data for downgrade modal
- */
 export async function getComplianceDataService(shop_id, target_plan_id) {
   const targetPlan = await prisma.plan.findFirst({
     where: {
@@ -819,14 +690,6 @@ export async function getComplianceDataService(shop_id, target_plan_id) {
   };
 }
 
-// ============================================
-// CHANGE PLAN SERVICE
-// ============================================
-
-/**
- * Execute plan change (upgrade, downgrade, or renewal)
- * ⚠️ UPDATED: Now handles renewal
- */
 export async function changePlanService({
   shop_id,
   user_id,
@@ -834,11 +697,9 @@ export async function changePlanService({
   users_to_disable = [],
   branches_to_deactivate = [],
   user_reassignments = [],
+  auditContext,
 }) {
   const analysis = await analyzePlanChangeService(shop_id, target_plan_id);
-
-  // ⚠️ REMOVED: Old "no_change" error
-  // Now we allow "renew" direction
 
   const targetPlan = await prisma.plan.findFirst({
     where: {
@@ -853,7 +714,6 @@ export async function changePlanService({
     select: { full_name: true, email: true, phone_number: true },
   });
 
-  // Get current subscription for renewal
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
     include: {
@@ -863,40 +723,32 @@ export async function changePlanService({
     },
   });
 
-  // ⚠️ NEW: Handle renewal
   if (analysis.direction === "renew") {
     return await executeRenewal(
       shop_id,
       targetPlan,
       shop.currentSubscription,
-      user
+      user,
+      auditContext
     );
   }
 
-  // Existing upgrade logic
   if (analysis.direction === "upgrade") {
-    return await executeUpgrade(shop_id, targetPlan, user);
+    return await executeUpgrade(shop_id, targetPlan, user, auditContext);
   }
 
-  // Existing downgrade logic
   return await executeDowngrade(
     shop_id,
     targetPlan,
     analysis,
     users_to_disable,
     branches_to_deactivate,
-    user_reassignments
+    user_reassignments,
+    auditContext
   );
 }
 
-// ============================================
-// EXECUTE UPGRADE
-// ============================================
-
-/**
- * ⚠️ UPDATED: grace_period_until is NULL
- */
-async function executeUpgrade(shop_id, targetPlan, user) {
+async function executeUpgrade(shop_id, targetPlan, user, auditContext) {
   const dates = calculateSubscriptionDates(targetPlan);
 
   const subscription = await prisma.shopSubscription.create({
@@ -909,7 +761,7 @@ async function executeUpgrade(shop_id, targetPlan, user) {
       start_date: dates.start_date,
       end_date: dates.end_date,
       renewal_date: dates.renewal_date,
-      grace_period_until: null,  // ← EXPLICIT NULL
+      grace_period_until: null,
       branch_limit_snapshot: targetPlan.max_branches,
       user_limit_snapshot: targetPlan.max_users,
       is_active: false,
@@ -949,6 +801,23 @@ async function executeUpgrade(shop_id, targetPlan, user) {
     },
   });
 
+  // Audit: Plan upgrade initiated (pending payment)
+  await audit.log({
+    action: audit.AuditAction.PLAN_UPGRADED,
+    entity_type: audit.EntityType.SUBSCRIPTION,
+    entity_id: subscription.subscription_id,
+    shop_id: shop_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      target_plan_id: targetPlan.plan_id,
+      target_plan_name: targetPlan.name,
+      price: priceInRupees,
+      payment_pending: true,
+      razorpay_order_id: razorpayOrder.id,
+    },
+  });
+
   return {
     requires_payment: true,
     subscription_id: subscription.subscription_id,
@@ -969,28 +838,12 @@ async function executeUpgrade(shop_id, targetPlan, user) {
   };
 }
 
-// ============================================
-// EXECUTE RENEWAL
-// ============================================
-
-/**
- * Execute plan renewal (same plan, extend subscription)
- * ⚠️ NEW: Handles renewing the same plan
- * 
- * Key differences from upgrade:
- * - Uses current end_date as reference (ignoring grace)
- * - Clears grace_period_until on new subscription
- * - Creates new subscription record
- */
-async function executeRenewal(shop_id, targetPlan, currentSubscription, user) {
+async function executeRenewal(shop_id, targetPlan, currentSubscription, user, auditContext) {
   const now = new Date();
   
-  // ⚠️ CRITICAL: Start new period from CURRENT end_date, not today
-  // This ensures user doesn't lose remaining time (even in grace period)
   const currentEndDate = new Date(currentSubscription.end_date);
   const referenceDate = currentEndDate > now ? currentEndDate : now;
   
-  // Calculate dates for renewal
   const billingCycleMonths = targetPlan.billing_cycle_months || 12;
   const bonusMonths = targetPlan.bonus_months || 0;
   const totalMonths = billingCycleMonths + bonusMonths;
@@ -1000,7 +853,6 @@ async function executeRenewal(shop_id, targetPlan, currentSubscription, user) {
   end_date.setMonth(end_date.getMonth() + totalMonths);
   const renewal_date = new Date(end_date);
 
-  // Create pending subscription for renewal
   const subscription = await prisma.shopSubscription.create({
     data: {
       shop_id,
@@ -1011,14 +863,13 @@ async function executeRenewal(shop_id, targetPlan, currentSubscription, user) {
       start_date,
       end_date,
       renewal_date,
-      grace_period_until: null,  // ⚠️ No grace pre-granted
+      grace_period_until: null,
       branch_limit_snapshot: targetPlan.max_branches,
       user_limit_snapshot: targetPlan.max_users,
-      is_active: false,  // Will activate on payment
+      is_active: false,
     },
   });
 
-  // Create Razorpay order
   const priceInRupees = Number(targetPlan.price);
   const amountInPaisa = Math.round(priceInRupees * 100);
 
@@ -1035,7 +886,6 @@ async function executeRenewal(shop_id, targetPlan, currentSubscription, user) {
     },
   });
 
-  // Log transaction
   await prisma.paymentTransaction.create({
     data: {
       shop_id,
@@ -1051,6 +901,24 @@ async function executeRenewal(shop_id, targetPlan, currentSubscription, user) {
         extended_from: currentSubscription.end_date,
         created_at: new Date().toISOString(),
       },
+    },
+  });
+
+  // Audit: Subscription renewed (pending payment)
+  await audit.log({
+    action: audit.AuditAction.SUBSCRIPTION_RENEWED,
+    entity_type: audit.EntityType.SUBSCRIPTION,
+    entity_id: subscription.subscription_id,
+    shop_id: shop_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      plan_id: targetPlan.plan_id,
+      plan_name: targetPlan.name,
+      previous_end_date: currentSubscription.end_date,
+      new_end_date: end_date,
+      payment_pending: true,
+      razorpay_order_id: razorpayOrder.id,
     },
   });
 
@@ -1074,20 +942,14 @@ async function executeRenewal(shop_id, targetPlan, currentSubscription, user) {
   };
 }
 
-// ============================================
-// EXECUTE DOWNGRADE
-// ============================================
-
-/**
- * ⚠️ UPDATED: grace_period_until is NULL
- */
 async function executeDowngrade(
   shop_id,
   targetPlan,
   analysis,
   users_to_disable,
   branches_to_deactivate,
-  user_reassignments = []
+  user_reassignments = [],
+  auditContext
 ) {
   const now = new Date();
 
@@ -1185,6 +1047,7 @@ async function executeDowngrade(
   }
 
   const dates = calculateSubscriptionDates(targetPlan);
+  const correlationId = crypto.randomUUID();
 
   const result = await prisma.$transaction(async (tx) => {
     if (finalUsersToDisable.length > 0) {
@@ -1197,6 +1060,24 @@ async function executeDowngrade(
         where: { user_id: { in: finalUsersToDisable }, is_active: true },
         data: { is_active: false, ended_at: now, ended_reason: "admin_force" },
       });
+
+      // Audit: Users disabled due to downgrade
+      await audit.log({
+        action: audit.AuditAction.USERS_DISABLED_DUE_TO_PLAN_DOWNGRADE,
+        entity_type: audit.EntityType.SUBSCRIPTION,
+        entity_id: null,
+        shop_id: shop_id,
+        correlation_id: correlationId,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.PLAN_LIMIT_ENFORCEMENT,
+        metadata: {
+          user_ids: finalUsersToDisable,
+          count: finalUsersToDisable.length,
+          target_plan_id: targetPlan.plan_id,
+          target_plan_name: targetPlan.name,
+          new_user_limit: targetPlan.max_users,
+        },
+      }, { tx });
     }
 
     if (user_reassignments.length > 0) {
@@ -1213,6 +1094,24 @@ async function executeDowngrade(
         where: { branch_id: { in: branches_to_deactivate } },
         data: { is_active: false },
       });
+
+      // Audit: Branches deactivated due to downgrade
+      await audit.log({
+        action: audit.AuditAction.BRANCHES_DEACTIVATED_DUE_TO_PLAN_DOWNGRADE,
+        entity_type: audit.EntityType.SUBSCRIPTION,
+        entity_id: null,
+        shop_id: shop_id,
+        correlation_id: correlationId,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.PLAN_LIMIT_ENFORCEMENT,
+        metadata: {
+          branch_ids: branches_to_deactivate,
+          count: branches_to_deactivate.length,
+          target_plan_id: targetPlan.plan_id,
+          target_plan_name: targetPlan.name,
+          new_branch_limit: targetPlan.max_branches,
+        },
+      }, { tx });
     }
 
     const oldSubscription = await tx.shop.findUnique({
@@ -1223,11 +1122,10 @@ async function executeDowngrade(
     if (oldSubscription?.current_subscription_id) {
       await tx.shopSubscription.update({
         where: { subscription_id: oldSubscription.current_subscription_id },
-        data: { is_active: false, status: "cancelled" },
+        data: { is_active: false, status: 'cancelled' },
       });
     }
 
-    // ⚠️ grace_period_until is NULL for downgrade
     const newSubscription = await tx.shopSubscription.create({
       data: {
         shop_id,
@@ -1238,7 +1136,7 @@ async function executeDowngrade(
         start_date: dates.start_date,
         end_date: dates.end_date,
         renewal_date: dates.renewal_date,
-        grace_period_until: null,  // ← EXPLICIT NULL
+        grace_period_until: null,
         branch_limit_snapshot: targetPlan.max_branches,
         user_limit_snapshot: targetPlan.max_users,
         is_active: true,
@@ -1249,6 +1147,25 @@ async function executeDowngrade(
       where: { shop_id },
       data: { current_subscription_id: newSubscription.subscription_id },
     });
+
+    // Audit: Plan downgraded
+    await audit.log({
+      action: audit.AuditAction.PLAN_DOWNGRADED,
+      entity_type: audit.EntityType.SUBSCRIPTION,
+      entity_id: newSubscription.subscription_id,
+      shop_id: shop_id,
+      correlation_id: correlationId,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        previous_subscription_id: oldSubscription?.current_subscription_id,
+        new_plan_id: targetPlan.plan_id,
+        new_plan_name: targetPlan.name,
+        disabled_users_count: finalUsersToDisable.length,
+        deactivated_branches_count: branches_to_deactivate.length,
+        reassigned_users_count: user_reassignments.length,
+      },
+    }, { tx });
 
     return newSubscription;
   });
@@ -1267,10 +1184,6 @@ async function executeDowngrade(
     reassigned_users: user_reassignments.length,
   };
 }
-
-// ============================================
-// HELPER: Format Plan for API Response
-// ============================================
 
 function formatPlanForResponse(plan) {
   const now = new Date();
@@ -1294,27 +1207,15 @@ function formatPlanForResponse(plan) {
   };
 }
 
-// ============================================
-// CRON EXPORTS (Used by jobs.js)
-// ============================================
-
-/**
- * Cron 1: Transition expired subscriptions to grace period
- * Called by cron job
- */
 export async function transitionExpiredToGrace() {
   const now = new Date();
   
-  // Find active subscriptions that:
-  // 1. Are past end_date
-  // 2. Have no grace_period_until set
-  // 3. Are not seeded (we check by looking for ones without grace already)
   const expiredSubscriptions = await prisma.shopSubscription.findMany({
     where: {
       is_active: true,
       status: 'active',
       end_date: { lt: now },
-      grace_period_until: null,  // Only ones without grace set
+      grace_period_until: null,
     },
     include: {
       shop: {
@@ -1347,31 +1248,36 @@ export async function transitionExpiredToGrace() {
   return { checked: expiredSubscriptions.length, transitioned, results };
 }
 
-/**
- * Cron 1B: Suspend subscriptions past grace period
- * Called by cron job
- */
 export async function suspendExpiredGrace() {
   const now = new Date();
   
-  // Find active subscriptions past grace period
-  // Exclude those with payment_status = 'paid' (they should renew)
   const expiredGraceSubscriptions = await prisma.shopSubscription.findMany({
     where: {
       is_active: true,
       status: 'active',
       grace_period_until: { lt: now },
-      payment_status: { not: 'paid' },  // Not renewed
+      payment_status: { not: 'paid' },
     },
     include: {
       shop: {
-        select: { shop_id: true, business_name: true },
+        select: { 
+          shop_id: true, 
+          business_name: true,
+          owner: {
+            select: {
+              user_id: true,
+              full_name: true,
+              email: true,
+            },
+          },
+        },
       },
     },
   });
 
   let suspended = 0;
   const results = [];
+  const systemContext = audit.buildSystemContext('suspend-expired-grace');
 
   for (const sub of expiredGraceSubscriptions) {
     await prisma.$transaction(async (tx) => {
@@ -1384,11 +1290,30 @@ export async function suspendExpiredGrace() {
         },
       });
 
-      // Suspend shop
+      // ✅ CORRECT: Use is_active instead of is_suspended
       await tx.shop.update({
         where: { shop_id: sub.shop_id },
-        data: { is_suspended: true },
+        data: { 
+          is_active: false, // ✅ Suspend the shop
+          updated_at: new Date(),
+        },
       });
+
+      // ✅ AUDIT: Shop suspended due to non-payment
+      await audit.log({
+        action: audit.AuditAction.SHOP_SUSPENDED_DUE_TO_NON_PAYMENT,
+        entity_type: audit.EntityType.SHOP,
+        entity_id: sub.shop_id,
+        shop_id: sub.shop_id,
+        ...systemContext,
+        reason_code: audit.AuditReasonCode.PAYMENT_ISSUE,
+        metadata: {
+          subscription_id: sub.subscription_id,
+          grace_period_until: sub.grace_period_until,
+          days_overdue: Math.floor((now - new Date(sub.grace_period_until)) / (1000 * 60 * 60 * 24)),
+          reason: 'Grace period expired without payment',
+        },
+      }, { tx });
     });
 
     suspended++;
@@ -1402,15 +1327,9 @@ export async function suspendExpiredGrace() {
 
   return { checked: expiredGraceSubscriptions.length, suspended, results };
 }
-
-/**
- * Cron 2: Transition pending payments to overdue
- * Called by cron job
- */
 export async function transitionPendingToOverdue() {
   const now = new Date();
   
-  // Find subscriptions with pending payment past end_date
   const overdueSubscriptions = await prisma.shopSubscription.findMany({
     where: {
       payment_status: 'pending',
@@ -1431,26 +1350,18 @@ export async function transitionPendingToOverdue() {
   return { checked: overdueSubscriptions.length, updated: result.count };
 }
 
-/**
- * Cron 3: Get subscriptions due for reminders
- * Called by cron job for sending notifications
- */
 export async function getSubscriptionsDueForReminders() {
   const now = new Date();
   
-  // 7 days before expiry
   const reminder7Days = new Date(now);
   reminder7Days.setDate(reminder7Days.getDate() + 7);
   
-  // 3 days before expiry
   const reminder3Days = new Date(now);
   reminder3Days.setDate(reminder3Days.getDate() + 3);
   
-  // 1 day before grace ends
   const graceDaysWarning = new Date(now);
   graceDaysWarning.setDate(graceDaysWarning.getDate() + 1);
 
-  // Find subscriptions expiring in 7 days
   const expiring7Days = await prisma.shopSubscription.findMany({
     where: {
       is_active: true,
@@ -1471,7 +1382,6 @@ export async function getSubscriptionsDueForReminders() {
     },
   });
 
-  // Find subscriptions expiring in 3 days
   const expiring3Days = await prisma.shopSubscription.findMany({
     where: {
       is_active: true,
@@ -1492,7 +1402,6 @@ export async function getSubscriptionsDueForReminders() {
     },
   });
 
-  // Find subscriptions with grace ending tomorrow
   const graceEndingSoon = await prisma.shopSubscription.findMany({
     where: {
       is_active: true,

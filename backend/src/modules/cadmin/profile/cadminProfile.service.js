@@ -1,19 +1,35 @@
+// ============================================
+// backend\src\modules\cadmin\profile\cadminProfile.service.js
+// ============================================
+
 import prisma from "../../../config/prisma.js";
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
 
 /**
  * Format role for display
  */
 function formatRole(role) {
-  const map = {
+  const roleMap = {
     SUPER_ADMIN: "Super cAdmin",
     ANALYST: "Analyst",
     ACCOUNTING: "Accounting",
   };
-  return map[role] || role;
+  return roleMap[role] || role;
 }
+
+// ============================================
+// GET MY PROFILE
+// ============================================
 
 /**
  * Get current admin's profile with pending notification counts
+ * 
+ * @param {string} cadminId - Current admin's ID
+ * @returns {Promise<Object>} Profile data with pending counts
+ * @throws {Error} If admin not found
  */
 export async function getMyProfileService(cadminId) {
   const cadmin = await prisma.cAdmin.findUnique({
@@ -37,7 +53,7 @@ export async function getMyProfileService(cadminId) {
     throw err;
   }
 
-  // Get pending counts
+  // Get pending counts in parallel
   const pendingCounts = await getPendingCountsService();
 
   return {
@@ -49,6 +65,7 @@ export async function getMyProfileService(cadminId) {
       phone: cadmin.phone_number,
       role: formatRole(cadmin.role),
       rawRole: cadmin.role,
+      isActive: cadmin.is_active,
       lastLogin: cadmin.last_login_at,
       createdAt: cadmin.created_at,
     },
@@ -56,28 +73,36 @@ export async function getMyProfileService(cadminId) {
   };
 }
 
+// ============================================
+// GET PENDING COUNTS
+// ============================================
+
 /**
  * Get counts of items needing attention (computed notifications)
+ * Used for dashboard badges and notification UI
+ * 
+ * @returns {Promise<Object>} Pending counts by category
  */
 export async function getPendingCountsService() {
   const now = new Date();
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  // Run all queries in parallel
+  // Run all queries in parallel for better performance
   const [
     pendingDocuments,
     rejectedDocuments,
     expiringSubscriptions,
     pendingShops,
+    overduePayments,
   ] = await Promise.all([
-    // Documents waiting for verification
+    // Documents waiting for admin verification
     prisma.shopFile.count({
       where: {
         status: "uploaded",
       },
     }),
 
-    // Rejected documents (awaiting resubmission)
+    // Rejected documents awaiting owner resubmission
     prisma.shopFile.count({
       where: {
         status: "rejected",
@@ -95,27 +120,45 @@ export async function getPendingCountsService() {
       },
     }),
 
-    // Shops pending verification
+    // Shops pending verification (never verified)
     prisma.shop.count({
       where: {
-        verification_status: "pending",
+        verification_status: "pending_review",
+      },
+    }),
+
+    // Payment transactions that failed or are pending
+    prisma.paymentTransaction.count({
+      where: {
+        status: {
+          in: ["failed", "pending"],
+        },
       },
     }),
   ]);
 
-  const totalPending = pendingDocuments + expiringSubscriptions + pendingShops;
+  // Calculate total actionable items
+  const totalPending = pendingDocuments + expiringSubscriptions + pendingShops + overduePayments;
 
   return {
     total: totalPending,
+    
     documents: {
       pending: pendingDocuments,
       rejected: rejectedDocuments,
+      total: pendingDocuments + rejectedDocuments,
     },
+    
     subscriptions: {
       expiringSoon: expiringSubscriptions,
     },
+    
     shops: {
       pendingVerification: pendingShops,
+    },
+    
+    payments: {
+      overdue: overduePayments,
     },
   };
 }

@@ -1,3 +1,5 @@
+// backend/src/modules/pending/pending.controller.js
+
 import {
   createPendingUser,
   sendEmailOtp,
@@ -24,11 +26,12 @@ import {
   ACCESS_EXPIRES,
   REFRESH_EXPIRES,
 } from "../../config/jwt.js";
+import * as audit from "../audit/index.js";
 
 export async function startPendingSignup(req, res) {
   try {
     const { first_name, last_name, email, password } = req.validated;
-    const { recaptchaToken } = req.body; // ✅ Get from body directly
+    const { recaptchaToken } = req.body;
     const recaptchaResult = await verifyRecaptcha(recaptchaToken);
     if (!recaptchaResult.success) {
       return fail(res, "reCAPTCHA verification failed", 400);
@@ -98,9 +101,8 @@ export async function googleSignupController(req, res) {
       "Google signup started"
     );
   } catch (err) {
-    // 🔥 Handle Google ID already exists
     if (err.code === "GOOGLE_ID_EXISTS") {
-      return fail(res, err.message, 409); // 409 Conflict
+      return fail(res, err.message, 409);
     }
     
     if (err.code === "EMAIL_EXISTS") {
@@ -111,7 +113,6 @@ export async function googleSignupController(req, res) {
     return fail(res, "Google signup failed", 500);
   }
 }
-
 
 export async function requestEmailOtp(req, res) {
   try {
@@ -150,11 +151,6 @@ export async function verifyEmailOtpController(req, res) {
   }
 }
 
-/**
- * SMS: request send
- * body: { pending_id, phone }
- */
-
 export async function requestSmsOtp(req, res) {
   try {
     const { pending_id, phone, isResend } = req.body;
@@ -174,19 +170,13 @@ export async function requestSmsOtp(req, res) {
     
     if (err.code === "OTP_COOLDOWN") return fail(res, err.message, 429);
     if (err.code === "NOT_FOUND") return fail(res, err.message, 404);
-    
-    // ✅ NEW: Handle phone already exists
     if (err.code === "PHONE_EXISTS") return fail(res, err.message, 409);
     if (err.code === "PHONE_PENDING_EXISTS") return fail(res, err.message, 409);
     
     return fail(res, "Failed to send SMS OTP", 500);
   }
 }
-/**
- * SMS: verify
- * body: { pending_id, code }
- * Server-managed verificationId (client does not provide it)
- */
+
 export async function verifySmsOtpController(req, res) {
   try {
     const { pending_id, code } = req.body;
@@ -205,9 +195,6 @@ export async function verifySmsOtpController(req, res) {
   }
 }
 
-/**
- * Username selection — now requires BOTH email && sms verified
- */
 export async function chooseUsernameController(req, res) {
   try {
     const { pending_id, username } = req.validated;
@@ -227,13 +214,7 @@ export async function chooseUsernameController(req, res) {
     return fail(res, "Failed to save username", 500);
   }
 }
-// Add this controller to your existing pending.controller.js
 
-
-/**
- * POST /pending/signup/check-username
- * Check if a username is available and provide suggestions if not
- */
 export async function checkUsernameController(req, res) {
   try {
     const { username } = req.validated;
@@ -247,22 +228,25 @@ export async function checkUsernameController(req, res) {
   }
 }
 
-/* FINALIZE SIGNUP → CREATE SUPERADMIN */
 export async function completePendingSignupController(req, res) {
   console.log("=== Complete Signup Request ===");
   console.log("Body:", req.body);
   console.log("Validated:", req.validated);
+  
   try {
     const { pending_id } = req.body;
- console.log("=== Complete Signup Request ===");
+    console.log("=== Complete Signup Request ===");
     console.log("Body:", req.body);
     console.log("pending_id:", pending_id);
-    const { user, shop } = await finalizePendingSignup(pending_id);
+    
+    const auditContext = audit.extractRequestContext(req);
+    
+    const { user, shop } = await finalizePendingSignup(pending_id, auditContext);
 
     const accessToken = jwt.sign(
       {
         user_id: user.user_id,
-        shop_id: shop.shop_id, // 🔥 Add this
+        shop_id: shop.shop_id,
         role: user.role,
         status: user.status,
       },
@@ -292,7 +276,7 @@ export async function completePendingSignupController(req, res) {
       201
     );
   } catch (err) {
-     console.error("=== Complete Signup ERROR ===");
+    console.error("=== Complete Signup ERROR ===");
     console.error("Error message:", err.message);
     console.error("Error code:", err.code);
     console.error("Full error:", err);

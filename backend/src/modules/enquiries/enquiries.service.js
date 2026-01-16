@@ -3,6 +3,7 @@
 import prisma from "../../config/prisma.js";
 import { notify } from "../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
+import * as audit from "../audit/index.js";
 
 // Sanitize search input for LIKE patterns
 const sanitizeSearchPattern = (search) => {
@@ -29,6 +30,7 @@ const generateEnquiryNumber = async () => {
   return `${prefix}${sequence.toString().padStart(4, "0")}`;
 };
 
+// No audit needed - enquiry creation is external, no authenticated user
 export const createEnquiry = async (data) => {
   const enquiryNumber = await generateEnquiryNumber();
 
@@ -43,7 +45,6 @@ export const createEnquiry = async (data) => {
     },
   });
 
-  
   notify({
     type: NOTIFICATION_EVENTS.ENQUIRY_RECEIVED,
     context: {
@@ -53,11 +54,11 @@ export const createEnquiry = async (data) => {
       message: enquiry.message,
     },
   }).catch(console.error);
-  
 
   return enquiry;
 };
 
+// Read-only, no audit needed
 export const listEnquiries = async (options) => {
   const { page, limit, status, search, sortBy, sortOrder } = options;
   const skip = (page - 1) * limit;
@@ -119,6 +120,7 @@ export const listEnquiries = async (options) => {
   };
 };
 
+// Read-only, no audit needed
 export const getEnquiryById = async (enquiryId) => {
   const enquiry = await prisma.enquiry.findUnique({
     where: { enquiry_id: enquiryId },
@@ -137,8 +139,11 @@ export const getEnquiryById = async (enquiryId) => {
   return enquiry;
 };
 
-export const replyToEnquiry = async (enquiryId, adminId, data) => {
-  const enquiry = await prisma.enquiry.findUnique({
+export const replyToEnquiry = async (enquiryId, adminId, data, auditContext, options = {}) => {
+  const { tx } = options;
+  const db = tx || prisma;
+
+  const enquiry = await db.enquiry.findUnique({
     where: { enquiry_id: enquiryId },
   });
 
@@ -147,7 +152,7 @@ export const replyToEnquiry = async (enquiryId, adminId, data) => {
   }
 
   // Get admin details for the email signature
-  const admin = await prisma.cAdmin.findUnique({
+  const admin = await db.cAdmin.findUnique({
     where: { cadmin_id: adminId },
     select: { name: true, email: true },
   });
@@ -159,7 +164,6 @@ export const replyToEnquiry = async (enquiryId, adminId, data) => {
   let emailError = null;
 
   try {
-    // ✅ Send reply notification via centralized system
     const result = await notify({
       type: NOTIFICATION_EVENTS.ENQUIRY_REPLIED,
       context: {
@@ -179,8 +183,8 @@ export const replyToEnquiry = async (enquiryId, adminId, data) => {
     console.error("Failed to send email:", err);
   }
 
-  const reply = await prisma.$transaction(async (tx) => {
-    const newReply = await tx.enquiryReply.create({
+  const reply = await db.$transaction(async (innerTx) => {
+    const newReply = await innerTx.enquiryReply.create({
       data: {
         enquiry_id: enquiryId,
         replied_by_id: adminId,
@@ -197,10 +201,25 @@ export const replyToEnquiry = async (enquiryId, adminId, data) => {
       },
     });
 
-    await tx.enquiry.update({
+    await innerTx.enquiry.update({
       where: { enquiry_id: enquiryId },
       data: { status: "REPLIED" },
     });
+
+    // Audit: Enquiry replied by CAdmin
+    await audit.log({
+      action: audit.AuditAction.ENQUIRY_REPLIED,
+      entity_type: audit.EntityType.ENQUIRY,
+      entity_id: enquiryId,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+      metadata: {
+        reply_id: newReply.reply_id,
+        subject: data.subject,
+        email_sent: emailSent,
+        enquiry_number: enquiry.enquiry_number,
+      },
+    }, { tx: innerTx });
 
     return newReply;
   });
@@ -208,8 +227,11 @@ export const replyToEnquiry = async (enquiryId, adminId, data) => {
   return { reply, emailSent, emailError };
 };
 
-export const updateEnquiryStatus = async (enquiryId, status) => {
-  const existingEnquiry = await prisma.enquiry.findUnique({
+export const updateEnquiryStatus = async (enquiryId, status, auditContext, options = {}) => {
+  const { tx } = options;
+  const db = tx || prisma;
+
+  const existingEnquiry = await db.enquiry.findUnique({
     where: { enquiry_id: enquiryId },
   });
 
@@ -217,14 +239,29 @@ export const updateEnquiryStatus = async (enquiryId, status) => {
     throw new Error("Enquiry not found");
   }
 
-  const enquiry = await prisma.enquiry.update({
+  const enquiry = await db.enquiry.update({
     where: { enquiry_id: enquiryId },
     data: { status },
   });
 
+  // Audit: Enquiry status changed
+  await audit.log({
+    action: audit.AuditAction.ENQUIRY_STATUS_CHANGED,
+    entity_type: audit.EntityType.ENQUIRY,
+    entity_id: enquiryId,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      previous_status: existingEnquiry.status,
+      new_status: status,
+      enquiry_number: enquiry.enquiry_number,
+    },
+  }, { tx });
+
   return enquiry;
 };
 
+// Read-only, no audit needed
 export const getEnquiryStats = async () => {
   const [pending, inProgress, replied, closed, total] = await Promise.all([
     prisma.enquiry.count({ where: { status: "PENDING" } }),
@@ -237,6 +274,7 @@ export const getEnquiryStats = async () => {
   return { pending, inProgress, replied, closed, total };
 };
 
+// No audit for deletion (administrative cleanup, not business event)
 export const deleteEnquiry = async (enquiryId) => {
   const enquiry = await prisma.enquiry.findUnique({
     where: { enquiry_id: enquiryId },

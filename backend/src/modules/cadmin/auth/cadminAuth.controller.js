@@ -1,3 +1,5 @@
+// backend/src/modules/cadmin/auth/cadminAuth.controller.js
+
 import {
   loginCAdminService,
   verifyCAdminOtpService,
@@ -6,11 +8,13 @@ import {
   logoutCAdminService,
 } from "./cadminAuth.service.js";
 import { success, fail } from "../../../utils/response.js";
+import * as audit from "../../audit/index.js";
 
 export async function loginCAdminController(req, res) {
   try {
     const { username, password } = req.validated;
-    const resp = await loginCAdminService({ username, password });
+    const auditContext = audit.extractRequestContext(req);
+    const resp = await loginCAdminService({ username, password, auditContext });
     return success(res, resp, "OTP sent");
   } catch (err) {
     console.error("cadmin.login", err);
@@ -18,10 +22,12 @@ export async function loginCAdminController(req, res) {
     return fail(res, err.message || "Login failed", status);
   }
 }
+
 export async function loginCAdminDirectController(req, res) {
   try {
     const { username, password } = req.validated;
-    const resp = await loginCAdminDirectService({ username, password, req, res });
+    const auditContext = audit.extractRequestContext(req);
+    const resp = await loginCAdminDirectService({ username, password, req, res, auditContext });
     return success(res, resp, "Logged in");
   } catch (err) {
     console.error("cadmin.login-direct", err);
@@ -33,7 +39,8 @@ export async function loginCAdminDirectController(req, res) {
 export async function verifyCAdminOtpController(req, res) {
   try {
     const { username, otp } = req.validated;
-    const resp = await verifyCAdminOtpService({ username, otp, req, res });
+    const auditContext = audit.extractRequestContext(req);
+    const resp = await verifyCAdminOtpService({ username, otp, req, res, auditContext });
     return success(res, resp, "Logged in");
   } catch (err) {
     console.error("cadmin.verify-otp", err);
@@ -55,7 +62,8 @@ export async function refreshCAdminController(req, res) {
 
 export async function logoutCAdminController(req, res) {
   try {
-    await logoutCAdminService({ req, res });
+    const auditContext = audit.extractRequestContext(req);
+    await logoutCAdminService({ req, res, auditContext });
     return success(res, {}, "Logged out");
   } catch (err) {
     console.error("cadmin.logout", err);

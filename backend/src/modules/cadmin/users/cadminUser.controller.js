@@ -1,28 +1,34 @@
-// backend/src/modules/cadmin/users/cadminUser.controller.js
-import { success, fail } from "../../../utils/response.js";
-import {
-  getUsersService,
-  getUserByIdService,
-  updateUserService,
-  toggleUserAccessService,
-  resetUserPasswordService,
-} from "./cadminUser.service.js";
+// ============================================
+// backend\src\modules\cadmin\users\cadminUser.controller.js
+// ============================================
 
+import { success, fail } from "../../../utils/response.js";
+import * as svc from "./cadminUser.service.js";
+import * as audit from "../../audit/index.js";
+
+/**
+ * GET /cadmin/users
+ * List all ERP users with filters
+ */
 export async function getUsersController(req, res) {
   try {
     const params = req.query || {};
-    const result = await getUsersService(params);
-    return success(res, result); // success util wraps { success, message, data: ... }
+    const result = await svc.getUsersService(params);
+    return success(res, result);
   } catch (err) {
     console.error("cadmin.users.get", err);
     return fail(res, err.message || "Failed to fetch users", err.status || 500);
   }
 }
 
+/**
+ * GET /cadmin/users/:id
+ * Get single user details
+ */
 export async function getUserByIdController(req, res) {
   try {
     const { id } = req.params;
-    const user = await getUserByIdService(id);
+    const user = await svc.getUserByIdService(id);
     return success(res, user);
   } catch (err) {
     console.error("cadmin.users.getById", err);
@@ -30,11 +36,19 @@ export async function getUserByIdController(req, res) {
   }
 }
 
+/**
+ * PATCH /cadmin/users/:id
+ * Update user profile (by admin)
+ */
 export async function updateUserController(req, res) {
   try {
     const { id } = req.params;
     const payload = req.body || {};
-    const updated = await updateUserService(id, payload, req.cadmin);
+    const cadmin_id = req.cadmin?.cadmin_id;
+
+    const auditContext = audit.extractRequestContext(req);
+    const updated = await svc.updateUserService(id, payload, cadmin_id, auditContext);
+    
     return success(res, updated, "User updated");
   } catch (err) {
     console.error("cadmin.users.update", err);
@@ -42,16 +56,24 @@ export async function updateUserController(req, res) {
   }
 }
 
+/**
+ * PATCH /cadmin/users/:id/access
+ * Toggle user active status (activate/suspend)
+ */
 export async function toggleUserAccessController(req, res) {
   try {
     const { id } = req.params;
     const { is_active } = req.body;
+    
     if (typeof is_active !== "boolean") {
-      const e = new Error("is_active (boolean) required in body");
-      e.status = 400;
-      throw e;
+      return fail(res, "is_active (boolean) required in body", 400);
     }
-    const updated = await toggleUserAccessService(id, is_active, req.cadmin);
+
+    const cadmin_id = req.cadmin?.cadmin_id;
+    const auditContext = audit.extractRequestContext(req);
+    
+    const updated = await svc.toggleUserAccessService(id, is_active, cadmin_id, auditContext);
+    
     return success(res, updated, "User access updated");
   } catch (err) {
     console.error("cadmin.users.toggleAccess", err);
@@ -59,10 +81,18 @@ export async function toggleUserAccessController(req, res) {
   }
 }
 
+/**
+ * POST /cadmin/users/:id/reset-password
+ * Send password reset email to user
+ */
 export async function resetUserPasswordController(req, res) {
   try {
     const { id } = req.params;
-    const result = await resetUserPasswordService(id, req.cadmin);
+    const cadmin_id = req.cadmin?.cadmin_id;
+    
+    const auditContext = audit.extractRequestContext(req);
+    const result = await svc.resetUserPasswordService(id, cadmin_id, auditContext);
+    
     return success(res, result, "Password reset initiated");
   } catch (err) {
     console.error("cadmin.users.resetPassword", err);

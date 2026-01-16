@@ -2,8 +2,9 @@
 
 import prisma from "../../config/prisma.js";
 import fs from "fs";
-import { notifyAsync } from "../notifications/index.js";  // ✅ ADD THIS
-import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";  // ✅ ADD THIS
+import { notifyAsync } from "../notifications/index.js";
+import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
+import * as audit from "../audit/index.js";
 
 // ============================================
 // CONSTANTS
@@ -13,29 +14,22 @@ const MAX_RETRY_ATTEMPTS = 3;
 
 // ============================================
 // STATUS TRANSITION MATRIX
-// Defines valid status transitions
 // ============================================
 const STATUS_TRANSITIONS = {
   PENDING: ["IN_PROGRESS", "CANCELLED"],
   IN_PROGRESS: ["RESOLVED", "CANCELLED"],
   RESOLVED: ["CLOSED", "PENDING"], // PENDING via reopen
   CLOSED: ["PENDING"], // PENDING via reopen
-  CANCELLED: [], // Terminal state - no transitions allowed
+  CANCELLED: [], // Terminal state
 };
 
-/**
- * Validate if a status transition is allowed
- * @param {string} fromStatus - Current status
- * @param {string} toStatus - Target status
- * @returns {boolean}
- */
 function isValidTransition(fromStatus, toStatus) {
   const allowedTransitions = STATUS_TRANSITIONS[fromStatus];
   return allowedTransitions ? allowedTransitions.includes(toStatus) : false;
 }
 
 // ============================================
-// UTILITY: Mask sensitive data for logs
+// UTILITY: Mask sensitive data
 // ============================================
 function maskPhone(phone) {
   if (!phone || phone.length < 7) return "***";
@@ -62,13 +56,11 @@ function sanitizeLogData(data) {
 }
 
 // ============================================
-// Generate Ticket Number with Retry Logic
-// Handles race conditions with unique constraint
+// Generate Ticket Number
 // ============================================
 async function generateTicketNumber(shop_id, tx, attempt = 1) {
   const shopCode = shop_id.substring(0, 4).toUpperCase();
 
-  // Use a more robust approach: get the highest ticket number and increment
   const lastTicket = await tx.ticket.findFirst({
     where: { shop_id },
     orderBy: { created_at: "desc" },
@@ -78,7 +70,6 @@ async function generateTicketNumber(shop_id, tx, attempt = 1) {
   let sequentialNumber;
 
   if (lastTicket && lastTicket.ticket_number) {
-    // Extract the number from the last ticket (format: TKT-XXXX-00001)
     const parts = lastTicket.ticket_number.split("-");
     const lastNumber = parseInt(parts[2], 10) || 0;
     sequentialNumber = String(lastNumber + attempt).padStart(5, "0");
@@ -88,7 +79,6 @@ async function generateTicketNumber(shop_id, tx, attempt = 1) {
 
   const ticketNumber = `TKT-${shopCode}-${sequentialNumber}`;
 
-  // Verify uniqueness
   const existing = await tx.ticket.findUnique({
     where: { ticket_number: ticketNumber },
     select: { ticket_id: true },
@@ -96,11 +86,9 @@ async function generateTicketNumber(shop_id, tx, attempt = 1) {
 
   if (existing) {
     if (attempt >= MAX_RETRY_ATTEMPTS) {
-      // Fallback: Use timestamp-based suffix
       const timestamp = Date.now().toString(36).toUpperCase();
       return `TKT-${shopCode}-${timestamp}`;
     }
-    // Retry with incremented number
     return generateTicketNumber(shop_id, tx, attempt + 1);
   }
 
@@ -108,7 +96,7 @@ async function generateTicketNumber(shop_id, tx, attempt = 1) {
 }
 
 // ============================================
-// Transform Ticket Helper
+// Transform Ticket
 // ============================================
 function transformTicket(ticket) {
   return {
@@ -160,11 +148,11 @@ const ticketInclude = {
     select: { branch_id: true, branch_name: true },
   },
   created_by: {
-    select: { 
-      user_id: true, 
-      full_name: true, 
+    select: {
+      user_id: true,
+      full_name: true,
       role: true,
-      email: true  // ✅ ADD THIS LINE
+      email: true,
     },
   },
   cancelled_by: {
@@ -186,7 +174,7 @@ const ticketInclude = {
 };
 
 // ============================================
-// Check for Duplicate Tickets (Rate Limiting)
+// Check Duplicate Tickets
 // ============================================
 async function checkDuplicateTicket(shop_id, user_id, subject) {
   const ONE_MINUTE_AGO = new Date(Date.now() - 60 * 1000);
@@ -208,7 +196,6 @@ async function checkDuplicateTicket(shop_id, user_id, subject) {
     throw err;
   }
 
-  // Check for duplicate subject in last 5 minutes
   const FIVE_MINUTES_AGO = new Date(Date.now() - 5 * 60 * 1000);
   const duplicateSubject = await prisma.ticket.findFirst({
     where: {
@@ -239,9 +226,7 @@ async function validateBranchOwnership(
   user_branch_id,
   role
 ) {
-  // Super admins can create tickets for any branch
   if (role === "super_admin") {
-    // Just validate the branch exists and belongs to the shop
     if (branch_id) {
       const branch = await prisma.branch.findFirst({
         where: { branch_id, shop_id, is_active: true },
@@ -256,7 +241,6 @@ async function validateBranchOwnership(
     return;
   }
 
-  // Branch admins can only create tickets for their own branch or shop-level (null branch)
   if (role === "branch_admin") {
     if (branch_id && branch_id !== user_branch_id) {
       const err = new Error("You can only create tickets for your own branch");
@@ -264,7 +248,6 @@ async function validateBranchOwnership(
       throw err;
     }
 
-    // Validate the branch exists
     if (branch_id) {
       const branch = await prisma.branch.findFirst({
         where: { branch_id, shop_id, is_active: true },
@@ -295,8 +278,8 @@ export async function createTicket({
   other_category_text,
   preferred_slot,
   files = [],
+  auditContext = {}, // ✅ Accept audit context
 }) {
-  // Sanitized logging
   console.log("=== CREATE TICKET ===");
   console.log(
     "Data:",
@@ -309,10 +292,10 @@ export async function createTicket({
     })
   );
 
-  // 1. Check for duplicate/rate limiting
+  // 1. Duplicate check
   await checkDuplicateTicket(shop_id, user_id, subject);
 
-  // 2. Validate branch ownership
+  // 2. Branch validation
   await validateBranchOwnership(
     shop_id,
     branch_id,
@@ -323,11 +306,11 @@ export async function createTicket({
 
   try {
     const ticket = await prisma.$transaction(async (tx) => {
-      // 3. Generate ticket number with retry logic
+      // 3. Generate ticket number
       const ticket_number = await generateTicketNumber(shop_id, tx);
       console.log("Generated ticket_number:", ticket_number);
 
-      // 4. Create the ticket
+      // 4. Create ticket
       const newTicket = await tx.ticket.create({
         data: {
           ticket_number,
@@ -361,6 +344,34 @@ export async function createTicket({
         console.log("Created attachments:", attachmentData.length);
       }
 
+      // ✅ AUDIT LOG: Ticket created (within transaction)
+      // Note: We don't await - let it log async, but pass tx for atomicity
+      audit.log(
+        {
+          action: audit.AuditAction.TICKET_CREATED, // ⚠️ You need to add this action
+          entity_type: audit.EntityType.TICKET,
+          entity_id: newTicket.ticket_id,
+          actor_type: audit.ActorType.ERP_USER,
+          actor_id: user_id,
+          actor_role: user_role,
+          shop_id,
+          branch_id: branch_id || null,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.USER_REQUEST,
+          metadata: {
+            ticket_number,
+            category,
+            subject: subject.trim(),
+            has_attachments: files.length > 0,
+            attachment_count: files.length,
+          },
+        },
+        { tx } // ✅ Pass transaction
+      ).catch((err) => {
+        console.error("⚠️ Audit log failed for ticket creation:", err.message);
+        // Non-critical: don't fail transaction
+      });
+
       return newTicket;
     });
 
@@ -369,9 +380,8 @@ export async function createTicket({
       where: { ticket_id: ticket.ticket_id },
       include: ticketInclude,
     });
-    // ============================================
-    // ✅ SEND TICKET CREATED EMAIL
-    // ============================================
+
+    // 7. Send notification
     if (completeTicket.created_by?.email) {
       notifyAsync({
         type: NOTIFICATION_EVENTS.TICKET_CREATED,
@@ -380,7 +390,6 @@ export async function createTicket({
           ticket_number: completeTicket.ticket_number,
           subject: completeTicket.subject,
           category: completeTicket.category,
-          // Direct recipient info
           email: completeTicket.created_by.email,
           name: completeTicket.created_by.full_name || "Customer",
         },
@@ -397,7 +406,7 @@ export async function createTicket({
     console.error("Error code:", error.code);
     console.error("Error message:", error.message);
 
-    // Clean up uploaded files on error
+    // Cleanup files
     if (files.length > 0) {
       files.forEach((file) => {
         if (file.path && fs.existsSync(file.path)) {
@@ -410,7 +419,6 @@ export async function createTicket({
       });
     }
 
-    // Handle unique constraint violation (race condition fallback)
     if (
       error.code === "P2002" &&
       error.meta?.target?.includes("ticket_number")
@@ -446,10 +454,8 @@ export async function getTickets({
 }) {
   const andConditions = [];
 
-  // Always filter by shop
   andConditions.push({ shop_id });
 
-  // Role-based filtering
   if (requester_role === "super_admin") {
     if (branch_id) {
       andConditions.push({ branch_id });
@@ -462,17 +468,14 @@ export async function getTickets({
     }
   }
 
-  // Status filter
   if (status) {
     andConditions.push({ status });
   }
 
-  // Category filter
   if (category) {
     andConditions.push({ category });
   }
 
-  // Date range filter
   if (date_from || date_to) {
     const dateCondition = {};
     if (date_from) {
@@ -486,7 +489,6 @@ export async function getTickets({
     andConditions.push({ created_at: dateCondition });
   }
 
-  // Search filter
   if (search) {
     andConditions.push({
       OR: [
@@ -549,11 +551,31 @@ export async function getTicketById(ticket_id, shop_id) {
 }
 
 // ============================================
-// Cancel Ticket (with transition validation)
+// Cancel Ticket
 // ============================================
-export async function cancelTicket(ticket_id, shop_id, user_id, reason) {
+export async function cancelTicket(
+  ticket_id,
+  shop_id,
+  user_id,
+  reason,
+  auditContext = {} // ✅ Accept audit context
+) {
   const ticket = await prisma.ticket.findFirst({
     where: { ticket_id, shop_id },
+    select: {
+      ticket_id: true,
+      ticket_number: true,
+      status: true,
+      branch_id: true,
+      subject: true,
+      category: true,
+      created_by: {
+        select: {
+          user_id: true,
+          role: true,
+        },
+      },
+    },
   });
 
   if (!ticket) {
@@ -562,7 +584,6 @@ export async function cancelTicket(ticket_id, shop_id, user_id, reason) {
     throw err;
   }
 
-  // Validate status transition
   if (!isValidTransition(ticket.status, "CANCELLED")) {
     if (ticket.status === "CANCELLED") {
       const err = new Error("Ticket is already cancelled");
@@ -576,26 +597,76 @@ export async function cancelTicket(ticket_id, shop_id, user_id, reason) {
     throw err;
   }
 
-  const updatedTicket = await prisma.ticket.update({
-    where: { ticket_id },
-    data: {
-      status: "CANCELLED",
-      cancelled_at: new Date(),
-      cancelled_by_id: user_id,
-      cancellation_reason: reason,
-    },
-    include: ticketInclude,
+  const previousStatus = ticket.status;
+
+  const updatedTicket = await prisma.$transaction(async (tx) => {
+    const updated = await tx.ticket.update({
+      where: { ticket_id },
+      data: {
+        status: "CANCELLED",
+        cancelled_at: new Date(),
+        cancelled_by_id: user_id,
+        cancellation_reason: reason,
+      },
+      include: ticketInclude,
+    });
+
+    // ✅ AUDIT LOG: Ticket cancelled
+    await audit.log(
+      {
+        action: audit.AuditAction.TICKET_CANCELLED,
+        entity_type: audit.EntityType.TICKET,
+        entity_id: ticket_id,
+        actor_type: audit.ActorType.ERP_USER,
+        actor_id: user_id,
+        actor_role: ticket.created_by.role,
+        shop_id,
+        branch_id: ticket.branch_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.USER_REQUEST,
+        metadata: {
+          ticket_number: ticket.ticket_number,
+          previous_status: previousStatus,
+          reason,
+          cancelled_by_user_id: user_id,
+        },
+      },
+      { tx }
+    );
+
+    return updated;
   });
 
   return transformTicket(updatedTicket);
 }
 
 // ============================================
-// Reopen Ticket (with limit enforcement)
+// Reopen Ticket
 // ============================================
-export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
+export async function reopenTicket(
+  ticket_id,
+  shop_id,
+  user_id,
+  reason,
+  auditContext = {} // ✅ Accept audit context
+) {
   const ticket = await prisma.ticket.findFirst({
     where: { ticket_id, shop_id },
+    select: {
+      ticket_id: true,
+      ticket_number: true,
+      status: true,
+      reopen_count: true,
+      branch_id: true,
+      subject: true,
+      category: true,
+      created_by: {
+        select: {
+          user_id: true,
+          role: true,
+        },
+      },
+    },
   });
 
   if (!ticket) {
@@ -604,7 +675,7 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
     throw err;
   }
 
-  // Check reopen limit (CRITICAL)
+  // Check reopen limit
   if (ticket.reopen_count >= REOPEN_LIMIT) {
     const err = new Error(
       `This ticket has been reopened ${REOPEN_LIMIT} times. Please create a new ticket or contact support via email.`
@@ -613,7 +684,6 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
     throw err;
   }
 
-  // Validate status transition
   if (!isValidTransition(ticket.status, "PENDING")) {
     if (ticket.status === "CANCELLED") {
       const err = new Error("Cannot reopen a cancelled ticket");
@@ -625,20 +695,51 @@ export async function reopenTicket(ticket_id, shop_id, user_id, reason) {
     throw err;
   }
 
-  const updatedTicket = await prisma.ticket.update({
-    where: { ticket_id },
-    data: {
-      status: "PENDING",
-      reopened_at: new Date(),
-      reopened_by_id: user_id,
-      reopen_count: { increment: 1 },
-      reopen_reason: reason,
-    },
-    include: ticketInclude,
+  const previousStatus = ticket.status;
+  const newReopenCount = ticket.reopen_count + 1;
+
+  const updatedTicket = await prisma.$transaction(async (tx) => {
+    const updated = await tx.ticket.update({
+      where: { ticket_id },
+      data: {
+        status: "PENDING",
+        reopened_at: new Date(),
+        reopened_by_id: user_id,
+        reopen_count: { increment: 1 },
+        reopen_reason: reason,
+      },
+      include: ticketInclude,
+    });
+
+    // ✅ AUDIT LOG: Ticket reopened
+    await audit.log(
+      {
+        action: audit.AuditAction.TICKET_REOPENED,
+        entity_type: audit.EntityType.TICKET,
+        entity_id: ticket_id,
+        actor_type: audit.ActorType.ERP_USER,
+        actor_id: user_id,
+        actor_role: ticket.created_by.role,
+        shop_id,
+        branch_id: ticket.branch_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.USER_REQUEST,
+        metadata: {
+          ticket_number: ticket.ticket_number,
+          previous_status: previousStatus,
+          reopen_count: newReopenCount,
+          reason,
+          reopened_by_user_id: user_id,
+        },
+      },
+      { tx }
+    );
+
+    return updated;
   });
 
   console.log(
-    `Ticket ${ticket.ticket_number} reopened. Count: ${updatedTicket.reopen_count}/${REOPEN_LIMIT}`
+    `Ticket ${ticket.ticket_number} reopened. Count: ${newReopenCount}/${REOPEN_LIMIT}`
   );
 
   return transformTicket(updatedTicket);
@@ -752,6 +853,6 @@ export async function canAccessTicket(
 }
 
 // ============================================
-// EXPORTS: Status Transition Helpers (for testing/admin)
+// EXPORTS
 // ============================================
 export { isValidTransition, STATUS_TRANSITIONS, REOPEN_LIMIT };
