@@ -188,7 +188,7 @@ const BatchProductModal = ({
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={() => setShowProductModal(true)}
-                    className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-[#000060] text-white font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+                    className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-[#000060] text-white font-medium rounded-xl hover:bg-[#000080] transition-colors shadow-sm"
                   >
                     <Plus size={18} />
                     <span>Add Product Details</span>

@@ -16,6 +16,7 @@ import {
   cancelPendingSubscriptionService,
 } from "./subscription.service.js";
 import prisma from "../../config/prisma.js";
+import * as audit from "../audit/index.js";  // ✅ ADD THIS IMPORT
 
 // ============================================
 // GET PLANS
@@ -101,12 +102,18 @@ export async function selectPlanController(req, res) {
     const isPromoActive = plan.promo_free_until && new Date(plan.promo_free_until) > new Date();
     const isEffectivelyFree = isPriceZero || isPromoActive;
 
+    // ✅ Extract audit context (IP, user agent)
+    const auditContext = audit.extractRequestContext(req);
+
     if (isEffectivelyFree) {
       // FREE PLAN (Standard or Promo) - Activate immediately
       const subscription = await createFreeSubscription({ 
         shop_id, 
         plan, 
-        isPromoApplied: isPromoActive && !isPriceZero 
+        user_id: req.user.user_id,
+        user_role: req.user.role,
+        isPromoApplied: isPromoActive && !isPriceZero,
+        auditContext,  // ✅ Pass audit context
       });
 
       const message = isPromoActive && !isPriceZero
@@ -188,11 +195,17 @@ export async function confirmPaymentController(req, res) {
       subscription_id,
     } = req.validated;
 
+    // ✅ Extract audit context (IP, user agent)
+    const auditContext = audit.extractRequestContext(req);
+
     const subscription = await verifyAndActivateSubscription({
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
       subscription_id,
+      user_id: req.user.user_id,      // ✅ Pass user info
+      user_role: req.user.role,       // ✅ Pass user role
+      auditContext,                    // ✅ Pass audit context
     });
 
     return success(res, {
@@ -264,17 +277,11 @@ export async function subscriptionHistoryController(req, res) {
 }
 
 // ============================================
-// GET MY SUBSCRIPTION
-// ============================================
-
-// ============================================
 // GET MY SUBSCRIPTION (WITH GRACE GUARD)
 // ============================================
 
 /**
  * GET /my - Get current user's active subscription
- * 
- * ⚠️ UPDATED: Includes read-time grace guard
  */
 export async function getMySubscription(req, res) {
   try {
@@ -326,8 +333,7 @@ export async function getMySubscription(req, res) {
       });
     }
 
-    // ⚠️ READ-TIME GRACE GUARD
-    // If subscription is expired, active, and has no grace period set, heal it
+    // READ-TIME GRACE GUARD
     const endDate = new Date(sub.end_date);
     const isExpired = endDate < now;
     const isActive = sub.is_active && sub.status === 'active';
@@ -337,7 +343,6 @@ export async function getMySubscription(req, res) {
       const gracePeriodUntil = new Date(endDate);
       gracePeriodUntil.setDate(gracePeriodUntil.getDate() + 7);
 
-      // Persist the grace period
       await prisma.shopSubscription.update({
         where: { subscription_id: sub.subscription_id },
         data: { grace_period_until: gracePeriodUntil },
@@ -347,7 +352,6 @@ export async function getMySubscription(req, res) {
       console.log(`[GRACE GUARD] Healed subscription ${sub.subscription_id} via getMySubscription`);
     }
 
-    // Recalculate status after potential heal
     const isValid = sub.is_active &&
       sub.status === "active" &&
       new Date(sub.end_date) > now;
@@ -406,13 +410,18 @@ export async function changePlanController(req, res) {
       return fail(res, "Shop not found", 400);
     }
 
+    // ✅ Extract audit context
+    const auditContext = audit.extractRequestContext(req);
+
     const result = await changePlanService({
       shop_id,
       user_id,
+      user_role: req.user.role,  // ✅ Pass user role
       target_plan_id: plan_id,
       users_to_disable,
       branches_to_deactivate,
       user_reassignments,
+      auditContext,  // ✅ Pass audit context
     });
 
     // UPGRADE: Return Razorpay order

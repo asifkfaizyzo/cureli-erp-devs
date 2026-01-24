@@ -1,22 +1,25 @@
-// frontend/src/pages/plans/PlanSelectionPage.jsx
+// frontend/src/pages/plan-selection/PlanSelectionPage.jsx
 
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Loader2,
-  AlertCircle,
-  RefreshCw,
-} from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 
-import { getPlans, selectPlan, confirmPayment, cancelPendingSubscription } from "../../api/subscription";
-import { normalizePlans } from "../../utils/normalizePlan"; // ✅ NEW IMPORT
+import {
+  getPlans,
+  selectPlan,
+  confirmPayment,
+  cancelPendingSubscription,
+} from "../../api/subscription";
+import { normalizePlans } from "../../utils/normalizePlan";
 import PlanCard from "./comps/PlanCard";
 import CustomPlanCard from "./comps/CustomPlanCard";
 import PlanConfirmModal from "./comps/PlanConfirmModal";
 import OnboardingHeader from "../../components/layout/OnboardingHeader";
+import { useSetupStore } from "../../store/useSetupStore";
 
 const PlanSelectionPage = () => {
   const navigate = useNavigate();
+  const resetSetup = useSetupStore((state) => state.resetSetup);
 
   // State
   const [plans, setPlans] = useState([]);
@@ -43,10 +46,7 @@ const PlanSelectionPage = () => {
 
       const res = await getPlans();
       const backendPlans = res.data?.data?.plans || [];
-
-      // ✅ NORMALIZE PLANS - Silently disable expired promos
       const normalizedPlans = normalizePlans(backendPlans);
-
       setPlans(normalizedPlans);
     } catch (err) {
       console.error("Failed to load plans:", err);
@@ -73,6 +73,16 @@ const PlanSelectionPage = () => {
     setModalError("");
   };
 
+  /**
+   * Navigate to setup with fresh state
+   * CRITICAL: Reset setup store to prevent stale data causing redirect loops
+   */
+  const navigateToSetup = () => {
+    console.log("🔄 Resetting setup store before navigation to /setup");
+    resetSetup();
+    navigate("/setup", { replace: true, state: { fromPlanSelection: true } });
+  };
+
   // Confirm plan selection
   const handleConfirmPlan = async () => {
     if (!selectedPlan || processing) return;
@@ -86,7 +96,7 @@ const PlanSelectionPage = () => {
 
       if (data.is_free) {
         // FREE PLAN (Standard or Promo) - Direct activation
-        navigate("/setup", { replace: true });
+        navigateToSetup();
         return;
       }
 
@@ -129,7 +139,7 @@ const PlanSelectionPage = () => {
             razorpay_signature: response.razorpay_signature,
             subscription_id: data.subscription_id,
           });
-          navigate("/setup", { replace: true });
+          navigateToSetup();
         } catch (err) {
           console.error("Payment confirmation error:", err);
           setModalError(
@@ -184,9 +194,7 @@ const PlanSelectionPage = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <Loader2 size={48} className="text-[#000060] animate-spin" />
-            <p className="text-gray-600 text-lg font-medium">
-              Loading plans...
-            </p>
+            <p className="text-gray-600 text-lg font-medium">Loading plans...</p>
           </div>
         </div>
       </div>

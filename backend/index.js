@@ -285,9 +285,5 @@ app.listen(PORT, () => {
   // Initialize cron jobs
   initializeCronJobs();
   
-  console.log(`\n📦 Pharmacy ERP Routes Registered:`);
-  console.log(`   - /api/medicines`);
-  console.log(`   - /api/suppliers`);
-  console.log(`   - /api/purchase`);
-  console.log(`   - /api/inventory`);
+
 });

@@ -1,6 +1,7 @@
 // src/pages/setup/SetupRouter.jsx
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+
+import { useEffect, useState, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 import { useSetupStore } from "../../store/useSetupStore";
@@ -10,40 +11,37 @@ import { getSetupStatus } from "../../api/setup";
 /**
  * SetupRouter
  * Entry controller for the setup flow (3 steps)
- * 
- * Responsibilities:
- * 1. Check if user has active subscription
- * 2. Check if setup is already complete → redirect to dashboard
- * 3. Initialize plan limits from API
- * 4. Route to the first incomplete step
- * 
- * Decision Logic:
- * - No subscription → /plan-selection
- * - Setup complete → /dashboard
- * - No branches → /setup/branches
- * - Has branches → /setup/users
+ *
+ * CRITICAL RULES:
+ * 1. Only trust BACKEND for setup completion status
+ * 2. Always reset store when coming from plan selection
+ * 3. Prevent multiple routing attempts with ref
  */
 
 const SetupRouter = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Store
-  const {
-    isSetupComplete,
-    branches,
-    planLimits,
-    initializeSetup,
-    resetSetup,
-    completeSetup,
-  } = useSetupStore();
+  // Prevent infinite loops - only route once per mount
+  const hasRouted = useRef(false);
 
-  // Get user info from localStorage
+  const { initializeSetup, resetSetup, completeSetup } = useSetupStore();
+
   const userName = localStorage.getItem("user_name") || "";
   const userId = localStorage.getItem("user_id") || "";
 
+  // Check if coming from plan selection (fresh start)
+  const fromPlanSelection = location.state?.fromPlanSelection;
+
   useEffect(() => {
+    // Prevent multiple routing attempts
+    if (hasRouted.current) {
+      console.log("⚠️ SetupRouter: Already routed, skipping");
+      return;
+    }
+
     handleRouting();
   }, []);
 
@@ -52,90 +50,100 @@ const SetupRouter = () => {
       setLoading(true);
       setError(null);
 
+      // If coming from plan selection, ensure store is reset
+      if (fromPlanSelection) {
+        console.log("🔄 SetupRouter: Fresh from plan selection, resetting store");
+        resetSetup();
+      }
+
       // ============================================
-      // CHECK 1: Check backend setup status first
+      // CHECK 1: Backend setup status (SOURCE OF TRUTH)
       // ============================================
       try {
         const statusRes = await getSetupStatus();
         const statusData = statusRes.data?.data;
 
         if (statusData?.is_complete) {
-          console.log("✅ Setup already complete (from backend), redirecting to dashboard");
-          completeSetup(); // Sync local state
+          console.log("✅ SetupRouter: Setup complete (backend), going to dashboard");
+          completeSetup();
+          hasRouted.current = true;
           navigate("/dashboard", { replace: true });
           return;
         }
+
+        console.log("📋 SetupRouter: Backend says setup NOT complete");
       } catch (err) {
-        // If status check fails, continue with subscription check
-        console.warn("Setup status check failed, continuing...", err);
+        if (err.response?.status === 401) {
+          localStorage.clear();
+          navigate("/login", { replace: true });
+          return;
+        }
+        // Continue if status check fails (might be new user)
+        console.warn("Setup status check failed:", err.message);
       }
 
       // ============================================
-      // CHECK 2: Local state says complete?
+      // CHECK 2: Has active subscription?
       // ============================================
-      if (isSetupComplete) {
-        console.log("✅ Setup already complete (local), redirecting to dashboard");
-        navigate("/dashboard", { replace: true });
-        return;
+      let subscriptionData;
+      try {
+        const res = await getMySubscription();
+        subscriptionData = res.data?.data;
+      } catch (err) {
+        if (err.response?.status === 401) {
+          localStorage.clear();
+          navigate("/login", { replace: true });
+          return;
+        }
+        throw err;
       }
 
-      // ============================================
-      // CHECK 3: Has active subscription?
-      // ============================================
-      const res = await getMySubscription();
-      const data = res.data?.data;
-
-      if (!data?.has_active_subscription) {
-        console.log("❌ No active subscription, redirecting to plan selection");
+      if (!subscriptionData?.has_active_subscription) {
+        console.log("❌ SetupRouter: No subscription, going to plan selection");
+        hasRouted.current = true;
         navigate("/plan-selection", { replace: true });
         return;
       }
 
-      // ============================================
-      // INITIALIZE: Set plan limits if not already set
-      // ============================================
-      if (!planLimits.plan_id) {
-        console.log("📦 Initializing setup with plan limits");
-        
-        initializeSetup({
-          planLimits: {
-            plan_id: data.current_plan.plan_id,
-            plan_name: data.current_plan.name,
-            max_branches: data.subscription?.branch_limit ?? data.current_plan?.max_branches ?? 1,
-            max_users: data.subscription?.user_limit ?? data.current_plan?.max_users ?? 1,
-          },
-          superAdmin: {
-            user_id: userId,
-            name: userName,
-          },
-        });
-      }
+      console.log(
+        "✅ SetupRouter: Active subscription:",
+        subscriptionData.current_plan?.name
+      );
 
       // ============================================
-      // ROUTE: Determine first incomplete step
+      // INITIALIZE: Set plan limits
       // ============================================
-      const currentBranches = useSetupStore.getState().branches;
+      const maxBranches =
+        subscriptionData.subscription?.branch_limit ??
+        subscriptionData.current_plan?.max_branches ??
+        1;
+      const maxUsers =
+        subscriptionData.subscription?.user_limit ??
+        subscriptionData.current_plan?.max_users ??
+        1;
 
-      if (currentBranches.length === 0) {
-        // No branches created yet
-        console.log("📍 Routing to: /setup/branches (no branches)");
-        navigate("/setup/branches", { replace: true });
-      } else {
-        // Has branches - go to users (they can skip if they want)
-        console.log("📍 Routing to: /setup/users (has branches)");
-        navigate("/setup/users", { replace: true });
-      }
+      initializeSetup({
+        planLimits: {
+          plan_id: subscriptionData.current_plan.plan_id,
+          plan_name: subscriptionData.current_plan.name,
+          max_branches: maxBranches,
+          max_users: maxUsers,
+        },
+        superAdmin: {
+          user_id: userId,
+          name: userName,
+        },
+        forceRefresh: true,
+      });
 
+      // ============================================
+      // ROUTE: Go to branches (first step)
+      // ============================================
+      console.log("📍 SetupRouter: Going to /setup/branches");
+      hasRouted.current = true;
+      navigate("/setup/branches", { replace: true });
     } catch (err) {
       console.error("SetupRouter error:", err);
-      
-      if (err.response?.status === 401) {
-        // Unauthorized - redirect to login
-        localStorage.clear();
-        navigate("/login", { replace: true });
-        return;
-      }
-
       setError("Failed to load setup. Please try again.");
     } finally {
       setLoading(false);
@@ -184,13 +192,20 @@ const SetupRouter = () => {
           <p className="text-gray-600">{error}</p>
           <div className="flex gap-3">
             <button
-              onClick={() => navigate("/plan-selection", { replace: true })}
+              onClick={() => {
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = "/login";
+              }}
               className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all"
             >
-              Back to Plans
+              Start Fresh
             </button>
             <button
-              onClick={handleRouting}
+              onClick={() => {
+                hasRouted.current = false;
+                handleRouting();
+              }}
               className="px-5 py-2.5 bg-[#000060] text-white rounded-xl font-medium hover:bg-[#000080] transition-all"
             >
               Try Again
@@ -201,7 +216,6 @@ const SetupRouter = () => {
     );
   }
 
-  // Should not reach here - redirects happen in handleRouting
   return null;
 };
 
