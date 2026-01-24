@@ -1,57 +1,74 @@
 // src/hooks/useDynamicRowCount.js
-import { useState, useEffect } from 'react';
-import { TABLE_CONFIG } from '../config/tableConfig';
+import { useState, useEffect, useRef } from 'react';
 
-/**
- * Calculate row count based on screen HEIGHT
- * @param {number} height - window.innerHeight
- * @returns {number} - Number of rows to display
- */
-const calculateRowCount = (height) => {
-  const { rowBreakpoints } = TABLE_CONFIG;
-  
-  // Sort breakpoints from highest to lowest
-  const sortedBreakpoints = Object.entries(rowBreakpoints)
-    .map(([h, count]) => [parseInt(h), count])
-    .sort((a, b) => b[0] - a[0]);
-  
-  // Find the first breakpoint where screen height >= breakpoint height
-  for (const [minHeight, count] of sortedBreakpoints) {
-    if (height >= minHeight) {
-      return count;
-    }
-  }
-  
-  // Fallback to minimum
-  return 5;
+const DEFAULT_BREAKPOINTS = {
+  1200: 15,
+  1000: 15,
+  800: 15,
+  600: 10,
+  400: 8,
 };
 
 /**
  * Dynamic row count hook based on screen HEIGHT
- * Uses global breakpoints from tableConfig.js
  * 
+ * @param {Object} options - Configuration options
+ * @param {Object} options.breakpoints - Custom breakpoints { height: rowCount }
+ * @param {number} options.fallback - Fallback row count
+ * @param {number} options.debounceMs - Debounce delay in ms
  * @returns {number} Number of rows to display
  */
-const useDynamicRowCount = () => {
-  // Initialize with actual calculated value (SSR safety)
-  const [rowsPerPage, setRowsPerPage] = useState(() => {
-    if (typeof window === 'undefined') return 5;
-    return calculateRowCount(window.innerHeight);
-  });
+const useDynamicRowCount = (options = {}) => {
+  const {
+    breakpoints = DEFAULT_BREAKPOINTS,
+    fallback = 5,
+    debounceMs = 150,
+  } = options;
+
+  const [rowsPerPage, setRowsPerPage] = useState(fallback);
+  const timeoutRef = useRef(null);
+  const prevCountRef = useRef(fallback);
 
   useEffect(() => {
-    const handleResize = () => {
-      const newCount = calculateRowCount(window.innerHeight);
-      setRowsPerPage(newCount);
+    const calculateRowCount = (height) => {
+      const sorted = Object.entries(breakpoints)
+        .map(([h, count]) => [parseInt(h, 10), count])
+        .filter(([h]) => !Number.isNaN(h))
+        .sort((a, b) => b[0] - a[0]);
+
+      for (const [minHeight, count] of sorted) {
+        if (height >= minHeight) {
+          return count;
+        }
+      }
+      return fallback;
     };
 
-    // Initial calculation (in case SSR value differs)
-    handleResize();
+    const updateRowCount = () => {
+      const newCount = calculateRowCount(window.innerHeight);
+      
+      // Only update if changed
+      if (newCount !== prevCountRef.current) {
+        prevCountRef.current = newCount;
+        setRowsPerPage(newCount);
+      }
+    };
 
-    // Recalculate on resize
+    const handleResize = () => {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(updateRowCount, debounceMs);
+    };
+
+    // Initial calculation (no debounce)
+    updateRowCount();
+
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutRef.current);
+    };
+  }, [breakpoints, fallback, debounceMs]);
 
   return rowsPerPage;
 };

@@ -1,6 +1,7 @@
 // src/pages/purchase/billing/PurchasePage.jsx
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { useReactToPrint } from "react-to-print";
+import { useNavigate, useParams } from "react-router-dom";
 
 // Components
 import PurchaseHeader from "./components/PurchaseHeader";
@@ -19,6 +20,7 @@ import { useResponsiveRowCount } from "../../../hooks/purchase/useResponsiveRowC
 import { usePurchaseRows } from "../../../hooks/purchase/usePurchaseRows";
 import { usePurchaseImportExport } from "../../../hooks/purchase/usePurchaseImportExport";
 import { usePurchaseSupplier } from "../../../hooks/purchase/usePurchaseSupplier";
+import { usePurchaseAPI } from "../../../hooks/purchase/usePurchaseAPI";
 import { useToast } from "../../../components/common/Toast";
 
 // Styles
@@ -35,9 +37,34 @@ const COMPANY_DETAILS = {
 
 const PurchasePage = () => {
   const toast = useToast();
+  const navigate = useNavigate();
+  const { invoiceId } = useParams(); // For edit mode
   const printRef = useRef(null);
 
-  // ✅ Modal States
+  // ============================================
+  // API INTEGRATION
+  // ============================================
+  const {
+    isLoading: apiLoading,
+    medicines,
+    suppliers,
+    currentInvoice,
+    loadMedicines,
+    loadSuppliers,
+    searchMedicines,
+    getExistingBatches,
+    createMedicine,
+    bulkCreateMedicines,
+    createSupplier,
+    savePurchaseInvoice,
+    confirmPurchaseInvoice,
+    loadInvoiceForEdit,
+    resetInvoice,
+  } = usePurchaseAPI();
+
+  // ============================================
+  // MODAL STATES
+  // ============================================
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -45,51 +72,164 @@ const PurchasePage = () => {
   const [pendingProductData, setPendingProductData] = useState(null);
   const [newProductsFromImport, setNewProductsFromImport] = useState([]);
 
-  // ✅ Product Master State
-  const [productMaster, setProductMaster] = useState([
-    // Sample data - replace with actual data from your API
-    {
-      id: 1,
-      productId: "PRD-001",
-      name: "DOLO 650 TAB",
-      manufacturer: "MICRO LABS",
-      category: "Medical",
-      subCategory: "Tablets",
-      genericName: "Paracetamol",
-      schedule: "Schedule H",
-      rackNo: "A1",
-      hsnCode: "3004",
-      gst: "12",
-      cgstPercent: "6",
-      sgstPercent: "6",
-    },
-    // Add more sample products as needed
-  ]);
+  // ============================================
+  // LOCAL STATE
+  // ============================================
+  const [isLocalLoading, setIsLocalLoading] = useState(false);
+  const [invoiceData, setInvoiceData] = useState({
+    invoice_date: new Date().toISOString(),
+    branch_id: null,
+    due_date: null,
+    received_date: null,
+    transport_charges: null,
+    other_charges: null,
+    remarks: null,
+  });
+
+  const isLoading = apiLoading || isLocalLoading;
 
   // Get responsive config
   const { visibleRows, rowHeight } = useResponsiveRowCount();
-  
+
   // Custom Hooks
   const { rows, setRows, importRows, getFilledRows, importVersion } = usePurchaseRows(visibleRows);
   const { summary } = usePurchaseCalculation(rows);
-  const { supplier, setSupplier, suppliersList, setSuppliersList, selectSupplier, validateSupplier } = usePurchaseSupplier(summary.total);
-  const { isLoading, handleImportFile, handleExportExcel } = usePurchaseImportExport(
+  const {
+    supplier,
+    setSupplier,
+    suppliersList,
+    setSuppliersList,
+    selectSupplier,
+    validateSupplier,
+  } = usePurchaseSupplier(summary.total);
+
+  const { handleImportFile, handleExportExcel } = usePurchaseImportExport(
     (importedRows, newProducts = []) => {
       if (newProducts.length > 0) {
         setNewProductsFromImport(newProducts);
         setBatchProductModalOpen(true);
       }
       importRows(importedRows);
-    }, 
-    supplier, 
+    },
+    supplier,
     toast,
-    productMaster
+    medicines
   );
 
-  // Print Handler
+  // ============================================
+  // LOAD INITIAL DATA
+  // ============================================
+  useEffect(() => {
+    const initData = async () => {
+      setIsLocalLoading(true);
+      try {
+        await Promise.all([loadMedicines(), loadSuppliers()]);
+
+        // If editing existing invoice
+        if (invoiceId) {
+          const invoice = await loadInvoiceForEdit(invoiceId);
+          populateInvoiceData(invoice);
+        }
+      } catch (error) {
+        console.error("Init error:", error);
+      } finally {
+        setIsLocalLoading(false);
+      }
+    };
+
+    initData();
+  }, [invoiceId]); // eslint-disable-line
+
+  // ============================================
+  // UPDATE SUPPLIERS LIST WHEN API LOADS
+  // ============================================
+  useEffect(() => {
+    if (suppliers.length > 0) {
+      setSuppliersList(suppliers);
+    }
+  }, [suppliers, setSuppliersList]);
+
+  // ============================================
+  // POPULATE INVOICE DATA (EDIT MODE)
+  // ============================================
+  const populateInvoiceData = useCallback((invoice) => {
+    // Populate supplier details
+    setSupplier({
+      supplier_id: invoice.supplier.supplier_id,
+      supplierName: invoice.supplier.name,
+      supplierGST: invoice.supplier.gst_number || "",
+      supplierPhone: invoice.supplier.office_phone || invoice.supplier.personal_phone || "",
+      address: [
+        invoice.supplier.address_line_1,
+        invoice.supplier.address_line_2,
+        invoice.supplier.city,
+        invoice.supplier.state,
+        invoice.supplier.pincode,
+      ]
+        .filter(Boolean)
+        .join(", "),
+      invoiceNo: invoice.supplier_invoice_no || "",
+      purchaseId: invoice.invoice_number,
+    });
+
+    // Populate invoice metadata
+    setInvoiceData({
+      invoice_date: invoice.invoice_date,
+      branch_id: invoice.branch_id,
+      due_date: invoice.due_date,
+      received_date: invoice.received_date,
+      transport_charges: invoice.transport_charges,
+      other_charges: invoice.other_charges,
+      remarks: invoice.remarks,
+    });
+
+    // Populate rows from line items
+    const populatedRows = invoice.lineItems.map((item) => {
+      // Format expiry date to MM/YY
+      let expiry = "";
+      if (item.expiry_date) {
+        const expDate = new Date(item.expiry_date);
+        const month = String(expDate.getMonth() + 1).padStart(2, "0");
+        const year = String(expDate.getFullYear()).slice(-2);
+        expiry = `${month}/${year}`;
+      }
+
+      return {
+        medicine_id: item.medicine_id,
+        name: item.medicine.name,
+        mfac: item.medicine.manufacturer,
+        batch: item.batch_number,
+        hsn: item.medicine.hsn_code,
+        exp: expiry,
+        pack: item.pack_size,
+        pQty: item.free_quantity?.toString() || "",
+        qty: item.quantity?.toString() || "",
+        price: item.purchase_rate?.toString() || "",
+        schemePercent: item.scheme_discount?.toString() || "",
+        discountPercent: item.trade_discount?.toString() || "",
+        cgstPercent: item.cgst_percent?.toString() || "",
+        sgstPercent: item.sgst_percent?.toString() || "",
+        mrp: item.mrp?.toString() || "",
+        rack: item.rack_no || "",
+        sRate: item.selling_rate?.toString() || "",
+        sch: item.free_quantity?.toString() || "",
+        // Calculated fields
+        netRate: item.taxable_amount && item.quantity 
+          ? (parseFloat(item.taxable_amount) / parseFloat(item.quantity)).toFixed(2) 
+          : "",
+        amount: item.line_total?.toString() || "",
+      };
+    });
+
+    setRows(populatedRows);
+  }, [setSupplier, setRows]);
+
+  // ============================================
+  // PRINT HANDLER
+  // ============================================
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `Purchase_Invoice_${supplier.invoiceNo || supplier.purchaseId}`,
+    documentTitle: `Purchase_Invoice_${currentInvoice?.invoice_number || supplier.invoiceNo || supplier.purchaseId}`,
     onAfterPrint: () => toast.success("Print Complete", "Invoice printed successfully."),
     onPrintError: () => toast.error("Print Failed", "Failed to print invoice."),
     pageStyle: `
@@ -98,117 +238,247 @@ const PurchasePage = () => {
     `,
   });
 
-  // Save Handler
-  const handleSave = useCallback(() => {
+  // ============================================
+  // SAVE HANDLER (DRAFT)
+  // ============================================
+  const handleSave = useCallback(async () => {
     const dataRows = getFilledRows();
     if (dataRows.length === 0) {
       toast.warning("Missing Items", "Please add at least one item.");
       return false;
     }
-    
+
     const { isValid, errors } = validateSupplier();
     if (!isValid) {
       toast.warning("Validation Error", errors[0]);
       return false;
     }
-    
-    toast.success("Purchase Saved", "Purchase saved successfully.");
-    return true;
-  }, [getFilledRows, validateSupplier, toast]);
 
-  // Save & Print Handler
-  const handleSavePrint = useCallback(() => {
+    try {
+      const savedInvoice = await savePurchaseInvoice(invoiceData, dataRows, supplier);
+      if (savedInvoice) {
+        // Update supplier with invoice number
+        setSupplier(prev => ({
+          ...prev,
+          purchaseId: savedInvoice.invoice_number,
+        }));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  }, [getFilledRows, validateSupplier, savePurchaseInvoice, invoiceData, supplier, toast, setSupplier]);
+
+  // ============================================
+  // SAVE & PRINT HANDLER (CONFIRM + STOCK UPDATE)
+  // ============================================
+  const handleSavePrint = useCallback(async () => {
     const dataRows = getFilledRows();
     if (dataRows.length === 0) {
       toast.warning("Please add at least one item to print");
       return;
     }
-    const saved = handleSave();
-    if (saved) setTimeout(handlePrint, 100);
-  }, [getFilledRows, handleSave, handlePrint, toast]);
 
-  // Export Handler
+    try {
+      // First save as draft (if not already saved)
+      let invoiceToConfirm = currentInvoice;
+      
+      if (!currentInvoice) {
+        const savedInvoice = await savePurchaseInvoice(invoiceData, dataRows, supplier);
+        if (!savedInvoice) return;
+        invoiceToConfirm = savedInvoice;
+      }
+
+      // Then confirm (this updates stock)
+      const confirmedInvoice = await confirmPurchaseInvoice(invoiceToConfirm.invoice_id);
+      
+      if (confirmedInvoice) {
+        // Update supplier with confirmed invoice number
+        setSupplier(prev => ({
+          ...prev,
+          purchaseId: confirmedInvoice.invoice_number,
+        }));
+
+        // Print after confirmation
+        setTimeout(() => {
+          handlePrint();
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Save & Print error:", error);
+    }
+  }, [getFilledRows, currentInvoice, savePurchaseInvoice, confirmPurchaseInvoice, invoiceData, supplier, toast, handlePrint, setSupplier]);
+
+  // ============================================
+  // EXPORT HANDLER
+  // ============================================
   const onExportExcel = useCallback(() => {
     handleExportExcel(rows);
   }, [handleExportExcel, rows]);
 
-  // ✅ Supplier Modal Handlers
+  // ============================================
+  // SUPPLIER MODAL HANDLERS
+  // ============================================
   const handleAddNewSupplier = useCallback((supplierName) => {
     setNewSupplierName(supplierName);
     setSupplierModalOpen(true);
   }, []);
 
-  const handleSupplierSave = useCallback((newSupplier) => {
-    const supplierId = `SUP-${Date.now().toString().slice(-6)}`;
-    const supplierWithId = {
-      ...newSupplier,
-      id: Date.now(),
-      supplierId,
-    };
+  const handleSupplierSave = useCallback(
+    async (newSupplierData) => {
+      try {
+        const createdSupplier = await createSupplier({
+          name: newSupplierData.name,
+          contactPerson: newSupplierData.contact,
+          officePhone: newSupplierData.officePhone,
+          personalPhone: newSupplierData.personalPhone,
+          email: newSupplierData.email,
+          addressLine1: newSupplierData.address,
+          gstNumber: newSupplierData.gst,
+        });
 
-    setSuppliersList(prev => [supplierWithId, ...prev]);
-    setSupplier(prev => ({
-      ...prev,
-      supplierName: newSupplier.name,
-      supplierGST: newSupplier.gst || "",
-      supplierPhone: newSupplier.officePhone || newSupplier.personalPhone || "",
-      address: newSupplier.address || "",
-    }));
+        if (createdSupplier) {
+          // Auto-select the new supplier
+          setSupplier((prev) => ({
+            ...prev,
+            supplier_id: createdSupplier.supplier_id,
+            supplierName: createdSupplier.name,
+            supplierGST: createdSupplier.gstNumber || "",
+            supplierPhone: createdSupplier.officePhone || createdSupplier.personalPhone || "",
+            address: createdSupplier.address || "",
+          }));
 
-    setSupplierModalOpen(false);
-    setNewSupplierName("");
-    toast.success("Supplier Added", `${newSupplier.name} has been added and selected.`);
-  }, [setSupplier, setSuppliersList, toast]);
+          setSupplierModalOpen(false);
+          setNewSupplierName("");
+        }
+      } catch (error) {
+        console.error("Supplier save error:", error);
+      }
+    },
+    [createSupplier, setSupplier]
+  );
 
-  // ✅ Product Modal Handlers
+  // ============================================
+  // PRODUCT MODAL HANDLERS
+  // ============================================
   const handleAddNewProduct = useCallback((productData) => {
     setPendingProductData(productData);
     setProductModalOpen(true);
   }, []);
 
-  const handleProductSave = useCallback((newProduct) => {
-    // Add to product master
-    setProductMaster(prev => [newProduct, ...prev]);
-    
-    // Update the pending row if any
-    if (pendingProductData) {
-      const { rowIndex } = pendingProductData;
-      setRows(prev => {
-        const newRows = [...prev];
-        newRows[rowIndex] = {
-          ...newRows[rowIndex],
-          name: newProduct.name,
-          mfac: newProduct.manufacturer,
-          hsn: newProduct.hsnCode,
-          rack: newProduct.rackNo,
-          cgstPercent: newProduct.gst ? (Number(newProduct.gst) / 2).toString() : "6",
-          sgstPercent: newProduct.gst ? (Number(newProduct.gst) / 2).toString() : "6",
-        };
-        newRows[rowIndex] = calculateRow(newRows[rowIndex]);
-        return newRows;
-      });
-    }
-    
-    setProductModalOpen(false);
-    setPendingProductData(null);
-    toast.success("Product Added", `${newProduct.name} has been added to the system.`);
-  }, [pendingProductData, setRows, setProductMaster, toast]);
+  const handleProductSave = useCallback(
+    async (newProductData) => {
+      try {
+        const createdMedicine = await createMedicine({
+          name: newProductData.name,
+          manufacturer: newProductData.manufacturer,
+          genericName: newProductData.genericName,
+          category: newProductData.category,
+          hsnCode: newProductData.hsnCode,
+          packSize: newProductData.packSize,
+          rackNo: newProductData.rackNo,
+          gst: newProductData.gst,
+        });
 
-  // ✅ Batch Product Import Handlers
-  const handleBatchProductSave = useCallback((savedProducts) => {
-    if (savedProducts.length > 0) {
-      setProductMaster(prev => [...savedProducts, ...prev]);
-      toast.success("Products Added", `${savedProducts.length} new products added to the system.`);
-    }
-    setBatchProductModalOpen(false);
-    setNewProductsFromImport([]);
-  }, [setProductMaster, toast]);
+        if (createdMedicine && pendingProductData) {
+          const { rowIndex } = pendingProductData;
+          setRows((prev) => {
+            const newRows = [...prev];
+            newRows[rowIndex] = {
+              ...newRows[rowIndex],
+              medicine_id: createdMedicine.medicine_id,
+              name: createdMedicine.name,
+              mfac: createdMedicine.manufacturer,
+              hsn: createdMedicine.hsnCode,
+              rack: createdMedicine.rackNo,
+              cgstPercent: createdMedicine.cgstPercent,
+              sgstPercent: createdMedicine.sgstPercent,
+            };
+            newRows[rowIndex] = calculateRow(newRows[rowIndex]);
+            return newRows;
+          });
+        }
+
+        setProductModalOpen(false);
+        setPendingProductData(null);
+      } catch (error) {
+        console.error("Product save error:", error);
+      }
+    },
+    [pendingProductData, setRows, createMedicine]
+  );
+
+  // ============================================
+  // BATCH PRODUCT IMPORT HANDLERS
+  // ============================================
+  const handleBatchProductSave = useCallback(
+    async (productsToSave) => {
+      try {
+        if (productsToSave.length > 0) {
+          await bulkCreateMedicines(productsToSave);
+        }
+        setBatchProductModalOpen(false);
+        setNewProductsFromImport([]);
+      } catch (error) {
+        console.error("Batch product save error:", error);
+      }
+    },
+    [bulkCreateMedicines]
+  );
 
   const handleBatchProductSkip = useCallback(() => {
     setBatchProductModalOpen(false);
     setNewProductsFromImport([]);
     toast.info("Import Completed", "Import completed. New products were skipped.");
   }, [toast]);
+
+  // ============================================
+  // AUTO-FILL FROM EXISTING INVENTORY
+  // ============================================
+  const handleProductSelect = useCallback(
+    async (rowIndex, product) => {
+      // Get existing batches for this medicine
+      const existingBatches = await getExistingBatches(product.medicine_id);
+
+      setRows((prev) => {
+        const newRows = [...prev];
+        newRows[rowIndex] = {
+          ...newRows[rowIndex],
+          medicine_id: product.medicine_id,
+          name: product.name,
+          mfac: product.manufacturer || product.mfac,
+          hsn: product.hsnCode || product.hsn,
+          rack: product.rackNo || product.rack,
+          cgstPercent: product.cgstPercent || (product.gst ? (parseFloat(product.gst) / 2).toString() : "6"),
+          sgstPercent: product.sgstPercent || (product.gst ? (parseFloat(product.gst) / 2).toString() : "6"),
+          pack: product.packSize || product.pack,
+        };
+
+        // Auto-fill from most recent batch if exists
+        if (existingBatches.length > 0) {
+          const recentBatch = existingBatches[0];
+          
+          // Only auto-fill if fields are empty
+          if (!newRows[rowIndex].batch) newRows[rowIndex].batch = recentBatch.batch_number;
+          if (!newRows[rowIndex].mrp) newRows[rowIndex].mrp = recentBatch.mrp?.toString() || "";
+          if (!newRows[rowIndex].rack) newRows[rowIndex].rack = recentBatch.rack_no || "";
+          
+          // Format expiry date
+          if (!newRows[rowIndex].exp && recentBatch.expiry_date) {
+            const expDate = new Date(recentBatch.expiry_date);
+            const month = String(expDate.getMonth() + 1).padStart(2, "0");
+            const year = String(expDate.getFullYear()).slice(-2);
+            newRows[rowIndex].exp = `${month}/${year}`;
+          }
+        }
+
+        newRows[rowIndex] = calculateRow(newRows[rowIndex]);
+        return newRows;
+      });
+    },
+    [getExistingBatches, setRows]
+  );
 
   // Supplier data for modal
   const newSupplierData = {
@@ -224,7 +494,6 @@ const PurchasePage = () => {
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
-      
       {/* Loading Overlay */}
       {isLoading && <LoadingOverlay message="Processing..." />}
 
@@ -235,6 +504,8 @@ const PurchasePage = () => {
           onSavePrint={handleSavePrint}
           onImportFile={handleImportFile}
           onExportExcel={onExportExcel}
+          invoiceNumber={currentInvoice?.invoice_number}
+          invoiceStatus={currentInvoice?.status}
         />
       </div>
 
@@ -243,12 +514,13 @@ const PurchasePage = () => {
         <PurchaseTable
           rows={rows}
           setRows={setRows}
-          productMaster={productMaster}
+          productMaster={medicines}
           calculateRow={calculateRow}
           importVersion={importVersion}
           visibleRows={visibleRows}
           rowHeight={rowHeight}
-          onAddNewProduct={handleAddNewProduct} // ✅ Pass the handler
+          onAddNewProduct={handleAddNewProduct}
+          onProductSelect={handleProductSelect}
         />
       </div>
 
@@ -276,13 +548,13 @@ const PurchasePage = () => {
             supplier={supplier}
             summary={summary}
             companyDetails={COMPANY_DETAILS}
+            invoiceNumber={currentInvoice?.invoice_number}
+            invoiceDate={currentInvoice?.invoice_date}
           />
         </div>
       </div>
 
-      {/* ✅ Modals */}
-      
-      {/* Supplier Modal */}
+      {/* Modals */}
       <SupplierModal
         open={supplierModalOpen}
         mode="edit"
@@ -294,7 +566,6 @@ const PurchasePage = () => {
         onSave={handleSupplierSave}
       />
 
-      {/* Product Master Modal */}
       <ProductMasterModal
         open={productModalOpen}
         onClose={() => {
@@ -302,15 +573,18 @@ const PurchasePage = () => {
           setPendingProductData(null);
         }}
         onSave={handleProductSave}
-        initialData={pendingProductData ? {
-          name: pendingProductData.productName,
-          manufacturer: pendingProductData.manufacturer || '',
-          hsnCode: pendingProductData.hsn || '',
-        } : {}}
+        initialData={
+          pendingProductData
+            ? {
+                name: pendingProductData.productName,
+                manufacturer: pendingProductData.manufacturer || "",
+                hsnCode: pendingProductData.hsn || "",
+              }
+            : {}
+        }
         mode="create"
       />
 
-      {/* Batch Product Modal for Import */}
       <BatchProductModal
         open={batchProductModalOpen}
         onClose={() => setBatchProductModalOpen(false)}
@@ -323,4 +597,3 @@ const PurchasePage = () => {
 };
 
 export default PurchasePage;
-

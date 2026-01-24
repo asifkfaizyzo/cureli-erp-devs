@@ -1,4 +1,4 @@
-// src/hooks/usePurchaseImportExport.js
+// src/hooks/purchase/usePurchaseImportExport.js
 import { useState, useCallback } from "react";
 import ExcelJS from "exceljs";
 import * as XLSX from "xlsx";
@@ -62,57 +62,109 @@ const parseRowData = (headers, values) => {
 export const usePurchaseImportExport = (onImport, supplier, toast, productMaster = []) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  // ✅ NEW: Function to detect new products during import
+  // ✅ FIXED: Enhanced product matching with medicine_id assignment
   const detectNewProducts = useCallback((parsedRows) => {
     const newProducts = [];
-    const existingRows = [];
+    const processedRows = [];
     
-    parsedRows.forEach(row => {
-      if (row.name && row.name.trim()) {
-        // Check if product exists in master
-        const exists = productMaster.some(product => {
-          const productName = (product.name || '').toLowerCase();
-          const rowName = (row.name || '').toLowerCase();
-          
-          return productName === rowName ||
-                 productName.includes(rowName) ||
-                 rowName.includes(productName);
-        });
+    console.group("🔍 Product Detection & Matching");
+    console.log("Product Master Count:", productMaster.length);
+    console.log("Parsed Rows Count:", parsedRows.length);
+    
+    parsedRows.forEach((row, idx) => {
+      if (!row.name || !row.name.trim()) {
+        // Skip rows without product names
+        console.log(`Row ${idx + 1}: Skipping - no product name`);
+        return;
+      }
+
+      const rowName = row.name.trim();
+      const rowMfac = (row.mfac || '').trim();
+      
+      // ✅ Try to find matching product in master
+      const matchingProduct = productMaster.find(product => {
+        const productName = (product.name || '').toLowerCase();
+        const searchName = rowName.toLowerCase();
         
-        if (!exists) {
-          // Check if we already have this new product in our detected list
-          const alreadyDetected = newProducts.some(newProd => {
-            const newProdName = (newProd.name || '').toLowerCase();
-            const rowName = (row.name || '').toLowerCase();
-            return newProdName === rowName;
-          });
+        // Try exact match first
+        if (productName === searchName) {
+          return true;
+        }
+        
+        // Try partial match with manufacturer
+        if (rowMfac) {
+          const productMfac = (product.manufacturer || product.mfac || '').toLowerCase();
+          const searchMfac = rowMfac.toLowerCase();
           
-          if (!alreadyDetected) {
-            newProducts.push({
-              name: row.name.trim(),
-              mfac: row.mfac || '',
-              hsn: row.hsn || '',
-              rack: row.rack || '',
-              // Additional fields that might be useful
-              price: row.price || '',
-              mrp: row.mrp || '',
-              pack: row.pack || '',
-            });
+          if (productName.includes(searchName) && productMfac.includes(searchMfac)) {
+            return true;
           }
         }
         
-        // Always add the row to existing rows for processing
-        existingRows.push(row);
-      } else if (row.mfac || row.hsn || row.qty || row.price) {
-        // Include rows that have other meaningful data even without names
-        existingRows.push(row);
+        // Try contains match
+        if (productName.includes(searchName) || searchName.includes(productName)) {
+          return true;
+        }
+        
+        return false;
+      });
+
+      if (matchingProduct) {
+        // ✅ Product found - assign medicine_id
+        console.log(`Row ${idx + 1}: ✅ Matched "${rowName}" -> ${matchingProduct.medicine_id || matchingProduct.id}`);
+        
+        processedRows.push({
+          ...row,
+          medicine_id: matchingProduct.medicine_id || matchingProduct.id,
+          // Also update fields from master if they're empty
+          hsn: row.hsn || matchingProduct.hsnCode || matchingProduct.hsn || '',
+          rack: row.rack || matchingProduct.rackNo || matchingProduct.rack || '',
+          pack: row.pack || matchingProduct.packSize || matchingProduct.pack || '',
+        });
+      } else {
+        // ✅ Product not found - add to new products list
+        console.log(`Row ${idx + 1}: ⚠️ NOT FOUND - "${rowName}" (${rowMfac})`);
+        
+        // Check if we already have this new product in our detected list
+        const alreadyDetected = newProducts.some(newProd => {
+          const newProdName = (newProd.name || '').toLowerCase();
+          const newProdMfac = (newProd.manufacturer || '').toLowerCase();
+          const searchName = rowName.toLowerCase();
+          const searchMfac = rowMfac.toLowerCase();
+          
+          return newProdName === searchName && 
+                 (!searchMfac || newProdMfac === searchMfac);
+        });
+        
+        if (!alreadyDetected) {
+          newProducts.push({
+            name: rowName,
+            manufacturer: rowMfac,
+            hsnCode: row.hsn || '',
+            packSize: row.pack || '',
+            rackNo: row.rack || '',
+            category: '',
+            gst: '12', // Default GST
+            genericName: '',
+          });
+        }
+        
+        // ✅ Still add row but WITHOUT medicine_id (will trigger error later if not created)
+        processedRows.push({
+          ...row,
+          medicine_id: null, // No medicine_id = will fail validation
+        });
       }
     });
     
-    console.log(`🔍 Detected ${newProducts.length} new products from ${parsedRows.length} total rows`);
-    console.log('📦 New products:', newProducts);
+    console.log(`\n📊 Detection Summary:`);
+    console.log(`  Total Rows: ${parsedRows.length}`);
+    console.log(`  Matched: ${processedRows.filter(r => r.medicine_id).length}`);
+    console.log(`  New Products: ${newProducts.length}`);
+    console.log(`  Products to Create:`, newProducts.map(p => p.name));
+    console.groupEnd();
     
-    return { existingRows, newProducts };
+    return { existingRows: processedRows, newProducts };
   }, [productMaster]);
 
   const handleImportCSV = useCallback((file) => {
@@ -132,23 +184,23 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         
         for (let i = 1; i < lines.length; i++) {
           const values = lines[i].split(",").map(v => v.trim().replace(/^\"|\"$/g, ''));
-          if (values.some(v => v)) { // Only process lines with some data
+          if (values.some(v => v)) {
             parsed.push(parseRowData(headers, values));
           }
         }
         
         console.log('📊 CSV parsed rows:', parsed.length);
         
-        // ✅ NEW: Detect new products
+        // ✅ Detect new products and match existing ones
         const { existingRows, newProducts } = detectNewProducts(parsed);
         
         // Call onImport with both existing rows and new products
         onImport(existingRows, newProducts);
         
-        const successMessage = `${existingRows.filter(r => r.name).length} items imported`;
-        const newProductMessage = newProducts.length > 0 ? `, ${newProducts.length} new products detected` : '';
+        const matchedCount = existingRows.filter(r => r.medicine_id).length;
+        const successMessage = `${matchedCount} matched, ${newProducts.length} new products detected`;
         
-        toast.success("CSV Imported", `${successMessage}${newProductMessage}.`);
+        toast.success("CSV Imported", successMessage);
       } catch (error) {
         console.error('❌ CSV import error:', error);
         toast.error("Failed to import CSV", error.message);
@@ -176,11 +228,11 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         return;
       }
 
-      // Find the header row - look for row with most non-empty cells
+      // Find the header row
       let headerRowIndex = 0;
       let maxNonEmptyCells = 0;
       
-      for (let i = 0; i < Math.min(data.length, 5); i++) { // Check first 5 rows only
+      for (let i = 0; i < Math.min(data.length, 5); i++) {
         const row = data[i];
         const nonEmptyCells = row.filter(cell => 
           cell !== null && 
@@ -196,11 +248,9 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
 
       const headers = data[headerRowIndex].map(h => String(h || '').trim());
       console.log(`📋 Using headers from row ${headerRowIndex + 1}:`, headers);
-      console.log('🔑 Mapped keys:', headers.map(h => `${h} -> ${mapHeaderToKey(h)}`));
       
       const parsed = [];
       
-      // Start parsing from row AFTER headers
       for (let i = headerRowIndex + 1; i < data.length; i++) {
         const rowData = data[i];
         if (!rowData || rowData.every(cell => 
@@ -211,26 +261,23 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         
         const parsedRow = parseRowData(headers, rowData.map(cell => String(cell || '').trim()));
         
-        // Only add if has meaningful data
         if (parsedRow.name || parsedRow.mfac || parsedRow.hsn || parsedRow.qty || parsedRow.price) {
           parsed.push(parsedRow);
         }
       }
 
       console.log('✅ Excel parsed rows:', parsed.length);
-      console.log('✅ Items with names:', parsed.filter(r => r.name).length);
 
-      // ✅ NEW: Detect new products
+      // ✅ Detect new products and match existing ones
       const { existingRows, newProducts } = detectNewProducts(parsed);
 
       // Call onImport with both existing rows and new products
       onImport(existingRows, newProducts);
       
-      const itemsWithNames = existingRows.filter(r => r.name).length;
-      const successMessage = `${existingRows.length} items imported (${itemsWithNames} with names)`;
-      const newProductMessage = newProducts.length > 0 ? `, ${newProducts.length} new products detected` : '';
+      const matchedCount = existingRows.filter(r => r.medicine_id).length;
+      const successMessage = `${matchedCount} matched, ${newProducts.length} new products detected`;
       
-      toast.success("Excel Imported", `${successMessage}${newProductMessage}.`);
+      toast.success("Excel Imported", successMessage);
       
     } catch (error) {
       console.error('❌ Excel import error:', error);
@@ -246,7 +293,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Purchase Items');
       
-      // ✅ Enhanced column definitions with better formatting
       worksheet.columns = [
         { header: '#', key: 'serial', width: 5 },
         { header: 'Description', key: 'name', width: 35 },
@@ -294,7 +340,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         
         const excelRow = worksheet.addRow(rowData);
         
-        // ✅ Enhanced formatting for better readability
         if (index % 2 === 0) {
           excelRow.fill = {
             type: 'pattern',
@@ -304,7 +349,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         }
       });
 
-      // ✅ Enhanced header styling
+      // Header styling
       const headerRow = worksheet.getRow(1);
       headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
       headerRow.fill = {
@@ -315,24 +360,18 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       headerRow.height = 25;
       headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-      // ✅ Add borders to all cells
-      worksheet.eachRow((row, rowNumber) => {
-        row.eachCell((cell, colNumber) => {
+      // Borders
+      worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
           cell.border = {
             top: { style: 'thin' },
             left: { style: 'thin' },
             bottom: { style: 'thin' },
             right: { style: 'thin' }
           };
-          
-          // Align numeric columns
-          if (['pQty', 'qty', 'price', 'discountPercent', 'netRate', 'amount', 'sgstPercent', 'mrp', 'sRate'].includes(cell.model?.value?.toString())) {
-            cell.alignment = { horizontal: 'right' };
-          }
         });
       });
 
-      // ✅ Auto-filter and freeze panes
       worksheet.autoFilter = 'A1:R1';
       worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
@@ -371,7 +410,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     }
     
     const extension = file.name.split('.').pop()?.toLowerCase();
-    const maxSize = 10 * 1024 * 1024; // 10MB limit
+    const maxSize = 10 * 1024 * 1024; // 10MB
     
     if (file.size > maxSize) {
       toast.error('File too large', 'Please select a file smaller than 10MB.');
@@ -391,7 +430,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     isLoading, 
     handleImportFile, 
     handleExportExcel,
-    detectNewProducts // ✅ Expose for external use if needed
+    detectNewProducts
   };
 };
 

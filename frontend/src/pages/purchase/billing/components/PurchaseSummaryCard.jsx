@@ -1,4 +1,4 @@
-// src/components/purchase/PurchaseSummaryCard.jsx
+// src/pages/purchase/billing/components/PurchaseSummaryCard.jsx
 import { Wallet } from "lucide-react";
 
 const PurchaseSummaryCard = ({ summary }) => {
@@ -19,12 +19,12 @@ const PurchaseSummaryCard = ({ summary }) => {
         </div>
 
         <div className="flex justify-between text-[11px] text-gray-600">
-          <span>SGST (2.5%)</span>
+          <span>SGST</span>
           <span className="font-medium text-gray-900">₹ {summary.sgst.toFixed(2)}</span>
         </div>
 
         <div className="flex justify-between text-[11px] text-gray-600">
-          <span>CGST (2.5%)</span>
+          <span>CGST</span>
           <span className="font-medium text-gray-900">₹ {summary.cgst.toFixed(2)}</span>
         </div>
       </div>

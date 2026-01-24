@@ -1,6 +1,6 @@
 // src/pages/purchase/billing/components/PurchaseRowFixed.jsx
 import { memo, useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
-import { X, Plus, AlertCircle } from "lucide-react";
+import { X, Plus, AlertCircle, CheckCircle2 } from "lucide-react";
 
 const FIELD_ORDER = [
   "name", "mfac", "batch", "hsn", "exp", "pack", "pQty", "qty", 
@@ -22,7 +22,7 @@ const PurchaseRowFixed = memo(forwardRef(({
   onNavigateToPrevRow,
   onCreateNewRow,
   rowHeight = 36,
-  onAddNewProduct, // ✅ NEW: Handler for adding new products
+  onAddNewProduct, // Handler for adding new products
 }, ref) => {
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [productSearch, setProductSearch] = useState("");
@@ -31,12 +31,18 @@ const PurchaseRowFixed = memo(forwardRef(({
   const rowRef = useRef(null);
   const fieldRefs = useRef({});
 
-  const filteredProducts = productMaster.filter(p =>
-    p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.hsn?.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.manufacturer?.toLowerCase().includes(productSearch.toLowerCase()) ||
-    p.mfac?.toLowerCase().includes(productSearch.toLowerCase())
-  ).slice(0, 8);
+  // ✅ Enhanced filtering - search by name, HSN, manufacturer, generic name
+  const filteredProducts = productMaster.filter(p => {
+    const searchLower = productSearch.toLowerCase();
+    return (
+      p.name?.toLowerCase().includes(searchLower) ||
+      p.genericName?.toLowerCase().includes(searchLower) ||
+      p.hsn?.toLowerCase().includes(searchLower) ||
+      p.hsnCode?.toLowerCase().includes(searchLower) ||
+      p.manufacturer?.toLowerCase().includes(searchLower) ||
+      p.mfac?.toLowerCase().includes(searchLower)
+    );
+  }).slice(0, 10); // Show top 10 matches
 
   useImperativeHandle(ref, () => ({
     focusFirstField: () => {
@@ -71,20 +77,23 @@ const PurchaseRowFixed = memo(forwardRef(({
     }
   }, []);
 
-  // ✅ NEW: Check if product exists in master
+  // ✅ Check if product exists in master (exact or partial match)
   const checkProductExists = useCallback((productName) => {
     if (!productName || productName.trim().length < 2) return true;
     
-    const exists = productMaster.some(product => 
-      product.name.toLowerCase() === productName.toLowerCase() ||
-      product.name.toLowerCase().includes(productName.toLowerCase()) ||
-      productName.toLowerCase().includes(product.name.toLowerCase())
-    );
+    const searchLower = productName.toLowerCase().trim();
+    const exists = productMaster.some(product => {
+      const nameLower = product.name?.toLowerCase() || '';
+      // Exact match or very close match
+      return nameLower === searchLower || 
+             nameLower.includes(searchLower) || 
+             searchLower.includes(nameLower);
+    });
     
     return exists;
   }, [productMaster]);
 
-  // ✅ NEW: Handle new product detection
+  // ✅ Handle new product detection
   const handleProductNameBlur = useCallback((productName) => {
     if (!productName || productName.trim().length < 2) return;
     
@@ -154,6 +163,7 @@ const PurchaseRowFixed = memo(forwardRef(({
       return;
     }
 
+    // ✅ Dropdown navigation
     if (showProductDropdown && filteredProducts.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -175,7 +185,7 @@ const PurchaseRowFixed = memo(forwardRef(({
           onProductSelect(index, filteredProducts[highlightedIndex]);
           setShowProductDropdown(false);
           setTimeout(() => {
-            const nextField = fieldRefs.current["mfac"];
+            const nextField = fieldRefs.current["batch"]; // Jump to batch after selection
             if (nextField) {
               nextField.focus();
               nextField.select?.();
@@ -189,7 +199,7 @@ const PurchaseRowFixed = memo(forwardRef(({
     if (e.key === "Enter") {
       e.preventDefault();
       
-      // ✅ NEW: Check for new product if on name field
+      // ✅ Check for new product if on name field and dropdown is closed
       if (fieldKey === "name" && item.name && !showProductDropdown) {
         handleProductNameBlur(item.name);
       }
@@ -286,7 +296,8 @@ const PurchaseRowFixed = memo(forwardRef(({
   
   const cellBase = "border-b border-r border-slate-200 last:border-r-0 p-0 overflow-hidden";
   const hasData = item.name || item.qty || item.price;
-  const isNewProduct = item.name && !checkProductExists(item.name);
+  const isNewProduct = item.name && item.name.trim().length >= 2 && !checkProductExists(item.name);
+  const productExists = item.name && checkProductExists(item.name);
 
   return (
     <tr 
@@ -310,17 +321,22 @@ const PurchaseRowFixed = memo(forwardRef(({
           `}>
             {rowNumber}
           </span>
-          {/* ✅ NEW: New product indicator */}
+          {/* ✅ Product status indicators */}
           {isNewProduct && (
-            <div className="absolute -top-0.5 -right-0.5">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" title="New product"></div>
+            <div className="absolute -top-0.5 -right-0.5" title="New product - will be added to master">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+            </div>
+          )}
+          {productExists && item.name && (
+            <div className="absolute -bottom-0.5 -right-0.5" title="Product found in master">
+              <CheckCircle2 size={8} className="text-green-500" />
             </div>
           )}
         </div>
       </td>
 
       {/* 2. ITEM DESCRIPTION - ✅ ENHANCED */}
-      <td className={`${cellBase} relative ${isNewProduct ? 'bg-yellow-50/50' : 'bg-blue-50/30'}`} ref={dropdownRef}>
+      <td className={`${cellBase} relative ${isNewProduct ? 'bg-yellow-50/50' : productExists ? 'bg-green-50/30' : 'bg-blue-50/30'}`} ref={dropdownRef}>
         <div className="relative h-full">
           <input
             ref={el => registerFieldRef("name", el)}
@@ -341,83 +357,101 @@ const PurchaseRowFixed = memo(forwardRef(({
             onBlur={(e) => {
               setTimeout(() => {
                 setShowProductDropdown(false);
-                // ✅ NEW: Check for new product on blur
+                // ✅ Check for new product on blur
                 if (e.target.value && e.target.value.trim().length >= 2) {
                   handleProductNameBlur(e.target.value);
                 }
-              }, 150);
+              }, 200); // Increased delay for better UX
             }}
             onKeyDown={(e) => handleKeyDown(e, "name")}
             className={`${inputBase} px-1.5 py-1 font-medium text-left ${
-              isNewProduct ? 'bg-yellow-50 text-yellow-900 font-semibold' : ''
+              isNewProduct ? 'bg-yellow-50 text-yellow-900 font-semibold' : 
+              productExists ? 'text-green-900' : ''
             }`}
             placeholder="Search item..."
           />
           
-          {/* ✅ NEW: Enhanced indicators */}
+          {/* ✅ Enhanced indicators */}
           <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
             {isNewProduct && (
-              <div className="flex items-center">
-                <AlertCircle size={10} className="text-yellow-600" title="New product - click Enter to add to master" />
+              <div className="flex items-center" title="New product - press Enter to add">
+                <AlertCircle size={10} className="text-yellow-600" />
               </div>
             )}
-            {item.name && checkProductExists(item.name) && (
+            {productExists && (
+              <div className="flex items-center" title="Product found">
+                <CheckCircle2 size={10} className="text-green-600" />
+              </div>
+            )}
+            {item.name && (
               <button
                 onClick={() => {
                   handleChange("name", "");
                   setProductSearch("");
                 }}
                 className="p-0.5 hover:bg-slate-200 rounded-full"
+                title="Clear"
               >
                 <X size={8} className="text-slate-400" />
               </button>
             )}
           </div>
 
-          {/* ✅ ENHANCED: Product dropdown with add option */}
+          {/* ✅ ENHANCED: Product dropdown */}
           {showProductDropdown && (
-            <div className="absolute top-full left-0 z-50 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-auto w-72 mt-0.5">
+            <div className="absolute top-full left-0 z-50 bg-white border border-slate-300 rounded-lg shadow-2xl max-h-64 overflow-auto w-80 mt-0.5">
               {filteredProducts.length > 0 ? (
                 <>
+                  <div className="sticky top-0 bg-gradient-to-r from-indigo-50 to-purple-50 px-3 py-1.5 border-b border-slate-200 text-[9px] text-slate-600 font-medium">
+                    {filteredProducts.length} product{filteredProducts.length > 1 ? 's' : ''} found
+                  </div>
                   {filteredProducts.map((product, idx) => (
                     <div
-                      key={product.id || idx}
+                      key={product.id || product.medicine_id || idx}
                       onClick={() => {
                         onProductSelect(index, product);
                         setShowProductDropdown(false);
                       }}
                       className={`
-                        px-3 py-2 cursor-pointer text-[9px] border-b border-slate-100 last:border-b-0 
-                        ${idx === highlightedIndex ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : 'hover:bg-slate-50 border-l-2 border-l-transparent'}
+                        px-3 py-2.5 cursor-pointer text-[9px] border-b border-slate-100 last:border-b-0 
+                        transition-all duration-150
+                        ${idx === highlightedIndex 
+                          ? 'bg-indigo-50 border-l-2 border-l-indigo-500' 
+                          : 'hover:bg-slate-50 border-l-2 border-l-transparent'
+                        }
                       `}
                     >
-                      <div className="font-medium text-slate-800 truncate">{product.name}</div>
-                      <div className="text-[8px] text-slate-400 flex gap-2 mt-0.5">
+                      <div className="font-semibold text-slate-800 truncate">{product.name}</div>
+                      {product.genericName && (
+                        <div className="text-[8px] text-slate-500 mt-0.5 italic">{product.genericName}</div>
+                      )}
+                      <div className="text-[8px] text-slate-400 flex gap-2 mt-1">
                         <span>HSN: {product.hsnCode || product.hsn || '-'}</span>
                         <span>•</span>
                         <span>{product.manufacturer || product.mfac || '-'}</span>
-                        {product.rackNo && (
+                        {(product.rackNo || product.rack) && (
                           <>
                             <span>•</span>
-                            <span>Rack: {product.rackNo}</span>
+                            <span>Rack: {product.rackNo || product.rack}</span>
                           </>
                         )}
                       </div>
                     </div>
                   ))}
+                  {/* ✅ Add new product option if search doesn't match exactly */}
                   {productSearch.trim().length >= 2 && !checkProductExists(productSearch) && (
                     <div
                       onClick={() => {
                         setShowProductDropdown(false);
                         handleProductNameBlur(productSearch);
                       }}
-                      className="px-3 py-2 cursor-pointer text-[9px] hover:bg-yellow-50 border-l-2 border-l-yellow-500 bg-yellow-25 border-t border-yellow-200"
+                      className="px-3 py-2.5 cursor-pointer text-[9px] hover:bg-yellow-50 border-l-2 border-l-yellow-500 bg-yellow-25 border-t-2 border-yellow-200"
                     >
-                      <div className="font-medium text-yellow-700 flex items-center gap-1">
+                      <div className="font-semibold text-yellow-700 flex items-center gap-1.5">
                         <Plus size={10} />
                         Add "{productSearch}" as new product
                       </div>
-                      <div className="text-[8px] text-yellow-600 mt-0.5">Click to add to product master</div>
+                      <div className="text-[8px] text-yellow-600 mt-0.5">Click or press Enter to add to master</div>
                     </div>
                   )}
                 </>
@@ -427,16 +461,16 @@ const PurchaseRowFixed = memo(forwardRef(({
                     setShowProductDropdown(false);
                     handleProductNameBlur(productSearch);
                   }}
-                  className="px-3 py-3 cursor-pointer text-[9px] hover:bg-blue-50 border-l-2 border-l-blue-500 bg-blue-25"
+                  className="px-4 py-4 cursor-pointer text-[9px] hover:bg-blue-50 border-l-2 border-l-blue-500 bg-blue-25"
                 >
-                  <div className="font-medium text-blue-600 flex items-center gap-1.5">
+                  <div className="font-semibold text-blue-600 flex items-center gap-1.5 mb-1">
                     <Plus size={12} />
                     Add "{productSearch}" as new product
                   </div>
-                  <div className="text-[8px] text-blue-400 mt-1">This product will be added to the master list</div>
+                  <div className="text-[8px] text-blue-500">This product will be added to the master list</div>
                 </div>
               ) : (
-                <div className="px-3 py-3 text-[8px] text-slate-400 text-center">
+                <div className="px-4 py-4 text-[8px] text-slate-400 text-center">
                   Type at least 2 characters to search products...
                 </div>
               )}
@@ -445,6 +479,8 @@ const PurchaseRowFixed = memo(forwardRef(({
         </div>
       </td>
 
+      {/* REST OF THE FIELDS - NO CHANGES */}
+      
       {/* 3. MFAC */}
       <td className={`${cellBase} bg-violet-50/20`}>
         <input 

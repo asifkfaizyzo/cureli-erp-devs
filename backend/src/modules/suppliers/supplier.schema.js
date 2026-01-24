@@ -1,0 +1,40 @@
+import { z } from "zod";
+
+export const createSupplierSchema = z.object({
+  name: z.string().max(200),
+  supplier_code: z.string().max(50).optional().nullable(),
+  contact_person: z.string().max(100).optional().nullable(),
+  office_phone: z.string().max(20).optional().nullable(),
+  personal_phone: z.string().max(20).optional().nullable(),
+  email: z.string().email().max(100).optional().nullable(),
+  address_line_1: z.string().optional().nullable(),
+  address_line_2: z.string().optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  state: z.string().max(100).optional().nullable(),
+  pincode: z.string().max(10).optional().nullable(),
+  gst_number: z.string().length(15).optional().nullable(),
+  pan_number: z.string().length(10).optional().nullable(),
+  drug_license_no: z.string().max(50).optional().nullable(),
+  credit_days: z.number().int().min(0).default(0),
+  credit_limit: z.number().min(0).optional().nullable(),
+  bank_name: z.string().max(100).optional().nullable(),
+  account_number: z.string().max(50).optional().nullable(),
+  ifsc_code: z.string().max(20).optional().nullable(),
+});
+
+export const updateSupplierSchema = z.object({
+  name: z.string().max(200).optional(),
+  contact_person: z.string().max(100).optional().nullable(),
+  office_phone: z.string().max(20).optional().nullable(),
+  personal_phone: z.string().max(20).optional().nullable(),
+  email: z.string().email().max(100).optional().nullable(),
+  address_line_1: z.string().optional().nullable(),
+  address_line_2: z.string().optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  state: z.string().max(100).optional().nullable(),
+  pincode: z.string().max(10).optional().nullable(),
+  gst_number: z.string().length(15).optional().nullable(),
+  credit_days: z.number().int().min(0).optional(),
+  credit_limit: z.number().min(0).optional().nullable(),
+  is_active: z.boolean().optional(),
+});

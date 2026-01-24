@@ -30,6 +30,11 @@ export const EntityType = Object.freeze({
   CADMIN: 'cadmin',
   SESSION: 'session',
   SYSTEM: 'system',
+  // =========================
+  // PURCHASE ENTITIES ✅
+  // =========================
+  PURCHASE_INVOICE: "PURCHASE_INVOICE",
+  PURCHASE_PAYMENT: "PURCHASE_PAYMENT",
 });
 
 export const VALID_ENTITY_TYPES = new Set(Object.values(EntityType));

@@ -1,4 +1,4 @@
-// src/components/Supplier/SupplierModal.jsx - PROFESSIONAL ERP WITH RESPONSIVE TABLE
+// src/pages/suppliers/components/SupplierModal.jsx - PROFESSIONAL ERP WITH API INTEGRATION
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { 
@@ -6,10 +6,11 @@ import {
   Phone, Mail, MapPin, Hash, FileText, Landmark, 
   CheckCircle2, AlertCircle, Sparkles,
   Building, Globe, Shield, Clock, Plus, ArrowUpDown,
-  ChevronUp, ChevronDown, Check
+  ChevronUp, ChevronDown, Check, Loader2
 } from "lucide-react";
 import { toast } from 'react-toastify';
 import { useMenuStore } from "../../../store/useMenuStore";
+import suppliersAPI from "../../../api/suppliers";
 
 // Animation Variants
 const backdropVariants = {
@@ -49,28 +50,22 @@ const useResponsiveTableRows = () => {
       let isMobile = false;
 
       if (width < 768) {
-        // Mobile - card view
-        visibleRows = Math.floor((height * 0.4) / 100); // ~100px per card
+        visibleRows = Math.floor((height * 0.4) / 100);
         rowHeight = 100;
         isMobile = true;
       } else if (width >= 2560) {
-        // 4K
         visibleRows = 8;
         rowHeight = 60;
       } else if (width >= 1920) {
-        // Full HD
         visibleRows = 6;
         rowHeight = 58;
       } else if (width >= 1440) {
-        // Laptop HD
         visibleRows = 5;
         rowHeight = 56;
       } else if (width >= 1280) {
-        // Standard laptop
         visibleRows = 4;
         rowHeight = 54;
       } else {
-        // Small screens
         visibleRows = 3;
         rowHeight = 52;
       }
@@ -224,14 +219,15 @@ const SectionHeader = ({ icon: Icon, title, subtitle, badge, action }) => (
 );
 
 // ✅ RESPONSIVE SUPPLIER TABLE WITH FIXED ROWS
-const SupplierTable = ({ 
+const SupplierTableComponent = ({ 
   suppliers, 
   selectedId, 
   onSelect, 
   searchQuery,
   visibleRows = 4,
   rowHeight = 56,
-  isMobile = false
+  isMobile = false,
+  loading = false
 }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const tableBodyRef = useRef(null);
@@ -241,10 +237,8 @@ const SupplierTable = ({
     scrollPercentage: 0,
   });
 
-  // Calculate viewport height
   const viewportHeight = visibleRows * rowHeight;
 
-  // Sort suppliers
   const sortedSuppliers = useMemo(() => {
     const sorted = [...suppliers];
     sorted.sort((a, b) => {
@@ -257,7 +251,6 @@ const SupplierTable = ({
     return sorted;
   }, [suppliers, sortConfig]);
 
-  // Update scroll info
   const updateScrollInfo = useCallback(() => {
     const container = tableBodyRef.current;
     if (!container) return;
@@ -272,7 +265,6 @@ const SupplierTable = ({
     setScrollInfo({ canScrollUp, canScrollDown, scrollPercentage });
   }, []);
 
-  // Handle scroll events
   useEffect(() => {
     const container = tableBodyRef.current;
     if (!container) return;
@@ -308,6 +300,19 @@ const SupplierTable = ({
   };
 
   const hasOverflow = suppliers.length > visibleRows;
+
+  // Loading State
+  if (loading) {
+    return (
+      <div 
+        className="flex flex-col items-center justify-center text-slate-400 bg-white rounded-xl border border-slate-200"
+        style={{ height: `${viewportHeight}px` }}
+      >
+        <Loader2 size={32} className="text-indigo-500 animate-spin mb-3" />
+        <p className="text-sm font-medium text-slate-600">Loading suppliers...</p>
+      </div>
+    );
+  }
 
   // Empty State
   if (suppliers.length === 0) {
@@ -351,7 +356,6 @@ const SupplierTable = ({
           )}
         </div>
 
-        {/* Scroll Controls */}
         {hasOverflow && (
           <div className="flex items-center gap-1">
             <button
@@ -472,7 +476,6 @@ const SupplierTable = ({
                         }
                       `}
                     >
-                      {/* Selection Indicator - 5% */}
                       <td className="w-[5%] px-2 text-center">
                         <div className={`
                           w-4 h-4 rounded-full border-2 flex items-center justify-center mx-auto
@@ -486,7 +489,6 @@ const SupplierTable = ({
                         </div>
                       </td>
 
-                      {/* Supplier Name - 30% */}
                       <td className="w-[30%] px-3">
                         <div className="flex items-center gap-2">
                           <div className={`
@@ -509,7 +511,6 @@ const SupplierTable = ({
                         </div>
                       </td>
 
-                      {/* GST Number - 22% */}
                       <td className="w-[22%] px-3">
                         <span className={`
                           inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono truncate max-w-full
@@ -522,22 +523,19 @@ const SupplierTable = ({
                         </span>
                       </td>
 
-                      {/* Contact - 18% */}
                       <td className="w-[18%] px-3">
                         <div className="flex items-center gap-1 text-[11px] text-slate-700">
                           <Phone size={10} className="text-slate-400 shrink-0" />
-                          <span className="truncate">{supplier.officePhone || '—'}</span>
+                          <span className="truncate">{supplier.officePhone || supplier.contact || '—'}</span>
                         </div>
                       </td>
 
-                      {/* Location - 17% */}
                       <td className="w-[17%] px-3">
                         <p className="text-[11px] text-slate-600 truncate" title={supplier.location || supplier.address}>
-                          {supplier.location || supplier.address?.split(',').slice(-1)[0]?.trim() || '—'}
+                          {supplier.location || supplier.city || supplier.address?.split(',').slice(-1)[0]?.trim() || '—'}
                         </p>
                       </td>
 
-                      {/* Action - 8% */}
                       <td className="w-[8%] px-2 text-center">
                         <div className={`
                           w-5 h-5 rounded-full flex items-center justify-center mx-auto
@@ -584,7 +582,6 @@ const SupplierTable = ({
                 `}
               >
                 <div className="flex items-start gap-2.5">
-                  {/* Selection Indicator */}
                   <div className={`
                     w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5
                     ${isSelected 
@@ -595,7 +592,6 @@ const SupplierTable = ({
                     {isSelected && <Check size={10} className="text-white" strokeWidth={3} />}
                   </div>
 
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <h4 className={`font-semibold text-sm truncate ${isSelected ? 'text-indigo-700' : 'text-slate-800'}`}>
@@ -612,7 +608,6 @@ const SupplierTable = ({
                       </span>
                     </div>
 
-                    {/* Details Grid */}
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-1.5">
                       <div className="flex items-center gap-1 text-[10px] text-slate-500">
                         <Hash size={9} className="shrink-0" />
@@ -620,12 +615,12 @@ const SupplierTable = ({
                       </div>
                       <div className="flex items-center gap-1 text-[10px] text-slate-500">
                         <Phone size={9} className="shrink-0" />
-                        <span className="truncate">{supplier.officePhone || '—'}</span>
+                        <span className="truncate">{supplier.officePhone || supplier.contact || '—'}</span>
                       </div>
                       <div className="col-span-2 flex items-center gap-1 text-[10px] text-slate-500">
                         <MapPin size={9} className="shrink-0" />
                         <span className="truncate">
-                          {supplier.location || supplier.address?.split(',').slice(-1)[0]?.trim() || '—'}
+                          {supplier.location || supplier.city || supplier.address?.split(',').slice(-1)[0]?.trim() || '—'}
                         </span>
                       </div>
                     </div>
@@ -637,10 +632,8 @@ const SupplierTable = ({
         </div>
       )}
 
-     
       {hasOverflow && (
-        <div className="h-1 bg-slate-100 relative">
-        </div>
+        <div className="h-1 bg-slate-100 relative" />
       )}
 
       {/* Table Footer */}
@@ -659,10 +652,43 @@ const SupplierTable = ({
   );
 };
 
+// ✅ Helper function to map API supplier data to modal format
+const mapAPISupplierToModalFormat = (supplier) => ({
+  id: supplier.supplier_id,
+  supplier_id: supplier.supplier_id,
+  name: supplier.name || "",
+  gst: supplier.gst_number || "",
+  address: [supplier.address_line_1, supplier.address_line_2, supplier.city, supplier.state, supplier.pincode]
+    .filter(Boolean)
+    .join(", "),
+  addressLine1: supplier.address_line_1 || "",
+  addressLine2: supplier.address_line_2 || "",
+  city: supplier.city || "",
+  state: supplier.state || "",
+  pincode: supplier.pincode || "",
+  location: supplier.city && supplier.state 
+    ? `${supplier.city}, ${supplier.state}` 
+    : supplier.city || supplier.state || "",
+  officePhone: supplier.office_phone || "",
+  personalPhone: supplier.personal_phone || "",
+  contact: supplier.office_phone || supplier.personal_phone || "",
+  email: supplier.email || "",
+  contactPerson: supplier.contact_person || "",
+  drugLicense: supplier.drug_license_no || "",
+  panNumber: supplier.pan_number || "",
+  creditDays: supplier.credit_days || "",
+  creditLimit: supplier.credit_limit || "",
+  bankName: supplier.bank_name || "",
+  branchName: "",
+  accountNo: supplier.account_number || "",
+  accountType: "Current",
+  ifsc: supplier.ifsc_code || "",
+});
+
 // Main Modal Component
-const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
+const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }) => {
   const isEdit = mode === "edit";
-  const isNew = supplier?.supplierId === "NEW";
+  const isNew = supplier?.supplierId === "NEW" || !supplier?.supplier_id;
   const [activeTab, setActiveTab] = useState("general");
   const [formData, setFormData] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -670,171 +696,51 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
   const [selectedSupplierId, setSelectedSupplierId] = useState(null);
   const sidebarExpanded = useMenuStore?.((s) => s.sidebarExpanded) || false;
 
-  // ✅ Get responsive table config
+  // ✅ API State for existing suppliers
+  const [existingSuppliers, setExistingSuppliers] = useState([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+  const [suppliersLoaded, setSuppliersLoaded] = useState(false);
+
   const { visibleRows, rowHeight, isMobile } = useResponsiveTableRows();
 
-  // Existing Suppliers Data
-  const existingSuppliers = useMemo(() => [
-    { 
-      id: 1, 
-      name: "ABC Pharma Ltd", 
-      gst: "27AABCA1234C1Z5", 
-      address: "Industrial Area, Phase-II, New Delhi - 110020",
-      location: "New Delhi",
-      officePhone: "011-23456789",
-      personalPhone: "9876543210",
-      email: "accounts@abcpharma.com",
-      bankName: "HDFC Bank",
-      branchName: "Connaught Place",
-      accountNo: "50100123456789",
-      accountType: "Current",
-      ifsc: "HDFC0001234"
-    },
-    { 
-      id: 2, 
-      name: "XYZ Medicals", 
-      gst: "07AAFCX5678D1Z2", 
-      address: "Andheri East, Mumbai - 400059",
-      location: "Mumbai",
-      officePhone: "022-76543210",
-      personalPhone: "8765432109",
-      email: "sales@xyzmedicals.com",
-      bankName: "ICICI Bank",
-      branchName: "Andheri",
-      accountNo: "123456789012",
-      accountType: "Current",
-      ifsc: "ICIC0005678"
-    },
-    { 
-      id: 3, 
-      name: "PQR Distributors", 
-      gst: "29AAPCP5678R1Z3", 
-      address: "HSR Layout, Bangalore - 560102",
-      location: "Bangalore",
-      officePhone: "080-12345678",
-      personalPhone: "9876543201",
-      email: "info@pqrdist.com",
-      bankName: "State Bank of India",
-      branchName: "HSR Layout",
-      accountNo: "32145678901",
-      accountType: "Current",
-      ifsc: "SBIN0009876"
-    },
-    { 
-      id: 4, 
-      name: "LMN Healthcare", 
-      gst: "03AABCL1234M1Z4", 
-      address: "Sector 18, Chandigarh - 160018",
-      location: "Chandigarh",
-      officePhone: "0172-9876543",
-      personalPhone: "9988776655",
-      email: "contact@lmnhealthcare.com",
-      bankName: "Axis Bank",
-      branchName: "Sector 17",
-      accountNo: "917020012345678",
-      accountType: "Current",
-      ifsc: "UTIB0002345"
-    },
-    { 
-      id: 5, 
-      name: "Global Pharma Inc", 
-      gst: "24AABCG5678P1Z5", 
-      address: "SG Highway, Ahmedabad - 380015",
-      location: "Ahmedabad",
-      officePhone: "079-12345678",
-      personalPhone: "9123456780",
-      email: "info@globalpharma.com",
-      bankName: "Kotak Bank",
-      branchName: "SG Highway",
-      accountNo: "4567890123456",
-      accountType: "Current",
-      ifsc: "KKBK0001234"
-    },
-    { 
-      id: 6, 
-      name: "MediCorp Solutions", 
-      gst: "33AABCM5678M1Z6", 
-      address: "Anna Nagar, Chennai - 600040",
-      location: "Chennai",
-      officePhone: "044-98765432",
-      personalPhone: "9876501234",
-      email: "contact@medicorp.in",
-      bankName: "Indian Bank",
-      branchName: "Anna Nagar",
-      accountNo: "789012345678",
-      accountType: "Current",
-      ifsc: "IDIB0001234"
-    },
-    { 
-      id: 7, 
-      name: "Sunrise Medicines Pvt Ltd", 
-      gst: "19AABCS5678S1Z7", 
-      address: "Salt Lake, Kolkata - 700091",
-      location: "Kolkata",
-      officePhone: "033-23456789",
-      personalPhone: "9876512345",
-      email: "sales@sunrisemeds.com",
-      bankName: "Punjab National Bank",
-      branchName: "Salt Lake",
-      accountNo: "0987654321234",
-      accountType: "Current",
-      ifsc: "PUNB0123456"
-    },
-    { 
-      id: 8, 
-      name: "HealthFirst Distributors", 
-      gst: "06AABCH5678H1Z8", 
-      address: "Sector 62, Noida - 201301",
-      location: "Noida",
-      officePhone: "0120-4567890",
-      personalPhone: "9988001122",
-      email: "orders@healthfirst.in",
-      bankName: "Yes Bank",
-      branchName: "Sector 62",
-      accountNo: "1122334455667",
-      accountType: "Current",
-      ifsc: "YESB0000123"
-    },
-    { 
-      id: 9, 
-      name: "CureWell Pharma", 
-      gst: "32AABCC5678C1Z9", 
-      address: "MG Road, Kochi - 682016",
-      location: "Kochi",
-      officePhone: "0484-2345678",
-      personalPhone: "9876509876",
-      email: "info@curewellpharma.com",
-      bankName: "Federal Bank",
-      branchName: "MG Road",
-      accountNo: "9988776655443",
-      accountType: "Current",
-      ifsc: "FDRL0001234"
-    },
-    { 
-      id: 10, 
-      name: "MedSupply India", 
-      gst: "36AABCM5678I1Z0", 
-      address: "Banjara Hills, Hyderabad - 500034",
-      location: "Hyderabad",
-      officePhone: "040-87654321",
-      personalPhone: "9123409876",
-      email: "sales@medsupplyindia.com",
-      bankName: "Canara Bank",
-      branchName: "Banjara Hills",
-      accountNo: "5544332211098",
-      accountType: "Current",
-      ifsc: "CNRB0005678"
-    },
-  ], []);
+  // ✅ Fetch existing suppliers from API when "existing" tab is active
+  useEffect(() => {
+    if (activeTab === "existing" && !suppliersLoaded) {
+      const fetchExistingSuppliers = async () => {
+        setLoadingSuppliers(true);
+        try {
+          const response = await suppliersAPI.getAll({ isActive: true, limit: 100 });
+          
+          if (response.success) {
+            const suppliersData = response.data.suppliers || response.data || [];
+            const mapped = suppliersData.map(mapAPISupplierToModalFormat);
+            setExistingSuppliers(mapped);
+            setSuppliersLoaded(true);
+          } else {
+            console.error("Failed to fetch suppliers:", response.message);
+            toast.error("Failed to load suppliers");
+          }
+        } catch (err) {
+          console.error("Error fetching existing suppliers:", err);
+          toast.error("Failed to load suppliers");
+        } finally {
+          setLoadingSuppliers(false);
+        }
+      };
 
-  // Filtered Suppliers
+      fetchExistingSuppliers();
+    }
+  }, [activeTab, suppliersLoaded]);
+
+  // ✅ Filtered Suppliers based on search
   const filteredSuppliers = useMemo(() => {
     if (!searchQuery.trim()) return existingSuppliers;
     const query = searchQuery.toLowerCase();
     return existingSuppliers.filter(s => 
-      s.name.toLowerCase().includes(query) ||
-      s.gst.toLowerCase().includes(query) ||
+      s.name?.toLowerCase().includes(query) ||
+      s.gst?.toLowerCase().includes(query) ||
       s.location?.toLowerCase().includes(query) ||
+      s.city?.toLowerCase().includes(query) ||
       s.officePhone?.includes(query) ||
       s.email?.toLowerCase().includes(query)
     );
@@ -855,8 +761,17 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
       setActiveTab("general");
       setSearchQuery("");
       setSelectedSupplierId(null);
+      // Reset suppliers loaded state when modal opens fresh
+      if (!open) {
+        setSuppliersLoaded(false);
+      }
     }
-  }, [supplier]);
+  }, [supplier, open]);
+
+  // Sync external saving state
+  useEffect(() => {
+    setIsSaving(saving);
+  }, [saving]);
 
   // Validation
   const validateForm = () => {
@@ -864,10 +779,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
     if (!formData.name?.trim()) {
       errors.push({ field: 'name', message: 'Supplier name is required', tab: 'general' });
     }
-    if (!formData.address?.trim()) {
-      errors.push({ field: 'address', message: 'Address is required', tab: 'general' });
-    }
-    if (!formData.officePhone?.trim()) {
+    if (!formData.officePhone?.trim() && !formData.contact?.trim()) {
       errors.push({ field: 'officePhone', message: 'Office phone is required', tab: 'contact' });
     }
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -892,20 +804,8 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
       return;
     }
 
-    setIsSaving(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      onSave(formData);
-      toast.success(
-        isNew ? "Supplier created successfully!" : "Supplier updated successfully!",
-        { icon: <CheckCircle2 size={18} /> }
-      );
-    } catch (error) {
-      toast.error("Failed to save supplier. Please try again.");
-      console.error("Save error:", error);
-    } finally {
-      setIsSaving(false);
-    }
+    // Call parent onSave with form data
+    onSave(formData);
   };
 
   // Handle Supplier Selection from Table
@@ -913,13 +813,24 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
     setSelectedSupplierId(sup.id);
     setFormData({
       ...formData,
+      supplier_id: sup.supplier_id || sup.id,
       name: sup.name,
       gst: sup.gst,
       address: sup.address,
+      addressLine1: sup.addressLine1 || "",
+      addressLine2: sup.addressLine2 || "",
+      city: sup.city || "",
+      state: sup.state || "",
+      pincode: sup.pincode || "",
       location: sup.location,
       officePhone: sup.officePhone,
       personalPhone: sup.personalPhone,
+      contact: sup.contact || sup.officePhone,
       email: sup.email,
+      contactPerson: sup.contactPerson || "",
+      drugLicense: sup.drugLicense || "",
+      creditDays: sup.creditDays || "",
+      creditLimit: sup.creditLimit || "",
       bankName: sup.bankName || "",
       branchName: sup.branchName || "",
       accountNo: sup.accountNo || "",
@@ -932,7 +843,6 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
       icon: <CheckCircle2 size={18} />
     });
 
-    // Auto switch to general tab after short delay
     setTimeout(() => {
       setActiveTab("general");
     }, 800);
@@ -946,8 +856,8 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
   if (!open || !supplier) return null;
 
   // Calculate form completion
-  const requiredFields = ['name', 'address', 'officePhone'];
-  const completedFields = requiredFields.filter(f => formData[f]?.trim());
+  const requiredFields = ['name', 'officePhone'];
+  const completedFields = requiredFields.filter(f => formData[f]?.trim() || (f === 'officePhone' && formData.contact?.trim()));
   const completionPercent = Math.round((completedFields.length / requiredFields.length) * 100);
 
   return (
@@ -996,14 +906,13 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                     <p className="text-indigo-200 text-xs sm:text-sm mt-0.5 truncate">
                       {isNew 
                         ? "Fill in the details to create a new supplier" 
-                        : `ID: ${supplier.supplierId}`
+                        : `ID: ${supplier.supplierId || supplier.supplier_id?.slice(-8) || 'N/A'}`
                       }
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {/* Completion Badge */}
                   {isEdit && (
                     <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg">
                       <div className="w-16 h-1.5 bg-white/20 rounded-full overflow-hidden">
@@ -1018,7 +927,6 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                     </div>
                   )}
 
-                  {/* Save Button */}
                   {isEdit && (
                     <button
                       onClick={handleSave}
@@ -1078,12 +986,12 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                     >
                       <Icon size={14} className={isActive ? 'text-indigo-600' : ''} />
                       <span>{tab.label}</span>
-                      {tab.id === 'existing' && existingSuppliers.length > 0 && (
+                      {tab.id === 'existing' && (
                         <span className={`
                           ml-1 px-1.5 py-0.5 text-[9px] font-bold rounded-full
                           ${isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'}
                         `}>
-                          {existingSuppliers.length}
+                          {loadingSuppliers ? '...' : existingSuppliers.length}
                         </span>
                       )}
                     </button>
@@ -1137,16 +1045,39 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       
                       <div className="mt-4 sm:mt-5">
                         <FormField
-                          label="Business Address"
+                          label="Address Line 1"
                           icon={MapPin}
-                          value={formData.address}
+                          value={formData.addressLine1 || formData.address}
                           editable={isEdit}
-                          onChange={(v) => updateField('address', v)}
-                          required
-                          multiline
-                          rows={2}
-                          placeholder="Enter complete business address"
-                          error="Address is required"
+                          onChange={(v) => updateField('addressLine1', v)}
+                          placeholder="Street address, building name"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 mt-4 sm:mt-5">
+                        <FormField
+                          label="City"
+                          icon={MapPin}
+                          value={formData.city}
+                          editable={isEdit}
+                          onChange={(v) => updateField('city', v)}
+                          placeholder="City"
+                        />
+                        <FormField
+                          label="State"
+                          icon={MapPin}
+                          value={formData.state}
+                          editable={isEdit}
+                          onChange={(v) => updateField('state', v)}
+                          placeholder="State"
+                        />
+                        <FormField
+                          label="Pincode"
+                          icon={Hash}
+                          value={formData.pincode}
+                          editable={isEdit}
+                          onChange={(v) => updateField('pincode', v)}
+                          placeholder="Pincode"
                         />
                       </div>
 
@@ -1160,13 +1091,12 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                           placeholder="DL-XXX-XX-XXXXXX"
                         />
                         <FormField
-                          label="Website"
-                          icon={Globe}
-                          value={formData.website}
+                          label="PAN Number"
+                          icon={Hash}
+                          value={formData.panNumber}
                           editable={isEdit}
-                          onChange={(v) => updateField('website', v)}
-                          placeholder="https://www.example.com"
-                          type="url"
+                          onChange={(v) => updateField('panNumber', v.toUpperCase())}
+                          placeholder="ABCDE1234F"
                         />
                       </div>
                     </div>
@@ -1194,9 +1124,12 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                         <FormField
                           label="Office Phone"
                           icon={Phone}
-                          value={formData.officePhone}
+                          value={formData.officePhone || formData.contact}
                           editable={isEdit}
-                          onChange={(v) => updateField('officePhone', v)}
+                          onChange={(v) => {
+                            updateField('officePhone', v);
+                            updateField('contact', v);
+                          }}
                           required
                           type="tel"
                           placeholder="e.g., 011-23456789"
@@ -1370,7 +1303,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                   </motion.div>
                 )}
 
-                {/* ✅ EXISTING SUPPLIERS TAB - WITH RESPONSIVE TABLE */}
+                {/* ✅ EXISTING SUPPLIERS TAB - WITH API INTEGRATION */}
                 {activeTab === "existing" && (
                   <motion.div
                     key="existing"
@@ -1384,7 +1317,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       icon={Users} 
                       title="Select Existing Supplier" 
                       subtitle="Choose from your supplier directory"
-                      badge={`${filteredSuppliers.length} suppliers`}
+                      badge={loadingSuppliers ? "Loading..." : `${filteredSuppliers.length} suppliers`}
                     />
 
                     {/* Search Bar */}
@@ -1411,8 +1344,8 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       )}
                     </div>
 
-                    {/* ✅ RESPONSIVE SUPPLIER TABLE */}
-                    <SupplierTable
+                    {/* ✅ RESPONSIVE SUPPLIER TABLE WITH API DATA */}
+                    <SupplierTableComponent
                       suppliers={filteredSuppliers}
                       selectedId={selectedSupplierId}
                       onSelect={handleSelectSupplier}
@@ -1420,6 +1353,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       visibleRows={visibleRows}
                       rowHeight={rowHeight}
                       isMobile={isMobile}
+                      loading={loadingSuppliers}
                     />
 
                     {/* Quick Add Option */}
@@ -1496,4 +1430,3 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
 };
 
 export default SupplierModal;
-

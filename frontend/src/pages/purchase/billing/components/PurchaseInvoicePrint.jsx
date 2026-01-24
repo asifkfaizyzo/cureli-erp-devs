@@ -1,5 +1,4 @@
-// src/components/purchase/PurchaseInvoicePrint.jsx
-// No need for forwardRef with new API - ref is on parent wrapper
+// src/pages/purchase/billing/components/PurchaseInvoicePrint.jsx
 
 const PurchaseInvoicePrint = ({ 
   rows, 
@@ -12,10 +11,11 @@ const PurchaseInvoicePrint = ({
     email: "info@company.com",
     gstin: "29ABCDE1234F1Z5",
     drugLicense: "KA-BNG-123456",
-  }
+  },
+  invoiceNumber, // ✅ NEW: From API
+  invoiceDate    // ✅ NEW: From API
 }) => {
   
-  // Filter only rows with data
   const dataRows = rows.filter(row => row.name && row.name.trim() !== "");
   
   // Format date
@@ -24,7 +24,7 @@ const PurchaseInvoicePrint = ({
     return new Date(dateStr).toLocaleDateString('en-IN');
   };
 
-  // Number to words converter for Indian currency
+  // Number to words converter
   const numberToWords = (num) => {
     const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
       'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -59,9 +59,12 @@ const PurchaseInvoicePrint = ({
     return result;
   };
 
+  // ✅ Use API invoice number or fallback
+  const displayInvoiceNumber = invoiceNumber || supplier.purchaseId || 'DRAFT';
+  const displayInvoiceDate = formatDate(invoiceDate || supplier.invoiceDate || supplier.receivedOn);
+
   return (
     <div className="print-container">
-      {/* A4 Page */}
       <div className="a4-page">
         
         {/* Header Section */}
@@ -85,11 +88,14 @@ const PurchaseInvoicePrint = ({
         {/* Invoice Details & Supplier Info */}
         <section className="invoice-details-section">
           <div className="details-grid">
-            {/* Left: Supplier Details */}
             <div className="supplier-details">
               <h3>Supplier Details</h3>
               <table className="details-table">
                 <tbody>
+                  <tr>
+                    <td className="label">Supplier Name:</td>
+                    <td className="value">{supplier.supplierName || '-'}</td>
+                  </tr>
                   <tr>
                     <td className="label">Supplier GSTIN:</td>
                     <td className="value">{supplier.supplierGST || '-'}</td>
@@ -102,22 +108,21 @@ const PurchaseInvoicePrint = ({
               </table>
             </div>
 
-            {/* Right: Invoice Details */}
             <div className="invoice-info">
               <h3>Invoice Details</h3>
               <table className="details-table">
                 <tbody>
                   <tr>
-                    <td className="label">Purchase ID:</td>
-                    <td className="value">{supplier.purchaseId || '-'}</td>
+                    <td className="label">Invoice No:</td>
+                    <td className="value"><strong>{displayInvoiceNumber}</strong></td>
                   </tr>
                   <tr>
-                    <td className="label">Invoice No:</td>
+                    <td className="label">Supplier Inv:</td>
                     <td className="value">{supplier.invoiceNo || '-'}</td>
                   </tr>
                   <tr>
                     <td className="label">Date:</td>
-                    <td className="value">{formatDate(supplier.receivedOn)}</td>
+                    <td className="value">{displayInvoiceDate}</td>
                   </tr>
                 </tbody>
               </table>
@@ -179,7 +184,6 @@ const PurchaseInvoicePrint = ({
                 </tr>
               )}
               
-              {/* Empty rows to maintain minimum table height */}
               {dataRows.length > 0 && dataRows.length < 5 && [...Array(5 - dataRows.length)].map((_, i) => (
                 <tr key={`empty-${i}`} className="empty-row">
                   <td>&nbsp;</td>
@@ -204,13 +208,11 @@ const PurchaseInvoicePrint = ({
         {/* Summary Section */}
         <section className="summary-section">
           <div className="summary-grid">
-            {/* Left: Amount in Words */}
             <div className="amount-words">
               <h4>Amount in Words:</h4>
               <p>{numberToWords(summary.total)}</p>
             </div>
 
-            {/* Right: Totals */}
             <div className="totals-box">
               <table className="totals-table">
                 <tbody>
@@ -338,7 +340,6 @@ const PurchaseInvoicePrint = ({
           </div>
         </footer>
 
-        {/* Page Number */}
         <div className="page-number">Page 1 of 1</div>
 
       </div>

@@ -1,3 +1,5 @@
+// backend/src/modules/audit/index.js
+
 // ============================================
 // AUDIT MODULE — PUBLIC API
 // ============================================
@@ -10,17 +12,21 @@
 // ============================================
 
 // ---- Service Functions ----
-export { log, logMany, withContext } from './audit.service.js';
+export { log, logMany, withContext } from "./audit.service.js";
 
 // ---- Actions ----
-export { AuditAction, VALID_ACTIONS, isValidAction } from './audit.actions.js';
+export {
+  AuditAction,
+  VALID_ACTIONS,
+  isValidAction,
+} from "./audit.actions.js";
 
 // ---- Reason Codes ----
 export {
   AuditReasonCode,
   VALID_REASONS,
   isValidReasonCode,
-} from './audit.reasons.js';
+} from "./audit.reasons.js";
 
 // ---- Constants ----
 export {
@@ -30,7 +36,7 @@ export {
   VALID_ENTITY_TYPES,
   SECURITY_ACTIONS,
   isSecurityAction,
-} from './audit.constants.js';
+} from "./audit.constants.js";
 
 // ---- Utilities ----
 export {
@@ -39,7 +45,7 @@ export {
   buildSystemContext,
   buildCAdminContext,
   buildUserContext,
-} from './audit.utils.js';
+} from "./audit.utils.js";
 
 // ---- Validators (for advanced use) ----
 export {
@@ -47,18 +53,11 @@ export {
   normalizeAuditPayload,
   AuditValidationError,
   isValidUUID,
-} from './audit.validators.js';
-
+} from "./audit.validators.js";
 
 // ============================================
 // CONVENIENCE: DEFAULT EXPORT AS NAMESPACE
 // ============================================
-//
-// Allows: import audit from '../audit';
-//         audit.log({ ... });
-//         audit.AuditAction.USER_CREATED
-//
-// ============================================
 
-import * as auditModule from './index.js';
+import * as auditModule from "./index.js";
 export default auditModule;

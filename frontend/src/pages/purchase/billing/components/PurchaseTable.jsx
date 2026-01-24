@@ -11,8 +11,10 @@ const PurchaseTable = ({
   importVersion,
   visibleRows = 8,
   rowHeight = 36,
-  onAddNewProduct, // ✅ NEW: Handler for adding new products
+  onAddNewProduct,
+  onProductSelect, // ✅ NEW
 }) => {
+
   const tableContainerRef = useRef(null);
   const tableBodyRef = useRef(null);
   const headerRef = useRef(null);
@@ -227,7 +229,12 @@ const PurchaseTable = ({
     });
   }, [setRows, calculateRow]);
 
-  const handleProductSelect = useCallback((idx, product) => {
+const handleProductSelect = useCallback((idx, product) => {
+  if (onProductSelect) {
+    // ✅ Use parent override if provided
+    onProductSelect(idx, product);
+  } else {
+    // ✅ Fallback to existing internal logic
     setRows(prev => {
       const newRows = [...prev];
       newRows[idx] = {
@@ -237,13 +244,19 @@ const PurchaseTable = ({
         pack: product.pack || newRows[idx].pack,
         rack: product.rackNo || product.rack || newRows[idx].rack,
         mfac: product.manufacturer || product.mfac || newRows[idx].mfac,
-        cgstPercent: product.gst ? (Number(product.gst) / 2).toString() : (product.cgstPercent || newRows[idx].cgstPercent),
-        sgstPercent: product.gst ? (Number(product.gst) / 2).toString() : (product.sgstPercent || newRows[idx].sgstPercent),
+        cgstPercent: product.gst
+          ? (Number(product.gst) / 2).toString()
+          : (product.cgstPercent || newRows[idx].cgstPercent),
+        sgstPercent: product.gst
+          ? (Number(product.gst) / 2).toString()
+          : (product.sgstPercent || newRows[idx].sgstPercent),
       };
       newRows[idx] = calculateRow(newRows[idx]);
       return newRows;
     });
-  }, [setRows, calculateRow]);
+  }
+}, [onProductSelect, setRows, calculateRow]);
+
 
   const handleAddMultipleRows = useCallback((count = 5) => {
     const newRows = Array.from({ length: count }).map(() => ({
@@ -397,11 +410,11 @@ const PurchaseTable = ({
               {/* Individual Column Headers */}
               <tr className="bg-gradient-to-r from-[#070170] to-[#0c03a0] text-white h-6">
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">#</th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left pl-1 border-r border-slate-600/30">Item Desc</th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">Mfac</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left pl-1 border-r border-slate-600/30">Item Description</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">Mfac/company</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Batch</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">HSN</th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Exp</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Exp.date</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Pack</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">P.Qty</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Qty</th>
@@ -409,7 +422,7 @@ const PurchaseTable = ({
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Dis%</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-right pr-1 border-r border-slate-600/30">NetRate</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-right pr-1 border-r border-slate-600/30">Amount</th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">SGST</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">SGSTS</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-right pr-1 border-r border-slate-600/30">MRP</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Rack</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-right pr-1 border-r border-slate-600/30">SRate</th>

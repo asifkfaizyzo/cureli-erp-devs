@@ -1,135 +1,230 @@
-import { useState, useEffect, useCallback } from "react";
+// src/pages/supplier/components/SupplierTable.jsx
+import React, { useRef, useCallback, useEffect, useState } from "react";
 import SupplierRow from "./SupplierRow";
-import { useMenuStore } from "../../../store/useMenuStore";
+import SupplierPagination from "../../../components/common/Pagination";
+import { ChevronUp, ChevronDown, Users } from "lucide-react";
+import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 
-const SupplierTable = ({
+const SupplierTable = ({ 
   data = [],
-  rowsPerPage,
-  startIndex,
   loading,
   onRowClick,
-  children // For pagination slot
 }) => {
-  const sidebarExpanded = useMenuStore?.((s) => s.sidebarExpanded) || false;
-
-  // --- DYNAMIC SIZING CONSTANTS ---
-  const textSize = sidebarExpanded ? "text-[11px]" : "text-[13px]";
-  const pySize = sidebarExpanded ? "py-2" : "py-3";
-  const pxSize = sidebarExpanded ? "px-2" : "px-4";
-
-  const headerClass = `${pxSize} py-3 text-left h-10 font-bold text-white uppercase tracking-wider bg-gradient-to-r from-[#05015A] to-[#0a0280] border-r border-blue-800 sticky top-0 z-10 whitespace-nowrap shadow-sm`;
-  
-  const [columnWidths, setColumnWidths] = useState({
-    slNo: 40,
-    supplierId: 120,
-    name: 160,
-    contact: 120,
-    email: 200,
-    gst: 130,
-    actions: 100,
+  const tableContainerRef = useRef(null);
+  const tableBodyRef = useRef(null);
+  const headerRef = useRef(null);
+  const rowRefs = useRef([]);
+  const [scrollbarWidth, setScrollbarWidth] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [scrollInfo, setScrollInfo] = useState({ 
+    canScrollUp: false, 
+    canScrollDown: false,
   });
 
-  const [resizing, setResizing] = useState(null);
+  const visibleRows = useDynamicRowCount();
+  const rowHeight = 36;
+  const viewportHeight = visibleRows * rowHeight;
 
-  const handleMouseDown = (column, e) => {
-    if (column === "slNo") return;
-    setResizing({ column, startX: e.clientX, startWidth: columnWidths[column] });
+  const columnWidths = {
+    rowNum: '4%',
+    supplierId: '12%',
+    name: '20%',
+    contact: '15%',
+    email: '22%',
+    gst: '17%',
+    actions: '10%',
   };
 
-  const handleMouseMove = useCallback(
-    (e) => {
-      if (!resizing) return;
-      const diff = e.clientX - resizing.startX;
-      const newWidth = Math.max(60, resizing.startWidth + diff);
-      setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
-    },
-    [resizing]
-  );
+  const totalItems = data.length;
+  const totalPages = Math.ceil(totalItems / visibleRows);
+  
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalItems, currentPage, totalPages]);
 
-  const handleMouseUp = useCallback(() => setResizing(null), []);
+  const startIndex = (currentPage - 1) * visibleRows;
+  const paginatedItems = data.slice(startIndex, startIndex + visibleRows);
 
   useEffect(() => {
-    if (!resizing) return;
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [resizing, handleMouseMove, handleMouseUp]);
+    rowRefs.current = rowRefs.current.slice(0, paginatedItems.length);
+    while (rowRefs.current.length < paginatedItems.length) {
+      rowRefs.current.push(null);
+    }
+  }, [paginatedItems.length]);
+
+  useEffect(() => {
+    const container = tableBodyRef.current;
+    if (!container) return;
+    const width = container.offsetWidth - container.clientWidth;
+    setScrollbarWidth(width);
+  }, [paginatedItems.length, visibleRows]);
+
+  const updateScrollInfo = useCallback(() => {
+    const container = tableBodyRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    setScrollInfo({
+      canScrollUp: scrollTop > 0,
+      canScrollDown: scrollTop + clientHeight < scrollHeight - 5,
+    });
+  }, []);
+
+  useEffect(() => {
+    const container = tableBodyRef.current;
+    if (!container) return;
+    container.addEventListener('scroll', updateScrollInfo);
+    updateScrollInfo();
+    return () => container.removeEventListener('scroll', updateScrollInfo);
+  }, [updateScrollInfo]);
+
+  const scrollToTop = useCallback(() => {
+    tableBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    tableBodyRef.current?.scrollTo({ top: tableBodyRef.current.scrollHeight, behavior: 'smooth' });
+  }, []);
+
+  const hasOverflow = paginatedItems.length > visibleRows;
 
   return (
-    <div className="flex flex-col h-full bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden transition-all duration-300 font-poppins">
-
-      {/* SCROLL AREA (with overlay fix) */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 relative">
-
-        <table className={`w-full text-left border-collapse table-fixed ${textSize}`}>
+    <div className="h-full w-full flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden" ref={tableContainerRef}>
+      {/* Header Stats */}
+      <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <Users size={12} className="text-indigo-500" />
+            <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">Total:</span>
+            <span className="text-[10px] font-bold text-indigo-600">{totalItems}</span>
+          </div>
           
-          {/* HEADER */}
-          <thead className={`${headerClass} w-12`}>
-            <tr className={sidebarExpanded ? "text-[10px]" : "text-xs"}>
-
-              <th style={{ width: columnWidths.slNo }}>
-                #
-              </th>
-
-              {Object.entries({
-                supplierId: "Supplier ID",
-                name: "Name",
-                contact: "Contact",
-                email: "Email",
-                gst: "GST",
-                actions: "Actions",
-              }).map(([key, label]) => (
-                <th
-                  key={key}
-                  style={{ width: columnWidths[key] }}
-                  className={`${headerClass} relative group select-none`}
-                >
-                  {label}
-
-                  {/* Resize handle */}
-                  <div
-                    onMouseDown={(e) => handleMouseDown(key, e)}
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-white/30 transition-colors"
-                  />
-                </th>
-              ))}
-
-            </tr>
-          </thead>
-
-          {/* BODY */}
-          <tbody className="bg-white">
-            {data.map((item, i) => (
-              <SupplierRow
-                key={`sup-${i}`}
-                item={item}
-                index={startIndex + i}
-                loading={loading}
-                onRowClick={onRowClick}
-                cellClass={`${textSize} ${pySize} ${pxSize} border-b border-gray-100 group-hover:border-blue-100 transition-all duration-200`}
-              />
-            ))}
-          </tbody>
-        </table>
-
-        {/* ANTI-BLINK LOADING OVERLAY */}
-        {loading && (
-          <div className="
-            absolute inset-0 
-            bg-white/60 
-            backdrop-blur-[1px]
-            animate-fadeOverlay
-            pointer-events-none
-          " />
-        )}
-
+          {totalPages > 1 && (
+            <>
+              <div className="h-3 w-px bg-slate-300" />
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white rounded border border-slate-200 text-[8px]">
+                <span className="text-slate-500">Page</span>
+                <span className="font-bold text-slate-700">
+                  {currentPage}/{totalPages}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-1">
+          {hasOverflow && (
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={scrollToTop}
+                disabled={!scrollInfo.canScrollUp}
+                className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronUp size={10} />
+              </button>
+              <button
+                onClick={scrollToBottom}
+                disabled={!scrollInfo.canScrollDown}
+                className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronDown size={10} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* PAGINATION SLOT */}
-      {children}
+      {/* Table Container */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Fixed Header */}
+        <div 
+          ref={headerRef}
+          className="shrink-0 overflow-hidden border-b-2 border-slate-300"
+          style={{ paddingRight: `${scrollbarWidth}px` }}
+        >
+          <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: columnWidths.rowNum }} />
+              <col style={{ width: columnWidths.supplierId }} />
+              <col style={{ width: columnWidths.name }} />
+              <col style={{ width: columnWidths.contact }} />
+              <col style={{ width: columnWidths.email }} />
+              <col style={{ width: columnWidths.gst }} />
+              <col style={{ width: columnWidths.actions }} />
+            </colgroup>
+            <thead>
+              <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white h-6">
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">#</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left pl-1 border-r border-slate-600/30">Supplier ID</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">Name</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Contact</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">Email</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">GST</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center">Actions</th>
+              </tr>
+            </thead>
+          </table>
+        </div>
+
+        {/* Scrollable Body */}
+        <div 
+          ref={tableBodyRef}
+          className="flex-1 overflow-y-auto overflow-x-hidden"
+          style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}
+        >
+          <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: columnWidths.rowNum }} />
+              <col style={{ width: columnWidths.supplierId }} />
+              <col style={{ width: columnWidths.name }} />
+              <col style={{ width: columnWidths.contact }} />
+              <col style={{ width: columnWidths.email }} />
+              <col style={{ width: columnWidths.gst }} />
+              <col style={{ width: columnWidths.actions }} />
+            </colgroup>
+            <tbody>
+              {paginatedItems.map((item, index) => (
+                <SupplierRow
+                  key={item.supplierId || index}
+                  ref={el => rowRefs.current[index] = el}
+                  item={item}
+                  rowNumber={startIndex + index + 1}
+                  isEven={index % 2 === 0}
+                  onRowClick={onRowClick}
+                  loading={loading}
+                  rowHeight={rowHeight}
+                />
+              ))}
+            </tbody>
+          </table>
+          
+          {data.length === 0 && (
+            <div 
+              className="flex flex-col items-center justify-center text-slate-400"
+              style={{ height: `${viewportHeight}px` }}
+            >
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                <Users size={16} className="text-slate-400" />
+              </div>
+              <p className="text-xs font-medium">No suppliers found</p>
+              <p className="text-[9px]">Try adjusting your filters</p>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Pagination */}
+      {totalPages > 0 && (
+        <div className="shrink-0 border-t border-slate-200">
+          <SupplierPagination
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalItems={totalItems}
+            rowsPerPage={visibleRows}
+          />
+        </div>
+      )}
     </div>
   );
 };
