@@ -2,14 +2,14 @@
 // IN-APP NOTIFICATION TEMPLATES INDEX
 // ============================================
 
-import { NOTIFICATION_EVENTS } from '../../notification.events.js';
-import { securityTemplates } from './security.templates.js';
-import { subscriptionTemplates } from './subscription.templates.js';
-import { inventoryTemplates } from './inventory.templates.js';
-import { ticketTemplates } from './ticket.templates.js';
-import { shopTemplates } from './shop.templates.js';
-import { userTemplates } from './user.templates.js';
-import { paymentTemplates } from './payment.templates.js';
+import { NOTIFICATION_EVENTS } from "../../notification.events.js";
+import { securityTemplates } from "./security.templates.js";
+import { subscriptionTemplates } from "./subscription.templates.js";
+import { inventoryTemplates } from "./inventory.templates.js";
+import { ticketTemplates } from "./ticket.templates.js";
+import { shopTemplates } from "./shop.templates.js";
+import { userTemplates } from "./user.templates.js";
+import { paymentTemplates } from "./payment.templates.js";
 
 // ============================================
 // TEMPLATE REGISTRY
@@ -18,7 +18,8 @@ import { paymentTemplates } from './payment.templates.js';
 export const INAPP_TEMPLATES = {
   // Security & Access
   [NOTIFICATION_EVENTS.PASSWORD_CHANGED]: securityTemplates.passwordChanged,
-  [NOTIFICATION_EVENTS.PASSWORD_RESET_BY_ADMIN]: securityTemplates.passwordResetByAdmin,
+  [NOTIFICATION_EVENTS.PASSWORD_RESET_BY_ADMIN]:
+    securityTemplates.passwordResetByAdmin,
   [NOTIFICATION_EVENTS.EMAIL_CHANGED]: securityTemplates.emailChanged,
   [NOTIFICATION_EVENTS.PHONE_CHANGED]: securityTemplates.phoneChanged,
   [NOTIFICATION_EVENTS.ROLE_CHANGED]: securityTemplates.roleChanged,
@@ -32,19 +33,26 @@ export const INAPP_TEMPLATES = {
   // Shop & Verification
   [NOTIFICATION_EVENTS.SHOP_VERIFIED]: shopTemplates.shopVerified,
   [NOTIFICATION_EVENTS.DOCUMENT_REJECTED]: shopTemplates.documentRejected,
-  [NOTIFICATION_EVENTS.DOCUMENT_PARTIALLY_REJECTED]: shopTemplates.documentPartiallyRejected,
+  [NOTIFICATION_EVENTS.DOCUMENT_PARTIALLY_REJECTED]:
+    shopTemplates.documentPartiallyRejected,
 
   // Subscription Lifecycle
   [NOTIFICATION_EVENTS.SUBSCRIPTION_ACTIVATED]: subscriptionTemplates.activated,
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_7_DAYS]: subscriptionTemplates.expiring7Days,
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_3_DAYS]: subscriptionTemplates.expiring3Days,
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_7_DAYS]:
+    subscriptionTemplates.expiring7Days,
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_3_DAYS]:
+    subscriptionTemplates.expiring3Days,
   [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRED]: subscriptionTemplates.expired,
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_STARTED]: subscriptionTemplates.graceStarted,
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_ENDING]: subscriptionTemplates.graceEnding,
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_EXTENDED]: subscriptionTemplates.graceExtended,
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_STARTED]:
+    subscriptionTemplates.graceStarted,
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_ENDING]:
+    subscriptionTemplates.graceEnding,
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_EXTENDED]:
+    subscriptionTemplates.graceExtended,
   [NOTIFICATION_EVENTS.SUBSCRIPTION_SUSPENDED]: subscriptionTemplates.suspended,
   [NOTIFICATION_EVENTS.SUBSCRIPTION_RENEWED]: subscriptionTemplates.renewed,
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_PAYMENT_REMINDER]: subscriptionTemplates.paymentReminder,
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_PAYMENT_REMINDER]:
+    subscriptionTemplates.paymentReminder,
   [NOTIFICATION_EVENTS.PLAN_UPGRADED]: subscriptionTemplates.planUpgraded,
   [NOTIFICATION_EVENTS.PLAN_DOWNGRADED]: subscriptionTemplates.planDowngraded,
 
@@ -60,7 +68,17 @@ export const INAPP_TEMPLATES = {
 
   // Tickets
   [NOTIFICATION_EVENTS.TICKET_CREATED]: ticketTemplates.ticketCreated,
-  [NOTIFICATION_EVENTS.TICKET_STATUS_CHANGED]: ticketTemplates.ticketStatusChanged,
+  [NOTIFICATION_EVENTS.TICKET_STATUS_CHANGED]:
+    ticketTemplates.ticketStatusChanged,
+
+    
+  // ─────────────────────────────────────────
+  // BROADCAST (Pass-through - CAdmin provides title/message)
+  // ─────────────────────────────────────────
+  [NOTIFICATION_EVENTS.BROADCAST_INAPP]: (context) => ({
+    title: context.title || "Announcement",
+    message: context.message || "You have a new announcement.",
+  }),
 };
 
 /**
@@ -80,7 +98,7 @@ export function getInAppTemplate(eventType) {
  */
 export function generateInAppContent(eventType, context) {
   const template = getInAppTemplate(eventType);
-  
+
   if (!template) {
     console.warn(`[InApp Templates] No template found for: ${eventType}`);
     return null;
@@ -89,10 +107,13 @@ export function generateInAppContent(eventType, context) {
   try {
     return template(context);
   } catch (error) {
-    console.error(`[InApp Templates] Error generating content for ${eventType}:`, error);
+    console.error(
+      `[InApp Templates] Error generating content for ${eventType}:`,
+      error,
+    );
     return {
-      title: 'Notification',
-      message: 'You have a new notification.',
+      title: "Notification",
+      message: "You have a new notification.",
     };
   }
 }

@@ -383,7 +383,21 @@ async function resolveTicketCreator(context) {
 
 /**
  * Broadcast audience - for system-wide announcements
- * Filters: roles, shopVerificationStatus, subscriptionStatus
+ * 
+ * Supported filters:
+ * - shop_ids: Array of shop UUIDs (specific shops)
+ * - plan_ids: Array of plan UUIDs (users in shops with active subscriptions to these plans)
+ * - registration_date_from: ISO date string (users registered on or after)
+ * - registration_date_to: ISO date string (users registered on or before)
+ * - roles: Array of user roles
+ * - shopVerificationStatus: Shop verification status
+ * - subscriptionStatus: Subscription status (only if NOT using plan_ids)
+ * - includeCAdmins: Boolean (for email broadcasts only, not in-app)
+ * - cadminRoles: Array of CAdmin roles (if includeCAdmins = true)
+ * 
+ * Logic:
+ * - shop_ids and plan_ids are mutually exclusive (OR logic)
+ * - Other filters work with either
  */
 async function resolveBroadcastAudience(filters = {}) {
   const recipients = [];
@@ -394,43 +408,50 @@ async function resolveBroadcastAudience(filters = {}) {
   if (filters.includeUsers !== false) {
     const userWhere = { is_active: true };
 
-    // Role filter
+    // ─────────────────────────────────────────
+    // FILTER 1: Role filter (applies to all)
+    // ─────────────────────────────────────────
     if (filters.roles && filters.roles.length > 0) {
       userWhere.role = { in: filters.roles };
     }
 
-    // Shop verification status filter
-    if (filters.shopVerificationStatus) {
-      userWhere.shops_owned = {
-        some: {
-          verification_status: filters.shopVerificationStatus,
-        },
-      };
+    // ─────────────────────────────────────────
+    // FILTER 2: Registration date range
+    // ─────────────────────────────────────────
+    if (filters.registration_date_from || filters.registration_date_to) {
+      userWhere.created_at = {};
+      
+      if (filters.registration_date_from) {
+        try {
+          userWhere.created_at.gte = new Date(filters.registration_date_from);
+        } catch (err) {
+          console.warn('[Notifications] Invalid registration_date_from:', filters.registration_date_from);
+        }
+      }
+      
+      if (filters.registration_date_to) {
+        try {
+          // Set to end of day
+          const endDate = new Date(filters.registration_date_to);
+          endDate.setHours(23, 59, 59, 999);
+          userWhere.created_at.lte = endDate;
+        } catch (err) {
+          console.warn('[Notifications] Invalid registration_date_to:', filters.registration_date_to);
+        }
+      }
     }
 
-    // Subscription status filter
-    let users;
-    if (filters.subscriptionStatus) {
-      users = await prisma.user.findMany({
-        where: {
-          ...userWhere,
-          shops_owned: {
-            some: {
-              currentSubscription: {
-                status: filters.subscriptionStatus,
-              },
-            },
-          },
-        },
-        select: { 
-          user_id: true, 
-          email: true, 
-          full_name: true, 
-          role: true,
-          shop_id: true,
-        },
-      });
-    } else {
+    // ─────────────────────────────────────────
+    // QUERY STRATEGY: shop_ids OR plan_ids (mutually exclusive)
+    // ─────────────────────────────────────────
+    let users = [];
+
+    // OPTION A: Filter by specific shop IDs
+    if (filters.shop_ids && filters.shop_ids.length > 0) {
+      console.log(`[Notifications] Resolving audience for ${filters.shop_ids.length} specific shop(s)`);
+      
+      userWhere.shop_id = { in: filters.shop_ids };
+
       users = await prisma.user.findMany({
         where: userWhere,
         select: { 
@@ -442,7 +463,73 @@ async function resolveBroadcastAudience(filters = {}) {
         },
       });
     }
+    // OPTION B: Filter by plan IDs (only active subscriptions)
+    else if (filters.plan_ids && filters.plan_ids.length > 0) {
+      console.log(`[Notifications] Resolving audience for ${filters.plan_ids.length} plan(s)`);
+      
+      users = await prisma.user.findMany({
+        where: {
+          ...userWhere,
+          shop: {
+            currentSubscription: {
+              plan_id: { in: filters.plan_ids },
+              status: 'active',  // ✅ Only active subscriptions
+              is_active: true,
+            },
+          },
+        },
+        select: { 
+          user_id: true, 
+          email: true, 
+          full_name: true, 
+          role: true,
+          shop_id: true,
+        },
+      });
+    }
+    // OPTION C: Legacy filters (shopVerificationStatus, subscriptionStatus)
+    else {
+      // Shop verification status filter (legacy)
+      if (filters.shopVerificationStatus) {
+        userWhere.shop = {
+          verification_status: filters.shopVerificationStatus,
+        };
+      }
 
+      // Subscription status filter (legacy)
+      if (filters.subscriptionStatus) {
+        users = await prisma.user.findMany({
+          where: {
+            ...userWhere,
+            shop: {
+              currentSubscription: {
+                status: filters.subscriptionStatus,
+              },
+            },
+          },
+          select: { 
+            user_id: true, 
+            email: true, 
+            full_name: true, 
+            role: true,
+            shop_id: true,
+          },
+        });
+      } else {
+        users = await prisma.user.findMany({
+          where: userWhere,
+          select: { 
+            user_id: true, 
+            email: true, 
+            full_name: true, 
+            role: true,
+            shop_id: true,
+          },
+        });
+      }
+    }
+
+    // Map to recipient format
     for (const user of users) {
       if (user.email) {
         recipients.push({
@@ -454,10 +541,12 @@ async function resolveBroadcastAudience(filters = {}) {
         });
       }
     }
+
+    console.log(`[Notifications] Resolved ${recipients.length} user recipient(s)`);
   }
 
   // ─────────────────────────────────────────
-  // RESOLVE CADMINS (Email channel only, not in-app)
+  // RESOLVE CADMINS (Email/SMS only, not in-app)
   // ─────────────────────────────────────────
   if (filters.includeCAdmins === true) {
     const cadminWhere = { is_active: true };
@@ -481,15 +570,23 @@ async function resolveBroadcastAudience(filters = {}) {
         });
       }
     }
+
+    console.log(`[Notifications] Resolved ${cadmins.length} CAdmin recipient(s)`);
   }
 
-  // Deduplicate by email
+  // ─────────────────────────────────────────
+  // DEDUPLICATE BY EMAIL
+  // ─────────────────────────────────────────
   const seen = new Set();
-  return recipients.filter((r) => {
+  const deduplicated = recipients.filter((r) => {
     if (seen.has(r.email)) return false;
     seen.add(r.email);
     return true;
   });
+
+  console.log(`[Notifications] Final audience: ${deduplicated.length} unique recipient(s)`);
+  
+  return deduplicated;
 }
 
 export default { resolveAudience };
