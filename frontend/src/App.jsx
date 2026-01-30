@@ -82,6 +82,7 @@ import Pricing from "./pages/landingPages/pricing/Pricing.jsx";
 import ScrollToTop from "./pages/landingPages/component/ScrollToTop.jsx";
 
 import "./index.css";
+import NotificationsPage from "./pages/notifications/NotificationsPage.jsx";
 
 // ============================================
 // MAINTENANCE CHECK COMPONENT
@@ -98,13 +99,18 @@ const MaintenanceCheck = ({ children }) => {
       }
 
       try {
-        const response = await fetch("http://localhost:5000/api/maintenance/status");
+        const response = await fetch(
+          "http://localhost:5000/api/maintenance/status",
+        );
         const data = await response.json();
 
         if (data.success && data.data.maintenance_mode) {
           setIsMaintenanceMode(true);
           sessionStorage.setItem("maintenance_mode", "true");
-          sessionStorage.setItem("maintenance_message", data.data.message || "");
+          sessionStorage.setItem(
+            "maintenance_message",
+            data.data.message || "",
+          );
           window.location.href = "/maintenance";
           return;
         } else {
@@ -230,28 +236,46 @@ const App = () => {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
-                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                  <Route path="/reset-password" element={<ResetPasswordPage />} />
-                  
+                  <Route
+                    path="/forgot-password"
+                    element={<ForgotPasswordPage />}
+                  />
+                  <Route
+                    path="/reset-password"
+                    element={<ResetPasswordPage />}
+                  />
+
                   {/* ============================================ */}
                   {/* ONBOARDING ROUTES (Special guard) */}
                   {/* ============================================ */}
                   <Route element={<OnboardingGuard />}>
                     <Route path="/onboarding" element={<OnboardingPage />} />
-                    <Route path="/verification" element={<VerificationPage />} />
+                    <Route
+                      path="/verification"
+                      element={<VerificationPage />}
+                    />
                   </Route>
 
                   {/* ============================================ */}
                   {/* POST-VERIFICATION ROUTES (Token required) */}
                   {/* ============================================ */}
                   <Route element={<AuthGuard />}>
-                    <Route path="/plan-selection" element={<PlanSelectionPage />} />
+                    <Route
+                      path="/plan-selection"
+                      element={<PlanSelectionPage />}
+                    />
                     {/* Setup Routes */}
                     <Route path="/setup" element={<SetupRouter />} />
                     <Route element={<SetupLayout />}>
-                      <Route path="/setup/branches" element={<SetupBranchesPage />} />
+                      <Route
+                        path="/setup/branches"
+                        element={<SetupBranchesPage />}
+                      />
                       <Route path="/setup/users" element={<SetupUsersPage />} />
-                      <Route path="/setup/review" element={<SetupReviewPage />} />
+                      <Route
+                        path="/setup/review"
+                        element={<SetupReviewPage />}
+                      />
                     </Route>
                   </Route>
 
@@ -265,7 +289,9 @@ const App = () => {
                         <Route
                           path="/dashboard"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.DASHBOARD_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.DASHBOARD_VIEW}
+                            >
                               <DashboardPage />
                             </PermissionGuard>
                           }
@@ -274,24 +300,28 @@ const App = () => {
                         {/* ============================================ */}
                         {/* SALES ROUTES */}
                         {/* ============================================ */}
-                        
+
                         {/* Sales Billing - WRITE ROUTE, requires BRANCH mode */}
                         <Route
                           path="/Salesbilling"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.BILLING_CREATE}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_CREATE}
+                            >
                               <BranchRequiredGuard>
                                 <BillingPage />
                               </BranchRequiredGuard>
                             </PermissionGuard>
                           }
                         />
-                        
+
                         {/* Sales Invoices - Read only, works in GLOBAL mode */}
                         <Route
                           path="/Salesinvoice"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.BILLING_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_VIEW}
+                            >
                               <InvoicePage />
                             </PermissionGuard>
                           }
@@ -300,24 +330,28 @@ const App = () => {
                         {/* ============================================ */}
                         {/* PURCHASE ROUTES */}
                         {/* ============================================ */}
-                        
+
                         {/* Purchase Billing - WRITE ROUTE, requires BRANCH mode */}
                         <Route
                           path="/purchase-billing"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.PURCHASE_CREATE}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.PURCHASE_CREATE}
+                            >
                               <BranchRequiredGuard>
                                 <PurchasePage />
                               </BranchRequiredGuard>
                             </PermissionGuard>
                           }
                         />
-                        
+
                         {/* Purchase Invoices - Read only, works in GLOBAL mode */}
                         <Route
                           path="/purchase-invoices"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.PURCHASE_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.PURCHASE_VIEW}
+                            >
                               <PurchaseInvoicePage />
                             </PermissionGuard>
                           }
@@ -326,12 +360,14 @@ const App = () => {
                         {/* ============================================ */}
                         {/* INVENTORY & SUPPLIERS */}
                         {/* ============================================ */}
-                        
+
                         {/* Inventory - Read in GLOBAL, CRUD in BRANCH */}
                         <Route
                           path="/inventory"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.INVENTORY_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.INVENTORY_VIEW}
+                            >
                               <InventoryPage />
                             </PermissionGuard>
                           }
@@ -341,7 +377,9 @@ const App = () => {
                         <Route
                           path="/suppliers"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.SUPPLIERS_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.SUPPLIERS_VIEW}
+                            >
                               <SupplierPage />
                             </PermissionGuard>
                           }
@@ -353,7 +391,9 @@ const App = () => {
                         <Route
                           path="/reports-sales"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
                               <ReportPage />
                             </PermissionGuard>
                           }
@@ -365,7 +405,9 @@ const App = () => {
                         <Route
                           path="/settings/users"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.USERS_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.USERS_VIEW}
+                            >
                               <UsersPage />
                             </PermissionGuard>
                           }
@@ -373,13 +415,29 @@ const App = () => {
                         <Route
                           path="/settings/branches"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.BRANCHES_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.BRANCHES_VIEW}
+                            >
                               <BranchesPage />
                             </PermissionGuard>
                           }
                         />
-                        <Route path="/settings/profile" element={<ProfilePage />} />
-                        <Route path="/settings/upgrade" element={<UpgradePlanPage />} />
+                        <Route
+                          path="/settings/profile"
+                          element={<ProfilePage />}
+                        />
+                        <Route
+                          path="/settings/upgrade"
+                          element={<UpgradePlanPage />}
+                        />
+
+                        {/* ============================================ */}
+                        {/* NOTIFICATIONS */}
+                        {/* ============================================ */}
+                        <Route
+                          path="/notifications"
+                          element={<NotificationsPage />}
+                        />
 
                         {/* ============================================ */}
                         {/* SUPPORT ROUTES */}
@@ -387,7 +445,9 @@ const App = () => {
                         <Route
                           path="/tickets"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.TICKETS_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.TICKETS_VIEW}
+                            >
                               <TicketsPage />
                             </PermissionGuard>
                           }

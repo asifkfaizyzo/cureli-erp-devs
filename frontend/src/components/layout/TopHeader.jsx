@@ -1,9 +1,8 @@
 // src/components/layout/TopHeader.jsx
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router-dom"; // Added useLocation
+import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Bell,
   ChevronDown,
   LogOut,
   Clock,
@@ -15,12 +14,8 @@ import {
   Store,
   Loader2,
   Check,
-  AlertCircle,
   CreditCard,
-  FileText,
   ChevronRight,
-  Package,
-  RefreshCw,
   Layers,
 } from "lucide-react";
 import logo from "../../assets/icons/cureli.svg";
@@ -38,9 +33,12 @@ import { logoutUser } from "../../api/auth";
 import { fetchBranchesDropdown, switchBranch } from "../../api/branches";
 import ConfirmDialog from "../common/ConfirmDialog";
 import { useSubscriptionStore, selectNeedsRenewal, selectDaysRemaining, selectIsInGrace } from "../../store/useSubscriptionStore";
-import { useToast } from "../common/Toast"; // NEW: Import toast
+import { useToast } from "../common/Toast";
 
-// NEW: Define write routes that require BRANCH mode
+// NEW: Import NotificationDropdown
+import { NotificationDropdown } from "../common/notifications";
+
+// Define write routes that require BRANCH mode
 const WRITE_ROUTES = [
   "/Salesbilling",
   "/purchase-billing",
@@ -48,11 +46,10 @@ const WRITE_ROUTES = [
 
 const TopHeader = () => {
   const navigate = useNavigate();
-  const location = useLocation(); // NEW: Get current location
-  const toast = useToast(); // NEW: Toast hook
+  const location = useLocation();
+  const toast = useToast();
   
   const profileRef = useRef(null);
-  const notificationRef = useRef(null);
   const branchRef = useRef(null);
 
   // ============================================
@@ -63,7 +60,7 @@ const TopHeader = () => {
   const logout = useAuthStore((state) => state.logout);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   
-  // Branch context from store (not local state)
+  // Branch context from store
   const branchContext = useAuthStore(selectBranchContext);
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
   const isGlobalMode = useAuthStore(selectIsGlobalMode);
@@ -82,7 +79,7 @@ const TopHeader = () => {
   const { hasPermission } = usePermission();
 
   // ============================================
-  // LOCAL STATE (UI only, not source of truth)
+  // LOCAL STATE (UI only)
   // ============================================
   const [dateTime, setDateTime] = useState({
     time: "",
@@ -91,25 +88,20 @@ const TopHeader = () => {
   });
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showBranchSelector, setShowBranchSelector] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isBranchesLoading, setIsBranchesLoading] = useState(false);
-  const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
   const [isSwitchingBranch, setIsSwitchingBranch] = useState(false);
 
   const [branches, setBranches] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [notificationError, setNotificationError] = useState(null);
 
   // ============================================
   // DERIVED VALUES
   // ============================================
   const canSwitchBranches = hasPermission(PERMISSIONS.BRANCHES_SWITCH);
 
-  // NEW: Check if currently on a write route
   const isOnWriteRoute = useMemo(() => {
     return WRITE_ROUTES.includes(location.pathname);
   }, [location.pathname]);
@@ -150,7 +142,6 @@ const TopHeader = () => {
     });
   }, [branches]);
 
-  // Derive from branchContext
   const selectedBranchId = branchContext.mode === BRANCH_MODE.BRANCH 
     ? branchContext.branch_id 
     : null;
@@ -159,7 +150,6 @@ const TopHeader = () => {
     ? branches.find((b) => b.branch_id === selectedBranchId)
     : null;
 
-  // Use store state directly
   const isAllBranches = isSuperAdmin && isGlobalMode;
 
   const displayBranchName = useMemo(() => {
@@ -174,16 +164,6 @@ const TopHeader = () => {
   }, [isSuperAdmin, isAllBranches, selectedBranch, branchContext.branch_name]);
 
   const displayShopName = shopName || "My Business";
-
-  const unreadCount = notifications.filter((n) => n.unread).length;
-
-  const notificationIconMap = {
-    invoice: { icon: FileText, color: "text-blue-500", bgColor: "bg-blue-50" },
-    payment: { icon: CreditCard, color: "text-green-500", bgColor: "bg-green-50" },
-    alert: { icon: AlertCircle, color: "text-orange-500", bgColor: "bg-orange-50" },
-    stock: { icon: Package, color: "text-red-500", bgColor: "bg-red-50" },
-    default: { icon: Bell, color: "text-gray-500", bgColor: "bg-gray-50" },
-  };
 
   // ============================================
   // API FUNCTIONS
@@ -204,47 +184,6 @@ const TopHeader = () => {
       setIsBranchesLoading(false);
     }
   }, [canSwitchBranches, shopId]);
-
-  const fetchNotificationsData = useCallback(async () => {
-    if (!user?.user_id) return;
-
-    setIsNotificationsLoading(true);
-    setNotificationError(null);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      setNotifications([
-        {
-          id: 1,
-          type: "invoice",
-          title: "New invoice generated",
-          description: "Invoice #INV-2024-001 is ready",
-          created_at: new Date(Date.now() - 5 * 60000).toISOString(),
-          unread: true,
-        },
-        {
-          id: 2,
-          type: "payment",
-          title: "Payment received",
-          description: "Payment of ₹15,000 confirmed",
-          created_at: new Date(Date.now() - 60 * 60000).toISOString(),
-          unread: true,
-        },
-        {
-          id: 3,
-          type: "stock",
-          title: "Low stock alert",
-          description: "5 items are running low",
-          created_at: new Date(Date.now() - 180 * 60000).toISOString(),
-          unread: false,
-        },
-      ]);
-    } catch (error) {
-      console.error("Failed to fetch notifications:", error);
-      setNotificationError("Failed to load notifications");
-    } finally {
-      setIsNotificationsLoading(false);
-    }
-  }, [user?.user_id]);
 
   // ============================================
   // EFFECTS
@@ -279,7 +218,6 @@ const TopHeader = () => {
     }
   }, [canSwitchBranches, shopId, fetchBranchesData]);
 
-  // Load subscription status on mount (super admin only)
   useEffect(() => {
     if (isSuperAdmin && shopId) {
       loadSubscriptionStatus();
@@ -287,20 +225,9 @@ const TopHeader = () => {
   }, [isSuperAdmin, shopId, loadSubscriptionStatus]);
 
   useEffect(() => {
-    if (isAuthenticated && user?.user_id) {
-      fetchNotificationsData();
-      const pollInterval = setInterval(fetchNotificationsData, 60000);
-      return () => clearInterval(pollInterval);
-    }
-  }, [isAuthenticated, user?.user_id, fetchNotificationsData]);
-
-  useEffect(() => {
     const handleClickOutside = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setShowProfileMenu(false);
-      }
-      if (notificationRef.current && !notificationRef.current.contains(e.target)) {
-        setShowNotifications(false);
       }
       if (branchRef.current && !branchRef.current.contains(e.target)) {
         setShowBranchSelector(false);
@@ -315,7 +242,6 @@ const TopHeader = () => {
     const handleEscape = (e) => {
       if (e.key === "Escape") {
         setShowProfileMenu(false);
-        setShowNotifications(false);
         setShowBranchSelector(false);
         setShowLogoutConfirm(false);
       }
@@ -329,35 +255,21 @@ const TopHeader = () => {
   // HANDLERS
   // ============================================
 
-  /**
-   * Switch to GLOBAL mode (All Branches)
-   * NEW: If on a write route, redirect to dashboard with toast
-   */
   const handleSelectAllBranches = () => {
     setShowBranchSelector(false);
     
-    // Check if currently on a write route
     if (isOnWriteRoute) {
-      // First navigate to dashboard
       navigate("/dashboard");
-      
-      // Then set global mode
       setGlobalBranch();
-      
-      // Show informative toast
       toast.info(
         "Switched to All Branches",
         "Select a specific branch to create bills or purchases"
       );
     } else {
-      // Not on a write route, just switch mode
       setGlobalBranch();
     }
   };
 
-  /**
-   * Switch to specific branch
-   */
   const handleBranchChange = async (branch) => {
     if (branch.branch_id === selectedBranchId) {
       setShowBranchSelector(false);
@@ -369,48 +281,13 @@ const TopHeader = () => {
       const response = await switchBranch(branch.branch_id);
 
       if (response.success) {
-        // Single source of truth - just update store
         setBranch(branch.branch_id, response.data.branch_name);
         setShowBranchSelector(false);
-        fetchNotificationsData();
       }
     } catch (error) {
       console.error("Failed to switch branch:", error);
     } finally {
       setIsSwitchingBranch(false);
-    }
-  };
-
-  const handleNotificationClick = async (notification) => {
-    try {
-      if (notification.unread) {
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notification.id ? { ...n, unread: false } : n
-          )
-        );
-      }
-
-      const navigationMap = {
-        invoice: "/Salesinvoice",
-        payment: "/reports-sales",
-        stock: "/inventory",
-        alert: "/dashboard",
-      };
-
-      const targetPath = navigationMap[notification.type] || "/dashboard";
-      setShowNotifications(false);
-      navigate(targetPath);
-    } catch (error) {
-      console.error("Failed to handle notification:", error);
-    }
-  };
-
-  const handleMarkAllRead = async () => {
-    try {
-      setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-    } catch (error) {
-      console.error("Failed to mark all as read:", error);
     }
   };
 
@@ -434,31 +311,6 @@ const TopHeader = () => {
 
   const handleLogoutCancel = () => {
     setShowLogoutConfirm(false);
-  };
-
-  const getNotificationIcon = (type) => {
-    return notificationIconMap[type] || notificationIconMap.default;
-  };
-
-  const formatNotificationTime = (createdAt) => {
-    if (!createdAt) return "";
-
-    const now = new Date();
-    const notifDate = new Date(createdAt);
-    const diffMs = now - notifDate;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins} min ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-
-    return notifDate.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-    });
   };
 
   // Renewal Pill Component
@@ -742,130 +594,12 @@ const TopHeader = () => {
               <div className="w-px h-8 bg-gray-200" />
             )}
 
-            {/* Notifications */}
-            <div className="relative" ref={notificationRef}>
-              <button
-                onClick={() => {
-                  setShowNotifications(!showNotifications);
-                  if (!showNotifications) {
-                    fetchNotificationsData();
-                  }
-                }}
-                className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all"
-              >
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1 ring-2 ring-white">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden z-50">
-                  <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-800">Notifications</h3>
-                    <div className="flex items-center gap-2">
-                      {unreadCount > 0 && (
-                        <button
-                          onClick={handleMarkAllRead}
-                          className="text-xs text-[#000060] hover:text-[#000080] font-medium"
-                        >
-                          Mark all read
-                        </button>
-                      )}
-                      <button
-                        onClick={fetchNotificationsData}
-                        disabled={isNotificationsLoading}
-                        className="p-1 hover:bg-gray-200 rounded transition-colors"
-                      >
-                        <RefreshCw
-                          size={14}
-                          className={`text-gray-400 ${isNotificationsLoading ? "animate-spin" : ""}`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
-                    {isNotificationsLoading && notifications.length === 0 ? (
-                      <div className="px-4 py-8 text-center">
-                        <Loader2 size={24} className="animate-spin text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500">Loading notifications...</p>
-                      </div>
-                    ) : notificationError ? (
-                      <div className="px-4 py-8 text-center">
-                        <AlertCircle size={24} className="text-red-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500">{notificationError}</p>
-                        <button
-                          onClick={fetchNotificationsData}
-                          className="mt-2 text-sm text-[#000060] hover:underline"
-                        >
-                          Try again
-                        </button>
-                      </div>
-                    ) : notifications.length === 0 ? (
-                      <div className="px-4 py-8 text-center">
-                        <Bell size={24} className="text-gray-300 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500">No notifications yet</p>
-                      </div>
-                    ) : (
-                      notifications.map((notification) => {
-                        const iconConfig = getNotificationIcon(notification.type);
-                        const IconComponent = iconConfig.icon;
-
-                        return (
-                          <button
-                            key={notification.id}
-                            onClick={() => handleNotificationClick(notification)}
-                            className={`w-full px-4 py-3 flex items-start gap-3 hover:bg-gray-50 transition-colors text-left ${
-                              notification.unread ? "bg-blue-50/30" : ""
-                            }`}
-                          >
-                            <div className={`p-2 rounded-lg ${iconConfig.bgColor} flex-shrink-0`}>
-                              <IconComponent size={16} className={iconConfig.color} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium text-gray-800 truncate">
-                                  {notification.title}
-                                </p>
-                                {notification.unread && (
-                                  <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                                )}
-                              </div>
-                              <p className="text-xs text-gray-500 mt-0.5 truncate">
-                                {notification.description}
-                              </p>
-                              <p className="text-[10px] text-gray-400 mt-1">
-                                {formatNotificationTime(notification.created_at)}
-                              </p>
-                            </div>
-                            <ChevronRight size={14} className="text-gray-300 flex-shrink-0 mt-1" />
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
-                    <button
-                      onClick={() => {
-                        setShowNotifications(false);
-                        navigate("/notifications");
-                      }}
-                      className="w-full text-center text-sm font-medium text-[#000060] hover:text-[#000080] transition-colors"
-                    >
-                      View all notifications
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* ==================== NOTIFICATIONS ==================== */}
+            <NotificationDropdown />
 
             <div className="w-px h-8 bg-gray-200" />
 
-            {/* Profile Section */}
+            {/* ==================== PROFILE SECTION ==================== */}
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
