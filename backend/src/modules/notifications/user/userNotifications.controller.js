@@ -12,7 +12,6 @@ import { success, fail } from '../../../utils/response.js';
 export async function listNotifications(req, res) {
   try {
     const userId = req.user.user_id;
-    const shopId = req.user.shop_id || null;
 
     const {
       page = 1,
@@ -34,7 +33,7 @@ export async function listNotifications(req, res) {
       unreadOnly: unread_only === 'true' || unread_only === true,
       priority,
       eventTypes,
-      shopId,
+      
     });
 
     return success(res, result, 'Notifications retrieved successfully');
@@ -51,9 +50,9 @@ export async function listNotifications(req, res) {
 export async function getUnreadCount(req, res) {
   try {
     const userId = req.user.user_id;
-    const shopId = req.user.shop_id || null;
+   
 
-    const result = await notificationService.getUnreadCount(userId, shopId);
+    const result = await notificationService.getUnreadCount(userId);
 
     return success(res, result, 'Unread count retrieved');
   } catch (err) {
@@ -140,13 +139,13 @@ export async function markAsRead(req, res) {
 export async function markAllAsRead(req, res) {
   try {
     const userId = req.user.user_id;
-    const shopId = req.user.shop_id || null;
+    
     const { event_types, before_date } = req.body || {};
 
     const result = await notificationService.markAllAsRead(userId, {
       eventTypes: event_types,
       beforeDate: before_date,
-      shopId,
+      
     });
 
     return success(res, result, `${result.marked_count} notification(s) marked as read`);
@@ -188,13 +187,13 @@ export async function deleteNotification(req, res) {
 export async function clearInventoryAlerts(req, res) {
   try {
     const userId = req.user.user_id;
-    const shopId = req.user.shop_id || null;
+    
     const { inventory_id } = req.body;
 
     const result = await notificationService.clearInventoryAlerts(
       userId,
       inventory_id,
-      shopId
+      
     );
 
     return success(res, result, `${result.cleared_count} inventory alert(s) cleared`);

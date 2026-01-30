@@ -14,7 +14,6 @@ export async function getNotifications(userId, options = {}) {
     unreadOnly = false,
     priority = null,
     eventTypes = null,
-    shopId = null,
   } = options;
 
   // Build where clause
@@ -32,9 +31,7 @@ export async function getNotifications(userId, options = {}) {
     where.event_type = { in: eventTypes };
   }
 
-  if (shopId) {
-    where.shop_id = shopId;
-  }
+
 
   // Execute queries
   const [notifications, total, unreadCount] = await Promise.all([
@@ -42,7 +39,6 @@ export async function getNotifications(userId, options = {}) {
       where,
       orderBy: [
         { is_read: 'asc' },      // Unread first
-        { priority: 'desc' },    // Then by priority (critical > high > normal > low)
         { created_at: 'desc' },  // Then by newest
       ],
       skip: (page - 1) * limit,
@@ -83,15 +79,12 @@ export async function getNotifications(userId, options = {}) {
 /**
  * Get unread notification count
  */
-export async function getUnreadCount(userId, shopId = null) {
+export async function getUnreadCount(userId) {
   const where = {
     user_id: userId,
     is_read: false,
   };
 
-  if (shopId) {
-    where.shop_id = shopId;
-  }
 
   const count = await prisma.notification.count({ where });
 
@@ -160,7 +153,7 @@ export async function markAsRead(notificationId, userId) {
  * Mark all notifications as read for a user
  */
 export async function markAllAsRead(userId, options = {}) {
-  const { eventTypes = null, beforeDate = null, shopId = null } = options;
+  const { eventTypes = null, beforeDate = null } = options;
 
   const where = {
     user_id: userId,
@@ -175,9 +168,7 @@ export async function markAllAsRead(userId, options = {}) {
     where.created_at = { lte: new Date(beforeDate) };
   }
 
-  if (shopId) {
-    where.shop_id = shopId;
-  }
+
 
   const result = await prisma.notification.updateMany({
     where,
@@ -221,7 +212,7 @@ export async function deleteNotification(notificationId, userId) {
  * Clear inventory alerts for a specific inventory item
  * Called when stock is replenished or issue is resolved
  */
-export async function clearInventoryAlerts(userId, inventoryId, shopId = null) {
+export async function clearInventoryAlerts(userId, inventoryId) {
   // Build dedup patterns for this inventory item
   const dedupPatterns = [
     `LOW_STOCK_ALERT:inventory:${inventoryId}`,
@@ -236,9 +227,7 @@ export async function clearInventoryAlerts(userId, inventoryId, shopId = null) {
     is_read: false,
   };
 
-  if (shopId) {
-    where.shop_id = shopId;
-  }
+ 
 
   const result = await prisma.notification.updateMany({
     where,
