@@ -1,6 +1,6 @@
 // src/pages/purchase/billing/components/PurchaseHeader.jsx
 import { useRef } from "react";
-import { Save, Printer, Upload, FileSpreadsheet, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Save, Printer, Upload, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
 
 const PurchaseHeader = ({ 
   onSave, 
@@ -8,7 +8,9 @@ const PurchaseHeader = ({
   onImportFile,
   onExportExcel,
   invoiceNumber,
-  invoiceStatus
+  invoiceStatus,
+  isLoading = false,
+  isSaving = false,
 }) => {
   const fileInputRef = useRef(null);
 
@@ -20,7 +22,6 @@ const PurchaseHeader = ({
     }
   };
 
-  // Status badge config
   const getStatusConfig = (status) => {
     switch(status) {
       case 'CONFIRMED':
@@ -57,6 +58,35 @@ const PurchaseHeader = ({
   const statusConfig = invoiceStatus ? getStatusConfig(invoiceStatus) : null;
   const StatusIcon = statusConfig?.icon;
 
+  // Skeleton component
+  const Skeleton = ({ className }) => (
+    <div className={`bg-slate-200 rounded animate-pulse ${className}`} />
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-between px-4 py-2.5 bg-white rounded-lg shadow-sm border border-slate-200">
+        {/* Left skeleton */}
+        <div className="flex items-center gap-3">
+          <Skeleton className="w-9 h-9 rounded-lg" />
+          <div className="space-y-2">
+            <Skeleton className="w-32 h-5" />
+            <Skeleton className="w-48 h-3" />
+          </div>
+        </div>
+        
+        {/* Right skeleton */}
+        <div className="flex items-center gap-2">
+          <Skeleton className="w-20 h-9 rounded-lg" />
+          <Skeleton className="w-20 h-9 rounded-lg" />
+          <div className="w-px h-8 bg-slate-200 mx-1" />
+          <Skeleton className="w-24 h-9 rounded-lg" />
+          <Skeleton className="w-32 h-9 rounded-lg" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-between px-4 py-2.5 bg-white rounded-lg shadow-sm border border-slate-200">
       {/* Left: Title & Invoice Info */}
@@ -70,7 +100,6 @@ const PurchaseHeader = ({
           <div className="flex items-center gap-2">
             <h1 className="text-[#05015A] font-bold text-lg">Purchase Entry</h1>
             
-            {/* Invoice Number Badge */}
             {invoiceNumber && (
               <>
                 <div className="h-4 w-px bg-slate-300" />
@@ -81,7 +110,6 @@ const PurchaseHeader = ({
               </>
             )}
 
-            {/* Status Badge */}
             {invoiceStatus && statusConfig && (
               <div className={`flex items-center gap-1 px-2 py-1 ${statusConfig.bg} border ${statusConfig.border} rounded-lg`}>
                 <StatusIcon size={12} className={statusConfig.text} />
@@ -99,7 +127,6 @@ const PurchaseHeader = ({
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
-        {/* Import Button */}
         <input
           ref={fileInputRef}
           type="file"
@@ -109,50 +136,56 @@ const PurchaseHeader = ({
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium border border-slate-200"
+          disabled={isSaving}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Upload size={14} />
           Import
         </button>
 
-        {/* Export Button */}
         <button
           onClick={onExportExcel}
-          className="flex items-center gap-2 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors text-sm font-medium border border-emerald-200"
+          disabled={isSaving}
+          className="flex items-center gap-2 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors text-sm font-medium border border-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <FileSpreadsheet size={14} />
           Export
         </button>
 
-        {/* Divider */}
         <div className="w-px h-8 bg-slate-200 mx-1" />
 
-        {/* Save Button */}
         <button
           onClick={onSave}
-          disabled={invoiceStatus === 'CONFIRMED'}
+          disabled={invoiceStatus === 'CONFIRMED' || isSaving}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-sm
-            ${invoiceStatus === 'CONFIRMED'
+            ${invoiceStatus === 'CONFIRMED' || isSaving
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
               : 'bg-[#05015A] hover:bg-[#0a0280] text-white'
             }`}
         >
-          <Save size={14} />
-          {invoiceNumber ? 'Update' : 'Save Draft'}
+          {isSaving ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Save size={14} />
+          )}
+          {isSaving ? 'Saving...' : invoiceNumber ? 'Update' : 'Save Draft'}
         </button>
 
-        {/* Confirm & Print Button */}
         <button
           onClick={onSavePrint}
-          disabled={invoiceStatus === 'CONFIRMED'}
+          disabled={invoiceStatus === 'CONFIRMED' || isSaving}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium border
-            ${invoiceStatus === 'CONFIRMED'
+            ${invoiceStatus === 'CONFIRMED' || isSaving
               ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
               : 'bg-indigo-50 text-[#05015A] hover:bg-indigo-100 border-indigo-200'
             }`}
         >
-          <Printer size={14} />
-          {invoiceStatus === 'CONFIRMED' ? 'Confirmed' : 'Confirm & Print'}
+          {isSaving ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Printer size={14} />
+          )}
+          {invoiceStatus === 'CONFIRMED' ? 'Confirmed' : isSaving ? 'Processing...' : 'Confirm & Print'}
         </button>
       </div>
     </div>

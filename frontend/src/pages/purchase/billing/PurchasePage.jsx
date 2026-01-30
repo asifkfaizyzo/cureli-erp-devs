@@ -9,7 +9,6 @@ import PurchaseTable from "./components/PurchaseTable";
 import SupplierDetailsCard from "./components/SupplierDetailsCard";
 import PurchaseSummaryCard from "./components/PurchaseSummaryCard";
 import PurchaseInvoicePrint from "./components/PurchaseInvoicePrint";
-import LoadingOverlay from "../../../components/common/LoadingOverlay";
 import SupplierModal from "../../suppliers/components/SupplierModal";
 import ProductMasterModal from "../../../components/common/ProductMasterModal";
 import BatchProductModal from "../../../components/common/BatchProductModal";
@@ -38,7 +37,7 @@ const COMPANY_DETAILS = {
 const PurchasePage = () => {
   const toast = useToast();
   const navigate = useNavigate();
-  const { invoiceId } = useParams(); // For edit mode
+  const { invoiceId } = useParams();
   const printRef = useRef(null);
 
   // ============================================
@@ -73,9 +72,16 @@ const PurchasePage = () => {
   const [newProductsFromImport, setNewProductsFromImport] = useState([]);
 
   // ============================================
-  // LOCAL STATE
+  // INDIVIDUAL LOADING STATES
   // ============================================
-  const [isLocalLoading, setIsLocalLoading] = useState(false);
+  const [loadingStates, setLoadingStates] = useState({
+    header: true,
+    table: true,
+    supplier: true,
+    summary: true,
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
   const [invoiceData, setInvoiceData] = useState({
     invoice_date: new Date().toISOString(),
     branch_id: null,
@@ -85,8 +91,6 @@ const PurchasePage = () => {
     other_charges: null,
     remarks: null,
   });
-
-  const isLoading = apiLoading || isLocalLoading;
 
   // Get responsive config
   const { visibleRows, rowHeight } = useResponsiveRowCount();
@@ -117,23 +121,49 @@ const PurchasePage = () => {
   );
 
   // ============================================
-  // LOAD INITIAL DATA
+  // LOAD INITIAL DATA - PROGRESSIVE LOADING
   // ============================================
   useEffect(() => {
     const initData = async () => {
-      setIsLocalLoading(true);
+      // Start with all loading
+      setLoadingStates({
+        header: true,
+        table: true,
+        supplier: true,
+        summary: true,
+      });
+
       try {
-        await Promise.all([loadMedicines(), loadSuppliers()]);
+        // Header loads first (instant)
+        setTimeout(() => {
+          setLoadingStates(prev => ({ ...prev, header: false }));
+        }, 200);
+
+        // Load medicines (for table)
+        await loadMedicines();
+        setLoadingStates(prev => ({ ...prev, table: false, summary: false }));
+
+        // Load suppliers
+        await loadSuppliers();
+        setLoadingStates(prev => ({ ...prev, supplier: false }));
 
         // If editing existing invoice
         if (invoiceId) {
+          setLoadingStates(prev => ({ ...prev, table: true, supplier: true, summary: true }));
           const invoice = await loadInvoiceForEdit(invoiceId);
           populateInvoiceData(invoice);
+          setLoadingStates(prev => ({ ...prev, table: false, supplier: false, summary: false }));
         }
+
       } catch (error) {
         console.error("Init error:", error);
-      } finally {
-        setIsLocalLoading(false);
+        // On error, stop all loading states
+        setLoadingStates({
+          header: false,
+          table: false,
+          supplier: false,
+          summary: false,
+        });
       }
     };
 
@@ -153,7 +183,6 @@ const PurchasePage = () => {
   // POPULATE INVOICE DATA (EDIT MODE)
   // ============================================
   const populateInvoiceData = useCallback((invoice) => {
-    // Populate supplier details
     setSupplier({
       supplier_id: invoice.supplier.supplier_id,
       supplierName: invoice.supplier.name,
@@ -172,7 +201,6 @@ const PurchasePage = () => {
       purchaseId: invoice.invoice_number,
     });
 
-    // Populate invoice metadata
     setInvoiceData({
       invoice_date: invoice.invoice_date,
       branch_id: invoice.branch_id,
@@ -183,9 +211,7 @@ const PurchasePage = () => {
       remarks: invoice.remarks,
     });
 
-    // Populate rows from line items
     const populatedRows = invoice.lineItems.map((item) => {
-      // Format expiry date to MM/YY
       let expiry = "";
       if (item.expiry_date) {
         const expDate = new Date(item.expiry_date);
@@ -213,7 +239,6 @@ const PurchasePage = () => {
         rack: item.rack_no || "",
         sRate: item.selling_rate?.toString() || "",
         sch: item.free_quantity?.toString() || "",
-        // Calculated fields
         netRate: item.taxable_amount && item.quantity 
           ? (parseFloat(item.taxable_amount) / parseFloat(item.quantity)).toFixed(2) 
           : "",
@@ -254,10 +279,10 @@ const PurchasePage = () => {
       return false;
     }
 
+    setIsSaving(true);
     try {
       const savedInvoice = await savePurchaseInvoice(invoiceData, dataRows, supplier);
       if (savedInvoice) {
-        // Update supplier with invoice number
         setSupplier(prev => ({
           ...prev,
           purchaseId: savedInvoice.invoice_number,
@@ -267,6 +292,8 @@ const PurchasePage = () => {
       return false;
     } catch (error) {
       return false;
+    } finally {
+      setIsSaving(false);
     }
   }, [getFilledRows, validateSupplier, savePurchaseInvoice, invoiceData, supplier, toast, setSupplier]);
 
@@ -280,8 +307,8 @@ const PurchasePage = () => {
       return;
     }
 
+    setIsSaving(true);
     try {
-      // First save as draft (if not already saved)
       let invoiceToConfirm = currentInvoice;
       
       if (!currentInvoice) {
@@ -290,23 +317,22 @@ const PurchasePage = () => {
         invoiceToConfirm = savedInvoice;
       }
 
-      // Then confirm (this updates stock)
       const confirmedInvoice = await confirmPurchaseInvoice(invoiceToConfirm.invoice_id);
       
       if (confirmedInvoice) {
-        // Update supplier with confirmed invoice number
         setSupplier(prev => ({
           ...prev,
           purchaseId: confirmedInvoice.invoice_number,
         }));
 
-        // Print after confirmation
         setTimeout(() => {
           handlePrint();
         }, 100);
       }
     } catch (error) {
       console.error("Save & Print error:", error);
+    } finally {
+      setIsSaving(false);
     }
   }, [getFilledRows, currentInvoice, savePurchaseInvoice, confirmPurchaseInvoice, invoiceData, supplier, toast, handlePrint, setSupplier]);
 
@@ -339,7 +365,6 @@ const PurchasePage = () => {
         });
 
         if (createdSupplier) {
-          // Auto-select the new supplier
           setSupplier((prev) => ({
             ...prev,
             supplier_id: createdSupplier.supplier_id,
@@ -438,7 +463,6 @@ const PurchasePage = () => {
   // ============================================
   const handleProductSelect = useCallback(
     async (rowIndex, product) => {
-      // Get existing batches for this medicine
       const existingBatches = await getExistingBatches(product.medicine_id);
 
       setRows((prev) => {
@@ -455,16 +479,13 @@ const PurchasePage = () => {
           pack: product.packSize || product.pack,
         };
 
-        // Auto-fill from most recent batch if exists
         if (existingBatches.length > 0) {
           const recentBatch = existingBatches[0];
           
-          // Only auto-fill if fields are empty
           if (!newRows[rowIndex].batch) newRows[rowIndex].batch = recentBatch.batch_number;
           if (!newRows[rowIndex].mrp) newRows[rowIndex].mrp = recentBatch.mrp?.toString() || "";
           if (!newRows[rowIndex].rack) newRows[rowIndex].rack = recentBatch.rack_no || "";
           
-          // Format expiry date
           if (!newRows[rowIndex].exp && recentBatch.expiry_date) {
             const expDate = new Date(recentBatch.expiry_date);
             const month = String(expDate.getMonth() + 1).padStart(2, "0");
@@ -480,7 +501,6 @@ const PurchasePage = () => {
     [getExistingBatches, setRows]
   );
 
-  // Supplier data for modal
   const newSupplierData = {
     supplierId: "NEW",
     name: newSupplierName,
@@ -494,11 +514,12 @@ const PurchasePage = () => {
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
-      {/* Loading Overlay */}
-      {isLoading && <LoadingOverlay message="Processing..." />}
-
-      {/* Header */}
-      <div className="shrink-0">
+      
+      {/* Header - Loads first */}
+      <div className={`
+        shrink-0 transition-all duration-300 ease-out
+        ${!loadingStates.header ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
+      `}>
         <PurchaseHeader
           onSave={handleSave}
           onSavePrint={handleSavePrint}
@@ -506,11 +527,17 @@ const PurchasePage = () => {
           onExportExcel={onExportExcel}
           invoiceNumber={currentInvoice?.invoice_number}
           invoiceStatus={currentInvoice?.status}
+          isLoading={loadingStates.header}
+          isSaving={isSaving}
         />
       </div>
 
-      {/* Table with Fixed Viewport */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm">
+      {/* Table - Loads when medicines ready */}
+      <div className={`
+        flex-1 flex flex-col overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm
+        transition-all duration-300 ease-out delay-75
+        ${!loadingStates.table ? 'opacity-100 translate-y-0' : 'opacity-100'}
+      `}>
         <PurchaseTable
           rows={rows}
           setRows={setRows}
@@ -521,22 +548,36 @@ const PurchasePage = () => {
           rowHeight={rowHeight}
           onAddNewProduct={handleAddNewProduct}
           onProductSelect={handleProductSelect}
+          isLoading={loadingStates.table}
         />
       </div>
 
       {/* Footer: Supplier Details + Summary */}
       <div className="shrink-0 flex gap-2 h-[200px] 2xl:h-[220px]">
-        <div className="flex-1">
+        {/* Supplier Card - Loads when suppliers ready */}
+        <div className={`
+          flex-1 transition-all duration-300 ease-out delay-150
+          ${!loadingStates.supplier ? 'opacity-100 translate-y-0' : 'opacity-100'}
+        `}>
           <SupplierDetailsCard
             supplier={supplier}
             setSupplier={setSupplier}
             suppliersList={suppliersList}
             onSupplierSelect={selectSupplier}
             onAddNewSupplier={handleAddNewSupplier}
+            isLoading={loadingStates.supplier}
           />
         </div>
-        <div className="w-80 2xl:w-72">
-          <PurchaseSummaryCard summary={summary} />
+        
+        {/* Summary Card - Loads with table */}
+        <div className={`
+          w-80 2xl:w-72 transition-all duration-300 ease-out delay-100
+          ${!loadingStates.summary ? 'opacity-100 translate-y-0' : 'opacity-100'}
+        `}>
+          <PurchaseSummaryCard 
+            summary={summary} 
+            isLoading={loadingStates.summary}
+          />
         </div>
       </div>
 
