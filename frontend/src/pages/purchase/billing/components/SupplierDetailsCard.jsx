@@ -19,6 +19,22 @@ import {
 } from "lucide-react";
 
 // ============================================
+// SKELETON COMPONENTS
+// ============================================
+const SkeletonInput = ({ delay = 0 }) => (
+  <div className="relative h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center gap-2 px-3 overflow-hidden">
+    <div 
+      className="w-4 h-4 bg-slate-200 rounded animate-pulse" 
+      style={{ animationDelay: `${delay}ms` }}
+    />
+    <div 
+      className="flex-1 h-3 bg-slate-200 rounded animate-pulse" 
+      style={{ animationDelay: `${delay + 50}ms` }}
+    />
+  </div>
+);
+
+// ============================================
 // ANIMATED INPUT COMPONENT
 // ============================================
 const AnimatedInput = ({ 
@@ -465,29 +481,24 @@ const SupplierDetailsCard = ({
   setSupplier, 
   suppliersList = [], 
   onSupplierSelect,
-  onAddNewSupplier
+  onAddNewSupplier,
+  isLoading = false
 }) => {
   const updateField = (field, value) => {
     setSupplier(prev => ({ ...prev, [field]: value }));
   };
 
-  // Format date to YYYY-MM-DD for input
   const formatDateForInput = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     return date.toISOString().split('T')[0];
   };
 
-  // ✅ Handle supplier selection with proper UUID validation
   const handleSupplierSelect = (selectedSupplier) => {
     if (selectedSupplier) {
-      console.log("✅ Supplier selected:", selectedSupplier);
-      console.log("Supplier ID:", selectedSupplier.supplier_id);
-      console.log("Supplier ID type:", typeof selectedSupplier.supplier_id);
-
       setSupplier(prev => ({
         ...prev,
-        supplier_id: selectedSupplier.supplier_id, // ✅ Should be UUID string
+        supplier_id: selectedSupplier.supplier_id,
         supplierName: selectedSupplier.name,
         supplierGST: selectedSupplier.gstNumber || selectedSupplier.gst || "",
         supplierPhone: selectedSupplier.officePhone || selectedSupplier.personalPhone || "",
@@ -498,6 +509,46 @@ const SupplierDetailsCard = ({
     }
   };
 
+  // ============================================
+  // SKELETON LOADING STATE
+  // ============================================
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full h-full flex flex-col overflow-hidden">
+        {/* Header Skeleton */}
+        <div className="bg-gradient-to-r from-gray-100 to-gray-50 px-4 py-2.5 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-slate-200 animate-pulse" />
+            <div className="flex-1 space-y-1.5">
+              <div className="w-28 h-4 bg-slate-200 rounded animate-pulse" />
+              <div className="w-40 h-2.5 bg-slate-200 rounded animate-pulse" style={{ animationDelay: '50ms' }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Body Skeleton */}
+        <div className="p-4 flex flex-col gap-4 flex-1">
+          {/* Row 1 */}
+          <div className="grid grid-cols-5 gap-3">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <SkeletonInput key={`row1-${i}`} delay={i * 50} />
+            ))}
+          </div>
+
+          {/* Row 2 */}
+          <div className="grid grid-cols-5 gap-3">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <SkeletonInput key={`row2-${i}`} delay={(i + 5) * 50} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================
+  // NORMAL RENDER
+  // ============================================
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full h-full flex flex-col overflow-visible">
       
@@ -511,7 +562,12 @@ const SupplierDetailsCard = ({
             <h3 className="text-xs font-bold text-gray-800">Supplier Details</h3>
             <p className="text-[9px] text-gray-500">Invoice & Payment Information</p>
           </div>
-          {/* ✅ Show supplier count */}
+          {suppliersList.length > 0 && (
+            <div className="flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded text-[9px] text-green-700 font-medium">
+              <CheckCircle2 size={10} />
+              {suppliersList.length} suppliers
+            </div>
+          )}
           {suppliersList.length === 0 && (
             <div className="flex items-center gap-1 px-2 py-1 bg-red-100 border border-red-200 rounded text-[9px] text-red-700 font-medium">
               <AlertCircle size={10} />
@@ -526,8 +582,6 @@ const SupplierDetailsCard = ({
         
         {/* Row 1 */}
         <div className="grid grid-cols-5 gap-3">
-          
-          {/* Purchase ID */}
           <div className="relative">
             <AnimatedInput
               label="Purchase ID"
@@ -544,7 +598,6 @@ const SupplierDetailsCard = ({
             )}
           </div>
           
-          {/* Supplier Dropdown */}
           <SearchableSelect
             label="Supplier Name *"
             value={supplier.supplierName}
@@ -558,7 +611,6 @@ const SupplierDetailsCard = ({
             required
           />
           
-          {/* Supplier Invoice Number */}
           <AnimatedInput
             label="Supplier Invoice No"
             value={supplier.invoiceNo}
@@ -567,14 +619,12 @@ const SupplierDetailsCard = ({
             icon={FileText}
           />
           
-          {/* Invoice Date */}
           <DateInput
             label="Invoice Date"
             value={formatDateForInput(supplier.invoiceDate)}
             onChange={(e) => updateField("invoiceDate", e.target.value)}
           />
           
-          {/* Received Date */}
           <DateInput
             label="Received On"
             value={formatDateForInput(supplier.receivedOn)}
@@ -584,8 +634,6 @@ const SupplierDetailsCard = ({
 
         {/* Row 2 */}
         <div className="grid grid-cols-5 gap-3">
-          
-          {/* Supplier GST */}
           <AnimatedInput
             label="Supplier GST"
             value={supplier.supplierGST}
@@ -596,7 +644,6 @@ const SupplierDetailsCard = ({
             success={supplier.supplierGST?.length === 15}
           />
           
-          {/* Supplier Phone */}
           <AnimatedInput
             label="Phone Number"
             value={supplier.supplierPhone}
@@ -605,7 +652,6 @@ const SupplierDetailsCard = ({
             icon={Phone}
           />
           
-          {/* Credit Days */}
           <AnimatedInput
             label="Credit Days"
             value={supplier.creditDays}
@@ -616,7 +662,6 @@ const SupplierDetailsCard = ({
             suffix="days"
           />
           
-          {/* Amount Paid */}
           <AnimatedInput
             label="Amount Paid"
             value={supplier.amountPaid}
@@ -628,7 +673,6 @@ const SupplierDetailsCard = ({
             inputClassName="font-semibold text-green-700"
           />
 
-          {/* Address */}
           <AnimatedInput
             label="Supplier Address"
             value={supplier.address}

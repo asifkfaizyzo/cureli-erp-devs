@@ -2,14 +2,148 @@
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import InventoryRowFixed from "./InventoryRowFixed";
 import InventoryPagination from "../../../components/common/Pagination";
-import { ChevronUp, ChevronDown, Package } from "lucide-react";
+import { ChevronUp, ChevronDown, Package, Loader2 } from "lucide-react";
 import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
+
+// Skeleton Row Component
+const SkeletonRow = ({ rowHeight, isEven, index }) => (
+  <tr 
+    style={{ height: `${rowHeight}px` }}
+    className={`${isEven ? 'bg-white' : 'bg-slate-50/50'}`}
+  >
+    {/* Row number */}
+    <td className="border-b border-r border-slate-200 p-1">
+      <div className="flex justify-center">
+        <div 
+          className="w-5 h-5 bg-slate-200 rounded animate-pulse"
+          style={{ animationDelay: `${index * 30}ms` }}
+        />
+      </div>
+    </td>
+    {/* Item name - wider */}
+    <td className="border-b border-r border-slate-200 p-1.5">
+      <div className="space-y-1">
+        <div 
+          className="h-3.5 bg-slate-200 rounded animate-pulse w-[85%]"
+          style={{ animationDelay: `${index * 30 + 50}ms` }}
+        />
+        <div 
+          className="h-2.5 bg-slate-100 rounded animate-pulse w-[60%]"
+          style={{ animationDelay: `${index * 30 + 80}ms` }}
+        />
+      </div>
+    </td>
+    {/* Category */}
+    <td className="border-b border-r border-slate-200 p-1">
+      <div 
+        className="h-3 bg-slate-200 rounded animate-pulse w-[70%]"
+        style={{ animationDelay: `${index * 30 + 100}ms` }}
+      />
+    </td>
+    {/* Manufacturer */}
+    <td className="border-b border-r border-slate-200 p-1">
+      <div 
+        className="h-3 bg-slate-200 rounded animate-pulse w-[75%]"
+        style={{ animationDelay: `${index * 30 + 120}ms` }}
+      />
+    </td>
+    {/* Batch */}
+    <td className="border-b border-r border-slate-200 p-1">
+      <div className="flex justify-center">
+        <div 
+          className="h-3 bg-slate-200 rounded animate-pulse w-16"
+          style={{ animationDelay: `${index * 30 + 140}ms` }}
+        />
+      </div>
+    </td>
+    {/* Expiry */}
+    <td className="border-b border-r border-slate-200 p-1">
+      <div className="flex justify-center">
+        <div 
+          className="h-3 bg-slate-200 rounded animate-pulse w-14"
+          style={{ animationDelay: `${index * 30 + 160}ms` }}
+        />
+      </div>
+    </td>
+    {/* Supplier */}
+    <td className="border-b border-r border-slate-200 p-1">
+      <div 
+        className="h-3 bg-slate-200 rounded animate-pulse w-[80%]"
+        style={{ animationDelay: `${index * 30 + 180}ms` }}
+      />
+    </td>
+    {/* Qty */}
+    <td className="border-b border-r border-slate-200 p-1">
+      <div className="flex justify-center">
+        <div 
+          className="h-3 bg-slate-200 rounded animate-pulse w-10"
+          style={{ animationDelay: `${index * 30 + 200}ms` }}
+        />
+      </div>
+    </td>
+    {/* MRP */}
+    <td className="border-b border-r border-slate-200 p-1">
+      <div className="flex justify-end pr-1">
+        <div 
+          className="h-3 bg-slate-200 rounded animate-pulse w-14"
+          style={{ animationDelay: `${index * 30 + 220}ms` }}
+        />
+      </div>
+    </td>
+    {/* Rack */}
+    <td className="border-b border-r border-slate-200 p-1">
+      <div className="flex justify-center">
+        <div 
+          className="h-3 bg-slate-200 rounded animate-pulse w-8"
+          style={{ animationDelay: `${index * 30 + 240}ms` }}
+        />
+      </div>
+    </td>
+    {/* Status */}
+    <td className="border-b border-r border-slate-200 p-1">
+      <div className="flex justify-center">
+        <div 
+          className="h-5 bg-slate-200 rounded-full animate-pulse w-16"
+          style={{ animationDelay: `${index * 30 + 260}ms` }}
+        />
+      </div>
+    </td>
+    {/* Actions */}
+    <td className="border-b border-slate-200 p-1">
+      <div className="flex justify-center gap-1">
+        <div 
+          className="h-6 w-6 bg-slate-200 rounded animate-pulse"
+          style={{ animationDelay: `${index * 30 + 280}ms` }}
+        />
+        <div 
+          className="h-6 w-6 bg-slate-200 rounded animate-pulse"
+          style={{ animationDelay: `${index * 30 + 300}ms` }}
+        />
+      </div>
+    </td>
+  </tr>
+);
+
+// Skeleton Header Stats
+const SkeletonHeaderStats = () => (
+  <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1 flex items-center justify-between">
+    <div className="flex items-center gap-3">
+      <div className="w-20 h-4 bg-slate-200 rounded animate-pulse" />
+      <div className="w-16 h-4 bg-slate-200 rounded animate-pulse" style={{ animationDelay: '50ms' }} />
+    </div>
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-4 bg-slate-200 rounded animate-pulse" style={{ animationDelay: '100ms' }} />
+    </div>
+  </div>
+);
 
 const InventoryTable = ({ 
   items = [],
   onView,
   onEdit,
   onDelete,
+  isLoading = false,
+  isSearching = false,
 }) => {
   const tableContainerRef = useRef(null);
   const tableBodyRef = useRef(null);
@@ -120,70 +254,85 @@ const InventoryTable = ({
   return (
     <div className="h-full w-full flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden" ref={tableContainerRef}>
       {/* Table Header Stats */}
-      <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <Package size={12} className="text-indigo-500" />
-            <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">Total:</span>
-            <span className="text-[10px] font-bold text-indigo-600">{totalItems}</span>
-          </div>
-
-          {lowStockItems > 0 && (
-            <>
-              <div className="h-3 w-px bg-slate-300" />
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 rounded border border-yellow-300 text-[8px]">
-                <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
-                <span className="text-yellow-700 font-medium">{lowStockItems} low stock</span>
-              </div>
-            </>
-          )}
-
-          {outOfStockItems > 0 && (
-            <>
-              <div className="h-3 w-px bg-slate-300" />
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 rounded border border-red-300 text-[8px]">
-                <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
-                <span className="text-red-700 font-medium">{outOfStockItems} out of stock</span>
-              </div>
-            </>
-          )}
-          
-          {totalPages > 1 && (
-            <>
-              <div className="h-3 w-px bg-slate-300" />
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white rounded border border-slate-200 text-[8px]">
-                <span className="text-slate-500">Page</span>
-                <span className="font-bold text-slate-700">
-                  {currentPage}/{totalPages}
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-1">
-          {hasOverflow && (
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={scrollToTop}
-                disabled={!scrollInfo.canScrollUp}
-                className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Scroll to top"
-              >
-                <ChevronUp size={10} />
-              </button>
-              <button
-                onClick={scrollToBottom}
-                disabled={!scrollInfo.canScrollDown}
-                className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Scroll to bottom"
-              >
-                <ChevronDown size={10} />
-              </button>
+      {isLoading ? (
+        <SkeletonHeaderStats />
+      ) : (
+        <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <Package size={12} className="text-indigo-500" />
+              <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">Total:</span>
+              <span className="text-[10px] font-bold text-indigo-600">{totalItems}</span>
             </div>
-          )}
+
+            {/* Searching indicator */}
+            {isSearching && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 rounded border border-indigo-200">
+                  <Loader2 size={10} className="animate-spin text-indigo-500" />
+                  <span className="text-[8px] text-indigo-600 font-medium">Searching...</span>
+                </div>
+              </>
+            )}
+
+            {!isSearching && lowStockItems > 0 && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 rounded border border-yellow-300 text-[8px]">
+                  <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
+                  <span className="text-yellow-700 font-medium">{lowStockItems} low stock</span>
+                </div>
+              </>
+            )}
+
+            {!isSearching && outOfStockItems > 0 && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 rounded border border-red-300 text-[8px]">
+                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                  <span className="text-red-700 font-medium">{outOfStockItems} out of stock</span>
+                </div>
+              </>
+            )}
+            
+            {totalPages > 1 && !isSearching && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white rounded border border-slate-200 text-[8px]">
+                  <span className="text-slate-500">Page</span>
+                  <span className="font-bold text-slate-700">
+                    {currentPage}/{totalPages}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-1">
+            {hasOverflow && !isSearching && (
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={scrollToTop}
+                  disabled={!scrollInfo.canScrollUp}
+                  className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Scroll to top"
+                >
+                  <ChevronUp size={10} />
+                </button>
+                <button
+                  onClick={scrollToBottom}
+                  disabled={!scrollInfo.canScrollDown}
+                  className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Scroll to bottom"
+                >
+                  <ChevronDown size={10} />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Table Container */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -261,44 +410,56 @@ const InventoryTable = ({
               <col style={{ width: columnWidths.actions }} />
             </colgroup>
             <tbody>
-              {paginatedItems.map((item, index) => (
-                <InventoryRowFixed
-                  key={item.id || index}
-                  ref={el => rowRefs.current[index] = el}
-                  index={index}
-                  item={item}
-                  rowNumber={startIndex + index + 1}
-                  isEven={index % 2 === 0}
-                  onView={onView}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  rowHeight={rowHeight}
-                />
-              ))}
+              {isLoading ? (
+                // Skeleton loading rows with staggered animation
+                Array.from({ length: visibleRows }).map((_, index) => (
+                  <SkeletonRow 
+                    key={`skeleton-${index}`} 
+                    rowHeight={rowHeight} 
+                    isEven={index % 2 === 0}
+                    index={index}
+                  />
+                ))
+              ) : (
+                paginatedItems.map((item, index) => (
+                  <InventoryRowFixed
+                    key={item.id || item.inventory_id || index}
+                    ref={el => rowRefs.current[index] = el}
+                    index={index}
+                    item={item}
+                    rowNumber={startIndex + index + 1}
+                    isEven={index % 2 === 0}
+                    onView={onView}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    rowHeight={rowHeight}
+                  />
+                ))
+              )}
             </tbody>
           </table>
           
-          {items.length === 0 && (
+          {!isLoading && items.length === 0 && (
             <div 
               className="flex flex-col items-center justify-center text-slate-400"
               style={{ height: `${viewportHeight}px` }}
             >
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-2">
-                <Package size={16} className="text-slate-400" />
+              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                <Package size={20} className="text-slate-400" />
               </div>
-              <p className="text-xs font-medium">No inventory items found</p>
-              <p className="text-[9px]">Try adjusting your filters</p>
+              <p className="text-sm font-medium text-slate-600">No inventory items found</p>
+              <p className="text-xs text-slate-400 mt-1">Try adjusting your search or filters</p>
             </div>
           )}
         </div>
 
-        {hasOverflow && (
+        {hasOverflow && !isLoading && (
           <div className="shrink-0 h-0.5 bg-slate-100 relative" />
         )}
       </div>
       
-      {/* Pagination as Footer */}
-      {totalPages > 0 && (
+      {/* Pagination as Footer - Only show when not loading */}
+      {!isLoading && totalPages > 0 && (
         <div className="shrink-0 border-t border-slate-200">
           <InventoryPagination
             currentPage={currentPage}

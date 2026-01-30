@@ -1,7 +1,44 @@
 // src/pages/purchase/billing/components/PurchaseSummaryCard.jsx
 import { Wallet } from "lucide-react";
 
-const PurchaseSummaryCard = ({ summary }) => {
+const PurchaseSummaryCard = ({ summary, isLoading = false }) => {
+  
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-0 w-64 2xl:w-72 flex flex-col overflow-hidden h-full">
+        {/* Header Skeleton */}
+        <div className="bg-gray-50 px-3 py-1.5 border-b border-gray-100 flex items-center gap-2">
+          <div className="w-3 h-3 bg-slate-200 rounded animate-pulse" />
+          <div className="w-24 h-4 bg-slate-200 rounded animate-pulse" />
+        </div>
+
+        {/* Body Skeleton */}
+        <div className="p-3 flex-1 flex flex-col justify-center gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex justify-between items-center">
+              <div 
+                className="w-16 h-3 bg-slate-200 rounded animate-pulse" 
+                style={{ animationDelay: `${i * 100}ms` }}
+              />
+              <div 
+                className="w-20 h-4 bg-slate-200 rounded animate-pulse"
+                style={{ animationDelay: `${i * 100 + 50}ms` }}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Footer Skeleton */}
+        <div className="bg-slate-100 px-3 py-2 mt-auto">
+          <div className="flex justify-between items-center">
+            <div className="w-20 h-4 bg-slate-200 rounded animate-pulse" />
+            <div className="w-24 h-6 bg-slate-300 rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-0 w-64 2xl:w-72 flex flex-col overflow-hidden h-full">
       
