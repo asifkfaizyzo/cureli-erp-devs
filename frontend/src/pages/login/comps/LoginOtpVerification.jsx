@@ -1,4 +1,4 @@
-// src/components/onboarding/LoginOtpVerification.jsx
+// src/pages/login/comps/LoginOtpVerification.jsx
 
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
@@ -10,19 +10,53 @@ import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 import { useAuthStore } from "../../../store/useAuthStore";
+import { useSetupStore } from "../../../store/useSetupStore";
 
 // Constants
-const RESEND_TIMER_SECONDS = 60; // Changed from 30 to 60
+const RESEND_TIMER_SECONDS = 60;
+
+/**
+ * Clear all stale data from previous sessions/users
+ * Called BEFORE setting new auth to prevent state conflicts
+ */
+const clearAllStaleData = () => {
+  // List of all app-specific localStorage keys
+  const keysToRemove = [
+    'cureli-auth-storage',
+    'cureli-setup-storage',
+    'menu-storage',
+    'access_token',
+    'user_id',
+    'shop_id',
+    'user_name',
+    'branch_name',
+    'shop_name',
+  ];
+  
+  keysToRemove.forEach(key => {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {
+      console.warn(`Failed to remove ${key}:`, e);
+    }
+  });
+  
+  // Clear sessionStorage completely
+  sessionStorage.clear();
+  
+  console.log('🧹 Cleared all stale data before new login');
+};
 
 const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) => {
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const resetSetup = useSetupStore((state) => state.resetSetup);
 
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [timer, setTimer] = useState(RESEND_TIMER_SECONDS); // Use constant
+  const [timer, setTimer] = useState(RESEND_TIMER_SECONDS);
   const [shake, setShake] = useState(false);
   const [success, setSuccess] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
@@ -175,6 +209,14 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
 
       setSuccess(true);
 
+      // ✅ CRITICAL: Clear ALL stale data before setting new auth
+      // This prevents conflicts when switching between users
+      clearAllStaleData();
+      
+      // Also reset the zustand setup store state (in memory)
+      resetSetup();
+
+      // Now set fresh auth data
       setAuth({
         access_token,
         user_id,
@@ -238,25 +280,20 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
 
       const { temp_token: newToken, phone_hint: newPhoneHint } = res.data.data;
 
-      // Update the token with the new one
       setCurrentTempToken(newToken);
       if (newPhoneHint) {
         setCurrentPhoneHint(newPhoneHint);
       }
 
-      // Notify parent component if callback provided
       if (onTokenUpdate) {
         onTokenUpdate(newToken, newPhoneHint);
       }
 
-      // Show success message
       setResendSuccess(true);
       setTimeout(() => setResendSuccess(false), 3000);
 
-      // Reset timer to 60 seconds
       setTimer(RESEND_TIMER_SECONDS);
 
-      // Focus first input
       setTimeout(() => {
         inputsRef.current[0]?.focus();
       }, 100);
@@ -268,25 +305,20 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
       const msg = err?.response?.data?.message || "Failed to resend OTP";
       const waitTime = err?.response?.data?.data?.waitTime;
 
-      // Handle specific error cases
       if (status === 401) {
-        // Token expired - user needs to login again
         setError("Session expired. Please login again.");
         setTimeout(() => {
           onBack?.();
         }, 2000);
       } else if (status === 429) {
-        // Rate limited - sync timer with backend's waitTime
         setError(msg);
         if (waitTime && waitTime > 0) {
           setTimer(waitTime);
         } else {
-          // Try to extract from message
           const waitMatch = msg.match(/(\d+)\s*seconds/);
           if (waitMatch) {
             setTimer(parseInt(waitMatch[1]));
           } else {
-            // Default fallback to 60 seconds
             setTimer(RESEND_TIMER_SECONDS);
           }
         }
@@ -314,7 +346,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
     return `${base} border-gray-300 focus:border-[#000060] focus:ring-2 focus:ring-[#000060]/20`;
   };
 
-  // Format timer display (handles times over 59 seconds)
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -326,7 +357,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
 
   return (
     <div className="w-full h-screen font-poppins relative">
-      {/* Back button */}
       <button
         type="button"
         onClick={onBack}
@@ -337,7 +367,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
         <span className="text-lg font-medium">Back</span>
       </button>
 
-      {/* Animated content */}
       <motion.div
         className="w-full h-full flex flex-col items-center justify-start pt-20"
         initial={{ opacity: 0 }}
@@ -359,7 +388,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
             <span className="font-medium">{currentPhoneHint || "+91 ******0000"}</span>
           </p>
 
-          {/* OTP Inputs */}
           <div
             className={`flex gap-4 mt-10 ${shake ? "animate-shake" : ""}`}
             onPaste={handlePaste}
@@ -386,7 +414,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
             )}
           </div>
 
-          {/* Messages area - fixed height to prevent layout shift */}
           <div className="h-12 mt-4 flex items-center justify-center">
             {error && (
               <motion.div
@@ -436,7 +463,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
             )}
           </button>
 
-          {/* Timer / Resend */}
           <div className="mt-4 text-sm text-gray-600">
             {timer > 0 ? (
               <p>
@@ -464,7 +490,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
             )}
           </div>
 
-          {/* Hint text */}
           {!success && (
             <p className="text-xs text-gray-400 text-center mt-3">
               Didn't receive it? Check your phone signal or try resending

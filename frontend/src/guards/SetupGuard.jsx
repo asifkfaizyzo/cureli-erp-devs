@@ -1,6 +1,6 @@
 // src/guards/SetupGuard.jsx
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import { useSetupStore } from "../store/useSetupStore";
@@ -8,16 +8,13 @@ import { getSetupStatus } from "../api/setup";
 
 /**
  * ============================================
- * SETUP GUARD
+ * SETUP GUARD - v3 with Smart Loop Detection
  * ============================================
  *
- * Ensures setup is complete before accessing ERP routes.
- *
- * CRITICAL RULES:
- * 1. Backend is SOURCE OF TRUTH for setup completion
- * 2. Syncs local store with backend to prevent loops
- * 3. Has loop prevention counter
- * 4. Allows setup routes to pass through
+ * PROBLEM SOLVED:
+ * - Old version counted ALL navigation as potential loops
+ * - New version only counts REDIRECTS (actual routing changes by the guard)
+ * - Normal navigation (user clicking links) is ignored
  */
 
 const SetupGuard = ({ children }) => {
@@ -30,93 +27,163 @@ const SetupGuard = ({ children }) => {
   const storeIsComplete = useSetupStore((state) => state.isSetupComplete);
 
   const [isChecking, setIsChecking] = useState(true);
-  const [isSetupComplete, setIsSetupComplete] = useState(false);
+  const [setupStatus, setSetupStatus] = useState(null); // null = unknown, true/false = known
   const [error, setError] = useState(null);
 
-  // Loop prevention
-  const checkCount = useRef(0);
-  const lastCheckTime = useRef(0);
+  // ============================================
+  // SMART LOOP DETECTION
+  // ============================================
+  // Only counts redirects issued BY THIS GUARD, not normal navigation
+  const redirectHistory = useRef([]); // Array of { from, to, timestamp }
+  const lastCheckedUserId = useRef(null);
+  
+  // Cache setup status to avoid repeated API calls
+  const setupCache = useRef({
+    status: null,
+    timestamp: 0,
+    userId: null,
+  });
+  
+  const CACHE_TTL = 60000; // 1 minute cache
 
-  useEffect(() => {
-    const checkSetup = async () => {
-      // Loop prevention: max 3 checks within 5 seconds
-      const now = Date.now();
-      if (now - lastCheckTime.current < 5000) {
-        checkCount.current += 1;
-        if (checkCount.current > 15) {
-          console.error("❌ SetupGuard: Too many checks, stopping to prevent loop");
-          setError(
-            "Navigation error detected. Please clear your browser cache and try again."
-          );
+  // Detect if we're in a redirect loop
+  const isRedirectLoop = useCallback(() => {
+    const now = Date.now();
+    const recentRedirects = redirectHistory.current.filter(
+      (r) => now - r.timestamp < 10000 // Last 10 seconds
+    );
+    
+    // If more than 4 redirects in 10 seconds, it's a loop
+    if (recentRedirects.length > 4) {
+      // Check if it's actually ping-ponging between same routes
+      const uniqueRoutes = new Set(recentRedirects.map(r => `${r.from}->${r.to}`));
+      // If we're repeating the same redirect pattern, it's definitely a loop
+      if (uniqueRoutes.size <= 2) {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
+  // Record a redirect
+  const recordRedirect = useCallback((from, to) => {
+    const now = Date.now();
+    redirectHistory.current.push({ from, to, timestamp: now });
+    
+    // Keep only last 10 redirects
+    if (redirectHistory.current.length > 10) {
+      redirectHistory.current = redirectHistory.current.slice(-10);
+    }
+    
+    console.log(`↪️ SetupGuard redirect: ${from} → ${to}`);
+  }, []);
+
+  // Main setup check function
+  const checkSetupStatus = useCallback(async () => {
+    if (!isAuthenticated || !user) {
+      setSetupStatus(false);
+      setIsChecking(false);
+      return;
+    }
+
+    const now = Date.now();
+
+    // Reset everything if user changed
+    if (lastCheckedUserId.current !== user.user_id) {
+      console.log("👤 User changed, resetting all caches");
+      setupCache.current = { status: null, timestamp: 0, userId: null };
+      redirectHistory.current = [];
+      lastCheckedUserId.current = user.user_id;
+    }
+
+    // Use cache if valid
+    if (
+      setupCache.current.userId === user.user_id &&
+      setupCache.current.status !== null &&
+      now - setupCache.current.timestamp < CACHE_TTL
+    ) {
+      console.log("📦 Using cached setup status:", setupCache.current.status);
+      setSetupStatus(setupCache.current.status);
+      setIsChecking(false);
+      return;
+    }
+
+    // Branch admin & staff always skip setup
+    if (user.role === "staff" || user.role === "branch_admin") {
+      setupCache.current = { status: true, timestamp: now, userId: user.user_id };
+      setSetupStatus(true);
+      setIsChecking(false);
+      return;
+    }
+
+    // Super admin → check backend
+    if (user.role === "super_admin") {
+      try {
+        const response = await getSetupStatus();
+        const { is_complete } = response.data?.data || {};
+
+        console.log("📋 SetupGuard: Backend says is_complete =", is_complete);
+
+        // Update cache
+        setupCache.current = { 
+          status: is_complete, 
+          timestamp: now, 
+          userId: user.user_id 
+        };
+
+        // Sync store
+        if (is_complete) {
+          completeSetup();
+        }
+
+        setSetupStatus(is_complete);
+      } catch (err) {
+        console.error("SetupGuard API error:", err);
+
+        // On 401, don't cache - might be token issue
+        if (err.response?.status === 401) {
+          setSetupStatus(false);
           setIsChecking(false);
           return;
         }
-      } else {
-        checkCount.current = 1;
-      }
-      lastCheckTime.current = now;
 
-      if (!isAuthenticated || !user) {
-        setIsChecking(false);
-        return;
-      }
-
-      const isAdmin = user.role === "super_admin" || user.role === "branch_admin";
-      const isUsersSetupRoute = location.pathname === "/setup/users";
-
-      // Admin override for /setup/users route (used from ERP)
-      if (isAdmin && isUsersSetupRoute) {
-        setIsSetupComplete(true);
-        setIsChecking(false);
-        return;
-      }
-
-      // Branch admin & staff skip setup check
-      if (user.role === "staff" || user.role === "branch_admin") {
-        setIsSetupComplete(true);
-        setIsChecking(false);
-        return;
-      }
-
-      // Super admin → check backend setup status
-      if (user.role === "super_admin") {
-        try {
-          const response = await getSetupStatus();
-          const { is_complete } = response.data?.data || {};
-
-          console.log("📋 SetupGuard: Backend setup status:", is_complete);
-
-          // Sync local store with backend
-          if (is_complete) {
-            completeSetup();
-          }
-
-          setIsSetupComplete(is_complete);
-        } catch (err) {
-          console.error("SetupGuard API error:", err);
-
-          // If API fails and store says complete, allow access
-          if (storeIsComplete && location.pathname === "/dashboard") {
-            console.log(
-              "⚠️ SetupGuard: API failed but store says complete, allowing access"
-            );
-            setIsSetupComplete(true);
-          } else {
-            setIsSetupComplete(false);
-          }
+        // On other errors, trust store if it says complete
+        if (storeIsComplete) {
+          console.log("⚠️ API failed, using store value: complete");
+          setupCache.current = { status: true, timestamp: now, userId: user.user_id };
+          setSetupStatus(true);
+        } else {
+          // Don't cache failures
+          setSetupStatus(false);
         }
       }
+    }
 
-      setIsChecking(false);
-    };
+    setIsChecking(false);
+  }, [isAuthenticated, user, completeSetup, storeIsComplete]);
 
-    checkSetup();
-  }, [isAuthenticated, user?.user_id, user?.role, location.pathname]);
+  // Run check on mount and when user/auth changes
+  useEffect(() => {
+    setIsChecking(true);
+    checkSetupStatus();
+  }, [user?.user_id, isAuthenticated, checkSetupStatus]);
 
-  // ==================================================
+  // ============================================
+  // ROUTE HANDLING
+  // ============================================
+  
+  const isSetupRoute = location.pathname.startsWith("/setup");
+  const isAdmin = user?.role === "super_admin" || user?.role === "branch_admin";
+  
+  // Admin accessing /setup/users should always work (from ERP settings)
+  if (isAdmin && location.pathname === "/setup/users") {
+    return children ? children : <Outlet />;
+  }
+
+  // ============================================
   // LOADING
-  // ==================================================
-  if (isChecking) {
+  // ============================================
+  if (isChecking || setupStatus === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4">
@@ -127,9 +194,9 @@ const SetupGuard = ({ children }) => {
     );
   }
 
-  // ==================================================
+  // ============================================
   // ERROR (Loop detected)
-  // ==================================================
+  // ============================================
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -156,6 +223,7 @@ const SetupGuard = ({ children }) => {
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => {
+                // Nuclear option: clear everything
                 localStorage.clear();
                 sessionStorage.clear();
                 window.location.href = "/login";
@@ -166,8 +234,12 @@ const SetupGuard = ({ children }) => {
             </button>
             <button
               onClick={() => {
-                checkCount.current = 0;
-                window.location.reload();
+                // Soft retry: just clear cache and error
+                setupCache.current = { status: null, timestamp: 0, userId: null };
+                redirectHistory.current = [];
+                setError(null);
+                setIsChecking(true);
+                checkSetupStatus();
               }}
               className="px-6 py-2 bg-[#000060] text-white rounded-lg hover:bg-[#000080] transition"
             >
@@ -179,22 +251,39 @@ const SetupGuard = ({ children }) => {
     );
   }
 
-  // ==================================================
-  // SETUP NOT COMPLETE → REDIRECT
-  // ==================================================
-  if (!isSetupComplete) {
-    // CRITICAL: Allow setup routes to pass through (prevent loop)
-    if (location.pathname.startsWith("/setup")) {
+  // ============================================
+  // SETUP NOT COMPLETE → Need to redirect
+  // ============================================
+  if (!setupStatus) {
+    // If already on setup route, just render (no redirect needed)
+    if (isSetupRoute) {
       return children ? children : <Outlet />;
     }
 
-    console.log("🚫 SetupGuard: Setup not complete, redirecting to /setup");
+    // Check for redirect loop BEFORE redirecting
+    if (isRedirectLoop()) {
+      console.error("❌ Redirect loop detected!");
+      setError(
+        "Navigation loop detected. This usually happens when there's conflicting data between browser storage and server. Please clear your data and try again."
+      );
+      // Return null to trigger re-render with error state
+      return null;
+    }
+
+    // Record this redirect
+    recordRedirect(location.pathname, "/setup");
+
+    console.log("🚫 SetupGuard: Redirecting to /setup");
     return <Navigate to="/setup" state={{ from: location.pathname }} replace />;
   }
 
-  // ==================================================
-  // SETUP COMPLETE → ALLOW
-  // ==================================================
+  // ============================================
+  // SETUP COMPLETE → Allow access
+  // ============================================
+  
+  // Clear redirect history on successful access (no loop)
+  redirectHistory.current = [];
+  
   return children ? children : <Outlet />;
 };
 
