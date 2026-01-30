@@ -1,8 +1,9 @@
 // backend/src/modules/inventory/inventory.service.js
+
 import prisma from "../../config/prisma.js";
 
 /* =====================================================
-   Custom Error (same pattern used implicitly in Purchase)
+   Custom Error
 ===================================================== */
 class ApiError extends Error {
   constructor(message, statusCode = 400, code = "INVENTORY_ERROR") {
@@ -10,6 +11,25 @@ class ApiError extends Error {
     this.statusCode = statusCode;
     this.code = code;
   }
+}
+
+/* =====================================================
+   HELPER: Build Branch Filter
+===================================================== */
+function buildBranchFilter(shopId, branchId, role, branchMode) {
+  const filter = { shop_id: shopId };
+
+  // Super Admin in GLOBAL mode: show all for shop
+  if (role === "super_admin" && branchMode === "GLOBAL") {
+    return filter;
+  }
+
+  // Super Admin in BRANCH mode OR branch_admin/staff: filter by branch
+  if (branchId) {
+    filter.branch_id = branchId;
+  }
+
+  return filter;
 }
 
 /* =====================================================
@@ -127,116 +147,125 @@ class InventoryService {
     });
   }
 
- /* ============================================
-   GET INVENTORY LIST
-============================================ */
-async getInventory(shopId, filters = {}) {
-  const {
-    branchId,
-    medicineId,
-    search,
-    includeExpired = false,
-    lowStock = false,
-    limit = 100,
-    offset = 0,
-  } = filters;
+  /* ============================================
+     GET INVENTORY LIST - ✅ BRANCH AWARE
+  ============================================ */
+  async getInventory(shopId, branchId, role, branchMode, filters = {}) {
+    const {
+      medicineId,
+      search,
+      includeExpired = false,
+      lowStock = false,
+      limit = 100,
+      offset = 0,
+    } = filters;
 
-  const where = {
-    shop_id: shopId,
-    ...(branchId && { branch_id: branchId }),
-    ...(medicineId && { medicine_id: medicineId }),
-    is_active: true,
-    ...(!includeExpired && { is_expired: false }),
-    ...(search && {
-      medicine: {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { manufacturer: { contains: search, mode: "insensitive" } },
-        ],
-      },
-    }),
-  };
+    // ✅ Build branch filter
+    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
-  const rawInventories = await prisma.inventory.findMany({
-    where,
-    include: {
-      medicine: {
-        select: {
-          name: true,
-          manufacturer: true,
-          pack_size: true,
-          hsn_code: true,
-          category: true,
+    console.log("📦 Inventory filter:", { baseFilter, branchMode, branchId, role });
+
+    const where = {
+      ...baseFilter,
+      ...(medicineId && { medicine_id: medicineId }),
+      is_active: true,
+      ...(!includeExpired && { is_expired: false }),
+      ...(search && {
+        medicine: {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { manufacturer: { contains: search, mode: "insensitive" } },
+          ],
         },
-      },
-      branch: {
-        select: {
-          branch_name: true,
+      }),
+    };
+
+    const rawInventories = await prisma.inventory.findMany({
+      where,
+      include: {
+        medicine: {
+          select: {
+            name: true,
+            manufacturer: true,
+            pack_size: true,
+            hsn_code: true,
+            category: true,
+            branch_id: true,  // ✅ Include medicine's branch for verification
+          },
         },
-      },
-      stockMovements: {
-        where: {
-          movement_type: "PURCHASE",
-          reference_type: "PURCHASE_INVOICE",
+        branch: {
+          select: {
+            branch_id: true,
+            branch_name: true,
+          },
         },
-        take: 1,
-        orderBy: {
-          transaction_date: 'desc',
-        },
-        include: {
-          purchaseInvoice: {
-            select: {
-              supplier: {
-                select: {
-                  name: true,
+        stockMovements: {
+          where: {
+            movement_type: "PURCHASE",
+            reference_type: "PURCHASE_INVOICE",
+          },
+          take: 1,
+          orderBy: {
+            transaction_date: 'desc',
+          },
+          include: {
+            purchaseInvoice: {
+              select: {
+                supplier: {
+                  select: {
+                    name: true,
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-    orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
-    take: limit,
-    skip: offset,
-  });
+      orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
+      take: limit,
+      skip: offset,
+    });
 
-  // ✅ FIXED: Properly map and add supplier_name
-  let inventories = rawInventories.map((inv) => {
-    const supplierName = inv.stockMovements?.[0]?.purchaseInvoice?.supplier?.name || null;
-    
-    // Remove stockMovements from response to keep it clean (optional)
-    const { stockMovements, ...rest } = inv;
-    
-    return {
-      ...rest,
-      supplier_name: supplierName,
-    };
-  });
+    // Map and add supplier_name
+    let inventories = rawInventories.map((inv) => {
+      const supplierName = inv.stockMovements?.[0]?.purchaseInvoice?.supplier?.name || null;
+      const { stockMovements, ...rest } = inv;
+      
+      return {
+        ...rest,
+        supplier_name: supplierName,
+      };
+    });
 
-  if (lowStock) {
-    inventories = inventories.filter(
-      (inv) =>
-        inv.minimum_stock !== null &&
-        Number(inv.current_stock) <= Number(inv.minimum_stock)
-    );
+    // Apply low stock filter in memory if needed
+    if (lowStock) {
+      inventories = inventories.filter(
+        (inv) =>
+          inv.minimum_stock !== null &&
+          Number(inv.current_stock) <= Number(inv.minimum_stock)
+      );
+    }
+
+    const total = await prisma.inventory.count({ where });
+
+    console.log(`📦 Found ${inventories.length} inventory items (total: ${total})`);
+
+    return { inventories, total };
   }
 
-  const total = await prisma.inventory.count({ where });
-
-  return { inventories, total };
-}
   /* ============================================
-     INVENTORY BY MEDICINE
+     INVENTORY BY MEDICINE - ✅ BRANCH AWARE
   ============================================ */
-  async getInventoryByMedicine(shopId, medicineId, filters = {}) {
-    const { branchId, includeExpired = false } = filters;
+  async getInventoryByMedicine(shopId, medicineId, branchId, role, branchMode, filters = {}) {
+    const { includeExpired = false } = filters;
+
+    // ✅ Build branch filter
+    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
     return prisma.inventory.findMany({
       where: {
-        shop_id: shopId,
+        ...baseFilter,
         medicine_id: medicineId,
-        ...(branchId && { branch_id: branchId }),
         is_active: true,
         ...(!includeExpired && { is_expired: false }),
       },
@@ -250,6 +279,7 @@ async getInventory(shopId, filters = {}) {
         },
         branch: {
           select: {
+            branch_id: true,
             branch_name: true,
           },
         },
@@ -259,13 +289,15 @@ async getInventory(shopId, filters = {}) {
   }
 
   /* ============================================
-     LOW STOCK ITEMS
+     LOW STOCK ITEMS - ✅ BRANCH AWARE
   ============================================ */
-  async getLowStockItems(shopId, branchId = null) {
+  async getLowStockItems(shopId, branchId, role, branchMode) {
+    // ✅ Build branch filter
+    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
     const inventories = await prisma.inventory.findMany({
       where: {
-        shop_id: shopId,
-        ...(branchId && { branch_id: branchId }),
+        ...baseFilter,
         is_active: true,
         is_expired: false,
         minimum_stock: { not: null },
@@ -275,7 +307,7 @@ async getInventory(shopId, filters = {}) {
           select: { name: true, manufacturer: true },
         },
         branch: {
-          select: { branch_name: true },
+          select: { branch_id: true, branch_name: true },
         },
       },
     });
@@ -286,16 +318,18 @@ async getInventory(shopId, filters = {}) {
   }
 
   /* ============================================
-     EXPIRING SOON
+     EXPIRING SOON - ✅ BRANCH AWARE
   ============================================ */
-  async getExpiringSoonItems(shopId, daysAhead = 90, branchId = null) {
+  async getExpiringSoonItems(shopId, daysAhead = 90, branchId, role, branchMode) {
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + daysAhead);
 
+    // ✅ Build branch filter
+    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
     return prisma.inventory.findMany({
       where: {
-        shop_id: shopId,
-        ...(branchId && { branch_id: branchId }),
+        ...baseFilter,
         is_active: true,
         is_expired: false,
         expiry_date: {
@@ -309,7 +343,7 @@ async getInventory(shopId, filters = {}) {
           select: { name: true, manufacturer: true },
         },
         branch: {
-          select: { branch_name: true },
+          select: { branch_id: true, branch_name: true },
         },
       },
       orderBy: { expiry_date: "asc" },
@@ -317,9 +351,9 @@ async getInventory(shopId, filters = {}) {
   }
 
   /* ============================================
-     STOCK LEDGER
+     STOCK LEDGER - ✅ BRANCH AWARE
   ============================================ */
-  async getStockLedger(shopId, filters = {}) {
+  async getStockLedger(shopId, branchId, role, branchMode, filters = {}) {
     const {
       medicineId,
       batchNumber,
@@ -330,8 +364,11 @@ async getInventory(shopId, filters = {}) {
       offset = 0,
     } = filters;
 
+    // ✅ Build branch filter
+    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
     const where = {
-      shop_id: shopId,
+      ...baseFilter,
       ...(medicineId && { medicine_id: medicineId }),
       ...(batchNumber && { batch_number: batchNumber }),
       ...(movementType && { movement_type: movementType }),
@@ -351,6 +388,9 @@ async getInventory(shopId, filters = {}) {
           medicine: {
             select: { name: true, manufacturer: true },
           },
+          branch: {
+            select: { branch_id: true, branch_name: true },
+          },
           creator: {
             select: { full_name: true },
           },
@@ -366,7 +406,7 @@ async getInventory(shopId, filters = {}) {
   }
 
   /* ============================================
-     STOCK ADJUSTMENT
+     STOCK ADJUSTMENT - Branch Required
   ============================================ */
   async createStockAdjustment(data, userId) {
     const {
@@ -381,6 +421,15 @@ async getInventory(shopId, filters = {}) {
       adjustmentDate,
     } = data;
 
+    // ✅ Validate branch is provided
+    if (!branchId) {
+      throw new ApiError(
+        "Branch selection is required for stock adjustments",
+        400,
+        "BRANCH_REQUIRED"
+      );
+    }
+
     return prisma.$transaction(async (tx) => {
       const inventory = await tx.inventory.findUnique({
         where: { inventory_id: inventoryId },
@@ -388,6 +437,15 @@ async getInventory(shopId, filters = {}) {
 
       if (!inventory) {
         throw new ApiError("Inventory not found", 404, "NOT_FOUND");
+      }
+
+      // ✅ Validate inventory belongs to the selected branch
+      if (inventory.branch_id !== branchId) {
+        throw new ApiError(
+          "This inventory item belongs to a different branch",
+          403,
+          "BRANCH_MISMATCH"
+        );
       }
 
       const oldQty = Number(inventory.current_stock);
@@ -437,12 +495,14 @@ async getInventory(shopId, filters = {}) {
   }
 
   /* ============================================
-     STOCK SUMMARY
+     STOCK SUMMARY - ✅ BRANCH AWARE
   ============================================ */
-  async getStockSummary(shopId, branchId = null) {
+  async getStockSummary(shopId, branchId, role, branchMode) {
+    // ✅ Build branch filter
+    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
     const baseWhere = {
-      shop_id: shopId,
-      ...(branchId && { branch_id: branchId }),
+      ...baseFilter,
       is_active: true,
     };
 

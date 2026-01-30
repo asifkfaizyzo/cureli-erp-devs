@@ -1,12 +1,13 @@
 // src/pages/inventory/components/InventoryTable.jsx
+
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import InventoryRowFixed from "./InventoryRowFixed";
 import InventoryPagination from "../../../components/common/Pagination";
-import { ChevronUp, ChevronDown, Package, Loader2 } from "lucide-react";
+import { ChevronUp, ChevronDown, Package, Loader2, Layers, Building2 } from "lucide-react";
 import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 
-// Skeleton Row Component
-const SkeletonRow = ({ rowHeight, isEven, index }) => (
+// Skeleton Row Component - Updated for branch column
+const SkeletonRow = ({ rowHeight, isEven, index, showBranchColumn }) => (
   <tr 
     style={{ height: `${rowHeight}px` }}
     className={`${isEven ? 'bg-white' : 'bg-slate-50/50'}`}
@@ -65,6 +66,17 @@ const SkeletonRow = ({ rowHeight, isEven, index }) => (
         />
       </div>
     </td>
+    {/* Branch - Conditional */}
+    {showBranchColumn && (
+      <td className="border-b border-r border-slate-200 p-1">
+        <div className="flex justify-center">
+          <div 
+            className="h-5 bg-slate-200 rounded-full animate-pulse w-20"
+            style={{ animationDelay: `${index * 30 + 170}ms` }}
+          />
+        </div>
+      </td>
+    )}
     {/* Supplier */}
     <td className="border-b border-r border-slate-200 p-1">
       <div 
@@ -142,8 +154,11 @@ const InventoryTable = ({
   onView,
   onEdit,
   onDelete,
+  onAdjust,
   isLoading = false,
   isSearching = false,
+  showBranchColumn = false,
+  canAdjustStock = true,
 }) => {
   const tableContainerRef = useRef(null);
   const tableBodyRef = useRef(null);
@@ -163,8 +178,22 @@ const InventoryTable = ({
   const rowHeight = 36;
   const viewportHeight = visibleRows * rowHeight;
 
-  // Define column widths - MUST match between header and body
-  const columnWidths = {
+  // Define column widths - Adjust based on whether branch column is shown
+  const columnWidths = showBranchColumn ? {
+    rowNum: '3%',
+    itemName: '14%',
+    category: '8%',
+    manufacturer: '9%',
+    batch: '7%',
+    expiry: '6%',
+    branch: '8%',
+    supplier: '10%',
+    qty: '5%',
+    mrp: '6%',
+    rack: '4%',
+    status: '7%',
+    actions: '7%',
+  } : {
     rowNum: '3%',
     itemName: '18%',
     category: '10%',
@@ -188,6 +217,11 @@ const InventoryTable = ({
       setCurrentPage(totalPages);
     }
   }, [totalItems, currentPage, totalPages]);
+
+  // Reset to page 1 when items change significantly (e.g., branch switch)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [showBranchColumn]);
 
   const startIndex = (currentPage - 1) * visibleRows;
   const paginatedItems = items.slice(startIndex, startIndex + visibleRows);
@@ -249,7 +283,13 @@ const InventoryTable = ({
 
   const lowStockItems = items.filter(item => item.status === "Low Stock").length;
   const outOfStockItems = items.filter(item => item.status === "Out of Stock").length;
+  const expiredItems = items.filter(item => item.status === "Expired").length;
   const hasOverflow = paginatedItems.length > visibleRows;
+
+  // Get unique branches for global mode indicator
+  const uniqueBranches = showBranchColumn 
+    ? [...new Set(items.map(item => item.branch || item.branch_name).filter(Boolean).filter(b => b !== "-"))]
+    : [];
 
   return (
     <div className="h-full w-full flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden" ref={tableContainerRef}>
@@ -276,6 +316,17 @@ const InventoryTable = ({
               </>
             )}
 
+            {/* Global mode indicator */}
+            {!isSearching && showBranchColumn && uniqueBranches.length > 0 && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded border border-blue-200 text-[8px]">
+                  <Layers size={10} className="text-blue-500" />
+                  <span className="text-blue-700 font-medium">{uniqueBranches.length} branches</span>
+                </div>
+              </>
+            )}
+
             {!isSearching && lowStockItems > 0 && (
               <>
                 <div className="h-3 w-px bg-slate-300" />
@@ -295,6 +346,16 @@ const InventoryTable = ({
                 </div>
               </>
             )}
+
+            {!isSearching && expiredItems > 0 && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 rounded border border-gray-300 text-[8px]">
+                  <div className="w-1.5 h-1.5 bg-gray-500 rounded-full"></div>
+                  <span className="text-gray-700 font-medium">{expiredItems} expired</span>
+                </div>
+              </>
+            )}
             
             {totalPages > 1 && !isSearching && (
               <>
@@ -310,6 +371,13 @@ const InventoryTable = ({
           </div>
           
           <div className="flex items-center gap-1">
+            {/* Adjustment mode indicator */}
+            {!canAdjustStock && !isSearching && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded border border-amber-200 text-[8px] mr-2">
+                <span className="text-amber-700 font-medium">Read-only mode</span>
+              </div>
+            )}
+            
             {hasOverflow && !isSearching && (
               <div className="flex items-center gap-0.5">
                 <button
@@ -350,6 +418,7 @@ const InventoryTable = ({
               <col style={{ width: columnWidths.manufacturer }} />
               <col style={{ width: columnWidths.batch }} />
               <col style={{ width: columnWidths.expiry }} />
+              {showBranchColumn && <col style={{ width: columnWidths.branch }} />}
               <col style={{ width: columnWidths.supplier }} />
               <col style={{ width: columnWidths.qty }} />
               <col style={{ width: columnWidths.mrp }} />
@@ -363,6 +432,9 @@ const InventoryTable = ({
                 <th className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-slate-800/20"></th>
                 <th colSpan="3" className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-blue-900/30">Product Details</th>
                 <th colSpan="2" className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-cyan-900/30">Batch Info</th>
+                {showBranchColumn && (
+                  <th className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-indigo-900/30">Location</th>
+                )}
                 <th className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-purple-900/30">Supplier</th>
                 <th colSpan="3" className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-emerald-900/30">Stock Details</th>
                 <th className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-orange-900/30">Status</th>
@@ -377,6 +449,14 @@ const InventoryTable = ({
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">Manufacturer</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Batch</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Expiry</th>
+                {showBranchColumn && (
+                  <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
+                    <div className="flex items-center justify-center gap-1">
+                      <Building2 size={9} />
+                      <span>Branch</span>
+                    </div>
+                  </th>
+                )}
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">Supplier</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Qty</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-right pr-1 border-r border-slate-600/30">MRP</th>
@@ -402,6 +482,7 @@ const InventoryTable = ({
               <col style={{ width: columnWidths.manufacturer }} />
               <col style={{ width: columnWidths.batch }} />
               <col style={{ width: columnWidths.expiry }} />
+              {showBranchColumn && <col style={{ width: columnWidths.branch }} />}
               <col style={{ width: columnWidths.supplier }} />
               <col style={{ width: columnWidths.qty }} />
               <col style={{ width: columnWidths.mrp }} />
@@ -418,6 +499,7 @@ const InventoryTable = ({
                     rowHeight={rowHeight} 
                     isEven={index % 2 === 0}
                     index={index}
+                    showBranchColumn={showBranchColumn}
                   />
                 ))
               ) : (
@@ -432,7 +514,10 @@ const InventoryTable = ({
                     onView={onView}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    onAdjust={onAdjust}
                     rowHeight={rowHeight}
+                    showBranchColumn={showBranchColumn}
+                    canAdjustStock={canAdjustStock}
                   />
                 ))
               )}
@@ -448,7 +533,11 @@ const InventoryTable = ({
                 <Package size={20} className="text-slate-400" />
               </div>
               <p className="text-sm font-medium text-slate-600">No inventory items found</p>
-              <p className="text-xs text-slate-400 mt-1">Try adjusting your search or filters</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {showBranchColumn 
+                  ? "No items found across all branches" 
+                  : "Try adjusting your search or filters"}
+              </p>
             </div>
           )}
         </div>

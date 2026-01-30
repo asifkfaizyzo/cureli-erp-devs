@@ -1,8 +1,28 @@
 // backend/src/modules/purchase/purchase.service.js
+
 import prisma from "../../config/prisma.js";
-// ✅ CORRECT - This is for default export
 import inventoryService from "../inventory/inventory.service.js";
 import * as audit from "../audit/index.js";
+
+// ============================================
+// HELPER: Build Branch Filter
+// ============================================
+
+function buildBranchFilter(shopId, branchId, role, branchMode) {
+  const filter = { shop_id: shopId };
+
+  // Super Admin in GLOBAL mode: show all invoices for shop
+  if (role === "super_admin" && branchMode === "GLOBAL") {
+    return filter;
+  }
+
+  // Super Admin in BRANCH mode OR branch_admin/staff: filter by branch
+  if (branchId) {
+    filter.branch_id = branchId;
+  }
+
+  return filter;
+}
 
 // ============================================
 // CREATE PURCHASE INVOICE
@@ -10,6 +30,13 @@ import * as audit from "../audit/index.js";
 
 export async function createPurchaseInvoice(userId, shopId, branchId, data, auditContext) {
   const { supplier_id, invoice_date, lineItems, ...invoiceData } = data;
+
+  // ✅ NEW: Validate branch_id is required for purchase creation
+  if (!branchId) {
+    const err = new Error("Branch selection is required to create purchase invoices. Please select a specific branch.");
+    err.code = "BRANCH_REQUIRED";
+    throw err;
+  }
 
   // Validate user
   const user = await prisma.user.findUnique({
@@ -34,14 +61,41 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
     throw err;
   }
 
-  // Validate medicines
+  // ✅ UPDATED: Validate medicines belong to shop AND branch
   const medicineIds = lineItems.map((item) => item.medicine_id);
   const medicines = await prisma.medicine.findMany({
-    where: { medicine_id: { in: medicineIds }, shop_id: shopId, is_active: true },
+    where: { 
+      medicine_id: { in: medicineIds }, 
+      shop_id: shopId, 
+      branch_id: branchId,  // ✅ NEW: Must be same branch
+      is_active: true 
+    },
   });
 
   if (medicines.length !== medicineIds.length) {
-    const err = new Error("Some medicines are invalid or don't belong to this shop");
+    // Find which medicines are missing/invalid
+    const foundIds = medicines.map(m => m.medicine_id);
+    const missingIds = medicineIds.filter(id => !foundIds.includes(id));
+    
+    // Check if they exist in other branches
+    const otherBranchMeds = await prisma.medicine.findMany({
+      where: {
+        medicine_id: { in: missingIds },
+        shop_id: shopId,
+        is_active: true,
+      },
+      select: { medicine_id: true, name: true, branch_id: true },
+    });
+
+    if (otherBranchMeds.length > 0) {
+      const err = new Error(
+        `Some medicines belong to a different branch. Cannot use medicines from other branches in this purchase.`
+      );
+      err.code = "BRANCH_MISMATCH";
+      throw err;
+    }
+
+    const err = new Error("Some medicines are invalid or don't belong to this shop/branch");
     err.code = "INVALID_MEDICINE";
     throw err;
   }
@@ -50,12 +104,13 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
   const calculations = calculateInvoiceTotals(lineItems);
 
   const result = await prisma.$transaction(async (tx) => {
-    // Header
+    // Header - ✅ UPDATED: Explicitly set branch_id
     const invoice = await tx.purchaseInvoice.create({
       data: {
         ...invoiceData,
         invoice_number: invoiceNumber,
         shop_id: shopId,
+        branch_id: branchId,  // ✅ Explicit branch assignment
         supplier_id,
         invoice_date: new Date(invoice_date),
         created_by: userId,
@@ -165,6 +220,13 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
     throw err;
   }
 
+  // ✅ NEW: Validate branch access for non-super-admin
+  if (user.role !== "super_admin" && invoice.branch_id !== branchId) {
+    const err = new Error("You don't have access to confirm this invoice");
+    err.code = "BRANCH_ACCESS_DENIED";
+    throw err;
+  }
+
   if (invoice.status === "CONFIRMED") {
     const err = new Error("Invoice already confirmed");
     err.code = "ALREADY_CONFIRMED";
@@ -176,6 +238,9 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
     err.code = "INVOICE_CANCELLED";
     throw err;
   }
+
+  // Use invoice's branch_id for all operations (not the user's current branch)
+  const invoiceBranchId = invoice.branch_id;
 
   const result = await prisma.$transaction(async (tx) => {
     // Update invoice status
@@ -190,10 +255,10 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
 
     // Process each line item - update inventory
     for (const item of invoice.lineItems) {
-      // Get or create inventory entry
+      // Get or create inventory entry - ✅ Use invoice's branch_id
       const inventory = await inventoryService.getOrCreateInventory(
         shopId,
-        invoice.branch_id,
+        invoiceBranchId,  // ✅ Use invoice's branch
         item.medicine_id,
         item.batch_number,
         item.expiry_date,
@@ -203,12 +268,12 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
       // Calculate total quantity (purchased + free)
       const totalQuantity = Number(item.quantity) + Number(item.free_quantity || 0);
 
-      // Update stock
+      // Update stock - ✅ Use invoice's branch_id
       await inventoryService.updateStock(
         {
           inventoryId: inventory.inventory_id,
           shopId: shopId,
-          branchId: invoice.branch_id,
+          branchId: invoiceBranchId,  // ✅ Use invoice's branch
           medicineId: item.medicine_id,
           batchNumber: item.batch_number,
           movementType: "PURCHASE",
@@ -253,7 +318,7 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
     entity_type: audit.EntityType.PURCHASE_INVOICE,
     entity_id: invoiceId,
     shop_id: shopId,
-    branch_id: branchId,
+    branch_id: invoiceBranchId,  // ✅ Use invoice's branch for audit
     actor_type: audit.ActorType.ERP_USER,
     actor_id: userId,
     actor_role: user.role,
@@ -271,25 +336,26 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
 }
 
 // ============================================
-// GET PURCHASE INVOICES
+// GET PURCHASE INVOICES - ✅ UPDATED: Branch Context Aware
 // ============================================
 
-export async function getPurchaseInvoices(shopId, filters = {}) {
+export async function getPurchaseInvoices(shopId, branchId, role, branchMode, filters = {}) {
   const {
     startDate,
     endDate,
     supplierId,
-    branchId,
     status,
     paymentStatus,
     limit = 50,
     offset = 0,
   } = filters;
 
+  // ✅ NEW: Build branch filter based on context
+  const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
   const where = {
-    shop_id: shopId,
+    ...baseFilter,
     ...(supplierId && { supplier_id: supplierId }),
-    ...(branchId && { branch_id: branchId }),
     ...(status && { status }),
     ...(paymentStatus && { payment_status: paymentStatus }),
     ...(startDate &&
@@ -313,6 +379,7 @@ export async function getPurchaseInvoices(shopId, filters = {}) {
         },
         branch: {
           select: {
+            branch_id: true,
             branch_name: true,
           },
         },
@@ -338,16 +405,23 @@ export async function getPurchaseInvoices(shopId, filters = {}) {
 }
 
 // ============================================
-// GET INVOICE DETAILS
+// GET INVOICE DETAILS - ✅ UPDATED: Branch Access Check
 // ============================================
 
-export async function getInvoiceDetails(invoiceId, shopId) {
+export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branchMode) {
+  // Build branch filter
+  const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
   const invoice = await prisma.purchaseInvoice.findFirst({
-    where: { invoice_id: invoiceId, shop_id: shopId },
+    where: { 
+      invoice_id: invoiceId, 
+      ...baseFilter,
+    },
     include: {
       supplier: true,
       branch: {
         select: {
+          branch_id: true,
           branch_name: true,
         },
       },
@@ -385,7 +459,7 @@ export async function getInvoiceDetails(invoiceId, shopId) {
   });
 
   if (!invoice) {
-    const err = new Error("Invoice not found");
+    const err = new Error("Invoice not found or you don't have access");
     err.code = "NOT_FOUND";
     throw err;
   }
@@ -394,10 +468,10 @@ export async function getInvoiceDetails(invoiceId, shopId) {
 }
 
 // ============================================
-// UPDATE PURCHASE INVOICE (DRAFT ONLY)
+// UPDATE PURCHASE INVOICE (DRAFT ONLY) - ✅ UPDATED
 // ============================================
 
-export async function updatePurchaseInvoice(userId, shopId, branchId, invoiceId, data, auditContext) {
+export async function updatePurchaseInvoice(userId, shopId, branchId, role, branchMode, invoiceId, data, auditContext) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -409,12 +483,18 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, invoiceId,
     throw err;
   }
 
+  // ✅ NEW: Build branch filter for access check
+  const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
   const invoice = await prisma.purchaseInvoice.findFirst({
-    where: { invoice_id: invoiceId, shop_id: shopId },
+    where: { 
+      invoice_id: invoiceId, 
+      ...baseFilter,
+    },
   });
 
   if (!invoice) {
-    const err = new Error("Invoice not found");
+    const err = new Error("Invoice not found or you don't have access");
     err.code = "NOT_FOUND";
     throw err;
   }
@@ -426,6 +506,25 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, invoiceId,
   }
 
   const { lineItems, ...invoiceData } = data;
+
+  // ✅ NEW: If updating line items, validate medicines belong to invoice's branch
+  if (lineItems && lineItems.length > 0) {
+    const medicineIds = lineItems.map((item) => item.medicine_id);
+    const medicines = await prisma.medicine.findMany({
+      where: { 
+        medicine_id: { in: medicineIds }, 
+        shop_id: shopId, 
+        branch_id: invoice.branch_id,  // Must match invoice's branch
+        is_active: true 
+      },
+    });
+
+    if (medicines.length !== medicineIds.length) {
+      const err = new Error("Some medicines are invalid or belong to a different branch");
+      err.code = "INVALID_MEDICINE";
+      throw err;
+    }
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     let updatedInvoice = await tx.purchaseInvoice.update({
@@ -493,7 +592,7 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, invoiceId,
     entity_type: audit.EntityType.PURCHASE_INVOICE,
     entity_id: invoiceId,
     shop_id: shopId,
-    branch_id: branchId,
+    branch_id: invoice.branch_id,  // Use invoice's branch
     actor_type: audit.ActorType.ERP_USER,
     actor_id: userId,
     actor_role: user.role,
@@ -509,10 +608,10 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, invoiceId,
 }
 
 // ============================================
-// CANCEL PURCHASE INVOICE
+// CANCEL PURCHASE INVOICE - ✅ UPDATED
 // ============================================
 
-export async function cancelPurchaseInvoice(userId, shopId, branchId, invoiceId, reason, auditContext) {
+export async function cancelPurchaseInvoice(userId, shopId, branchId, role, branchMode, invoiceId, reason, auditContext) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -524,13 +623,19 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, invoiceId,
     throw err;
   }
 
+  // ✅ NEW: Build branch filter for access check
+  const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
   const invoice = await prisma.purchaseInvoice.findFirst({
-    where: { invoice_id: invoiceId, shop_id: shopId },
+    where: { 
+      invoice_id: invoiceId, 
+      ...baseFilter,
+    },
     include: { lineItems: true, supplier: true },
   });
 
   if (!invoice) {
-    const err = new Error("Invoice not found");
+    const err = new Error("Invoice not found or you don't have access");
     err.code = "NOT_FOUND";
     throw err;
   }
@@ -560,7 +665,7 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, invoiceId,
     entity_type: audit.EntityType.PURCHASE_INVOICE,
     entity_id: invoiceId,
     shop_id: shopId,
-    branch_id: branchId,
+    branch_id: invoice.branch_id,  // Use invoice's branch
     actor_type: audit.ActorType.ERP_USER,
     actor_id: userId,
     actor_role: user.role,
@@ -577,16 +682,18 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, invoiceId,
 }
 
 // ============================================
-// GET PURCHASE STATISTICS
+// GET PURCHASE STATISTICS - ✅ UPDATED
 // ============================================
 
-export async function getPurchaseStats(shopId, filters = {}) {
-  const { startDate, endDate, branchId } = filters;
+export async function getPurchaseStats(shopId, branchId, role, branchMode, filters = {}) {
+  const { startDate, endDate } = filters;
+
+  // ✅ NEW: Build branch filter
+  const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const where = {
-    shop_id: shopId,
+    ...baseFilter,
     status: "CONFIRMED",
-    ...(branchId && { branch_id: branchId }),
     ...(startDate &&
       endDate && {
         invoice_date: {
@@ -619,7 +726,7 @@ export async function getPurchaseStats(shopId, filters = {}) {
 }
 
 // ============================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS (unchanged)
 // ============================================
 
 function calculateLineItemForDB(item) {

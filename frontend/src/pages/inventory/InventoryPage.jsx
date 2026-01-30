@@ -1,13 +1,25 @@
 // src/pages/inventory/InventoryPage.jsx
+
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useToast } from "../../components/common/Toast";
 import { useInventory } from "../../hooks/useInventory";
+import { useAuthStore, selectBranchContext, selectIsSuperAdmin } from "../../store/useAuthStore";
 import InventoryFilters from "./components/InventoryFilters";
 import InventoryTable from "./components/InventoryTable";
 import ViewInventoryModal from "./components/ViewInventoryModal";
 import StockAdjustmentModal from "./components/StockAdjustmentModal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
-import { AlertCircle, RefreshCw, Package, TrendingDown, AlertTriangle, Clock } from "lucide-react";
+import { 
+  AlertCircle, 
+  RefreshCw, 
+  Package, 
+  TrendingDown, 
+  AlertTriangle, 
+  Clock,
+  Layers,
+  Building2,
+  Info
+} from "lucide-react";
 
 // Skeleton Summary Card
 const SkeletonSummaryCard = ({ delay = 0 }) => (
@@ -48,8 +60,49 @@ const SummaryCard = ({ icon: Icon, label, value, color, suffix }) => {
   );
 };
 
+// Branch Context Banner Component
+const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
+  if (isGlobalMode) {
+    return (
+      <div className="shrink-0 px-4 py-2.5 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200">
+        <div className="flex items-center gap-2 text-sm text-blue-700">
+          <Layers size={16} className="text-blue-500" />
+          <span>Viewing inventory from <strong>All Branches</strong></span>
+          <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">
+            Combined View
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-blue-600">
+          <Info size={12} />
+          <span>Stock adjustments require selecting a specific branch</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="shrink-0 px-4 py-2.5 flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-200">
+      <div className="flex items-center gap-2 text-sm text-green-700">
+        <Building2 size={16} className="text-green-500" />
+        <span>Viewing inventory for <strong>{branchName || "Selected Branch"}</strong></span>
+        {itemCount > 0 && (
+          <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">
+            {itemCount} items
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const InventoryPage = () => {
   const toast = useToast();
+
+  // ✅ Branch context from store
+  const branchContext = useAuthStore(selectBranchContext);
+  const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
+  const isGlobalMode = branchContext.mode === "GLOBAL";
+  const canAdjustStock = branchContext.mode === "BRANCH" && !!branchContext.branch_id;
 
   // API integration
   const {
@@ -60,6 +113,9 @@ const InventoryPage = () => {
     fetchInventory,
     createAdjustment,
     refresh,
+    currentBranchMode,
+    currentBranchId,
+    currentBranchName,
   } = useInventory();
 
   // Track if this is the initial load
@@ -144,6 +200,8 @@ const InventoryPage = () => {
           item.hsn,               // HSN code
           item.rack,              // Rack location
           item.rack_no,           // Rack location (alternate)
+          item.branch,            // Branch name
+          item.branch_name,       // Branch name (alternate)
         ];
         
         // Check if any field contains the search term
@@ -225,6 +283,15 @@ const InventoryPage = () => {
   };
 
   const handleStockAdjustment = (row) => {
+    // ✅ Check if adjustment is allowed (must be in BRANCH mode)
+    if (!canAdjustStock) {
+      toast.warning(
+        "Branch Required",
+        "Please select a specific branch to make stock adjustments"
+      );
+      return;
+    }
+    
     setSelectedItem(row);
     setAdjustmentModal(true);
   };
@@ -238,7 +305,7 @@ const InventoryPage = () => {
   const handleAdjustmentSubmit = async (adjustmentData) => {
     const result = await createAdjustment({
       shopId: selectedItem.shop_id,
-      branchId: selectedItem.branch_id,
+      branchId: selectedItem.branch_id || currentBranchId,
       medicineId: selectedItem.medicine_id,
       inventoryId: selectedItem.inventory_id,
       batchNumber: selectedItem.batch_number || selectedItem.batch,
@@ -261,16 +328,28 @@ const InventoryPage = () => {
   const uniqueSuppliers = useMemo(() => {
     const suppliers = items
       .map(item => item.supplier)
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter(s => s !== "-");
     return [...new Set(suppliers)].sort();
   }, [items]);
 
   const uniqueCategories = useMemo(() => {
     const categories = items
       .map(item => item.category)
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter(c => c !== "-");
     return [...new Set(categories)].sort();
   }, [items]);
+
+  // ✅ Get unique branches for display (only in global mode)
+  const uniqueBranches = useMemo(() => {
+    if (!isGlobalMode) return [];
+    const branches = items
+      .map(item => item.branch || item.branch_name)
+      .filter(Boolean)
+      .filter(b => b !== "-");
+    return [...new Set(branches)].sort();
+  }, [items, isGlobalMode]);
 
   // Determine loading states
   const isTableLoading = loading && !isInitialLoad;
@@ -297,6 +376,15 @@ const InventoryPage = () => {
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden font-poppins">
+      {/* ✅ BRANCH CONTEXT BANNER - Only for Super Admin */}
+      {isSuperAdmin && (
+        <BranchContextBanner 
+          isGlobalMode={isGlobalMode}
+          branchName={currentBranchName}
+          itemCount={items.length}
+        />
+      )}
+
       {/* SUMMARY CARDS */}
       <div className="shrink-0 p-4 pb-0">
         <div className="grid grid-cols-5 gap-3">
@@ -313,7 +401,7 @@ const InventoryPage = () => {
               <SummaryCard
                 icon={Package}
                 label="Total Items"
-                value={summary?.totalItems || 0}
+                value={summary?.totalItems || filteredData.length || 0}
                 color="blue"
               />
               <SummaryCard
@@ -357,14 +445,25 @@ const InventoryPage = () => {
               categories={uniqueCategories}
             />
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing || loading}
-            className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors text-sm font-medium disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={refreshing || loading ? "animate-spin" : ""} />
-            Refresh
-          </button>
+          
+          <div className="flex items-center gap-2">
+            {/* ✅ Show branch count in global mode */}
+            {isGlobalMode && uniqueBranches.length > 1 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium">
+                <Layers size={12} />
+                <span>{uniqueBranches.length} branches</span>
+              </div>
+            )}
+            
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+              className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors text-sm font-medium disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={refreshing || loading ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
 
@@ -378,6 +477,8 @@ const InventoryPage = () => {
           onAdjust={handleStockAdjustment}
           isLoading={isInitialLoad && loading}
           isSearching={isTableLoading}
+          showBranchColumn={isGlobalMode}  // ✅ NEW: Show branch column in global mode
+          canAdjustStock={canAdjustStock}  // ✅ NEW: Pass adjustment permission
         />
       </div>
 
@@ -390,6 +491,7 @@ const InventoryPage = () => {
         onSave={handleSave}
         onDelete={handleDelete}
         onAdjust={handleStockAdjustment}
+        canAdjustStock={canAdjustStock}
       />
 
       {/* STOCK ADJUSTMENT MODAL */}
