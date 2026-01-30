@@ -1,6 +1,7 @@
 // backend/src/cron/jobs.js
 
 import cron from "node-cron";
+import prisma from "../config/prisma.js";  // ✅ Add this import
 import { transitionDeprecatedPlans } from "../modules/cadmin/plans/cadminPlans.service.js";
 import { cleanupExpiredSessions } from "../utils/session.js";
 import {
@@ -9,14 +10,17 @@ import {
   cleanupOldDeletionLogs,
 } from "../utils/cleanup.js";
 
-// NEW IMPORTS
+// Subscription imports
 import {
   transitionExpiredToGrace,
   suspendExpiredGrace,
   transitionPendingToOverdue,
   getSubscriptionsDueForReminders,
-  sendSubscriptionReminders ,
+  sendSubscriptionReminders,
 } from "../modules/subscription/subscription.service.js";
+
+// ✅ ADD: Inventory imports
+import inventoryService from "../modules/inventory/inventory.service.js";
 
 import { notifyAsync, NOTIFICATION_EVENTS } from "../modules/notifications/index.js";
 
@@ -214,20 +218,74 @@ function initializeReminderJob() {
 }
 
 // ============================================
+// ✅ NEW: CRON 4: INVENTORY EXPIRY CHECKS - Daily at 6:00 AM
+// ============================================
+
+function initializeInventoryExpiryJob() {
+  cron.schedule("0 6 * * *", async () => {
+    console.log("[CRON] Starting inventory expiry checks...");
+
+    try {
+      // Get all active shops
+      const shops = await prisma.shop.findMany({
+        where: { is_active: true },
+        select: { shop_id: true, business_name: true },
+      });
+
+      let totalExpired = 0;
+      let totalNearExpiry = 0;
+
+      for (const shop of shops) {
+        try {
+          // 1. Mark expired items and send alerts
+          const expiredResult = await inventoryService.markExpiredItems(shop.shop_id);
+          totalExpired += expiredResult.count || 0;
+          
+          if (expiredResult.count > 0) {
+            console.log(`       - ${shop.business_name}: ${expiredResult.count} items expired`);
+          }
+
+          // 2. Send near-expiry alerts (30 days ahead)
+          const nearExpiryResult = await inventoryService.sendNearExpiryAlerts(shop.shop_id, 30);
+          totalNearExpiry += nearExpiryResult.sent || 0;
+          
+          if (nearExpiryResult.sent > 0) {
+            console.log(`       - ${shop.business_name}: ${nearExpiryResult.sent} near-expiry alerts sent`);
+          }
+        } catch (shopErr) {
+          console.error(`       - ${shop.business_name} failed:`, shopErr.message);
+        }
+      }
+
+      console.log(`[CRON] Inventory expiry checks complete`);
+      console.log(`       Expired: ${totalExpired} | Near-expiry alerts: ${totalNearExpiry}`);
+    } catch (err) {
+      console.error("[CRON] Inventory expiry job failed:", err);
+    }
+  });
+
+  console.log("[CRON] Inventory expiry job scheduled (daily at 6:00 AM)");
+}
+
+// ============================================
 // INITIALIZE ALL CRON JOBS
 // ============================================
 
 export function initializeCronJobs() {
   console.log("Initializing cron jobs...");
 
+  // Session cleanup (every hour)
   setInterval(runSessionCleanup, 60 * 60 * 1000);
   runSessionCleanup();
 
+  // Scheduled jobs
   initializePlanTransitionJob();
-  initializeSubscriptionLifecycleJob();     // Now sends emails!
+  initializeSubscriptionLifecycleJob();
   initializePaymentStatusSyncJob();
-  initializeReminderJob();                  // Now sends 7-day, 3-day, final warning!
+  initializeReminderJob();
+  initializeInventoryExpiryJob();  // ✅ NEW: Inventory expiry checks
 
+  // Cleanup jobs
   cron.schedule("0 3 * * *", async () => {
     console.log("🧹 [CRON] Running pending users cleanup...");
     try {
@@ -263,6 +321,7 @@ export function initializeCronJobs() {
   console.log("   - Plan transition: Daily at 2:00 AM");
   console.log("   - Subscription lifecycle + emails: Every hour");
   console.log("   - Payment status sync: Daily at 1:00 AM");
+  console.log("   - Inventory expiry checks + alerts: Daily at 6:00 AM");  // ✅ NEW
   console.log("   - Reminder emails (7d/3d/final): Daily at 9:00 AM");
   console.log("   - Pending users cleanup: Daily at 3:00 AM");
   console.log("   - Incomplete users cleanup: Daily at 3:15 AM");
