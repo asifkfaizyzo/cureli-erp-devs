@@ -7,7 +7,8 @@ import {
   verifyPaymentSignature,
 } from "../../config/razorpay.js";
 import * as audit from "../audit/index.js";
-
+import { notify } from "../notifications/index.js"; // ✅ ADD THIS
+import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 const GRACE_PERIOD_DAYS = 7;
 
 function createError(message, code) {
@@ -19,9 +20,9 @@ function createError(message, code) {
 function calculateSubscriptionDates(plan) {
   const now = new Date();
   const start_date = new Date(now);
-  
+
   let referenceDate = new Date(now);
-  
+
   if (plan.promo_free_until) {
     const promoDate = new Date(plan.promo_free_until);
     if (promoDate > now) {
@@ -32,50 +33,53 @@ function calculateSubscriptionDates(plan) {
   const billingCycleMonths = plan.billing_cycle_months || 12;
   const bonusMonths = plan.bonus_months || 0;
   const totalMonths = billingCycleMonths + bonusMonths;
-  
+
   const end_date = new Date(referenceDate);
   end_date.setMonth(end_date.getMonth() + totalMonths);
 
   const renewal_date = new Date(end_date);
 
-  return { 
-    start_date, 
-    end_date, 
-    renewal_date, 
-    grace_period_until: null
+  return {
+    start_date,
+    end_date,
+    renewal_date,
+    grace_period_until: null,
   };
 }
 
 function isPlanEffectivelyFree(plan) {
   const isPriceZero = Number(plan.price) === 0;
-  const isPromoActive = plan.promo_free_until && new Date(plan.promo_free_until) > new Date();
+  const isPromoActive =
+    plan.promo_free_until && new Date(plan.promo_free_until) > new Date();
   return isPriceZero || isPromoActive;
 }
 
 async function applyGracePeriodGuard(subscription) {
   if (!subscription) return subscription;
-  
+
   const now = new Date();
   const endDate = new Date(subscription.end_date);
-  
+
   const isExpired = endDate < now;
-  const isActive = subscription.is_active && subscription.status === 'active';
+  const isActive = subscription.is_active && subscription.status === "active";
   const hasNoGrace = !subscription.grace_period_until;
-  
+
   if (isExpired && isActive && hasNoGrace) {
     const gracePeriodUntil = new Date(endDate);
     gracePeriodUntil.setDate(gracePeriodUntil.getDate() + GRACE_PERIOD_DAYS);
-    
+
     const updated = await prisma.shopSubscription.update({
       where: { subscription_id: subscription.subscription_id },
       data: { grace_period_until: gracePeriodUntil },
     });
-    
-    console.log(`[GRACE GUARD] Healed subscription ${subscription.subscription_id}: grace_period_until set to ${gracePeriodUntil.toISOString()}`);
-    
+
+    console.log(
+      `[GRACE GUARD] Healed subscription ${subscription.subscription_id}: grace_period_until set to ${gracePeriodUntil.toISOString()}`,
+    );
+
     return { ...subscription, grace_period_until: gracePeriodUntil };
   }
-  
+
   return subscription;
 }
 
@@ -93,10 +97,7 @@ export async function getVisiblePlans() {
       type: "PRE_MADE",
       deleted_at: null,
     },
-    orderBy: [
-      { price: "asc" }, 
-      { name: "asc" }
-    ],
+    orderBy: [{ price: "asc" }, { name: "asc" }],
     select: {
       plan_id: true,
       name: true,
@@ -114,19 +115,23 @@ export async function getVisiblePlans() {
   });
 
   const now = new Date();
-  
-  return plans.map(plan => ({
+
+  return plans.map((plan) => ({
     plan_id: plan.plan_id,
     name: plan.name,
     description: plan.description,
     price: Number(plan.price),
-    compare_at_price: plan.compare_at_price ? Number(plan.compare_at_price) : null,
+    compare_at_price: plan.compare_at_price
+      ? Number(plan.compare_at_price)
+      : null,
     max_users: plan.max_users,
     max_branches: plan.max_branches,
     billing_cycle_months: plan.billing_cycle_months || 12,
     bonus_months: plan.bonus_months || 0,
     promo_free_until: plan.promo_free_until,
-    is_promo_active: plan.promo_free_until ? new Date(plan.promo_free_until) > now : false,
+    is_promo_active: plan.promo_free_until
+      ? new Date(plan.promo_free_until) > now
+      : false,
     is_featured: plan.is_featured,
     is_customizable: plan.is_customizable,
   }));
@@ -168,7 +173,12 @@ export async function getActivePlan(plan_id) {
   return plan;
 }
 
-export async function createFreeSubscription({ shop_id, plan, isPromoApplied = false, auditContext }) {
+export async function createFreeSubscription({
+  shop_id,
+  plan,
+  isPromoApplied = false,
+  auditContext,
+}) {
   const dates = calculateSubscriptionDates(plan);
 
   const subscription = await prisma.shopSubscription.create({
@@ -178,7 +188,7 @@ export async function createFreeSubscription({ shop_id, plan, isPromoApplied = f
       status: "active",
       payment_status: "paid",
       billing_cycle: "yearly",
-      
+
       start_date: dates.start_date,
       end_date: dates.end_date,
       renewal_date: dates.renewal_date,
@@ -231,6 +241,16 @@ export async function createFreeSubscription({ shop_id, plan, isPromoApplied = f
       end_date: subscription.end_date,
     },
   });
+  notify({
+    type: NOTIFICATION_EVENTS.SUBSCRIPTION_ACTIVATED,
+    context: {
+      shop_id,
+      plan_name: plan.name,
+      end_date: subscription.end_date,
+    },
+  }).catch((err) =>
+    console.error("[Notification] SUBSCRIPTION_ACTIVATED failed:", err),
+  );
 
   return subscription;
 }
@@ -245,7 +265,7 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
       status: "pending",
       payment_status: "pending",
       billing_cycle: "yearly",
-      
+
       start_date: dates.start_date,
       end_date: dates.end_date,
       renewal_date: dates.renewal_date,
@@ -313,11 +333,14 @@ export async function verifyAndActivateSubscription({
   const isValid = verifyPaymentSignature(
     razorpay_order_id,
     razorpay_payment_id,
-    razorpay_signature
+    razorpay_signature,
   );
 
   if (!isValid) {
-    throw createError("Payment verification failed - invalid signature", "INVALID_SIGNATURE");
+    throw createError(
+      "Payment verification failed - invalid signature",
+      "INVALID_SIGNATURE",
+    );
   }
 
   const transaction = await prisma.paymentTransaction.findUnique({
@@ -378,22 +401,36 @@ export async function verifyAndActivateSubscription({
     });
 
     // Audit: Subscription activated
-    await audit.log({
-      action: audit.AuditAction.SUBSCRIPTION_ACTIVATED,
-      entity_type: audit.EntityType.SUBSCRIPTION,
-      entity_id: subscription_id,
-      shop_id: transaction.shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.USER_REQUEST,
-      metadata: {
-        plan_id: activatedSubscription.plan.plan_id,
+    await audit.log(
+      {
+        action: audit.AuditAction.SUBSCRIPTION_ACTIVATED,
+        entity_type: audit.EntityType.SUBSCRIPTION,
+        entity_id: subscription_id,
+        shop_id: transaction.shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.USER_REQUEST,
+        metadata: {
+          plan_id: activatedSubscription.plan.plan_id,
+          plan_name: activatedSubscription.plan.name,
+          payment_id: razorpay_payment_id,
+          amount: Number(transaction.amount),
+          start_date: activatedSubscription.start_date,
+          end_date: activatedSubscription.end_date,
+        },
+      },
+      { tx },
+    );
+
+    notify({
+      type: NOTIFICATION_EVENTS.SUBSCRIPTION_ACTIVATED,
+      context: {
+        shop_id: transaction.shop_id,
         plan_name: activatedSubscription.plan.name,
-        payment_id: razorpay_payment_id,
-        amount: Number(transaction.amount),
-        start_date: activatedSubscription.start_date,
         end_date: activatedSubscription.end_date,
       },
-    }, { tx });
+    }).catch((err) =>
+      console.error("[Notification] SUBSCRIPTION_ACTIVATED failed:", err),
+    );
 
     return activatedSubscription;
   });
@@ -409,7 +446,7 @@ export async function getSubscriptionStatus(shop_id) {
       shop_id,
       is_active: true,
     },
-    include: { 
+    include: {
       plan: {
         select: {
           plan_id: true,
@@ -430,10 +467,10 @@ export async function getSubscriptionStatus(shop_id) {
   const now = new Date();
   const endDate = new Date(subscription.end_date);
   const isExpired = endDate < now;
-  
+
   const daysRemaining = calculateDaysRemaining(subscription.end_date);
-  
-  const isInGracePeriod = subscription.grace_period_until 
+
+  const isInGracePeriod = subscription.grace_period_until
     ? new Date(subscription.grace_period_until) >= now && isExpired
     : false;
 
@@ -467,7 +504,7 @@ export async function getSubscriptionHistory(shop_id) {
 
   const subscriptions = await prisma.shopSubscription.findMany({
     where: { shop_id },
-    include: { 
+    include: {
       plan: {
         select: {
           plan_id: true,
@@ -479,7 +516,7 @@ export async function getSubscriptionHistory(shop_id) {
     orderBy: { created_at: "desc" },
   });
 
-  return subscriptions.map(sub => ({
+  return subscriptions.map((sub) => ({
     ...sub,
     plan: {
       ...sub.plan,
@@ -488,7 +525,10 @@ export async function getSubscriptionHistory(shop_id) {
   }));
 }
 
-export async function cancelPendingSubscriptionService(subscription_id, shop_id) {
+export async function cancelPendingSubscriptionService(
+  subscription_id,
+  shop_id,
+) {
   const subscription = await prisma.shopSubscription.findFirst({
     where: {
       subscription_id,
@@ -521,7 +561,6 @@ export async function cancelPendingSubscriptionService(subscription_id, shop_id)
 
   return { success: true };
 }
-
 
 export async function analyzePlanChangeService(shop_id, target_plan_id) {
   const shop = await prisma.shop.findUnique({
@@ -587,12 +626,14 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
   const isDowngrade = userDecrease || branchDecrease;
 
   if (isDowngrade) {
-    const excessUsers = targetPlan.max_users !== -1
-      ? Math.max(0, activeUsers - targetPlan.max_users)
-      : 0;
-    const excessBranches = targetPlan.max_branches !== -1
-      ? Math.max(0, activeBranches - targetPlan.max_branches)
-      : 0;
+    const excessUsers =
+      targetPlan.max_users !== -1
+        ? Math.max(0, activeUsers - targetPlan.max_users)
+        : 0;
+    const excessBranches =
+      targetPlan.max_branches !== -1
+        ? Math.max(0, activeBranches - targetPlan.max_branches)
+        : 0;
 
     return {
       direction: "downgrade",
@@ -601,8 +642,16 @@ export async function analyzePlanChangeService(shop_id, target_plan_id) {
       targetPlan: formatPlanForResponse(targetPlan),
       usage: { activeUsers, activeBranches },
       compliance: {
-        users: { current: activeUsers, allowed: targetPlan.max_users, excess: excessUsers },
-        branches: { current: activeBranches, allowed: targetPlan.max_branches, excess: excessBranches },
+        users: {
+          current: activeUsers,
+          allowed: targetPlan.max_users,
+          excess: excessUsers,
+        },
+        branches: {
+          current: activeBranches,
+          allowed: targetPlan.max_branches,
+          excess: excessBranches,
+        },
       },
     };
   }
@@ -729,7 +778,7 @@ export async function changePlanService({
       targetPlan,
       shop.currentSubscription,
       user,
-      auditContext
+      auditContext,
     );
   }
 
@@ -744,7 +793,7 @@ export async function changePlanService({
     users_to_disable,
     branches_to_deactivate,
     user_reassignments,
-    auditContext
+    auditContext,
   );
 }
 
@@ -818,6 +867,15 @@ async function executeUpgrade(shop_id, targetPlan, user, auditContext) {
     },
   });
 
+  notify({
+    type: NOTIFICATION_EVENTS.PLAN_UPGRADED,
+    context: {
+      shop_id,
+      old_plan_name: currentPlan?.name || "Previous Plan", // You can get current plan name if needed
+      new_plan_name: targetPlan.name,
+    },
+  }).catch((err) => console.error("[Notification] PLAN_UPGRADED failed:", err));
+
   return {
     requires_payment: true,
     subscription_id: subscription.subscription_id,
@@ -838,16 +896,22 @@ async function executeUpgrade(shop_id, targetPlan, user, auditContext) {
   };
 }
 
-async function executeRenewal(shop_id, targetPlan, currentSubscription, user, auditContext) {
+async function executeRenewal(
+  shop_id,
+  targetPlan,
+  currentSubscription,
+  user,
+  auditContext,
+) {
   const now = new Date();
-  
+
   const currentEndDate = new Date(currentSubscription.end_date);
   const referenceDate = currentEndDate > now ? currentEndDate : now;
-  
+
   const billingCycleMonths = targetPlan.billing_cycle_months || 12;
   const bonusMonths = targetPlan.bonus_months || 0;
   const totalMonths = billingCycleMonths + bonusMonths;
-  
+
   const start_date = new Date(referenceDate);
   const end_date = new Date(referenceDate);
   end_date.setMonth(end_date.getMonth() + totalMonths);
@@ -949,7 +1013,7 @@ async function executeDowngrade(
   users_to_disable,
   branches_to_deactivate,
   user_reassignments = [],
-  auditContext
+  auditContext,
 ) {
   const now = new Date();
 
@@ -966,7 +1030,10 @@ async function executeDowngrade(
   const remainingBranches = activeBranches - branches_to_deactivate.length;
 
   if (remainingBranches < 1) {
-    throw createError("Must keep at least one active branch", "MUST_KEEP_ONE_BRANCH");
+    throw createError(
+      "Must keep at least one active branch",
+      "MUST_KEEP_ONE_BRANCH",
+    );
   }
 
   if (users_to_disable.length > 0) {
@@ -980,7 +1047,10 @@ async function executeDowngrade(
     });
 
     if (validUsers !== users_to_disable.length) {
-      throw createError("Some users are invalid or already disabled", "INVALID_USER");
+      throw createError(
+        "Some users are invalid or already disabled",
+        "INVALID_USER",
+      );
     }
   }
 
@@ -994,16 +1064,26 @@ async function executeDowngrade(
     });
 
     if (validBranches !== branches_to_deactivate.length) {
-      throw createError("Some branches are invalid or already deactivated", "INVALID_BRANCH");
+      throw createError(
+        "Some branches are invalid or already deactivated",
+        "INVALID_BRANCH",
+      );
     }
   }
 
   if (user_reassignments.length > 0) {
-    const targetBranchIds = [...new Set(user_reassignments.map((r) => r.toBranchId))];
-    const invalidTargets = targetBranchIds.filter((id) => branches_to_deactivate.includes(id));
+    const targetBranchIds = [
+      ...new Set(user_reassignments.map((r) => r.toBranchId)),
+    ];
+    const invalidTargets = targetBranchIds.filter((id) =>
+      branches_to_deactivate.includes(id),
+    );
 
     if (invalidTargets.length > 0) {
-      throw createError("Cannot reassign users to a branch being deactivated", "INVALID_REASSIGNMENT_TARGET");
+      throw createError(
+        "Cannot reassign users to a branch being deactivated",
+        "INVALID_REASSIGNMENT_TARGET",
+      );
     }
 
     const validTargetBranches = await prisma.branch.count({
@@ -1015,23 +1095,31 @@ async function executeDowngrade(
     });
 
     if (validTargetBranches !== targetBranchIds.length) {
-      throw createError("Some target branches for reassignment are invalid", "INVALID_TARGET_BRANCH");
+      throw createError(
+        "Some target branches for reassignment are invalid",
+        "INVALID_TARGET_BRANCH",
+      );
     }
   }
 
   const reassignedUserIds = new Set(user_reassignments.map((r) => r.userId));
-  const finalUsersToDisable = users_to_disable.filter((id) => !reassignedUserIds.has(id));
+  const finalUsersToDisable = users_to_disable.filter(
+    (id) => !reassignedUserIds.has(id),
+  );
 
-  const finalActiveUsers = analysis.usage.activeUsers - finalUsersToDisable.length;
+  const finalActiveUsers =
+    analysis.usage.activeUsers - finalUsersToDisable.length;
   const finalActiveBranches = activeBranches - branches_to_deactivate.length;
 
-  const userLimit = targetPlan.max_users === -1 ? Infinity : targetPlan.max_users;
-  const branchLimit = targetPlan.max_branches === -1 ? Infinity : targetPlan.max_branches;
+  const userLimit =
+    targetPlan.max_users === -1 ? Infinity : targetPlan.max_users;
+  const branchLimit =
+    targetPlan.max_branches === -1 ? Infinity : targetPlan.max_branches;
 
   if (finalActiveUsers > userLimit) {
     const err = createError(
       `Still ${finalActiveUsers - userLimit} users over the limit. Please disable more users.`,
-      "NOT_COMPLIANT"
+      "NOT_COMPLIANT",
     );
     err.details = { type: "users", excess: finalActiveUsers - userLimit };
     throw err;
@@ -1040,9 +1128,12 @@ async function executeDowngrade(
   if (finalActiveBranches > branchLimit) {
     const err = createError(
       `Still ${finalActiveBranches - branchLimit} branches over the limit. Please deactivate more branches.`,
-      "NOT_COMPLIANT"
+      "NOT_COMPLIANT",
     );
-    err.details = { type: "branches", excess: finalActiveBranches - branchLimit };
+    err.details = {
+      type: "branches",
+      excess: finalActiveBranches - branchLimit,
+    };
     throw err;
   }
 
@@ -1062,23 +1153,38 @@ async function executeDowngrade(
       });
 
       // Audit: Users disabled due to downgrade
-      await audit.log({
-        action: audit.AuditAction.USERS_DISABLED_DUE_TO_PLAN_DOWNGRADE,
-        entity_type: audit.EntityType.SUBSCRIPTION,
-        entity_id: null,
-        shop_id: shop_id,
-        correlation_id: correlationId,
-        ...auditContext,
-        reason_code: audit.AuditReasonCode.PLAN_LIMIT_ENFORCEMENT,
-        metadata: {
-          user_ids: finalUsersToDisable,
-          count: finalUsersToDisable.length,
-          target_plan_id: targetPlan.plan_id,
-          target_plan_name: targetPlan.name,
-          new_user_limit: targetPlan.max_users,
+      await audit.log(
+        {
+          action: audit.AuditAction.USERS_DISABLED_DUE_TO_PLAN_DOWNGRADE,
+          entity_type: audit.EntityType.SUBSCRIPTION,
+          entity_id: null,
+          shop_id: shop_id,
+          correlation_id: correlationId,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.PLAN_LIMIT_ENFORCEMENT,
+          metadata: {
+            user_ids: finalUsersToDisable,
+            count: finalUsersToDisable.length,
+            target_plan_id: targetPlan.plan_id,
+            target_plan_name: targetPlan.name,
+            new_user_limit: targetPlan.max_users,
+          },
         },
-      }, { tx });
+        { tx },
+      );
+      
     }
+    notify({
+        type: NOTIFICATION_EVENTS.PLAN_DOWNGRADED,
+        context: {
+          shop_id,
+          old_plan_name: "Previous Plan", // Can be enhanced
+          new_plan_name: targetPlan.name,
+          effective_date: newSubscription.start_date,
+        },
+      }).catch((err) =>
+        console.error("[Notification] PLAN_DOWNGRADED failed:", err),
+      );
 
     if (user_reassignments.length > 0) {
       for (const reassignment of user_reassignments) {
@@ -1096,22 +1202,25 @@ async function executeDowngrade(
       });
 
       // Audit: Branches deactivated due to downgrade
-      await audit.log({
-        action: audit.AuditAction.BRANCHES_DEACTIVATED_DUE_TO_PLAN_DOWNGRADE,
-        entity_type: audit.EntityType.SUBSCRIPTION,
-        entity_id: null,
-        shop_id: shop_id,
-        correlation_id: correlationId,
-        ...auditContext,
-        reason_code: audit.AuditReasonCode.PLAN_LIMIT_ENFORCEMENT,
-        metadata: {
-          branch_ids: branches_to_deactivate,
-          count: branches_to_deactivate.length,
-          target_plan_id: targetPlan.plan_id,
-          target_plan_name: targetPlan.name,
-          new_branch_limit: targetPlan.max_branches,
+      await audit.log(
+        {
+          action: audit.AuditAction.BRANCHES_DEACTIVATED_DUE_TO_PLAN_DOWNGRADE,
+          entity_type: audit.EntityType.SUBSCRIPTION,
+          entity_id: null,
+          shop_id: shop_id,
+          correlation_id: correlationId,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.PLAN_LIMIT_ENFORCEMENT,
+          metadata: {
+            branch_ids: branches_to_deactivate,
+            count: branches_to_deactivate.length,
+            target_plan_id: targetPlan.plan_id,
+            target_plan_name: targetPlan.name,
+            new_branch_limit: targetPlan.max_branches,
+          },
         },
-      }, { tx });
+        { tx },
+      );
     }
 
     const oldSubscription = await tx.shop.findUnique({
@@ -1122,7 +1231,7 @@ async function executeDowngrade(
     if (oldSubscription?.current_subscription_id) {
       await tx.shopSubscription.update({
         where: { subscription_id: oldSubscription.current_subscription_id },
-        data: { is_active: false, status: 'cancelled' },
+        data: { is_active: false, status: "cancelled" },
       });
     }
 
@@ -1149,23 +1258,26 @@ async function executeDowngrade(
     });
 
     // Audit: Plan downgraded
-    await audit.log({
-      action: audit.AuditAction.PLAN_DOWNGRADED,
-      entity_type: audit.EntityType.SUBSCRIPTION,
-      entity_id: newSubscription.subscription_id,
-      shop_id: shop_id,
-      correlation_id: correlationId,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.USER_REQUEST,
-      metadata: {
-        previous_subscription_id: oldSubscription?.current_subscription_id,
-        new_plan_id: targetPlan.plan_id,
-        new_plan_name: targetPlan.name,
-        disabled_users_count: finalUsersToDisable.length,
-        deactivated_branches_count: branches_to_deactivate.length,
-        reassigned_users_count: user_reassignments.length,
+    await audit.log(
+      {
+        action: audit.AuditAction.PLAN_DOWNGRADED,
+        entity_type: audit.EntityType.SUBSCRIPTION,
+        entity_id: newSubscription.subscription_id,
+        shop_id: shop_id,
+        correlation_id: correlationId,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.USER_REQUEST,
+        metadata: {
+          previous_subscription_id: oldSubscription?.current_subscription_id,
+          new_plan_id: targetPlan.plan_id,
+          new_plan_name: targetPlan.name,
+          disabled_users_count: finalUsersToDisable.length,
+          deactivated_branches_count: branches_to_deactivate.length,
+          reassigned_users_count: user_reassignments.length,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return newSubscription;
   });
@@ -1187,8 +1299,8 @@ async function executeDowngrade(
 
 function formatPlanForResponse(plan) {
   const now = new Date();
-  const isPromoActive = plan.promo_free_until 
-    ? new Date(plan.promo_free_until) > now 
+  const isPromoActive = plan.promo_free_until
+    ? new Date(plan.promo_free_until) > now
     : false;
 
   return {
@@ -1196,7 +1308,9 @@ function formatPlanForResponse(plan) {
     name: plan.name,
     description: plan.description,
     price: Number(plan.price),
-    compare_at_price: plan.compare_at_price ? Number(plan.compare_at_price) : null,
+    compare_at_price: plan.compare_at_price
+      ? Number(plan.compare_at_price)
+      : null,
     max_users: plan.max_users,
     max_branches: plan.max_branches,
     billing_cycle_months: plan.billing_cycle_months || 12,
@@ -1209,11 +1323,11 @@ function formatPlanForResponse(plan) {
 
 export async function transitionExpiredToGrace() {
   const now = new Date();
-  
+
   const expiredSubscriptions = await prisma.shopSubscription.findMany({
     where: {
       is_active: true,
-      status: 'active',
+      status: "active",
       end_date: { lt: now },
       grace_period_until: null,
     },
@@ -1250,18 +1364,18 @@ export async function transitionExpiredToGrace() {
 
 export async function suspendExpiredGrace() {
   const now = new Date();
-  
+
   const expiredGraceSubscriptions = await prisma.shopSubscription.findMany({
     where: {
       is_active: true,
-      status: 'active',
+      status: "active",
       grace_period_until: { lt: now },
-      payment_status: { not: 'paid' },
+      payment_status: { not: "paid" },
     },
     include: {
       shop: {
-        select: { 
-          shop_id: true, 
+        select: {
+          shop_id: true,
           business_name: true,
           owner: {
             select: {
@@ -1277,7 +1391,7 @@ export async function suspendExpiredGrace() {
 
   let suspended = 0;
   const results = [];
-  const systemContext = audit.buildSystemContext('suspend-expired-grace');
+  const systemContext = audit.buildSystemContext("suspend-expired-grace");
 
   for (const sub of expiredGraceSubscriptions) {
     await prisma.$transaction(async (tx) => {
@@ -1286,34 +1400,46 @@ export async function suspendExpiredGrace() {
         where: { subscription_id: sub.subscription_id },
         data: {
           is_active: false,
-          status: 'suspended',
+          status: "suspended",
         },
       });
 
       // ✅ CORRECT: Use is_active instead of is_suspended
       await tx.shop.update({
         where: { shop_id: sub.shop_id },
-        data: { 
+        data: {
           is_active: false, // ✅ Suspend the shop
           updated_at: new Date(),
         },
       });
 
       // ✅ AUDIT: Shop suspended due to non-payment
-      await audit.log({
-        action: audit.AuditAction.SHOP_SUSPENDED_DUE_TO_NON_PAYMENT,
-        entity_type: audit.EntityType.SHOP,
-        entity_id: sub.shop_id,
-        shop_id: sub.shop_id,
-        ...systemContext,
-        reason_code: audit.AuditReasonCode.PAYMENT_ISSUE,
-        metadata: {
-          subscription_id: sub.subscription_id,
-          grace_period_until: sub.grace_period_until,
-          days_overdue: Math.floor((now - new Date(sub.grace_period_until)) / (1000 * 60 * 60 * 24)),
-          reason: 'Grace period expired without payment',
+      await audit.log(
+        {
+          action: audit.AuditAction.SHOP_SUSPENDED_DUE_TO_NON_PAYMENT,
+          entity_type: audit.EntityType.SHOP,
+          entity_id: sub.shop_id,
+          shop_id: sub.shop_id,
+          ...systemContext,
+          reason_code: audit.AuditReasonCode.PAYMENT_ISSUE,
+          metadata: {
+            subscription_id: sub.subscription_id,
+            grace_period_until: sub.grace_period_until,
+            days_overdue: Math.floor(
+              (now - new Date(sub.grace_period_until)) / (1000 * 60 * 60 * 24),
+            ),
+            reason: "Grace period expired without payment",
+          },
         },
-      }, { tx });
+        { tx },
+      );
+      notify({
+        type: NOTIFICATION_EVENTS.SUBSCRIPTION_SUSPENDED,
+        context: {
+          shop_id: sub.shop_id,
+          reason: "Payment overdue - grace period expired",
+        },
+      }).catch(err => console.error('[Notification] SUBSCRIPTION_SUSPENDED failed:', err));
     });
 
     suspended++;
@@ -1329,21 +1455,21 @@ export async function suspendExpiredGrace() {
 }
 export async function transitionPendingToOverdue() {
   const now = new Date();
-  
+
   const overdueSubscriptions = await prisma.shopSubscription.findMany({
     where: {
-      payment_status: 'pending',
+      payment_status: "pending",
       end_date: { lt: now },
     },
   });
 
   const result = await prisma.shopSubscription.updateMany({
     where: {
-      payment_status: 'pending',
+      payment_status: "pending",
       end_date: { lt: now },
     },
     data: {
-      payment_status: 'overdue',
+      payment_status: "overdue",
     },
   });
 
@@ -1352,20 +1478,20 @@ export async function transitionPendingToOverdue() {
 
 export async function getSubscriptionsDueForReminders() {
   const now = new Date();
-  
+
   const reminder7Days = new Date(now);
   reminder7Days.setDate(reminder7Days.getDate() + 7);
-  
+
   const reminder3Days = new Date(now);
   reminder3Days.setDate(reminder3Days.getDate() + 3);
-  
+
   const graceDaysWarning = new Date(now);
   graceDaysWarning.setDate(graceDaysWarning.getDate() + 1);
 
   const expiring7Days = await prisma.shopSubscription.findMany({
     where: {
       is_active: true,
-      status: 'active',
+      status: "active",
       end_date: {
         gte: new Date(now.setHours(0, 0, 0, 0)),
         lt: new Date(reminder7Days.setHours(23, 59, 59, 999)),
@@ -1385,7 +1511,7 @@ export async function getSubscriptionsDueForReminders() {
   const expiring3Days = await prisma.shopSubscription.findMany({
     where: {
       is_active: true,
-      status: 'active',
+      status: "active",
       end_date: {
         gte: new Date(now.setHours(0, 0, 0, 0)),
         lt: new Date(reminder3Days.setHours(23, 59, 59, 999)),
@@ -1405,7 +1531,7 @@ export async function getSubscriptionsDueForReminders() {
   const graceEndingSoon = await prisma.shopSubscription.findMany({
     where: {
       is_active: true,
-      status: 'active',
+      status: "active",
       grace_period_until: {
         gte: now,
         lt: graceDaysWarning,
@@ -1428,3 +1554,59 @@ export async function getSubscriptionsDueForReminders() {
     graceEndingSoon,
   };
 }
+
+export async function sendSubscriptionReminders() {
+  const { expiring7Days, expiring3Days, graceEndingSoon } = await getSubscriptionsDueForReminders();
+  
+  const now = new Date();
+
+  // 7 days reminder
+  for (const sub of expiring7Days) {
+    notify({
+      type: NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_7_DAYS,
+      context: {
+        shop_id: sub.shop_id,
+        plan_name: sub.plan?.name || "Current Plan",
+        end_date: sub.end_date,
+      },
+    }).catch(err => console.error('[Notification] SUBSCRIPTION_EXPIRING_7_DAYS failed:', err));
+  }
+
+  // 3 days reminder
+  for (const sub of expiring3Days) {
+    notify({
+      type: NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_3_DAYS,
+      context: {
+        shop_id: sub.shop_id,
+        plan_name: sub.plan?.name || "Current Plan",
+        end_date: sub.end_date,
+      },
+    }).catch(err => console.error('[Notification] SUBSCRIPTION_EXPIRING_3_DAYS failed:', err));
+  }
+
+  // Grace period ending soon
+  for (const sub of graceEndingSoon) {
+    notify({
+      type: NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_ENDING,
+      context: {
+        shop_id: sub.shop_id,
+        grace_period_until: sub.grace_period_until,
+      },
+    }).catch(err => console.error('[Notification] SUBSCRIPTION_GRACE_ENDING failed:', err));
+  }
+
+  return {
+    reminded_7days: expiring7Days.length,
+    reminded_3days: expiring3Days.length,
+    grace_ending_soon: graceEndingSoon.length,
+  };
+}
+
+// 📋 NOTIFICATIONS ADDED:
+// - SUBSCRIPTION_ACTIVATED (free + paid)
+// - PLAN_UPGRADED (upgrade initiated)
+// - PLAN_DOWNGRADED (downgrade completed)
+// - SUBSCRIPTION_SUSPENDED (grace period expired)
+// - SUBSCRIPTION_EXPIRING_7_DAYS / _3_DAYS / GRACE_ENDING (via new cron helper)
+//
+// NOTE: For expiry/grace notifications, call sendSubscriptionReminders() daily via cron

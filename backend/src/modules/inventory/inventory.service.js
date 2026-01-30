@@ -1,5 +1,7 @@
 // backend/src/modules/inventory/inventory.service.js
 import prisma from "../../config/prisma.js";
+import { notify } from "../notifications/index.js";
+import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 
 /* =====================================================
    Custom Error (same pattern used implicitly in Purchase)
@@ -48,6 +50,49 @@ class InventoryService {
   }
 
   /* ============================================
+     CHECK AND SEND STOCK ALERTS (HELPER)
+  ============================================ */
+  async checkAndSendStockAlerts(inventory, medicine, branch) {
+    const currentStock = Number(inventory.current_stock);
+    const minimumStock = Number(inventory.minimum_stock || 0);
+
+    // ✅ OUT OF STOCK ALERT
+    if (currentStock === 0 && inventory.minimum_stock !== null) {
+      notify({
+        type: NOTIFICATION_EVENTS.OUT_OF_STOCK_ALERT,
+        context: {
+          shop_id: inventory.shop_id,
+          branch_id: inventory.branch_id,
+          inventory_id: inventory.inventory_id,
+          medicine_name: medicine.name,
+          batch_number: inventory.batch_number,
+          branch_name: branch?.branch_name || null,
+        },
+      }).catch(err => console.error('[Notification] OUT_OF_STOCK_ALERT failed:', err));
+    }
+    // ✅ LOW STOCK ALERT
+    else if (
+      currentStock > 0 &&
+      inventory.minimum_stock !== null &&
+      currentStock <= minimumStock
+    ) {
+      notify({
+        type: NOTIFICATION_EVENTS.LOW_STOCK_ALERT,
+        context: {
+          shop_id: inventory.shop_id,
+          branch_id: inventory.branch_id,
+          inventory_id: inventory.inventory_id,
+          medicine_name: medicine.name,
+          batch_number: inventory.batch_number,
+          current_stock: currentStock,
+          minimum_stock: minimumStock,
+          branch_name: branch?.branch_name || null,
+        },
+      }).catch(err => console.error('[Notification] LOW_STOCK_ALERT failed:', err));
+    }
+  }
+
+  /* ============================================
      UPDATE STOCK + LEDGER ENTRY
   ============================================ */
   async updateStock(data, userId) {
@@ -71,6 +116,14 @@ class InventoryService {
     return prisma.$transaction(async (tx) => {
       const inventory = await tx.inventory.findUnique({
         where: { inventory_id: inventoryId },
+        include: {
+          medicine: {
+            select: { name: true },
+          },
+          branch: {
+            select: { branch_name: true },
+          },
+        },
       });
 
       if (!inventory) {
@@ -123,109 +176,120 @@ class InventoryService {
         },
       });
 
+      // ✅ Check and send stock alerts after transaction commits (fire-and-forget)
+      // Use setImmediate to ensure transaction completes first
+      setImmediate(() => {
+        this.checkAndSendStockAlerts(
+          { ...updatedInventory, inventory_id: inventoryId },
+          inventory.medicine,
+          inventory.branch
+        );
+      });
+
       return { inventory: updatedInventory, ledgerEntry };
     });
   }
 
- /* ============================================
-   GET INVENTORY LIST
-============================================ */
-async getInventory(shopId, filters = {}) {
-  const {
-    branchId,
-    medicineId,
-    search,
-    includeExpired = false,
-    lowStock = false,
-    limit = 100,
-    offset = 0,
-  } = filters;
+  /* ============================================
+     GET INVENTORY LIST
+  ============================================ */
+  async getInventory(shopId, filters = {}) {
+    const {
+      branchId,
+      medicineId,
+      search,
+      includeExpired = false,
+      lowStock = false,
+      limit = 100,
+      offset = 0,
+    } = filters;
 
-  const where = {
-    shop_id: shopId,
-    ...(branchId && { branch_id: branchId }),
-    ...(medicineId && { medicine_id: medicineId }),
-    is_active: true,
-    ...(!includeExpired && { is_expired: false }),
-    ...(search && {
-      medicine: {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { manufacturer: { contains: search, mode: "insensitive" } },
-        ],
-      },
-    }),
-  };
+    const where = {
+      shop_id: shopId,
+      ...(branchId && { branch_id: branchId }),
+      ...(medicineId && { medicine_id: medicineId }),
+      is_active: true,
+      ...(!includeExpired && { is_expired: false }),
+      ...(search && {
+        medicine: {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { manufacturer: { contains: search, mode: "insensitive" } },
+          ],
+        },
+      }),
+    };
 
-  const rawInventories = await prisma.inventory.findMany({
-    where,
-    include: {
-      medicine: {
-        select: {
-          name: true,
-          manufacturer: true,
-          pack_size: true,
-          hsn_code: true,
-          category: true,
+    const rawInventories = await prisma.inventory.findMany({
+      where,
+      include: {
+        medicine: {
+          select: {
+            name: true,
+            manufacturer: true,
+            pack_size: true,
+            hsn_code: true,
+            category: true,
+          },
         },
-      },
-      branch: {
-        select: {
-          branch_name: true,
+        branch: {
+          select: {
+            branch_name: true,
+          },
         },
-      },
-      stockMovements: {
-        where: {
-          movement_type: "PURCHASE",
-          reference_type: "PURCHASE_INVOICE",
-        },
-        take: 1,
-        orderBy: {
-          transaction_date: 'desc',
-        },
-        include: {
-          purchaseInvoice: {
-            select: {
-              supplier: {
-                select: {
-                  name: true,
+        stockMovements: {
+          where: {
+            movement_type: "PURCHASE",
+            reference_type: "PURCHASE_INVOICE",
+          },
+          take: 1,
+          orderBy: {
+            transaction_date: 'desc',
+          },
+          include: {
+            purchaseInvoice: {
+              select: {
+                supplier: {
+                  select: {
+                    name: true,
+                  },
                 },
               },
             },
           },
         },
       },
-    },
-    orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
-    take: limit,
-    skip: offset,
-  });
+      orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
+      take: limit,
+      skip: offset,
+    });
 
-  // ✅ FIXED: Properly map and add supplier_name
-  let inventories = rawInventories.map((inv) => {
-    const supplierName = inv.stockMovements?.[0]?.purchaseInvoice?.supplier?.name || null;
-    
-    // Remove stockMovements from response to keep it clean (optional)
-    const { stockMovements, ...rest } = inv;
-    
-    return {
-      ...rest,
-      supplier_name: supplierName,
-    };
-  });
+    // ✅ FIXED: Properly map and add supplier_name
+    let inventories = rawInventories.map((inv) => {
+      const supplierName = inv.stockMovements?.[0]?.purchaseInvoice?.supplier?.name || null;
+      
+      // Remove stockMovements from response to keep it clean (optional)
+      const { stockMovements, ...rest } = inv;
+      
+      return {
+        ...rest,
+        supplier_name: supplierName,
+      };
+    });
 
-  if (lowStock) {
-    inventories = inventories.filter(
-      (inv) =>
-        inv.minimum_stock !== null &&
-        Number(inv.current_stock) <= Number(inv.minimum_stock)
-    );
+    if (lowStock) {
+      inventories = inventories.filter(
+        (inv) =>
+          inv.minimum_stock !== null &&
+          Number(inv.current_stock) <= Number(inv.minimum_stock)
+      );
+    }
+
+    const total = await prisma.inventory.count({ where });
+
+    return { inventories, total };
   }
 
-  const total = await prisma.inventory.count({ where });
-
-  return { inventories, total };
-}
   /* ============================================
      INVENTORY BY MEDICINE
   ============================================ */
@@ -384,6 +448,14 @@ async getInventory(shopId, filters = {}) {
     return prisma.$transaction(async (tx) => {
       const inventory = await tx.inventory.findUnique({
         where: { inventory_id: inventoryId },
+        include: {
+          medicine: {
+            select: { name: true },
+          },
+          branch: {
+            select: { branch_name: true },
+          },
+        },
       });
 
       if (!inventory) {
@@ -430,6 +502,11 @@ async getInventory(shopId, filters = {}) {
           },
           userId
         );
+      } else {
+        // Even if no variance, check alerts in case minimum_stock was changed elsewhere
+        setImmediate(() => {
+          this.checkAndSendStockAlerts(inventory, inventory.medicine, inventory.branch);
+        });
       }
 
       return adjustment;
@@ -492,12 +569,32 @@ async getInventory(shopId, filters = {}) {
 
   /* ============================================
      MARK EXPIRED ITEMS (CRON SAFE)
+     ✅ UPDATED: Send expired stock alerts
   ============================================ */
   async markExpiredItems(shopId) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return prisma.inventory.updateMany({
+    // Find items that are expiring today and have stock
+    const expiringItems = await prisma.inventory.findMany({
+      where: {
+        shop_id: shopId,
+        expiry_date: { lt: today },
+        is_expired: false,
+        current_stock: { gt: 0 },
+      },
+      include: {
+        medicine: {
+          select: { name: true },
+        },
+        branch: {
+          select: { branch_name: true },
+        },
+      },
+    });
+
+    // Mark them as expired
+    const updateResult = await prisma.inventory.updateMany({
       where: {
         shop_id: shopId,
         expiry_date: { lt: today },
@@ -505,7 +602,88 @@ async getInventory(shopId, filters = {}) {
       },
       data: { is_expired: true },
     });
+
+    // ✅ Send expired stock alerts for items with stock (fire-and-forget)
+    expiringItems.forEach((item) => {
+      notify({
+        type: NOTIFICATION_EVENTS.EXPIRED_STOCK_ALERT,
+        context: {
+          shop_id: item.shop_id,
+          branch_id: item.branch_id,
+          inventory_id: item.inventory_id,
+          medicine_name: item.medicine.name,
+          batch_number: item.batch_number,
+          expiry_date: item.expiry_date.toISOString().split('T')[0],
+          current_stock: Number(item.current_stock),
+          branch_name: item.branch?.branch_name || null,
+        },
+      }).catch(err => console.error('[Notification] EXPIRED_STOCK_ALERT failed:', err));
+    });
+
+    return updateResult;
+  }
+
+  /* ============================================
+     ✅ NEW: SEND NEAR EXPIRY ALERTS (FOR CRON)
+     Call this from a scheduled job to check items expiring soon
+  ============================================ */
+  async sendNearExpiryAlerts(shopId, daysAhead = 30) {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + daysAhead);
+
+    const expiringItems = await prisma.inventory.findMany({
+      where: {
+        shop_id: shopId,
+        is_active: true,
+        is_expired: false,
+        expiry_date: {
+          gte: new Date(),
+          lte: futureDate,
+        },
+        current_stock: { gt: 0 },
+      },
+      include: {
+        medicine: {
+          select: { name: true },
+        },
+        branch: {
+          select: { branch_name: true },
+        },
+      },
+    });
+
+    // Send alerts (fire-and-forget, deduplication handled by notification system)
+    expiringItems.forEach((item) => {
+      const daysUntilExpiry = Math.ceil(
+        (new Date(item.expiry_date) - new Date()) / (1000 * 60 * 60 * 24)
+      );
+
+      notify({
+        type: NOTIFICATION_EVENTS.NEAR_EXPIRY_ALERT,
+        context: {
+          shop_id: item.shop_id,
+          branch_id: item.branch_id,
+          inventory_id: item.inventory_id,
+          medicine_name: item.medicine.name,
+          batch_number: item.batch_number,
+          expiry_date: item.expiry_date.toISOString().split('T')[0],
+          days_until_expiry: daysUntilExpiry,
+          current_stock: Number(item.current_stock),
+          branch_name: item.branch?.branch_name || null,
+        },
+      }).catch(err => console.error('[Notification] NEAR_EXPIRY_ALERT failed:', err));
+    });
+
+    return { sent: expiringItems.length };
   }
 }
 
 export default new InventoryService();
+
+// 📋 NOTIFICATIONS ADDED:
+// - LOW_STOCK_ALERT: Sent when stock drops to/below minimum threshold (after stock updates)
+// - OUT_OF_STOCK_ALERT: Sent when stock reaches zero (after stock updates)
+// - NEAR_EXPIRY_ALERT: Sent for items expiring within X days (via cron job - new method)
+// - EXPIRED_STOCK_ALERT: Sent when items expire and have stock (via markExpiredItems cron)
+//
+// NOTE: Notifications use inventory_id for deduplication (system skips if unread alert exists)

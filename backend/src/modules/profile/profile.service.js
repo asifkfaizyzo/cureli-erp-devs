@@ -7,7 +7,7 @@ import { mcSendOtp } from "../../providers/messageCentral/sendOtp.js";
 import { mcValidateOtp } from "../../providers/messageCentral/validateOtp.js";
 import crypto from "crypto";
 import { hashSessionToken } from "../../utils/session.js";
-import { notifyAsync, notify } from "../notifications/index.js";
+import { notify } from "../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 import * as audit from "../audit/index.js";
 
@@ -283,16 +283,15 @@ export async function changeUserPassword(user_id, current_password, new_password
     },
   });
 
-  if (user.email) {
-    notifyAsync({
-      type: NOTIFICATION_EVENTS.PASSWORD_CHANGED,
-      context: {
-        email: user.email,
-        name: user.full_name,
-        changed_at: new Date().toLocaleString(),
-      },
-    });
-  }
+  // ✅ NOTIFY: Password changed (security alert - fire-and-forget)
+  notify({
+    type: NOTIFICATION_EVENTS.PASSWORD_CHANGED,
+    context: {
+      user_id: user_id,
+      email: user.email,
+      name: user.full_name || 'User',
+    },
+  }).catch(err => console.error('[Notification] PASSWORD_CHANGED failed:', err));
 
   return { success: true };
 }
@@ -511,29 +510,16 @@ export async function verifyEmailChangeService(user_id, otp, auditContext) {
     },
   });
 
-  if (oldEmail) {
-    notifyAsync({
-      type: NOTIFICATION_EVENTS.EMAIL_CHANGED,
-      context: {
-        email: oldEmail,
-        name: user.full_name,
-        old_email: oldEmail,
-        new_email: newEmail,
-        notification_type: "old_email",
-      },
-    });
-  }
-
-  notifyAsync({
+  // ✅ NOTIFY: Email changed (security alert - fire-and-forget)
+  notify({
     type: NOTIFICATION_EVENTS.EMAIL_CHANGED,
     context: {
-      email: newEmail,
-      name: user.full_name,
-      old_email: oldEmail,
+      user_id: user_id,
+      email: oldEmail, // Send to old email for security notification
       new_email: newEmail,
-      notification_type: "new_email",
+      name: user.full_name || 'User',
     },
-  });
+  }).catch(err => console.error('[Notification] EMAIL_CHANGED failed:', err));
 
   return { success: true, new_email: newEmail };
 }
@@ -935,17 +921,16 @@ export async function verifyPhoneChangeNewService(user_id, otp, auditContext) {
     },
   });
 
-  if (user.email) {
-    notifyAsync({
-      type: NOTIFICATION_EVENTS.PHONE_CHANGED,
-      context: {
-        email: user.email,
-        name: user.full_name,
-        old_phone: oldPhone,
-        new_phone: newPhone,
-      },
-    });
-  }
+  // ✅ NOTIFY: Phone changed (security alert - fire-and-forget)
+  notify({
+    type: NOTIFICATION_EVENTS.PHONE_CHANGED,
+    context: {
+      user_id: user_id,
+      email: user.email,
+      name: user.full_name || 'User',
+      new_phone: newPhone,
+    },
+  }).catch(err => console.error('[Notification] PHONE_CHANGED failed:', err));
 
   return { success: true, new_phone: newPhone };
 }
@@ -961,3 +946,10 @@ async function clearPhoneChangeState(user_id) {
     },
   });
 }
+
+// 📋 NOTIFICATIONS ADDED:
+// - PASSWORD_CHANGED: Sent after user changes their own password (security alert via email + in-app)
+// - EMAIL_CHANGED: Sent to old email after email change (security alert via email + in-app)
+// - PHONE_CHANGED: Sent via email after phone change (security alert via email + in-app)
+//
+// NOTE: All notifications use fire-and-forget pattern and include user_id for in-app delivery

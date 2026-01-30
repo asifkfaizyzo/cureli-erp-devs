@@ -159,5 +159,18 @@ export async function resetPassword(token, newPassword, auditContext) {
     },
   });
 
+  // ✅ Notify user about password change (security alert - fire-and-forget)
+  notify({
+    type: NOTIFICATION_EVENTS.PASSWORD_CHANGED,
+    context: {
+      user_id: user.user_id,
+      email: user.email,
+      name: user.first_name || user.full_name || 'User',
+    },
+  }).catch(err => console.error('[Notification] PASSWORD_CHANGED failed:', err));
+
   return { success: true };
 }
+
+// 📋 NOTIFICATIONS ADDED:
+// - PASSWORD_CHANGED: Sent after successful password reset (security alert to user)
