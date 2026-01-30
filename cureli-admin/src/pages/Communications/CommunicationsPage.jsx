@@ -265,7 +265,7 @@ const CommunicationsPage = () => {
       iconBg: "bg-violet-100",
       iconColor: "text-violet-600",
       isLoading: false,
-      isComingSoon: true,
+      isComingSoon: false,
       stats: null,
     },
   ];

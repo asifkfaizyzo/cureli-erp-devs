@@ -1,5 +1,5 @@
 // ============================================
-// IN-APP NOTIFICATION CHANNEL (STUB)
+// IN-APP NOTIFICATION CHANNEL (STUB) backend\src\modules\notifications\channels\inapp.channel.js
 // ============================================
 
 /**

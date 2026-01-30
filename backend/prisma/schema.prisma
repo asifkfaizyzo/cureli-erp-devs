@@ -242,7 +242,8 @@ model User {
   ticketsCreated   Ticket[]      @relation("TicketCreator")
   ticketsCancelled Ticket[]      @relation("TicketCanceller")
   ticketsReopened  Ticket[]      @relation("TicketReopener")
-  
+   // Add this line in the relations section:
+  notifications        Notification[]       @relation("UserNotifications")
   // Phase 1 & 2 Relations (Keep only ONE set)
   medicinesCreated         Medicine[]           @relation("MedicineCreator")
   suppliersCreated         Supplier[]           @relation("SupplierCreator")
@@ -1166,4 +1167,56 @@ model StockAdjustment {
   @@index([reason])
   
   @@map("stock_adjustments")
+}
+
+// ============================================
+// IN-APP NOTIFICATIONS
+// ============================================
+
+model Notification {
+  notification_id    String    @id @default(uuid()) @db.Uuid
+  
+  // Recipient
+  user_id            String    @db.Uuid
+  
+  // Event type (from NOTIFICATION_EVENTS)
+  event_type         String    @db.VarChar(100)
+  
+  // Display content (backend-generated)
+  title              String    @db.VarChar(200)
+  message            String    @db.Text
+  
+  // Structured data for click-through actions
+  context            Json?     @db.JsonB
+  
+  // Scoping (for filtering & queries)
+  shop_id            String?   @db.Uuid
+  branch_id          String?   @db.Uuid
+  
+  // Deduplication key for recurring alerts
+  // Format: "EVENT_TYPE:entity_type:entity_id"
+  // Example: "LOW_STOCK_ALERT:inventory:uuid-here"
+  dedup_key          String?   @db.VarChar(255)
+  
+  // Priority: low | normal | high | critical
+  priority           String    @default("normal") @db.VarChar(20)
+  
+  // Read status (also serves as "resolved" for persistent alerts)
+  is_read            Boolean   @default(false)
+  read_at            DateTime? @db.Timestamptz(6)
+  
+  // Timestamps
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  user               User      @relation("UserNotifications", fields: [user_id], references: [user_id], onDelete: Cascade)
+  
+  // Indexes for common query patterns
+  @@index([user_id, is_read, created_at(sort: Desc)])  // Unread notifications list
+  @@index([user_id, created_at(sort: Desc)])           // All notifications list
+  @@index([shop_id, event_type])                       // Shop-wide event queries
+  @@index([dedup_key])                                 // Deduplication lookups
+  @@index([created_at(sort: Desc)])                    // Global sorting
+  
+  @@map("notifications")
 }

@@ -1,77 +1,156 @@
 // src/pages/Communications/pages/Broadcast/BroadcastPage.jsx
 
-import { Radio, Construction, Bell, Users, Calendar } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useMenuStore } from "../../../../store/useMenuStore";
+import {
+  Radio,
+  Mail,
+  Bell,
+  MessageSquare,
+  ArrowRight,
+} from "lucide-react";
 
-const BroadcastPage = () => {
+// ============================================
+// BROADCAST CARD
+// ============================================
+const BroadcastCard = ({
+  title,
+  description,
+  icon: Icon,
+  path,
+  breadcrumbs,
+  iconBg,
+  iconColor,
+  isComingSoon = false,
+}) => {
+  const navigate = useNavigate();
+  const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
+
+  const handleClick = () => {
+    if (isComingSoon) return;
+    setBreadcrumbs(breadcrumbs);
+    navigate(path);
+  };
+
   return (
-    <div className=" space-y-6 font-poppins">
-      {/* Page Header */}
-      <div className="flex items-center gap-4">
-        <div
-          className="w-12 h-12 bg-gradient-to-br from-violet-500 to-violet-600 rounded-2xl 
-                        flex items-center justify-center shadow-lg shadow-violet-500/20"
-        >
-          <Radio className="w-6 h-6 text-white" />
+    <div
+      onClick={handleClick}
+      className={`
+        bg-white rounded-xl border border-gray-200 p-5
+        transition-all duration-200
+        ${isComingSoon
+          ? "opacity-60 cursor-not-allowed"
+          : "cursor-pointer hover:border-gray-300 hover:shadow-md"
+        }
+      `}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center`}>
+          <Icon className={`w-5 h-5 ${iconColor}`} />
+        </div>
+
+        {isComingSoon && (
+          <span className="px-2 py-1 bg-gray-100 text-gray-500 text-[10px] font-medium rounded-md uppercase">
+            Coming Soon
+          </span>
+        )}
+      </div>
+
+      {/* Content */}
+      <h3 className="text-base font-semibold text-gray-900 mb-1">
+        {title}
+      </h3>
+      <p className="text-xs text-gray-500 mb-6 line-clamp-2">
+        {description}
+      </p>
+
+      {/* Action */}
+      {!isComingSoon && (
+        <div className="flex items-center gap-1.5 pt-4 border-t border-gray-100">
+          <span className="text-xs font-medium text-[#000060]">
+            Create broadcast
+          </span>
+          <ArrowRight className="w-3.5 h-3.5 text-[#000060]" />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// MAIN PAGE
+// ============================================
+const BroadcastPage = () => {
+  const broadcastOptions = [
+    {
+      id: "inapp",
+      title: "In-App Broadcast",
+      description:
+        "Send announcements that appear directly inside the ERP for users.",
+      icon: Bell,
+      path: "/communications/broadcast/in-app",
+      breadcrumbs: ["Communications", "Broadcast", "In-App"],
+      iconBg: "bg-violet-100",
+      iconColor: "text-violet-600",
+    },
+    {
+      id: "email",
+      title: "Email Broadcast",
+      description:
+        "Send custom email announcements to selected users or roles.",
+      icon: Mail,
+      path: "/communications/broadcast/email",
+      breadcrumbs: ["Communications", "Broadcast", "Email"],
+      iconBg: "bg-blue-100",
+      iconColor: "text-blue-600",
+    },
+    {
+      id: "sms",
+      title: "SMS Broadcast",
+      description:
+        "Send short SMS alerts to users. Requires DLT compliance.",
+      icon: MessageSquare,
+      path: "/communications/broadcast/sms",
+      breadcrumbs: ["Communications", "Broadcast", "SMS"],
+      iconBg: "bg-emerald-100",
+      iconColor: "text-emerald-600",
+      isComingSoon: true,
+    },
+  ];
+
+  return (
+    <div className="w-full h-full min-w-0 flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center">
+          <Radio className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Broadcast</h1>
+          <h1 className="text-xl font-bold text-gray-900">
+            Broadcast
+          </h1>
           <p className="text-sm text-gray-500">
             Send announcements and notifications to users
           </p>
         </div>
       </div>
 
-      {/* Coming Soon Card */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        <div className="flex flex-col items-center justify-center py-16 px-6">
-          <div className="w-20 h-20 bg-violet-100 rounded-full flex items-center justify-center mb-6">
-            <Construction className="w-10 h-10 text-violet-500" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Coming Soon
-          </h2>
-          <p className="text-gray-500 text-center max-w-md mb-8">
-            The broadcast feature is under development. You'll be able to send
-            push notifications, emails, and in-app messages to your users.
-          </p>
-
-          {/* Feature Preview */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl">
-            <div className="bg-gray-50 rounded-xl p-4 text-center">
-              <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Bell className="w-5 h-5 text-violet-500" />
-              </div>
-              <h3 className="font-medium text-gray-900 text-sm">
-                Push Notifications
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Send instant alerts to mobile apps
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4 text-center">
-              <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Users className="w-5 h-5 text-violet-500" />
-              </div>
-              <h3 className="font-medium text-gray-900 text-sm">
-                Targeted Audiences
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Send to specific user segments
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4 text-center">
-              <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Calendar className="w-5 h-5 text-violet-500" />
-              </div>
-              <h3 className="font-medium text-gray-900 text-sm">
-                Schedule Messages
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Plan broadcasts in advance
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {broadcastOptions.map((option) => (
+          <BroadcastCard
+            key={option.id}
+            title={option.title}
+            description={option.description}
+            icon={option.icon}
+            path={option.path}
+            breadcrumbs={option.breadcrumbs}
+            iconBg={option.iconBg}
+            iconColor={option.iconColor}
+            isComingSoon={option.isComingSoon}
+          />
+        ))}
       </div>
     </div>
   );
