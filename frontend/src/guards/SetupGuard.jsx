@@ -43,7 +43,7 @@ const SetupGuard = ({ children }) => {
       const now = Date.now();
       if (now - lastCheckTime.current < 5000) {
         checkCount.current += 1;
-        if (checkCount.current > 3) {
+        if (checkCount.current > 15) {
           console.error("❌ SetupGuard: Too many checks, stopping to prevent loop");
           setError(
             "Navigation error detected. Please clear your browser cache and try again."
