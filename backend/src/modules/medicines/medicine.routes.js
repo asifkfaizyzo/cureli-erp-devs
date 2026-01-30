@@ -1,4 +1,5 @@
 // backend/src/modules/medicines/medicine.routes.js
+
 import express from "express";
 import { requireAuth } from "../../middleware/auth.js";
 import { validateBody } from "../../middleware/validate.js";
@@ -9,6 +10,7 @@ import {
   getMedicineByIdController,
   updateMedicineController,
   bulkCreateMedicinesController,
+  searchMedicinesController,  // ✅ NEW
 } from "./medicine.controller.js";
 
 import {
@@ -20,6 +22,9 @@ import {
 const router = express.Router();
 
 router.use(requireAuth);
+
+// Search (autocomplete) - must be before /:medicineId to avoid conflict
+router.get("/search", searchMedicinesController);  // ✅ NEW
 
 // CRUD
 router.post("/", validateBody(createMedicineSchema), createMedicineController);

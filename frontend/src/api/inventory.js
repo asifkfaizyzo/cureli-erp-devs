@@ -1,5 +1,20 @@
 // src/api/inventory.js
+
 import api from "./axios";
+import { useAuthStore } from "../store/useAuthStore";
+
+/**
+ * Get branch context headers for API requests
+ */
+function getBranchHeaders() {
+  const state = useAuthStore.getState();
+  const { branchContext } = state;
+  
+  return {
+    "X-Branch-Mode": branchContext.mode,
+    "X-Branch-Id": branchContext.branch_id || "",
+  };
+}
 
 const inventoryAPI = {
   /**
@@ -8,6 +23,7 @@ const inventoryAPI = {
   getByMedicine: async (medicineId, filters = {}) => {
     const response = await api.get(`/inventory/medicine/${medicineId}`, {
       params: filters,
+      headers: getBranchHeaders(),  // ✅ NEW
     });
     return response.data;
   },
@@ -16,7 +32,10 @@ const inventoryAPI = {
    * Get all inventory
    */
   getAll: async (filters = {}) => {
-    const response = await api.get("/inventory", { params: filters });
+    const response = await api.get("/inventory", { 
+      params: filters,
+      headers: getBranchHeaders(),  // ✅ NEW
+    });
     return response.data;
   },
 
@@ -26,6 +45,7 @@ const inventoryAPI = {
   getSummary: async (branchId = null) => {
     const response = await api.get("/inventory/summary", {
       params: branchId ? { branchId } : {},
+      headers: getBranchHeaders(),  // ✅ NEW
     });
     return response.data;
   },
@@ -34,7 +54,9 @@ const inventoryAPI = {
    * Create stock adjustment
    */
   createAdjustment: async (data) => {
-    const response = await api.post("/inventory/adjustment", data);
+    const response = await api.post("/inventory/adjustment", data, {
+      headers: getBranchHeaders(),  // ✅ NEW
+    });
     return response.data;
   },
 };

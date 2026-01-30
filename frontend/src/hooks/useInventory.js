@@ -1,6 +1,8 @@
 // src/hooks/useInventory.js
+
 import { useState, useEffect, useCallback } from "react";
 import inventoryAPI from "../api/inventory";
+import { useAuthStore, selectBranchContext } from "../store/useAuthStore";
 
 export const useInventory = (initialFilters = {}) => {
   const [items, setItems] = useState([]);
@@ -12,6 +14,12 @@ export const useInventory = (initialFilters = {}) => {
     limit: 100,
     offset: 0,
   });
+
+  // ✅ NEW: Subscribe to branch context changes
+  const branchContext = useAuthStore(selectBranchContext);
+  const branchMode = branchContext.mode;
+  const branchId = branchContext.branch_id;
+  const branchName = branchContext.branch_name;
 
   // Fetch inventory list
   const fetchInventory = useCallback(async (filters = {}) => {
@@ -43,9 +51,9 @@ export const useInventory = (initialFilters = {}) => {
   }, []);
 
   // Fetch inventory summary
-  const fetchSummary = useCallback(async (branchId = null) => {
+  const fetchSummary = useCallback(async (branchIdParam = null) => {
     try {
-      const response = await inventoryAPI.getSummary(branchId);
+      const response = await inventoryAPI.getSummary(branchIdParam);
       
       if (response.success) {
         setSummary(response.data);
@@ -86,6 +94,7 @@ export const useInventory = (initialFilters = {}) => {
       if (response.success) {
         // Refresh inventory after adjustment
         await fetchInventory();
+        await fetchSummary();
         return { success: true, data: response.data };
       } else {
         throw new Error(response.message || "Failed to create adjustment");
@@ -97,7 +106,7 @@ export const useInventory = (initialFilters = {}) => {
         error: err.response?.data?.message || err.message || "Failed to create adjustment" 
       };
     }
-  }, [fetchInventory]);
+  }, [fetchInventory, fetchSummary]);
 
   // Refresh data
   const refresh = useCallback((filters = {}) => {
@@ -105,11 +114,17 @@ export const useInventory = (initialFilters = {}) => {
     fetchSummary(filters.branchId);
   }, [fetchInventory, fetchSummary]);
 
-  // Initial fetch
+  // ✅ NEW: Re-fetch when branch context changes
   useEffect(() => {
+    console.log("🔄 Branch context changed, refetching inventory...", { 
+      branchMode, 
+      branchId, 
+      branchName 
+    });
+    
     fetchInventory(initialFilters);
-    fetchSummary(initialFilters.branchId);
-  }, []);
+    fetchSummary();
+  }, [branchMode, branchId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     items,
@@ -123,6 +138,10 @@ export const useInventory = (initialFilters = {}) => {
     createAdjustment,
     refresh,
     setItems,
+    // ✅ NEW: Expose branch context for UI
+    currentBranchMode: branchMode,
+    currentBranchId: branchId,
+    currentBranchName: branchName,
   };
 };
 
@@ -174,9 +193,11 @@ export const mapInventoryData = (inventories) => {
     
     // Branch info
     branch: inv.branch?.branch_name || "-",
+    branch_name: inv.branch?.branch_name || null,
     
     // Supplier - if available from purchase history
     supplier: inv.supplier_name || "-",
+    supplier_name: inv.supplier_name || null,
     
     // Status calculation
     status: calculateStatus(inv),

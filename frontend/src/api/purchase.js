@@ -1,5 +1,20 @@
 // src/api/purchase.js
+
 import API from "./axios";
+import { useAuthStore } from "../store/useAuthStore";
+
+/**
+ * Get branch context headers for API requests
+ */
+function getBranchHeaders() {
+  const state = useAuthStore.getState();
+  const { branchContext } = state;
+  
+  return {
+    "X-Branch-Mode": branchContext.mode,
+    "X-Branch-Id": branchContext.branch_id || "",
+  };
+}
 
 const purchaseAPI = {
   /**
@@ -8,7 +23,9 @@ const purchaseAPI = {
   create: async (data) => {
     try {
       console.log("🚀 Creating purchase invoice...", data);
-      const response = await API.post("/purchase", data);
+      const response = await API.post("/purchase", data, {
+        headers: getBranchHeaders(),  // ✅ NEW
+      });
       console.log("✅ Purchase invoice created:", response.data);
       return response.data;
     } catch (error) {
@@ -27,7 +44,9 @@ const purchaseAPI = {
    */
   update: async (invoiceId, data) => {
     try {
-      const response = await API.put(`/purchase/${invoiceId}`, data);
+      const response = await API.put(`/purchase/${invoiceId}`, data, {
+        headers: getBranchHeaders(),  // ✅ NEW
+      });
       return response.data;
     } catch (error) {
       console.error("❌ Purchase update failed:", error.response?.data);
@@ -40,7 +59,9 @@ const purchaseAPI = {
    */
   confirm: async (invoiceId) => {
     try {
-      const response = await API.post(`/purchase/${invoiceId}/confirm`);
+      const response = await API.post(`/purchase/${invoiceId}/confirm`, {}, {
+        headers: getBranchHeaders(),  // ✅ NEW
+      });
       return response.data;
     } catch (error) {
       console.error("❌ Purchase confirm failed:", error.response?.data);
@@ -53,7 +74,10 @@ const purchaseAPI = {
    */
   getAll: async (filters = {}) => {
     try {
-      const response = await API.get("/purchase", { params: filters });
+      const response = await API.get("/purchase", { 
+        params: filters,
+        headers: getBranchHeaders(),  // ✅ NEW
+      });
       return response.data;
     } catch (error) {
       console.error("❌ Get invoices failed:", error.response?.data);
@@ -66,7 +90,9 @@ const purchaseAPI = {
    */
   getById: async (invoiceId) => {
     try {
-      const response = await API.get(`/purchase/${invoiceId}`);
+      const response = await API.get(`/purchase/${invoiceId}`, {
+        headers: getBranchHeaders(),  // ✅ NEW
+      });
       return response.data;
     } catch (error) {
       console.error("❌ Get invoice details failed:", error.response?.data);
@@ -79,7 +105,9 @@ const purchaseAPI = {
    */
   cancel: async (invoiceId, reason) => {
     try {
-      const response = await API.post(`/purchase/${invoiceId}/cancel`, { reason });
+      const response = await API.post(`/purchase/${invoiceId}/cancel`, { reason }, {
+        headers: getBranchHeaders(),  // ✅ NEW
+      });
       return response.data;
     } catch (error) {
       console.error("❌ Cancel invoice failed:", error.response?.data);
@@ -92,7 +120,10 @@ const purchaseAPI = {
    */
   getStats: async (filters = {}) => {
     try {
-      const response = await API.get("/purchase/stats", { params: filters });
+      const response = await API.get("/purchase/stats", { 
+        params: filters,
+        headers: getBranchHeaders(),  // ✅ NEW
+      });
       return response.data;
     } catch (error) {
       console.error("❌ Get stats failed:", error.response?.data);
