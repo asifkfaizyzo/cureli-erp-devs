@@ -98,7 +98,7 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
 const InventoryPage = () => {
   const toast = useToast();
 
-  // ✅ Branch context from store
+  // Branch context from store
   const branchContext = useAuthStore(selectBranchContext);
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
   const isGlobalMode = branchContext.mode === "GLOBAL";
@@ -129,6 +129,7 @@ const InventoryPage = () => {
     expiry: "",
     supplier: "",
     category: "",
+    branch: "",
     branchId: "",
     includeExpired: false,
     lowStock: false,
@@ -141,7 +142,7 @@ const InventoryPage = () => {
   const [adjustmentModal, setAdjustmentModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Debounced filter change
+  // Filter change handler
   const handleFilterChange = useCallback((field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   }, []);
@@ -175,90 +176,213 @@ const InventoryPage = () => {
     }
   }, [items.length, isInitialLoad]);
 
+  // Debug: Log unique status values in data
+  useEffect(() => {
+    if (items.length > 0) {
+      const uniqueStatuses = [...new Set(items.map(i => i.status))];
+      console.log("📊 Unique status values in data:", uniqueStatuses);
+      console.log("📊 Sample items:", items.slice(0, 3).map(i => ({ 
+        name: i.name, 
+        status: i.status, 
+        qty: i.qty,
+        current_stock: i.current_stock 
+      })));
+    }
+  }, [items]);
+
   // ============================================
-  // SEARCH FUNCTION - Uses exact field names from API
+  // IMPROVED FILTERING LOGIC
   // ============================================
-  const filteredData = useMemo(() => {
+const filteredData = useMemo(() => {
+    if (!items || items.length === 0) return [];
+
     return items.filter((item) => {
       // ==========================================
-      // 1. SEARCH FILTER - Searches across all fields
+      // 1. SEARCH FILTER - ✅ ENHANCED
       // ==========================================
       let matchesSearch = true;
       
       if (filters.search && filters.search.trim()) {
         const searchTerm = filters.search.toLowerCase().trim();
         
-        // Get all searchable string values
-        const fieldsToSearch = [
-          item.name,              // Medicine name
-          item.batch,             // Batch number
-          item.batch_number,      // Batch number (alternate)
-          item.supplier,          // Supplier name
-          item.manufacturer,      // Manufacturer
-          item.mfac,              // Manufacturer (alternate)
-          item.category,          // Category
-          item.hsn,               // HSN code
-          item.rack,              // Rack location
-          item.rack_no,           // Rack location (alternate)
-          item.branch,            // Branch name
-          item.branch_name,       // Branch name (alternate)
+        const getVal = (val) => {
+          if (val === null || val === undefined || val === "-") return "";
+          return String(val).toLowerCase();
+        };
+        
+        const searchableFields = [
+          getVal(item.name),
+          getVal(item.batch),
+          getVal(item.batch_number), // ✅ ADDED
+          getVal(item.supplier),
+          getVal(item.supplier_name), // ✅ ADDED
+          getVal(item.manufacturer),
+          getVal(item.mfac),
+          getVal(item.category),
+          getVal(item.hsn),
+          getVal(item.rack),
+          getVal(item.rack_no),
+          getVal(item.branch),
+          getVal(item.branch_name),
         ];
         
-        // Check if any field contains the search term
-        matchesSearch = fieldsToSearch.some(fieldValue => {
-          if (fieldValue === null || fieldValue === undefined) return false;
-          return String(fieldValue).toLowerCase().includes(searchTerm);
-        });
+        matchesSearch = searchableFields.some(field => field.includes(searchTerm));
       }
       
       // ==========================================
-      // 2. STATUS DROPDOWN FILTER
+      // 2. STATUS FILTER - Case insensitive
       // ==========================================
-      const matchesStatus = !filters.status || item.status === filters.status;
+      let matchesStatus = true;
+      if (filters.status) {
+        const itemStatus = (item.status || "").toLowerCase().trim();
+        const filterStatus = filters.status.toLowerCase().trim();
+        matchesStatus = itemStatus === filterStatus;
+      }
       
       // ==========================================
-      // 3. SUPPLIER DROPDOWN FILTER
+      // 3. SUPPLIER FILTER
       // ==========================================
-      const matchesSupplier = !filters.supplier || item.supplier === filters.supplier;
+      let matchesSupplier = true;
+      if (filters.supplier) {
+        const itemSupplier = (item.supplier || item.supplier_name || "").toLowerCase();
+        matchesSupplier = itemSupplier === filters.supplier.toLowerCase();
+      }
       
       // ==========================================
-      // 4. CATEGORY DROPDOWN FILTER
+      // 4. CATEGORY FILTER
       // ==========================================
-      const matchesCategory = !filters.category || item.category === filters.category;
+      let matchesCategory = true;
+      if (filters.category) {
+        const itemCategory = (item.category || "").toLowerCase();
+        matchesCategory = itemCategory === filters.category.toLowerCase();
+      }
+
+      // ==========================================
+      // 5. BRANCH FILTER
+      // ==========================================
+      let matchesBranch = true;
+      if (filters.branch) {
+        const itemBranch = (item.branch || item.branch_name || "").toLowerCase();
+        matchesBranch = itemBranch === filters.branch.toLowerCase();
+      }
       
       // ==========================================
-      // 5. EXPIRY FILTER
+      // 6. EXPIRY FILTER
       // ==========================================
       let matchesExpiry = true;
       if (filters.expiry) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
+        let expiryDate = null;
         const expiryValue = item.expiry_date || item.expiry;
-        const expiryDate = expiryValue ? new Date(expiryValue) : null;
         
-        if (expiryDate) {
+        if (expiryValue) {
+          if (typeof expiryValue === 'string') {
+            if (expiryValue.includes('/')) {
+              // MM/YYYY or MM/YY format
+              const parts = expiryValue.split('/');
+              if (parts.length === 2) {
+                const month = parseInt(parts[0]) - 1;
+                let year = parseInt(parts[1]);
+                if (year < 100) year += 2000;
+                expiryDate = new Date(year, month + 1, 0);
+              }
+            } else {
+              // ISO format
+              expiryDate = new Date(expiryValue);
+            }
+          } else if (expiryValue instanceof Date) {
+            expiryDate = expiryValue;
+          }
+        }
+        
+        if (expiryDate && !isNaN(expiryDate.getTime())) {
           expiryDate.setHours(0, 0, 0, 0);
           
-          if (filters.expiry === "expired") {
-            matchesExpiry = expiryDate < today;
-          } else if (filters.expiry === "30days") {
-            const thirtyDays = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-            matchesExpiry = expiryDate >= today && expiryDate <= thirtyDays;
-          } else if (filters.expiry === "90days") {
-            const ninetyDays = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
-            matchesExpiry = expiryDate >= today && expiryDate <= ninetyDays;
+          switch (filters.expiry) {
+            case "expired":
+              matchesExpiry = expiryDate < today;
+              break;
+            case "30days": {
+              const thirtyDays = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+              matchesExpiry = expiryDate >= today && expiryDate <= thirtyDays;
+              break;
+            }
+            case "90days": {
+              const ninetyDays = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+              matchesExpiry = expiryDate >= today && expiryDate <= ninetyDays;
+              break;
+            }
+            case "valid": {
+              const ninetyDays = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+              matchesExpiry = expiryDate > ninetyDays;
+              break;
+            }
+            default:
+              matchesExpiry = true;
           }
         } else {
           matchesExpiry = false;
         }
       }
 
-      return matchesSearch && matchesStatus && matchesSupplier && matchesCategory && matchesExpiry;
+      // ==========================================
+      // 7. LOW STOCK QUICK FILTER
+      // ==========================================
+      let matchesLowStock = true;
+      if (filters.lowStock) {
+        const status = (item.status || "").toLowerCase();
+        matchesLowStock = status === "low stock" || status === "out of stock";
+      }
+
+      return matchesSearch && matchesStatus && matchesSupplier && 
+             matchesCategory && matchesBranch && matchesExpiry && matchesLowStock;
     });
   }, [items, filters]);
 
-  // Handlers
+  // ============================================
+  // EXTRACT UNIQUE VALUES FOR FILTER DROPDOWNS
+  // ============================================
+  const uniqueSuppliers = useMemo(() => {
+    const suppliers = items
+      .map(item => item.supplier || item.supplier_name)
+      .filter(Boolean)
+      .filter(s => s !== "-" && s.trim() !== "");
+    return [...new Set(suppliers)].sort();
+  }, [items]);
+
+  const uniqueCategories = useMemo(() => {
+    const categories = items
+      .map(item => item.category)
+      .filter(Boolean)
+      .filter(c => c !== "-" && c.trim() !== "");
+    return [...new Set(categories)].sort();
+  }, [items]);
+
+  const uniqueBranches = useMemo(() => {
+    const branches = items
+      .map(item => item.branch || item.branch_name)
+      .filter(Boolean)
+      .filter(b => b !== "-" && b.trim() !== "");
+    return [...new Set(branches)].sort();
+  }, [items]);
+
+  // Calculate stats from filtered data
+  const calculatedStats = useMemo(() => {
+    return {
+      totalItems: items.length,
+      totalStock: items.reduce((sum, i) => sum + Number(i.qty || i.current_stock || 0), 0),
+      lowStock: items.filter(i => (i.status || "").toLowerCase() === "low stock").length,
+      outOfStock: items.filter(i => (i.status || "").toLowerCase() === "out of stock").length,
+      expired: items.filter(i => (i.status || "").toLowerCase() === "expired").length,
+      expiringSoon: items.filter(i => (i.status || "").toLowerCase() === "expiring soon").length,
+    };
+  }, [items]);
+
+  // ============================================
+  // HANDLERS
+  // ============================================
   const handleRefresh = async () => {
     setRefreshing(true);
     await refresh(filters);
@@ -273,17 +397,24 @@ const InventoryPage = () => {
   };
 
   const handleEdit = (row) => {
+    if (!canAdjustStock) {
+      toast.warning("Branch Required", "Please select a specific branch to edit items");
+      return;
+    }
     setSelectedItem(row);
     setModalMode("edit");
     setOpenModal(true);
   };
 
   const handleDelete = (row) => {
+    if (!canAdjustStock) {
+      toast.warning("Branch Required", "Please select a specific branch to delete items");
+      return;
+    }
     setConfirmDelete(row);
   };
 
   const handleStockAdjustment = (row) => {
-    // ✅ Check if adjustment is allowed (must be in BRANCH mode)
     if (!canAdjustStock) {
       toast.warning(
         "Branch Required",
@@ -291,7 +422,6 @@ const InventoryPage = () => {
       );
       return;
     }
-    
     setSelectedItem(row);
     setAdjustmentModal(true);
   };
@@ -324,33 +454,6 @@ const InventoryPage = () => {
     }
   };
 
-  // Get unique values for filter dropdowns
-  const uniqueSuppliers = useMemo(() => {
-    const suppliers = items
-      .map(item => item.supplier)
-      .filter(Boolean)
-      .filter(s => s !== "-");
-    return [...new Set(suppliers)].sort();
-  }, [items]);
-
-  const uniqueCategories = useMemo(() => {
-    const categories = items
-      .map(item => item.category)
-      .filter(Boolean)
-      .filter(c => c !== "-");
-    return [...new Set(categories)].sort();
-  }, [items]);
-
-  // ✅ Get unique branches for display (only in global mode)
-  const uniqueBranches = useMemo(() => {
-    if (!isGlobalMode) return [];
-    const branches = items
-      .map(item => item.branch || item.branch_name)
-      .filter(Boolean)
-      .filter(b => b !== "-");
-    return [...new Set(branches)].sort();
-  }, [items, isGlobalMode]);
-
   // Determine loading states
   const isTableLoading = loading && !isInitialLoad;
   const isSummaryLoading = isInitialLoad && loading;
@@ -376,12 +479,12 @@ const InventoryPage = () => {
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden font-poppins">
-      {/* ✅ BRANCH CONTEXT BANNER - Only for Super Admin */}
+      {/* BRANCH CONTEXT BANNER */}
       {isSuperAdmin && (
         <BranchContextBanner 
           isGlobalMode={isGlobalMode}
           branchName={currentBranchName}
-          itemCount={items.length}
+          itemCount={filteredData.length}
         />
       )}
 
@@ -401,32 +504,32 @@ const InventoryPage = () => {
               <SummaryCard
                 icon={Package}
                 label="Total Items"
-                value={summary?.totalItems || filteredData.length || 0}
+                value={summary?.totalItems || calculatedStats.totalItems}
                 color="blue"
               />
               <SummaryCard
                 icon={Package}
                 label="Total Stock"
-                value={summary?.totalStockQuantity || 0}
+                value={summary?.totalStockQuantity || calculatedStats.totalStock}
                 color="green"
                 suffix="units"
               />
               <SummaryCard
                 icon={TrendingDown}
                 label="Low Stock"
-                value={summary?.lowStockCount || 0}
+                value={summary?.lowStockCount || calculatedStats.lowStock}
                 color="yellow"
               />
               <SummaryCard
                 icon={Clock}
                 label="Expiring Soon"
-                value={summary?.expiringSoonCount || 0}
+                value={summary?.expiringSoonCount || calculatedStats.expiringSoon}
                 color="orange"
               />
               <SummaryCard
                 icon={AlertTriangle}
                 label="Expired"
-                value={summary?.expiredCount || 0}
+                value={summary?.expiredCount || calculatedStats.expired}
                 color="red"
               />
             </>
@@ -443,17 +546,15 @@ const InventoryPage = () => {
               onChange={handleFilterChange}
               suppliers={uniqueSuppliers}
               categories={uniqueCategories}
+              branches={uniqueBranches}
+              showBranchFilter={isGlobalMode}
             />
           </div>
           
           <div className="flex items-center gap-2">
-            {/* ✅ Show branch count in global mode */}
-            {isGlobalMode && uniqueBranches.length > 1 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium">
-                <Layers size={12} />
-                <span>{uniqueBranches.length} branches</span>
-              </div>
-            )}
+            <div className="text-xs text-slate-500 px-2">
+              {filteredData.length} of {items.length} items
+            </div>
             
             <button
               onClick={handleRefresh}
@@ -477,8 +578,8 @@ const InventoryPage = () => {
           onAdjust={handleStockAdjustment}
           isLoading={isInitialLoad && loading}
           isSearching={isTableLoading}
-          showBranchColumn={isGlobalMode}  // ✅ NEW: Show branch column in global mode
-          canAdjustStock={canAdjustStock}  // ✅ NEW: Pass adjustment permission
+          showBranchColumn={isGlobalMode}
+          canAdjustStock={canAdjustStock}
         />
       </div>
 

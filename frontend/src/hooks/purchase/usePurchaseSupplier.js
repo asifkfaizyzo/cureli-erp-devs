@@ -1,5 +1,8 @@
 // src/hooks/purchase/usePurchaseSupplier.js
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+
+const STORAGE_KEY = 'cureli_purchase_supplier';
+const STORAGE_VERSION = 1;
 
 const DEFAULT_SUPPLIERS = [
   { id: 1, name: "ABC Pharma Ltd", gst: "27AABCA1234C1Z5", phone: "+91 98765 43210", address: "Mumbai, MH" },
@@ -7,58 +10,150 @@ const DEFAULT_SUPPLIERS = [
   { id: 3, name: "PQR Distributors", gst: "29AAPCP5678R1Z3", phone: "+91 98765 43212", address: "Bangalore, KA" },
   { id: 4, name: "LMN Healthcare", gst: "03AABCL1234M1Z4", phone: "+91 98765 43213", address: "Chandigarh, PB" },
   { id: 5, name: "Global Pharma Inc", gst: "24AABCG5678P1Z5", phone: "+91 98765 43214", address: "Ahmedabad, GJ" },
-  { id: 6, name: "Sunrise Medicines", gst: "19AABCS5678S1Z6", phone: "+91 98765 43215", address: "Kolkata, WB" },
-  { id: 7, name: "Metro Drug House", gst: "33AABCM5678M1Z7", phone: "+91 98765 43216", address: "Chennai, TN" },
-  { id: 8, name: "Unity Healthcare", gst: "32AABCU5678U1Z8", phone: "+91 98765 43217", address: "Kochi, KL" },
 ];
 
-export const usePurchaseSupplier = (total = 0) => {
-  const [supplier, setSupplier] = useState({
-    purchaseId: `PUR-${Date.now().toString().slice(-6)}`,
-    supplierName: "",
-    invoiceNo: "",
-    invoiceDate: new Date().toISOString().split("T")[0],
-    receivedOn: new Date().toISOString().split("T")[0],
-    supplierGST: "",
-    supplierPhone: "",
-    creditDays: "30",
-    amountPaid: "",
-    balance: "0.00",
-    address: "",
-  });
+const getDefaultSupplier = () => ({
+  supplier_id: null,
+  purchaseId: "",
+  supplierName: "",
+  invoiceNo: "",
+  invoiceDate: new Date().toISOString().split("T")[0],
+  receivedOn: new Date().toISOString().split("T")[0],
+  supplierGST: "",
+  supplierPhone: "",
+  creditDays: "30",
+  amountPaid: "",
+  balance: "0.00",
+  address: "",
+});
 
-  // ✅ NEW: Suppliers list state
+/**
+ * Load supplier from localStorage
+ */
+const loadFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    
+    const parsed = JSON.parse(stored);
+    
+    if (parsed.version !== STORAGE_VERSION) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    
+    // Check expiry (24 hours)
+    const savedAt = new Date(parsed.savedAt);
+    const now = new Date();
+    const hoursDiff = (now - savedAt) / (1000 * 60 * 60);
+    
+    if (hoursDiff > 24) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    
+    return parsed.supplier;
+  } catch (error) {
+    console.error('Failed to load supplier from storage:', error);
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+};
+
+/**
+ * Save supplier to localStorage
+ */
+const saveToStorage = (supplier) => {
+  try {
+    // Only save if supplier is selected
+    if (!supplier.supplierName && !supplier.invoiceNo) {
+      return;
+    }
+    
+    const data = {
+      version: STORAGE_VERSION,
+      savedAt: new Date().toISOString(),
+      supplier: supplier,
+    };
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error('Failed to save supplier to storage:', error);
+  }
+};
+
+export const usePurchaseSupplier = (total = 0) => {
+  const [supplier, setSupplier] = useState(getDefaultSupplier);
   const [suppliersList, setSuppliersList] = useState(DEFAULT_SUPPLIERS);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const saveTimeoutRef = useRef(null);
+
+  // Initialize from localStorage
+  useEffect(() => {
+    if (isInitialized) return;
+    
+    const storedSupplier = loadFromStorage();
+    
+    if (storedSupplier) {
+      console.log('📦 Loaded supplier from storage:', storedSupplier.supplierName);
+      setSupplier(storedSupplier);
+    }
+    
+    setIsInitialized(true);
+  }, [isInitialized]);
 
   // Auto-calculate balance
   useEffect(() => {
     const paid = parseFloat(supplier.amountPaid) || 0;
     const balance = Math.max(0, total - paid).toFixed(2);
-    setSupplier(prev => ({ ...prev, balance }));
+    setSupplier(prev => {
+      if (prev.balance === balance) return prev;
+      return { ...prev, balance };
+    });
   }, [total, supplier.amountPaid]);
 
-  // Select supplier from list
+  // Debounced save to localStorage
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      saveToStorage(supplier);
+    }, 500);
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [supplier, isInitialized]);
+
   const selectSupplier = useCallback((selected) => {
     if (selected) {
       setSupplier(prev => ({
         ...prev,
+        supplier_id: selected.supplier_id || selected.id,
         supplierName: selected.name,
-        supplierGST: selected.gst || "",
+        supplierGST: selected.gst || selected.gstNumber || "",
         supplierPhone: selected.phone || selected.officePhone || "",
         address: selected.address || "",
+        creditDays: selected.creditDays?.toString() || prev.creditDays,
       }));
     }
   }, []);
 
-  // Validate supplier details
   const validateSupplier = useCallback(() => {
     const errors = [];
     
     if (!supplier.supplierName?.trim()) {
       errors.push("Supplier name is required");
     }
-    if (!supplier.invoiceNo?.trim()) {
-      errors.push("Invoice number is required");
+    
+    if (!supplier.supplier_id) {
+      errors.push("Please select a valid supplier from the list");
     }
     
     return {
@@ -67,30 +162,32 @@ export const usePurchaseSupplier = (total = 0) => {
     };
   }, [supplier]);
 
-  // Reset supplier
+  /**
+   * Reset supplier to default state
+   */
   const resetSupplier = useCallback(() => {
-    setSupplier({
-      purchaseId: `PUR-${Date.now().toString().slice(-6)}`,
-      supplierName: "",
-      invoiceNo: "",
-      invoiceDate: new Date().toISOString().split("T")[0],
-      receivedOn: new Date().toISOString().split("T")[0],
-      supplierGST: "",
-      supplierPhone: "",
-      creditDays: "30",
-      amountPaid: "",
-      balance: "0.00",
-      address: "",
-    });
+    setSupplier(getDefaultSupplier());
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
+  /**
+   * Clear all stored data (for New Invoice)
+   */
+  const clearStoredData = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
   }, []);
 
   return {
     supplier,
     setSupplier,
     suppliersList,
-    setSuppliersList, // ✅ NEW: Expose setSuppliersList
+    setSuppliersList,
     selectSupplier,
     validateSupplier,
     resetSupplier,
+    clearStoredData,
+    isInitialized,
   };
 };
+
+export default usePurchaseSupplier;

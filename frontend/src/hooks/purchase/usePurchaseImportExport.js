@@ -4,65 +4,207 @@ import ExcelJS from "exceljs";
 import * as XLSX from "xlsx";
 import { makeEmptyPurchaseRow, calculateRow } from "./usePurchaseCalculation";
 
+/**
+ * Enhanced header mapping for pharmacy invoice formats
+ * Supports multiple common naming conventions
+ */
 const mapHeaderToKey = (h) => {
   if (!h) return null;
-  const key = String(h).replace(/[\n\r\t]/g, ' ').replace(/\s+/g, '').toLowerCase().replace(/[^a-z0-9%]/g, '');
+  
+  // Clean the header: remove special chars, normalize
+  const key = String(h)
+    .replace(/[\n\r\t]/g, ' ')
+    .replace(/\s+/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9%_]/g, '');
+  
   const map = {
-    // Manufacturer/Company
-    mfac: "mfac", manufacturer: "mfac", mfr: "mfac", company: "mfac", mfgcomp: "mfac",
-    // Rack/Location
-    rack: "rack", location: "rack", shelf: "rack",
-    // Product Name
-    description: "name", product: "name", name: "name", itemname: "name", itemdescription: "name",
-    // HSN
-    hsn: "hsn", hsnsac: "hsn", hsncode: "hsn",
-    // Pack
-    pack: "pack", packing: "pack", unit: "pack",
-    // Batch
-    batch: "batch", batchno: "batch", lot: "batch",
-    // Expiry
+    // === Manufacturer/Company ===
+    mfac: "mfac", manufacturer: "mfac", mfr: "mfac", company: "mfac", 
+    mfgcomp: "mfac", mktgcomp: "mfac", manfacturer: "mfac",
+    
+    // === Rack/Location ===
+    rack: "rack", location: "rack", shelf: "rack", rackno: "rack",
+    
+    // === Product Name - CRITICAL ===
+    description: "name", product: "name", name: "name", 
+    itemname: "name", itemdescription: "name", 
+    itemname2: "name2", // Keep itemname2 separate
+    particulars: "name", productname: "name",
+    item: "name", productdesc: "name", desc: "name",
+    
+    // === HSN Code ===
+    hsn: "hsn", hsnsac: "hsn", hsncode: "hsn", hsnsaccode: "hsn",
+    saccode: "hsn", hsnno: "hsn",
+    
+    // === Pack/Packing ===
+    pack: "pack", packing: "pack", unit: "pack", packname: "pack",
+    packsize: "pack", uom: "pack",
+    
+    // === Batch ===
+    batch: "batch", batchno: "batch", lot: "batch", lotno: "batch",
+    batchnumber: "batch",
+    
+    // === Expiry ===
     exp: "exp", expiry: "exp", expirydate: "exp", expdate: "exp",
-    // Quantities
-    qty: "qty", quantity: "qty", units: "qty",
+    expirydt: "exp",
+    
+    // === Quantities ===
+    qty: "qty", quantity: "qty", units: "qty", invqty: "qty",
     pqty: "pQty", prevqty: "pQty", previousqty: "pQty", purchaseqty: "pQty",
-    // Scheme/Free
+    
+    // === Scheme/Free ===
     sch: "sch", scheme: "sch", free: "sch", bonus: "sch",
-    // Pricing
-    mrp: "mrp", 
-    price: "price", rate: "price", purchaserate: "price",
-    srate: "sRate", salerate: "sRate", sellingrate: "sRate",
-    netrate: "netRate", net: "netRate",
-    // Percentages
-    "sch%": "schemePercent", schemepercent: "schemePercent",
-    "disc%": "discountPercent", "dis%": "discountPercent", discountpercent: "discountPercent",
-    // Tax
+    invscqty: "sch", scqty: "sch", freeqty: "sch", schqty: "sch",
+    invscdis: "schemePercent", schper: "schemePercent",
+    
+    // === Pricing ===
+    mrp: "mrp", itemmrp: "mrp", maximumretailprice: "mrp", vatmrp: "mrp",
+    price: "price", rate: "price", purchaserate: "price", 
+    ptr: "price", salerate: "price", purrate: "price",
+    srate: "sRate", sellingrate: "sRate", selrate: "sRate",
+    netrate: "netRate", net: "netRate", nrate: "netRate",
+    loclsale: "sRate",
+    
+    // === Discount Percentages ===
+    "sch%": "schemePercent", schemepercent: "schemePercent", schpercent: "schemePercent",
+    "disc%": "discountPercent", "dis%": "discountPercent", 
+    discountpercent: "discountPercent", discount: "discountPercent",
+    invdisc: "discountPercent", tradedisc: "discountPercent",
+    
+    // === Tax - CGST ===
     "cgst%": "cgstPercent", cgstpercent: "cgstPercent", cgst: "cgstPercent",
+    cgstper: "cgstPercent", cgstrate: "cgstPercent",
+    
+    // === Tax - SGST ===
     "sgst%": "sgstPercent", sgstpercent: "sgstPercent", sgst: "sgstPercent",
-    // Amount
-    amount: "amount", total: "amount",
-    // Serial number (optional, usually ignored)
-    "": null, serial: null, "#": null, no: null,
+    sgstper: "sgstPercent", sgstrate: "sgstPercent",
+    
+    // === Tax - IGST ===
+    "igst%": "igstPercent", igstpercent: "igstPercent", igst: "igstPercent",
+    igstper: "igstPercent",
+    
+    // === Tax - VAT (legacy) ===
+    vatper: "cgstPercent", vat: "cgstPercent",
+    
+    // === Amount/Total ===
+    amount: "amount", total: "amount", invamt: "amount", 
+    lineamt: "amount", value: "amount", netamt: "amount",
+    
+    // === Credit Days ===
+    crdays: "creditDays", creditdays: "creditDays",
+    
+    // === Conversion Factor ===
+    convfact: "conversionFactor", cf: "conversionFactor",
   };
+  
   return map[key] || null;
 };
 
-const parseRowData = (headers, values) => {
+/**
+ * Parse expiry date from various formats
+ */
+const parseExpiryFromData = (row, headers, values) => {
+  // Check for separate day/month/year columns
+  const getColValue = (colName) => {
+    const idx = headers.findIndex(h => {
+      const cleaned = String(h || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cleaned === colName;
+    });
+    return idx !== -1 ? String(values[idx] || '').trim() : '';
+  };
+  
+  const expMonth = getColValue('expmonth');
+  const expYear = getColValue('expyear');
+  
+  if (expMonth && expYear) {
+    const month = String(expMonth).padStart(2, '0');
+    let year = String(expYear);
+    if (year.length === 4) year = year.slice(-2);
+    return `${month}/${year}`;
+  }
+  
+  // Check for combined expiry field
+  if (row.exp) {
+    const exp = String(row.exp).trim();
+    // DD/MM/YY format
+    if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(exp)) {
+      const parts = exp.split('/');
+      const month = parts[1].padStart(2, '0');
+      let year = parts[2];
+      if (year.length === 4) year = year.slice(-2);
+      return `${month}/${year}`;
+    }
+    // MM/YY format
+    if (/^\d{2}\/\d{2}$/.test(exp)) {
+      return exp;
+    }
+  }
+  
+  return row.exp || '';
+};
+
+/**
+ * Parse a single row of data
+ */
+const parseRowData = (headers, values, debugMode = false) => {
   const row = makeEmptyPurchaseRow();
+  const mappedFields = {};
+  
   headers.forEach((h, i) => {
     const key = mapHeaderToKey(h);
     if (key && values[i] !== undefined && values[i] !== null) {
-      row[key] = String(values[i]).trim();
+      let value = String(values[i]).trim();
+      
+      // Clean numeric values
+      if (['qty', 'pQty', 'sch', 'mrp', 'price', 'sRate', 'netRate', 'amount',
+           'schemePercent', 'discountPercent', 'cgstPercent', 'sgstPercent', 'igstPercent'].includes(key)) {
+        value = value.replace(/[^\d.-]/g, '');
+      }
+      
+      // Only set if value is not empty
+      if (value) {
+        row[key] = value;
+        mappedFields[h] = { key, value };
+      }
     }
   });
+  
+  // Handle itemname2 as fallback for name
+  if (!row.name && row.name2) {
+    row.name = row.name2;
+  }
+  delete row.name2;
+  
+  // Parse expiry date
+  row.exp = parseExpiryFromData(row, headers, values);
+  
+  // Default tax values if not provided
   if (!row.sch) row.sch = "0";
   if (!row.pQty) row.pQty = "0";
+  if (!row.cgstPercent && !row.sgstPercent) {
+    row.cgstPercent = "6";
+    row.sgstPercent = "6";
+  } else if (row.cgstPercent && !row.sgstPercent) {
+    row.sgstPercent = row.cgstPercent;
+  } else if (!row.cgstPercent && row.sgstPercent) {
+    row.cgstPercent = row.sgstPercent;
+  }
+  
+  if (debugMode) {
+    console.log('Mapped fields:', mappedFields);
+    console.log('Parsed row:', { name: row.name, mfac: row.mfac, hsn: row.hsn, qty: row.qty });
+  }
+  
   return calculateRow(row);
 };
 
 export const usePurchaseImportExport = (onImport, supplier, toast, productMaster = []) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  // ✅ FIXED: Enhanced product matching with medicine_id assignment
+  /**
+   * Enhanced product matching with medicine_id assignment
+   */
   const detectNewProducts = useCallback((parsedRows) => {
     const newProducts = [];
     const processedRows = [];
@@ -71,69 +213,67 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     console.log("Product Master Count:", productMaster.length);
     console.log("Parsed Rows Count:", parsedRows.length);
     
+    // Debug: Show first 3 rows
+    console.log("📋 First 3 parsed rows:");
+    parsedRows.slice(0, 3).forEach((row, idx) => {
+      console.log(`  Row ${idx + 1}:`, {
+        name: row.name || '(EMPTY)',
+        mfac: row.mfac || '(empty)',
+        hsn: row.hsn || '(empty)',
+        qty: row.qty || '(empty)',
+        pack: row.pack || '(empty)',
+      });
+    });
+    
+    let skippedNoName = 0;
+    
     parsedRows.forEach((row, idx) => {
       if (!row.name || !row.name.trim()) {
-        // Skip rows without product names
-        console.log(`Row ${idx + 1}: Skipping - no product name`);
+        skippedNoName++;
         return;
       }
 
       const rowName = row.name.trim();
       const rowMfac = (row.mfac || '').trim();
       
-      // ✅ Try to find matching product in master
+      // Try to find matching product in master
       const matchingProduct = productMaster.find(product => {
         const productName = (product.name || '').toLowerCase();
         const searchName = rowName.toLowerCase();
         
-        // Try exact match first
-        if (productName === searchName) {
-          return true;
-        }
+        if (productName === searchName) return true;
         
-        // Try partial match with manufacturer
         if (rowMfac) {
           const productMfac = (product.manufacturer || product.mfac || '').toLowerCase();
           const searchMfac = rowMfac.toLowerCase();
-          
-          if (productName.includes(searchName) && productMfac.includes(searchMfac)) {
-            return true;
-          }
+          if (productName.includes(searchName) && productMfac.includes(searchMfac)) return true;
         }
         
-        // Try contains match
-        if (productName.includes(searchName) || searchName.includes(productName)) {
-          return true;
-        }
+        if (productName.includes(searchName) || searchName.includes(productName)) return true;
         
         return false;
       });
 
       if (matchingProduct) {
-        // ✅ Product found - assign medicine_id
-        console.log(`Row ${idx + 1}: ✅ Matched "${rowName}" -> ${matchingProduct.medicine_id || matchingProduct.id}`);
+        console.log(`Row ${idx + 1}: ✅ Matched "${rowName}"`);
         
         processedRows.push({
           ...row,
           medicine_id: matchingProduct.medicine_id || matchingProduct.id,
-          // Also update fields from master if they're empty
           hsn: row.hsn || matchingProduct.hsnCode || matchingProduct.hsn || '',
           rack: row.rack || matchingProduct.rackNo || matchingProduct.rack || '',
           pack: row.pack || matchingProduct.packSize || matchingProduct.pack || '',
+          cgstPercent: row.cgstPercent || matchingProduct.cgstPercent || '6',
+          sgstPercent: row.sgstPercent || matchingProduct.sgstPercent || '6',
         });
       } else {
-        // ✅ Product not found - add to new products list
-        console.log(`Row ${idx + 1}: ⚠️ NOT FOUND - "${rowName}" (${rowMfac})`);
+        console.log(`Row ${idx + 1}: ⚠️ NEW - "${rowName}" (${rowMfac || 'no manufacturer'})`);
         
-        // Check if we already have this new product in our detected list
         const alreadyDetected = newProducts.some(newProd => {
           const newProdName = (newProd.name || '').toLowerCase();
           const newProdMfac = (newProd.manufacturer || '').toLowerCase();
-          const searchName = rowName.toLowerCase();
-          const searchMfac = rowMfac.toLowerCase();
-          
-          return newProdName === searchName && 
-                 (!searchMfac || newProdMfac === searchMfac);
+          return newProdName === rowName.toLowerCase() && 
+                 (!rowMfac || newProdMfac === rowMfac.toLowerCase());
         });
         
         if (!alreadyDetected) {
@@ -144,24 +284,33 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
             packSize: row.pack || '',
             rackNo: row.rack || '',
             category: '',
-            gst: '12', // Default GST
+            gst: row.cgstPercent && row.sgstPercent 
+              ? String(parseFloat(row.cgstPercent) + parseFloat(row.sgstPercent))
+              : '12',
+            cgstPercent: row.cgstPercent || '6',
+            sgstPercent: row.sgstPercent || '6',
             genericName: '',
           });
         }
         
-        // ✅ Still add row but WITHOUT medicine_id (will trigger error later if not created)
         processedRows.push({
           ...row,
-          medicine_id: null, // No medicine_id = will fail validation
+          medicine_id: null,
         });
       }
     });
     
     console.log(`\n📊 Detection Summary:`);
     console.log(`  Total Rows: ${parsedRows.length}`);
+    console.log(`  Skipped (no name): ${skippedNoName}`);
     console.log(`  Matched: ${processedRows.filter(r => r.medicine_id).length}`);
     console.log(`  New Products: ${newProducts.length}`);
-    console.log(`  Products to Create:`, newProducts.map(p => p.name));
+    
+    if (skippedNoName > 0) {
+      console.warn(`⚠️ ${skippedNoName} rows skipped because 'name' field is empty!`);
+      console.warn(`   Check if 'itemname' column is being parsed correctly.`);
+    }
+    
     console.groupEnd();
     
     return { existingRows: processedRows, newProducts };
@@ -172,35 +321,67 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const lines = e.target.result.split("\n").map(l => l.trim()).filter(Boolean);
+        const content = e.target.result;
+        
+        // Detect delimiter (tab or comma)
+        const firstLine = content.split('\n')[0];
+        const delimiter = firstLine.includes('\t') ? '\t' : ',';
+        console.log(`📄 CSV Delimiter detected: "${delimiter === '\t' ? 'TAB' : 'COMMA'}"`);
+        
+        const lines = content.split("\n").map(l => l.trim()).filter(Boolean);
         if (lines.length < 2) {
           toast.error("CSV file is empty");
           setIsLoading(false);
           return;
         }
         
-        const headers = lines[0].split(",").map(h => h.trim().replace(/^\"|\"$/g, ''));
+        // Parse headers
+        const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^\"|\"$/g, ''));
+        
+        console.group("📋 CSV Header Analysis");
+        console.log("Total columns:", headers.length);
+        console.log("Headers:", headers);
+        
+        // Show which headers map to which keys
+        const mappedHeaders = headers.map((h, i) => ({
+          index: i,
+          original: h,
+          mapped: mapHeaderToKey(h)
+        })).filter(m => m.mapped);
+        
+        console.log("Mapped headers:", mappedHeaders);
+        
+        // Check for name column specifically
+        const nameColIndex = headers.findIndex(h => {
+          const key = mapHeaderToKey(h);
+          return key === 'name';
+        });
+        console.log(`'name' column index: ${nameColIndex} (header: "${headers[nameColIndex] || 'NOT FOUND'}")`);
+        console.groupEnd();
+        
         const parsed = [];
         
         for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(",").map(v => v.trim().replace(/^\"|\"$/g, ''));
+          const values = lines[i].split(delimiter).map(v => v.trim().replace(/^\"|\"$/g, ''));
           if (values.some(v => v)) {
-            parsed.push(parseRowData(headers, values));
+            // Debug first row
+            if (i === 1) {
+              console.log("📝 First data row values:", values);
+              if (nameColIndex !== -1) {
+                console.log(`   Name value: "${values[nameColIndex]}"`);
+              }
+            }
+            parsed.push(parseRowData(headers, values, i <= 2));
           }
         }
         
-        console.log('📊 CSV parsed rows:', parsed.length);
+        console.log('✅ CSV parsed rows:', parsed.length);
         
-        // ✅ Detect new products and match existing ones
         const { existingRows, newProducts } = detectNewProducts(parsed);
-        
-        // Call onImport with both existing rows and new products
         onImport(existingRows, newProducts);
         
         const matchedCount = existingRows.filter(r => r.medicine_id).length;
-        const successMessage = `${matchedCount} matched, ${newProducts.length} new products detected`;
-        
-        toast.success("CSV Imported", successMessage);
+        toast.success("CSV Imported", `${matchedCount} matched, ${newProducts.length} new products detected`);
       } catch (error) {
         console.error('❌ CSV import error:', error);
         toast.error("Failed to import CSV", error.message);
@@ -220,7 +401,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       const worksheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "", blankrows: false });
       
-      console.log('📊 Raw Excel data length:', data.length);
+      console.log('📊 Raw Excel data rows:', data.length);
       
       if (data.length < 2) {
         toast.error("Excel file is empty or has no data rows");
@@ -228,16 +409,15 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         return;
       }
 
-      // Find the header row
+      // Find the header row (row with most non-empty cells)
       let headerRowIndex = 0;
       let maxNonEmptyCells = 0;
       
-      for (let i = 0; i < Math.min(data.length, 5); i++) {
+      for (let i = 0; i < Math.min(data.length, 10); i++) {
         const row = data[i];
+        if (!row) continue;
         const nonEmptyCells = row.filter(cell => 
-          cell !== null && 
-          cell !== undefined && 
-          String(cell).trim() !== ''
+          cell !== null && cell !== undefined && String(cell).trim() !== ''
         ).length;
         
         if (nonEmptyCells > maxNonEmptyCells && nonEmptyCells >= 3) {
@@ -247,19 +427,48 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       }
 
       const headers = data[headerRowIndex].map(h => String(h || '').trim());
-      console.log(`📋 Using headers from row ${headerRowIndex + 1}:`, headers);
+      
+      console.group("📋 Excel Header Analysis");
+      console.log(`Header row index: ${headerRowIndex}`);
+      console.log("Total columns:", headers.length);
+      console.log("Headers:", headers);
+      
+      // Show which headers map to which keys
+      const mappedHeaders = headers.map((h, i) => ({
+        index: i,
+        original: h,
+        mapped: mapHeaderToKey(h)
+      })).filter(m => m.mapped);
+      
+      console.log("Mapped headers:", mappedHeaders);
+      
+      // Check for name column specifically
+      const nameColIndex = headers.findIndex(h => {
+        const key = mapHeaderToKey(h);
+        return key === 'name';
+      });
+      console.log(`'name' column index: ${nameColIndex} (header: "${headers[nameColIndex] || 'NOT FOUND'}")`);
+      console.groupEnd();
       
       const parsed = [];
       
       for (let i = headerRowIndex + 1; i < data.length; i++) {
         const rowData = data[i];
         if (!rowData || rowData.every(cell => 
-          cell === null || 
-          cell === undefined || 
-          String(cell).trim() === ''
+          cell === null || cell === undefined || String(cell).trim() === ''
         )) continue;
         
-        const parsedRow = parseRowData(headers, rowData.map(cell => String(cell || '').trim()));
+        const values = rowData.map(cell => String(cell || '').trim());
+        
+        // Debug first row
+        if (parsed.length === 0) {
+          console.log("📝 First data row values:", values);
+          if (nameColIndex !== -1) {
+            console.log(`   Name value: "${values[nameColIndex]}"`);
+          }
+        }
+        
+        const parsedRow = parseRowData(headers, values, parsed.length < 2);
         
         if (parsedRow.name || parsedRow.mfac || parsedRow.hsn || parsedRow.qty || parsedRow.price) {
           parsed.push(parsedRow);
@@ -268,16 +477,11 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
 
       console.log('✅ Excel parsed rows:', parsed.length);
 
-      // ✅ Detect new products and match existing ones
       const { existingRows, newProducts } = detectNewProducts(parsed);
-
-      // Call onImport with both existing rows and new products
       onImport(existingRows, newProducts);
       
       const matchedCount = existingRows.filter(r => r.medicine_id).length;
-      const successMessage = `${matchedCount} matched, ${newProducts.length} new products detected`;
-      
-      toast.success("Excel Imported", successMessage);
+      toast.success("Excel Imported", `${matchedCount} matched, ${newProducts.length} new products detected`);
       
     } catch (error) {
       console.error('❌ Excel import error:', error);
@@ -300,13 +504,14 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         { header: 'Batch', key: 'batch', width: 12 },
         { header: 'HSN Code', key: 'hsn', width: 12 },
         { header: 'Expiry', key: 'exp', width: 10 },
-        { header: 'Pack', key: 'pack', width: 8 },
+        { header: 'Pack', key: 'pack', width: 10 },
         { header: 'Prev Qty', key: 'pQty', width: 8 },
         { header: 'Quantity', key: 'qty', width: 10 },
         { header: 'Rate', key: 'price', width: 12 },
         { header: 'Discount %', key: 'discountPercent', width: 10 },
         { header: 'Net Rate', key: 'netRate', width: 12 },
         { header: 'Amount', key: 'amount', width: 15 },
+        { header: 'CGST %', key: 'cgstPercent', width: 8 },
         { header: 'SGST %', key: 'sgstPercent', width: 8 },
         { header: 'MRP', key: 'mrp', width: 12 },
         { header: 'Rack', key: 'rack', width: 8 },
@@ -331,6 +536,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           discountPercent: row.discountPercent ? Number(row.discountPercent) : 0,
           netRate: row.netRate ? Number(row.netRate) : 0,
           amount: row.amount ? Number(row.amount) : 0,
+          cgstPercent: row.cgstPercent ? Number(row.cgstPercent) : 0,
           sgstPercent: row.sgstPercent ? Number(row.sgstPercent) : 0,
           mrp: row.mrp ? Number(row.mrp) : 0,
           rack: row.rack || '',
@@ -349,7 +555,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         }
       });
 
-      // Header styling
       const headerRow = worksheet.getRow(1);
       headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
       headerRow.fill = {
@@ -360,7 +565,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       headerRow.height = 25;
       headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-      // Borders
       worksheet.eachRow((row) => {
         row.eachCell((cell) => {
           cell.border = {
@@ -372,7 +576,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         });
       });
 
-      worksheet.autoFilter = 'A1:R1';
+      worksheet.autoFilter = 'A1:S1';
       worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
       const buffer = await workbook.xlsx.writeBuffer();
@@ -410,7 +614,9 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     }
     
     const extension = file.name.split('.').pop()?.toLowerCase();
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 10 * 1024 * 1024;
+    
+    console.log(`📁 Importing file: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
     
     if (file.size > maxSize) {
       toast.error('File too large', 'Please select a file smaller than 10MB.');
@@ -422,7 +628,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     } else if (['xlsx', 'xls'].includes(extension)) {
       handleImportExcel(file);
     } else {
-      toast.error('Unsupported Format', 'Please use CSV (.csv), Excel (.xlsx), or Excel 97-2003 (.xls) files.');
+      toast.error('Unsupported Format', 'Please use CSV, Excel (.xlsx), or Excel 97-2003 (.xls) files.');
     }
   }, [handleImportCSV, handleImportExcel, toast]);
 

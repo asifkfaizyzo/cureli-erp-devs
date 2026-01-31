@@ -1,4 +1,5 @@
 // src/pages/inventory/components/ViewInventoryModal.jsx
+
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -22,9 +23,8 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
-import { toast } from "react-toastify";
-import { useMenuStore } from "../../../store/useMenuStore";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 
 /* ---------------- ANIMATION VARIANTS ---------------- */
@@ -57,10 +57,10 @@ const ViewInventoryModal = ({
   mode = "view",
   onSave,
   onDelete,
+  onAdjust,
+  canAdjustStock = true,
 }) => {
-  const sidebarExpanded = useMenuStore((s) => s.sidebarExpanded);
   const isEdit = mode === "edit";
-
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   /* -------- Local editable state -------- */
@@ -87,7 +87,6 @@ const ViewInventoryModal = ({
 
   const handleSave = () => {
     if (!editableItem.name) {
-      toast.warn("Item name is required");
       return;
     }
     onSave?.(editableItem);
@@ -97,10 +96,19 @@ const ViewInventoryModal = ({
     setConfirmDelete(true);
   };
 
+  const handleAdjust = () => {
+    if (canAdjustStock && onAdjust) {
+      onAdjust(editableItem);
+      onClose();
+    }
+  };
+
   /* ---------------- STATUS HELPERS ---------------- */
   const getStatusInfo = (status) => {
-    switch (status) {
-      case "In Stock":
+    const normalizedStatus = (status || "").toLowerCase();
+    
+    switch (normalizedStatus) {
+      case "in stock":
         return {
           icon: CheckCircle2,
           color: "text-green-600",
@@ -108,7 +116,7 @@ const ViewInventoryModal = ({
           border: "border-green-200",
           badge: "bg-green-100 text-green-700 border-green-300",
         };
-      case "Low Stock":
+      case "low stock":
         return {
           icon: AlertTriangle,
           color: "text-yellow-600",
@@ -116,13 +124,29 @@ const ViewInventoryModal = ({
           border: "border-yellow-200",
           badge: "bg-yellow-100 text-yellow-700 border-yellow-300",
         };
-      case "Out of Stock":
+      case "out of stock":
         return {
           icon: XCircle,
           color: "text-red-600",
           bg: "bg-red-50",
           border: "border-red-200",
           badge: "bg-red-100 text-red-700 border-red-300",
+        };
+      case "expired":
+        return {
+          icon: XCircle,
+          color: "text-gray-600",
+          bg: "bg-gray-50",
+          border: "border-gray-200",
+          badge: "bg-gray-100 text-gray-700 border-gray-300",
+        };
+      case "expiring soon":
+        return {
+          icon: Clock,
+          color: "text-orange-600",
+          bg: "bg-orange-50",
+          border: "border-orange-200",
+          badge: "bg-orange-100 text-orange-700 border-orange-300",
         };
       default:
         return {
@@ -178,26 +202,54 @@ const ViewInventoryModal = ({
                   <Package size={14} />
                   <span>{isEdit ? "Edit Inventory Item" : "View Inventory Item"}</span>
                 </div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2 flex-wrap">
                   {editableItem.name}
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusInfo.badge}`}>
                     {editableItem.status}
                   </span>
                 </h2>
-                <div className="flex items-center gap-3 text-[10px] text-indigo-200 mt-0.5">
+                <div className="flex items-center gap-3 text-[10px] text-indigo-200 mt-0.5 flex-wrap">
                   <span className="flex items-center gap-1">
                     <Tag size={10} />
-                    {editableItem.category}
+                    {editableItem.category || "-"}
                   </span>
                   <span>•</span>
                   <span className="flex items-center gap-1">
                     <Hash size={10} />
-                    Batch: {editableItem.batch}
+                    Batch: {editableItem.batch || editableItem.batch_number || "-"}
                   </span>
+                  {(editableItem.branch || editableItem.branch_name) && (
+                    <>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <Building2 size={10} />
+                        {editableItem.branch || editableItem.branch_name}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Stock Adjustment Button */}
+                {!isEdit && canAdjustStock && onAdjust && (
+                  <button
+                    onClick={handleAdjust}
+                    className="
+                      flex items-center gap-2
+                      px-4 py-2
+                      bg-amber-500 text-white
+                      rounded-lg text-sm font-semibold
+                      hover:bg-amber-600
+                      transition-all shadow-lg hover:shadow-xl
+                      border border-amber-400
+                    "
+                  >
+                    <RefreshCw size={16} />
+                    Adjust Stock
+                  </button>
+                )}
+
                 {isEdit && (
                   <button
                     onClick={handleSave}
@@ -216,7 +268,7 @@ const ViewInventoryModal = ({
                   </button>
                 )}
 
-                {isEdit && onDelete && (
+                {isEdit && onDelete && canAdjustStock && (
                   <button
                     onClick={handleDelete}
                     className="p-2.5 rounded-lg text-red-200 hover:text-white hover:bg-red-600 transition-all border border-red-400/30"
@@ -239,10 +291,10 @@ const ViewInventoryModal = ({
             {/* BODY */}
             <div className="flex-1 overflow-y-auto bg-slate-50">
               {/* QUICK STATS BAR */}
-              <div className="grid grid-cols-4 gap-3 p-4 bg-white border-b border-slate-200">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-white border-b border-slate-200">
                 <StatCard
                   label="Current Stock"
-                  value={editableItem.qty || "0"}
+                  value={editableItem.qty || editableItem.current_stock || "0"}
                   icon={Layers}
                   color="blue"
                   suffix="units"
@@ -254,14 +306,14 @@ const ViewInventoryModal = ({
                   color="green"
                 />
                 <StatCard
-                  label="S.L.R"
-                  value={editableItem.slr || "-"}
+                  label="Selling Rate"
+                  value={editableItem.slr || editableItem.selling_rate ? `₹${Number(editableItem.slr || editableItem.selling_rate).toFixed(2)}` : "-"}
                   icon={TrendingUp}
                   color="purple"
                 />
                 <StatCard
                   label="Rack Location"
-                  value={editableItem.rack || "Not Assigned"}
+                  value={editableItem.rack || editableItem.rack_no || "Not Assigned"}
                   icon={MapPin}
                   color="orange"
                 />
@@ -299,10 +351,10 @@ const ViewInventoryModal = ({
 
                 {/* BATCH & TRACKING */}
                 <Section title="Batch & Tracking" icon={Box}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <InfoField
                       label="Batch ID"
-                      value={editableItem.batch}
+                      value={editableItem.batch || editableItem.batch_number}
                       editable={isEdit}
                       onChange={(v) => updateField("batch", v)}
                       icon={Hash}
@@ -323,15 +375,21 @@ const ViewInventoryModal = ({
                       onChange={(v) => updateField("hsn", v)}
                       icon={Hash}
                     />
+                    <InfoField
+                      label="Branch"
+                      value={editableItem.branch || editableItem.branch_name || ""}
+                      editable={false}
+                      icon={Building2}
+                    />
                   </div>
                 </Section>
 
                 {/* SUPPLIER & PRICING */}
                 <Section title="Supplier & Pricing" icon={Truck}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <InfoField
                       label="Supplier"
-                      value={editableItem.supplier}
+                      value={editableItem.supplier || editableItem.supplier_name}
                       editable={isEdit}
                       onChange={(v) => updateField("supplier", v)}
                       icon={Truck}
@@ -347,10 +405,19 @@ const ViewInventoryModal = ({
                     />
                     <InfoField
                       label="Purchase Rate"
-                      value={editableItem.purchaseRate || ""}
+                      value={editableItem.purchaseRate || editableItem.last_purchase_rate || ""}
                       editable={isEdit}
                       onChange={(v) => updateField("purchaseRate", v)}
                       icon={DollarSign}
+                      type="number"
+                      prefix="₹"
+                    />
+                    <InfoField
+                      label="Selling Rate"
+                      value={editableItem.slr || editableItem.selling_rate || ""}
+                      editable={isEdit}
+                      onChange={(v) => updateField("slr", v)}
+                      icon={TrendingUp}
                       type="number"
                       prefix="₹"
                     />
@@ -362,15 +429,21 @@ const ViewInventoryModal = ({
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <InfoField
                       label="Current Stock"
-                      value={editableItem.qty}
-                      editable={isEdit}
-                      onChange={(v) => updateField("qty", v)}
+                      value={editableItem.qty || editableItem.current_stock}
+                      editable={false}
+                      icon={Layers}
+                      type="number"
+                    />
+                    <InfoField
+                      label="Available Stock"
+                      value={editableItem.available_stock || editableItem.qty || editableItem.current_stock}
+                      editable={false}
                       icon={Layers}
                       type="number"
                     />
                     <InfoField
                       label="Minimum Stock"
-                      value={editableItem.minStock || ""}
+                      value={editableItem.minStock || editableItem.minimum_stock || ""}
                       editable={isEdit}
                       onChange={(v) => updateField("minStock", v)}
                       icon={AlertTriangle}
@@ -378,11 +451,15 @@ const ViewInventoryModal = ({
                     />
                     <InfoField
                       label="Rack Location"
-                      value={editableItem.rack}
+                      value={editableItem.rack || editableItem.rack_no}
                       editable={isEdit}
                       onChange={(v) => updateField("rack", v)}
                       icon={MapPin}
                     />
+                  </div>
+
+                  {/* Status Row */}
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
                       <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                         <StatusIcon size={12} className={statusInfo.color} />
@@ -397,6 +474,8 @@ const ViewInventoryModal = ({
                           <option value="In Stock">In Stock</option>
                           <option value="Low Stock">Low Stock</option>
                           <option value="Out of Stock">Out of Stock</option>
+                          <option value="Expired">Expired</option>
+                          <option value="Expiring Soon">Expiring Soon</option>
                         </select>
                       ) : (
                         <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${statusInfo.bg} ${statusInfo.border}`}>
@@ -407,6 +486,16 @@ const ViewInventoryModal = ({
                         </div>
                       )}
                     </div>
+
+                    {/* Read-only mode notice */}
+                    {!canAdjustStock && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                        <AlertTriangle size={16} className="text-amber-600" />
+                        <span className="text-sm text-amber-700">
+                          Select a specific branch to adjust stock
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </Section>
               </div>
@@ -416,17 +505,23 @@ const ViewInventoryModal = ({
             <div className="flex justify-between items-center px-6 py-3 bg-slate-50 border-t border-slate-200">
               <div className="flex items-center gap-2 text-[10px] text-slate-500">
                 <Clock size={12} />
-                <span>Last updated: {new Date().toLocaleDateString()}</span>
+                <span>
+                  Last updated: {editableItem.updated_at 
+                    ? new Date(editableItem.updated_at).toLocaleDateString() 
+                    : new Date().toLocaleDateString()
+                  }
+                </span>
               </div>
               
-              {isEdit && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={onClose}
-                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
-                  >
-                    Cancel
-                  </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
+                >
+                  Close
+                </button>
+                
+                {isEdit && (
                   <button
                     onClick={handleSave}
                     className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm flex items-center gap-2"
@@ -434,8 +529,8 @@ const ViewInventoryModal = ({
                     <Save size={14} />
                     Save Changes
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </motion.div>
 

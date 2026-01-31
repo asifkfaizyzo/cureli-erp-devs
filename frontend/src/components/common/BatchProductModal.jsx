@@ -1,9 +1,9 @@
-// src/components/modals/BatchProductModal.jsx
-import React, { useState } from 'react';
+// src/components/common/BatchProductModal.jsx
+import React, { useState, useEffect } from 'react';
 import { 
   X, Package, AlertCircle, ChevronRight, 
   SkipForward, Plus, Check, Loader2,
-  Building2, Hash, MapPin
+  Building2, Hash, MapPin, Percent
 } from 'lucide-react';
 import ProductMasterModal from './ProductMasterModal';
 
@@ -19,9 +19,18 @@ const BatchProductModal = ({
   const [showProductModal, setShowProductModal] = useState(false);
   const [processingStatus, setProcessingStatus] = useState({});
 
+  // Reset state when modal opens with new products
+  useEffect(() => {
+    if (open && newProducts.length > 0) {
+      setCurrentIndex(0);
+      setSavedProducts([]);
+      setProcessingStatus({});
+    }
+  }, [open, newProducts]);
+
   const currentProduct = newProducts[currentIndex];
   const hasMore = currentIndex < newProducts.length - 1;
-  const progress = ((currentIndex + 1) / newProducts.length) * 100;
+  const progress = newProducts.length > 0 ? ((currentIndex + 1) / newProducts.length) * 100 : 0;
 
   const handleSaveProduct = (productData) => {
     const updatedProducts = [...savedProducts, productData];
@@ -54,6 +63,33 @@ const BatchProductModal = ({
 
   if (!open || !currentProduct) return null;
 
+  // ✅ ENHANCED: Prepare initial data with ALL available fields from import
+  const getInitialDataForModal = () => {
+    console.log('📦 BatchProductModal - Current product data:', currentProduct);
+    
+    return {
+      // Basic info
+      name: currentProduct.name || '',
+      manufacturer: currentProduct.manufacturer || currentProduct.mfac || '',
+      genericName: currentProduct.genericName || '',
+      category: currentProduct.category || '',
+      
+      // ✅ FIXED: Pass HSN code properly
+      hsnCode: currentProduct.hsnCode || currentProduct.hsn || '',
+      
+      // ✅ FIXED: Pass pack size properly
+      packSize: currentProduct.packSize || currentProduct.pack || '',
+      
+      // ✅ FIXED: Pass rack location properly
+      rackNo: currentProduct.rackNo || currentProduct.rack || '',
+      
+      // ✅ NEW: Pass GST values from import
+      gst: currentProduct.gst || '12',
+      cgstPercent: currentProduct.cgstPercent || '6',
+      sgstPercent: currentProduct.sgstPercent || '6',
+    };
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-40 overflow-hidden">
@@ -68,7 +104,7 @@ const BatchProductModal = ({
           <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-[#000060] to-indigo-900">
+            <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500">
               <div className="flex items-center gap-4">
                 <div className="flex items-center justify-center w-10 h-10 bg-white/20 backdrop-blur rounded-lg">
                   <AlertCircle className="w-5 h-5 text-white" />
@@ -153,36 +189,107 @@ const BatchProductModal = ({
                   </div>
                 </div>
 
-                {/* Product Details Grid - Horizontal */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                {/* ✅ ENHANCED: Product Details Grid with ALL imported fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <Building2 className="w-5 h-5 text-slate-400 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs text-slate-500">Manufacturer</p>
                       <p className="text-sm font-medium text-slate-800 truncate">
-                        {currentProduct.mfac || 'Not specified'}
+                        {currentProduct.manufacturer || currentProduct.mfac || 'Not specified'}
                       </p>
                     </div>
                   </div>
+                  
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <Hash className="w-5 h-5 text-slate-400 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs text-slate-500">HSN Code</p>
-                      <p className="text-sm font-medium text-slate-800 truncate">
-                        {currentProduct.hsn || 'Not specified'}
+                      <p className={`text-sm font-medium truncate ${
+                        currentProduct.hsnCode || currentProduct.hsn 
+                          ? 'text-green-700' 
+                          : 'text-slate-400'
+                      }`}>
+                        {currentProduct.hsnCode || currentProduct.hsn || 'Not specified'}
                       </p>
                     </div>
                   </div>
+                  
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <MapPin className="w-5 h-5 text-slate-400 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs text-slate-500">Rack Location</p>
-                      <p className="text-sm font-medium text-slate-800 truncate">
-                        {currentProduct.rack || 'Not specified'}
+                      <p className={`text-sm font-medium truncate ${
+                        currentProduct.rackNo || currentProduct.rack 
+                          ? 'text-green-700' 
+                          : 'text-slate-400'
+                      }`}>
+                        {currentProduct.rackNo || currentProduct.rack || 'Not specified'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <Package className="w-5 h-5 text-slate-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-500">Pack Size</p>
+                      <p className={`text-sm font-medium truncate ${
+                        currentProduct.packSize || currentProduct.pack 
+                          ? 'text-green-700' 
+                          : 'text-slate-400'
+                      }`}>
+                        {currentProduct.packSize || currentProduct.pack || 'Not specified'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <Percent className="w-5 h-5 text-slate-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-500">GST Rate</p>
+                      <p className={`text-sm font-medium truncate ${
+                        currentProduct.gst || currentProduct.cgstPercent 
+                          ? 'text-green-700' 
+                          : 'text-slate-400'
+                      }`}>
+                        {currentProduct.gst 
+                          ? `${currentProduct.gst}%` 
+                          : currentProduct.cgstPercent && currentProduct.sgstPercent
+                            ? `${parseFloat(currentProduct.cgstPercent) + parseFloat(currentProduct.sgstPercent)}%`
+                            : 'Default 12%'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <Percent className="w-5 h-5 text-slate-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-500">CGST / SGST</p>
+                      <p className={`text-sm font-medium truncate ${
+                        currentProduct.cgstPercent 
+                          ? 'text-green-700' 
+                          : 'text-slate-400'
+                      }`}>
+                        {currentProduct.cgstPercent && currentProduct.sgstPercent
+                          ? `${currentProduct.cgstPercent}% / ${currentProduct.sgstPercent}%`
+                          : '6% / 6%'}
                       </p>
                     </div>
                   </div>
                 </div>
+
+                {/* Info Banner for Pre-filled Fields */}
+                {(currentProduct.hsnCode || currentProduct.hsn || 
+                  currentProduct.cgstPercent || currentProduct.rack || currentProduct.rackNo) && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <Check className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-green-700">
+                        <span className="font-medium">Fields detected from import:</span> The product modal will be pre-filled with HSN, GST, Pack Size, and Rack information from your import file.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Action Buttons - Horizontal */}
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -227,18 +334,13 @@ const BatchProductModal = ({
         </div>
       </div>
 
-      {/* Product Master Modal */}
+      {/* Product Master Modal - ✅ FIXED: Pass all initial data */}
       {showProductModal && (
         <ProductMasterModal
           open={showProductModal}
           onClose={() => setShowProductModal(false)}
           onSave={handleSaveProduct}
-          initialData={{
-            name: currentProduct.name,
-            manufacturer: currentProduct.mfac || '',
-            hsnCode: currentProduct.hsn || '',
-            rackNo: currentProduct.rack || '',
-          }}
+          initialData={getInitialDataForModal()}
           mode="create"
         />
       )}

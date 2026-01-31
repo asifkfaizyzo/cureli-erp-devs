@@ -94,22 +94,30 @@ const PurchaseRowFixed = memo(forwardRef(({
   }, [productMaster]);
 
   // ✅ Handle new product detection
-  const handleProductNameBlur = useCallback((productName) => {
-    if (!productName || productName.trim().length < 2) return;
-    
-    const exists = checkProductExists(productName);
-    
-    if (!exists && onAddNewProduct) {
-      // Open modal for new product
-      onAddNewProduct({
-        rowIndex: index,
-        productName: productName.trim(),
-        manufacturer: item.mfac || '',
-        hsn: item.hsn || '',
-        rack: item.rack || '',
-      });
-    }
-  }, [checkProductExists, onAddNewProduct, index, item.mfac, item.hsn, item.rack]);
+const handleProductNameBlur = useCallback((productName) => {
+  if (!productName || productName.trim().length < 2) return;
+  
+  const exists = checkProductExists(productName);
+  
+  if (!exists && onAddNewProduct) {
+    // Pass all available data from the current row
+    onAddNewProduct({
+      rowIndex: index,
+      productName: productName.trim(),
+      name: productName.trim(),
+      manufacturer: item.mfac || '',
+      mfac: item.mfac || '',
+      hsn: item.hsn || '',
+      hsnCode: item.hsn || '',
+      rack: item.rack || '',
+      rackNo: item.rack || '',
+      pack: item.pack || '',
+      packSize: item.pack || '',
+      cgstPercent: item.cgstPercent || '6',
+      sgstPercent: item.sgstPercent || '6',
+    });
+  }
+}, [checkProductExists, onAddNewProduct, index, item]);
 
   const getCurrentFieldIndex = useCallback(() => {
     const activeElement = document.activeElement;
