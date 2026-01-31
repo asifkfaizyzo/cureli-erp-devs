@@ -1,0 +1,107 @@
+//.vscode\tasks.json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "start-cureli",
+      "dependsOn": ["Backend", "cAdmin", "ERP","Prisma","Backend tree","ERP tree","cAdmin tree","Git"],
+      "dependsOrder": "parallel"
+    },
+    {
+      "label": "Backend",
+      "type": "shell",
+      "command": "npm start",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Backend tree",
+      "type": "shell",
+      "command": "tree /f; powershell",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/backend/src"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "ERP tree",
+      "type": "shell",
+      "command": "tree /f; powershell",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/frontend/src"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "cAdmin tree",
+      "type": "shell",
+      "command": "tree /f; powershell",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/cureli-admin/src"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "cAdmin",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/cureli-admin"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "ERP",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Prisma",
+      "type": "shell",
+      "command": "powershell",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Git",
+      "type": "shell",
+      "command": "powershell",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    }
+  ]
+}
