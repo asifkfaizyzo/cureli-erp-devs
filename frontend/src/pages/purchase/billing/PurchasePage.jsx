@@ -21,6 +21,7 @@ import { usePurchaseImportExport } from "../../../hooks/purchase/usePurchaseImpo
 import { usePurchaseSupplier } from "../../../hooks/purchase/usePurchaseSupplier";
 import { usePurchaseAPI } from "../../../hooks/purchase/usePurchaseAPI";
 import { useToast } from "../../../components/common/Toast";
+import { useAuthStore, selectBranchContext } from "../../../store/useAuthStore";
 
 // Styles
 import "../../../styles/print.css";
@@ -39,6 +40,9 @@ const PurchasePage = () => {
   const navigate = useNavigate();
   const { invoiceId } = useParams();
   const printRef = useRef(null);
+
+  // Get branch context
+  const branchContext = useAuthStore(selectBranchContext);
 
   // ============================================
   // API INTEGRATION
@@ -82,9 +86,10 @@ const PurchasePage = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
 
+  // Initialize with branch context
   const [invoiceData, setInvoiceData] = useState({
-    invoice_date: new Date().toISOString(),
-    branch_id: null,
+    invoice_date: new Date().toISOString().split('T')[0],
+    branch_id: branchContext.branch_id || null,
     due_date: null,
     received_date: null,
     transport_charges: null,
@@ -95,9 +100,20 @@ const PurchasePage = () => {
   // Get responsive config
   const { visibleRows, rowHeight } = useResponsiveRowCount();
 
-  // Custom Hooks
-  const { rows, setRows, importRows, getFilledRows, importVersion } = usePurchaseRows(visibleRows);
+  // Custom Hooks - ✅ UPDATED: Now with persistence
+  const { 
+    rows, 
+    setRows, 
+    importRows, 
+    getFilledRows, 
+    importVersion, 
+    clearAllRows,
+    hasUnsavedData,
+    isInitialized: rowsInitialized,
+  } = usePurchaseRows(visibleRows);
+  
   const { summary } = usePurchaseCalculation(rows);
+  
   const {
     supplier,
     setSupplier,
@@ -105,6 +121,9 @@ const PurchasePage = () => {
     setSuppliersList,
     selectSupplier,
     validateSupplier,
+    resetSupplier,
+    clearStoredData: clearSupplierStorage,
+    isInitialized: supplierInitialized,
   } = usePurchaseSupplier(summary.total);
 
   const { handleImportFile, handleExportExcel } = usePurchaseImportExport(
@@ -120,12 +139,21 @@ const PurchasePage = () => {
     medicines
   );
 
+  // Update branch_id when context changes
+  useEffect(() => {
+    if (branchContext.branch_id) {
+      setInvoiceData(prev => ({
+        ...prev,
+        branch_id: branchContext.branch_id
+      }));
+    }
+  }, [branchContext.branch_id]);
+
   // ============================================
   // LOAD INITIAL DATA - PROGRESSIVE LOADING
   // ============================================
   useEffect(() => {
     const initData = async () => {
-      // Start with all loading
       setLoadingStates({
         header: true,
         table: true,
@@ -134,20 +162,16 @@ const PurchasePage = () => {
       });
 
       try {
-        // Header loads first (instant)
         setTimeout(() => {
           setLoadingStates(prev => ({ ...prev, header: false }));
         }, 200);
 
-        // Load medicines (for table)
         await loadMedicines();
         setLoadingStates(prev => ({ ...prev, table: false, summary: false }));
 
-        // Load suppliers
         await loadSuppliers();
         setLoadingStates(prev => ({ ...prev, supplier: false }));
 
-        // If editing existing invoice
         if (invoiceId) {
           setLoadingStates(prev => ({ ...prev, table: true, supplier: true, summary: true }));
           const invoice = await loadInvoiceForEdit(invoiceId);
@@ -157,7 +181,6 @@ const PurchasePage = () => {
 
       } catch (error) {
         console.error("Init error:", error);
-        // On error, stop all loading states
         setLoadingStates({
           header: false,
           table: false,
@@ -199,6 +222,9 @@ const PurchasePage = () => {
         .join(", "),
       invoiceNo: invoice.supplier_invoice_no || "",
       purchaseId: invoice.invoice_number,
+      invoiceDate: invoice.invoice_date,
+      receivedOn: invoice.received_date,
+      creditDays: invoice.credit_days || "",
     });
 
     setInvoiceData({
@@ -250,6 +276,26 @@ const PurchasePage = () => {
   }, [setSupplier, setRows]);
 
   // ============================================
+  // HANDLE SUPPLIER FIELD CHANGES
+  // ============================================
+  const handleSupplierFieldChange = useCallback((field, value) => {
+    setSupplier(prev => ({ ...prev, [field]: value }));
+    
+    if (field === 'invoiceDate') {
+      setInvoiceData(prev => ({ ...prev, invoice_date: value }));
+    }
+    if (field === 'receivedOn') {
+      setInvoiceData(prev => ({ ...prev, received_date: value }));
+    }
+    if (field === 'creditDays' && value) {
+      const invoiceDate = new Date(invoiceData.invoice_date || new Date());
+      const dueDate = new Date(invoiceDate);
+      dueDate.setDate(dueDate.getDate() + parseInt(value));
+      setInvoiceData(prev => ({ ...prev, due_date: dueDate.toISOString().split('T')[0] }));
+    }
+  }, [setSupplier, invoiceData.invoice_date]);
+
+  // ============================================
   // PRINT HANDLER
   // ============================================
   const handlePrint = useReactToPrint({
@@ -264,6 +310,43 @@ const PurchasePage = () => {
   });
 
   // ============================================
+  // ✅ NEW: CLEAR TABLE HANDLER
+  // ============================================
+  const handleClearTable = useCallback(() => {
+    clearAllRows();
+    toast.info("Table Cleared", "All items have been removed.");
+  }, [clearAllRows, toast]);
+
+  // ============================================
+  // ✅ NEW: NEW INVOICE HANDLER
+  // ============================================
+  const handleNewInvoice = useCallback(() => {
+    // Clear all data
+    clearAllRows();
+    resetSupplier();
+    clearSupplierStorage();
+    resetInvoice();
+    
+    // Reset invoice data
+    setInvoiceData({
+      invoice_date: new Date().toISOString().split('T')[0],
+      branch_id: branchContext.branch_id || null,
+      due_date: null,
+      received_date: null,
+      transport_charges: null,
+      other_charges: null,
+      remarks: null,
+    });
+    
+    // Navigate to clean URL if we were editing
+    if (invoiceId) {
+      navigate('/purchase/billing');
+    }
+    
+    toast.success("New Invoice", "Ready to create a new purchase invoice.");
+  }, [clearAllRows, resetSupplier, clearSupplierStorage, resetInvoice, branchContext.branch_id, invoiceId, navigate, toast]);
+
+  // ============================================
   // SAVE HANDLER (DRAFT)
   // ============================================
   const handleSave = useCallback(async () => {
@@ -276,6 +359,11 @@ const PurchasePage = () => {
     const { isValid, errors } = validateSupplier();
     if (!isValid) {
       toast.warning("Validation Error", errors[0]);
+      return false;
+    }
+
+    if (!invoiceData.branch_id) {
+      toast.warning("Branch Required", "Please select a branch to create purchase invoice");
       return false;
     }
 
@@ -304,6 +392,11 @@ const PurchasePage = () => {
     const dataRows = getFilledRows();
     if (dataRows.length === 0) {
       toast.warning("Please add at least one item to print");
+      return;
+    }
+
+    if (!invoiceData.branch_id) {
+      toast.warning("Branch Required", "Please select a branch to create purchase invoice");
       return;
     }
 
@@ -385,54 +478,155 @@ const PurchasePage = () => {
   );
 
   // ============================================
-  // PRODUCT MODAL HANDLERS
+  // PRODUCT MODAL HANDLERS - ✅ FIXED HSN FLOW
   // ============================================
   const handleAddNewProduct = useCallback((productData) => {
-    setPendingProductData(productData);
-    setProductModalOpen(true);
-  }, []);
+  console.log('📝 handleAddNewProduct called:', productData);
+  setPendingProductData(productData);
+  setProductModalOpen(true);
+}, []);
 
-  const handleProductSave = useCallback(
-    async (newProductData) => {
-      try {
-        const createdMedicine = await createMedicine({
-          name: newProductData.name,
-          manufacturer: newProductData.manufacturer,
-          genericName: newProductData.genericName,
-          category: newProductData.category,
-          hsnCode: newProductData.hsnCode,
-          packSize: newProductData.packSize,
-          rackNo: newProductData.rackNo,
-          gst: newProductData.gst,
-        });
+const handleProductSave = useCallback(
+  async (newProductData) => {
+    try {
+      console.log('📤 handleProductSave - Input data:', newProductData);
+      
+      const createdMedicine = await createMedicine({
+        name: newProductData.name,
+        manufacturer: newProductData.manufacturer,
+        genericName: newProductData.genericName,
+        category: newProductData.category,
+        hsnCode: newProductData.hsnCode,
+        packSize: newProductData.packSize,  // ✅ Ensure packSize is passed
+        rackNo: newProductData.rackNo,
+        gst: newProductData.gst,
+        cgstPercent: newProductData.cgstPercent,
+        sgstPercent: newProductData.sgstPercent,
+      });
 
-        if (createdMedicine && pendingProductData) {
-          const { rowIndex } = pendingProductData;
-          setRows((prev) => {
-            const newRows = [...prev];
-            newRows[rowIndex] = {
-              ...newRows[rowIndex],
-              medicine_id: createdMedicine.medicine_id,
-              name: createdMedicine.name,
-              mfac: createdMedicine.manufacturer,
-              hsn: createdMedicine.hsnCode,
-              rack: createdMedicine.rackNo,
-              cgstPercent: createdMedicine.cgstPercent,
-              sgstPercent: createdMedicine.sgstPercent,
-            };
-            newRows[rowIndex] = calculateRow(newRows[rowIndex]);
-            return newRows;
+      console.log('✅ handleProductSave - Created medicine:', createdMedicine);
+
+      if (createdMedicine && pendingProductData) {
+        const { rowIndex } = pendingProductData;
+        
+        setRows((prev) => {
+          const newRows = [...prev];
+          
+          // ✅ FIXED: Map all fields properly with multiple fallbacks
+          const updatedRow = {
+            ...newRows[rowIndex],
+            medicine_id: createdMedicine.medicine_id || createdMedicine.id,
+            name: createdMedicine.name,
+            mfac: createdMedicine.manufacturer || createdMedicine.mfac,
+            // ✅ FIXED: HSN - check all possible field names
+            hsn: createdMedicine.hsn || 
+                 createdMedicine.hsnCode || 
+                 createdMedicine.hsn_code || 
+                 newProductData.hsnCode || 
+                 '',
+            // ✅ FIXED: Rack - check all possible field names
+            rack: createdMedicine.rack || 
+                  createdMedicine.rackNo || 
+                  createdMedicine.rack_no || 
+                  newProductData.rackNo || 
+                  '',
+            // ✅ FIXED: Pack - check all possible field names
+            pack: createdMedicine.pack || 
+                  createdMedicine.packSize || 
+                  createdMedicine.pack_size || 
+                  newProductData.packSize || 
+                  '',
+            // ✅ FIXED: Tax percentages
+            cgstPercent: createdMedicine.cgstPercent?.toString() || 
+                         createdMedicine.cgst_percentage?.toString() || 
+                         newProductData.cgstPercent?.toString() || 
+                         "6",
+            sgstPercent: createdMedicine.sgstPercent?.toString() || 
+                         createdMedicine.sgst_percentage?.toString() || 
+                         newProductData.sgstPercent?.toString() || 
+                         "6",
+          };
+          
+          console.log('📝 Updated row:', {
+            medicine_id: updatedRow.medicine_id,
+            name: updatedRow.name,
+            hsn: updatedRow.hsn,
+            pack: updatedRow.pack,
+            rack: updatedRow.rack,
+            cgstPercent: updatedRow.cgstPercent,
+            sgstPercent: updatedRow.sgstPercent,
           });
-        }
-
-        setProductModalOpen(false);
-        setPendingProductData(null);
-      } catch (error) {
-        console.error("Product save error:", error);
+          
+          newRows[rowIndex] = calculateRow(updatedRow);
+          return newRows;
+        });
       }
-    },
-    [pendingProductData, setRows, createMedicine]
-  );
+
+      setProductModalOpen(false);
+      setPendingProductData(null);
+    } catch (error) {
+      console.error("Product save error:", error);
+    }
+  },
+  [pendingProductData, setRows, createMedicine]
+);
+
+  //   async (newProductData) => {
+  //     try {
+  //       console.log('📤 handleProductSave called with:', newProductData);
+        
+  //       const createdMedicine = await createMedicine({
+  //         name: newProductData.name,
+  //         manufacturer: newProductData.manufacturer,
+  //         genericName: newProductData.genericName,
+  //         category: newProductData.category,
+  //         hsnCode: newProductData.hsnCode,  // ✅ FIXED: Pass hsnCode
+  //         packSize: newProductData.packSize,
+  //         rackNo: newProductData.rackNo,
+  //         gst: newProductData.gst,
+  //         cgstPercent: newProductData.cgstPercent,
+  //         sgstPercent: newProductData.sgstPercent,
+  //       });
+
+  //       console.log('✅ Medicine created:', createdMedicine);
+
+  //       if (createdMedicine && pendingProductData) {
+  //         const { rowIndex } = pendingProductData;
+          
+  //         setRows((prev) => {
+  //           const newRows = [...prev];
+  //           newRows[rowIndex] = {
+  //             ...newRows[rowIndex],
+  //             medicine_id: createdMedicine.medicine_id,
+  //             name: createdMedicine.name,
+  //             mfac: createdMedicine.manufacturer || createdMedicine.mfac,
+  //             // ✅ FIXED: Map HSN code properly from response
+  //             hsn: createdMedicine.hsn_code || createdMedicine.hsnCode || createdMedicine.hsn || newProductData.hsnCode,
+  //             rack: createdMedicine.rack_no || createdMedicine.rackNo || createdMedicine.rack,
+  //             pack: createdMedicine.pack_size || createdMedicine.packSize || createdMedicine.pack,
+  //             // ✅ FIXED: Map tax percentages properly
+  //             cgstPercent: createdMedicine.cgst_percentage?.toString() || 
+  //                          createdMedicine.cgstPercent?.toString() || 
+  //                          newProductData.cgstPercent?.toString() || "6",
+  //             sgstPercent: createdMedicine.sgst_percentage?.toString() || 
+  //                          createdMedicine.sgstPercent?.toString() || 
+  //                          newProductData.sgstPercent?.toString() || "6",
+  //           };
+            
+  //           console.log('📝 Updated row:', newRows[rowIndex]);
+  //           newRows[rowIndex] = calculateRow(newRows[rowIndex]);
+  //           return newRows;
+  //         });
+  //       }
+
+  //       setProductModalOpen(false);
+  //       setPendingProductData(null);
+  //     } catch (error) {
+  //       console.error("Product save error:", error);
+  //     }
+  //   },
+  //   [pendingProductData, setRows, createMedicine]
+  // );
 
   // ============================================
   // BATCH PRODUCT IMPORT HANDLERS
@@ -441,7 +635,39 @@ const PurchasePage = () => {
     async (productsToSave) => {
       try {
         if (productsToSave.length > 0) {
-          await bulkCreateMedicines(productsToSave);
+          const result = await bulkCreateMedicines(productsToSave);
+          
+          // ✅ ENHANCED: Update rows with newly created medicine IDs
+          if (result?.created?.length > 0) {
+            setRows(prev => {
+              const newRows = [...prev];
+              
+              result.created.forEach(createdMed => {
+                // Find rows that match this product name but don't have medicine_id
+                const matchingRowIndex = newRows.findIndex(row => 
+                  row.name && 
+                  !row.medicine_id && 
+                  row.name.toLowerCase() === createdMed.name.toLowerCase()
+                );
+                
+                if (matchingRowIndex !== -1) {
+                  newRows[matchingRowIndex] = {
+                    ...newRows[matchingRowIndex],
+                    medicine_id: createdMed.medicine_id,
+                    // ✅ FIXED: Update all fields from created medicine
+                    hsn: createdMed.hsn_code || newRows[matchingRowIndex].hsn,
+                    rack: createdMed.rack_no || newRows[matchingRowIndex].rack,
+                    pack: createdMed.pack_size || newRows[matchingRowIndex].pack,
+                    cgstPercent: createdMed.cgst_percentage?.toString() || newRows[matchingRowIndex].cgstPercent,
+                    sgstPercent: createdMed.sgst_percentage?.toString() || newRows[matchingRowIndex].sgstPercent,
+                  };
+                  newRows[matchingRowIndex] = calculateRow(newRows[matchingRowIndex]);
+                }
+              });
+              
+              return newRows;
+            });
+          }
         }
         setBatchProductModalOpen(false);
         setNewProductsFromImport([]);
@@ -449,7 +675,7 @@ const PurchasePage = () => {
         console.error("Batch product save error:", error);
       }
     },
-    [bulkCreateMedicines]
+    [bulkCreateMedicines, setRows]
   );
 
   const handleBatchProductSkip = useCallback(() => {
@@ -472,11 +698,17 @@ const PurchasePage = () => {
           medicine_id: product.medicine_id,
           name: product.name,
           mfac: product.manufacturer || product.mfac,
-          hsn: product.hsnCode || product.hsn,
-          rack: product.rackNo || product.rack,
-          cgstPercent: product.cgstPercent || (product.gst ? (parseFloat(product.gst) / 2).toString() : "6"),
-          sgstPercent: product.sgstPercent || (product.gst ? (parseFloat(product.gst) / 2).toString() : "6"),
-          pack: product.packSize || product.pack,
+          // ✅ FIXED: Map HSN properly
+          hsn: product.hsn_code || product.hsnCode || product.hsn,
+          rack: product.rack_no || product.rackNo || product.rack,
+          // ✅ FIXED: Map tax percentages properly
+          cgstPercent: product.cgst_percentage?.toString() || 
+                       product.cgstPercent || 
+                       (product.gst_percentage ? (parseFloat(product.gst_percentage) / 2).toString() : "6"),
+          sgstPercent: product.sgst_percentage?.toString() || 
+                       product.sgstPercent || 
+                       (product.gst_percentage ? (parseFloat(product.gst_percentage) / 2).toString() : "6"),
+          pack: product.pack_size || product.packSize || product.pack,
         };
 
         if (existingBatches.length > 0) {
@@ -512,6 +744,9 @@ const PurchasePage = () => {
     personalPhone: "",
   };
 
+  // Check if we have any unsaved data
+  const hasData = hasUnsavedData();
+
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
       
@@ -525,10 +760,13 @@ const PurchasePage = () => {
           onSavePrint={handleSavePrint}
           onImportFile={handleImportFile}
           onExportExcel={onExportExcel}
+          onClearTable={handleClearTable}      // ✅ NEW
+          onNewInvoice={handleNewInvoice}      // ✅ NEW
           invoiceNumber={currentInvoice?.invoice_number}
           invoiceStatus={currentInvoice?.status}
           isLoading={loadingStates.header}
           isSaving={isSaving}
+          hasUnsavedData={hasData}             // ✅ NEW
         />
       </div>
 
@@ -565,6 +803,7 @@ const PurchasePage = () => {
             suppliersList={suppliersList}
             onSupplierSelect={selectSupplier}
             onAddNewSupplier={handleAddNewSupplier}
+            onFieldChange={handleSupplierFieldChange}
             isLoading={loadingStates.supplier}
           />
         </div>
@@ -608,23 +847,27 @@ const PurchasePage = () => {
       />
 
       <ProductMasterModal
-        open={productModalOpen}
-        onClose={() => {
-          setProductModalOpen(false);
-          setPendingProductData(null);
-        }}
-        onSave={handleProductSave}
-        initialData={
-          pendingProductData
-            ? {
-                name: pendingProductData.productName,
-                manufacturer: pendingProductData.manufacturer || "",
-                hsnCode: pendingProductData.hsn || "",
-              }
-            : {}
+  open={productModalOpen}
+  onClose={() => {
+    setProductModalOpen(false);
+    setPendingProductData(null);
+  }}
+  onSave={handleProductSave}
+  initialData={
+    pendingProductData
+      ? {
+          name: pendingProductData.productName || pendingProductData.name || "",
+          manufacturer: pendingProductData.manufacturer || pendingProductData.mfac || "",
+          hsnCode: pendingProductData.hsn || pendingProductData.hsnCode || "",
+          rackNo: pendingProductData.rack || pendingProductData.rackNo || "",
+          packSize: pendingProductData.pack || pendingProductData.packSize || "",
+          cgstPercent: pendingProductData.cgstPercent || "6",
+          sgstPercent: pendingProductData.sgstPercent || "6",
         }
-        mode="create"
-      />
+      : {}
+  }
+  mode="create"
+/>
 
       <BatchProductModal
         open={batchProductModalOpen}

@@ -1,7 +1,9 @@
 // src/pages/inventory/components/StockAdjustmentModal.jsx
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Save, Package, AlertTriangle, Plus, Minus } from "lucide-react";
+import { X, Save, Package, AlertTriangle, Plus, Minus, Building2 } from "lucide-react";
+import StyledSelect from "../../../components/common/StyledSelect";
 
 const backdropVariants = {
   hidden: { opacity: 0 },
@@ -24,22 +26,32 @@ const panelVariants = {
   },
 };
 
+// ✅ FIXED: Match Prisma enum values exactly
 const ADJUSTMENT_REASONS = [
-  { value: "PHYSICAL_COUNT", label: "Physical Count Adjustment" },
-  { value: "DAMAGE", label: "Damage/Breakage" },
-  { value: "EXPIRY", label: "Expired Stock" },
-  { value: "THEFT", label: "Theft/Loss" },
-  { value: "RETURN_TO_SUPPLIER", label: "Return to Supplier" },
-  { value: "CORRECTION", label: "Data Correction" },
+  { value: "PHYSICAL_COUNT_VARIANCE", label: "Physical Count Variance" },
+  { value: "DAMAGED_GOODS", label: "Damaged Goods" },
+  { value: "EXPIRED_GOODS", label: "Expired Goods" },
+  { value: "SYSTEM_CORRECTION", label: "System Correction" },
+  { value: "THEFT_LOSS", label: "Theft / Loss" },
   { value: "OTHER", label: "Other" },
 ];
 
 const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
-  const [newQuantity, setNewQuantity] = useState(item?.current_stock || item?.qty || 0);
+  const [newQuantity, setNewQuantity] = useState(0);
   const [reason, setReason] = useState("");
   const [reasonNotes, setReasonNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Reset state when item changes
+  useEffect(() => {
+    if (item) {
+      setNewQuantity(Number(item.current_stock || item.qty || 0));
+      setReason("");
+      setReasonNotes("");
+      setErrors({});
+    }
+  }, [item]);
 
   if (!open || !item) return null;
 
@@ -49,7 +61,7 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
   const validate = () => {
     const newErrors = {};
     
-    if (newQuantity === "" || newQuantity < 0) {
+    if (newQuantity === "" || Number(newQuantity) < 0) {
       newErrors.newQuantity = "Quantity must be 0 or greater";
     }
     
@@ -128,9 +140,15 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
               {/* Item Info */}
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                 <p className="text-sm font-semibold text-slate-800">{item.name}</p>
-                <div className="flex gap-4 mt-1 text-xs text-slate-500">
-                  <span>Batch: {item.batch}</span>
-                  <span>Expiry: {item.expiry}</span>
+                <div className="flex flex-wrap gap-3 mt-1 text-xs text-slate-500">
+                  <span>Batch: {item.batch || item.batch_number || "-"}</span>
+                  <span>Expiry: {item.expiry || "-"}</span>
+                  {(item.branch || item.branch_name) && (
+                    <span className="flex items-center gap-1">
+                      <Building2 size={10} />
+                      {item.branch || item.branch_name}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -149,7 +167,7 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
                   <button
                     type="button"
                     onClick={decrementQty}
-                    className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+                    className="p-2.5 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-colors"
                   >
                     <Minus size={18} />
                   </button>
@@ -158,14 +176,14 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
                     value={newQuantity}
                     onChange={(e) => setNewQuantity(e.target.value)}
                     min="0"
-                    className={`flex-1 px-4 py-2 text-center text-lg font-bold border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                    className={`flex-1 px-4 py-2.5 text-center text-lg font-bold border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 ${
                       errors.newQuantity ? "border-red-300 bg-red-50" : "border-slate-300"
                     }`}
                   />
                   <button
                     type="button"
                     onClick={incrementQty}
-                    className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
+                    className="p-2.5 rounded-lg bg-slate-100 hover:bg-green-100 text-slate-600 hover:text-green-600 transition-colors"
                   >
                     <Plus size={18} />
                   </button>
@@ -184,46 +202,34 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
                 }`}>
                   <AlertTriangle size={16} className={variance > 0 ? "text-green-600" : "text-red-600"} />
                   <span className={`text-sm font-medium ${variance > 0 ? "text-green-700" : "text-red-700"}`}>
-                    {variance > 0 ? "+" : ""}{variance} units ({variance > 0 ? "Increase" : "Decrease"})
+                    {variance > 0 ? "+" : ""}{variance} units ({variance > 0 ? "Stock Increase" : "Stock Decrease"})
                   </span>
                 </div>
               )}
 
-              {/* Reason */}
+              {/* Reason - Using StyledSelect */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
-                  Reason *
-                </label>
-                <select
+                <StyledSelect
+                  label="Reason *"
                   value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 ${
-                    errors.reason ? "border-red-300 bg-red-50" : "border-slate-300"
-                  }`}
-                >
-                  <option value="">Select a reason</option>
-                  {ADJUSTMENT_REASONS.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.reason && (
-                  <p className="mt-1 text-xs text-red-500">{errors.reason}</p>
-                )}
+                  onChange={setReason}
+                  options={ADJUSTMENT_REASONS}
+                  placeholder="Select a reason"
+                  error={errors.reason}
+                />
               </div>
 
               {/* Reason Notes */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
-                  Notes {reason === "OTHER" && "*"}
+                  Notes {reason === "OTHER" && <span className="text-red-500">*</span>}
                 </label>
                 <textarea
                   value={reasonNotes}
                   onChange={(e) => setReasonNotes(e.target.value)}
                   rows={3}
                   placeholder="Additional details about this adjustment..."
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none ${
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none text-sm ${
                     errors.reasonNotes ? "border-red-300 bg-red-50" : "border-slate-300"
                   }`}
                 />
@@ -237,14 +243,15 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
             <div className="flex justify-end gap-3 px-5 py-4 bg-slate-50 border-t border-slate-200">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
+                disabled={loading}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={loading || variance === 0}
-                className="flex items-center gap-2 px-5 py-2 bg-amber-500 text-white text-sm font-semibold rounded-lg hover:bg-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-5 py-2 bg-amber-500 text-white text-sm font-semibold rounded-lg hover:bg-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
                 <Save size={14} />
                 {loading ? "Saving..." : "Save Adjustment"}

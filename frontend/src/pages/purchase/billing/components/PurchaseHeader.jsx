@@ -1,16 +1,23 @@
 // src/pages/purchase/billing/components/PurchaseHeader.jsx
 import { useRef } from "react";
-import { Save, Printer, Upload, FileSpreadsheet, CheckCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { 
+  Save, Printer, Upload, FileSpreadsheet, 
+  CheckCircle, Clock, AlertCircle, Loader2,
+  Trash2, FilePlus, RotateCcw
+} from "lucide-react";
 
 const PurchaseHeader = ({ 
   onSave, 
   onSavePrint, 
   onImportFile,
   onExportExcel,
+  onClearTable,      // ✅ NEW
+  onNewInvoice,      // ✅ NEW
   invoiceNumber,
   invoiceStatus,
   isLoading = false,
   isSaving = false,
+  hasUnsavedData = false, // ✅ NEW
 }) => {
   const fileInputRef = useRef(null);
 
@@ -20,6 +27,26 @@ const PurchaseHeader = ({
       onImportFile(file);
       e.target.value = "";
     }
+  };
+
+  const handleClearTable = () => {
+    if (hasUnsavedData) {
+      const confirmed = window.confirm(
+        "Are you sure you want to clear all items? This action cannot be undone."
+      );
+      if (!confirmed) return;
+    }
+    onClearTable?.();
+  };
+
+  const handleNewInvoice = () => {
+    if (hasUnsavedData || invoiceNumber) {
+      const confirmed = window.confirm(
+        "Are you sure you want to start a new invoice? All current data will be cleared."
+      );
+      if (!confirmed) return;
+    }
+    onNewInvoice?.();
   };
 
   const getStatusConfig = (status) => {
@@ -66,7 +93,6 @@ const PurchaseHeader = ({
   if (isLoading) {
     return (
       <div className="flex items-center justify-between px-4 py-2.5 bg-white rounded-lg shadow-sm border border-slate-200">
-        {/* Left skeleton */}
         <div className="flex items-center gap-3">
           <Skeleton className="w-9 h-9 rounded-lg" />
           <div className="space-y-2">
@@ -75,7 +101,6 @@ const PurchaseHeader = ({
           </div>
         </div>
         
-        {/* Right skeleton */}
         <div className="flex items-center gap-2">
           <Skeleton className="w-20 h-9 rounded-lg" />
           <Skeleton className="w-20 h-9 rounded-lg" />
@@ -118,6 +143,14 @@ const PurchaseHeader = ({
                 </span>
               </div>
             )}
+
+            {/* ✅ NEW: Unsaved data indicator */}
+            {hasUnsavedData && !invoiceNumber && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                <span className="text-[10px] text-amber-700 font-medium">Unsaved</span>
+              </div>
+            )}
           </div>
           <p className="text-slate-500 text-xs mt-0.5">
             {invoiceNumber ? 'Update invoice details' : 'Create new purchase invoice'}
@@ -134,6 +167,31 @@ const PurchaseHeader = ({
           onChange={handleFileSelect}
           className="hidden"
         />
+
+        {/* ✅ NEW: New Invoice Button */}
+        <button
+          onClick={handleNewInvoice}
+          disabled={isSaving}
+          className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-blue-50 text-blue-600 rounded-lg transition-colors text-sm font-medium border border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Start a new invoice"
+        >
+          <FilePlus size={14} />
+          <span className="hidden lg:inline">New</span>
+        </button>
+
+        {/* ✅ NEW: Clear Table Button */}
+        <button
+          onClick={handleClearTable}
+          disabled={isSaving || !hasUnsavedData}
+          className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-red-50 text-red-600 rounded-lg transition-colors text-sm font-medium border border-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Clear all items"
+        >
+          <Trash2 size={14} />
+          <span className="hidden lg:inline">Clear</span>
+        </button>
+
+        <div className="w-px h-8 bg-slate-200 mx-1" />
+
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isSaving}
