@@ -132,7 +132,7 @@ model CAdmin {
   last_login_at DateTime?
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime  @updatedAt @db.Timestamptz(6)
-
+  broadcastCampaigns  BroadcastCampaign[] @relation("BroadcastCampaigns")  
   createdPlans   Plan[]              @relation("PlanCreator")
   planActivities PlanActivityLog[]   @relation("PlanActivityByCAdmin")
   activityLogs   CAdminActivityLog[] @relation("CAdminActivityLogs")
@@ -1216,4 +1216,46 @@ model Notification {
   @@index([created_at(sort: Desc)])                    // Global sorting
   
   @@map("notifications")
+}
+
+// ============================================
+// BROADCAST CAMPAIGNS (IN-APP)
+// ============================================
+
+model BroadcastCampaign {
+  campaign_id         String   @id @default(uuid()) @db.Uuid
+  
+  // Content
+  title               String   @db.VarChar(200)
+  message             String   @db.Text
+  priority            String   @default("normal") @db.VarChar(20)
+  
+  // Audience (stored as JSON)
+  target_filters      Json     @db.JsonB
+  recipient_count     Int?
+  
+  // Status & Scheduling
+  status              String   @default("draft") @db.VarChar(20)
+  scheduled_for       DateTime? @db.Timestamptz(6)
+  sent_at             DateTime? @db.Timestamptz(6)
+  
+  // Delivery stats
+  delivered_count     Int?
+  read_count          Int?
+  
+  // Meta
+  created_by_cadmin   String   @db.Uuid
+  cadmin_name         String   @db.VarChar(100)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  cadmin              CAdmin   @relation("BroadcastCampaigns", fields: [created_by_cadmin], references: [cadmin_id])
+  
+  // Indexes
+  @@index([status, scheduled_for])
+  @@index([created_by_cadmin])
+  @@index([created_at(sort: Desc)])
+  
+  @@map("broadcast_campaigns")
 }

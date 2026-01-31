@@ -27,10 +27,9 @@ import CommunicationsPage from "./pages/Communications/CommunicationsPage";
 import TicketsPage from "./pages/Communications/pages/Tickets/TicketsPage";
 import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage";
 import BroadcastPage from "./pages/Communications/pages/Broadcast/BroadcastPage";
+import InAppBroadcastPage from "./pages/Communications/pages/Broadcast/InApp/InAppBroadcastPage"; 
 
-// ═══════════════════════════════════════════════════════════
-// AUDIT PAGE - NEW IMPORT
-// ═══════════════════════════════════════════════════════════
+// Audit Page
 import AuditPage from "./pages/Audit/AuditPage";
 
 // Layout
@@ -107,9 +106,7 @@ function App() {
           <Route path="/subscriptions" element={<RiskMonitorPage />} />
           <Route path="/subscriptions/manage" element={<SubscriptionPage />} />
 
-          {/* ═══════════════════════════════════════════════════════
-              AUDIT PAGE - UPDATED ROUTE
-          ═══════════════════════════════════════════════════════ */}
+          {/* Audit Page */}
           <Route path="/audits" element={<AuditPage />} />
           
           <Route path="/settings" element={<div>Settings Page</div>} />
@@ -122,6 +119,7 @@ function App() {
           <Route path="/communications/tickets" element={<TicketsPage />} />
           <Route path="/communications/enquiries" element={<EnquiriesPage />} />
           <Route path="/communications/broadcast" element={<BroadcastPage />} />
+          <Route path="/communications/broadcast/in-app" element={<InAppBroadcastPage />} /> 
         </Route>
 
         {/* ══════════════════════════════════════════════════════

@@ -17,6 +17,14 @@ export const NOTIFICATION_EVENTS = {
   BRANCH_CHANGED: "BRANCH_CHANGED",
   USER_DEACTIVATED: "USER_DEACTIVATED",
   USER_REACTIVATED: "USER_REACTIVATED",
+
+  // ─────────────────────────────────────────
+  // BROADCAST (Multi-Channel)
+  // ─────────────────────────────────────────
+  BROADCAST_INAPP: "BROADCAST_INAPP",
+  BROADCAST_EMAIL: "BROADCAST_EMAIL",
+  BROADCAST_SMS: "BROADCAST_SMS",
+  BROADCAST_WHATSAPP: "BROADCAST_WHATSAPP",  // Future-ready
   
   // ─────────────────────────────────────────
   // USER MANAGEMENT
@@ -156,6 +164,33 @@ export const EVENT_CONFIG = {
     description: "User account reactivated (notify admins)",
     defaultChannels: ["inapp"],
     audienceType: "shop_admins",
+    priority: "normal",
+  },
+  // ─────────────────────────────────────────
+  // BROADCAST EVENTS (Manual CAdmin Announcements)
+  // ─────────────────────────────────────────
+  [NOTIFICATION_EVENTS.BROADCAST_INAPP]: {
+    description: "Manual in-app announcement from CAdmin",
+    defaultChannels: ["inapp"],
+    audienceType: "broadcast_filter",
+    priority: "normal",  // Can be overridden per broadcast
+  },
+  [NOTIFICATION_EVENTS.BROADCAST_EMAIL]: {
+    description: "Manual email broadcast from CAdmin",
+    defaultChannels: ["email"],
+    audienceType: "broadcast_filter",
+    priority: "normal",
+  },
+  [NOTIFICATION_EVENTS.BROADCAST_SMS]: {
+    description: "Manual SMS broadcast from CAdmin",
+    defaultChannels: ["sms"],
+    audienceType: "broadcast_filter",
+    priority: "normal",
+  },
+  [NOTIFICATION_EVENTS.BROADCAST_WHATSAPP]: {
+    description: "Manual WhatsApp broadcast from CAdmin (future)",
+    defaultChannels: ["whatsapp"],
+    audienceType: "broadcast_filter",
     priority: "normal",
   },
 

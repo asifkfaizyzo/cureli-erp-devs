@@ -13,8 +13,8 @@ import NotificationList from './components/NotificationList';
 import NotificationSidePanel from './components/NotificationSidePanel';
 import InvoicePagination from '../../components/common/Pagination';
 
-// Config
-import { TABLE_CONFIG } from '../../config/tableConfig';
+// Config - Import at the top, not with require()
+import { EVENT_TYPE_GROUPS } from '../../config/notifications';
 
 const NotificationsPage = () => {
   const toast = useToast();
@@ -51,17 +51,31 @@ const NotificationsPage = () => {
 
   // Fetch on mount
   useEffect(() => {
+    console.log('[NotificationsPage] Fetching notifications on mount...');
     fetchNotifications();
   }, [fetchNotifications]);
+
+  // Debug: Log when notifications change
+  useEffect(() => {
+    console.log('[NotificationsPage] Notifications state:', {
+      count: notifications.length,
+      notifications,
+      pagination,
+      isLoading,
+      error,
+    });
+  }, [notifications, pagination, isLoading, error]);
 
   // ============================================
   // HANDLERS
   // ============================================
 
   const handleFilterChange = useCallback((newFilters) => {
+    console.log('[NotificationsPage] Filter change:', newFilters);
+    
     // Map eventType group to actual event types array
     if (newFilters.eventType !== undefined) {
-      const { EVENT_TYPE_GROUPS } = require('../../config/notifications');
+      // ✅ FIXED: Use imported EVENT_TYPE_GROUPS instead of require()
       const group = EVENT_TYPE_GROUPS[newFilters.eventType];
       
       if (group) {
@@ -80,6 +94,7 @@ const NotificationsPage = () => {
   }, [clearFilters, clearSelectedNotification]);
 
   const handleRefresh = useCallback(() => {
+    console.log('[NotificationsPage] Manual refresh triggered');
     refresh();
     fetchNotifications();
   }, [refresh, fetchNotifications]);

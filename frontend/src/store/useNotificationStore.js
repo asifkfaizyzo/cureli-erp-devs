@@ -5,11 +5,11 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import {
-  fetchUnreadCount,
-  fetchRecentNotifications,
-  fetchNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
+  fetchUnreadCount as fetchUnreadCountAPI,
+  fetchRecentNotifications as fetchRecentAPI,
+  fetchNotifications as fetchNotificationsAPI,
+  markNotificationAsRead as markAsReadAPI,
+  markAllNotificationsAsRead as markAllAsReadAPI,
 } from '../api/notifications';
 
 // ============================================
@@ -73,21 +73,19 @@ export const useNotificationStore = create(
       // BADGE COUNT ACTIONS
       // ─────────────────────────────────────────
 
-      /**
-       * Fetch unread count for badge
-       */
       fetchUnreadCount: async () => {
         try {
-          const response = await fetchUnreadCount();
+          const response = await fetchUnreadCountAPI();
+          console.log('[NotificationStore] fetchUnreadCount response:', response);
           
           if (response.success) {
             const { total, by_priority, has_critical, has_high } = response.data;
             
             set({
               unreadCount: total,
-              byPriority: by_priority,
-              hasCritical: has_critical,
-              hasHigh: has_high,
+              byPriority: by_priority || { critical: 0, high: 0, normal: 0, low: 0 },
+              hasCritical: has_critical || false,
+              hasHigh: has_high || false,
               lastFetched: new Date().toISOString(),
             });
           }
@@ -103,22 +101,22 @@ export const useNotificationStore = create(
       // DROPDOWN (RECENT) ACTIONS
       // ─────────────────────────────────────────
 
-      /**
-       * Fetch recent notifications for dropdown
-       */
       fetchRecent: async (limit = 5) => {
         set({ isRecentLoading: true, recentError: null });
         
         try {
-          const response = await fetchRecentNotifications(limit);
+          const response = await fetchRecentAPI(limit);
+          console.log('[NotificationStore] fetchRecent response:', response);
           
           if (response.success) {
             set({
-              recentNotifications: response.data.notifications,
-              unreadCount: response.data.unread_count,
+              recentNotifications: response.data.notifications || [],
+              unreadCount: response.data.unread_count || 0,
               isRecentLoading: false,
               lastFetched: new Date().toISOString(),
             });
+          } else {
+            set({ isRecentLoading: false });
           }
           
           return response;
@@ -136,9 +134,6 @@ export const useNotificationStore = create(
       // FULL PAGE ACTIONS
       // ─────────────────────────────────────────
 
-      /**
-       * Fetch notifications for full page with pagination
-       */
       fetchNotifications: async (params = {}) => {
         const { filters, pagination } = get();
         
@@ -160,16 +155,33 @@ export const useNotificationStore = create(
             }
           });
 
-          const response = await fetchNotifications(queryParams);
+          console.log('[NotificationStore] fetchNotifications params:', queryParams);
+
+          const response = await fetchNotificationsAPI(queryParams);
+          
+          console.log('[NotificationStore] fetchNotifications response:', response);
           
           if (response.success) {
+            const { notifications, unread_count, pagination: paginationData } = response.data;
+            
             set({
-              notifications: response.data.notifications,
-              unreadCount: response.data.unread_count,
-              pagination: response.data.pagination,
+              notifications: notifications || [],
+              unreadCount: unread_count || 0,
+              pagination: paginationData || {
+                page: 1,
+                limit: 20,
+                total: 0,
+                totalPages: 0,
+                hasMore: false,
+              },
               isLoading: false,
               lastFetched: new Date().toISOString(),
             });
+            
+            console.log('[NotificationStore] State updated with', notifications?.length || 0, 'notifications');
+          } else {
+            console.warn('[NotificationStore] Response not successful:', response);
+            set({ isLoading: false, error: 'Failed to load notifications' });
           }
           
           return response;
@@ -183,25 +195,22 @@ export const useNotificationStore = create(
         }
       },
 
-      /**
-       * Set filters and refetch
-       */
       setFilters: async (newFilters) => {
         const { filters } = get();
         
+        const updatedFilters = { ...filters, ...newFilters };
+        console.log('[NotificationStore] setFilters:', updatedFilters);
+        
         set({
-          filters: { ...filters, ...newFilters },
-          pagination: { ...get().pagination, page: 1 }, // Reset to page 1
+          filters: updatedFilters,
+          pagination: { ...get().pagination, page: 1 },
         });
 
-        // Refetch with new filters
         return get().fetchNotifications({ page: 1, ...newFilters });
       },
 
-      /**
-       * Go to specific page
-       */
       goToPage: async (page) => {
+        console.log('[NotificationStore] goToPage:', page);
         set({
           pagination: { ...get().pagination, page },
         });
@@ -209,10 +218,8 @@ export const useNotificationStore = create(
         return get().fetchNotifications({ page });
       },
 
-      /**
-       * Clear filters
-       */
       clearFilters: async () => {
+        console.log('[NotificationStore] clearFilters');
         set({
           filters: {
             unreadOnly: false,
@@ -229,35 +236,28 @@ export const useNotificationStore = create(
       // MARK AS READ ACTIONS
       // ─────────────────────────────────────────
 
-      /**
-       * Mark single notification as read
-       */
       markAsRead: async (notificationId) => {
         try {
-          const response = await markNotificationAsRead(notificationId);
+          const response = await markAsReadAPI(notificationId);
+          console.log('[NotificationStore] markAsRead response:', response);
           
           if (response.success) {
-            // Update local state immediately (optimistic)
             set((state) => ({
-              // Update recent notifications
               recentNotifications: state.recentNotifications.map((n) =>
                 n.notification_id === notificationId
                   ? { ...n, is_read: true, read_at: new Date().toISOString() }
                   : n
               ),
-              // Update full page notifications
               notifications: state.notifications.map((n) =>
                 n.notification_id === notificationId
                   ? { ...n, is_read: true, read_at: new Date().toISOString() }
                   : n
               ),
-              // Update selected notification if it's the one being marked
               selectedNotification:
                 state.selectedNotification?.notification_id === notificationId
                   ? { ...state.selectedNotification, is_read: true, read_at: new Date().toISOString() }
                   : state.selectedNotification,
-              // Decrement unread count
-              unreadCount: Math.max(0, state.unreadCount - (response.data.already_read ? 0 : 1)),
+              unreadCount: Math.max(0, state.unreadCount - (response.data?.already_read ? 0 : 1)),
             }));
           }
           
@@ -268,17 +268,14 @@ export const useNotificationStore = create(
         }
       },
 
-      /**
-       * Mark all notifications as read
-       */
       markAllAsRead: async (options = {}) => {
         try {
-          const response = await markAllNotificationsAsRead(options);
+          const response = await markAllAsReadAPI(options);
+          console.log('[NotificationStore] markAllAsRead response:', response);
           
           if (response.success) {
             const now = new Date().toISOString();
             
-            // Update local state
             set((state) => ({
               recentNotifications: state.recentNotifications.map((n) => ({
                 ...n,
@@ -308,21 +305,14 @@ export const useNotificationStore = create(
       // SELECTION ACTIONS
       // ─────────────────────────────────────────
 
-      /**
-       * Set selected notification (for side panel)
-       */
       setSelectedNotification: (notification) => {
         set({ selectedNotification: notification });
         
-        // Auto-mark as read when selected
         if (notification && !notification.is_read) {
           get().markAsRead(notification.notification_id);
         }
       },
 
-      /**
-       * Clear selected notification
-       */
       clearSelectedNotification: () => {
         set({ selectedNotification: null });
       },
@@ -331,21 +321,15 @@ export const useNotificationStore = create(
       // POLLING ACTIONS
       // ─────────────────────────────────────────
 
-      /**
-       * Start polling for unread count
-       */
       startPolling: (intervalMs = 60000) => {
         const { pollingInterval } = get();
         
-        // Clear existing interval
         if (pollingInterval) {
           clearInterval(pollingInterval);
         }
 
-        // Initial fetch
         get().fetchUnreadCount();
 
-        // Set up polling
         const interval = setInterval(() => {
           get().fetchUnreadCount();
         }, intervalMs);
@@ -353,9 +337,6 @@ export const useNotificationStore = create(
         set({ pollingInterval: interval });
       },
 
-      /**
-       * Stop polling
-       */
       stopPolling: () => {
         const { pollingInterval } = get();
         
@@ -369,19 +350,14 @@ export const useNotificationStore = create(
       // UTILITY ACTIONS
       // ─────────────────────────────────────────
 
-      /**
-       * Refresh all notification data
-       */
       refresh: async () => {
+        console.log('[NotificationStore] refresh');
         await Promise.all([
           get().fetchUnreadCount(),
           get().fetchRecent(),
         ]);
       },
 
-      /**
-       * Reset store to initial state
-       */
       reset: () => {
         const { pollingInterval } = get();
         
