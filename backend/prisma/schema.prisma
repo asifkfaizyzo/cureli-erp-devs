@@ -712,31 +712,34 @@ model Medicine {
   // Storage
   rack_no          String?  @db.VarChar(20)
   
+  // ✅ NEW: Stock Level Thresholds (Product-level defaults)
+  min_stock_level    Decimal? @db.Decimal(10,2)  // Minimum stock threshold
+  max_stock_level    Decimal? @db.Decimal(10,2)  // Maximum stock threshold  
+  reorder_point      Decimal? @db.Decimal(10,2)  // When to reorder
+  
   // Status
   is_active        Boolean  @default(true)
   is_discontinued  Boolean  @default(false)
   
   // Metadata
   shop_id          String   @db.Uuid
-  branch_id        String?  @db.Uuid   // ✅ NEW: Branch association
+  branch_id        String?  @db.Uuid
   created_by       String   @db.Uuid
   created_at       DateTime @default(now()) @db.Timestamptz(6)
   updated_at       DateTime @updatedAt @db.Timestamptz(6)
   
-  // Relations
+  // Relations (keep existing)
   shop             Shop     @relation("ShopMedicines", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-  branch           Branch?  @relation("BranchMedicines", fields: [branch_id], references: [branch_id])  // ✅ NEW
+  branch           Branch?  @relation("BranchMedicines", fields: [branch_id], references: [branch_id])
   creator          User     @relation("MedicineCreator", fields: [created_by], references: [user_id])
   purchaseItems    PurchaseInvoiceItem[]  @relation("PurchaseLineItems")
-
-  // Phase 3: Inventory
-  inventory            Inventory[]            @relation("MedicineInventory")
-  stockLedger          StockLedger[]          @relation("MedicineStockLedger")
-  stockAdjustments     StockAdjustment[]      @relation("MedicineStockAdjustments")
+  inventory        Inventory[]            @relation("MedicineInventory")
+  stockLedger      StockLedger[]          @relation("MedicineStockLedger")
+  stockAdjustments StockAdjustment[]      @relation("MedicineStockAdjustments")
   
-  // Indexes - UPDATED for branch filtering
-  @@unique([shop_id, branch_id, name, manufacturer])  // ✅ UPDATED: Unique per branch
-  @@index([shop_id, branch_id, is_active])            // ✅ NEW: For branch filtering
+  // Indexes (keep existing)
+  @@unique([shop_id, branch_id, name, manufacturer])
+  @@index([shop_id, branch_id, is_active])
   @@index([shop_id, is_active])
   @@index([shop_id, name])
   @@index([hsn_code])

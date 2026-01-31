@@ -2,9 +2,6 @@
 
 import prisma from "../../config/prisma.js";
 
-/* =====================================================
-   API ERROR
-===================================================== */
 class ApiError extends Error {
   constructor(message, statusCode = 400, code = "MEDICINE_ERROR") {
     super(message);
@@ -13,42 +10,23 @@ class ApiError extends Error {
   }
 }
 
-/* =====================================================
-   MEDICINE SERVICE - Branch Aware
-===================================================== */
 class MedicineService {
   
-  /**
-   * Build branch filter based on user context
-   * 
-   * @param {string} shopId - Shop UUID
-   * @param {string|null} branchId - Branch UUID (null = all branches for SA)
-   * @param {string} role - User role
-   * @param {string} branchMode - "GLOBAL" | "BRANCH" (from header)
-   * @returns {Object} Prisma where clause for branch filtering
-   */
   _buildBranchFilter(shopId, branchId, role, branchMode) {
     const filter = { shop_id: shopId };
-
-    // Super Admin in GLOBAL mode: show all medicines for shop
     if (role === "super_admin" && branchMode === "GLOBAL") {
-      // No branch filter - show all
       return filter;
     }
-
-    // Super Admin in BRANCH mode OR branch_admin/staff: filter by branch
     if (branchId) {
       filter.branch_id = branchId;
     }
-
     return filter;
   }
 
   /* ============================================
-     CREATE MEDICINE
+     CREATE MEDICINE - ✅ UPDATED
   ============================================ */
   async createMedicine(data, shopId, branchId, userId) {
-    // Validate branch_id is provided (required for creation)
     if (!branchId) {
       throw new ApiError(
         "Branch selection is required to create medicines. Please select a specific branch.",
@@ -57,7 +35,6 @@ class MedicineService {
       );
     }
 
-    // Check for existing medicine in the same branch
     const existing = await prisma.medicine.findFirst({
       where: {
         shop_id: shopId,
@@ -75,18 +52,86 @@ class MedicineService {
       );
     }
 
-    return prisma.medicine.create({
+    // ✅ Validate stock level logic
+    if (data.min_stock_level && data.max_stock_level) {
+      if (Number(data.min_stock_level) >= Number(data.max_stock_level)) {
+        throw new ApiError(
+          "Minimum stock level must be less than maximum stock level",
+          400,
+          "INVALID_STOCK_LEVELS"
+        );
+      }
+    }
+
+    if (data.reorder_point && data.max_stock_level) {
+      if (Number(data.reorder_point) >= Number(data.max_stock_level)) {
+        throw new ApiError(
+          "Reorder point must be less than maximum stock level",
+          400,
+          "INVALID_REORDER_POINT"
+        );
+      }
+    }
+
+    const medicine = await prisma.medicine.create({
       data: {
-        ...data,
+        name: data.name,
+        generic_name: data.generic_name,
+        manufacturer: data.manufacturer,
+        category: data.category,
+        sub_category: data.sub_category,
+        schedule: data.schedule,
+        hsn_code: data.hsn_code,
+        pack_size: data.pack_size,
+        unit_of_measure: data.unit_of_measure || "UNIT",
+        gst_percentage: data.gst_percentage ?? 12,
+        cgst_percentage: data.cgst_percentage ?? 6,
+        sgst_percentage: data.sgst_percentage ?? 6,
+        rack_no: data.rack_no,
+        
+        // ✅ NEW: Stock level thresholds
+        min_stock_level: data.min_stock_level ?? null,
+        max_stock_level: data.max_stock_level ?? null,
+        reorder_point: data.reorder_point ?? null,
+        
         shop_id: shopId,
-        branch_id: branchId,  // ✅ NEW: Assign to branch
+        branch_id: branchId,
         created_by: userId,
       },
+      // ✅ Explicit select to return all fields
+      select: {
+        medicine_id: true,
+        name: true,
+        generic_name: true,
+        manufacturer: true,
+        category: true,
+        sub_category: true,
+        schedule: true,
+        hsn_code: true,
+        pack_size: true,
+        unit_of_measure: true,
+        gst_percentage: true,
+        cgst_percentage: true,
+        sgst_percentage: true,
+        rack_no: true,
+        min_stock_level: true,
+        max_stock_level: true,
+        reorder_point: true,
+        is_active: true,
+        is_discontinued: true,
+        shop_id: true,
+        branch_id: true,
+        created_by: true,
+        created_at: true,
+        updated_at: true,
+      },
     });
+
+    return medicine;
   }
 
   /* ============================================
-     GET MEDICINES (Branch Filtered)
+     GET MEDICINES - ✅ UPDATED (Include new fields)
   ============================================ */
   async getMedicines(shopId, branchId, role, branchMode, filters = {}) {
     const {
@@ -98,7 +143,6 @@ class MedicineService {
       offset = 0,
     } = filters;
 
-    // Build base filter with branch awareness
     const baseFilter = this._buildBranchFilter(shopId, branchId, role, branchMode);
 
     const where = {
@@ -138,7 +182,7 @@ class MedicineService {
   }
 
   /* ============================================
-     GET MEDICINE BY ID (WITH INVENTORY)
+     GET MEDICINE BY ID - ✅ UPDATED
   ============================================ */
   async getMedicineById(medicineId, shopId, branchId, role, branchMode) {
     const baseFilter = this._buildBranchFilter(shopId, branchId, role, branchMode);
@@ -164,6 +208,7 @@ class MedicineService {
             available_stock: true,
             mrp: true,
             selling_rate: true,
+            minimum_stock: true,
           },
         },
       },
@@ -177,7 +222,7 @@ class MedicineService {
   }
 
   /* ============================================
-     UPDATE MEDICINE
+     UPDATE MEDICINE - ✅ UPDATED
   ============================================ */
   async updateMedicine(medicineId, shopId, branchId, role, branchMode, data) {
     const baseFilter = this._buildBranchFilter(shopId, branchId, role, branchMode);
@@ -193,9 +238,33 @@ class MedicineService {
       throw new ApiError("Medicine not found", 404, "NOT_FOUND");
     }
 
-    // Prevent branch change via update (security)
     if (data.branch_id && data.branch_id !== medicine.branch_id) {
       throw new ApiError("Cannot change medicine branch", 400, "BRANCH_CHANGE_NOT_ALLOWED");
+    }
+
+    // ✅ Validate stock level logic
+    const minStock = data.min_stock_level ?? medicine.min_stock_level;
+    const maxStock = data.max_stock_level ?? medicine.max_stock_level;
+    const reorderPt = data.reorder_point ?? medicine.reorder_point;
+
+    if (minStock && maxStock) {
+      if (Number(minStock) >= Number(maxStock)) {
+        throw new ApiError(
+          "Minimum stock level must be less than maximum stock level",
+          400,
+          "INVALID_STOCK_LEVELS"
+        );
+      }
+    }
+
+    if (reorderPt && maxStock) {
+      if (Number(reorderPt) >= Number(maxStock)) {
+        throw new ApiError(
+          "Reorder point must be less than maximum stock level",
+          400,
+          "INVALID_REORDER_POINT"
+        );
+      }
     }
 
     return prisma.medicine.update({
@@ -205,10 +274,9 @@ class MedicineService {
   }
 
   /* ============================================
-     BULK CREATE (IMPORT SAFE) - Branch Aware
+     BULK CREATE - ✅ UPDATED
   ============================================ */
   async bulkCreateMedicines(medicinesData, shopId, branchId, userId) {
-    // Validate branch_id is provided
     if (!branchId) {
       throw new ApiError(
         "Branch selection is required for bulk import. Please select a specific branch.",
@@ -248,7 +316,7 @@ class MedicineService {
   }
 
   /* ============================================
-     SEARCH FOR AUTOCOMPLETE (Branch Aware)
+     SEARCH FOR AUTOCOMPLETE - ✅ UPDATED
   ============================================ */
   async searchMedicines(shopId, branchId, role, branchMode, searchTerm, limit = 20) {
     const baseFilter = this._buildBranchFilter(shopId, branchId, role, branchMode);
@@ -274,6 +342,10 @@ class MedicineService {
         gst_percentage: true,
         cgst_percentage: true,
         sgst_percentage: true,
+        // ✅ NEW: Include stock thresholds for inventory defaults
+        min_stock_level: true,
+        max_stock_level: true,
+        reorder_point: true,
       },
       orderBy: { name: "asc" },
       take: limit,

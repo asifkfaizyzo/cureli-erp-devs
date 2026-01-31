@@ -15,13 +15,11 @@ export const useInventory = (initialFilters = {}) => {
     offset: 0,
   });
 
-  // ✅ NEW: Subscribe to branch context changes
   const branchContext = useAuthStore(selectBranchContext);
   const branchMode = branchContext.mode;
   const branchId = branchContext.branch_id;
   const branchName = branchContext.branch_name;
 
-  // Fetch inventory list
   const fetchInventory = useCallback(async (filters = {}) => {
     setLoading(true);
     setError(null);
@@ -30,8 +28,12 @@ export const useInventory = (initialFilters = {}) => {
       const response = await inventoryAPI.getAll(filters);
       
       if (response.success) {
-        // Map API data to component format
-        const mappedItems = mapInventoryData(response.data.inventories || response.data);
+        const rawData = response.data.inventories || response.data || [];
+        console.log("📦 Raw inventory data from API:", rawData.slice(0, 2));
+        
+        const mappedItems = mapInventoryData(rawData);
+        console.log("📦 Mapped inventory data:", mappedItems.slice(0, 2));
+        
         setItems(mappedItems);
         setPagination({
           total: response.data.total || mappedItems.length,
@@ -50,11 +52,9 @@ export const useInventory = (initialFilters = {}) => {
     }
   }, []);
 
-  // Fetch inventory summary
   const fetchSummary = useCallback(async (branchIdParam = null) => {
     try {
       const response = await inventoryAPI.getSummary(branchIdParam);
-      
       if (response.success) {
         setSummary(response.data);
       }
@@ -63,14 +63,12 @@ export const useInventory = (initialFilters = {}) => {
     }
   }, []);
 
-  // Fetch inventory by medicine
   const fetchByMedicine = useCallback(async (medicineId, filters = {}) => {
     setLoading(true);
     setError(null);
     
     try {
       const response = await inventoryAPI.getByMedicine(medicineId, filters);
-      
       if (response.success) {
         const mappedItems = mapInventoryData(response.data);
         setItems(mappedItems);
@@ -86,13 +84,10 @@ export const useInventory = (initialFilters = {}) => {
     }
   }, []);
 
-  // Create stock adjustment
   const createAdjustment = useCallback(async (adjustmentData) => {
     try {
       const response = await inventoryAPI.createAdjustment(adjustmentData);
-      
       if (response.success) {
-        // Refresh inventory after adjustment
         await fetchInventory();
         await fetchSummary();
         return { success: true, data: response.data };
@@ -108,13 +103,11 @@ export const useInventory = (initialFilters = {}) => {
     }
   }, [fetchInventory, fetchSummary]);
 
-  // Refresh data
   const refresh = useCallback((filters = {}) => {
     fetchInventory(filters);
     fetchSummary(filters.branchId);
   }, [fetchInventory, fetchSummary]);
 
-  // ✅ NEW: Re-fetch when branch context changes
   useEffect(() => {
     console.log("🔄 Branch context changed, refetching inventory...", { 
       branchMode, 
@@ -138,80 +131,136 @@ export const useInventory = (initialFilters = {}) => {
     createAdjustment,
     refresh,
     setItems,
-    // ✅ NEW: Expose branch context for UI
     currentBranchMode: branchMode,
     currentBranchId: branchId,
     currentBranchName: branchName,
   };
 };
 
-// Helper function to map API data to component format
+// ✅ FIXED: Complete field mapping with all fallbacks
 export const mapInventoryData = (inventories) => {
   if (!Array.isArray(inventories)) {
+    console.warn("mapInventoryData received non-array:", inventories);
     return [];
   }
 
-  return inventories.map((inv) => ({
-    // Keep original API fields
-    id: inv.inventory_id,
-    inventory_id: inv.inventory_id,
-    medicine_id: inv.medicine_id,
-    shop_id: inv.shop_id,
-    branch_id: inv.branch_id,
+  return inventories.map((inv, index) => {
+    // Debug first item
+    if (index === 0) {
+      console.log("🔍 First inventory item raw data:", {
+        inventory_id: inv.inventory_id,
+        medicine: inv.medicine,
+        batch_number: inv.batch_number,
+        current_stock: inv.current_stock,
+        expiry_date: inv.expiry_date,
+        status: inv.status,
+      });
+    }
+
+    // ✅ CRITICAL: Get medicine data - handle both nested and flat structures
+    const medicine = inv.medicine || {};
+    const medicineName = medicine.name || inv.name || inv.medicine_name || "Unknown";
+    const manufacturer = medicine.manufacturer || inv.manufacturer || inv.mfac || "-";
+    const category = medicine.category || inv.category || "-";
+    const hsnCode = medicine.hsn_code || inv.hsn_code || inv.hsn || "-";
+    const packSize = medicine.pack_size || inv.pack_size || inv.pack || "-";
     
-    // Map to component display fields
-    name: inv.medicine?.name || inv.name || "Unknown",
-    category: inv.medicine?.category || inv.category || "-",
-    manufacturer: inv.medicine?.manufacturer || inv.manufacturer || "-",
-    mfac: inv.medicine?.manufacturer || inv.mfac || "-",
-    hsn: inv.medicine?.hsn_code || inv.hsn || "-",
+    // Branch data
+    const branch = inv.branch || {};
+    const branchName = branch.branch_name || inv.branch_name || "-";
     
-    // Batch & Expiry
-    batch: inv.batch_number || inv.batch || "-",
-    batch_number: inv.batch_number,
-    expiry: formatExpiryDate(inv.expiry_date),
-    expiry_date: inv.expiry_date,
+    // Format expiry date
+    const formattedExpiry = formatExpiryDate(inv.expiry_date);
     
-    // Stock info
-    qty: inv.current_stock ?? inv.qty ?? 0,
-    current_stock: inv.current_stock ?? 0,
-    available_stock: inv.available_stock ?? 0,
-    reserved_stock: inv.reserved_stock ?? 0,
-    minStock: inv.minimum_stock ?? inv.minStock ?? null,
-    minimum_stock: inv.minimum_stock,
-    
-    // Pricing
-    mrp: inv.mrp ?? 0,
-    slr: inv.selling_rate ?? inv.slr ?? null,
-    selling_rate: inv.selling_rate,
-    purchaseRate: inv.last_purchase_rate ?? inv.purchaseRate ?? null,
-    last_purchase_rate: inv.last_purchase_rate,
-    
-    // Location
-    rack: inv.rack_no || inv.rack || "-",
-    rack_no: inv.rack_no,
-    
-    // Branch info
-    branch: inv.branch?.branch_name || "-",
-    branch_name: inv.branch?.branch_name || null,
-    
-    // Supplier - if available from purchase history
-    supplier: inv.supplier_name || "-",
-    supplier_name: inv.supplier_name || null,
-    
-    // Status calculation
-    status: calculateStatus(inv),
-    is_expired: inv.is_expired,
-    is_active: inv.is_active,
-    
-    // Timestamps
-    created_at: inv.created_at,
-    updated_at: inv.updated_at,
-    last_purchase_date: inv.last_purchase_date,
-    
-    // Original data for reference
-    _original: inv,
-  }));
+    // Calculate status using all available thresholds
+    const status = inv.status || calculateStatus({
+      current_stock: inv.current_stock,
+      minimum_stock: inv.minimum_stock,
+      medicine_min_stock: medicine.min_stock_level || inv.medicine_min_stock,
+      medicine_reorder_point: medicine.reorder_point || inv.medicine_reorder_point,
+      is_expired: inv.is_expired,
+      expiry_date: inv.expiry_date,
+    });
+
+    const mapped = {
+      // IDs
+      id: inv.inventory_id,
+      inventory_id: inv.inventory_id,
+      medicine_id: inv.medicine_id,
+      shop_id: inv.shop_id,
+      branch_id: inv.branch_id,
+      
+      // ✅ CRITICAL: Product display fields
+      name: medicineName,
+      category: category,
+      manufacturer: manufacturer,
+      mfac: manufacturer,
+      hsn: hsnCode,
+      pack: packSize,
+      
+      // Batch & Expiry
+      batch: inv.batch_number || "-",
+      batch_number: inv.batch_number,
+      expiry: formattedExpiry,
+      expiry_date: inv.expiry_date,
+      
+      // Stock info
+      qty: Number(inv.current_stock ?? 0),
+      current_stock: Number(inv.current_stock ?? 0),
+      available_stock: Number(inv.available_stock ?? inv.current_stock ?? 0),
+      reserved_stock: Number(inv.reserved_stock ?? 0),
+      minStock: inv.minimum_stock ?? medicine.min_stock_level ?? null,
+      minimum_stock: inv.minimum_stock,
+      
+      // Medicine-level thresholds
+      medicine_min_stock: medicine.min_stock_level,
+      medicine_max_stock: medicine.max_stock_level,
+      medicine_reorder_point: medicine.reorder_point,
+      
+      // Pricing
+      mrp: Number(inv.mrp ?? 0),
+      slr: inv.selling_rate ?? null,
+      selling_rate: inv.selling_rate,
+      purchaseRate: inv.last_purchase_rate ?? null,
+      last_purchase_rate: inv.last_purchase_rate,
+      
+      // Location
+      rack: inv.rack_no || "-",
+      rack_no: inv.rack_no,
+      
+      // Branch info
+      branch: branchName,
+      branch_name: branchName,
+      
+      // Supplier
+      supplier: inv.supplier_name || "-",
+      supplier_name: inv.supplier_name,
+      
+      // Status
+      status: status,
+      is_expired: inv.is_expired,
+      is_active: inv.is_active,
+      
+      // Timestamps
+      created_at: inv.created_at,
+      updated_at: inv.updated_at,
+      last_purchase_date: inv.last_purchase_date,
+    };
+
+    // Debug first mapped item
+    if (index === 0) {
+      console.log("🔍 First inventory item MAPPED:", {
+        name: mapped.name,
+        category: mapped.category,
+        manufacturer: mapped.manufacturer,
+        batch: mapped.batch,
+        qty: mapped.qty,
+        status: mapped.status,
+      });
+    }
+
+    return mapped;
+  });
 };
 
 // Helper to format expiry date
@@ -220,6 +269,8 @@ const formatExpiryDate = (dateString) => {
   
   try {
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "-";
+    
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
     return `${month}/${year}`;
@@ -228,32 +279,48 @@ const formatExpiryDate = (dateString) => {
   }
 };
 
-// Helper to calculate status
+// ✅ ENHANCED: Status calculation with all thresholds
 const calculateStatus = (inv) => {
   const currentStock = Number(inv.current_stock ?? inv.qty ?? 0);
-  const minStock = Number(inv.minimum_stock ?? inv.minStock ?? 0);
   
-  // Check if expired
+  // Get thresholds - prioritize inventory level, then medicine level
+  const minStock = Number(inv.minimum_stock ?? inv.minStock ?? inv.medicine_min_stock ?? 0);
+  const reorderPoint = Number(inv.medicine_reorder_point ?? inv.reorder_point ?? 0);
+  
+  // 1. Check if expired
   if (inv.is_expired) {
     return "Expired";
   }
   
-  // Check expiry date
+  // 2. Check expiry date
   if (inv.expiry_date) {
     const expiryDate = new Date(inv.expiry_date);
     const today = new Date();
-    if (expiryDate < today) {
-      return "Expired";
-    }
+    today.setHours(0, 0, 0, 0);
+    expiryDate.setHours(0, 0, 0, 0);
+    
+    const daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilExpiry < 0) return "Expired";
+    if (daysUntilExpiry <= 30) return "Expiring Soon";
   }
   
-  // Stock status
+  // 3. Out of stock
   if (currentStock <= 0) {
     return "Out of Stock";
   }
   
+  // 4. Low stock - check reorder point first, then min stock
+  if (reorderPoint > 0 && currentStock <= reorderPoint) {
+    return "Low Stock";
+  }
   if (minStock > 0 && currentStock <= minStock) {
     return "Low Stock";
+  }
+  
+  // 5. Default fallback when no thresholds set
+  if (minStock === 0 && reorderPoint === 0) {
+    if (currentStock <= 5) return "Low Stock";
   }
   
   return "In Stock";

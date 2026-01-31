@@ -197,51 +197,52 @@ const ProductMasterModal = ({
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      if (errors.name || errors.manufacturer) scrollToSection('basic');
-      else if (errors.maxLevel) scrollToSection('storage');
-      else if (errors.hsnCode || errors.cgstPercent) scrollToSection('pricing');
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
-    try {
-      const productData = {
-        name: formData.name.trim(),
-        manufacturer: formData.manufacturer.trim(),
-        genericName: formData.genericName?.trim() || null,
-        category: formData.category?.trim() || null,
-        subCategory: formData.subCategory?.trim() || null,
-        schedule: formData.schedule || null,
-        hsnCode: formData.hsnCode?.trim() || null,
-        packSize: formData.packSize?.trim() || null,
-        gst: parseFloat(formData.gst) || 12,
-        cgstPercent: parseFloat(formData.cgstPercent) || 6,
-        sgstPercent: parseFloat(formData.sgstPercent) || 6,
-        rackNo: formData.rackNo?.trim()?.toUpperCase() || null,
-        minLevel: formData.minLevel ? parseFloat(formData.minLevel) : null,
-        maxLevel: formData.maxLevel ? parseFloat(formData.maxLevel) : null,
-        reorderPoint: formData.reorderPoint ? parseFloat(formData.reorderPoint) : null,
-        priceControlled: formData.priceControlled || false,
-        subHead: formData.subHead?.trim() || null,
-      };
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    // ... validation handling
+    return;
+  }
+  
+  setIsSubmitting(true);
+  
+  try {
+    const productData = {
+      name: formData.name.trim(),
+      manufacturer: formData.manufacturer.trim(),
+      genericName: formData.genericName?.trim() || null,
+      category: formData.category?.trim() || null,
+      subCategory: formData.subCategory?.trim() || null,
+      schedule: formData.schedule || null,
+      hsnCode: formData.hsnCode?.trim() || null,
+      packSize: formData.packSize?.trim() || null,
+      gst: parseFloat(formData.gst) || 12,
+      cgstPercent: parseFloat(formData.cgstPercent) || 6,
+      sgstPercent: parseFloat(formData.sgstPercent) || 6,
+      rackNo: formData.rackNo?.trim()?.toUpperCase() || null,
       
-      console.log('📤 Saving product with data:', productData);
-      await onSave(productData);
-      onClose();
-    } catch (error) {
-      console.error('Error saving product:', error);
-      setErrors(prev => ({
-        ...prev,
-        submit: error.message || 'Failed to save product'
-      }));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+      // ✅ ENSURE THESE ARE PASSED:
+      minLevel: formData.minLevel ? parseFloat(formData.minLevel) : null,
+      maxLevel: formData.maxLevel ? parseFloat(formData.maxLevel) : null,
+      reorderPoint: formData.reorderPoint ? parseFloat(formData.reorderPoint) : null,
+      
+      priceControlled: formData.priceControlled || false,
+      subHead: formData.subHead?.trim() || null,
+    };
+    
+    console.log('📤 Saving product with data:', productData);
+    await onSave(productData);
+    onClose();
+  } catch (error) {
+    console.error('Error saving product:', error);
+    setErrors(prev => ({
+      ...prev,
+      submit: error.message || 'Failed to save product'
+    }));
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));

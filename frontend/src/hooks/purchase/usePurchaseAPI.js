@@ -202,136 +202,176 @@ export const usePurchaseAPI = () => {
   // CREATE NEW MEDICINE - ✅ FIXED: Include pack in response
   // ============================================
 
-  const createMedicine = useCallback(
-    async (medicineData) => {
-      try {
-        setIsLoading(true);
+const createMedicine = useCallback(
+  async (medicineData) => {
+    try {
+      setIsLoading(true);
 
-        const payload = {
-          name: medicineData.name,
-          generic_name: medicineData.genericName || null,
-          manufacturer: medicineData.manufacturer,
-          category: medicineData.category || null,
-          sub_category: medicineData.subCategory || null,
-          schedule: medicineData.schedule || null,
-          hsn_code: medicineData.hsnCode || null,
-          pack_size: medicineData.packSize || null,
-          unit_of_measure: medicineData.unitOfMeasure || "UNIT",
-          gst_percentage: medicineData.gst ? parseFloat(medicineData.gst) : 12,
-          cgst_percentage: medicineData.cgstPercent ? parseFloat(medicineData.cgstPercent) : 
-                          (medicineData.gst ? parseFloat(medicineData.gst) / 2 : 6),
-          sgst_percentage: medicineData.sgstPercent ? parseFloat(medicineData.sgstPercent) : 
-                          (medicineData.gst ? parseFloat(medicineData.gst) / 2 : 6),
-          rack_no: medicineData.rackNo || null,
-        };
+      const payload = {
+        name: medicineData.name,
+        generic_name: medicineData.genericName || null,
+        manufacturer: medicineData.manufacturer,
+        category: medicineData.category || null,
+        sub_category: medicineData.subCategory || null,
+        schedule: medicineData.schedule || null,
+        hsn_code: medicineData.hsnCode || null,
+        pack_size: medicineData.packSize || null,
+        unit_of_measure: medicineData.unitOfMeasure || "UNIT",
+        gst_percentage: medicineData.gst ? parseFloat(medicineData.gst) : 12,
+        cgst_percentage: medicineData.cgstPercent ? parseFloat(medicineData.cgstPercent) : 
+                        (medicineData.gst ? parseFloat(medicineData.gst) / 2 : 6),
+        sgst_percentage: medicineData.sgstPercent ? parseFloat(medicineData.sgstPercent) : 
+                        (medicineData.gst ? parseFloat(medicineData.gst) / 2 : 6),
+        rack_no: medicineData.rackNo || null,
+        
+        // ✅ NEW: Stock level thresholds
+        min_stock_level: medicineData.minLevel ? parseFloat(medicineData.minLevel) : null,
+        max_stock_level: medicineData.maxLevel ? parseFloat(medicineData.maxLevel) : null,
+        reorder_point: medicineData.reorderPoint ? parseFloat(medicineData.reorderPoint) : null,
+      };
 
-        console.log('📤 Creating medicine with payload:', payload);
+      console.log('📤 Creating medicine with payload:', payload);
 
-        const response = await medicinesAPI.create(payload);
+      const response = await medicinesAPI.create(payload);
 
-        console.log('✅ Medicine API response:', response.data);
+      console.log('✅ Medicine API response:', response.data);
 
-        // ✅ FIXED: Map all fields including pack
-        const newMedicine = {
-          id: response.data.medicine_id,
-          medicine_id: response.data.medicine_id,
-          name: response.data.name,
-          manufacturer: response.data.manufacturer,
-          mfac: response.data.manufacturer,
-          hsnCode: response.data.hsn_code,
-          hsn: response.data.hsn_code,
-          rackNo: response.data.rack_no,
-          rack: response.data.rack_no,
-          // ✅ FIXED: Include pack_size
-          packSize: response.data.pack_size,
-          pack: response.data.pack_size,
-          gst: response.data.gst_percentage?.toString(),
-          cgstPercent: response.data.cgst_percentage?.toString(),
-          sgstPercent: response.data.sgst_percentage?.toString(),
-        };
+      // ✅ Map ALL fields from response including stock levels
+      const newMedicine = {
+        id: response.data.medicine_id,
+        medicine_id: response.data.medicine_id,
+        name: response.data.name,
+        
+        // Basic Info
+        manufacturer: response.data.manufacturer,
+        mfac: response.data.manufacturer,
+        genericName: response.data.generic_name,
+        generic_name: response.data.generic_name,
+        
+        // Classification
+        category: response.data.category,
+        subCategory: response.data.sub_category,
+        sub_category: response.data.sub_category,
+        schedule: response.data.schedule,
+        
+        // Identification
+        hsnCode: response.data.hsn_code,
+        hsn: response.data.hsn_code,
+        hsn_code: response.data.hsn_code,
+        
+        // Packaging
+        packSize: response.data.pack_size,
+        pack: response.data.pack_size,
+        pack_size: response.data.pack_size,
+        
+        // Storage
+        rackNo: response.data.rack_no,
+        rack: response.data.rack_no,
+        rack_no: response.data.rack_no,
+        
+        // Tax
+        gst: response.data.gst_percentage?.toString(),
+        gst_percentage: response.data.gst_percentage,
+        cgstPercent: response.data.cgst_percentage?.toString(),
+        cgst_percentage: response.data.cgst_percentage,
+        sgstPercent: response.data.sgst_percentage?.toString(),
+        sgst_percentage: response.data.sgst_percentage,
+        
+        // ✅ NEW: Stock level thresholds
+        minLevel: response.data.min_stock_level?.toString() || null,
+        min_stock_level: response.data.min_stock_level,
+        maxLevel: response.data.max_stock_level?.toString() || null,
+        max_stock_level: response.data.max_stock_level,
+        reorderPoint: response.data.reorder_point?.toString() || null,
+        reorder_point: response.data.reorder_point,
+      };
 
-        console.log('📦 Formatted medicine for table:', newMedicine);
+      console.log('📦 Formatted medicine for table:', newMedicine);
 
-        setMedicines((prev) => [newMedicine, ...prev]);
-        toast.success("Medicine Added", `${medicineData.name} has been added successfully.`);
+      setMedicines((prev) => [newMedicine, ...prev]);
+      toast.success("Medicine Added", `${medicineData.name} has been added successfully.`);
 
-        return newMedicine;
-      } catch (error) {
-        console.error("Create medicine error:", error);
-        toast.error("Failed to create medicine", error.response?.data?.message || error.message);
-        throw error;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [toast]
-  );
+      return newMedicine;
+    } catch (error) {
+      console.error("Create medicine error:", error);
+      toast.error("Failed to create medicine", error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  },
+  [toast]
+);
 
   // ============================================
   // BULK CREATE MEDICINES
   // ============================================
 
   const bulkCreateMedicines = useCallback(
-    async (medicinesData) => {
-      try {
-        setIsLoading(true);
+  async (medicinesData) => {
+    try {
+      setIsLoading(true);
 
-        const payload = medicinesData.map((med) => ({
-          name: med.name,
-          generic_name: med.genericName || null,
-          manufacturer: med.manufacturer,
-          category: med.category || null,
-          sub_category: med.subCategory || null,
-          schedule: med.schedule || null,
-          hsn_code: med.hsnCode || null,
-          pack_size: med.packSize || null,
-          unit_of_measure: med.unitOfMeasure || "UNIT",
-          gst_percentage: med.gst ? parseFloat(med.gst) : 12,
-          cgst_percentage: med.cgstPercent ? parseFloat(med.cgstPercent) : 
-                          (med.gst ? parseFloat(med.gst) / 2 : 6),
-          sgst_percentage: med.sgstPercent ? parseFloat(med.sgstPercent) : 
-                          (med.gst ? parseFloat(med.gst) / 2 : 6),
-          rack_no: med.rackNo || null,
-        }));
+      const payload = medicinesData.map((med) => ({
+        name: med.name,
+        generic_name: med.genericName || null,
+        manufacturer: med.manufacturer,
+        category: med.category || null,
+        sub_category: med.subCategory || null,    // ✅ ADD
+        schedule: med.schedule || null,            // ✅ ADD
+        hsn_code: med.hsnCode || null,
+        pack_size: med.packSize || null,           // ✅ ENSURE
+        unit_of_measure: med.unitOfMeasure || "UNIT",
+        gst_percentage: med.gst ? parseFloat(med.gst) : 12,
+        cgst_percentage: med.cgstPercent ? parseFloat(med.cgstPercent) : 
+                        (med.gst ? parseFloat(med.gst) / 2 : 6),
+        sgst_percentage: med.sgstPercent ? parseFloat(med.sgstPercent) : 
+                        (med.gst ? parseFloat(med.gst) / 2 : 6),
+        rack_no: med.rackNo || null,
+      }));
 
-        const response = await medicinesAPI.bulkCreate(payload);
+      const response = await medicinesAPI.bulkCreate(payload);
 
-        // ✅ FIXED: Map all fields including pack
-        const createdMedicines = response.data.created.map((med) => ({
-          id: med.medicine_id,
-          medicine_id: med.medicine_id,
-          name: med.name,
-          manufacturer: med.manufacturer,
-          mfac: med.manufacturer,
-          hsnCode: med.hsn_code,
-          hsn: med.hsn_code,
-          rackNo: med.rack_no,
-          rack: med.rack_no,
-          packSize: med.pack_size,
-          pack: med.pack_size,
-          gst: med.gst_percentage?.toString(),
-          cgstPercent: med.cgst_percentage?.toString(),
-          sgstPercent: med.sgst_percentage?.toString(),
-        }));
+      // ✅ FIXED: Map all fields including pack
+      const createdMedicines = response.data.created.map((med) => ({
+        id: med.medicine_id,
+        medicine_id: med.medicine_id,
+        name: med.name,
+        manufacturer: med.manufacturer,
+        mfac: med.manufacturer,
+        genericName: med.generic_name,
+        category: med.category,
+        subCategory: med.sub_category,
+        schedule: med.schedule,
+        hsnCode: med.hsn_code,
+        hsn: med.hsn_code,
+        rackNo: med.rack_no,
+        rack: med.rack_no,
+        packSize: med.pack_size,
+        pack: med.pack_size,
+        gst: med.gst_percentage?.toString(),
+        cgstPercent: med.cgst_percentage?.toString(),
+        sgstPercent: med.sgst_percentage?.toString(),
+      }));
 
-        setMedicines((prev) => [...createdMedicines, ...prev]);
+      setMedicines((prev) => [...createdMedicines, ...prev]);
 
-        toast.success(
-          "Bulk Import Complete",
-          `${response.data.created.length} medicines added. ${response.data.skipped.length} skipped. ${response.data.errors.length} errors.`
-        );
+      toast.success(
+        "Bulk Import Complete",
+        `${response.data.created.length} medicines added. ${response.data.skipped.length} skipped. ${response.data.errors.length} errors.`
+      );
 
-        return response.data;
-      } catch (error) {
-        console.error("Bulk create medicines error:", error);
-        toast.error("Bulk import failed", error.response?.data?.message || error.message);
-        throw error;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [toast]
-  );
+      return response.data;
+    } catch (error) {
+      console.error("Bulk create medicines error:", error);
+      toast.error("Bulk import failed", error.response?.data?.message || error.message);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  },
+  [toast]
+);
 
   // ============================================
   // CREATE NEW SUPPLIER

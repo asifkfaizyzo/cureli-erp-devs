@@ -491,13 +491,16 @@ const handleProductSave = useCallback(
     try {
       console.log('📤 handleProductSave - Input data:', newProductData);
       
+      // ✅ FIXED: Pass ALL fields to createMedicine
       const createdMedicine = await createMedicine({
         name: newProductData.name,
         manufacturer: newProductData.manufacturer,
-        genericName: newProductData.genericName,
-        category: newProductData.category,
+        genericName: newProductData.genericName,      // ✅ Already present
+        category: newProductData.category,            // ✅ Already present
+        subCategory: newProductData.subCategory,      // ✅ ADD THIS
+        schedule: newProductData.schedule,            // ✅ ADD THIS
         hsnCode: newProductData.hsnCode,
-        packSize: newProductData.packSize,  // ✅ Ensure packSize is passed
+        packSize: newProductData.packSize,
         rackNo: newProductData.rackNo,
         gst: newProductData.gst,
         cgstPercent: newProductData.cgstPercent,
@@ -518,25 +521,22 @@ const handleProductSave = useCallback(
             medicine_id: createdMedicine.medicine_id || createdMedicine.id,
             name: createdMedicine.name,
             mfac: createdMedicine.manufacturer || createdMedicine.mfac,
-            // ✅ FIXED: HSN - check all possible field names
             hsn: createdMedicine.hsn || 
                  createdMedicine.hsnCode || 
                  createdMedicine.hsn_code || 
                  newProductData.hsnCode || 
                  '',
-            // ✅ FIXED: Rack - check all possible field names
             rack: createdMedicine.rack || 
                   createdMedicine.rackNo || 
                   createdMedicine.rack_no || 
                   newProductData.rackNo || 
                   '',
-            // ✅ FIXED: Pack - check all possible field names
+            // ✅ FIXED: Pack - ensure we check response AND fallback to input
             pack: createdMedicine.pack || 
                   createdMedicine.packSize || 
                   createdMedicine.pack_size || 
                   newProductData.packSize || 
                   '',
-            // ✅ FIXED: Tax percentages
             cgstPercent: createdMedicine.cgstPercent?.toString() || 
                          createdMedicine.cgst_percentage?.toString() || 
                          newProductData.cgstPercent?.toString() || 
@@ -547,14 +547,12 @@ const handleProductSave = useCallback(
                          "6",
           };
           
-          console.log('📝 Updated row:', {
+          console.log('📝 Updated row with pack:', {
             medicine_id: updatedRow.medicine_id,
             name: updatedRow.name,
             hsn: updatedRow.hsn,
             pack: updatedRow.pack,
             rack: updatedRow.rack,
-            cgstPercent: updatedRow.cgstPercent,
-            sgstPercent: updatedRow.sgstPercent,
           });
           
           newRows[rowIndex] = calculateRow(updatedRow);
