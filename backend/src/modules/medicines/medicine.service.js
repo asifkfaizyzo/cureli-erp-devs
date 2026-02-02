@@ -74,58 +74,56 @@ class MedicineService {
     }
 
     const medicine = await prisma.medicine.create({
-      data: {
-        name: data.name,
-        generic_name: data.generic_name,
-        manufacturer: data.manufacturer,
-        category: data.category,
-        sub_category: data.sub_category,
-        schedule: data.schedule,
-        hsn_code: data.hsn_code,
-        pack_size: data.pack_size,
-        unit_of_measure: data.unit_of_measure || "UNIT",
-        gst_percentage: data.gst_percentage ?? 12,
-        cgst_percentage: data.cgst_percentage ?? 6,
-        sgst_percentage: data.sgst_percentage ?? 6,
-        rack_no: data.rack_no,
-        
-        // ✅ NEW: Stock level thresholds
-        min_stock_level: data.min_stock_level ?? null,
-        max_stock_level: data.max_stock_level ?? null,
-        reorder_point: data.reorder_point ?? null,
-        
-        shop_id: shopId,
-        branch_id: branchId,
-        created_by: userId,
-      },
-      // ✅ Explicit select to return all fields
-      select: {
-        medicine_id: true,
-        name: true,
-        generic_name: true,
-        manufacturer: true,
-        category: true,
-        sub_category: true,
-        schedule: true,
-        hsn_code: true,
-        pack_size: true,
-        unit_of_measure: true,
-        gst_percentage: true,
-        cgst_percentage: true,
-        sgst_percentage: true,
-        rack_no: true,
-        min_stock_level: true,
-        max_stock_level: true,
-        reorder_point: true,
-        is_active: true,
-        is_discontinued: true,
-        shop_id: true,
-        branch_id: true,
-        created_by: true,
-        created_at: true,
-        updated_at: true,
-      },
-    });
+  data: {
+    name: data.name,
+    generic_name: data.generic_name,
+    manufacturer: data.manufacturer,
+    category: data.category,
+    sub_category: data.sub_category,
+    schedule: data.schedule,  // ✅ ENSURE THIS IS SAVED
+    hsn_code: data.hsn_code,
+    pack_size: data.pack_size,
+    unit_of_measure: data.unit_of_measure || "UNIT",
+    gst_percentage: data.gst_percentage ?? 12,
+    cgst_percentage: data.cgst_percentage ?? 6,
+    sgst_percentage: data.sgst_percentage ?? 6,
+    rack_no: data.rack_no,
+    min_stock_level: data.min_stock_level ?? null,
+    max_stock_level: data.max_stock_level ?? null,
+    reorder_point: data.reorder_point ?? null,
+    shop_id: shopId,
+    branch_id: branchId,
+    created_by: userId,
+  },
+  // ✅ ENSURE schedule IS IN SELECT
+  select: {
+    medicine_id: true,
+    name: true,
+    generic_name: true,
+    manufacturer: true,
+    category: true,
+    sub_category: true,
+    schedule: true,  // ✅ ADD THIS
+    hsn_code: true,
+    pack_size: true,
+    unit_of_measure: true,
+    gst_percentage: true,
+    cgst_percentage: true,
+    sgst_percentage: true,
+    rack_no: true,
+    min_stock_level: true,
+    max_stock_level: true,
+    reorder_point: true,
+    is_active: true,
+    is_discontinued: true,
+    shop_id: true,
+    branch_id: true,
+    created_by: true,
+    created_at: true,
+    updated_at: true,
+  },
+});
+
 
     return medicine;
   }

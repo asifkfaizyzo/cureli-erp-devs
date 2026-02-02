@@ -40,60 +40,52 @@ function buildBranchFilter(shopId, branchId, role, branchMode) {
 class InventoryService {
   
   /* ============================================
-     ✅ NEW: CALCULATE STOCK STATUS AUTOMATICALLY
+     ✅ CALCULATE STOCK STATUS AUTOMATICALLY
   ============================================ */
   _calculateStockStatus(currentStock, inventoryMinStock, medicineStockLevels, isExpired, expiryDate) {
-  const stock = Number(currentStock || 0);
-  
-  // Get thresholds from inventory first, fallback to medicine defaults
-  const minStock = Number(inventoryMinStock) || 
-                   Number(medicineStockLevels?.min_stock_level) || 
-                   0;
-  const reorderPoint = Number(medicineStockLevels?.reorder_point) || 0;
-  const maxStock = Number(medicineStockLevels?.max_stock_level) || 0;
-
-  // 1. Check if marked as expired
-  if (isExpired) return "Expired";
-  
-  // 2. Check expiry date
-  if (expiryDate) {
-    const expDate = new Date(expiryDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    expDate.setHours(0, 0, 0, 0);
+    const stock = Number(currentStock || 0);
     
-    const daysUntilExpiry = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
-    
-    if (daysUntilExpiry < 0) return "Expired";
-    if (daysUntilExpiry <= 30) return "Expiring Soon";
-  }
+    // Get thresholds from inventory first, fallback to medicine defaults
+    const minStock = Number(inventoryMinStock) || 
+                     Number(medicineStockLevels?.min_stock_level) || 
+                     0;
+    const reorderPoint = Number(medicineStockLevels?.reorder_point) || 0;
+    const maxStock = Number(medicineStockLevels?.max_stock_level) || 0;
 
-  // 3. Check stock levels
-  if (stock === 0) return "Out of Stock";
-  
-  // 4. Low stock check - use reorder_point first, then min_stock
-  if (reorderPoint > 0 && stock <= reorderPoint) {
-    return "Low Stock";
+    // 1. Check if marked as expired
+    if (isExpired) return "Expired";
+    
+    // 2. Check expiry date
+    if (expiryDate) {
+      const expDate = new Date(expiryDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      expDate.setHours(0, 0, 0, 0);
+      
+      const daysUntilExpiry = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilExpiry < 0) return "Expired";
+      if (daysUntilExpiry <= 30) return "Expiring Soon";
+    }
+
+    // 3. Check stock levels
+    if (stock === 0) return "Out of Stock";
+    
+    // 4. Low stock check - use reorder_point first, then min_stock
+    if (reorderPoint > 0 && stock <= reorderPoint) {
+      return "Low Stock";
+    }
+    if (minStock > 0 && stock <= minStock) {
+      return "Low Stock";
+    }
+    
+    // 5. Default fallback logic when no thresholds are set
+    if (minStock === 0 && reorderPoint === 0) {
+      if (stock <= 5) return "Low Stock";
+    }
+    
+    return "In Stock";
   }
-  if (minStock > 0 && stock <= minStock) {
-    return "Low Stock";
-  }
-  
-  // 5. Optional: Overstocked check
-  // if (maxStock > 0 && stock > maxStock) {
-  //   return "Overstocked";
-  // }
-  
-  // 6. Default fallback logic when no thresholds are set
-  // This provides reasonable defaults for pharmacies
-  if (minStock === 0 && reorderPoint === 0) {
-    // No explicit thresholds set - use percentage-based heuristic
-    // If stock is very low (e.g., single digits), mark as low stock
-    if (stock <= 5) return "Low Stock";
-  }
-  
-  return "In Stock";
-}
 
   /* ============================================
      GET OR CREATE INVENTORY (USED BY PURCHASE)
@@ -133,7 +125,6 @@ class InventoryService {
     const currentStock = Number(inventory.current_stock);
     const minimumStock = Number(inventory.minimum_stock || 0);
 
-    // ✅ OUT OF STOCK ALERT
     if (currentStock === 0 && inventory.minimum_stock !== null) {
       notify({
         type: NOTIFICATION_EVENTS.OUT_OF_STOCK_ALERT,
@@ -147,7 +138,6 @@ class InventoryService {
         },
       }).catch(err => console.error('[Notification] OUT_OF_STOCK_ALERT failed:', err));
     }
-    // ✅ LOW STOCK ALERT
     else if (
       currentStock > 0 &&
       inventory.minimum_stock !== null &&
@@ -170,7 +160,7 @@ class InventoryService {
   }
 
   /* ============================================
-     ✅ UPDATED: UPDATE STOCK + LEDGER ENTRY
+     UPDATE STOCK + LEDGER ENTRY
   ============================================ */
   async updateStock(data, userId) {
     const {
@@ -195,7 +185,12 @@ class InventoryService {
         where: { inventory_id: inventoryId },
         include: {
           medicine: {
-            select: { name: true },
+            select: { 
+              name: true,
+              min_stock_level: true,
+              max_stock_level: true,
+              reorder_point: true,
+            },
           },
           branch: {
             select: { branch_name: true },
@@ -253,7 +248,6 @@ class InventoryService {
         },
       });
 
-      // ✅ Check and send stock alerts after transaction commits
       setImmediate(() => {
         this.checkAndSendStockAlerts(
           { ...updatedInventory, inventory_id: inventoryId },
@@ -262,10 +256,14 @@ class InventoryService {
         );
       });
 
-      // ✅ Return computed status
       const status = this._calculateStockStatus(
         newStock,
         inventory.minimum_stock,
+        {
+          min_stock_level: inventory.medicine?.min_stock_level,
+          max_stock_level: inventory.medicine?.max_stock_level,
+          reorder_point: inventory.medicine?.reorder_point,
+        },
         inventory.is_expired,
         inventory.expiry_date
       );
@@ -278,7 +276,7 @@ class InventoryService {
   }
 
   /* ============================================
-     ✅ UPDATED: GET INVENTORY LIST - BRANCH AWARE
+     ✅ GET INVENTORY LIST - COMPLETE WITH ALL FIELDS
   ============================================ */
   async getInventory(shopId, branchId, role, branchMode, filters = {}) {
     const {
@@ -311,12 +309,19 @@ class InventoryService {
       include: {
         medicine: {
           select: {
+            medicine_id: true,
             name: true,
             manufacturer: true,
             pack_size: true,
             hsn_code: true,
             category: true,
+            sub_category: true,
+            schedule: true,
             branch_id: true,
+            rack_no: true,
+            min_stock_level: true,
+            max_stock_level: true,
+            reorder_point: true,
           },
         },
         branch: {
@@ -352,15 +357,19 @@ class InventoryService {
       skip: offset,
     });
 
-    // ✅ Map and add computed status + supplier
+    // ✅ Map and flatten all medicine data
     let inventories = rawInventories.map((inv) => {
       const supplierName = inv.stockMovements?.[0]?.purchaseInvoice?.supplier?.name || null;
       const { stockMovements, ...rest } = inv;
       
-      // ✅ Compute status
       const status = this._calculateStockStatus(
         rest.current_stock,
         rest.minimum_stock,
+        {
+          min_stock_level: rest.medicine?.min_stock_level,
+          max_stock_level: rest.medicine?.max_stock_level,
+          reorder_point: rest.medicine?.reorder_point,
+        },
         rest.is_expired,
         rest.expiry_date
       );
@@ -369,6 +378,18 @@ class InventoryService {
         ...rest,
         supplier_name: supplierName,
         status,
+        // ✅ Flatten medicine data for easier frontend access
+        medicine_name: rest.medicine?.name,
+        medicine_manufacturer: rest.medicine?.manufacturer,
+        medicine_category: rest.medicine?.category,
+        medicine_sub_category: rest.medicine?.sub_category,
+        medicine_hsn_code: rest.medicine?.hsn_code,
+        medicine_pack_size: rest.medicine?.pack_size,
+        medicine_schedule: rest.medicine?.schedule,
+        medicine_rack_no: rest.medicine?.rack_no,
+        medicine_min_stock: rest.medicine?.min_stock_level,
+        medicine_max_stock: rest.medicine?.max_stock_level,
+        medicine_reorder_point: rest.medicine?.reorder_point,
       };
     });
 
@@ -385,127 +406,58 @@ class InventoryService {
   }
 
   /* ============================================
-     ✅ UPDATED: INVENTORY BY MEDICINE
+     GET INVENTORY BY MEDICINE
   ============================================ */
-  async getInventory(shopId, branchId, role, branchMode, filters = {}) {
-  const {
-    medicineId,
-    search,
-    includeExpired = false,
-    lowStock = false,
-    limit = 100,
-    offset = 0,
-  } = filters;
+  async getInventoryByMedicine(shopId, medicineId, branchId, role, branchMode, filters = {}) {
+    const { includeExpired = false } = filters;
+    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
-  const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
-
-  const where = {
-    ...baseFilter,
-    ...(medicineId && { medicine_id: medicineId }),
-    is_active: true,
-    ...(!includeExpired && { is_expired: false }),
-    ...(search && {
-      OR: [
-        { medicine: { name: { contains: search, mode: "insensitive" } } },
-        { medicine: { manufacturer: { contains: search, mode: "insensitive" } } },
-        { batch_number: { contains: search, mode: "insensitive" } },
-      ],
-    }),
-  };
-
-  const rawInventories = await prisma.inventory.findMany({
-    where,
-    include: {
-      medicine: {
-        select: {
-          name: true,
-          manufacturer: true,
-          pack_size: true,
-          hsn_code: true,
-          category: true,
-          branch_id: true,
-          // ✅ NEW: Include stock thresholds from medicine
-          min_stock_level: true,
-          max_stock_level: true,
-          reorder_point: true,
-        },
+    const inventories = await prisma.inventory.findMany({
+      where: {
+        ...baseFilter,
+        medicine_id: medicineId,
+        is_active: true,
+        ...(!includeExpired && { is_expired: false }),
       },
-      branch: {
-        select: {
-          branch_id: true,
-          branch_name: true,
+      include: {
+        medicine: {
+          select: {
+            name: true,
+            manufacturer: true,
+            pack_size: true,
+            min_stock_level: true,
+            max_stock_level: true,
+            reorder_point: true,
+          },
         },
-      },
-      stockMovements: {
-        where: {
-          movement_type: "PURCHASE",
-          reference_type: "PURCHASE_INVOICE",
-        },
-        take: 1,
-        orderBy: {
-          transaction_date: 'desc',
-        },
-        include: {
-          purchaseInvoice: {
-            select: {
-              supplier: {
-                select: {
-                  name: true,
-                },
-              },
-            },
+        branch: {
+          select: {
+            branch_id: true,
+            branch_name: true,
           },
         },
       },
-    },
-    orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
-    take: limit,
-    skip: offset,
-  });
+      orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
+    });
 
-  // ✅ Map and add computed status with medicine thresholds
-  let inventories = rawInventories.map((inv) => {
-    const supplierName = inv.stockMovements?.[0]?.purchaseInvoice?.supplier?.name || null;
-    const { stockMovements, ...rest } = inv;
-    
-    // ✅ Pass medicine stock levels to status calculator
-    const status = this._calculateStockStatus(
-      rest.current_stock,
-      rest.minimum_stock,
-      {
-        min_stock_level: rest.medicine?.min_stock_level,
-        max_stock_level: rest.medicine?.max_stock_level,
-        reorder_point: rest.medicine?.reorder_point,
-      },
-      rest.is_expired,
-      rest.expiry_date
-    );
-    
-    return {
-      ...rest,
-      supplier_name: supplierName,
-      status,
-      // ✅ Include medicine thresholds in response
-      medicine_min_stock: rest.medicine?.min_stock_level,
-      medicine_max_stock: rest.medicine?.max_stock_level,
-      medicine_reorder_point: rest.medicine?.reorder_point,
-    };
-  });
-
-  // Apply low stock filter in memory
-  if (lowStock) {
-    inventories = inventories.filter(
-      (inv) => inv.status === "Low Stock" || inv.status === "Out of Stock"
-    );
+    return inventories.map(inv => ({
+      ...inv,
+      status: this._calculateStockStatus(
+        inv.current_stock,
+        inv.minimum_stock,
+        {
+          min_stock_level: inv.medicine?.min_stock_level,
+          max_stock_level: inv.medicine?.max_stock_level,
+          reorder_point: inv.medicine?.reorder_point,
+        },
+        inv.is_expired,
+        inv.expiry_date
+      ),
+    }));
   }
 
-  const total = await prisma.inventory.count({ where });
-
-  return { inventories, total };
-}
-
   /* ============================================
-     ✅ UPDATED: LOW STOCK ITEMS
+     LOW STOCK ITEMS
   ============================================ */
   async getLowStockItems(shopId, branchId, role, branchMode) {
     const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
@@ -515,11 +467,16 @@ class InventoryService {
         ...baseFilter,
         is_active: true,
         is_expired: false,
-        minimum_stock: { not: null },
       },
       include: {
         medicine: {
-          select: { name: true, manufacturer: true },
+          select: { 
+            name: true, 
+            manufacturer: true,
+            min_stock_level: true,
+            max_stock_level: true,
+            reorder_point: true,
+          },
         },
         branch: {
           select: { branch_id: true, branch_name: true },
@@ -527,13 +484,17 @@ class InventoryService {
       },
     });
 
-    // ✅ Filter by computed status
     return inventories
       .map(inv => ({
         ...inv,
         status: this._calculateStockStatus(
           inv.current_stock,
           inv.minimum_stock,
+          {
+            min_stock_level: inv.medicine?.min_stock_level,
+            max_stock_level: inv.medicine?.max_stock_level,
+            reorder_point: inv.medicine?.reorder_point,
+          },
           inv.is_expired,
           inv.expiry_date
         ),
@@ -542,7 +503,7 @@ class InventoryService {
   }
 
   /* ============================================
-     EXPIRING SOON - BRANCH AWARE
+     EXPIRING SOON ITEMS
   ============================================ */
   async getExpiringSoonItems(shopId, daysAhead = 90, branchId, role, branchMode) {
     const futureDate = new Date();
@@ -563,7 +524,13 @@ class InventoryService {
       },
       include: {
         medicine: {
-          select: { name: true, manufacturer: true },
+          select: { 
+            name: true, 
+            manufacturer: true,
+            min_stock_level: true,
+            max_stock_level: true,
+            reorder_point: true,
+          },
         },
         branch: {
           select: { branch_id: true, branch_name: true },
@@ -572,12 +539,16 @@ class InventoryService {
       orderBy: { expiry_date: "asc" },
     });
 
-    // ✅ Add computed status
     return inventories.map(inv => ({
       ...inv,
       status: this._calculateStockStatus(
         inv.current_stock,
         inv.minimum_stock,
+        {
+          min_stock_level: inv.medicine?.min_stock_level,
+          max_stock_level: inv.medicine?.max_stock_level,
+          reorder_point: inv.medicine?.reorder_point,
+        },
         inv.is_expired,
         inv.expiry_date
       ),
@@ -585,7 +556,7 @@ class InventoryService {
   }
 
   /* ============================================
-     STOCK LEDGER - BRANCH AWARE
+     STOCK LEDGER
   ============================================ */
   async getStockLedger(shopId, branchId, role, branchMode, filters = {}) {
     const {
@@ -639,7 +610,7 @@ class InventoryService {
   }
 
   /* ============================================
-     STOCK ADJUSTMENT - Branch Required
+     STOCK ADJUSTMENT
   ============================================ */
   async createStockAdjustment(data, userId) {
     const {
@@ -738,7 +709,7 @@ class InventoryService {
   }
 
   /* ============================================
-     ✅ UPDATED: STOCK SUMMARY
+     STOCK SUMMARY
   ============================================ */
   async getStockSummary(shopId, branchId, role, branchMode) {
     const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
@@ -748,23 +719,29 @@ class InventoryService {
       is_active: true,
     };
 
-    // Get all inventories to compute statuses
     const allInventories = await prisma.inventory.findMany({
       where: baseWhere,
-      select: {
-        current_stock: true,
-        minimum_stock: true,
-        is_expired: true,
-        expiry_date: true,
+      include: {
+        medicine: {
+          select: {
+            min_stock_level: true,
+            max_stock_level: true,
+            reorder_point: true,
+          },
+        },
       },
     });
 
-    // Compute stats
     const inventoriesWithStatus = allInventories.map(inv => ({
       ...inv,
       status: this._calculateStockStatus(
         inv.current_stock,
         inv.minimum_stock,
+        {
+          min_stock_level: inv.medicine?.min_stock_level,
+          max_stock_level: inv.medicine?.max_stock_level,
+          reorder_point: inv.medicine?.reorder_point,
+        },
         inv.is_expired,
         inv.expiry_date
       ),

@@ -62,7 +62,7 @@ const mapHeaderToKey = (h) => {
     mrp: "mrp", itemmrp: "mrp", maximumretailprice: "mrp", vatmrp: "mrp",
     price: "price", rate: "price", purchaserate: "price", 
     ptr: "price", salerate: "price", purrate: "price",
-    srate: "sRate", sellingrate: "sRate", selrate: "sRate",
+    srate: "sRate", sellingrate: "sRate", selrate: "sRate",salerate:"sRate", 
     netrate: "netRate", net: "netRate", nrate: "netRate",
     loclsale: "sRate",
     

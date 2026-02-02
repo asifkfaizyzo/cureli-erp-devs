@@ -454,6 +454,23 @@ const filteredData = useMemo(() => {
     }
   };
 
+  
+useEffect(() => {
+  if (items.length > 0) {
+    console.log("🔍 FULL FIRST ITEM:", JSON.stringify(items[0], null, 2));
+    console.log("📊 Field check:", {
+      name: items[0].name,
+      manufacturer: items[0].manufacturer,
+      category: items[0].category,
+      batch: items[0].batch,
+      qty: items[0].qty,
+      status: items[0].status,
+      medicine: items[0].medicine,  // Check if medicine object exists
+    });
+  }
+}, [items]);
+
+
   // Determine loading states
   const isTableLoading = loading && !isInitialLoad;
   const isSummaryLoading = isInitialLoad && loading;

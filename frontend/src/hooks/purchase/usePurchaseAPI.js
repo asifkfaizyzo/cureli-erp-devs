@@ -213,7 +213,7 @@ const createMedicine = useCallback(
         manufacturer: medicineData.manufacturer,
         category: medicineData.category || null,
         sub_category: medicineData.subCategory || null,
-        schedule: medicineData.schedule || null,
+        schedule: medicineData.schedule || null,  // ✅ ENSURE THIS IS HERE
         hsn_code: medicineData.hsnCode || null,
         pack_size: medicineData.packSize || null,
         unit_of_measure: medicineData.unitOfMeasure || "UNIT",
@@ -224,7 +224,7 @@ const createMedicine = useCallback(
                         (medicineData.gst ? parseFloat(medicineData.gst) / 2 : 6),
         rack_no: medicineData.rackNo || null,
         
-        // ✅ NEW: Stock level thresholds
+        // ✅ Stock level thresholds
         min_stock_level: medicineData.minLevel ? parseFloat(medicineData.minLevel) : null,
         max_stock_level: medicineData.maxLevel ? parseFloat(medicineData.maxLevel) : null,
         reorder_point: medicineData.reorderPoint ? parseFloat(medicineData.reorderPoint) : null,
@@ -236,7 +236,7 @@ const createMedicine = useCallback(
 
       console.log('✅ Medicine API response:', response.data);
 
-      // ✅ Map ALL fields from response including stock levels
+      // ✅ Map ALL fields from response
       const newMedicine = {
         id: response.data.medicine_id,
         medicine_id: response.data.medicine_id,
@@ -252,7 +252,7 @@ const createMedicine = useCallback(
         category: response.data.category,
         subCategory: response.data.sub_category,
         sub_category: response.data.sub_category,
-        schedule: response.data.schedule,
+        schedule: response.data.schedule,  // ✅ ADD THIS
         
         // Identification
         hsnCode: response.data.hsn_code,
@@ -277,7 +277,7 @@ const createMedicine = useCallback(
         sgstPercent: response.data.sgst_percentage?.toString(),
         sgst_percentage: response.data.sgst_percentage,
         
-        // ✅ NEW: Stock level thresholds
+        // ✅ Stock level thresholds
         minLevel: response.data.min_stock_level?.toString() || null,
         min_stock_level: response.data.min_stock_level,
         maxLevel: response.data.max_stock_level?.toString() || null,
@@ -285,8 +285,6 @@ const createMedicine = useCallback(
         reorderPoint: response.data.reorder_point?.toString() || null,
         reorder_point: response.data.reorder_point,
       };
-
-      console.log('📦 Formatted medicine for table:', newMedicine);
 
       setMedicines((prev) => [newMedicine, ...prev]);
       toast.success("Medicine Added", `${medicineData.name} has been added successfully.`);
@@ -302,7 +300,6 @@ const createMedicine = useCallback(
   },
   [toast]
 );
-
   // ============================================
   // BULK CREATE MEDICINES
   // ============================================
