@@ -1,5 +1,5 @@
 // ============================================
-// USER NOTIFICATIONS SERVICE
+// backend\src\modules\notifications\user\userNotifications.service.js
 // ============================================
 
 import prisma from '../../../config/prisma.js';

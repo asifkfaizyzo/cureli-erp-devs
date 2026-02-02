@@ -1,24 +1,19 @@
-// ============================================
-// NOTIFICATION DETAIL PANEL
-// Side panel showing full notification details on hover
-// ============================================
+// frontend/src/components/common/notifications/NotificationDetailPanel.jsx
 
 import React from 'react';
-import { X, ExternalLink, Clock, CheckCircle } from 'lucide-react';
+import { X, ExternalLink, Clock, CheckCircle, Image, Video, Link2, Megaphone } from 'lucide-react';
 import NotificationIcon from './NotificationIcon';
 import {
   formatNotificationFullDate,
   getPriorityConfig,
   getNotificationRoute,
+  isBroadcastNotification,
 } from '../../../config/notifications';
 
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 /**
- * NotificationDetailPanel - Full details side panel
- * 
- * @param {Object} notification - Notification data
- * @param {Function} onClose - Close handler
- * @param {Function} onNavigate - Navigation handler
- * @param {boolean} isVisible - Whether panel is visible
+ * NotificationDetailPanel - Full details side panel (for dropdown hover)
  */
 const NotificationDetailPanel = ({
   notification,
@@ -40,7 +35,21 @@ const NotificationDetailPanel = ({
   } = notification;
 
   const priorityConfig = getPriorityConfig(priority);
-  const route = getNotificationRoute(event_type);
+  const isBroadcast = isBroadcastNotification(event_type);
+  const route = getNotificationRoute(event_type, context);
+  
+  // Extract attachment
+  const attachments = context?.attachments || [];
+  const attachment = attachments.length > 0 ? attachments[0] : null;
+
+  // Resolve attachment URL
+  const getAttachmentUrl = (att) => {
+    if (!att?.url) return null;
+    if (att.url.startsWith('http://') || att.url.startsWith('https://')) {
+      return att.url;
+    }
+    return `${BACKEND_URL}${att.url}`;
+  };
 
   return (
     <div
@@ -56,9 +65,17 @@ const NotificationDetailPanel = ({
       onMouseEnter={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-3">
+      <div className={`px-4 py-3 border-b flex items-start justify-between gap-3 ${
+        isBroadcast ? 'bg-indigo-50 border-indigo-100' : 'border-gray-100'
+      }`}>
         <div className="flex items-center gap-3">
-          <NotificationIcon eventType={event_type} size="md" />
+          {isBroadcast ? (
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+              <Megaphone size={16} className="text-indigo-600" />
+            </div>
+          ) : (
+            <NotificationIcon eventType={event_type} size="md" />
+          )}
           <div>
             <h3 className="font-semibold text-gray-900 text-sm leading-tight">
               {title}
@@ -91,19 +108,37 @@ const NotificationDetailPanel = ({
       {/* Body */}
       <div className="px-4 py-3">
         {/* Full Message */}
-        <p className="text-sm text-gray-700 leading-relaxed">
+        <p className="text-sm text-gray-700 leading-relaxed line-clamp-4">
           {message}
         </p>
 
-        {/* Context Details (if any) */}
-        {context && Object.keys(context).length > 0 && (
+        {/* Attachment Preview (compact) */}
+        {attachment && (
           <div className="mt-3 pt-3 border-t border-gray-100">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Details
-            </p>
-            <div className="space-y-1.5">
-              {renderContextDetails(context)}
-            </div>
+            {attachment.type === 'image' ? (
+              <div className="rounded-lg overflow-hidden bg-gray-100">
+                <img
+                  src={getAttachmentUrl(attachment)}
+                  alt="Attachment"
+                  className="w-full h-24 object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                {attachment.type === 'video' ? (
+                  <Video size={16} className="text-purple-600" />
+                ) : (
+                  <Link2 size={16} className="text-blue-600" />
+                )}
+                <span className="text-xs text-gray-600 truncate flex-1">
+                  {attachment.label || attachment.original_name || 
+                    (attachment.type === 'video' ? 'Video attachment' : 'Link')}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -111,73 +146,33 @@ const NotificationDetailPanel = ({
         <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <Clock size={12} />
-            <span>Created: {formatNotificationFullDate(created_at)}</span>
+            <span>{formatNotificationFullDate(created_at)}</span>
           </div>
-          {read_at && (
-            <div className="flex items-center gap-2 text-xs text-gray-400">
-              <CheckCircle size={12} />
-              <span>Read: {formatNotificationFullDate(read_at)}</span>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Footer - Navigation */}
-      {route && (
+      {(route || context?.action_url) && (
         <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50 rounded-b-xl">
           <button
             onClick={() => onNavigate?.(notification)}
-            className="
+            className={`
               w-full flex items-center justify-center gap-2
               px-3 py-2 rounded-lg
-              bg-[#000060] text-white text-sm font-medium
-              hover:bg-[#000080] transition-colors
-            "
+              text-sm font-medium transition-colors
+              ${isBroadcast 
+                ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                : 'bg-[#000060] text-white hover:bg-[#000080]'
+              }
+            `}
           >
-            <span>View Details</span>
+            <span>{context?.action_label || 'View Details'}</span>
             <ExternalLink size={14} />
           </button>
         </div>
       )}
     </div>
   );
-};
-
-/**
- * Render context details in a readable format
- */
-const renderContextDetails = (context) => {
-  // Filter out internal/sensitive fields
-  const displayFields = Object.entries(context).filter(([key]) => {
-    const excludeKeys = ['shop_id', 'branch_id', 'user_id', 'inventory_id', 'medicine_id'];
-    return !excludeKeys.includes(key);
-  });
-
-  if (displayFields.length === 0) return null;
-
-  return displayFields.slice(0, 5).map(([key, value]) => {
-    // Format key for display
-    const formattedKey = key
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (l) => l.toUpperCase());
-
-    // Format value
-    let displayValue = value;
-    if (typeof value === 'boolean') {
-      displayValue = value ? 'Yes' : 'No';
-    } else if (value === null || value === undefined) {
-      return null;
-    }
-
-    return (
-      <div key={key} className="flex items-center justify-between text-xs">
-        <span className="text-gray-500">{formattedKey}:</span>
-        <span className="text-gray-700 font-medium truncate max-w-[150px]">
-          {String(displayValue)}
-        </span>
-      </div>
-    );
-  });
 };
 
 export default NotificationDetailPanel;

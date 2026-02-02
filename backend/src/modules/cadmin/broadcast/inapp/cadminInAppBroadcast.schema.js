@@ -4,6 +4,19 @@ import { z } from 'zod';
 import { fail } from '../../../../utils/response.js';
 
 // ============================================
+// ATTACHMENT SCHEMA (Updated for file uploads)
+// ============================================
+
+const attachmentSchema = z.object({
+  type: z.enum(['link', 'image', 'video']),
+  url: z.string().min(1, 'URL is required'),
+  label: z.string().max(100).optional().nullable(),
+  filename: z.string().optional().nullable(), // For uploaded files
+  original_name: z.string().optional().nullable(), // For uploaded files
+  size: z.number().optional().nullable(), // File size in bytes
+});
+
+// ============================================
 // ZOD SCHEMAS (EXPORTED)
 // ============================================
 
@@ -36,11 +49,8 @@ export const sendNowSchema = z.object({
     includeCAdmins: z.boolean().optional(),
     cadmin_roles: z.array(z.string()).optional(),
   }).optional().default({}),
-  attachments: z.array(z.object({
-    type: z.enum(['link', 'image', 'video']),
-    url: z.string().url(),
-    label: z.string().max(100).optional().nullable(),
-  })).max(5).optional().default([]),
+  // Updated: limit to 1 attachment
+  attachments: z.array(attachmentSchema).max(1, 'Only 1 attachment allowed').optional().default([]),
   action_url: z.string().optional().nullable().default(''),
   action_label: z.string().max(100).optional().nullable().default(''),
   expires_in_hours: z.union([
@@ -66,11 +76,8 @@ export const draftSchema = z.object({
     includeCAdmins: z.boolean().optional(),
     cadmin_roles: z.array(z.string()).optional(),
   }).optional().default({}),
-  attachments: z.array(z.object({
-    type: z.enum(['link', 'image', 'video']),
-    url: z.string().url(),
-    label: z.string().max(100).optional().nullable(),
-  })).max(5).optional().default([]),
+  // Updated: limit to 1 attachment
+  attachments: z.array(attachmentSchema).max(1, 'Only 1 attachment allowed').optional().default([]),
   action_url: z.string().optional().nullable().default(''),
   action_label: z.string().max(100).optional().nullable().default(''),
   expires_in_hours: z.union([
@@ -93,11 +100,8 @@ export const updateDraftSchema = z.object({
     registration_date_to: z.string().optional(),
     roles: z.array(z.string()).optional(),
   }).optional(),
-  attachments: z.array(z.object({
-    type: z.enum(['link', 'image', 'video']),
-    url: z.string().url(),
-    label: z.string().max(100).optional().nullable(),
-  })).max(5).optional(),
+  // Updated: limit to 1 attachment
+  attachments: z.array(attachmentSchema).max(1, 'Only 1 attachment allowed').optional(),
   action_url: z.string().optional().nullable(),
   action_label: z.string().max(100).optional().nullable(),
 });
@@ -114,7 +118,7 @@ export const paginationSchema = z.object({
 export const segmentSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
   description: z.string().trim().max(500).optional().nullable(),
-  filters: z.record(z.any()),  // Accept any object
+  filters: z.record(z.any()),
 });
 
 export const templateSchema = z.object({
@@ -122,11 +126,8 @@ export const templateSchema = z.object({
   title: z.string().trim().min(3).max(200),
   message: z.string().trim().min(10).max(500),
   priority: z.enum(['low', 'normal', 'high', 'critical']).default('normal'),
-  attachments: z.array(z.object({
-    type: z.enum(['link', 'image', 'video']),
-    url: z.string().url(),
-    label: z.string().max(100).optional().nullable(),
-  })).max(5).optional().default([]),
+  // Updated: limit to 1 attachment
+  attachments: z.array(attachmentSchema).max(1, 'Only 1 attachment allowed').optional().default([]),
 });
 
 // ============================================

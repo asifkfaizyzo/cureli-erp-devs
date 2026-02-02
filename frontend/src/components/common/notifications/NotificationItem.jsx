@@ -1,6 +1,5 @@
 // ============================================
-// NOTIFICATION ITEM COMPONENT
-// Single notification row used in dropdown and full page
+// frontend\src\components\common\notifications\NotificationItem.jsx
 // ============================================
 
 import React from 'react';

@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { History, CheckCircle, Loader2 } from "lucide-react";
 import * as broadcastAPI from "../../../../../../api/cadminBroadcast";
 import Pagination from '../../../../../../components/common/Pagination';
+import { TABLE_CONFIG } from "../../../../../../config/tableConfig";
+import useDynamicRowCount from "../../../../../../hooks/useDynamicRowCount";
 
 function HistoryList({ refreshTrigger }) {
   const [history, setHistory] = useState([]);
@@ -12,11 +14,12 @@ function HistoryList({ refreshTrigger }) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  const rowsPerPage = 20;
+  // ✅ Dynamic row count
+  const rowsPerPage = useDynamicRowCount();
 
   useEffect(() => {
     loadHistory();
-  }, [refreshTrigger, page]);
+  }, [refreshTrigger, page, rowsPerPage]);
 
   const loadHistory = async () => {
     setLoading(true);
@@ -67,9 +70,11 @@ function HistoryList({ refreshTrigger }) {
     return map[priority] || map.normal;
   };
 
+  const { styles } = TABLE_CONFIG;
+
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
+      <div className={styles.emptyState.container}>
         <Loader2 size={32} className="animate-spin text-[#05015A] mb-3" />
         <p className="text-sm text-gray-500">Loading broadcast history...</p>
       </div>
@@ -86,12 +91,12 @@ function HistoryList({ refreshTrigger }) {
 
   if (history.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 bg-white rounded-xl border border-gray-200">
-        <History size={48} className="text-gray-300 mb-3" />
-        <p className="text-lg font-medium text-gray-500 mb-1">
-          No sent broadcasts yet
-        </p>
-        <p className="text-sm text-gray-400">
+      <div className={styles.emptyState.container}>
+        <div className={styles.emptyState.iconWrapper}>
+          <History size={48} className={styles.emptyState.icon} />
+        </div>
+        <p className={styles.emptyState.title}>No sent broadcasts yet</p>
+        <p className={styles.emptyState.subtitle}>
           Sent broadcasts will appear here
         </p>
       </div>
@@ -99,17 +104,7 @@ function HistoryList({ refreshTrigger }) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
-      {/* Header */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Broadcast History
-        </h3>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {totalItems} total broadcast{totalItems !== 1 ? "s" : ""}
-        </p>
-      </div>
-
+    <div className={styles.container.wrapper}>
       {/* Table */}
       <div className="flex-1 min-h-0 overflow-auto">
         <table
@@ -117,34 +112,32 @@ function HistoryList({ refreshTrigger }) {
           style={{ minWidth: "1100px" }}
         >
           <thead className="sticky top-0 z-10">
-            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white text-left">
-              <th className="p-3 font-semibold text-sm">Title</th>
-              <th className="p-3 font-semibold text-sm">Message Preview</th>
-              <th className="p-3 font-semibold text-sm text-center">
-                Recipients
-              </th>
-              <th className="p-3 font-semibold text-sm text-center">
-                Delivered
-              </th>
-              <th className="p-3 font-semibold text-sm text-center">Read</th>
-              <th className="p-3 font-semibold text-sm text-center">
-                Read Rate
-              </th>
-              <th className="p-3 font-semibold text-sm">Sent At</th>
-              <th className="p-3 font-semibold text-sm">Sent By</th>
+            <tr className={styles.header.row}>
+              <th className={styles.header.cell}>Title</th>
+              <th className={styles.header.cell}>Message Preview</th>
+              <th className={`${styles.header.cell} text-center`}>Recipients</th>
+              <th className={`${styles.header.cell} text-center`}>Delivered</th>
+              <th className={`${styles.header.cell} text-center`}>Read</th>
+              <th className={`${styles.header.cell} text-center`}>Read Rate</th>
+              <th className={styles.header.cell}>Sent At</th>
+              <th className={styles.header.cell}>Sent By</th>
             </tr>
           </thead>
           <tbody>
             {history.map((item, index) => (
               <tr
                 key={item.campaign_id}
-                className={`border-b border-gray-100 transition-all duration-150 ${
-                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                } hover:bg-indigo-50`}
+                className={`
+                  ${styles.row.base}
+                  ${index % 2 === 0 ? styles.row.even : styles.row.odd}
+                  ${styles.row.hover}
+                `}
+                style={{ height: `${TABLE_CONFIG.heights.bodyRow}px` }}
               >
-                <td className="px-3 py-3">
+                {/* Title + Priority */}
+                <td className={styles.cell.base}>
                   <div className="flex items-start gap-2">
-                    <span className="font-medium text-gray-900 line-clamp-2 flex-1">
+                    <span className={`${styles.cell.primary} line-clamp-2 flex-1`}>
                       {item.title}
                     </span>
                     <span
@@ -156,18 +149,24 @@ function HistoryList({ refreshTrigger }) {
                     </span>
                   </div>
                 </td>
-                <td className="px-3 py-3">
-                  <p className="text-sm text-gray-600 line-clamp-2">
+
+                {/* Message Preview */}
+                <td className={styles.cell.base}>
+                  <p className={`${styles.cell.secondary} line-clamp-2`}>
                     {item.message.substring(0, 70)}
                     {item.message.length > 70 && "..."}
                   </p>
                 </td>
-                <td className="px-3 py-3 text-center">
-                  <span className="text-sm font-medium text-gray-900">
+
+                {/* Recipients */}
+                <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                  <span className={styles.cell.primary}>
                     {item.recipient_count || 0}
                   </span>
                 </td>
-                <td className="px-3 py-3 text-center">
+
+                {/* Delivered */}
+                <td className={`${styles.cell.base} ${styles.cell.center}`}>
                   <div className="flex items-center justify-center gap-1.5">
                     <CheckCircle size={14} className="text-emerald-500" />
                     <span className="text-sm font-medium text-emerald-700">
@@ -175,12 +174,16 @@ function HistoryList({ refreshTrigger }) {
                     </span>
                   </div>
                 </td>
-                <td className="px-3 py-3 text-center">
-                  <span className="text-sm font-medium text-gray-900">
+
+                {/* Read */}
+                <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                  <span className={styles.cell.primary}>
                     {item.read_count || 0}
                   </span>
                 </td>
-                <td className="px-3 py-3 text-center">
+
+                {/* Read Rate */}
+                <td className={`${styles.cell.base} ${styles.cell.center}`}>
                   <span
                     className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold border ${getReadRateClass(
                       item.read_rate,
@@ -189,15 +192,17 @@ function HistoryList({ refreshTrigger }) {
                     {item.read_rate}%
                   </span>
                 </td>
-                <td className="px-3 py-3">
-                  <span className="text-xs text-gray-600">
+
+                {/* Sent At */}
+                <td className={styles.cell.base}>
+                  <span className={styles.cell.muted}>
                     {formatDateTime(item.sent_at)}
                   </span>
                 </td>
-                <td className="px-3 py-3">
-                  <span className="text-sm font-medium text-gray-900">
-                    {item.cadmin_name}
-                  </span>
+
+                {/* Sent By */}
+                <td className={styles.cell.base}>
+                  <span className={styles.cell.primary}>{item.cadmin_name}</span>
                 </td>
               </tr>
             ))}
@@ -206,16 +211,12 @@ function HistoryList({ refreshTrigger }) {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50">
-          <Pagination
-            currentPage={page}
-            setCurrentPage={setPage}
-            totalItems={totalItems}
-            rowsPerPage={rowsPerPage}
-          />
-        </div>
-      )}
+      <Pagination
+        currentPage={page}
+        setCurrentPage={setPage}
+        totalItems={totalItems}
+        rowsPerPage={rowsPerPage}
+      />
     </div>
   );
 }

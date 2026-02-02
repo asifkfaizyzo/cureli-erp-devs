@@ -1,9 +1,7 @@
-// ============================================
-// frontend\src\pages\notifications\components\NotificationFilters.jsx
-// ============================================
+// frontend/src/pages/notifications/components/NotificationFilters.jsx
 
 import React from 'react';
-import { Filter, X, Bell, RefreshCw } from 'lucide-react';
+import { Filter, X, Bell, RefreshCw, Megaphone } from 'lucide-react';
 import StyledSelect from '../../../components/common/StyledSelect';
 import { EVENT_TYPE_GROUPS, PRIORITY_CONFIG } from '../../../config/notifications';
 
@@ -30,28 +28,42 @@ const NotificationFilters = ({
     })),
   ];
 
-  // Event type group options
+  // Event type group options - Put announcements first
   const eventTypeOptions = [
     { value: '', label: 'All Types' },
-    ...Object.entries(EVENT_TYPE_GROUPS).map(([key, group]) => ({
-      value: key,
-      label: group.label,
-    })),
+    { value: 'announcements', label: '📢 Announcements' },
+    ...Object.entries(EVENT_TYPE_GROUPS)
+      .filter(([key]) => key !== 'announcements')
+      .map(([key, group]) => ({
+        value: key,
+        label: group.label,
+      })),
   ];
 
   // Check if any filter is active
   const hasActiveFilters = unreadOnly || priority || eventType;
+
+  // Check if filtering announcements only
+  const isAnnouncementsFilter = eventType === 'announcements';
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#000060]/5 rounded-lg">
-            <Bell size={18} className="text-[#000060]" />
+          <div className={`p-2 rounded-lg ${
+            isAnnouncementsFilter ? 'bg-indigo-100' : 'bg-[#000060]/5'
+          }`}>
+            {isAnnouncementsFilter ? (
+              <Megaphone size={18} className="text-indigo-600" />
+            ) : (
+              <Bell size={18} className="text-[#000060]" />
+            )}
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">Notifications</h1>
+            <h1 className="text-lg font-semibold text-gray-900">
+              {isAnnouncementsFilter ? 'Announcements' : 'Notifications'}
+            </h1>
             <p className="text-xs text-gray-500">
               {unreadCount > 0 ? (
                 <>
@@ -85,6 +97,24 @@ const NotificationFilters = ({
           <Filter size={16} />
           <span className="font-medium">Filters:</span>
         </div>
+
+        {/* Quick Filter: Announcements Only */}
+        <button
+          onClick={() => onFilterChange({ 
+            eventType: isAnnouncementsFilter ? null : 'announcements' 
+          })}
+          className={`
+            px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+            border flex items-center gap-1.5
+            ${isAnnouncementsFilter
+              ? 'bg-indigo-600 text-white border-indigo-600'
+              : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50'
+            }
+          `}
+        >
+          <Megaphone size={14} />
+          Announcements
+        </button>
 
         {/* Unread Toggle */}
         <button
@@ -147,7 +177,9 @@ const NotificationFilters = ({
         {/* Active Filter Indicator */}
         {hasActiveFilters && (
           <div className="flex items-center gap-2 text-xs text-gray-400">
-            <div className="w-2 h-2 rounded-full bg-[#000060]" />
+            <div className={`w-2 h-2 rounded-full ${
+              isAnnouncementsFilter ? 'bg-indigo-500' : 'bg-[#000060]'
+            }`} />
             <span>Filters active</span>
           </div>
         )}

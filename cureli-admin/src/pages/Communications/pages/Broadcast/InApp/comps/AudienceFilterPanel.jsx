@@ -1,10 +1,11 @@
 // src/pages/Communications/pages/Broadcast/InApp/comps/AudienceFilterPanel.jsx
-import { useState, useEffect, useCallback, useMemo } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import { 
   Building2, CreditCard, Calendar, UserCog, Shield, 
-  X, Search, ChevronDown, Save, Bookmark, Users
+  X, Search, ChevronDown, Check, Filter
 } from "lucide-react";
-import StyledSelect from "../../../../../../components/common/StyledSelect";
+import StyledDateFilter from "../../../../../../components/common/StyledDateFilter";
 import * as broadcastAPI from "../../../../../../api/cadminBroadcast";
 import { useDebounce } from "../../../../../../hooks/useDebounce";
 
@@ -21,21 +22,23 @@ function AudienceFilterPanel({
   const [plans, setPlans] = useState([]);
   const [userRoles, setUserRoles] = useState([]);
   const [cadminRoles, setCAdminRoles] = useState([]);
-  const [savedSegments, setSavedSegments] = useState([]);
   
   // UI states
   const [shopSearch, setShopSearch] = useState("");
   const [loadingShops, setLoadingShops] = useState(false);
-  const [showSaveSegment, setShowSaveSegment] = useState(false);
-  const [segmentName, setSegmentName] = useState("");
+  const [showShopDropdown, setShowShopDropdown] = useState(false);
+  const [showPlanDropdown, setShowPlanDropdown] = useState(false);
   
-  // Selected values (local state for multi-select)
+  // Selected values
   const [selectedShops, setSelectedShops] = useState([]);
   const [selectedPlans, setSelectedPlans] = useState([]);
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [selectedCAdminRoles, setSelectedCAdminRoles] = useState([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  // Shop name lookup map
+  const [shopNameMap, setShopNameMap] = useState({});
 
   const debouncedShopSearch = useDebounce(shopSearch, 300);
 
@@ -44,54 +47,47 @@ function AudienceFilterPanel({
     loadPlans();
     loadUserRoles();
     loadCAdminRoles();
-    loadSegments();
   }, []);
 
   // Load shops on search
   useEffect(() => {
-    loadShops(debouncedShopSearch);
-  }, [debouncedShopSearch]);
-
-  // Sync local state with parent filters
-  useEffect(() => {
-    if (filters.shop_ids) {
-      // Load shop details for selected IDs
-      loadSelectedShopDetails(filters.shop_ids);
+    if (showUserFilters) {
+      loadShops(debouncedShopSearch);
     }
-    if (filters.plan_ids) setSelectedPlans(filters.plan_ids);
-    if (filters.roles) setSelectedRoles(filters.roles);
-    if (filters.cadmin_roles) setSelectedCAdminRoles(filters.cadmin_roles);
-    if (filters.registration_date_from) setDateFrom(filters.registration_date_from);
-    if (filters.registration_date_to) setDateTo(filters.registration_date_to);
-  }, []);
+  }, [debouncedShopSearch, showUserFilters]);
+
+  // Build shop name map from loaded shops
+  useEffect(() => {
+    const map = {};
+    shops.forEach(shop => {
+      map[shop.shop_id] = shop.business_name || shop.name;
+    });
+    // Also add selected shops to the map
+    selectedShops.forEach(shop => {
+      map[shop.shop_id] = shop.business_name || shop.name;
+    });
+    setShopNameMap(prev => ({ ...prev, ...map }));
+  }, [shops, selectedShops]);
 
   const loadShops = async (search = "") => {
     setLoadingShops(true);
     try {
       const res = await broadcastAPI.getShopsForFilter(search);
       if (res.data.success) {
-        setShops(res.data.data.shops);
+        const loadedShops = res.data.data.shops || res.data.data || [];
+        setShops(loadedShops);
+        
+        // Update shop name map
+        const map = {};
+        loadedShops.forEach(shop => {
+          map[shop.shop_id] = shop.business_name || shop.name;
+        });
+        setShopNameMap(prev => ({ ...prev, ...map }));
       }
     } catch (err) {
       console.error("Failed to load shops:", err);
     } finally {
       setLoadingShops(false);
-    }
-  };
-
-  const loadSelectedShopDetails = async (shopIds) => {
-    // If we have shop IDs but no shop details, load them
-    if (shopIds.length > 0 && selectedShops.length === 0) {
-      try {
-        const res = await broadcastAPI.getShopsForFilter("");
-        if (res.data.success) {
-          const allShops = res.data.data.shops;
-          const selected = allShops.filter(s => shopIds.includes(s.shop_id));
-          setSelectedShops(selected);
-        }
-      } catch (err) {
-        console.error("Failed to load shop details:", err);
-      }
     }
   };
 
@@ -128,22 +124,8 @@ function AudienceFilterPanel({
     }
   };
 
-  const loadSegments = async () => {
-    try {
-      const res = await broadcastAPI.getSegments();
-      if (res.data.success) {
-        setSavedSegments(res.data.data);
-      }
-    } catch (err) {
-      console.error("Failed to load segments:", err);
-    }
-  };
-
-  // Update parent when local state changes
   const updateFilters = useCallback((updates) => {
     const newFilters = { ...filters, ...updates };
-    
-    // Clean up empty arrays
     Object.keys(newFilters).forEach(key => {
       if (Array.isArray(newFilters[key]) && newFilters[key].length === 0) {
         delete newFilters[key];
@@ -152,95 +134,55 @@ function AudienceFilterPanel({
         delete newFilters[key];
       }
     });
-    
     onChange(newFilters);
   }, [filters, onChange]);
 
-  const handleShopSelect = (shop) => {
+  const handleShopToggle = (shop) => {
     const isSelected = selectedShops.some(s => s.shop_id === shop.shop_id);
-    let newSelected;
-    
-    if (isSelected) {
-      newSelected = selectedShops.filter(s => s.shop_id !== shop.shop_id);
-    } else {
-      newSelected = [...selectedShops, shop];
-    }
+    let newSelected = isSelected 
+      ? selectedShops.filter(s => s.shop_id !== shop.shop_id)
+      : [...selectedShops, shop];
     
     setSelectedShops(newSelected);
     updateFilters({ shop_ids: newSelected.map(s => s.shop_id) });
   };
 
-  const handleShopRemove = (shopId) => {
-    const newSelected = selectedShops.filter(s => s.shop_id !== shopId);
-    setSelectedShops(newSelected);
-    updateFilters({ shop_ids: newSelected.map(s => s.shop_id) });
-  };
-
-  const handlePlanToggle = (planId) => {
-    let newSelected;
-    if (selectedPlans.includes(planId)) {
-      newSelected = selectedPlans.filter(id => id !== planId);
-    } else {
-      newSelected = [...selectedPlans, planId];
-    }
+  const handlePlanToggle = (plan) => {
+    const isSelected = selectedPlans.includes(plan.plan_id);
+    let newSelected = isSelected
+      ? selectedPlans.filter(id => id !== plan.plan_id)
+      : [...selectedPlans, plan.plan_id];
+    
     setSelectedPlans(newSelected);
     updateFilters({ plan_ids: newSelected });
   };
 
   const handleRoleToggle = (role) => {
-    let newSelected;
-    if (selectedRoles.includes(role)) {
-      newSelected = selectedRoles.filter(r => r !== role);
-    } else {
-      newSelected = [...selectedRoles, role];
-    }
+    let newSelected = selectedRoles.includes(role)
+      ? selectedRoles.filter(r => r !== role)
+      : [...selectedRoles, role];
+    
     setSelectedRoles(newSelected);
     updateFilters({ roles: newSelected });
   };
 
   const handleCAdminRoleToggle = (role) => {
-    let newSelected;
-    if (selectedCAdminRoles.includes(role)) {
-      newSelected = selectedCAdminRoles.filter(r => r !== role);
-    } else {
-      newSelected = [...selectedCAdminRoles, role];
-    }
+    let newSelected = selectedCAdminRoles.includes(role)
+      ? selectedCAdminRoles.filter(r => r !== role)
+      : [...selectedCAdminRoles, role];
+    
     setSelectedCAdminRoles(newSelected);
     updateFilters({ cadmin_roles: newSelected });
   };
 
-  const handleDateChange = (type, value) => {
-    if (type === "from") {
-      setDateFrom(value);
-      updateFilters({ registration_date_from: value || undefined });
-    } else {
-      setDateTo(value);
-      updateFilters({ registration_date_to: value || undefined });
-    }
+  const handleDateFromChange = (value) => {
+    setDateFrom(value);
+    updateFilters({ registration_date_from: value || undefined });
   };
 
-  const handleSaveSegment = async () => {
-    if (!segmentName.trim()) return;
-    
-    try {
-      await broadcastAPI.createSegment({
-        name: segmentName,
-        filters: filters,
-      });
-      setShowSaveSegment(false);
-      setSegmentName("");
-      loadSegments();
-    } catch (err) {
-      console.error("Failed to save segment:", err);
-    }
-  };
-
-  const handleLoadSegment = (segment) => {
-    onChange(segment.filters);
-    // Sync local state
-    if (segment.filters.shop_ids) loadSelectedShopDetails(segment.filters.shop_ids);
-    if (segment.filters.plan_ids) setSelectedPlans(segment.filters.plan_ids);
-    if (segment.filters.roles) setSelectedRoles(segment.filters.roles);
+  const handleDateToChange = (value) => {
+    setDateTo(value);
+    updateFilters({ registration_date_to: value || undefined });
   };
 
   const clearAllFilters = () => {
@@ -253,278 +195,343 @@ function AudienceFilterPanel({
     onChange({});
   };
 
-  const hasActiveFilters = Object.keys(filters).length > 0;
+  const hasActiveFilters = selectedShops.length > 0 || selectedPlans.length > 0 || 
+    selectedRoles.length > 0 || selectedCAdminRoles.length > 0 || dateFrom || dateTo;
+
+  // Helper to get shop name from various sources
+  const getShopName = (shopId, shopData) => {
+    // First try from the data object itself
+    if (shopData?.business_name) return shopData.business_name;
+    if (shopData?.name) return shopData.name;
+    if (typeof shopData === 'string') return shopData;
+    
+    // Then try from our lookup map
+    if (shopNameMap[shopId]) return shopNameMap[shopId];
+    
+    // Try from selected shops
+    const selectedShop = selectedShops.find(s => s.shop_id === shopId || s.shop_id === parseInt(shopId));
+    if (selectedShop) return selectedShop.business_name || selectedShop.name;
+    
+    // Try from loaded shops
+    const loadedShop = shops.find(s => s.shop_id === shopId || s.shop_id === parseInt(shopId));
+    if (loadedShop) return loadedShop.business_name || loadedShop.name;
+    
+    return `Shop #${shopId}`;
+  };
+
+  // Get shop count from data
+  const getShopCount = (shopData) => {
+    if (typeof shopData === 'number') return shopData;
+    if (shopData?.count !== undefined) return shopData.count;
+    if (shopData?.total !== undefined) return shopData.total;
+    return 0;
+  };
+
+  if (!showUserFilters && !showCAdminFilters) {
+    return (
+      <div className="text-center py-8 text-sm text-gray-400">
+        <Filter size={20} className="mx-auto mb-2 opacity-50" />
+        Select an audience type above to configure filters
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      {/* Saved Segments & Actions */}
+      {/* Header with Clear All */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {savedSegments.length > 0 && (
-            <div className="relative group">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
-                <Bookmark size={12} />
-                Saved Segments
-                <ChevronDown size={12} />
-              </button>
-              <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
-                {savedSegments.map((seg) => (
-                  <button
-                    key={seg.segment_id}
-                    onClick={() => handleLoadSegment(seg)}
-                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
-                  >
-                    {seg.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {hasActiveFilters && (
-            <>
-              <button
-                onClick={() => setShowSaveSegment(true)}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-indigo-600 hover:text-indigo-700"
-              >
-                <Save size={12} />
-                Save as Segment
-              </button>
-              <button
-                onClick={clearAllFilters}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:text-red-700"
-              >
-                <X size={12} />
-                Clear All
-              </button>
-            </>
-          )}
-        </div>
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          Filter Options
+        </span>
+        {hasActiveFilters && (
+          <button
+            onClick={clearAllFilters}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition-colors"
+          >
+            <X size={12} />
+            Clear all
+          </button>
+        )}
       </div>
 
-      {/* Save Segment Input */}
-      {showSaveSegment && (
-        <div className="flex items-center gap-2 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-          <input
-            type="text"
-            value={segmentName}
-            onChange={(e) => setSegmentName(e.target.value)}
-            placeholder="Segment name..."
-            className="flex-1 px-3 py-1.5 text-sm border border-indigo-200 rounded-lg"
-          />
-          <button
-            onClick={handleSaveSegment}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
-          >
-            Save
-          </button>
-          <button
-            onClick={() => setShowSaveSegment(false)}
-            className="p-1.5 text-gray-400 hover:text-gray-600"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
+      {showUserFilters && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Shops Dropdown */}
+          <div className="relative">
+            <label className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5 block">
+              <Building2 size={12} />
+              Shops
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowShopDropdown(!showShopDropdown)}
+              disabled={disabled}
+              className="w-full px-3 py-2 text-sm text-left border border-gray-200 rounded-lg bg-white hover:bg-gray-50 flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className={selectedShops.length ? "text-gray-900" : "text-gray-400"}>
+                {selectedShops.length ? `${selectedShops.length} selected` : "All shops"}
+              </span>
+              <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${showShopDropdown ? "rotate-180" : ""}`} />
+            </button>
 
-      {/* Filter Grid - Horizontal layout */}
-      <div className="grid grid-cols-2 gap-4">
-        
-        {/* ERP User Filters */}
-        {showUserFilters && (
-          <>
-            {/* Shop Selection */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-                <Building2 size={12} />
-                Filter by Shops
-              </label>
-              
-              {/* Selected Shops Tags */}
-              {selectedShops.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {selectedShops.map((shop) => (
-                    <span
-                      key={shop.shop_id}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
-                    >
-                      {shop.business_name}
-                      <button
-                        onClick={() => handleShopRemove(shop.shop_id)}
-                        className="hover:text-blue-900"
-                      >
-                        <X size={10} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Shop Search */}
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={shopSearch}
-                  onChange={(e) => setShopSearch(e.target.value)}
-                  placeholder="Search shops..."
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+            {showShopDropdown && (
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setShowShopDropdown(false)}
                 />
-              </div>
-
-              {/* Shop List */}
-              {(shopSearch || shops.length > 0) && (
-                <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-                  {loadingShops ? (
-                    <div className="p-3 text-center text-xs text-gray-400">Loading...</div>
-                  ) : shops.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-gray-400">No shops found</div>
-                  ) : (
-                    shops.slice(0, 10).map((shop) => (
-                      <button
-                        key={shop.shop_id}
-                        onClick={() => handleShopSelect(shop)}
-                        className={`w-full px-3 py-2 text-left text-xs hover:bg-gray-50 flex items-center justify-between ${
-                          selectedShops.some(s => s.shop_id === shop.shop_id) 
-                            ? "bg-blue-50" 
-                            : ""
-                        }`}
-                      >
-                        <div>
-                          <span className="font-medium text-gray-900">{shop.business_name}</span>
-                          <span className="text-gray-400 ml-1">• {shop.city}</span>
-                        </div>
-                        <span className="text-gray-400">{shop.user_count} users</span>
-                      </button>
-                    ))
-                  )}
+                <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="p-2 border-b border-gray-100">
+                    <div className="relative">
+                      <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={shopSearch}
+                        onChange={(e) => setShopSearch(e.target.value)}
+                        placeholder="Search shops..."
+                        className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-[#05015A]/20 focus:border-[#05015A]"
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto p-1">
+                    {loadingShops ? (
+                      <div className="p-3 text-center text-xs text-gray-400">Loading...</div>
+                    ) : shops.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-gray-400">No shops found</div>
+                    ) : (
+                      shops.slice(0, 15).map((shop) => {
+                        const isSelected = selectedShops.some(s => s.shop_id === shop.shop_id);
+                        return (
+                          <button
+                            key={shop.shop_id}
+                            onClick={() => handleShopToggle(shop)}
+                            className={`w-full px-3 py-2 text-left text-xs rounded flex items-center justify-between hover:bg-gray-50 transition-colors ${isSelected ? "bg-[#05015A]/5" : ""}`}
+                          >
+                            <div>
+                              <span className="font-medium text-gray-900">{shop.business_name || shop.name}</span>
+                              <span className="text-gray-400 ml-1">({shop.user_count || 0} users)</span>
+                            </div>
+                            {isSelected && <Check size={14} className="text-[#05015A]" />}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="p-2 border-t border-gray-100">
+                    <button
+                      onClick={() => setShowShopDropdown(false)}
+                      className="w-full py-1.5 text-xs font-medium text-[#05015A] hover:bg-[#05015A]/5 rounded transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
+              </>
+            )}
 
-            {/* Plan Selection */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-                <CreditCard size={12} />
-                Filter by Plans
-              </label>
-              <div className="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto">
-                {plans.map((plan) => (
-                  <button
-                    key={plan.plan_id}
-                    onClick={() => handlePlanToggle(plan.plan_id)}
-                    className={`px-2 py-1.5 text-xs rounded-lg border transition-all text-left ${
-                      selectedPlans.includes(plan.plan_id)
-                        ? "bg-purple-100 border-purple-300 text-purple-700"
-                        : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                    }`}
-                  >
-                    {plan.name}
-                  </button>
+            {/* Selected tags */}
+            <div className={`overflow-hidden transition-all duration-200 ease-out ${selectedShops.length > 0 ? "max-h-20 opacity-100 mt-2" : "max-h-0 opacity-0"}`}>
+              <div className="flex flex-wrap gap-1">
+                {selectedShops.slice(0, 3).map(shop => (
+                  <span key={shop.shop_id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#05015A]/10 text-[#05015A] rounded text-[10px]">
+                    {shop.business_name || shop.name}
+                    <button onClick={() => handleShopToggle(shop)} className="hover:text-red-600 transition-colors">
+                      <X size={10} />
+                    </button>
+                  </span>
                 ))}
+                {selectedShops.length > 3 && (
+                  <span className="text-[10px] text-gray-400 py-0.5">+{selectedShops.length - 3} more</span>
+                )}
               </div>
             </div>
+          </div>
 
-            {/* User Roles */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-                <UserCog size={12} />
-                Filter by User Roles
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {userRoles.map((role) => (
+          {/* Plans Dropdown */}
+          <div className="relative">
+            <label className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5 block">
+              <CreditCard size={12} />
+              Plans
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowPlanDropdown(!showPlanDropdown)}
+              disabled={disabled}
+              className="w-full px-3 py-2 text-sm text-left border border-gray-200 rounded-lg bg-white hover:bg-gray-50 flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className={selectedPlans.length ? "text-gray-900" : "text-gray-400"}>
+                {selectedPlans.length ? `${selectedPlans.length} selected` : "All plans"}
+              </span>
+              <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${showPlanDropdown ? "rotate-180" : ""}`} />
+            </button>
+
+            {showPlanDropdown && (
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setShowPlanDropdown(false)}
+                />
+                <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="max-h-40 overflow-y-auto p-1">
+                    {plans.length === 0 ? (
+                      <div className="p-3 text-center text-xs text-gray-400">No plans available</div>
+                    ) : (
+                      plans.map((plan) => {
+                        const isSelected = selectedPlans.includes(plan.plan_id);
+                        return (
+                          <button
+                            key={plan.plan_id}
+                            onClick={() => handlePlanToggle(plan)}
+                            className={`w-full px-3 py-2 text-left text-xs rounded flex items-center justify-between hover:bg-gray-50 transition-colors ${isSelected ? "bg-[#05015A]/5" : ""}`}
+                          >
+                            <span className="font-medium text-gray-900">{plan.name}</span>
+                            {isSelected && <Check size={14} className="text-[#05015A]" />}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="p-2 border-t border-gray-100">
+                    <button
+                      onClick={() => setShowPlanDropdown(false)}
+                      className="w-full py-1.5 text-xs font-medium text-[#05015A] hover:bg-[#05015A]/5 rounded transition-colors"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* User Roles */}
+          <div>
+            <label className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5 block">
+              <UserCog size={12} />
+              User Roles
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {userRoles.length === 0 ? (
+                <span className="text-xs text-gray-400">Loading roles...</span>
+              ) : (
+                userRoles.map((role) => (
                   <button
                     key={role.value}
                     onClick={() => handleRoleToggle(role.value)}
-                    className={`px-2 py-1 text-xs rounded-lg border transition-all ${
+                    disabled={disabled}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-full border transition-all duration-150 disabled:opacity-50 ${
                       selectedRoles.includes(role.value)
-                        ? "bg-emerald-100 border-emerald-300 text-emerald-700"
-                        : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                        ? "bg-[#05015A] border-[#05015A] text-white shadow-sm"
+                        : "bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
                     }`}
                   >
                     {role.label}
-                    <span className="text-gray-400 ml-1">({role.count})</span>
                   </button>
-                ))}
-              </div>
+                ))
+              )}
             </div>
+          </div>
 
-            {/* Registration Date */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-                <Calendar size={12} />
-                Registration Date Range
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => handleDateChange("from", e.target.value)}
-                  className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg"
-                />
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => handleDateChange("to", e.target.value)}
-                  className="px-2 py-1.5 text-xs border border-gray-200 rounded-lg"
-                />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* CAdmin Filters */}
-        {showCAdminFilters && (
-          <div className="col-span-2 pt-3 border-t border-gray-200">
-            <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5 mb-2">
-              <Shield size={12} />
-              Filter CAdmins by Role
+          {/* Registration Date */}
+          <div>
+            <label className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5 block">
+              <Calendar size={12} />
+              Registration Date
             </label>
-            <div className="flex flex-wrap gap-2">
-              {cadminRoles.map((role) => (
+            <div className="grid grid-cols-2 gap-2">
+              <StyledDateFilter
+                date={dateFrom}
+                setDate={handleDateFromChange}
+                placeholder="From"
+              />
+              <StyledDateFilter
+                date={dateTo}
+                setDate={handleDateToChange}
+                placeholder="To"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CAdmin Filters */}
+      {showCAdminFilters && (
+        <div className={`transition-all duration-200 ${showUserFilters ? "pt-4 border-t border-gray-100" : ""}`}>
+          <label className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1.5 block">
+            <Shield size={12} />
+            Admin Roles
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {cadminRoles.length === 0 ? (
+              <span className="text-xs text-gray-400">Loading roles...</span>
+            ) : (
+              cadminRoles.map((role) => (
                 <button
                   key={role.value}
                   onClick={() => handleCAdminRoleToggle(role.value)}
-                  className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                  disabled={disabled}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-full border transition-all duration-150 disabled:opacity-50 ${
                     selectedCAdminRoles.includes(role.value)
-                      ? "bg-indigo-100 border-indigo-300 text-indigo-700"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                      ? "bg-[#05015A] border-[#05015A] text-white shadow-sm"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
                   }`}
                 >
                   {role.label}
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Recipient Breakdown */}
-      {recipientPreview && Object.keys(recipientPreview.by_shop || {}).length > 0 && (
-        <div className="pt-3 border-t border-gray-200">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-600">Recipients by Shop</span>
-            <span className="text-xs text-gray-400">
-              {Object.keys(recipientPreview.by_shop).length} shops
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-2 max-h-24 overflow-y-auto">
-            {Object.entries(recipientPreview.by_shop).slice(0, 9).map(([shopId, data]) => (
-              <div
-                key={shopId}
-                className="flex items-center justify-between px-2 py-1.5 bg-gray-50 rounded text-xs"
-              >
-                <span className="text-gray-700 truncate flex-1">
-                  {data.name || shopId.slice(0, 8)}
-                </span>
-                <span className="font-medium text-indigo-600 ml-2">{data.count}</span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}
+
+      {/* Recipients by Shop - Smooth Animated Section */}
+      <div 
+        className={`
+          transition-all duration-300 ease-out overflow-hidden
+          ${recipientPreview && Object.keys(recipientPreview.by_shop || {}).length > 0 
+            ? "max-h-48 opacity-100 pt-4" 
+            : "max-h-0 opacity-0 pt-0"
+          }
+        `}
+      >
+        <div className="border-t border-gray-100 pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+              <Building2 size={12} />
+              Recipients by Shop
+            </span>
+            <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+              {Object.keys(recipientPreview?.by_shop || {}).length} shops
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {recipientPreview && Object.entries(recipientPreview.by_shop || {})
+              .slice(0, 6)
+              .map(([shopId, shopData]) => (
+                <div
+                  key={shopId}
+                  className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-gray-50 to-white border border-gray-100 rounded-lg"
+                >
+                  <span className="text-xs text-gray-700 truncate max-w-[120px]" title={getShopName(shopId, shopData)}>
+                    {getShopName(shopId, shopData)}
+                  </span>
+                  <span className="font-semibold text-xs text-[#05015A] bg-[#05015A]/10 px-2 py-0.5 rounded-full ml-2 flex-shrink-0">
+                    {getShopCount(shopData)}
+                  </span>
+                </div>
+              ))}
+          </div>
+          
+          {recipientPreview && Object.keys(recipientPreview.by_shop || {}).length > 6 && (
+            <div className="text-center mt-2">
+              <span className="text-[10px] text-gray-400">
+                +{Object.keys(recipientPreview.by_shop).length - 6} more shops
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

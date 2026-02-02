@@ -5,7 +5,13 @@
 import { success, fail } from '../../../../utils/response.js';
 import * as audit from '../../../audit/index.js';
 import * as service from './cadminInAppBroadcast.service.js';
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { getFileCategory, getBroadcastFileUrl } from "../../../../config/multerBroadcast.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 /**
  * Preview recipient count
  * POST /cadmin/broadcast/inapp/preview
@@ -364,4 +370,92 @@ export async function useTemplateController(req, res) {
   } catch (err) {
     return fail(res, err.message || 'Failed to load template', err.status || 500);
   }
+}
+
+/**
+ * Upload broadcast attachment
+ * POST /cadmin/broadcast/inapp/upload
+ */
+export async function uploadBroadcastAttachmentController(req, res) {
+  try {
+    if (!req.file) {
+      return fail(res, "No file uploaded", 400);
+    }
+
+    const { filename, originalname, mimetype, size } = req.file;
+    const category = getFileCategory(mimetype);
+    const url = getBroadcastFileUrl(filename);
+
+    console.log(`[Broadcast Upload] File uploaded: ${filename} (${category}, ${(size / 1024 / 1024).toFixed(2)}MB)`);
+
+    return success(res, {
+      filename,
+      original_name: originalname,
+      mime_type: mimetype,
+      size,
+      size_formatted: formatFileSize(size),
+      type: category, // 'image' or 'video'
+      url,
+    }, "File uploaded successfully");
+  } catch (err) {
+    console.error("[Broadcast Upload] Upload failed:", err);
+    return fail(res, err.message || "Failed to upload file", 500);
+  }
+}
+
+/**
+ * Delete broadcast attachment
+ * DELETE /cadmin/broadcast/inapp/upload/:filename
+ */
+export async function deleteBroadcastAttachmentController(req, res) {
+  try {
+    const { filename } = req.params;
+
+    if (!filename) {
+      return fail(res, "Filename is required", 400);
+    }
+
+    // Security: Validate filename format to prevent directory traversal
+    const safeFilenameRegex = /^broadcast-\d+-[a-z0-9]+\.[a-z0-9]+$/i;
+    if (!safeFilenameRegex.test(filename)) {
+      return fail(res, "Invalid filename format", 400);
+    }
+
+    // Construct file path
+    const uploadsDir = path.resolve(process.cwd(), "uploads", "broadcast_attachments");
+    const filePath = path.join(uploadsDir, filename);
+
+    // Security: Ensure resolved path is within uploads directory
+    const resolvedPath = path.resolve(filePath);
+    if (!resolvedPath.startsWith(uploadsDir)) {
+      return fail(res, "Access denied", 403);
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(resolvedPath)) {
+      // File doesn't exist - consider it already deleted (idempotent)
+      return success(res, { deleted: true, filename }, "File already deleted");
+    }
+
+    // Delete the file
+    fs.unlinkSync(resolvedPath);
+
+    console.log(`[Broadcast Upload] File deleted: ${filename}`);
+
+    return success(res, { deleted: true, filename }, "File deleted successfully");
+  } catch (err) {
+    console.error("[Broadcast Upload] Delete failed:", err);
+    return fail(res, err.message || "Failed to delete file", 500);
+  }
+}
+
+/**
+ * Helper: Format file size for display
+ */
+function formatFileSize(bytes) {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }

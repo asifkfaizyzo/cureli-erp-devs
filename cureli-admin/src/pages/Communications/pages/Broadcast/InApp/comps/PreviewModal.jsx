@@ -1,156 +1,199 @@
 // src/pages/Communications/pages/Broadcast/InApp/comps/PreviewModal.jsx
-import { Eye, X, Building2, Users, Shield, UserCog, Calendar, Link2 } from "lucide-react";
+
+import { X, Users, Building2, UserCheck, Image, Video, Link2, ExternalLink } from "lucide-react";
 
 function PreviewModal({ data, formData, onClose }) {
-  const { total, by_type, by_shop, by_role, filters_applied } = data;
+  const attachment = formData.attachments?.length > 0 ? formData.attachments[0] : null;
+
+  const getPriorityBadge = (priority) => {
+    const styles = {
+      low: "bg-blue-100 text-blue-700",
+      normal: "bg-green-100 text-green-700",
+      high: "bg-orange-100 text-orange-700",
+      critical: "bg-red-100 text-red-700",
+    };
+    return styles[priority] || styles.normal;
+  };
+
+  const getAttachmentIcon = (type) => {
+    switch (type) {
+      case 'image': return <Image size={16} className="text-green-600" />;
+      case 'video': return <Video size={16} className="text-purple-600" />;
+      case 'link': return <Link2 size={16} className="text-blue-600" />;
+      default: return <Link2 size={16} className="text-gray-600" />;
+    }
+  };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-              <Eye size={20} className="text-white" />
-            </div>
-            <div>
-              <h3 className="text-white text-lg font-semibold">Broadcast Preview</h3>
-              <p className="text-white/70 text-xs">{formData.title}</p>
-            </div>
-          </div>
-          <button
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Broadcast Preview</h3>
+          <button 
             onClick={onClose}
-            className="p-2 rounded-lg bg-white/20 text-white hover:bg-white/30"
+            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <X size={20} />
+            <X size={18} className="text-gray-500" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 max-h-[70vh] overflow-y-auto">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5">
           <div className="grid grid-cols-2 gap-6">
-            
-            {/* Left: Recipient Summary */}
+            {/* Left: Message Preview */}
             <div className="space-y-4">
-              {/* Total Count */}
-              <div className="bg-gradient-to-br from-[#05015A] to-[#0a0280] rounded-xl p-5 text-center">
-                <div className="text-5xl font-bold text-white mb-1">{total}</div>
-                <div className="text-white/80 text-sm">Total Recipients</div>
-              </div>
-
-              {/* By Type */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users size={14} className="text-blue-600" />
-                    <span className="text-xs font-medium text-blue-800">ERP Users</span>
-                  </div>
-                  <div className="text-2xl font-bold text-blue-700">{by_type?.users || 0}</div>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Shield size={14} className="text-purple-600" />
-                    <span className="text-xs font-medium text-purple-800">CAdmins</span>
-                  </div>
-                  <div className="text-2xl font-bold text-purple-700">{by_type?.cadmins || 0}</div>
-                </div>
-              </div>
-
-              {/* By Role */}
-              {by_role && Object.keys(by_role).length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <UserCog size={14} className="text-gray-600" />
-                    <span className="text-xs font-medium text-gray-700">By Role</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(by_role).map(([role, count]) => (
-                      <span
-                        key={role}
-                        className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-gray-200 rounded text-xs"
-                      >
-                        <span className="text-gray-600">{role}:</span>
-                        <span className="font-medium text-gray-900">{count}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right: Message Preview & Shop Breakdown */}
-            <div className="space-y-4">
-              {/* Message Preview */}
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 className="text-xs font-medium text-gray-500 mb-2">Message Preview</h4>
-                <div className="bg-white rounded-lg p-3 border border-gray-100">
-                  <h5 className="font-semibold text-gray-900 mb-1">{formData.title}</h5>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{formData.message}</p>
-                  
-                  {/* Attachments */}
-                  {formData.attachments?.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-1.5">
-                      {formData.attachments.map((att, i) => (
-                        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
-                          <Link2 size={10} />
-                          {att.label || att.type}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Action Button */}
-                  {formData.action_url && (
-                    <div className="mt-3">
-                      <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium">
-                        {formData.action_label || "View Details"}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Shop Breakdown */}
-              {by_shop && Object.keys(by_shop).length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Building2 size={14} className="text-gray-600" />
-                    <span className="text-xs font-medium text-gray-700">
-                      Recipients by Shop ({Object.keys(by_shop).length})
-                    </span>
-                  </div>
-                  <div className="max-h-40 overflow-y-auto space-y-1">
-                    {Object.entries(by_shop).map(([shopId, data]) => (
-                      <div
-                        key={shopId}
-                        className="flex items-center justify-between px-2 py-1.5 bg-white rounded border border-gray-100"
-                      >
-                        <span className="text-xs text-gray-700 truncate flex-1">
-                          {data.name || `Shop ${shopId.slice(0, 8)}...`}
-                        </span>
-                        <span className="text-xs font-medium text-indigo-600 ml-2">
-                          {data.count} users
+              <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                Message Preview
+              </h4>
+              
+              {/* Notification card mockup */}
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded ${getPriorityBadge(formData.priority)}`}>
+                          {formData.priority}
                         </span>
                       </div>
-                    ))}
+                      <h5 className="font-semibold text-gray-900">{formData.title || "Untitled"}</h5>
+                      <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">
+                        {formData.message || "No message"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Attachment preview */}
+                  {attachment && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      {attachment.type === 'image' && attachment.url ? (
+                        <div className="rounded-lg overflow-hidden bg-gray-100">
+                          <img 
+                            src={attachment.url} 
+                            alt="Attachment" 
+                            className="w-full h-32 object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                          {getAttachmentIcon(attachment.type)}
+                          <span className="text-sm text-gray-700 truncate flex-1">
+                            {attachment.label || attachment.original_name || 'Attachment'}
+                          </span>
+                          {attachment.type !== 'image' && (
+                            <ExternalLink size={14} className="text-gray-400" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action button preview */}
+                  {formData.action_url && formData.action_label && (
+                    <div className="mt-3">
+                      <button className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg">
+                        {formData.action_label}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="px-4 py-2 bg-gray-50 text-xs text-gray-500">
+                  Just now
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Audience Summary */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                Audience Summary
+              </h4>
+              
+              <div className="space-y-3">
+                {/* Total recipients */}
+                <div className="bg-indigo-50 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <Users size={24} className="text-indigo-600" />
+                    <div>
+                      <p className="text-2xl font-bold text-indigo-700">{data.total.toLocaleString()}</p>
+                      <p className="text-sm text-indigo-600">Total Recipients</p>
+                    </div>
                   </div>
                 </div>
-              )}
+
+                {/* By type */}
+                {data.by_type && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-lg font-semibold text-gray-900">{data.by_type.users}</p>
+                      <p className="text-xs text-gray-500">ERP Users</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-lg font-semibold text-gray-900">{data.by_type.cadmins}</p>
+                      <p className="text-xs text-gray-500">CAdmins</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* By role */}
+                {data.by_role && Object.keys(data.by_role).length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">By Role</p>
+                    <div className="space-y-1">
+                      {Object.entries(data.by_role).map(([role, count]) => (
+                        <div key={role} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-700 capitalize">{role.replace(/_/g, ' ')}</span>
+                          <span className="font-medium text-gray-900">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* By shop */}
+                {data.by_shop && Object.keys(data.by_shop).length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                      By Shop ({Object.keys(data.by_shop).length} shops)
+                    </p>
+                    <div className="space-y-1">
+                      {Object.entries(data.by_shop).slice(0, 10).map(([shopId, info]) => (
+                        <div key={shopId} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-700 truncate flex-1">
+                            {info.name || shopId.slice(0, 8)}
+                          </span>
+                          <span className="font-medium text-gray-900 ml-2">{info.count}</span>
+                        </div>
+                      ))}
+                      {Object.keys(data.by_shop).length > 10 && (
+                        <p className="text-xs text-gray-400 italic">
+                          +{Object.keys(data.by_shop).length - 10} more shops
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+        <div className="flex items-center justify-end px-5 py-4 border-t border-gray-200 bg-gray-50">
           <button
             onClick={onClose}
-            className="px-6 py-2.5 bg-[#05015A] text-white rounded-lg text-sm font-semibold hover:bg-[#0a0280]"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Close
           </button>

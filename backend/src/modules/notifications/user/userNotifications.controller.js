@@ -1,5 +1,5 @@
 // ============================================
-// USER NOTIFICATIONS CONTROLLER
+// backend\src\modules\notifications\user\userNotifications.controller.js
 // ============================================
 
 import * as notificationService from './userNotifications.service.js';
