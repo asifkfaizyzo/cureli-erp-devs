@@ -1,7 +1,3 @@
-// ============================================
-// CADMIN IN-APP BROADCAST SERVICE
-// ============================================
-
 import prisma from '../../../../config/prisma.js';
 import { notify, NOTIFICATION_EVENTS } from '../../../notifications/index.js';
 import { resolveAudience } from '../../../notifications/notification.rules.js';
@@ -16,51 +12,59 @@ function createError(message, status = 400) {
   return err;
 }
 
-/**
- * Validate priority value
- */
 function validatePriority(priority) {
   const allowed = ['low', 'normal', 'high', 'critical'];
   return allowed.includes(priority) ? priority : 'normal';
 }
 
-/**
- * Validate status value
- */
-function validateStatus(status) {
-  const allowed = ['draft', 'scheduled', 'sent', 'cancelled'];
-  return allowed.includes(status);
+function validateAttachments(attachments) {
+  if (!attachments || !Array.isArray(attachments)) return [];
+  
+  const validTypes = ['link', 'image', 'video'];
+  const maxAttachments = 5;
+  
+  return attachments
+    .filter(att => validTypes.includes(att.type) && att.url)
+    .slice(0, maxAttachments)
+    .map(att => ({
+      type: att.type,
+      url: att.url.trim(),
+      label: att.label?.trim() || null,
+    }));
 }
 
-/**
- * Validate target filters structure
- */
 function validateFilters(filters) {
   if (!filters || typeof filters !== 'object') {
     throw createError('target_filters must be an object');
   }
 
-  const { shop_ids, plan_ids, registration_date_from, registration_date_to } = filters;
+  const { 
+    shop_ids, 
+    plan_ids, 
+    roles,
+    registration_date_from, 
+    registration_date_to,
+    include_cadmins,
+    cadmin_roles,
+    exclude_shop_ids,
+    exclude_user_ids,
+  } = filters;
 
-  // Validate shop_ids
-  if (shop_ids !== undefined) {
-    if (!Array.isArray(shop_ids) || shop_ids.length === 0) {
-      throw createError('shop_ids must be a non-empty array');
-    }
+  // Validate arrays
+  if (shop_ids !== undefined && (!Array.isArray(shop_ids) || shop_ids.length === 0)) {
+    throw createError('shop_ids must be a non-empty array');
   }
-
-  // Validate plan_ids
-  if (plan_ids !== undefined) {
-    if (!Array.isArray(plan_ids) || plan_ids.length === 0) {
-      throw createError('plan_ids must be a non-empty array');
-    }
+  if (plan_ids !== undefined && (!Array.isArray(plan_ids) || plan_ids.length === 0)) {
+    throw createError('plan_ids must be a non-empty array');
+  }
+  if (roles !== undefined && (!Array.isArray(roles) || roles.length === 0)) {
+    throw createError('roles must be a non-empty array');
   }
 
   // Validate date range
   if (registration_date_from && isNaN(Date.parse(registration_date_from))) {
     throw createError('registration_date_from must be a valid date');
   }
-
   if (registration_date_to && isNaN(Date.parse(registration_date_to))) {
     throw createError('registration_date_to must be a valid date');
   }
@@ -69,13 +73,10 @@ function validateFilters(filters) {
 }
 
 // ============================================
-// CORE SERVICES
+// ENHANCED PREVIEW WITH SHOP NAMES
 // ============================================
 
-/**
- * Preview recipient count without sending
- */
-export async function previewRecipientCount(filters) {
+export async function previewRecipientCount(filters, includeDetails = false) {
   try {
     validateFilters(filters);
 
@@ -85,17 +86,52 @@ export async function previewRecipientCount(filters) {
       filters
     );
 
-    // Group by shop for breakdown (optional enhancement)
-    const byShop = {};
+    // Group by shop with names
+    const shopIds = [...new Set(recipients.filter(r => r.shop_id).map(r => r.shop_id))];
+    
+    let shopDetails = {};
+    if (shopIds.length > 0 && includeDetails) {
+      const shops = await prisma.shop.findMany({
+        where: { shop_id: { in: shopIds } },
+        select: { shop_id: true, business_name: true },
+      });
+      
+      shops.forEach(shop => {
+        shopDetails[shop.shop_id] = {
+          name: shop.business_name,
+          count: recipients.filter(r => r.shop_id === shop.shop_id).length,
+        };
+      });
+    } else {
+      recipients.forEach(r => {
+        if (r.shop_id) {
+          if (!shopDetails[r.shop_id]) {
+            shopDetails[r.shop_id] = { name: null, count: 0 };
+          }
+          shopDetails[r.shop_id].count++;
+        }
+      });
+    }
+
+    // Count by type
+    const userCount = recipients.filter(r => r.type === 'user').length;
+    const cadminCount = recipients.filter(r => r.type === 'cadmin').length;
+
+    // Count by role
+    const byRole = {};
     recipients.forEach(r => {
-      if (r.shop_id) {
-        byShop[r.shop_id] = (byShop[r.shop_id] || 0) + 1;
-      }
+      const role = r.role || 'unknown';
+      byRole[role] = (byRole[role] || 0) + 1;
     });
 
     return {
       total: recipients.length,
-      by_shop: byShop,
+      by_type: {
+        users: userCount,
+        cadmins: cadminCount,
+      },
+      by_shop: shopDetails,
+      by_role: byRole,
       filters_applied: filters,
     };
   } catch (error) {
@@ -104,29 +140,42 @@ export async function previewRecipientCount(filters) {
   }
 }
 
-/**
- * Send broadcast immediately (no campaign record for immediate sends)
- */
+// ============================================
+// ENHANCED SEND IMMEDIATE WITH ATTACHMENTS
+// ============================================
+
 export async function sendImmediate(data, auditContext) {
-  const { title, message, priority, target_filters } = data;
+  const { 
+    title, 
+    message, 
+    priority, 
+    target_filters,
+    attachments,
+    action_url,
+    action_label,
+    expires_in_hours,
+  } = data;
 
   try {
     // Validate
     if (!title || title.trim().length < 3) {
       throw createError('Title must be at least 3 characters');
     }
-
     if (!message || message.trim().length < 10) {
       throw createError('Message must be at least 10 characters');
     }
-
     if (message.length > 500) {
       throw createError('Message must not exceed 500 characters');
     }
 
     validateFilters(target_filters);
-
     const validPriority = validatePriority(priority);
+    const validAttachments = validateAttachments(attachments);
+
+    // Calculate expiry
+    const expiresAt = expires_in_hours 
+      ? new Date(Date.now() + expires_in_hours * 60 * 60 * 1000)
+      : null;
 
     // Resolve recipients
     const recipients = await resolveAudience(
@@ -147,6 +196,10 @@ export async function sendImmediate(data, auditContext) {
       context: {
         title: title.trim(),
         message: message.trim(),
+        attachments: validAttachments,
+        action_url,
+        action_label,
+        expires_at: expiresAt,
       },
       channels: ['inapp'],
       audience: recipients,
@@ -158,6 +211,10 @@ export async function sendImmediate(data, auditContext) {
       sent_to: recipients.length,
       delivered: result.channels.inapp?.sent || 0,
       failed: result.channels.inapp?.failed || 0,
+      by_type: {
+        users: recipients.filter(r => r.type === 'user').length,
+        cadmins: recipients.filter(r => r.type === 'cadmin').length,
+      },
       errors: result.errors,
     };
   } catch (error) {
@@ -166,32 +223,47 @@ export async function sendImmediate(data, auditContext) {
   }
 }
 
-/**
- * Create a draft campaign
- */
+// ============================================
+// ENHANCED CREATE DRAFT WITH ATTACHMENTS
+// ============================================
+
 export async function createDraft(data, auditContext) {
-  const { title, message, priority, target_filters } = data;
+  const { 
+    title, 
+    message, 
+    priority, 
+    target_filters,
+    attachments,
+    action_url,
+    action_label,
+    expires_in_hours,
+    target_users = true,
+    target_cadmins = false,
+  } = data;
 
   try {
     // Validate
     if (!title || title.trim().length < 3) {
       throw createError('Title must be at least 3 characters');
     }
-
     if (!message || message.trim().length < 10) {
       throw createError('Message must be at least 10 characters');
     }
-
     if (message.length > 500) {
       throw createError('Message must not exceed 500 characters');
     }
 
     validateFilters(target_filters);
-
     const validPriority = validatePriority(priority);
+    const validAttachments = validateAttachments(attachments);
 
     // Preview recipient count
     const preview = await previewRecipientCount(target_filters);
+
+    // Calculate expiry
+    const expiresAt = expires_in_hours 
+      ? new Date(Date.now() + expires_in_hours * 60 * 60 * 1000)
+      : null;
 
     // Create campaign
     const campaign = await prisma.broadcastCampaign.create({
@@ -200,7 +272,13 @@ export async function createDraft(data, auditContext) {
         message: message.trim(),
         priority: validPriority,
         target_filters: target_filters,
+        attachments: validAttachments.length > 0 ? validAttachments : null,
+        action_url: action_url?.trim() || null,
+        action_label: action_label?.trim() || null,
         recipient_count: preview.total,
+        target_users,
+        target_cadmins,
+        expires_at: expiresAt,
         status: 'draft',
         created_by_cadmin: auditContext.actor_id,
         cadmin_name: auditContext.actor_name || 'CAdmin',
@@ -213,6 +291,7 @@ export async function createDraft(data, auditContext) {
       message: campaign.message,
       priority: campaign.priority,
       target_filters: campaign.target_filters,
+      attachments: campaign.attachments,
       recipient_count: campaign.recipient_count,
       status: campaign.status,
       created_at: campaign.created_at,
@@ -222,6 +301,168 @@ export async function createDraft(data, auditContext) {
     throw error;
   }
 }
+
+// ============================================
+// GET SHOPS WITH NAMES FOR FILTER DROPDOWN
+// ============================================
+
+export async function getShopsForFilter(search = '', page = 1, limit = 50) {
+  const skip = (page - 1) * limit;
+  
+  const where = {
+    verification_status: 'verified',
+    is_active: true,
+  };
+
+  if (search) {
+    where.OR = [
+      { business_name: { contains: search, mode: 'insensitive' } },
+      { legal_name: { contains: search, mode: 'insensitive' } },
+      { city: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  const [shops, total] = await Promise.all([
+    prisma.shop.findMany({
+      where,
+      select: {
+        shop_id: true,
+        business_name: true,
+        city: true,
+        _count: { select: { users: true } },
+      },
+      orderBy: { business_name: 'asc' },
+      skip,
+      take: limit,
+    }),
+    prisma.shop.count({ where }),
+  ]);
+
+  return {
+    shops: shops.map(s => ({
+      shop_id: s.shop_id,
+      business_name: s.business_name,
+      city: s.city,
+      user_count: s._count.users,
+    })),
+    pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
+  };
+}
+
+// ============================================
+// GET USER ROLES FOR FILTER
+// ============================================
+
+export async function getUserRoles() {
+  const roles = await prisma.user.groupBy({
+    by: ['role'],
+    where: { is_active: true },
+    _count: { role: true },
+  });
+
+  return roles.map(r => ({
+    value: r.role,
+    label: formatRoleName(r.role),
+    count: r._count.role,
+  }));
+}
+
+function formatRoleName(role) {
+  const map = {
+    super_admin: 'Super Admin',
+    branch_admin: 'Branch Admin',
+    staff: 'Staff',
+    owner: 'Owner',
+  };
+  return map[role] || role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+// ============================================
+// GET CADMIN ROLES FOR FILTER
+// ============================================
+
+export async function getCAdminRoles() {
+  return [
+    { value: 'SUPER_ADMIN', label: 'Super Admin', description: 'Full system access' },
+    { value: 'ANALYST', label: 'Analyst', description: 'Analytics & reports' },
+    { value: 'ACCOUNTING', label: 'Accounting', description: 'Financial operations' },
+  ];
+}
+
+// ============================================
+// SAVED SEGMENTS CRUD
+// ============================================
+
+export async function createSegment(data, cadminId) {
+  return prisma.broadcastSegment.create({
+    data: {
+      name: data.name.trim(),
+      description: data.description?.trim(),
+      filters: data.filters,
+      created_by_cadmin: cadminId,
+    },
+  });
+}
+
+export async function getSegments(cadminId) {
+  return prisma.broadcastSegment.findMany({
+    where: { created_by_cadmin: cadminId },
+    orderBy: { created_at: 'desc' },
+  });
+}
+
+export async function deleteSegment(segmentId, cadminId) {
+  const segment = await prisma.broadcastSegment.findFirst({
+    where: { segment_id: segmentId, created_by_cadmin: cadminId },
+  });
+  
+  if (!segment) throw createError('Segment not found', 404);
+  
+  return prisma.broadcastSegment.delete({
+    where: { segment_id: segmentId },
+  });
+}
+
+// ============================================
+// MESSAGE TEMPLATES CRUD
+// ============================================
+
+export async function createTemplate(data, cadminId) {
+  return prisma.broadcastTemplate.create({
+    data: {
+      name: data.name.trim(),
+      title: data.title.trim(),
+      message: data.message.trim(),
+      priority: validatePriority(data.priority),
+      attachments: validateAttachments(data.attachments),
+      created_by_cadmin: cadminId,
+    },
+  });
+}
+
+export async function getTemplates(cadminId) {
+  return prisma.broadcastTemplate.findMany({
+    orderBy: { usage_count: 'desc' },
+    take: 20,
+  });
+}
+
+export async function useTemplate(templateId) {
+  const template = await prisma.broadcastTemplate.findUnique({
+    where: { template_id: templateId },
+  });
+  
+  if (!template) throw createError('Template not found', 404);
+  
+  // Increment usage count
+  await prisma.broadcastTemplate.update({
+    where: { template_id: templateId },
+    data: { usage_count: { increment: 1 } },
+  });
+  
+  return template;
+}
+
 
 /**
  * Update a draft campaign

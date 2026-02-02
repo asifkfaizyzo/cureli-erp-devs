@@ -772,6 +772,9 @@ export async function changePlanService({
     },
   });
 
+  // ✅ Get current plan from shop's subscription
+  const currentPlan = shop.currentSubscription?.plan || null;
+
   if (analysis.direction === "renew") {
     return await executeRenewal(
       shop_id,
@@ -783,7 +786,14 @@ export async function changePlanService({
   }
 
   if (analysis.direction === "upgrade") {
-    return await executeUpgrade(shop_id, targetPlan, user, auditContext);
+    // ✅ Pass currentPlan to executeUpgrade
+    return await executeUpgrade(
+      shop_id,
+      targetPlan,
+      currentPlan,
+      user,
+      auditContext,
+    );
   }
 
   return await executeDowngrade(
@@ -797,7 +807,13 @@ export async function changePlanService({
   );
 }
 
-async function executeUpgrade(shop_id, targetPlan, user, auditContext) {
+async function executeUpgrade(
+  shop_id,
+  targetPlan,
+  currentPlan,
+  user,
+  auditContext,
+) {
   const dates = calculateSubscriptionDates(targetPlan);
 
   const subscription = await prisma.shopSubscription.create({
@@ -859,6 +875,8 @@ async function executeUpgrade(shop_id, targetPlan, user, auditContext) {
     ...auditContext,
     reason_code: audit.AuditReasonCode.USER_REQUEST,
     metadata: {
+      previous_plan_id: currentPlan?.plan_id,
+      previous_plan_name: currentPlan?.name,
       target_plan_id: targetPlan.plan_id,
       target_plan_name: targetPlan.name,
       price: priceInRupees,
@@ -867,11 +885,12 @@ async function executeUpgrade(shop_id, targetPlan, user, auditContext) {
     },
   });
 
+  // ✅ Now currentPlan is available
   notify({
     type: NOTIFICATION_EVENTS.PLAN_UPGRADED,
     context: {
       shop_id,
-      old_plan_name: currentPlan?.name || "Previous Plan", // You can get current plan name if needed
+      old_plan_name: currentPlan?.name || "Previous Plan",
       new_plan_name: targetPlan.name,
     },
   }).catch((err) => console.error("[Notification] PLAN_UPGRADED failed:", err));
@@ -1172,19 +1191,7 @@ async function executeDowngrade(
         },
         { tx },
       );
-      
     }
-    notify({
-        type: NOTIFICATION_EVENTS.PLAN_DOWNGRADED,
-        context: {
-          shop_id,
-          old_plan_name: "Previous Plan", // Can be enhanced
-          new_plan_name: targetPlan.name,
-          effective_date: newSubscription.start_date,
-        },
-      }).catch((err) =>
-        console.error("[Notification] PLAN_DOWNGRADED failed:", err),
-      );
 
     if (user_reassignments.length > 0) {
       for (const reassignment of user_reassignments) {
@@ -1281,6 +1288,18 @@ async function executeDowngrade(
 
     return newSubscription;
   });
+
+  notify({
+    type: NOTIFICATION_EVENTS.PLAN_DOWNGRADED,
+    context: {
+      shop_id,
+      old_plan_name: analysis.currentPlan?.name || "Previous Plan",
+      new_plan_name: targetPlan.name,
+      effective_date: result.start_date,
+    },
+  }).catch((err) =>
+    console.error("[Notification] PLAN_DOWNGRADED failed:", err),
+  );
 
   return {
     requires_payment: false,
@@ -1439,7 +1458,9 @@ export async function suspendExpiredGrace() {
           shop_id: sub.shop_id,
           reason: "Payment overdue - grace period expired",
         },
-      }).catch(err => console.error('[Notification] SUBSCRIPTION_SUSPENDED failed:', err));
+      }).catch((err) =>
+        console.error("[Notification] SUBSCRIPTION_SUSPENDED failed:", err),
+      );
     });
 
     suspended++;
@@ -1556,8 +1577,9 @@ export async function getSubscriptionsDueForReminders() {
 }
 
 export async function sendSubscriptionReminders() {
-  const { expiring7Days, expiring3Days, graceEndingSoon } = await getSubscriptionsDueForReminders();
-  
+  const { expiring7Days, expiring3Days, graceEndingSoon } =
+    await getSubscriptionsDueForReminders();
+
   const now = new Date();
 
   // 7 days reminder
@@ -1569,7 +1591,9 @@ export async function sendSubscriptionReminders() {
         plan_name: sub.plan?.name || "Current Plan",
         end_date: sub.end_date,
       },
-    }).catch(err => console.error('[Notification] SUBSCRIPTION_EXPIRING_7_DAYS failed:', err));
+    }).catch((err) =>
+      console.error("[Notification] SUBSCRIPTION_EXPIRING_7_DAYS failed:", err),
+    );
   }
 
   // 3 days reminder
@@ -1581,7 +1605,9 @@ export async function sendSubscriptionReminders() {
         plan_name: sub.plan?.name || "Current Plan",
         end_date: sub.end_date,
       },
-    }).catch(err => console.error('[Notification] SUBSCRIPTION_EXPIRING_3_DAYS failed:', err));
+    }).catch((err) =>
+      console.error("[Notification] SUBSCRIPTION_EXPIRING_3_DAYS failed:", err),
+    );
   }
 
   // Grace period ending soon
@@ -1592,7 +1618,9 @@ export async function sendSubscriptionReminders() {
         shop_id: sub.shop_id,
         grace_period_until: sub.grace_period_until,
       },
-    }).catch(err => console.error('[Notification] SUBSCRIPTION_GRACE_ENDING failed:', err));
+    }).catch((err) =>
+      console.error("[Notification] SUBSCRIPTION_GRACE_ENDING failed:", err),
+    );
   }
 
   return {

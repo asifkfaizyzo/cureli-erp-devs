@@ -1,5 +1,5 @@
 // ============================================
-// PAYMENT TEMPLATES
+// backend\src\modules\notifications\templates\inapp\payment.templates.js
 // ============================================
 
 export const paymentTemplates = {

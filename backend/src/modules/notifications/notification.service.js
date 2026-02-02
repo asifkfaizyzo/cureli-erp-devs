@@ -1,5 +1,5 @@
 // ============================================
-// NOTIFICATION SERVICE - Central Orchestrator
+// backend\src\modules\notifications\notification.service.js
 // ============================================
 
 import { NOTIFICATION_EVENTS, EVENT_CONFIG } from './notification.events.js';

@@ -1,5 +1,5 @@
 // ============================================
-// IN-APP NOTIFICATION TEMPLATES INDEX
+// backend\src\modules\notifications\templates\inapp\index.js
 // ============================================
 
 import { NOTIFICATION_EVENTS } from "../../notification.events.js";

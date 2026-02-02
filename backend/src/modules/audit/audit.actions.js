@@ -258,6 +258,18 @@ export const AuditAction = Object.freeze({
   // metadata: { title, target_audience, channels: [...] }
   SYSTEM_BROADCAST_CREATED: "SYSTEM_BROADCAST_CREATED",
 
+    // metadata: { title, target_filters, recipient_count }
+  BROADCAST_CREATED: "BROADCAST_CREATED",
+
+  // metadata: { campaign_id, title, recipients, delivered }
+  BROADCAST_SENT: "BROADCAST_SENT",
+
+  // metadata: { campaign_id, scheduled_for }
+  BROADCAST_SCHEDULED: "BROADCAST_SCHEDULED",
+
+  // metadata: { campaign_id }
+  BROADCAST_CANCELLED: "BROADCAST_CANCELLED",
+
   // metadata: { broadcast_id, recipients_count, channels: [...] }
   SYSTEM_BROADCAST_SENT: "SYSTEM_BROADCAST_SENT",
 

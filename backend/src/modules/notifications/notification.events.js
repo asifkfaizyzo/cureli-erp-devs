@@ -1,5 +1,5 @@
 // ============================================
-// NOTIFICATION EVENTS - Single Source of Truth
+// backend\src\modules\notifications\notification.events.js
 // ============================================
 
 export const NOTIFICATION_EVENTS = {

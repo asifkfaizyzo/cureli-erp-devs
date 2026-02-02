@@ -1,5 +1,5 @@
 // ============================================
-// IN-APP NOTIFICATION CHANNEL
+// backend\src\modules\notifications\channels\inapp.channel.js
 // ============================================
 
 import prisma from '../../../config/prisma.js';

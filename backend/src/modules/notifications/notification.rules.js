@@ -1,5 +1,5 @@
 // ============================================
-// AUDIENCE RESOLUTION RULES
+// backend\src\modules\notifications\notification.rules.js
 // ============================================
 
 import prisma from '../../config/prisma.js';
