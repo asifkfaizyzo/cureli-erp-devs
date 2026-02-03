@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import NotificationItem from './NotificationItem';
 import NotificationDetailPanel from './NotificationDetailPanel';
-import { getNotificationRoute } from '../../../config/notifications';
 import { useCAdminNotificationStore } from '../../../store/useCAdminNotificationStore';
 
 /**
@@ -106,27 +105,14 @@ const NotificationDropdown = () => {
       await markAsRead(notification.notification_id);
     }
 
-    // Check for action_url in context or route
-    const route = getNotificationRoute(notification.event_type, notification.context);
-    
-    if (route) {
-      // External link
-      if (route.startsWith('http://') || route.startsWith('https://')) {
-        window.open(route, '_blank', 'noopener,noreferrer');
-      } else {
-        // Internal route
-        setIsOpen(false);
-        setHoveredNotification(null);
-        navigate(route);
-      }
-    } else {
-      // No route - navigate to notifications page with this notification selected
-      setIsOpen(false);
-      setHoveredNotification(null);
-      navigate('/notifications', { 
-        state: { selectedNotificationId: notification.notification_id } 
-      });
-    }
+    // Close dropdown
+    setIsOpen(false);
+    setHoveredNotification(null);
+
+    // Always navigate to notifications page with selected notification
+    navigate('/notifications', { 
+      state: { selectedNotificationId: notification.notification_id } 
+    });
   };
 
   const handleNotificationHover = (notification) => {

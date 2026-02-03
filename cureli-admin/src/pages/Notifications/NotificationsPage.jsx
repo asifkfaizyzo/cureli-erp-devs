@@ -289,7 +289,7 @@ const NotificationsPage = () => {
       {/* Main Content Area */}
       <div className="flex-1 min-h-0 relative flex gap-4 items-start">
         {/* Notification List */}
-        <div className={`flex-1 min-w-0 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden ${
+        <div className={`flex-1 min-w-0 bg-white rounded-xl border border-gray-200  overflow-hidden ${
           selectedNotification ? 'hidden lg:block' : 'block'
         }`}>
           <NotificationList

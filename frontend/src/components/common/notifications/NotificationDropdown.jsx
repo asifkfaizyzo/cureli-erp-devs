@@ -1,6 +1,4 @@
-// ============================================
-// frontend\src\components\common\notifications\NotificationDropdown.jsx
-// ============================================
+// frontend/src/components/common/notifications/NotificationDropdown.jsx
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -17,9 +15,6 @@ import NotificationDetailPanel from './NotificationDetailPanel';
 import { getNotificationRoute } from '../../../config/notifications';
 import { useNotificationStore } from '../../../store/useNotificationStore';
 
-/**
- * NotificationDropdown - Full dropdown component with bell icon
- */
 const NotificationDropdown = () => {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
@@ -50,20 +45,17 @@ const NotificationDropdown = () => {
   // EFFECTS
   // ============================================
 
-  // Start polling on mount
   useEffect(() => {
-    startPolling(60000); // 60 seconds
+    startPolling(60000);
     return () => stopPolling();
   }, [startPolling, stopPolling]);
 
-  // Fetch recent when dropdown opens
   useEffect(() => {
     if (isOpen) {
       fetchRecent(5);
     }
   }, [isOpen, fetchRecent]);
 
-  // Click outside to close
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -76,7 +68,6 @@ const NotificationDropdown = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Escape to close
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
@@ -106,22 +97,21 @@ const NotificationDropdown = () => {
       await markAsRead(notification.notification_id);
     }
 
-    // Navigate if route exists
-    const route = getNotificationRoute(notification.event_type);
-    if (route) {
-      setIsOpen(false);
-      setHoveredNotification(null);
-      navigate(route);
-    }
+    // Close dropdown
+    setIsOpen(false);
+    setHoveredNotification(null);
+
+    // Navigate to notifications page with the selected notification ID
+    navigate('/notifications', {
+      state: { selectedNotificationId: notification.notification_id }
+    });
   };
 
   const handleNotificationHover = (notification) => {
-    // Clear any pending timeout
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
     }
 
-    // Set hovered notification after a small delay to prevent flickering
     hoverTimeoutRef.current = setTimeout(() => {
       setHoveredNotification(notification);
     }, 150);
@@ -131,7 +121,6 @@ const NotificationDropdown = () => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
     }
-    // Don't immediately clear - let the panel handle its own hover
   };
 
   const handlePanelClose = () => {
@@ -162,7 +151,6 @@ const NotificationDropdown = () => {
   // RENDER
   // ============================================
 
-  // Badge color based on priority
   const getBadgeColor = () => {
     if (hasCritical) return 'bg-red-500';
     if (hasHigh) return 'bg-[#000080]';
@@ -185,7 +173,6 @@ const NotificationDropdown = () => {
       >
         <Bell size={20} />
         
-        {/* Badge */}
         {unreadCount > 0 && (
           <span className={`
             absolute -top-0.5 -right-0.5 
@@ -217,7 +204,6 @@ const NotificationDropdown = () => {
             </div>
             
             <div className="flex items-center gap-1">
-              {/* Mark All Read */}
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
@@ -238,7 +224,6 @@ const NotificationDropdown = () => {
                 </button>
               )}
               
-              {/* Refresh */}
               <button
                 onClick={handleRefresh}
                 disabled={isRecentLoading}
@@ -255,7 +240,6 @@ const NotificationDropdown = () => {
 
           {/* Notification List */}
           <div className="max-h-80 overflow-y-auto relative">
-            {/* Loading State */}
             {isRecentLoading && recentNotifications.length === 0 && (
               <div className="px-4 py-8 text-center">
                 <Loader2 size={24} className="animate-spin text-gray-300 mx-auto mb-2" />
@@ -263,7 +247,6 @@ const NotificationDropdown = () => {
               </div>
             )}
 
-            {/* Error State */}
             {recentError && (
               <div className="px-4 py-8 text-center">
                 <AlertCircle size={24} className="text-red-400 mx-auto mb-2" />
@@ -277,7 +260,6 @@ const NotificationDropdown = () => {
               </div>
             )}
 
-            {/* Empty State */}
             {!isRecentLoading && !recentError && recentNotifications.length === 0 && (
               <div className="px-4 py-8 text-center">
                 <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
@@ -288,7 +270,6 @@ const NotificationDropdown = () => {
               </div>
             )}
 
-            {/* Notification Items */}
             {recentNotifications.length > 0 && (
               <div className="divide-y divide-gray-50">
                 {recentNotifications.map((notification) => (
@@ -305,7 +286,6 @@ const NotificationDropdown = () => {
               </div>
             )}
 
-            {/* Detail Panel (positioned to the left) */}
             <NotificationDetailPanel
               notification={hoveredNotification}
               isVisible={!!hoveredNotification}
