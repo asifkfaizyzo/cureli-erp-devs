@@ -1,172 +1,277 @@
 // frontend/src/pages/purchase/invoice/components/InvoiceFilters.jsx
+
 import React from "react";
-import { Search, Building2, Hash, Calendar, RotateCcw, ChevronRight, Filter } from "lucide-react";
+import { 
+  Search, 
+  Building2, 
+  Hash, 
+  RotateCcw, 
+  ChevronRight, 
+  Filter,
+  Layers,
+  Loader2
+} from "lucide-react";
+import StyledSelect from "../../../../components/common/StyledSelect";
+import StyledDateFilter from "../../../../components/common/StyledDateFilter";
 
-const FilterField = ({ label, icon: Icon, children }) => (
-  <div className="flex flex-col gap-0.5">
-    <label className="text-[9px] font-medium text-gray-500 uppercase tracking-wide flex items-center gap-1">
-      {Icon && <Icon size={10} />}
-      {label}
-    </label>
-    <div className="relative group">
-      {children}
+// ════════════════════════════════════════════════════════════════════════════
+// TEXT INPUT FIELD COMPONENT
+// ════════════════════════════════════════════════════════════════════════════
+
+const TextInputField = ({ label, icon: Icon, value, onChange, placeholder, disabled }) => {
+  const isActive = Boolean(value && value.trim());
+  
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs text-gray-500 font-medium flex items-center gap-1">
+        {Icon && <Icon size={10} />}
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type="text"
+          className={`
+            h-10 px-3 w-full border rounded-lg text-sm shadow-sm
+            focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
+            transition-all duration-200 ease-in-out
+            disabled:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50
+            ${isActive
+              ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium placeholder:text-indigo-400"
+              : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 placeholder:text-gray-400"
+            }
+          `}
+          placeholder={placeholder}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+        />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-const InvoiceFilters = ({ filters, onChange, onSearch, onReset }) => {
-  const inputBase = `
-    h-9 px-3 w-full
-    bg-white border border-gray-200 rounded-lg
-    text-xs text-gray-700 placeholder:text-gray-400
-    focus:outline-none focus:border-indigo-500 
-    focus:ring-2 focus:ring-indigo-500/20
-    hover:border-gray-300
-    transition-all duration-150
-  `;
+// ════════════════════════════════════════════════════════════════════════════
+// FILTER OPTIONS
+// ════════════════════════════════════════════════════════════════════════════
 
-  const selectBase = `
-    h-9 px-3 w-full
-    bg-white border border-gray-200 rounded-lg
-    text-xs text-gray-700
-    focus:outline-none focus:border-indigo-500 
-    focus:ring-2 focus:ring-indigo-500/20
-    hover:border-gray-300
-    transition-all duration-150
-    cursor-pointer
-  `;
+const STATUS_OPTIONS = [
+  { value: "", label: "All Status" },
+  { value: "DRAFT", label: "Draft" },
+  { value: "CONFIRMED", label: "Confirmed" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
+
+const PAYMENT_STATUS_OPTIONS = [
+  { value: "", label: "All Payments" },
+  { value: "UNPAID", label: "Unpaid" },
+  { value: "PARTIALLY_PAID", label: "Partially Paid" },
+  { value: "PAID", label: "Paid" },
+];
+
+// ════════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ════════════════════════════════════════════════════════════════════════════
+
+const InvoiceFilters = ({ 
+  filters, 
+  onChange, 
+  onSearch, 
+  onReset,
+  branches = [],
+  showBranchFilter = false,
+  disabled = false,
+}) => {
+  // Convert branches array to options format
+  const branchOptions = [
+    { value: "", label: "All Branches" },
+    ...branches.map(branch => ({ value: branch, label: branch }))
+  ];
 
   const hasActiveFilters = Object.values(filters).some(
     (val) => val && val.toString().trim() !== ""
   );
 
+  const activeFilterCount = Object.values(filters).filter(
+    (val) => val && val.toString().trim() !== ""
+  ).length;
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div className={`bg-white border border-gray-200 rounded-lg shadow-sm ${disabled ? 'opacity-60' : ''}`}>
       <div className="flex items-center gap-3 px-4 py-3">
         
-        {/* Filter Icon & Title */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* FILTER HEADER */}
+        {/* ════════════════════════════════════════════════════════════════ */}
         <div className="flex items-center gap-2 text-gray-700 shrink-0">
-          <Filter size={16} className="text-indigo-600" />
+          <div className="relative">
+            <Filter size={16} className="text-indigo-600" />
+            {hasActiveFilters && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+            )}
+          </div>
           <span className="text-sm font-semibold">Filters</span>
+          {disabled && (
+            <Loader2 size={12} className="animate-spin text-indigo-500" />
+          )}
+          {hasActiveFilters && !disabled && (
+            <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-medium">
+              {activeFilterCount}
+            </span>
+          )}
         </div>
 
-        <div className="h-6 w-px bg-gray-200"></div>
+        <div className="h-8 w-px bg-gray-200" />
 
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* TEXT FILTERS */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        
         {/* Supplier Name */}
-        <FilterField label="Supplier" icon={Building2}>
-          <input
-            type="text"
-            className={`${inputBase} w-40`}
+        <div className="w-40">
+          <TextInputField
+            label="Supplier"
+            icon={Building2}
+            value={filters.supplierName}
+            onChange={(value) => onChange("supplierName", value)}
             placeholder="Supplier name..."
-            value={filters.supplierName || ""}
-            onChange={(e) => onChange("supplierName", e.target.value)}
+            disabled={disabled}
           />
-        </FilterField>
+        </div>
 
         {/* Invoice Number */}
-        <FilterField label="Invoice #" icon={Hash}>
-          <input
-            type="text"
-            className={`${inputBase} w-32`}
+        <div className="w-32">
+          <TextInputField
+            label="Invoice #"
+            icon={Hash}
+            value={filters.invoiceNumber}
+            onChange={(value) => onChange("invoiceNumber", value)}
             placeholder="PUR-000001..."
-            value={filters.invoiceNumber || ""}
-            onChange={(e) => onChange("invoiceNumber", e.target.value)}
+            disabled={disabled}
           />
-        </FilterField>
+        </div>
+
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* SELECT FILTERS */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+
+        {/* Branch Filter - Only shown in global mode */}
+        {/* {showBranchFilter && (
+          <div className="w-36">
+            <StyledSelect
+              label={
+                <span className="flex items-center gap-1">
+                  <Layers size={10} />
+                  Branch
+                </span>
+              }
+              value={filters.branch || ""}
+              onChange={(value) => onChange("branch", value)}
+              options={branchOptions}
+              placeholder="All Branches"
+              disabled={disabled}
+            />
+          </div>
+        )} */}
 
         {/* Status Filter */}
-        <FilterField label="Status">
-          <select
-            className={selectBase + " w-32"}
+        <div className="w-32">
+          <StyledSelect
+            label="Status"
             value={filters.status || ""}
-            onChange={(e) => onChange("status", e.target.value)}
-          >
-            <option value="">All Status</option>
-            <option value="DRAFT">Draft</option>
-            <option value="CONFIRMED">Confirmed</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
-        </FilterField>
+            onChange={(value) => onChange("status", value)}
+            options={STATUS_OPTIONS}
+            placeholder="All Status"
+            disabled={disabled}
+          />
+        </div>
 
         {/* Payment Status */}
-        <FilterField label="Payment">
-          <select
-            className={selectBase + " w-32"}
+        <div className="w-36">
+          <StyledSelect
+            label="Payment"
             value={filters.paymentStatus || ""}
-            onChange={(e) => onChange("paymentStatus", e.target.value)}
-          >
-            <option value="">All Payments</option>
-            <option value="UNPAID">Unpaid</option>
-            <option value="PARTIALLY_PAID">Partially Paid</option>
-            <option value="PAID">Paid</option>
-          </select>
-        </FilterField>
+            onChange={(value) => onChange("paymentStatus", value)}
+            options={PAYMENT_STATUS_OPTIONS}
+            placeholder="All Payments"
+            disabled={disabled}
+          />
+        </div>
 
-        {/* Divider */}
-        <div className="h-6 w-px bg-gray-200"></div>
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* DATE FILTERS */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        
+        <div className="h-8 w-px bg-gray-200" />
 
         {/* From Date */}
-        <FilterField label="From" icon={Calendar}>
-          <input
-            type="date"
-            className={`${inputBase} w-36`}
-            value={filters.fromDate || ""}
-            onChange={(e) => onChange("fromDate", e.target.value)}
+        <div className={disabled ? 'opacity-50 pointer-events-none' : ''}>
+          <StyledDateFilter
+            label="From"
+            date={filters.fromDate || ""}
+            setDate={(value) => onChange("fromDate", value)}
           />
-        </FilterField>
+        </div>
 
         {/* Arrow */}
-        <div className="flex items-center h-9 text-gray-300 mt-4">
+        <div className="flex items-center h-10 text-gray-300 mt-5">
           <ChevronRight size={14} />
         </div>
 
         {/* To Date */}
-        <FilterField label="To" icon={Calendar}>
-          <input
-            type="date"
-            className={`${inputBase} w-36`}
-            value={filters.toDate || ""}
-            onChange={(e) => onChange("toDate", e.target.value)}
+        <div className={disabled ? 'opacity-50 pointer-events-none' : ''}>
+          <StyledDateFilter
+            label="To"
+            date={filters.toDate || ""}
+            setDate={(value) => onChange("toDate", value)}
           />
-        </FilterField>
+        </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 ml-auto mt-4">
-          {/* Reset */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* ACTION BUTTONS */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        
+        <div className="flex items-center gap-2 ml-auto mt-5">
+          {/* Reset Button */}
           <button
             onClick={onReset}
-            className="
+            disabled={disabled || !hasActiveFilters}
+            className={`
               flex items-center justify-center
-              h-9 w-9 rounded-lg
-              text-gray-500 bg-gray-50 border border-gray-200
-              hover:bg-gray-100 hover:text-gray-700 hover:border-gray-300
-              active:scale-95 transition-all duration-150
-            "
-            title="Reset Filters"
+              h-10 w-10 rounded-lg
+              border transition-all duration-150
+              ${hasActiveFilters && !disabled
+                ? "text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300"
+                : "text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed"
+              }
+              active:scale-95
+              disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+            `}
+            title={hasActiveFilters ? "Reset Filters" : "No active filters"}
           >
             <RotateCcw size={14} />
           </button>
 
-          {/* Search */}
+          {/* Search Button */}
           <button
             onClick={onSearch}
+            disabled={disabled}
             className="
-              flex items-center gap-2 h-9 px-5
+              flex items-center gap-2 h-10 px-5
               bg-indigo-600 text-white text-sm font-semibold
               rounded-lg shadow-sm
               hover:bg-indigo-700
               active:scale-95 transition-all duration-150
+              disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-indigo-600 disabled:active:scale-100
             "
           >
-            <Search size={14} />
+            {disabled ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Search size={14} />
+            )}
             Search
           </button>
         </div>
-
-        {/* Active Filter Indicator */}
-        {hasActiveFilters && (
-          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse shrink-0" />
-        )}
       </div>
     </div>
   );

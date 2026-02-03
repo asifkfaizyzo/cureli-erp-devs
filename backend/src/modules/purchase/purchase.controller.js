@@ -110,6 +110,13 @@ export async function getPurchaseInvoicesController(req, res) {
     const role = req.user.role;
     const { branchId, branchMode } = extractBranchContext(req);
 
+     console.log("=== GET PURCHASE INVOICES ===");
+    console.log("User Role:", role);
+    console.log("X-Branch-Mode header:", req.headers["x-branch-mode"]);
+    console.log("X-Branch-Id header:", req.headers["x-branch-id"]);
+    console.log("Extracted branchId:", branchId);
+    console.log("Extracted branchMode:", branchMode);
+
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
     }
@@ -169,6 +176,10 @@ export async function getInvoiceDetailsController(req, res) {
 }
 
 export async function updatePurchaseInvoiceController(req, res) {
+  console.log("=== UPDATE INVOICE REQUEST ===");
+  console.log("Invoice ID:", req.params.invoiceId);
+  console.log("Body:", JSON.stringify(req.body, null, 2));
+  console.log("Validated:", req.validated);
   try {
     const userId = req.user.user_id;
     const shopId = req.user.shop_id;

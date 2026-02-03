@@ -11,9 +11,14 @@ import {
   Clock, 
   FileText,
   Shield,
-  AlertTriangle,
+  Building2,
+  Loader2,
+  Layers,
 } from "lucide-react";
-import TableSkeleton from "../../../../components/common/TableSkeleton";
+
+// ════════════════════════════════════════════════════════════════════════════
+// STATUS BADGES
+// ════════════════════════════════════════════════════════════════════════════
 
 const StatusBadge = ({ status }) => {
   const normalizedStatus = status?.toUpperCase() || 'DRAFT';
@@ -54,27 +59,100 @@ const PaymentStatusBadge = ({ status }) => {
   );
 };
 
+const BranchBadge = ({ branchName }) => {
+  if (!branchName) return <span className="text-gray-400 text-xs">-</span>;
+  
+  const colors = [
+    'bg-blue-100 text-blue-700 border-blue-200',
+    'bg-purple-100 text-purple-700 border-purple-200',
+    'bg-teal-100 text-teal-700 border-teal-200',
+    'bg-orange-100 text-orange-700 border-orange-200',
+    'bg-pink-100 text-pink-700 border-pink-200',
+    'bg-indigo-100 text-indigo-700 border-indigo-200',
+  ];
+  
+  const colorIndex = branchName.charCodeAt(0) % colors.length;
+  const colorClass = colors[colorIndex];
+  
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium border ${colorClass}`}>
+      <Building2 size={9} />
+      {branchName}
+    </span>
+  );
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// SKELETON ROW
+// ════════════════════════════════════════════════════════════════════════════
+
+const SkeletonRow = ({ showBranchColumn, index }) => (
+  <tr className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div className="w-6 h-4 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50}ms` }} />
+    </td>
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div className="space-y-1">
+        <div className="w-24 h-4 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 20}ms` }} />
+        <div className="w-16 h-3 bg-gray-100 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 40}ms` }} />
+      </div>
+    </td>
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div className="w-28 h-4 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 60}ms` }} />
+    </td>
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div className="w-20 h-4 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 80}ms` }} />
+    </td>
+    {showBranchColumn && (
+      <td className="py-3 px-4 border-b border-gray-100">
+        <div className="w-20 h-5 bg-gray-200 rounded-full animate-pulse" style={{ animationDelay: `${index * 50 + 90}ms` }} />
+      </td>
+    )}
+    <td className="py-3 px-4 border-b border-gray-100 text-center">
+      <div className="w-6 h-6 bg-gray-200 rounded-full animate-pulse mx-auto" style={{ animationDelay: `${index * 50 + 100}ms` }} />
+    </td>
+    <td className="py-3 px-4 border-b border-gray-100 text-right">
+      <div className="w-16 h-4 bg-gray-200 rounded animate-pulse ml-auto" style={{ animationDelay: `${index * 50 + 120}ms` }} />
+    </td>
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div className="w-16 h-5 bg-gray-200 rounded-full animate-pulse" style={{ animationDelay: `${index * 50 + 140}ms` }} />
+    </td>
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div className="w-20 h-5 bg-gray-200 rounded-full animate-pulse" style={{ animationDelay: `${index * 50 + 160}ms` }} />
+    </td>
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div className="flex justify-center gap-1">
+        <div className="w-6 h-6 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 180}ms` }} />
+        <div className="w-6 h-6 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 200}ms` }} />
+        <div className="w-6 h-6 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 220}ms` }} />
+      </div>
+    </td>
+  </tr>
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// MAIN TABLE COMPONENT
+// ════════════════════════════════════════════════════════════════════════════
+
 const PurchaseTable = ({
   invoices = [],
   onRowClick,
   onView,
   onEdit,
   onDelete,
-  children,
-  rowsPerPage = 6,
+  children, // Pagination
+  rowsPerPage = 10,
   currentPage = 1,
   isLoading = false,
-  isSuperAdmin = false, // ✅ NEW PROP
+  isSearching = false,
+  isSuperAdmin = false,
+  showBranchColumn = false,
 }) => {
   const safeInvoices = Array.isArray(invoices) ? invoices : [];
   const startIndex = (currentPage - 1) * rowsPerPage;
 
-  const cellClass = "text-xs py-3 px-4 border-b border-gray-100 group-hover:border-[#000060]/20 transition";
-  const headerClass = "px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 sticky top-0 z-10 whitespace-nowrap";
-  
-  const emptyRowsCount = Math.max(0, rowsPerPage - safeInvoices.length);
+  const columnCount = showBranchColumn ? 10 : 9;
 
-  // Format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -84,7 +162,6 @@ const PurchaseTable = ({
     }).format(amount || 0);
   };
 
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -94,24 +171,18 @@ const PurchaseTable = ({
     });
   };
 
-  // ✅ UPDATED: Helper function to check if invoice is editable
   const isEditable = (invoice) => {
     const status = invoice?.status?.toUpperCase();
-    // Draft is always editable
     if (status === 'DRAFT') return true;
-    // Confirmed is editable only for super_admin
     if (status === 'CONFIRMED' && isSuperAdmin) return true;
-    // Everything else is not editable
     return false;
   };
 
-  // ✅ Helper function to check if invoice is deletable
   const isDeletable = (invoice) => {
     const status = invoice?.status?.toUpperCase();
     return status !== 'CONFIRMED';
   };
 
-  // ✅ NEW: Get edit button styling based on status and permissions
   const getEditButtonConfig = (invoice) => {
     const status = invoice?.status?.toUpperCase();
     const canEdit = isEditable(invoice);
@@ -139,211 +210,280 @@ const PurchaseTable = ({
     };
   };
 
+  const uniqueBranches = showBranchColumn 
+    ? [...new Set(safeInvoices.map(inv => inv.branch?.branch_name).filter(Boolean))]
+    : [];
+
   return (
-    <div className="flex flex-col h-full bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-      <div className="flex-1 relative overflow-auto custom-scrollbar">
+    <div className="h-full flex flex-col bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* FIXED HEADER STATS BAR                                             */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1.5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <FileText size={12} className="text-indigo-500" />
+            <span className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Total:</span>
+            <span className="text-xs font-bold text-indigo-600">{safeInvoices.length}</span>
+          </div>
+
+          {isSearching && (
+            <>
+              <div className="h-3 w-px bg-slate-300" />
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 rounded border border-indigo-200">
+                <Loader2 size={10} className="animate-spin text-indigo-500" />
+                <span className="text-[10px] text-indigo-600 font-medium">Searching...</span>
+              </div>
+            </>
+          )}
+
+          {!isSearching && showBranchColumn && uniqueBranches.length > 0 && (
+            <>
+              <div className="h-3 w-px bg-slate-300" />
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded border border-blue-200 text-[10px]">
+                <Layers size={10} className="text-blue-500" />
+                <span className="text-blue-700 font-medium">{uniqueBranches.length} branches</span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* SCROLLABLE TABLE WRAPPER                                           */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      <div className="flex-1 min-h-0 overflow-auto">
         <table className="w-full border-collapse">
-          <thead>
+          {/* STICKY HEADER */}
+          <thead className="sticky top-0 z-10">
             <tr>
-              <th className={headerClass}>#</th>
-              <th className={headerClass}>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+                #
+              </th>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                 <div className="flex items-center gap-1.5">
                   <FileText size={12} />
                   Invoice Number
                 </div>
               </th>
-              <th className={headerClass}>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                 <div className="flex items-center gap-1.5">
                   <Package size={12} />
                   Supplier
                 </div>
               </th>
-              <th className={headerClass}>Invoice Date</th>
-              <th className={headerClass}>Items</th>
-              <th className={headerClass}>Net Amount</th>
-              <th className={headerClass}>Payment</th>
-              <th className={headerClass}>Status</th>
-              <th className={`${headerClass} text-center`}>Actions</th>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+                Invoice Date
+              </th>
+              {showBranchColumn && (
+                <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5">
+                    <Building2 size={12} />
+                    Branch
+                  </div>
+                </th>
+              )}
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+                Items
+              </th>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+                Net Amount
+              </th>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+                Payment
+              </th>
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+                Status
+              </th>
+              <th className="px-4 py-3 text-center text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] whitespace-nowrap">
+                Actions
+              </th>
             </tr>
           </thead>
 
+          {/* TABLE BODY */}
           <tbody>
             {isLoading ? (
-              <TableSkeleton rows={rowsPerPage} columns={9} />
+              // Skeleton rows
+              Array.from({ length: rowsPerPage }).map((_, index) => (
+                <SkeletonRow 
+                  key={`skeleton-${index}`} 
+                  showBranchColumn={showBranchColumn}
+                  index={index}
+                />
+              ))
             ) : safeInvoices.length > 0 ? (
-              <>
-                {safeInvoices.map((invoice, i) => {
-                  const serialNumber = startIndex + i + 1;
-                  const canEdit = isEditable(invoice);
-                  const canDelete = isDeletable(invoice);
-                  const status = invoice?.status?.toUpperCase();
-                  const editConfig = getEditButtonConfig(invoice);
-                  const EditIcon = editConfig.icon;
+              safeInvoices.map((invoice, i) => {
+                const serialNumber = startIndex + i + 1;
+                const canEdit = isEditable(invoice);
+                const canDelete = isDeletable(invoice);
+                const status = invoice?.status?.toUpperCase();
+                const editConfig = getEditButtonConfig(invoice);
+                const EditIcon = editConfig.icon;
 
-                  return (
-                    <tr 
-                      key={invoice.invoice_id} 
-                      onClick={() => onRowClick?.(invoice)}
-                      className="hover:bg-[#000060]/5 group cursor-pointer transition-colors"
-                    >
-                      {/* Serial Number */}
-                      <td className={`${cellClass} text-gray-400 font-medium`}>
-                        {String(serialNumber).padStart(2, "0")}
-                      </td>
+                return (
+                  <tr 
+                    key={invoice.invoice_id} 
+                    onClick={() => onRowClick?.(invoice)}
+                    className={`
+                      hover:bg-[#000060]/5 cursor-pointer transition-colors
+                      ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
+                    `}
+                  >
+                    {/* Serial Number */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs text-gray-400 font-medium">
+                      {String(serialNumber).padStart(2, "0")}
+                    </td>
 
-                      {/* Invoice Number */}
-                      <td className={cellClass}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[#000060] font-semibold">
-                            {invoice.invoice_number}
+                    {/* Invoice Number */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[#000060] font-semibold">
+                          {invoice.invoice_number}
+                        </span>
+                        {status === 'CONFIRMED' && isSuperAdmin && (
+                          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-medium">
+                            <Shield size={8} />
+                            Editable
                           </span>
-                          {/* ✅ Show super admin edit indicator for confirmed invoices */}
-                          {status === 'CONFIRMED' && isSuperAdmin && (
-                            <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-medium">
-                              <Shield size={8} />
-                              Editable
-                            </span>
-                          )}
-                        </div>
-                        {invoice.supplier_invoice_no && (
-                          <div className="text-[10px] text-gray-500 mt-0.5">
-                            Ref: {invoice.supplier_invoice_no}
-                          </div>
                         )}
-                      </td>
-
-                      {/* Supplier */}
-                      <td className={cellClass}>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-gray-700">
-                            {invoice.supplier?.name || '-'}
-                          </span>
-                          {invoice.supplier?.gst_number && (
-                            <span className="text-[10px] text-gray-500 font-mono">
-                              GST: {invoice.supplier.gst_number}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Invoice Date */}
-                      <td className={`${cellClass} text-gray-600`}>
-                        {formatDate(invoice.invoice_date)}
-                      </td>
-
-                      {/* Items Count */}
-                      <td className={`${cellClass} text-center`}>
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#000060]/10 text-[#000060] text-[10px] font-bold">
-                          {invoice._count?.lineItems || invoice.lineItems?.length || 0}
-                        </span>
-                      </td>
-
-                      {/* Net Amount */}
-                      <td className={`${cellClass} text-right`}>
-                        <span className="font-bold text-gray-900">
-                          {formatCurrency(invoice.net_amount)}
-                        </span>
+                      </div>
+                      {invoice.supplier_invoice_no && (
                         <div className="text-[10px] text-gray-500 mt-0.5">
-                          Taxable: {formatCurrency(invoice.taxable_amount)}
+                          Ref: {invoice.supplier_invoice_no}
                         </div>
-                      </td>
+                      )}
+                    </td>
 
-                      {/* Payment Status */}
-                      <td className={cellClass}>
-                        <PaymentStatusBadge status={invoice.payment_status} />
-                        {invoice.payment_status?.toUpperCase() !== 'PAID' && parseFloat(invoice.balance_amount) > 0 && (
-                          <div className="text-[10px] text-gray-500 mt-0.5">
-                            Due: {formatCurrency(invoice.balance_amount)}
-                          </div>
+                    {/* Supplier */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                          {invoice.supplier?.name || '-'}
+                        </span>
+                        {invoice.supplier?.gst_number && (
+                          <span className="text-[10px] text-gray-500 font-mono">
+                            GST: {invoice.supplier.gst_number}
+                          </span>
                         )}
+                      </div>
+                    </td>
+
+                    {/* Invoice Date */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs text-gray-600">
+                      {formatDate(invoice.invoice_date)}
+                    </td>
+
+                    {/* Branch Column */}
+                    {showBranchColumn && (
+                      <td className="py-3 px-4 border-b border-gray-100 text-xs">
+                        <BranchBadge branchName={invoice.branch?.branch_name} />
                       </td>
+                    )}
 
-                      {/* Status */}
-                      <td className={cellClass}>
-                        <StatusBadge status={invoice.status} />
-                        {invoice.confirmed_at && (
-                          <div className="text-[10px] text-gray-500 mt-0.5">
-                            {formatDate(invoice.confirmed_at)}
-                          </div>
-                        )}
-                      </td>
+                    {/* Items Count */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs text-center">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#000060]/10 text-[#000060] text-[10px] font-bold">
+                        {invoice._count?.lineItems || invoice.lineItems?.length || 0}
+                      </span>
+                    </td>
 
-                      {/* Actions */}
-                      <td className={`${cellClass} text-center`}>
-                        <div className="flex justify-center gap-1">
-                          {/* VIEW */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onView?.(invoice, e);
-                            }}
-                            className="p-1.5 rounded hover:bg-[#000060]/10 hover:text-[#000060] text-gray-400 transition-colors"
-                            title="View Details"
-                          >
-                            <Eye size={14} />
-                          </button>
+                    {/* Net Amount */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs text-right">
+                      <span className="font-bold text-gray-900">
+                        {formatCurrency(invoice.net_amount)}
+                      </span>
+                      <div className="text-[10px] text-gray-500 mt-0.5">
+                        Tax: {formatCurrency(invoice.total_tax)}
+                      </div>
+                    </td>
 
-                          {/* ✅ UPDATED: EDIT - Shows Shield for confirmed + super_admin */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (canEdit) {
-                                onEdit?.(invoice, e);
-                              }
-                            }}
-                            disabled={!canEdit}
-                            className={`p-1.5 rounded transition-colors ${editConfig.className}`}
-                            title={editConfig.title}
-                          >
-                            <EditIcon size={14} />
-                          </button>
-
-                          {/* DELETE */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (canDelete) {
-                                onDelete?.(invoice, e);
-                              }
-                            }}
-                            disabled={!canDelete}
-                            className={`p-1.5 rounded transition-colors ${
-                              canDelete
-                                ? 'hover:bg-red-50 hover:text-red-600 text-gray-400 cursor-pointer'
-                                : 'text-gray-200 cursor-not-allowed'
-                            }`}
-                            title={canDelete ? "Delete Invoice" : "Confirmed invoices cannot be deleted"}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                    {/* Payment Status */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs">
+                      <PaymentStatusBadge status={invoice.payment_status} />
+                      {invoice.payment_status?.toUpperCase() !== 'PAID' && parseFloat(invoice.balance_amount) > 0 && (
+                        <div className="text-[10px] text-gray-500 mt-0.5">
+                          Due: {formatCurrency(invoice.balance_amount)}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                      )}
+                    </td>
 
-                {/* Empty Rows for Consistent Height */}
-                {emptyRowsCount > 0 &&
-                  Array.from({ length: emptyRowsCount }).map((_, i) => (
-                    <tr key={`empty-${i}`} className="h-14">
-                      {Array.from({ length: 9 }).map((_, j) => (
-                        <td key={j} className={`${cellClass} border-transparent`}>
-                          &nbsp;
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-              </>
+                    {/* Status */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs">
+                      <StatusBadge status={invoice.status} />
+                      {invoice.confirmed_at && (
+                        <div className="text-[10px] text-gray-500 mt-0.5">
+                          {formatDate(invoice.confirmed_at)}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs text-center">
+                      <div className="flex justify-center gap-1">
+                        {/* VIEW */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onView?.(invoice, e);
+                          }}
+                          className="p-1.5 rounded hover:bg-[#000060]/10 hover:text-[#000060] text-gray-400 transition-colors"
+                          title="View Details"
+                        >
+                          <Eye size={14} />
+                        </button>
+
+                        {/* EDIT */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (canEdit) onEdit?.(invoice, e);
+                          }}
+                          disabled={!canEdit}
+                          className={`p-1.5 rounded transition-colors ${editConfig.className}`}
+                          title={editConfig.title}
+                        >
+                          <EditIcon size={14} />
+                        </button>
+
+                        {/* DELETE */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (canDelete) onDelete?.(invoice, e);
+                          }}
+                          disabled={!canDelete}
+                          className={`p-1.5 rounded transition-colors ${
+                            canDelete
+                              ? 'hover:bg-red-50 hover:text-red-600 text-gray-400 cursor-pointer'
+                              : 'text-gray-200 cursor-not-allowed'
+                          }`}
+                          title={canDelete ? "Delete Invoice" : "Confirmed invoices cannot be deleted"}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
+              // Empty State
               <tr>
-                <td colSpan={9} className="py-20 text-center">
+                <td colSpan={columnCount} className="py-16 text-center">
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-16 h-16 rounded-full bg-[#000060]/5 flex items-center justify-center">
                       <Package size={24} className="text-[#000060]/40" />
                     </div>
                     <div>
                       <p className="text-gray-600 font-medium">No purchase invoices found</p>
-                      <p className="text-sm text-gray-400 mt-1">Try adjusting your filters or create a new purchase</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        {showBranchColumn 
+                          ? "No invoices found across all branches"
+                          : "Try adjusting your filters or create a new purchase"
+                        }
+                      </p>
                     </div>
                   </div>
                 </td>
@@ -353,8 +493,10 @@ const PurchaseTable = ({
         </table>
       </div>
 
-      {/* Pagination Footer */}
-      <div className="border-t border-gray-200 bg-gray-50/50">
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* FIXED PAGINATION FOOTER                                            */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      <div className="shrink-0 border-t border-gray-200 bg-gray-50/80">
         {children}
       </div>
     </div>

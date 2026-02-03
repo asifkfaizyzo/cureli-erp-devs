@@ -10,15 +10,31 @@ import * as audit from "../audit/index.js";
 
 function buildBranchFilter(shopId, branchId, role, branchMode) {
   const filter = { shop_id: shopId };
+  console.log("🔍 buildBranchFilter called with:", {
+    shopId,
+    branchId,
+    role,
+    branchMode,
+  });
+
 
   // Super Admin in GLOBAL mode: show all invoices for shop
-  if (role === "super_admin" && branchMode === "GLOBAL") {
+  if (role === "super_admin" && branchMode === "BRANCH") {
+    if (branchId) {
+      filter.branch_id = branchId;
+      console.log("✅ Super Admin BRANCH mode - filtering by branch:", branchId);
+    } else {
+      console.log("⚠️ Super Admin BRANCH mode but no branchId provided!");
+    }
     return filter;
   }
 
   // Super Admin in BRANCH mode OR branch_admin/staff: filter by branch
   if (branchId) {
     filter.branch_id = branchId;
+    console.log("✅ Non-admin user - filtering by assigned branch:", branchId);
+  } else {
+    console.log("⚠️ Non-admin user has no branch assigned!");
   }
 
   return filter;
