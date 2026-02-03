@@ -38,7 +38,7 @@ const ShopOverviewTab = ({ shop }) => {
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-          <DetailRow label="Shop ID" value={shop.shop_id?.slice(0, 12) + "..."} isEditing={false} />
+          <DetailRow label="Shop ID" value={shop.shop_id} isEditing={false} />
           <DetailRow label="Business Name" value={shop.business_name} isEditing={false} />
           <DetailRow label="GST Number" value={shop.gst_number || "Not provided"} isEditing={false} />
           <DetailRow label="Business Type" value={shop.business_type || "N/A"} isEditing={false} />

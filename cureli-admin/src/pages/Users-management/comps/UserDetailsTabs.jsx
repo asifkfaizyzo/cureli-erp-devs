@@ -440,7 +440,7 @@ export const ShopDetails = ({ user }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
             <DetailRow
               label="Shop ID"
-              value={shop.shop_id?.slice(0, 8) + "..."}
+              value={shop.shop_id}
               isEditing={false}
             />
             <DetailRow

@@ -29,7 +29,7 @@ const ShopEditOverviewTab = ({ shop, formData, onFormChange }) => {
           {/* Read-only fields */}
           <DetailRow
             label="Shop ID"
-            value={shop.shop_id?.slice(0, 12) + "..."}
+            value={shop.shop_id}
             isEditing={false}
           />
           <DetailRow
