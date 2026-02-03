@@ -9,6 +9,8 @@ import InventoryTable from "./components/InventoryTable";
 import ViewInventoryModal from "./components/ViewInventoryModal";
 import StockAdjustmentModal from "./components/StockAdjustmentModal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import ProductMasterModal from "../../components/common/ProductMasterModal";  // ✅ NEW
+import medicinesAPI from "../../api/medicines";  // ✅ NEW
 import { 
   AlertCircle, 
   RefreshCw, 
@@ -142,6 +144,73 @@ const InventoryPage = () => {
   const [adjustmentModal, setAdjustmentModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ============================================
+  // ✅ NEW: Add Medicine Modal State
+  // ============================================
+  const [productModalOpen, setProductModalOpen] = useState(false);
+
+  // ✅ NEW: Handler to open Add Medicine modal
+  const handleAddMedicine = useCallback(() => {
+    // Check if branch is selected (required for adding medicines)
+    if (isGlobalMode) {
+      toast.warning(
+        "Branch Required",
+        "Please select a specific branch to add medicines"
+      );
+      return;
+    }
+    setProductModalOpen(true);
+  }, [isGlobalMode, toast]);
+
+  // ✅ NEW: Handler to save new medicine
+  const handleMedicineSave = useCallback(async (medicineData) => {
+    try {
+      const payload = {
+        name: medicineData.name,
+        generic_name: medicineData.genericName || null,
+        manufacturer: medicineData.manufacturer,
+        category: medicineData.category || null,
+        sub_category: medicineData.subCategory || null,
+        schedule: medicineData.schedule || null,
+        hsn_code: medicineData.hsnCode || null,
+        pack_size: medicineData.packSize || null,
+        unit_of_measure: medicineData.unitOfMeasure || "UNIT",
+        gst_percentage: medicineData.gst ? parseFloat(medicineData.gst) : 12,
+        cgst_percentage: medicineData.cgstPercent 
+          ? parseFloat(medicineData.cgstPercent) 
+          : 6,
+        sgst_percentage: medicineData.sgstPercent 
+          ? parseFloat(medicineData.sgstPercent) 
+          : 6,
+        rack_no: medicineData.rackNo || null,
+      };
+
+      console.log("📤 Creating medicine:", payload);
+
+      const response = await medicinesAPI.create(payload);
+      
+      console.log("✅ Medicine created:", response.data);
+      
+      toast.success(
+        "Medicine Added", 
+        `${medicineData.name} has been added to the master list.`
+      );
+      
+      setProductModalOpen(false);
+      
+      // Refresh inventory list to show the new medicine if it has stock
+      await refresh(filters);
+      
+    } catch (error) {
+      console.error("Create medicine error:", error);
+      toast.error(
+        "Failed to add medicine", 
+        error.response?.data?.message || error.message
+      );
+      throw error; // Re-throw so modal shows error state
+    }
+  }, [toast, refresh, filters]);
+
   // Filter change handler
   const handleFilterChange = useCallback((field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
@@ -193,29 +262,24 @@ const InventoryPage = () => {
   // ============================================
   // IMPROVED FILTERING LOGIC
   // ============================================
-const filteredData = useMemo(() => {
+  const filteredData = useMemo(() => {
     if (!items || items.length === 0) return [];
 
     return items.filter((item) => {
-      // ==========================================
-      // 1. SEARCH FILTER - ✅ ENHANCED
-      // ==========================================
+      // Search filter
       let matchesSearch = true;
-      
       if (filters.search && filters.search.trim()) {
         const searchTerm = filters.search.toLowerCase().trim();
-        
         const getVal = (val) => {
           if (val === null || val === undefined || val === "-") return "";
           return String(val).toLowerCase();
         };
-        
         const searchableFields = [
           getVal(item.name),
           getVal(item.batch),
-          getVal(item.batch_number), // ✅ ADDED
+          getVal(item.batch_number),
           getVal(item.supplier),
-          getVal(item.supplier_name), // ✅ ADDED
+          getVal(item.supplier_name),
           getVal(item.manufacturer),
           getVal(item.mfac),
           getVal(item.category),
@@ -225,13 +289,10 @@ const filteredData = useMemo(() => {
           getVal(item.branch),
           getVal(item.branch_name),
         ];
-        
         matchesSearch = searchableFields.some(field => field.includes(searchTerm));
       }
       
-      // ==========================================
-      // 2. STATUS FILTER - Case insensitive
-      // ==========================================
+      // Status filter
       let matchesStatus = true;
       if (filters.status) {
         const itemStatus = (item.status || "").toLowerCase().trim();
@@ -239,36 +300,28 @@ const filteredData = useMemo(() => {
         matchesStatus = itemStatus === filterStatus;
       }
       
-      // ==========================================
-      // 3. SUPPLIER FILTER
-      // ==========================================
+      // Supplier filter
       let matchesSupplier = true;
       if (filters.supplier) {
         const itemSupplier = (item.supplier || item.supplier_name || "").toLowerCase();
         matchesSupplier = itemSupplier === filters.supplier.toLowerCase();
       }
       
-      // ==========================================
-      // 4. CATEGORY FILTER
-      // ==========================================
+      // Category filter
       let matchesCategory = true;
       if (filters.category) {
         const itemCategory = (item.category || "").toLowerCase();
         matchesCategory = itemCategory === filters.category.toLowerCase();
       }
 
-      // ==========================================
-      // 5. BRANCH FILTER
-      // ==========================================
+      // Branch filter
       let matchesBranch = true;
       if (filters.branch) {
         const itemBranch = (item.branch || item.branch_name || "").toLowerCase();
         matchesBranch = itemBranch === filters.branch.toLowerCase();
       }
       
-      // ==========================================
-      // 6. EXPIRY FILTER
-      // ==========================================
+      // Expiry filter
       let matchesExpiry = true;
       if (filters.expiry) {
         const today = new Date();
@@ -280,7 +333,6 @@ const filteredData = useMemo(() => {
         if (expiryValue) {
           if (typeof expiryValue === 'string') {
             if (expiryValue.includes('/')) {
-              // MM/YYYY or MM/YY format
               const parts = expiryValue.split('/');
               if (parts.length === 2) {
                 const month = parseInt(parts[0]) - 1;
@@ -289,7 +341,6 @@ const filteredData = useMemo(() => {
                 expiryDate = new Date(year, month + 1, 0);
               }
             } else {
-              // ISO format
               expiryDate = new Date(expiryValue);
             }
           } else if (expiryValue instanceof Date) {
@@ -327,9 +378,7 @@ const filteredData = useMemo(() => {
         }
       }
 
-      // ==========================================
-      // 7. LOW STOCK QUICK FILTER
-      // ==========================================
+      // Low stock quick filter
       let matchesLowStock = true;
       if (filters.lowStock) {
         const status = (item.status || "").toLowerCase();
@@ -341,9 +390,7 @@ const filteredData = useMemo(() => {
     });
   }, [items, filters]);
 
-  // ============================================
-  // EXTRACT UNIQUE VALUES FOR FILTER DROPDOWNS
-  // ============================================
+  // Extract unique values for filter dropdowns
   const uniqueSuppliers = useMemo(() => {
     const suppliers = items
       .map(item => item.supplier || item.supplier_name)
@@ -454,22 +501,20 @@ const filteredData = useMemo(() => {
     }
   };
 
-  
-useEffect(() => {
-  if (items.length > 0) {
-    console.log("🔍 FULL FIRST ITEM:", JSON.stringify(items[0], null, 2));
-    console.log("📊 Field check:", {
-      name: items[0].name,
-      manufacturer: items[0].manufacturer,
-      category: items[0].category,
-      batch: items[0].batch,
-      qty: items[0].qty,
-      status: items[0].status,
-      medicine: items[0].medicine,  // Check if medicine object exists
-    });
-  }
-}, [items]);
-
+  useEffect(() => {
+    if (items.length > 0) {
+      console.log("🔍 FULL FIRST ITEM:", JSON.stringify(items[0], null, 2));
+      console.log("📊 Field check:", {
+        name: items[0].name,
+        manufacturer: items[0].manufacturer,
+        category: items[0].category,
+        batch: items[0].batch,
+        qty: items[0].qty,
+        status: items[0].status,
+        medicine: items[0].medicine,
+      });
+    }
+  }, [items]);
 
   // Determine loading states
   const isTableLoading = loading && !isInitialLoad;
@@ -565,6 +610,7 @@ useEffect(() => {
               categories={uniqueCategories}
               branches={uniqueBranches}
               showBranchFilter={isGlobalMode}
+              onAddMedicine={handleAddMedicine}  // ✅ NEW: Pass handler
             />
           </div>
           
@@ -637,6 +683,15 @@ useEffect(() => {
         message={`Delete ${confirmDelete?.name}? This action cannot be undone.`}
         confirmText="Delete"
         type="danger"
+      />
+
+      {/* ✅ NEW: ADD MEDICINE MODAL */}
+      <ProductMasterModal
+        open={productModalOpen}
+        onClose={() => setProductModalOpen(false)}
+        onSave={handleMedicineSave}
+        initialData={{}}
+        mode="create"
       />
     </div>
   );

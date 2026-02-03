@@ -28,17 +28,21 @@ function buildBranchFilter(shopId, branchId, role, branchMode) {
 // CREATE PURCHASE INVOICE
 // ============================================
 
-export async function createPurchaseInvoice(userId, shopId, branchId, data, auditContext) {
-  const { supplier_id, invoice_date, lineItems, ...invoiceData } = data;
+// backend/src/modules/purchase/purchase.service.js - UPDATE createPurchaseInvoice
 
-  // ✅ NEW: Validate branch_id is required for purchase creation
+// backend/src/modules/purchase/purchase.service.js - FIX createPurchaseInvoice
+
+export async function createPurchaseInvoice(userId, shopId, branchId, data, auditContext) {
+  const { supplier_id, invoice_date, lineItems, paid_amount, payment_mode, ...invoiceData } = data;
+
+  // ✅ FIXED: Add validation check at the beginning
   if (!branchId) {
     const err = new Error("Branch selection is required to create purchase invoices. Please select a specific branch.");
     err.code = "BRANCH_REQUIRED";
     throw err;
   }
 
-  // Validate user
+  // ✅ FIXED: Get user info BEFORE using it
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -61,23 +65,21 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
     throw err;
   }
 
-  // ✅ UPDATED: Validate medicines belong to shop AND branch
+  // Validate medicines belong to shop AND branch
   const medicineIds = lineItems.map((item) => item.medicine_id);
   const medicines = await prisma.medicine.findMany({
     where: { 
       medicine_id: { in: medicineIds }, 
       shop_id: shopId, 
-      branch_id: branchId,  // ✅ NEW: Must be same branch
+      branch_id: branchId,
       is_active: true 
     },
   });
 
   if (medicines.length !== medicineIds.length) {
-    // Find which medicines are missing/invalid
     const foundIds = medicines.map(m => m.medicine_id);
     const missingIds = medicineIds.filter(id => !foundIds.includes(id));
     
-    // Check if they exist in other branches
     const otherBranchMeds = await prisma.medicine.findMany({
       where: {
         medicine_id: { in: missingIds },
@@ -103,14 +105,31 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
   const invoiceNumber = await generateInvoiceNumber(shopId);
   const calculations = calculateInvoiceTotals(lineItems);
 
+  // ✅ FIXED: Calculate payment status based on paid amount
+  const paidAmt = parseFloat(paid_amount) || 0;
+  const netAmt = calculations.net_amount;
+  
+  let paymentStatus = "UNPAID";
+  let balanceAmount = netAmt;
+  
+  if (paidAmt > 0) {
+    if (paidAmt >= netAmt) {
+      paymentStatus = "PAID";
+      balanceAmount = 0;
+    } else {
+      paymentStatus = "PARTIALLY_PAID";
+      balanceAmount = netAmt - paidAmt;
+    }
+  }
+
   const result = await prisma.$transaction(async (tx) => {
-    // Header - ✅ UPDATED: Explicitly set branch_id
+    // Header
     const invoice = await tx.purchaseInvoice.create({
       data: {
         ...invoiceData,
         invoice_number: invoiceNumber,
         shop_id: shopId,
-        branch_id: branchId,  // ✅ Explicit branch assignment
+        branch_id: branchId,
         supplier_id,
         invoice_date: new Date(invoice_date),
         created_by: userId,
@@ -122,8 +141,12 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
         igst_amount: calculations.igst_amount,
         total_tax: calculations.total_tax,
         round_off: calculations.round_off,
-        net_amount: calculations.net_amount,
-        balance_amount: calculations.balance_amount,
+        net_amount: netAmt,
+        // ✅ FIXED: Set payment fields
+        payment_status: paymentStatus,
+        paid_amount: paidAmt,
+        balance_amount: balanceAmount,
+        payment_mode: payment_mode || null,
         status: "DRAFT",
       },
     });
@@ -167,9 +190,27 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
       })
     );
 
+    // ✅ FIXED: Create payment record if amount paid > 0
+    if (paidAmt > 0) {
+      await tx.purchasePayment.create({
+        data: {
+          invoice_id: invoice.invoice_id,
+          shop_id: shopId,
+          supplier_id,
+          payment_date: new Date(invoice_date),
+          amount: paidAmt,
+          payment_mode: payment_mode || "CASH",
+          status: "COMPLETED",
+          created_by: userId,
+          remarks: "Initial payment on invoice creation",
+        },
+      });
+    }
+
     return { ...invoice, lineItems: items };
   });
 
+  // ✅ FIXED: Audit log - user is now defined above
   await audit.log({
     action: audit.AuditAction.PURCHASE_INVOICE_CREATED,
     entity_type: audit.EntityType.PURCHASE_INVOICE,
@@ -178,7 +219,7 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
     branch_id: branchId,
     actor_type: audit.ActorType.ERP_USER,
     actor_id: userId,
-    actor_role: user.role,
+    actor_role: user.role, // ✅ NOW DEFINED
     ...auditContext,
     reason_code: audit.AuditReasonCode.USER_REQUEST,
     metadata: {
@@ -187,12 +228,13 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
       supplier_name: supplier.name,
       item_count: lineItems.length,
       total_amount: result.net_amount,
+      paid_amount: paidAmt,
+      payment_status: paymentStatus,
     },
   });
 
   return result;
 }
-
 // ============================================
 // CONFIRM PURCHASE INVOICE & UPDATE STOCK
 // ============================================
@@ -339,6 +381,8 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
 // GET PURCHASE INVOICES - ✅ UPDATED: Branch Context Aware
 // ============================================
 
+// backend/src/modules/purchase/purchase.service.js - UPDATE getPurchaseInvoices
+
 export async function getPurchaseInvoices(shopId, branchId, role, branchMode, filters = {}) {
   const {
     startDate,
@@ -350,7 +394,6 @@ export async function getPurchaseInvoices(shopId, branchId, role, branchMode, fi
     offset = 0,
   } = filters;
 
-  // ✅ NEW: Build branch filter based on context
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const where = {
@@ -388,9 +431,10 @@ export async function getPurchaseInvoices(shopId, branchId, role, branchMode, fi
             full_name: true,
           },
         },
-        _count: {
+        // ✅ FIXED: Include line items count properly
+        lineItems: {
           select: {
-            lineItems: true,
+            item_id: true,
           },
         },
       },
@@ -401,12 +445,24 @@ export async function getPurchaseInvoices(shopId, branchId, role, branchMode, fi
     prisma.purchaseInvoice.count({ where }),
   ]);
 
-  return { invoices, total };
+  // ✅ FIXED: Transform to include _count
+  const transformedInvoices = invoices.map(invoice => ({
+    ...invoice,
+    _count: {
+      lineItems: invoice.lineItems?.length || 0,
+    },
+    // Remove full lineItems from response to keep it lightweight
+    lineItems: undefined,
+  }));
+
+  return { invoices: transformedInvoices, total };
 }
 
 // ============================================
 // GET INVOICE DETAILS - ✅ UPDATED: Branch Access Check
 // ============================================
+
+// backend/src/modules/purchase/purchase.service.js - UPDATE getInvoiceDetails
 
 export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branchMode) {
   // Build branch filter
@@ -418,41 +474,102 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
       ...baseFilter,
     },
     include: {
-      supplier: true,
+      // ✅ COMPLETE: Supplier with all fields
+      supplier: {
+        select: {
+          supplier_id: true,
+          name: true,
+          supplier_code: true,
+          contact_person: true,
+          office_phone: true,
+          personal_phone: true,
+          email: true,
+          address_line_1: true,
+          address_line_2: true,
+          city: true,
+          state: true,
+          pincode: true,
+          gst_number: true,
+          pan_number: true,
+          drug_license_no: true,
+          credit_days: true,
+          credit_limit: true,
+        },
+      },
+      // ✅ COMPLETE: Branch info
       branch: {
         select: {
           branch_id: true,
           branch_name: true,
+          branch_type: true,
+          address_line_1: true,
+          city: true,
+          state: true,
         },
       },
+      // ✅ COMPLETE: Line items with medicine details
       lineItems: {
         include: {
           medicine: {
             select: {
+              medicine_id: true,
               name: true,
+              generic_name: true,
               manufacturer: true,
+              category: true,
+              sub_category: true,
               hsn_code: true,
               pack_size: true,
+              schedule: true,
             },
           },
           inventory: {
             select: {
+              inventory_id: true,
               current_stock: true,
               available_stock: true,
+              selling_rate: true,
+              rack_no: true,
             },
           },
         },
-      },
-      payments: true,
-      creator: {
-        select: {
-          full_name: true,
-          email: true,
+        orderBy: {
+          created_at: 'asc',
         },
       },
+      // ✅ COMPLETE: Payment records
+      payments: {
+        select: {
+          payment_id: true,
+          payment_date: true,
+          amount: true,
+          payment_mode: true,
+          reference_number: true,
+          bank_name: true,
+          status: true,
+          remarks: true,
+          created_at: true,
+        },
+        orderBy: {
+          payment_date: 'desc',
+        },
+      },
+      // ✅ COMPLETE: Creator info
+      creator: {
+        select: {
+          user_id: true,
+          full_name: true,
+          email: true,
+          role: true,
+        },
+      },
+      // ✅ COMPLETE: Confirmer info (if confirmed)
       confirmer: {
         select: {
+          user_id: true,
           full_name: true,
+          email: true,
+          role: true,
         },
       },
     },
@@ -471,7 +588,10 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
 // UPDATE PURCHASE INVOICE (DRAFT ONLY) - ✅ UPDATED
 // ============================================
 
+// backend/src/modules/purchase/purchase.service.js - UPDATE updatePurchaseInvoice
+
 export async function updatePurchaseInvoice(userId, shopId, branchId, role, branchMode, invoiceId, data, auditContext) {
+  // Get user first
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -483,13 +603,16 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
     throw err;
   }
 
-  // ✅ NEW: Build branch filter for access check
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const invoice = await prisma.purchaseInvoice.findFirst({
     where: { 
       invoice_id: invoiceId, 
       ...baseFilter,
+    },
+    include: {
+      lineItems: true,
+      supplier: true,
     },
   });
 
@@ -499,22 +622,38 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
     throw err;
   }
 
-  if (invoice.status !== "DRAFT") {
+  // ✅ NEW: Check edit permissions based on status and role
+  const isConfirmed = invoice.status === "CONFIRMED";
+  const isSuperAdmin = user.role === "super_admin";
+
+  if (invoice.status === "CANCELLED") {
+    const err = new Error("Cancelled invoices cannot be updated");
+    err.code = "INVOICE_CANCELLED";
+    throw err;
+  }
+
+  if (isConfirmed && !isSuperAdmin) {
+    const err = new Error("Only super admin can edit confirmed invoices");
+    err.code = "PERMISSION_DENIED";
+    throw err;
+  }
+
+  if (invoice.status !== "DRAFT" && !isSuperAdmin) {
     const err = new Error("Only draft invoices can be updated");
     err.code = "NOT_DRAFT";
     throw err;
   }
 
-  const { lineItems, ...invoiceData } = data;
+  const { lineItems, paid_amount, payment_mode, ...invoiceData } = data;
 
-  // ✅ NEW: If updating line items, validate medicines belong to invoice's branch
+  // Validate medicines if line items are being updated
   if (lineItems && lineItems.length > 0) {
     const medicineIds = lineItems.map((item) => item.medicine_id);
     const medicines = await prisma.medicine.findMany({
       where: { 
         medicine_id: { in: medicineIds }, 
         shop_id: shopId, 
-        branch_id: invoice.branch_id,  // Must match invoice's branch
+        branch_id: invoice.branch_id,
         is_active: true 
       },
     });
@@ -527,17 +666,83 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    let updateData = { ...invoiceData };
+    
+    // Update payment fields if provided
+    if (paid_amount !== undefined) {
+      const paidAmt = parseFloat(paid_amount) || 0;
+      const netAmt = parseFloat(invoice.net_amount);
+      
+      let paymentStatus = "UNPAID";
+      let balanceAmount = netAmt;
+      
+      if (paidAmt > 0) {
+        if (paidAmt >= netAmt) {
+          paymentStatus = "PAID";
+          balanceAmount = 0;
+        } else {
+          paymentStatus = "PARTIALLY_PAID";
+          balanceAmount = netAmt - paidAmt;
+        }
+      }
+      
+      updateData = {
+        ...updateData,
+        payment_status: paymentStatus,
+        paid_amount: paidAmt,
+        balance_amount: balanceAmount,
+        payment_mode: payment_mode || invoice.payment_mode,
+      };
+    }
+
     let updatedInvoice = await tx.purchaseInvoice.update({
       where: { invoice_id: invoiceId },
-      data: invoiceData,
+      data: updateData,
     });
 
+    // ✅ NEW: Handle line items update for CONFIRMED invoices (stock reversal)
     if (lineItems && lineItems.length > 0) {
+      
+      // If invoice was CONFIRMED, we need to reverse the old stock first
+      if (isConfirmed) {
+        console.log("🔄 Super Admin editing CONFIRMED invoice - reversing stock...");
+        
+        // Reverse stock for each old line item
+        for (const oldItem of invoice.lineItems) {
+          if (oldItem.inventory_id) {
+            const oldTotalQty = Number(oldItem.quantity) + Number(oldItem.free_quantity || 0);
+            
+            // Create reversal stock ledger entry
+            await inventoryService.updateStock(
+              {
+                inventoryId: oldItem.inventory_id,
+                shopId: shopId,
+                branchId: invoice.branch_id,
+                medicineId: oldItem.medicine_id,
+                batchNumber: oldItem.batch_number,
+                movementType: "PURCHASE_RETURN", // Using return type for reversal
+                quantityIn: 0,
+                quantityOut: oldTotalQty,
+                rate: oldItem.purchase_rate,
+                referenceType: "PURCHASE_INVOICE_EDIT",
+                referenceId: invoice.invoice_id,
+                referenceNumber: invoice.invoice_number,
+                transactionDate: new Date(),
+                remarks: `Stock reversal due to invoice edit by super admin`,
+              },
+              userId
+            );
+          }
+        }
+      }
+
+      // Delete old line items
       await tx.purchaseInvoiceItem.deleteMany({
         where: { invoice_id: invoiceId },
       });
 
-      const items = await Promise.all(
+      // Create new line items
+      const newItems = await Promise.all(
         lineItems.map((item) => {
           const itemCalc = calculateLineItemForDB(item);
 
@@ -575,43 +780,138 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
         })
       );
 
+      // Recalculate invoice totals
       const calculations = calculateInvoiceTotals(lineItems);
+      
+      // Update payment status based on new totals
+      const paidAmt = parseFloat(paid_amount) || parseFloat(invoice.paid_amount) || 0;
+      const newNetAmt = calculations.net_amount;
+      
+      let paymentStatus = "UNPAID";
+      let balanceAmount = newNetAmt;
+      
+      if (paidAmt > 0) {
+        if (paidAmt >= newNetAmt) {
+          paymentStatus = "PAID";
+          balanceAmount = 0;
+        } else {
+          paymentStatus = "PARTIALLY_PAID";
+          balanceAmount = newNetAmt - paidAmt;
+        }
+      }
+
       updatedInvoice = await tx.purchaseInvoice.update({
         where: { invoice_id: invoiceId },
-        data: calculations,
+        data: {
+          ...calculations,
+          payment_status: paymentStatus,
+          balance_amount: balanceAmount,
+        },
       });
 
-      return { ...updatedInvoice, lineItems: items };
+      // ✅ NEW: If invoice was CONFIRMED, add new stock
+      if (isConfirmed) {
+        console.log("🔄 Adding new stock for edited CONFIRMED invoice...");
+        
+        for (const item of newItems) {
+          // Get or create inventory entry
+          const inventory = await inventoryService.getOrCreateInventory(
+            shopId,
+            invoice.branch_id,
+            item.medicine_id,
+            item.batch_number,
+            item.expiry_date,
+            item.mrp
+          );
+
+          const totalQuantity = Number(item.quantity) + Number(item.free_quantity || 0);
+
+          // Add new stock
+          await inventoryService.updateStock(
+            {
+              inventoryId: inventory.inventory_id,
+              shopId: shopId,
+              branchId: invoice.branch_id,
+              medicineId: item.medicine_id,
+              batchNumber: item.batch_number,
+              movementType: "PURCHASE",
+              quantityIn: totalQuantity,
+              quantityOut: 0,
+              rate: item.purchase_rate,
+              referenceType: "PURCHASE_INVOICE",
+              referenceId: invoice.invoice_id,
+              referenceNumber: invoice.invoice_number,
+              transactionDate: invoice.invoice_date,
+              remarks: `Purchase (edited by super admin)`,
+            },
+            userId
+          );
+
+          // Update inventory record
+          await tx.inventory.update({
+            where: { inventory_id: inventory.inventory_id },
+            data: {
+              last_purchase_rate: item.purchase_rate,
+              last_purchase_date: invoice.invoice_date,
+              selling_rate: item.selling_rate,
+              rack_no: item.rack_no || inventory.rack_no,
+            },
+          });
+
+          // Link inventory to purchase item
+          await tx.purchaseInvoiceItem.update({
+            where: { item_id: item.item_id },
+            data: {
+              inventory_id: inventory.inventory_id,
+            },
+          });
+        }
+      }
+
+      return { ...updatedInvoice, lineItems: newItems };
     }
 
     return updatedInvoice;
   });
 
+  // ✅ NEW: Enhanced audit log for confirmed invoice edits
   await audit.log({
-    action: audit.AuditAction.PURCHASE_INVOICE_UPDATED,
+    action: isConfirmed 
+      ? audit.AuditAction.PURCHASE_INVOICE_CONFIRMED_EDITED 
+      : audit.AuditAction.PURCHASE_INVOICE_UPDATED,
     entity_type: audit.EntityType.PURCHASE_INVOICE,
     entity_id: invoiceId,
     shop_id: shopId,
-    branch_id: invoice.branch_id,  // Use invoice's branch
+    branch_id: invoice.branch_id,
     actor_type: audit.ActorType.ERP_USER,
     actor_id: userId,
     actor_role: user.role,
     ...auditContext,
-    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    reason_code: isConfirmed 
+      ? audit.AuditReasonCode.SUPER_ADMIN_OVERRIDE 
+      : audit.AuditReasonCode.USER_REQUEST,
     metadata: {
       invoice_number: invoice.invoice_number,
+      invoice_status: invoice.status,
+      was_confirmed: isConfirmed,
       updated_fields: Object.keys(data),
+      old_item_count: invoice.lineItems?.length || 0,
+      new_item_count: lineItems?.length || invoice.lineItems?.length || 0,
+      old_net_amount: invoice.net_amount,
+      new_net_amount: result.net_amount,
     },
   });
 
   return result;
 }
-
 // ============================================
 // CANCEL PURCHASE INVOICE - ✅ UPDATED
 // ============================================
 
+// backend/src/modules/purchase/purchase.service.js - FIX cancelPurchaseInvoice
+
 export async function cancelPurchaseInvoice(userId, shopId, branchId, role, branchMode, invoiceId, reason, auditContext) {
+  // ✅ FIXED: Get user first
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -623,7 +923,6 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, role, bran
     throw err;
   }
 
-  // ✅ NEW: Build branch filter for access check
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const invoice = await prisma.purchaseInvoice.findFirst({
@@ -665,10 +964,10 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, role, bran
     entity_type: audit.EntityType.PURCHASE_INVOICE,
     entity_id: invoiceId,
     shop_id: shopId,
-    branch_id: invoice.branch_id,  // Use invoice's branch
+    branch_id: invoice.branch_id,
     actor_type: audit.ActorType.ERP_USER,
     actor_id: userId,
-    actor_role: user.role,
+    actor_role: user.role, // ✅ NOW DEFINED
     ...auditContext,
     reason_code: audit.AuditReasonCode.USER_REQUEST,
     metadata: {
@@ -680,7 +979,6 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, role, bran
 
   return result;
 }
-
 // ============================================
 // GET PURCHASE STATISTICS - ✅ UPDATED
 // ============================================

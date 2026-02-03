@@ -3,7 +3,7 @@ import { useRef } from "react";
 import { 
   Save, Printer, Upload, FileSpreadsheet, 
   CheckCircle, Clock, AlertCircle, Loader2,
-  Trash2, FilePlus, RotateCcw
+  Trash2, FilePlus
 } from "lucide-react";
 
 const PurchaseHeader = ({ 
@@ -11,13 +11,13 @@ const PurchaseHeader = ({
   onSavePrint, 
   onImportFile,
   onExportExcel,
-  onClearTable,      // ✅ NEW
-  onNewInvoice,      // ✅ NEW
+  onClearTable,
+  onNewInvoice,
   invoiceNumber,
   invoiceStatus,
   isLoading = false,
   isSaving = false,
-  hasUnsavedData = false, // ✅ NEW
+  hasUnsavedData = false,
 }) => {
   const fileInputRef = useRef(null);
 
@@ -29,23 +29,12 @@ const PurchaseHeader = ({
     }
   };
 
+  // ✅ Just call the parent handlers - dialogs are managed at page level
   const handleClearTable = () => {
-    if (hasUnsavedData) {
-      const confirmed = window.confirm(
-        "Are you sure you want to clear all items? This action cannot be undone."
-      );
-      if (!confirmed) return;
-    }
     onClearTable?.();
   };
 
   const handleNewInvoice = () => {
-    if (hasUnsavedData || invoiceNumber) {
-      const confirmed = window.confirm(
-        "Are you sure you want to start a new invoice? All current data will be cleared."
-      );
-      if (!confirmed) return;
-    }
     onNewInvoice?.();
   };
 
@@ -85,7 +74,6 @@ const PurchaseHeader = ({
   const statusConfig = invoiceStatus ? getStatusConfig(invoiceStatus) : null;
   const StatusIcon = statusConfig?.icon;
 
-  // Skeleton component
   const Skeleton = ({ className }) => (
     <div className={`bg-slate-200 rounded animate-pulse ${className}`} />
   );
@@ -144,7 +132,6 @@ const PurchaseHeader = ({
               </div>
             )}
 
-            {/* ✅ NEW: Unsaved data indicator */}
             {hasUnsavedData && !invoiceNumber && (
               <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
@@ -168,7 +155,6 @@ const PurchaseHeader = ({
           className="hidden"
         />
 
-        {/* ✅ NEW: New Invoice Button */}
         <button
           onClick={handleNewInvoice}
           disabled={isSaving}
@@ -179,7 +165,6 @@ const PurchaseHeader = ({
           <span className="hidden lg:inline">New</span>
         </button>
 
-        {/* ✅ NEW: Clear Table Button */}
         <button
           onClick={handleClearTable}
           disabled={isSaving || !hasUnsavedData}

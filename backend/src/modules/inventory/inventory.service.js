@@ -162,248 +162,282 @@ class InventoryService {
   /* ============================================
      UPDATE STOCK + LEDGER ENTRY
   ============================================ */
-  async updateStock(data, userId) {
-    const {
-      inventoryId,
-      shopId,
-      branchId,
-      medicineId,
-      batchNumber,
-      movementType,
-      quantityIn = 0,
-      quantityOut = 0,
-      rate,
-      referenceType,
-      referenceId,
-      referenceNumber,
-      transactionDate,
-      remarks,
-    } = data;
-
-    return prisma.$transaction(async (tx) => {
-      const inventory = await tx.inventory.findUnique({
-        where: { inventory_id: inventoryId },
-        include: {
-          medicine: {
-            select: { 
-              name: true,
-              min_stock_level: true,
-              max_stock_level: true,
-              reorder_point: true,
-            },
-          },
-          branch: {
-            select: { branch_name: true },
-          },
-        },
-      });
-
-      if (!inventory) {
-        throw new ApiError("Inventory not found", 404, "NOT_FOUND");
-      }
-
-      const qtyIn = Number(quantityIn);
-      const qtyOut = Number(quantityOut);
-      const netQty = qtyIn - qtyOut;
-
-      const newStock = Number(inventory.current_stock) + netQty;
-
-      if (newStock < 0) {
-        throw new ApiError(
-          `Insufficient stock. Available: ${inventory.current_stock}, Requested: ${qtyOut}`,
-          400,
-          "INSUFFICIENT_STOCK"
-        );
-      }
-
-      const updatedInventory = await tx.inventory.update({
-        where: { inventory_id: inventoryId },
-        data: {
-          current_stock: newStock,
-          available_stock: newStock - Number(inventory.reserved_stock || 0),
-        },
-      });
-
-      const ledgerEntry = await tx.stockLedger.create({
-        data: {
-          shop_id: shopId,
-          branch_id: branchId,
-          medicine_id: medicineId,
-          inventory_id: inventoryId,
-          movement_type: movementType,
-          reference_type: referenceType,
-          reference_id: referenceId,
-          reference_number: referenceNumber,
-          batch_number: batchNumber,
-          expiry_date: inventory.expiry_date,
-          quantity_in: qtyIn,
-          quantity_out: qtyOut,
-          quantity_net: netQty,
-          balance_after: newStock,
-          rate: rate || null,
-          amount: rate ? Number(netQty) * Number(rate) : null,
-          transaction_date: transactionDate ? new Date(transactionDate) : new Date(),
-          created_by: userId,
-          remarks,
-        },
-      });
-
-      setImmediate(() => {
-        this.checkAndSendStockAlerts(
-          { ...updatedInventory, inventory_id: inventoryId },
-          inventory.medicine,
-          inventory.branch
-        );
-      });
-
-      const status = this._calculateStockStatus(
-        newStock,
-        inventory.minimum_stock,
-        {
-          min_stock_level: inventory.medicine?.min_stock_level,
-          max_stock_level: inventory.medicine?.max_stock_level,
-          reorder_point: inventory.medicine?.reorder_point,
-        },
-        inventory.is_expired,
-        inventory.expiry_date
-      );
-
-      return { 
-        inventory: { ...updatedInventory, status }, 
-        ledgerEntry 
-      };
-    });
-  }
-
   /* ============================================
-     ✅ GET INVENTORY LIST - COMPLETE WITH ALL FIELDS
-  ============================================ */
-  async getInventory(shopId, branchId, role, branchMode, filters = {}) {
-    const {
-      medicineId,
-      search,
-      includeExpired = false,
-      lowStock = false,
-      limit = 100,
-      offset = 0,
-    } = filters;
+   UPDATE STOCK + LEDGER ENTRY - ✅ FIXED
+============================================ */
+async updateStock(data, userId) {
+  const {
+    inventoryId,
+    shopId,
+    branchId,
+    medicineId,
+    batchNumber,
+    movementType,
+    quantityIn = 0,
+    quantityOut = 0,
+    rate,
+    referenceType,
+    referenceId,
+    referenceNumber,
+    transactionDate,
+    remarks,
+  } = data;
 
-    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
-
-    const where = {
-      ...baseFilter,
-      ...(medicineId && { medicine_id: medicineId }),
-      is_active: true,
-      ...(!includeExpired && { is_expired: false }),
-      ...(search && {
-        OR: [
-          { medicine: { name: { contains: search, mode: "insensitive" } } },
-          { medicine: { manufacturer: { contains: search, mode: "insensitive" } } },
-          { batch_number: { contains: search, mode: "insensitive" } },
-        ],
-      }),
-    };
-
-    const rawInventories = await prisma.inventory.findMany({
-      where,
+  return prisma.$transaction(async (tx) => {
+    const inventory = await tx.inventory.findUnique({
+      where: { inventory_id: inventoryId },
       include: {
         medicine: {
-          select: {
-            medicine_id: true,
+          select: { 
             name: true,
-            manufacturer: true,
-            pack_size: true,
-            hsn_code: true,
-            category: true,
-            sub_category: true,
-            schedule: true,
-            branch_id: true,
-            rack_no: true,
             min_stock_level: true,
             max_stock_level: true,
             reorder_point: true,
           },
         },
         branch: {
-          select: {
-            branch_id: true,
-            branch_name: true,
-          },
-        },
-        stockMovements: {
-          where: {
-            movement_type: "PURCHASE",
-            reference_type: "PURCHASE_INVOICE",
-          },
-          take: 1,
-          orderBy: {
-            transaction_date: 'desc',
-          },
-          include: {
-            purchaseInvoice: {
-              select: {
-                supplier: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
+          select: { branch_name: true },
         },
       },
-      orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
-      take: limit,
-      skip: offset,
     });
 
-    // ✅ Map and flatten all medicine data
-    let inventories = rawInventories.map((inv) => {
-      const supplierName = inv.stockMovements?.[0]?.purchaseInvoice?.supplier?.name || null;
-      const { stockMovements, ...rest } = inv;
-      
-      const status = this._calculateStockStatus(
-        rest.current_stock,
-        rest.minimum_stock,
-        {
-          min_stock_level: rest.medicine?.min_stock_level,
-          max_stock_level: rest.medicine?.max_stock_level,
-          reorder_point: rest.medicine?.reorder_point,
-        },
-        rest.is_expired,
-        rest.expiry_date
-      );
-      
-      return {
-        ...rest,
-        supplier_name: supplierName,
-        status,
-        // ✅ Flatten medicine data for easier frontend access
-        medicine_name: rest.medicine?.name,
-        medicine_manufacturer: rest.medicine?.manufacturer,
-        medicine_category: rest.medicine?.category,
-        medicine_sub_category: rest.medicine?.sub_category,
-        medicine_hsn_code: rest.medicine?.hsn_code,
-        medicine_pack_size: rest.medicine?.pack_size,
-        medicine_schedule: rest.medicine?.schedule,
-        medicine_rack_no: rest.medicine?.rack_no,
-        medicine_min_stock: rest.medicine?.min_stock_level,
-        medicine_max_stock: rest.medicine?.max_stock_level,
-        medicine_reorder_point: rest.medicine?.reorder_point,
-      };
-    });
+    if (!inventory) {
+      throw new ApiError("Inventory not found", 404, "NOT_FOUND");
+    }
 
-    // Apply low stock filter in memory
-    if (lowStock) {
-      inventories = inventories.filter(
-        (inv) => inv.status === "Low Stock" || inv.status === "Out of Stock"
+    const qtyIn = Number(quantityIn);
+    const qtyOut = Number(quantityOut);
+    const netQty = qtyIn - qtyOut;
+
+    const newStock = Number(inventory.current_stock) + netQty;
+
+    if (newStock < 0) {
+      throw new ApiError(
+        `Insufficient stock. Available: ${inventory.current_stock}, Requested: ${qtyOut}`,
+        400,
+        "INSUFFICIENT_STOCK"
       );
     }
 
-    const total = await prisma.inventory.count({ where });
+    const updatedInventory = await tx.inventory.update({
+      where: { inventory_id: inventoryId },
+      data: {
+        current_stock: newStock,
+        available_stock: newStock - Number(inventory.reserved_stock || 0),
+      },
+    });
 
-    return { inventories, total };
+    // ✅ FIX: Only set reference_id for PURCHASE_INVOICE (due to FK constraint)
+    // For other reference types (STOCK_ADJUSTMENT, etc.), reference_id must be null
+    const validReferenceId = referenceType === "PURCHASE_INVOICE" ? referenceId : null;
+
+    const ledgerEntry = await tx.stockLedger.create({
+      data: {
+        shop_id: shopId,
+        branch_id: branchId,
+        medicine_id: medicineId,
+        inventory_id: inventoryId,
+        movement_type: movementType,
+        reference_type: referenceType,
+        reference_id: validReferenceId,  // ✅ FIXED
+        reference_number: referenceNumber,  // Keep the ADJ-xxx reference number
+        batch_number: batchNumber,
+        expiry_date: inventory.expiry_date,
+        quantity_in: qtyIn,
+        quantity_out: qtyOut,
+        quantity_net: netQty,
+        balance_after: newStock,
+        rate: rate || null,
+        amount: rate ? Number(netQty) * Number(rate) : null,
+        transaction_date: transactionDate ? new Date(transactionDate) : new Date(),
+        created_by: userId,
+        remarks,
+      },
+    });
+
+    setImmediate(() => {
+      this.checkAndSendStockAlerts(
+        { ...updatedInventory, inventory_id: inventoryId },
+        inventory.medicine,
+        inventory.branch
+      );
+    });
+
+    const status = this._calculateStockStatus(
+      newStock,
+      inventory.minimum_stock,
+      {
+        min_stock_level: inventory.medicine?.min_stock_level,
+        max_stock_level: inventory.medicine?.max_stock_level,
+        reorder_point: inventory.medicine?.reorder_point,
+      },
+      inventory.is_expired,
+      inventory.expiry_date
+    );
+
+    return { 
+      inventory: { ...updatedInventory, status }, 
+      ledgerEntry 
+    };
+  });
+}
+
+  /* ============================================
+     ✅ GET INVENTORY LIST - COMPLETE WITH ALL FIELDS
+  ============================================ */
+  // backend/src/modules/inventory/inventory.service.js - FIX getInventory
+
+async getInventory(shopId, branchId, role, branchMode, filters = {}) {
+  const {
+    medicineId,
+    search,
+    includeExpired = false,
+    lowStock = false,
+    limit = 100,
+    offset = 0,
+  } = filters;
+
+  const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
+  const where = {
+    ...baseFilter,
+    ...(medicineId && { medicine_id: medicineId }),
+    is_active: true,
+    ...(!includeExpired && { is_expired: false }),
+    ...(search && {
+      OR: [
+        { medicine: { name: { contains: search, mode: "insensitive" } } },
+        { medicine: { manufacturer: { contains: search, mode: "insensitive" } } },
+        { batch_number: { contains: search, mode: "insensitive" } },
+      ],
+    }),
+  };
+
+  const rawInventories = await prisma.inventory.findMany({
+    where,
+    include: {
+      medicine: {
+        select: {
+          medicine_id: true,
+          name: true,
+          manufacturer: true,
+          pack_size: true,
+          hsn_code: true,
+          category: true,
+          sub_category: true,
+          schedule: true,
+          branch_id: true,
+          rack_no: true,
+          min_stock_level: true,
+          max_stock_level: true,
+          reorder_point: true,
+        },
+      },
+      branch: {
+        select: {
+          branch_id: true,
+          branch_name: true,
+        },
+      },
+      // ✅ FIXED: Get stock movements to find supplier
+      stockMovements: {
+        where: {
+          movement_type: "PURCHASE",
+          reference_type: "PURCHASE_INVOICE",
+        },
+        take: 1,
+        orderBy: {
+          transaction_date: 'desc',
+        },
+        select: {
+          reference_id: true, // Get the purchase invoice ID
+        },
+      },
+    },
+    orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
+    take: limit,
+    skip: offset,
+  });
+
+  // ✅ FIXED: Get supplier names in a separate query
+  // Extract unique purchase invoice IDs
+  const purchaseInvoiceIds = rawInventories
+    .flatMap(inv => inv.stockMovements.map(sm => sm.reference_id))
+    .filter(Boolean);
+
+  // Fetch purchase invoices with suppliers
+  const purchaseInvoices = purchaseInvoiceIds.length > 0
+    ? await prisma.purchaseInvoice.findMany({
+        where: {
+          invoice_id: { in: purchaseInvoiceIds },
+        },
+        select: {
+          invoice_id: true,
+          supplier: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      })
+    : [];
+
+  // Create a map for quick lookup
+  const supplierMap = new Map(
+    purchaseInvoices.map(inv => [inv.invoice_id, inv.supplier?.name])
+  );
+
+  // Map and flatten all medicine data
+  const inventories = rawInventories.map((inv) => {
+    // Get supplier name from the first stock movement
+    const firstMovementId = inv.stockMovements?.[0]?.reference_id;
+    const supplierName = firstMovementId ? supplierMap.get(firstMovementId) : null;
+    
+    const { stockMovements, ...rest } = inv;
+    
+    const status = this._calculateStockStatus(
+      rest.current_stock,
+      rest.minimum_stock,
+      {
+        min_stock_level: rest.medicine?.min_stock_level,
+        max_stock_level: rest.medicine?.max_stock_level,
+        reorder_point: rest.medicine?.reorder_point,
+      },
+      rest.is_expired,
+      rest.expiry_date
+    );
+    
+    return {
+      ...rest,
+      supplier_name: supplierName || null,
+      status,
+      // Flatten medicine data for easier frontend access
+      medicine_name: rest.medicine?.name,
+      medicine_manufacturer: rest.medicine?.manufacturer,
+      medicine_category: rest.medicine?.category,
+      medicine_sub_category: rest.medicine?.sub_category,
+      medicine_hsn_code: rest.medicine?.hsn_code,
+      medicine_pack_size: rest.medicine?.pack_size,
+      medicine_schedule: rest.medicine?.schedule,
+      medicine_rack_no: rest.medicine?.rack_no,
+      medicine_min_stock: rest.medicine?.min_stock_level,
+      medicine_max_stock: rest.medicine?.max_stock_level,
+      medicine_reorder_point: rest.medicine?.reorder_point,
+    };
+  });
+
+  // Apply low stock filter in memory
+  let filteredInventories = inventories;
+  if (lowStock) {
+    filteredInventories = inventories.filter(
+      (inv) => inv.status === "Low Stock" || inv.status === "Out of Stock"
+    );
   }
+
+  const total = await prisma.inventory.count({ where });
+
+  return { inventories: filteredInventories, total };
+}
 
   /* ============================================
      GET INVENTORY BY MEDICINE

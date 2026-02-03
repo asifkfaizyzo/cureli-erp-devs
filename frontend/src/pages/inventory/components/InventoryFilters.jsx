@@ -1,7 +1,7 @@
 // src/pages/inventory/components/InventoryFilters.jsx
 
 import React, { useRef, useMemo } from "react";
-import { Search, Filter, X, Package, AlertTriangle, Clock } from "lucide-react";
+import { Search, Filter, X, Package, AlertTriangle, Clock, Plus } from "lucide-react";
 import StyledSelect from "../../../components/common/StyledSelect";
 
 const InventoryFilters = ({ 
@@ -11,6 +11,7 @@ const InventoryFilters = ({
   categories = [],
   branches = [],
   showBranchFilter = false,
+  onAddMedicine,  // ✅ NEW: Callback to open add medicine modal
 }) => {
   const searchInputRef = useRef(null);
 
@@ -187,6 +188,17 @@ const InventoryFilters = ({
           >
             <X size={14} />
             <span className="hidden sm:inline">Clear All</span>
+          </button>
+        )}
+
+        {/* ✅ NEW: Add Medicine Button */}
+        {onAddMedicine && (
+          <button
+            onClick={onAddMedicine}
+            className="h-10 px-4 flex items-center gap-2 text-sm font-medium text-white bg-[#05015A] hover:bg-[#0a0280] rounded-lg transition-all shadow-sm ml-auto"
+          >
+            <Plus size={16} />
+            <span>Add Medicine</span>
           </button>
         )}
       </div>

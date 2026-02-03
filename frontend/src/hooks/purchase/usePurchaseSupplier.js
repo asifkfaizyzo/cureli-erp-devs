@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 
 const STORAGE_KEY = 'cureli_purchase_supplier';
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2; // ✅ Incremented version for new fields
 
 const DEFAULT_SUPPLIERS = [
   { id: 1, name: "ABC Pharma Ltd", gst: "27AABCA1234C1Z5", phone: "+91 98765 43210", address: "Mumbai, MH" },
@@ -23,6 +23,7 @@ const getDefaultSupplier = () => ({
   supplierPhone: "",
   creditDays: "30",
   amountPaid: "",
+  paymentMode: "", // ✅ NEW: Payment mode field
   balance: "0.00",
   address: "",
 });
@@ -37,7 +38,9 @@ const loadFromStorage = () => {
     
     const parsed = JSON.parse(stored);
     
+    // ✅ UPDATED: Check version compatibility
     if (parsed.version !== STORAGE_VERSION) {
+      console.log('📦 Storage version mismatch, clearing old data');
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
@@ -48,11 +51,18 @@ const loadFromStorage = () => {
     const hoursDiff = (now - savedAt) / (1000 * 60 * 60);
     
     if (hoursDiff > 24) {
+      console.log('📦 Storage expired, clearing old data');
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
     
-    return parsed.supplier;
+    // ✅ NEW: Ensure new fields exist with defaults
+    const supplier = {
+      ...getDefaultSupplier(),
+      ...parsed.supplier,
+    };
+    
+    return supplier;
   } catch (error) {
     console.error('Failed to load supplier from storage:', error);
     localStorage.removeItem(STORAGE_KEY);
@@ -112,6 +122,17 @@ export const usePurchaseSupplier = (total = 0) => {
     });
   }, [total, supplier.amountPaid]);
 
+  // ✅ NEW: Auto-set payment mode to CASH if amount is paid but mode is not selected
+  useEffect(() => {
+    const paid = parseFloat(supplier.amountPaid) || 0;
+    if (paid > 0 && !supplier.paymentMode) {
+      setSupplier(prev => ({
+        ...prev,
+        paymentMode: "CASH" // Default to CASH if not specified
+      }));
+    }
+  }, [supplier.amountPaid, supplier.paymentMode]);
+
   // Debounced save to localStorage
   useEffect(() => {
     if (!isInitialized) return;
@@ -155,12 +176,23 @@ export const usePurchaseSupplier = (total = 0) => {
     if (!supplier.supplier_id) {
       errors.push("Please select a valid supplier from the list");
     }
+
+    // ✅ NEW: Validate payment mode if amount is paid
+    const paid = parseFloat(supplier.amountPaid) || 0;
+    if (paid > 0 && !supplier.paymentMode) {
+      errors.push("Payment mode is required when amount is paid");
+    }
+
+    // ✅ NEW: Validate amount paid doesn't exceed total
+    if (paid > total) {
+      errors.push(`Amount paid (₹${paid.toFixed(2)}) cannot exceed total amount (₹${total.toFixed(2)})`);
+    }
     
     return {
       isValid: errors.length === 0,
       errors,
     };
-  }, [supplier]);
+  }, [supplier, total]);
 
   /**
    * Reset supplier to default state
@@ -177,6 +209,46 @@ export const usePurchaseSupplier = (total = 0) => {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  /**
+   * ✅ NEW: Update a single field
+   */
+  const updateField = useCallback((field, value) => {
+    setSupplier(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  }, []);
+
+  /**
+   * ✅ NEW: Get payment status summary
+   */
+  const getPaymentStatus = useCallback(() => {
+    const paid = parseFloat(supplier.amountPaid) || 0;
+    const balance = parseFloat(supplier.balance) || 0;
+    
+    if (paid === 0) {
+      return {
+        status: 'UNPAID',
+        statusText: 'Unpaid',
+        color: 'red',
+      };
+    }
+    
+    if (balance === 0) {
+      return {
+        status: 'PAID',
+        statusText: 'Fully Paid',
+        color: 'green',
+      };
+    }
+    
+    return {
+      status: 'PARTIALLY_PAID',
+      statusText: 'Partially Paid',
+      color: 'yellow',
+    };
+  }, [supplier.amountPaid, supplier.balance]);
+
   return {
     supplier,
     setSupplier,
@@ -186,6 +258,8 @@ export const usePurchaseSupplier = (total = 0) => {
     validateSupplier,
     resetSupplier,
     clearStoredData,
+    updateField, // ✅ NEW
+    getPaymentStatus, // ✅ NEW
     isInitialized,
   };
 };
