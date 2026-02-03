@@ -696,8 +696,8 @@ const ShopDetailsModal = ({
               {/* Left: Meta Info */}
               <p className="text-xs text-gray-400">
                 Shop ID:{" "}
-                {shop?.shop_id?.slice(0, 8) || basicShop?.shop_id?.slice(0, 8)}
-                ... •
+                {shop?.shop_id || basicShop?.shop_id?.slice(0, 8)}
+                 •
                 {isEditing ? (
                   <span>
                     {" "}

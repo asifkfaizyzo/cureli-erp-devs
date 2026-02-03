@@ -716,7 +716,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
               {/* Left: User Meta Info */}
               <p className="text-xs text-gray-400">
                 User ID:{" "}
-                {user?.user_id?.slice(0, 8) || basicUser?.id?.slice(0, 8)}... •
+                {user?.user_id || basicUser?.id} •
                 Last login:{" "}
                 {user?.last_login_at
                   ? new Date(user.last_login_at).toLocaleDateString()
