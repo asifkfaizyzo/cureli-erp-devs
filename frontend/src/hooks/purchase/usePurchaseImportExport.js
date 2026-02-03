@@ -29,7 +29,7 @@ const mapHeaderToKey = (h) => {
     // === Product Name - CRITICAL ===
     description: "name", product: "name", name: "name", 
     itemname: "name", itemdescription: "name", 
-    itemname2: "name2", // Keep itemname2 separate
+    itemname2: "name2",
     particulars: "name", productname: "name",
     item: "name", productdesc: "name", desc: "name",
     
@@ -61,10 +61,17 @@ const mapHeaderToKey = (h) => {
     // === Pricing ===
     mrp: "mrp", itemmrp: "mrp", maximumretailprice: "mrp", vatmrp: "mrp",
     price: "price", rate: "price", purchaserate: "price", 
-    ptr: "price", salerate: "price", purrate: "price",
-    srate: "sRate", sellingrate: "sRate", selrate: "sRate",salerate:"sRate", 
+    ptr: "price", purrate: "price",
+    
+    // ✅ FIXED: sRate mapping - REMOVED loclsale (it's a flag, not a rate)
+    srate: "sRate", 
+    sellingrate: "sRate", 
+    selrate: "sRate", 
+    salerate: "sRate",        // ✅ This is the correct selling rate
+    // loclsale: "sRate",     // ❌ REMOVED - This is a flag (0/1), not a rate!
+    
+    // === Net Rate ===
     netrate: "netRate", net: "netRate", nrate: "netRate",
-    loclsale: "sRate",
     
     // === Discount Percentages ===
     "sch%": "schemePercent", schemepercent: "schemePercent", schpercent: "schemePercent",
@@ -96,6 +103,9 @@ const mapHeaderToKey = (h) => {
     
     // === Conversion Factor ===
     convfact: "conversionFactor", cf: "conversionFactor",
+    
+    // === Local Sale Flag (NOT a rate!) ===
+    loclsale: "localSaleFlag",  // ✅ Map to separate field, it's a 0/1 flag
   };
   
   return map[key] || null;

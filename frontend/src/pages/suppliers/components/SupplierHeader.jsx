@@ -55,7 +55,7 @@ const SupplierHeader = ({ filters, onChange, onReset, onAdd }) => {
           </button>
           <button
             onClick={onAdd}
-            className="flex items-center gap-1.5 h-7 px-4 bg-indigo-600 text-white text-xs font-semibold rounded-lg shadow-sm hover:bg-indigo-700 transition-all"
+            className="flex items-center gap-1.5 h-7 px-4 bg-[#000060] text-white text-xs font-semibold rounded-lg shadow-sm hover:bg-[#2626b0] transition-all"
           >
             <Plus size={12} />
             Add Supplier

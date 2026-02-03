@@ -884,16 +884,16 @@ model PurchaseInvoice {
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
   // Relations
-  shop           Shop                  @relation("ShopPurchaseInvoices", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-  branch         Branch?               @relation("BranchPurchaseInvoices", fields: [branch_id], references: [branch_id])
-  supplier       Supplier              @relation("SupplierPurchaseInvoices", fields: [supplier_id], references: [supplier_id])
-  creator        User                  @relation("PurchaseInvoiceCreator", fields: [created_by], references: [user_id])
-  confirmer      User?                 @relation("PurchaseInvoiceConfirmer", fields: [confirmed_by], references: [user_id])
-  parentInvoice  PurchaseInvoice?      @relation("PurchaseReturns", fields: [parent_invoice_id], references: [invoice_id])
-  returnInvoices PurchaseInvoice[]     @relation("PurchaseReturns")
-  lineItems      PurchaseInvoiceItem[] @relation("InvoiceLineItems")
-  payments       PurchasePayment[]     @relation("InvoicePayments")
-  stockMovements StockLedger[]         @relation("PurchaseStockMovements")
+  shop               Shop                  @relation("ShopPurchaseInvoices", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  branch             Branch?               @relation("BranchPurchaseInvoices", fields: [branch_id], references: [branch_id])
+  supplier           Supplier              @relation("SupplierPurchaseInvoices", fields: [supplier_id], references: [supplier_id])
+  creator            User                  @relation("PurchaseInvoiceCreator", fields: [created_by], references: [user_id])
+  confirmer          User?                 @relation("PurchaseInvoiceConfirmer", fields: [confirmed_by], references: [user_id])
+  parentInvoice      PurchaseInvoice?      @relation("PurchaseReturns", fields: [parent_invoice_id], references: [invoice_id])
+  returnInvoices     PurchaseInvoice[]     @relation("PurchaseReturns")
+  lineItems          PurchaseInvoiceItem[] @relation("InvoiceLineItems")
+  payments           PurchasePayment[]     @relation("InvoicePayments")
+  stockLedgerEntries StockLedger[]         @relation("StockLedgerPurchaseInvoice") // ✅ ADD THIS
 
   // Indexes
   @@unique([shop_id, invoice_number])
@@ -905,7 +905,6 @@ model PurchaseInvoice {
   @@index([created_at])
   @@map("purchase_invoices")
 }
-
 model PurchaseInvoiceItem {
   item_id String @id @default(uuid()) @db.Uuid
 
@@ -1015,6 +1014,10 @@ model PurchasePayment {
 // PHARMACY: INVENTORY MANAGEMENT
 // ============================================
 
+// ============================================
+// PHARMACY: INVENTORY MANAGEMENT
+// ============================================
+
 model Inventory {
   inventory_id String @id @default(uuid()) @db.Uuid
 
@@ -1104,7 +1107,8 @@ model StockLedger {
   medicine        Medicine         @relation("MedicineStockLedger", fields: [medicine_id], references: [medicine_id])
   inventory       Inventory        @relation("InventoryStockMovements", fields: [inventory_id], references: [inventory_id])
   creator         User             @relation("StockLedgerCreator", fields: [created_by], references: [user_id])
-  purchaseInvoice PurchaseInvoice? @relation("PurchaseStockMovements", fields: [reference_id], references: [invoice_id])
+  // ✅ ADD THIS: Optional relation to PurchaseInvoice (only when reference_type is PURCHASE_INVOICE)
+  purchaseInvoice PurchaseInvoice? @relation("StockLedgerPurchaseInvoice", fields: [reference_id], references: [invoice_id], onDelete: SetNull)
 
   // Indexes
   @@index([shop_id, medicine_id, transaction_date])

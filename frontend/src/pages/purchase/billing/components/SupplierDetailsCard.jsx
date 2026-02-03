@@ -15,7 +15,8 @@ import {
   Hash,
   Plus,
   Phone,
-  AlertCircle
+  AlertCircle,
+  CreditCard  // ✅ ADDED
 } from "lucide-react";
 
 // ============================================
@@ -482,10 +483,16 @@ const SupplierDetailsCard = ({
   suppliersList = [], 
   onSupplierSelect,
   onAddNewSupplier,
+  onFieldChange, // ✅ Prop for field changes
   isLoading = false
 }) => {
+  // ✅ UPDATED: Use onFieldChange if provided, otherwise update directly
   const updateField = (field, value) => {
-    setSupplier(prev => ({ ...prev, [field]: value }));
+    if (onFieldChange) {
+      onFieldChange(field, value);
+    } else {
+      setSupplier(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const formatDateForInput = (dateString) => {
@@ -496,15 +503,16 @@ const SupplierDetailsCard = ({
 
   const handleSupplierSelect = (selectedSupplier) => {
     if (selectedSupplier) {
-      setSupplier(prev => ({
-        ...prev,
-        supplier_id: selectedSupplier.supplier_id,
+      const updates = {
+        supplier_id: selectedSupplier.supplier_id || selectedSupplier.id,
         supplierName: selectedSupplier.name,
         supplierGST: selectedSupplier.gstNumber || selectedSupplier.gst || "",
         supplierPhone: selectedSupplier.officePhone || selectedSupplier.personalPhone || "",
         address: selectedSupplier.address || "",
-      }));
+      };
 
+      // Update all fields at once
+      setSupplier(prev => ({ ...prev, ...updates }));
       onSupplierSelect?.(selectedSupplier);
     }
   };
@@ -535,9 +543,9 @@ const SupplierDetailsCard = ({
             ))}
           </div>
 
-          {/* Row 2 */}
-          <div className="grid grid-cols-5 gap-3">
-            {[0, 1, 2, 3, 4].map((i) => (
+          {/* Row 2 - 6 columns */}
+          <div className="grid grid-cols-6 gap-3">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
               <SkeletonInput key={`row2-${i}`} delay={(i + 5) * 50} />
             ))}
           </div>
@@ -632,8 +640,8 @@ const SupplierDetailsCard = ({
           />
         </div>
 
-        {/* Row 2 */}
-        <div className="grid grid-cols-5 gap-3">
+        {/* Row 2 - ✅ UPDATED to 6 columns */}
+        <div className="grid grid-cols-6 gap-3">
           <AnimatedInput
             label="Supplier GST"
             value={supplier.supplierGST}
@@ -661,6 +669,49 @@ const SupplierDetailsCard = ({
             icon={Clock}
             suffix="days"
           />
+
+          {/* ✅ NEW: Payment Mode Select */}
+          <div className="relative">
+            <label 
+              className={`
+                absolute left-3 transition-all duration-200 pointer-events-none z-10
+                ${supplier.paymentMode 
+                  ? '-top-2 text-[9px] bg-white px-1 font-semibold text-indigo-600' 
+                  : 'top-1/2 -translate-y-1/2 text-[10px] text-gray-500'
+                }
+                left-8
+              `}
+            >
+              Payment Mode
+            </label>
+            
+            <div className={`
+              absolute left-2.5 top-1/2 -translate-y-1/2 transition-colors duration-200
+              ${supplier.paymentMode ? 'text-indigo-500' : 'text-gray-400'}
+            `}>
+              <CreditCard size={14} strokeWidth={1.5} />
+            </div>
+            
+            <select
+              value={supplier.paymentMode || ""}
+              onChange={(e) => updateField("paymentMode", e.target.value)}
+              className={`
+                w-full h-9 pl-8 pr-3 text-[11px] rounded-lg border transition-all duration-200 outline-none
+                ${supplier.paymentMode
+                  ? 'border-indigo-400 ring-2 ring-indigo-100 bg-white font-medium'
+                  : 'border-gray-200 bg-white hover:border-gray-300'
+                }
+              `}
+            >
+              <option value="">Select...</option>
+              <option value="CASH">💵 Cash</option>
+              <option value="CARD">💳 Card</option>
+              <option value="UPI">📱 UPI</option>
+              <option value="CHEQUE">📝 Cheque</option>
+              <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
+              <option value="CREDIT">📋 Credit</option>
+            </select>
+          </div>
           
           <AnimatedInput
             label="Amount Paid"
@@ -671,6 +722,7 @@ const SupplierDetailsCard = ({
             icon={Wallet}
             prefix="₹"
             inputClassName="font-semibold text-green-700"
+            success={parseFloat(supplier.amountPaid) > 0}
           />
 
           <AnimatedInput

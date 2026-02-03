@@ -29,6 +29,7 @@ export const createPurchaseInvoiceSchema = z.object({
   due_date: z.string().datetime().optional().nullable(),
   received_date: z.string().datetime().optional().nullable(),
   payment_mode: z.enum(["CASH", "CARD", "UPI", "CHEQUE", "BANK_TRANSFER", "CREDIT"]).optional().nullable(),
+  paid_amount: z.number().min(0).optional().nullable(), // ✅ ADD THIS
   transport_charges: z.number().min(0).optional().nullable(),
   other_charges: z.number().min(0).optional().nullable(),
   remarks: z.string().max(500).optional().nullable(),
@@ -41,6 +42,7 @@ export const updatePurchaseInvoiceSchema = z.object({
   due_date: z.string().datetime().optional().nullable(),
   received_date: z.string().datetime().optional().nullable(),
   payment_mode: z.enum(["CASH", "CARD", "UPI", "CHEQUE", "BANK_TRANSFER", "CREDIT"]).optional().nullable(),
+  paid_amount: z.number().min(0).optional().nullable(), // ✅ ADD THIS
   transport_charges: z.number().min(0).optional().nullable(),
   other_charges: z.number().min(0).optional().nullable(),
   remarks: z.string().max(500).optional().nullable(),

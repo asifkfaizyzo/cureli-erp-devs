@@ -1,7 +1,13 @@
 // src/pages/purchase/billing/PurchasePage.jsx
 import { useRef, useCallback, useState, useEffect } from "react";
 import { useReactToPrint } from "react-to-print";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  Shield,
+  AlertTriangle,
+  ArrowLeft,
+  RefreshCw,
+} from "lucide-react";
 
 // Components
 import PurchaseHeader from "./components/PurchaseHeader";
@@ -21,6 +27,7 @@ import { usePurchaseImportExport } from "../../../hooks/purchase/usePurchaseImpo
 import { usePurchaseSupplier } from "../../../hooks/purchase/usePurchaseSupplier";
 import { usePurchaseAPI } from "../../../hooks/purchase/usePurchaseAPI";
 import { useToast } from "../../../components/common/Toast";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import { useAuthStore, selectBranchContext } from "../../../store/useAuthStore";
 
 // Styles
@@ -39,10 +46,32 @@ const PurchasePage = () => {
   const toast = useToast();
   const navigate = useNavigate();
   const { invoiceId } = useParams();
+  
+  // ✅ NEW: Get search params to detect edit-confirmed mode
+  const [searchParams] = useSearchParams();
+  const editMode = searchParams.get('mode');
+  const isEditingConfirmed = editMode === 'edit-confirmed';
+  const isEditMode = !!invoiceId;
+
   const printRef = useRef(null);
 
-  // Get branch context
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    type: 'danger',
+    title: '',
+    message: '',
+    confirmText: '',
+    onConfirm: () => {},
+  });
+
+  const closeConfirmDialog = useCallback(() => {
+    setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+  }, []);
+
+  // Get branch context and user info
   const branchContext = useAuthStore(selectBranchContext);
+  const user = useAuthStore(state => state.user);
+  const isSuperAdmin = user?.role === "super_admin";
 
   // ============================================
   // API INTEGRATION
@@ -86,6 +115,9 @@ const PurchasePage = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
 
+  // ✅ NEW: Track original invoice data for comparison
+  const [originalInvoiceData, setOriginalInvoiceData] = useState(null);
+
   // Initialize with branch context
   const [invoiceData, setInvoiceData] = useState({
     invoice_date: new Date().toISOString().split('T')[0],
@@ -100,7 +132,7 @@ const PurchasePage = () => {
   // Get responsive config
   const { visibleRows, rowHeight } = useResponsiveRowCount();
 
-  // Custom Hooks - ✅ UPDATED: Now with persistence
+  // Custom Hooks
   const { 
     rows, 
     setRows, 
@@ -139,6 +171,14 @@ const PurchasePage = () => {
     medicines
   );
 
+  // ✅ NEW: Security check - redirect if not super admin trying to edit confirmed
+  useEffect(() => {
+    if (isEditingConfirmed && !isSuperAdmin) {
+      toast.error("Access Denied", "Only Super Admin can edit confirmed invoices.");
+      navigate('/purchase/invoice');
+    }
+  }, [isEditingConfirmed, isSuperAdmin, navigate, toast]);
+
   // Update branch_id when context changes
   useEffect(() => {
     if (branchContext.branch_id) {
@@ -175,6 +215,12 @@ const PurchasePage = () => {
         if (invoiceId) {
           setLoadingStates(prev => ({ ...prev, table: true, supplier: true, summary: true }));
           const invoice = await loadInvoiceForEdit(invoiceId);
+          
+          // ✅ NEW: Store original data for confirmed invoice editing
+          if (isEditingConfirmed) {
+            setOriginalInvoiceData(JSON.parse(JSON.stringify(invoice)));
+          }
+          
           populateInvoiceData(invoice);
           setLoadingStates(prev => ({ ...prev, table: false, supplier: false, summary: false }));
         }
@@ -187,11 +233,17 @@ const PurchasePage = () => {
           supplier: false,
           summary: false,
         });
+        
+        // ✅ NEW: Handle error for confirmed invoice edit
+        if (isEditingConfirmed) {
+          toast.error("Load Failed", "Failed to load confirmed invoice for editing.");
+          navigate('/purchase/invoice');
+        }
       }
     };
 
     initData();
-  }, [invoiceId]); // eslint-disable-line
+  }, [invoiceId, isEditingConfirmed]); // eslint-disable-line
 
   // ============================================
   // UPDATE SUPPLIERS LIST WHEN API LOADS
@@ -310,44 +362,157 @@ const PurchasePage = () => {
   });
 
   // ============================================
-  // ✅ NEW: CLEAR TABLE HANDLER
+  // CLEAR TABLE HANDLER
   // ============================================
   const handleClearTable = useCallback(() => {
-    clearAllRows();
-    toast.info("Table Cleared", "All items have been removed.");
-  }, [clearAllRows, toast]);
+    const hasData = hasUnsavedData();
+    
+    if (hasData) {
+      setConfirmDialog({
+        isOpen: true,
+        type: 'danger',
+        title: 'Clear All Items?',
+        message: (
+          <div className="space-y-2">
+            <p>Are you sure you want to clear all items from the table?</p>
+            <p className="text-sm text-red-600 font-medium">
+              This action cannot be undone.
+            </p>
+          </div>
+        ),
+        confirmText: 'Clear All',
+        onConfirm: () => {
+          clearAllRows();
+          closeConfirmDialog();
+          toast.info("Table Cleared", "All items have been removed.");
+        },
+      });
+    } else {
+      clearAllRows();
+      toast.info("Table Cleared", "All items have been removed.");
+    }
+  }, [clearAllRows, toast, hasUnsavedData, closeConfirmDialog]);
 
   // ============================================
-  // ✅ NEW: NEW INVOICE HANDLER
+  // NEW INVOICE HANDLER
   // ============================================
   const handleNewInvoice = useCallback(() => {
-    // Clear all data
-    clearAllRows();
-    resetSupplier();
-    clearSupplierStorage();
-    resetInvoice();
+    const hasData = hasUnsavedData();
     
-    // Reset invoice data
-    setInvoiceData({
-      invoice_date: new Date().toISOString().split('T')[0],
-      branch_id: branchContext.branch_id || null,
-      due_date: null,
-      received_date: null,
-      transport_charges: null,
-      other_charges: null,
-      remarks: null,
-    });
-    
-    // Navigate to clean URL if we were editing
-    if (invoiceId) {
-      navigate('/purchase/billing');
+    if (hasData || currentInvoice?.invoice_number) {
+      setConfirmDialog({
+        isOpen: true,
+        type: 'warning',
+        title: 'Start New Invoice?',
+        message: (
+          <div className="space-y-2">
+            <p>Are you sure you want to start a new invoice?</p>
+            {hasData && (
+              <p className="text-sm text-amber-600 font-medium">
+                You have unsaved changes that will be lost.
+              </p>
+            )}
+            {currentInvoice?.invoice_number && (
+              <p className="text-sm text-gray-500">
+                Current invoice: <span className="font-mono font-medium">{currentInvoice.invoice_number}</span>
+              </p>
+            )}
+          </div>
+        ),
+        confirmText: 'Start New',
+        onConfirm: () => {
+          clearAllRows();
+          resetSupplier();
+          clearSupplierStorage();
+          resetInvoice();
+          setOriginalInvoiceData(null);
+          
+          setInvoiceData({
+            invoice_date: new Date().toISOString().split('T')[0],
+            branch_id: branchContext.branch_id || null,
+            due_date: null,
+            received_date: null,
+            transport_charges: null,
+            other_charges: null,
+            remarks: null,
+          });
+          
+          closeConfirmDialog();
+          
+          if (invoiceId) {
+            navigate('/purchase/billing');
+          }
+          
+          toast.success("New Invoice", "Ready to create a new purchase invoice.");
+        },
+      });
+    } else {
+      clearAllRows();
+      resetSupplier();
+      clearSupplierStorage();
+      resetInvoice();
+      setOriginalInvoiceData(null);
+      
+      setInvoiceData({
+        invoice_date: new Date().toISOString().split('T')[0],
+        branch_id: branchContext.branch_id || null,
+        due_date: null,
+        received_date: null,
+        transport_charges: null,
+        other_charges: null,
+        remarks: null,
+      });
+      
+      if (invoiceId) {
+        navigate('/purchase/billing');
+      }
+      
+      toast.success("New Invoice", "Ready to create a new purchase invoice.");
     }
-    
-    toast.success("New Invoice", "Ready to create a new purchase invoice.");
-  }, [clearAllRows, resetSupplier, clearSupplierStorage, resetInvoice, branchContext.branch_id, invoiceId, navigate, toast]);
+  }, [
+    hasUnsavedData, 
+    currentInvoice, 
+    clearAllRows, 
+    resetSupplier, 
+    clearSupplierStorage, 
+    resetInvoice, 
+    branchContext.branch_id, 
+    invoiceId, 
+    navigate, 
+    toast,
+    closeConfirmDialog
+  ]);
 
   // ============================================
-  // SAVE HANDLER (DRAFT)
+  // ✅ NEW: BACK TO INVOICE LIST HANDLER
+  // ============================================
+  const handleBackToList = useCallback(() => {
+    if (hasUnsavedData()) {
+      setConfirmDialog({
+        isOpen: true,
+        type: 'warning',
+        title: 'Unsaved Changes',
+        message: (
+          <div className="space-y-2">
+            <p>You have unsaved changes. Are you sure you want to leave?</p>
+            <p className="text-sm text-amber-600 font-medium">
+              All changes will be lost.
+            </p>
+          </div>
+        ),
+        confirmText: 'Leave Anyway',
+        onConfirm: () => {
+          closeConfirmDialog();
+          navigate('/purchase/invoice');
+        },
+      });
+    } else {
+      navigate('/purchase/invoice');
+    }
+  }, [hasUnsavedData, navigate, closeConfirmDialog]);
+
+  // ============================================
+  // SAVE HANDLER (DRAFT) - Updated for Confirmed Edit
   // ============================================
   const handleSave = useCallback(async () => {
     const dataRows = getFilledRows();
@@ -367,6 +532,69 @@ const PurchasePage = () => {
       return false;
     }
 
+    // ✅ NEW: Show confirmation for editing confirmed invoice
+    if (isEditingConfirmed) {
+      return new Promise((resolve) => {
+        setConfirmDialog({
+          isOpen: true,
+          type: 'warning',
+          title: 'Save Changes to Confirmed Invoice',
+          message: (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <Shield className="text-amber-600 shrink-0 mt-0.5" size={20} />
+                <div>
+                  <p className="font-semibold text-amber-800">Super Admin Action</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    You are saving changes to a confirmed invoice.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                <p className="text-sm text-red-800 font-medium flex items-center gap-2">
+                  <AlertTriangle size={16} />
+                  Stock Adjustment Warning
+                </p>
+                <ul className="text-xs text-red-700 mt-2 list-disc list-inside space-y-1">
+                  <li>Current stock from this invoice will be <strong>reversed</strong></li>
+                  <li>New stock based on updated quantities will be <strong>added</strong></li>
+                  <li>This action is <strong>logged in audit trail</strong></li>
+                  <li>Inventory levels will be <strong>recalculated</strong></li>
+                </ul>
+              </div>
+
+              <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded border">
+                <p className="font-medium text-gray-900">Invoice: {currentInvoice?.invoice_number}</p>
+                <p>Original Items: {originalInvoiceData?.lineItems?.length || 0}</p>
+                <p>Updated Items: {dataRows.length}</p>
+              </div>
+            </div>
+          ),
+          confirmText: 'Save Changes',
+          onConfirm: async () => {
+            closeConfirmDialog();
+            await performSave(dataRows);
+            resolve(true);
+          },
+        });
+      });
+    }
+
+    return await performSave(dataRows);
+  }, [
+    getFilledRows, 
+    validateSupplier, 
+    invoiceData.branch_id, 
+    isEditingConfirmed, 
+    currentInvoice, 
+    originalInvoiceData, 
+    toast,
+    closeConfirmDialog
+  ]);
+
+  // ✅ NEW: Extracted save logic
+  const performSave = useCallback(async (dataRows) => {
     setIsSaving(true);
     try {
       const savedInvoice = await savePurchaseInvoice(invoiceData, dataRows, supplier);
@@ -375,6 +603,19 @@ const PurchasePage = () => {
           ...prev,
           purchaseId: savedInvoice.invoice_number,
         }));
+        
+        // ✅ NEW: Show success message for confirmed invoice edit
+        if (isEditingConfirmed) {
+          toast.success(
+            "Invoice Updated",
+            `Confirmed invoice ${savedInvoice.invoice_number} has been updated. Stock levels adjusted.`
+          );
+          // Navigate back to invoice list after successful update
+          setTimeout(() => {
+            navigate('/purchase/invoice');
+          }, 1500);
+        }
+        
         return true;
       }
       return false;
@@ -383,12 +624,21 @@ const PurchasePage = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [getFilledRows, validateSupplier, savePurchaseInvoice, invoiceData, supplier, toast, setSupplier]);
+  }, [savePurchaseInvoice, invoiceData, supplier, setSupplier, isEditingConfirmed, toast, navigate]);
 
   // ============================================
   // SAVE & PRINT HANDLER (CONFIRM + STOCK UPDATE)
   // ============================================
   const handleSavePrint = useCallback(async () => {
+    // ✅ NEW: Disable Save & Print for confirmed invoice editing
+    if (isEditingConfirmed) {
+      toast.warning(
+        "Not Available",
+        "Save & Print is not available when editing confirmed invoices. Use 'Save' to update."
+      );
+      return;
+    }
+
     const dataRows = getFilledRows();
     if (dataRows.length === 0) {
       toast.warning("Please add at least one item to print");
@@ -427,7 +677,18 @@ const PurchasePage = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [getFilledRows, currentInvoice, savePurchaseInvoice, confirmPurchaseInvoice, invoiceData, supplier, toast, handlePrint, setSupplier]);
+  }, [
+    isEditingConfirmed,
+    getFilledRows, 
+    currentInvoice, 
+    savePurchaseInvoice, 
+    confirmPurchaseInvoice, 
+    invoiceData, 
+    supplier, 
+    toast, 
+    handlePrint, 
+    setSupplier
+  ]);
 
   // ============================================
   // EXPORT HANDLER
@@ -440,9 +701,14 @@ const PurchasePage = () => {
   // SUPPLIER MODAL HANDLERS
   // ============================================
   const handleAddNewSupplier = useCallback((supplierName) => {
+    // ✅ NEW: Disable adding new supplier when editing confirmed invoice
+    if (isEditingConfirmed) {
+      toast.warning("Not Allowed", "Cannot change supplier when editing a confirmed invoice.");
+      return;
+    }
     setNewSupplierName(supplierName);
     setSupplierModalOpen(true);
-  }, []);
+  }, [isEditingConfirmed, toast]);
 
   const handleSupplierSave = useCallback(
     async (newSupplierData) => {
@@ -478,153 +744,93 @@ const PurchasePage = () => {
   );
 
   // ============================================
-  // PRODUCT MODAL HANDLERS - ✅ FIXED HSN FLOW
+  // PRODUCT MODAL HANDLERS
   // ============================================
   const handleAddNewProduct = useCallback((productData) => {
-  console.log('📝 handleAddNewProduct called:', productData);
-  setPendingProductData(productData);
-  setProductModalOpen(true);
-}, []);
+    console.log('📝 handleAddNewProduct called:', productData);
+    setPendingProductData(productData);
+    setProductModalOpen(true);
+  }, []);
 
-const handleProductSave = useCallback(
-  async (newProductData) => {
-    try {
-      console.log('📤 handleProductSave - Input data:', newProductData);
-      
-      // ✅ FIXED: Pass ALL fields to createMedicine
-      const createdMedicine = await createMedicine({
-        name: newProductData.name,
-        manufacturer: newProductData.manufacturer,
-        genericName: newProductData.genericName,      // ✅ Already present
-        category: newProductData.category,            // ✅ Already present
-        subCategory: newProductData.subCategory,      // ✅ ADD THIS
-        schedule: newProductData.schedule,            // ✅ ADD THIS
-        hsnCode: newProductData.hsnCode,
-        packSize: newProductData.packSize,
-        rackNo: newProductData.rackNo,
-        gst: newProductData.gst,
-        cgstPercent: newProductData.cgstPercent,
-        sgstPercent: newProductData.sgstPercent,
-      });
-
-      console.log('✅ handleProductSave - Created medicine:', createdMedicine);
-
-      if (createdMedicine && pendingProductData) {
-        const { rowIndex } = pendingProductData;
+  const handleProductSave = useCallback(
+    async (newProductData) => {
+      try {
+        console.log('📤 handleProductSave - Input data:', newProductData);
         
-        setRows((prev) => {
-          const newRows = [...prev];
-          
-          // ✅ FIXED: Map all fields properly with multiple fallbacks
-          const updatedRow = {
-            ...newRows[rowIndex],
-            medicine_id: createdMedicine.medicine_id || createdMedicine.id,
-            name: createdMedicine.name,
-            mfac: createdMedicine.manufacturer || createdMedicine.mfac,
-            hsn: createdMedicine.hsn || 
-                 createdMedicine.hsnCode || 
-                 createdMedicine.hsn_code || 
-                 newProductData.hsnCode || 
-                 '',
-            rack: createdMedicine.rack || 
-                  createdMedicine.rackNo || 
-                  createdMedicine.rack_no || 
-                  newProductData.rackNo || 
-                  '',
-            // ✅ FIXED: Pack - ensure we check response AND fallback to input
-            pack: createdMedicine.pack || 
-                  createdMedicine.packSize || 
-                  createdMedicine.pack_size || 
-                  newProductData.packSize || 
-                  '',
-            cgstPercent: createdMedicine.cgstPercent?.toString() || 
-                         createdMedicine.cgst_percentage?.toString() || 
-                         newProductData.cgstPercent?.toString() || 
-                         "6",
-            sgstPercent: createdMedicine.sgstPercent?.toString() || 
-                         createdMedicine.sgst_percentage?.toString() || 
-                         newProductData.sgstPercent?.toString() || 
-                         "6",
-          };
-          
-          console.log('📝 Updated row with pack:', {
-            medicine_id: updatedRow.medicine_id,
-            name: updatedRow.name,
-            hsn: updatedRow.hsn,
-            pack: updatedRow.pack,
-            rack: updatedRow.rack,
-          });
-          
-          newRows[rowIndex] = calculateRow(updatedRow);
-          return newRows;
+        const createdMedicine = await createMedicine({
+          name: newProductData.name,
+          manufacturer: newProductData.manufacturer,
+          genericName: newProductData.genericName,
+          category: newProductData.category,
+          subCategory: newProductData.subCategory,
+          schedule: newProductData.schedule,
+          hsnCode: newProductData.hsnCode,
+          packSize: newProductData.packSize,
+          rackNo: newProductData.rackNo,
+          gst: newProductData.gst,
+          cgstPercent: newProductData.cgstPercent,
+          sgstPercent: newProductData.sgstPercent,
         });
-      }
 
-      setProductModalOpen(false);
-      setPendingProductData(null);
-    } catch (error) {
-      console.error("Product save error:", error);
-    }
-  },
-  [pendingProductData, setRows, createMedicine]
-);
+        console.log('✅ handleProductSave - Created medicine:', createdMedicine);
 
-  //   async (newProductData) => {
-  //     try {
-  //       console.log('📤 handleProductSave called with:', newProductData);
-        
-  //       const createdMedicine = await createMedicine({
-  //         name: newProductData.name,
-  //         manufacturer: newProductData.manufacturer,
-  //         genericName: newProductData.genericName,
-  //         category: newProductData.category,
-  //         hsnCode: newProductData.hsnCode,  // ✅ FIXED: Pass hsnCode
-  //         packSize: newProductData.packSize,
-  //         rackNo: newProductData.rackNo,
-  //         gst: newProductData.gst,
-  //         cgstPercent: newProductData.cgstPercent,
-  //         sgstPercent: newProductData.sgstPercent,
-  //       });
-
-  //       console.log('✅ Medicine created:', createdMedicine);
-
-  //       if (createdMedicine && pendingProductData) {
-  //         const { rowIndex } = pendingProductData;
+        if (createdMedicine && pendingProductData) {
+          const { rowIndex } = pendingProductData;
           
-  //         setRows((prev) => {
-  //           const newRows = [...prev];
-  //           newRows[rowIndex] = {
-  //             ...newRows[rowIndex],
-  //             medicine_id: createdMedicine.medicine_id,
-  //             name: createdMedicine.name,
-  //             mfac: createdMedicine.manufacturer || createdMedicine.mfac,
-  //             // ✅ FIXED: Map HSN code properly from response
-  //             hsn: createdMedicine.hsn_code || createdMedicine.hsnCode || createdMedicine.hsn || newProductData.hsnCode,
-  //             rack: createdMedicine.rack_no || createdMedicine.rackNo || createdMedicine.rack,
-  //             pack: createdMedicine.pack_size || createdMedicine.packSize || createdMedicine.pack,
-  //             // ✅ FIXED: Map tax percentages properly
-  //             cgstPercent: createdMedicine.cgst_percentage?.toString() || 
-  //                          createdMedicine.cgstPercent?.toString() || 
-  //                          newProductData.cgstPercent?.toString() || "6",
-  //             sgstPercent: createdMedicine.sgst_percentage?.toString() || 
-  //                          createdMedicine.sgstPercent?.toString() || 
-  //                          newProductData.sgstPercent?.toString() || "6",
-  //           };
+          setRows((prev) => {
+            const newRows = [...prev];
             
-  //           console.log('📝 Updated row:', newRows[rowIndex]);
-  //           newRows[rowIndex] = calculateRow(newRows[rowIndex]);
-  //           return newRows;
-  //         });
-  //       }
+            const updatedRow = {
+              ...newRows[rowIndex],
+              medicine_id: createdMedicine.medicine_id || createdMedicine.id,
+              name: createdMedicine.name,
+              mfac: createdMedicine.manufacturer || createdMedicine.mfac,
+              hsn: createdMedicine.hsn || 
+                   createdMedicine.hsnCode || 
+                   createdMedicine.hsn_code || 
+                   newProductData.hsnCode || 
+                   '',
+              rack: createdMedicine.rack || 
+                    createdMedicine.rackNo || 
+                    createdMedicine.rack_no || 
+                    newProductData.rackNo || 
+                    '',
+              pack: createdMedicine.pack || 
+                    createdMedicine.packSize || 
+                    createdMedicine.pack_size || 
+                    newProductData.packSize || 
+                    '',
+              cgstPercent: createdMedicine.cgstPercent?.toString() || 
+                           createdMedicine.cgst_percentage?.toString() || 
+                           newProductData.cgstPercent?.toString() || 
+                           "6",
+              sgstPercent: createdMedicine.sgstPercent?.toString() || 
+                           createdMedicine.sgst_percentage?.toString() || 
+                           newProductData.sgstPercent?.toString() || 
+                           "6",
+            };
+            
+            console.log('📝 Updated row with pack:', {
+              medicine_id: updatedRow.medicine_id,
+              name: updatedRow.name,
+              hsn: updatedRow.hsn,
+              pack: updatedRow.pack,
+              rack: updatedRow.rack,
+            });
+            
+            newRows[rowIndex] = calculateRow(updatedRow);
+            return newRows;
+          });
+        }
 
-  //       setProductModalOpen(false);
-  //       setPendingProductData(null);
-  //     } catch (error) {
-  //       console.error("Product save error:", error);
-  //     }
-  //   },
-  //   [pendingProductData, setRows, createMedicine]
-  // );
+        setProductModalOpen(false);
+        setPendingProductData(null);
+      } catch (error) {
+        console.error("Product save error:", error);
+      }
+    },
+    [pendingProductData, setRows, createMedicine]
+  );
 
   // ============================================
   // BATCH PRODUCT IMPORT HANDLERS
@@ -635,13 +841,11 @@ const handleProductSave = useCallback(
         if (productsToSave.length > 0) {
           const result = await bulkCreateMedicines(productsToSave);
           
-          // ✅ ENHANCED: Update rows with newly created medicine IDs
           if (result?.created?.length > 0) {
             setRows(prev => {
               const newRows = [...prev];
               
               result.created.forEach(createdMed => {
-                // Find rows that match this product name but don't have medicine_id
                 const matchingRowIndex = newRows.findIndex(row => 
                   row.name && 
                   !row.medicine_id && 
@@ -652,7 +856,6 @@ const handleProductSave = useCallback(
                   newRows[matchingRowIndex] = {
                     ...newRows[matchingRowIndex],
                     medicine_id: createdMed.medicine_id,
-                    // ✅ FIXED: Update all fields from created medicine
                     hsn: createdMed.hsn_code || newRows[matchingRowIndex].hsn,
                     rack: createdMed.rack_no || newRows[matchingRowIndex].rack,
                     pack: createdMed.pack_size || newRows[matchingRowIndex].pack,
@@ -696,10 +899,8 @@ const handleProductSave = useCallback(
           medicine_id: product.medicine_id,
           name: product.name,
           mfac: product.manufacturer || product.mfac,
-          // ✅ FIXED: Map HSN properly
           hsn: product.hsn_code || product.hsnCode || product.hsn,
           rack: product.rack_no || product.rackNo || product.rack,
-          // ✅ FIXED: Map tax percentages properly
           cgstPercent: product.cgst_percentage?.toString() || 
                        product.cgstPercent || 
                        (product.gst_percentage ? (parseFloat(product.gst_percentage) / 2).toString() : "6"),
@@ -731,6 +932,17 @@ const handleProductSave = useCallback(
     [getExistingBatches, setRows]
   );
 
+  // ============================================
+  // ✅ NEW: Handle supplier selection for confirmed invoice
+  // ============================================
+  const handleSupplierSelect = useCallback((selectedSupplier) => {
+    if (isEditingConfirmed) {
+      toast.warning("Not Allowed", "Cannot change supplier when editing a confirmed invoice.");
+      return;
+    }
+    selectSupplier(selectedSupplier);
+  }, [isEditingConfirmed, selectSupplier, toast]);
+
   const newSupplierData = {
     supplierId: "NEW",
     name: newSupplierName,
@@ -748,6 +960,59 @@ const handleProductSave = useCallback(
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
       
+      {/* ✅ NEW: Warning Banner for Editing Confirmed Invoice */}
+      {isEditingConfirmed && (
+        <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-lg overflow-hidden shadow-sm">
+          <div className="px-4 py-3 flex items-start gap-4">
+            {/* Icon */}
+            <div className="shrink-0 w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center shadow-sm">
+              <Shield size={20} className="text-white" />
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-amber-900">
+                  Super Admin: Editing Confirmed Invoice
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white uppercase">
+                  Confirmed
+                </span>
+              </div>
+              <p className="text-sm text-amber-800 mt-1">
+                Invoice <span className="font-mono font-semibold">{currentInvoice?.invoice_number}</span> • 
+                Changes will automatically adjust inventory stock levels.
+              </p>
+              
+              {/* Warning Items */}
+              <div className="flex flex-wrap gap-3 mt-2">
+                <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                  <RefreshCw size={12} />
+                  Stock will be reversed
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                  <AlertTriangle size={12} />
+                  Audit logged
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                  <Shield size={12} />
+                  Super Admin only
+                </span>
+              </div>
+            </div>
+            
+            {/* Back Button */}
+            <button
+              onClick={handleBackToList}
+              className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Cancel Edit
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header - Loads first */}
       <div className={`
         shrink-0 transition-all duration-300 ease-out
@@ -758,13 +1023,14 @@ const handleProductSave = useCallback(
           onSavePrint={handleSavePrint}
           onImportFile={handleImportFile}
           onExportExcel={onExportExcel}
-          onClearTable={handleClearTable}      // ✅ NEW
-          onNewInvoice={handleNewInvoice}      // ✅ NEW
+          onClearTable={handleClearTable}
+          onNewInvoice={handleNewInvoice}
           invoiceNumber={currentInvoice?.invoice_number}
           invoiceStatus={currentInvoice?.status}
           isLoading={loadingStates.header}
           isSaving={isSaving}
-          hasUnsavedData={hasData}             // ✅ NEW
+          hasUnsavedData={hasData}
+          isEditingConfirmed={isEditingConfirmed}
         />
       </div>
 
@@ -773,6 +1039,7 @@ const handleProductSave = useCallback(
         flex-1 flex flex-col overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm
         transition-all duration-300 ease-out delay-75
         ${!loadingStates.table ? 'opacity-100 translate-y-0' : 'opacity-100'}
+        ${isEditingConfirmed ? 'border-amber-300' : ''}
       `}>
         <PurchaseTable
           rows={rows}
@@ -799,10 +1066,11 @@ const handleProductSave = useCallback(
             supplier={supplier}
             setSupplier={setSupplier}
             suppliersList={suppliersList}
-            onSupplierSelect={selectSupplier}
+            onSupplierSelect={handleSupplierSelect}
             onAddNewSupplier={handleAddNewSupplier}
             onFieldChange={handleSupplierFieldChange}
             isLoading={loadingStates.supplier}
+            isLocked={isEditingConfirmed}
           />
         </div>
         
@@ -814,6 +1082,7 @@ const handleProductSave = useCallback(
           <PurchaseSummaryCard 
             summary={summary} 
             isLoading={loadingStates.summary}
+            isEditingConfirmed={isEditingConfirmed}
           />
         </div>
       </div>
@@ -845,27 +1114,27 @@ const handleProductSave = useCallback(
       />
 
       <ProductMasterModal
-  open={productModalOpen}
-  onClose={() => {
-    setProductModalOpen(false);
-    setPendingProductData(null);
-  }}
-  onSave={handleProductSave}
-  initialData={
-    pendingProductData
-      ? {
-          name: pendingProductData.productName || pendingProductData.name || "",
-          manufacturer: pendingProductData.manufacturer || pendingProductData.mfac || "",
-          hsnCode: pendingProductData.hsn || pendingProductData.hsnCode || "",
-          rackNo: pendingProductData.rack || pendingProductData.rackNo || "",
-          packSize: pendingProductData.pack || pendingProductData.packSize || "",
-          cgstPercent: pendingProductData.cgstPercent || "6",
-          sgstPercent: pendingProductData.sgstPercent || "6",
+        open={productModalOpen}
+        onClose={() => {
+          setProductModalOpen(false);
+          setPendingProductData(null);
+        }}
+        onSave={handleProductSave}
+        initialData={
+          pendingProductData
+            ? {
+                name: pendingProductData.productName || pendingProductData.name || "",
+                manufacturer: pendingProductData.manufacturer || pendingProductData.mfac || "",
+                hsnCode: pendingProductData.hsn || pendingProductData.hsnCode || "",
+                rackNo: pendingProductData.rack || pendingProductData.rackNo || "",
+                packSize: pendingProductData.pack || pendingProductData.packSize || "",
+                cgstPercent: pendingProductData.cgstPercent || "6",
+                sgstPercent: pendingProductData.sgstPercent || "6",
+              }
+            : {}
         }
-      : {}
-  }
-  mode="create"
-/>
+        mode="create"
+      />
 
       <BatchProductModal
         open={batchProductModalOpen}
@@ -873,6 +1142,17 @@ const handleProductSave = useCallback(
         newProducts={newProductsFromImport}
         onSaveAll={handleBatchProductSave}
         onSkipAll={handleBatchProductSkip}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={closeConfirmDialog}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={confirmDialog.confirmText}
+        cancelText="Cancel"
+        type={confirmDialog.type}
       />
     </div>
   );
