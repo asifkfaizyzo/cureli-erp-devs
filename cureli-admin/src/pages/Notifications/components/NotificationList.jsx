@@ -1,8 +1,8 @@
-// frontend/src/pages/notifications/components/NotificationList.jsx
+// cureli-admin/src/pages/Notifications/components/NotificationList.jsx
 
 import React from 'react';
 import { Inbox, AlertCircle, Loader2, Megaphone, Image, Video, Link2 } from 'lucide-react';
-import { NotificationIcon } from '../../../components/common/notifications';
+import NotificationIcon from '../../../components/common/notifications/NotificationIcon';
 import {
   formatNotificationTime,
   getPriorityConfig,
@@ -20,9 +20,9 @@ const NotificationList = ({
   // Loading State
   if (isLoading && notifications.length === 0) {
     return (
-      <div className="py-12 flex flex-col items-center justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center py-12">
         <Loader2 size={28} className="animate-spin text-gray-300 mb-2" />
-        <p className="text-sm text-gray-500">Loading...</p>
+        <p className="text-sm text-gray-500">Loading notifications...</p>
       </div>
     );
   }
@@ -30,9 +30,9 @@ const NotificationList = ({
   // Error State
   if (error) {
     return (
-      <div className="py-12 flex flex-col items-center justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center py-12">
         <AlertCircle size={24} className="text-red-400 mb-2" />
-        <p className="text-sm text-gray-600 mb-2">Failed to load</p>
+        <p className="text-sm text-gray-600 mb-2">Failed to load notifications</p>
         <button
           onClick={onRetry}
           className="text-sm text-[#000060] hover:underline"
@@ -46,15 +46,16 @@ const NotificationList = ({
   // Empty State
   if (notifications.length === 0) {
     return (
-      <div className="py-12 flex flex-col items-center justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center py-12">
         <Inbox size={28} className="text-gray-300 mb-2" />
-        <p className="text-sm text-gray-500">No notifications</p>
+        <p className="text-sm font-medium text-gray-600">No notifications</p>
+        <p className="text-xs text-gray-400 mt-1">You're all caught up!</p>
       </div>
     );
   }
 
   return (
-    <div className="divide-y divide-gray-50">
+    <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
       {notifications.map((notification) => (
         <NotificationListItem
           key={notification.notification_id}
@@ -86,7 +87,7 @@ const NotificationListItem = ({ notification, isSelected, onClick }) => {
   const attachment = attachments.length > 0 ? attachments[0] : null;
   const hasActionButton = !!context?.action_url;
 
-  // Attachment icon
+  // Attachment badge component
   const AttachmentBadge = () => {
     if (!attachment) return null;
     const config = {
@@ -132,7 +133,7 @@ const NotificationListItem = ({ notification, isSelected, onClick }) => {
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        {/* Title Row with badges on right */}
+        {/* Title Row with badges */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             {/* Unread dot */}

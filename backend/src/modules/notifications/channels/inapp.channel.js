@@ -1,5 +1,5 @@
 // ============================================
-// backend\src\modules\notifications\channels\inapp.channel.js
+// backend/src/modules/notifications/channels/inapp.channel.js
 // ============================================
 
 import prisma from '../../../config/prisma.js';
@@ -22,19 +22,22 @@ export async function sendViaInApp(eventType, recipients, context) {
     errors: [],
   };
 
-  // Filter to only User recipients (no CAdmin for in-app)
-  const userRecipients = recipients.filter(r => r.type === 'user' && r.user_id);
-
-  if (userRecipients.length === 0) {
-    console.log(`[InApp Channel] No user recipients for ${eventType}`);
+  if (recipients.length === 0) {
+    console.log(`[InApp Channel] No recipients for ${eventType}`);
     return result;
   }
+
+  // Separate user and cadmin recipients
+  const userRecipients = recipients.filter(r => r.type === 'user' && r.user_id);
+  const cadminRecipients = recipients.filter(r => r.type === 'cadmin' && r.cadmin_id);
+
+  console.log(`[InApp Channel] Processing ${eventType}: ${userRecipients.length} users, ${cadminRecipients.length} cadmins`);
 
   // Get event config
   const eventConfig = EVENT_CONFIG[eventType];
   if (!eventConfig) {
     console.error(`[InApp Channel] Unknown event type: ${eventType}`);
-    result.failed = userRecipients.length;
+    result.failed = recipients.length;
     result.errors.push({ error: `Unknown event type: ${eventType}` });
     return result;
   }
@@ -43,7 +46,7 @@ export async function sendViaInApp(eventType, recipients, context) {
   const content = generateInAppContent(eventType, context);
   if (!content) {
     console.error(`[InApp Channel] Failed to generate content for: ${eventType}`);
-    result.failed = userRecipients.length;
+    result.failed = recipients.length;
     result.errors.push({ error: `No template for: ${eventType}` });
     return result;
   }
@@ -53,16 +56,72 @@ export async function sendViaInApp(eventType, recipients, context) {
 
   // Check if deduplication is needed
   const dedupEntity = eventConfig.dedupEntity;
-  const dedupKey = dedupEntity ? buildDedupKey(eventType, dedupEntity, context) : null;
 
-  // Process each recipient
+  // ─────────────────────────────────────────
+  // PROCESS USER NOTIFICATIONS
+  // ─────────────────────────────────────────
+  if (userRecipients.length > 0) {
+    const userResult = await processUserNotifications(
+      userRecipients,
+      eventType,
+      title,
+      message,
+      priority,
+      context,
+      dedupEntity
+    );
+    
+    result.sent += userResult.sent;
+    result.failed += userResult.failed;
+    result.skipped += userResult.skipped;
+    result.errors.push(...userResult.errors);
+  }
+
+  // ─────────────────────────────────────────
+  // PROCESS CADMIN NOTIFICATIONS
+  // ─────────────────────────────────────────
+  if (cadminRecipients.length > 0) {
+    const cadminResult = await processCAdminNotifications(
+      cadminRecipients,
+      eventType,
+      title,
+      message,
+      priority,
+      context,
+      dedupEntity
+    );
+    
+    result.sent += cadminResult.sent;
+    result.failed += cadminResult.failed;
+    result.skipped += cadminResult.skipped;
+    result.errors.push(...cadminResult.errors);
+  }
+
+  return result;
+}
+
+/**
+ * Process notifications for ERP users
+ */
+async function processUserNotifications(
+  recipients,
+  eventType,
+  title,
+  message,
+  priority,
+  context,
+  dedupEntity
+) {
+  const result = { sent: 0, failed: 0, skipped: 0, errors: [] };
   const notifications = [];
 
-  for (const recipient of userRecipients) {
+  const dedupKey = dedupEntity ? buildDedupKey(eventType, dedupEntity, context) : null;
+
+  for (const recipient of recipients) {
     try {
       // Check deduplication if needed
       if (dedupKey) {
-        const shouldSkip = await checkDuplicateExists(recipient.user_id, dedupKey);
+        const shouldSkip = await checkUserDuplicateExists(recipient.user_id, dedupKey);
         if (shouldSkip) {
           result.skipped++;
           continue;
@@ -71,6 +130,7 @@ export async function sendViaInApp(eventType, recipients, context) {
 
       notifications.push({
         user_id: recipient.user_id,
+        cadmin_id: null,
         event_type: eventType,
         title,
         message,
@@ -88,18 +148,84 @@ export async function sendViaInApp(eventType, recipients, context) {
     }
   }
 
-  // Batch insert notifications
+  // Batch insert
   if (notifications.length > 0) {
     try {
       const created = await prisma.notification.createMany({
         data: notifications,
-        skipDuplicates: true, // Extra safety for race conditions
+        skipDuplicates: true,
       });
-
       result.sent = created.count;
-      console.log(`[InApp Channel] Created ${created.count} notifications for ${eventType}`);
+      console.log(`[InApp Channel] Created ${created.count} user notifications for ${eventType}`);
     } catch (error) {
-      console.error(`[InApp Channel] Batch insert failed for ${eventType}:`, error);
+      console.error(`[InApp Channel] User batch insert failed for ${eventType}:`, error);
+      result.failed += notifications.length;
+      result.errors.push({ error: error.message });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Process notifications for CAdmins
+ */
+async function processCAdminNotifications(
+  recipients,
+  eventType,
+  title,
+  message,
+  priority,
+  context,
+  dedupEntity
+) {
+  const result = { sent: 0, failed: 0, skipped: 0, errors: [] };
+  const notifications = [];
+
+  const dedupKey = dedupEntity ? buildDedupKey(eventType, dedupEntity, context) : null;
+
+  for (const recipient of recipients) {
+    try {
+      // Check deduplication if needed
+      if (dedupKey) {
+        const shouldSkip = await checkCAdminDuplicateExists(recipient.cadmin_id, dedupKey);
+        if (shouldSkip) {
+          result.skipped++;
+          continue;
+        }
+      }
+
+      notifications.push({
+        user_id: null,
+        cadmin_id: recipient.cadmin_id,
+        event_type: eventType,
+        title,
+        message,
+        context: sanitizeContext(context),
+        shop_id: null,  // CAdmins don't belong to shops
+        branch_id: null,
+        dedup_key: dedupKey,
+        priority,
+        is_read: false,
+      });
+    } catch (error) {
+      console.error(`[InApp Channel] Error preparing notification for cadmin ${recipient.cadmin_id}:`, error);
+      result.failed++;
+      result.errors.push({ cadmin_id: recipient.cadmin_id, error: error.message });
+    }
+  }
+
+  // Batch insert
+  if (notifications.length > 0) {
+    try {
+      const created = await prisma.notification.createMany({
+        data: notifications,
+        skipDuplicates: true,
+      });
+      result.sent = created.count;
+      console.log(`[InApp Channel] Created ${created.count} cadmin notifications for ${eventType}`);
+    } catch (error) {
+      console.error(`[InApp Channel] CAdmin batch insert failed for ${eventType}:`, error);
       result.failed += notifications.length;
       result.errors.push({ error: error.message });
     }
@@ -114,7 +240,6 @@ export async function sendViaInApp(eventType, recipients, context) {
 
 /**
  * Build deduplication key for recurring alerts
- * Format: "EVENT_TYPE:entity_type:entity_id"
  */
 function buildDedupKey(eventType, entityType, context) {
   let entityId = null;
@@ -144,12 +269,30 @@ function buildDedupKey(eventType, entityType, context) {
 /**
  * Check if an unread notification with same dedup_key exists for user
  */
-async function checkDuplicateExists(userId, dedupKey) {
+async function checkUserDuplicateExists(userId, dedupKey) {
   if (!dedupKey) return false;
 
   const existing = await prisma.notification.findFirst({
     where: {
       user_id: userId,
+      dedup_key: dedupKey,
+      is_read: false,
+    },
+    select: { notification_id: true },
+  });
+
+  return !!existing;
+}
+
+/**
+ * Check if an unread notification with same dedup_key exists for cadmin
+ */
+async function checkCAdminDuplicateExists(cadminId, dedupKey) {
+  if (!dedupKey) return false;
+
+  const existing = await prisma.notification.findFirst({
+    where: {
+      cadmin_id: cadminId,
       dedup_key: dedupKey,
       is_read: false,
     },
@@ -165,12 +308,10 @@ async function checkDuplicateExists(userId, dedupKey) {
 
 /**
  * Sanitize context before storing in database
- * Remove sensitive fields, ensure JSON-serializable
  */
 function sanitizeContext(context) {
   if (!context) return null;
 
-  // Fields to exclude from stored context
   const sensitiveFields = [
     'password',
     'password_hash',
@@ -183,28 +324,20 @@ function sanitizeContext(context) {
   const sanitized = {};
 
   for (const [key, value] of Object.entries(context)) {
-    // Skip sensitive fields
     if (sensitiveFields.some(field => key.toLowerCase().includes(field))) {
       continue;
     }
-
-    // Skip functions
     if (typeof value === 'function') {
       continue;
     }
-
-    // Handle Date objects
     if (value instanceof Date) {
       sanitized[key] = value.toISOString();
       continue;
     }
-
-    // Handle BigInt
     if (typeof value === 'bigint') {
       sanitized[key] = value.toString();
       continue;
     }
-
     sanitized[key] = value;
   }
 
@@ -212,12 +345,9 @@ function sanitizeContext(context) {
 }
 
 // ─────────────────────────────────────────
-// UTILITY FUNCTIONS
+// UTILITY FUNCTIONS (for users - existing)
 // ─────────────────────────────────────────
 
-/**
- * Mark notification as read
- */
 export async function markAsRead(notificationId, userId) {
   return prisma.notification.updateMany({
     where: {
@@ -232,9 +362,6 @@ export async function markAsRead(notificationId, userId) {
   });
 }
 
-/**
- * Mark all notifications as read for a user
- */
 export async function markAllAsRead(userId, filters = {}) {
   const where = {
     user_id: userId,
@@ -258,9 +385,6 @@ export async function markAllAsRead(userId, filters = {}) {
   });
 }
 
-/**
- * Get unread count for a user
- */
 export async function getUnreadCount(userId, filters = {}) {
   const where = {
     user_id: userId,
@@ -274,9 +398,6 @@ export async function getUnreadCount(userId, filters = {}) {
   return prisma.notification.count({ where });
 }
 
-/**
- * Get notifications for a user with pagination
- */
 export async function getNotifications(userId, options = {}) {
   const {
     page = 1,
@@ -322,9 +443,6 @@ export async function getNotifications(userId, options = {}) {
   };
 }
 
-/**
- * Delete old read notifications (cleanup job)
- */
 export async function deleteOldNotifications(daysOld = 90) {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysOld);
@@ -337,10 +455,6 @@ export async function deleteOldNotifications(daysOld = 90) {
   });
 }
 
-/**
- * Clear dedup key when condition is resolved
- * This allows new notification to be created if condition recurs
- */
 export async function clearDedupNotification(userId, dedupKey) {
   return prisma.notification.updateMany({
     where: {
@@ -355,10 +469,6 @@ export async function clearDedupNotification(userId, dedupKey) {
   });
 }
 
-/**
- * Clear all dedup notifications for a specific inventory item
- * Use when stock is replenished above minimum level
- */
 export async function clearInventoryAlerts(inventoryId) {
   const dedupPatterns = [
     `LOW_STOCK_ALERT:inventory:${inventoryId}`,

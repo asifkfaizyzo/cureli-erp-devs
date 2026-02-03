@@ -1,13 +1,12 @@
-// frontend/src/pages/notifications/components/NotificationSidePanel.jsx
+// cureli-admin/src/pages/Notifications/components/NotificationSidePanel.jsx
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   X,
   ExternalLink,
   Clock,
   CheckCircle,
-  Trash2,
+  Bell,
   Megaphone,
   Link2,
   Image,
@@ -16,12 +15,11 @@ import {
   Download,
   Maximize2,
 } from 'lucide-react';
-import { NotificationIcon } from '../../../components/common/notifications';
+import NotificationIcon from '../../../components/common/notifications/NotificationIcon';
 import {
   formatNotificationTime,
   formatNotificationFullDate,
   getPriorityConfig,
-  getNotificationRoute,
   isBroadcastNotification,
 } from '../../../config/notifications';
 
@@ -31,14 +29,12 @@ const NotificationSidePanel = ({
   notification,
   onClose,
   onMarkAsRead,
-  onDelete,
-  isDeleting,
 }) => {
-  const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
 
   // This component should only render when notification exists
+  // Empty state is handled by parent (panel not shown)
   if (!notification) return null;
 
   const {
@@ -55,7 +51,6 @@ const NotificationSidePanel = ({
 
   const priorityConfig = getPriorityConfig(priority);
   const isBroadcast = isBroadcastNotification(event_type);
-  const route = getNotificationRoute(event_type, context);
   
   const attachments = context?.attachments || [];
   const actionUrl = context?.action_url;
@@ -71,14 +66,12 @@ const NotificationSidePanel = ({
     return `${BACKEND_URL}${att.url}`;
   };
 
-  const handleNavigate = () => {
-    if (route) navigate(route);
-    else if (actionUrl) window.open(actionUrl, '_blank', 'noopener,noreferrer');
-  };
-
   const handleAttachmentClick = (att) => {
-    if (att.type === 'image' && !imageError) setShowFullImage(true);
-    else if (att.url) window.open(getAttachmentUrl(att), '_blank', 'noopener,noreferrer');
+    if (att.type === 'image' && !imageError) {
+      setShowFullImage(true);
+    } else if (att.url) {
+      window.open(getAttachmentUrl(att), '_blank', 'noopener,noreferrer');
+    }
   };
 
   const handleDownload = (att) => {
@@ -90,6 +83,12 @@ const NotificationSidePanel = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+  };
+
+  const handleActionClick = () => {
+    if (actionUrl) {
+      window.open(actionUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -314,12 +313,12 @@ const NotificationSidePanel = ({
       <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
         <div className="flex items-center gap-2">
           {/* Primary Action */}
-          {(route || actionUrl) && (
+          {actionUrl && (
             <button
-              onClick={handleNavigate}
+              onClick={handleActionClick}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors bg-[#000060] text-white hover:bg-[#000080]"
             >
-              {actionUrl ? actionLabel : 'View Details'}
+              {actionLabel}
               <ExternalLink size={12} />
             </button>
           )}
@@ -328,26 +327,20 @@ const NotificationSidePanel = ({
           {!is_read && (
             <button
               onClick={() => onMarkAsRead?.(notification_id)}
-              className={`${(route || actionUrl) ? '' : 'flex-1'} flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors`}
+              className={`${actionUrl ? '' : 'flex-1'} flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors`}
             >
               <CheckCircle size={14} />
               <span>Mark as read</span>
             </button>
           )}
 
-          {/* Delete
-          <button
-            onClick={() => onDelete?.(notification_id)}
-            disabled={isDeleting}
-            className="p-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-            title="Delete"
-          >
-            {isDeleting ? (
-              <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
-            ) : (
-              <Trash2 size={14} />
-            )}
-          </button> */}
+          {/* If already read and no action URL, show a message */}
+          {is_read && !actionUrl && (
+            <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-gray-400">
+              <CheckCircle size={14} />
+              <span>Already read</span>
+            </div>
+          )}
         </div>
       </div>
 

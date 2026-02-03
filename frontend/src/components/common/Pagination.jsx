@@ -1,4 +1,4 @@
-// components/InvoicePagination.jsx
+// components/Pagination.jsx
 import React from "react";
 import { 
   ChevronLeft, 

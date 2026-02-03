@@ -1,9 +1,16 @@
 // src/pages/Communications/pages/Broadcast/InApp/comps/CreateBroadcastForm.jsx
 
 import { useState, useEffect, useCallback } from "react";
-import { 
-  Send, Save, Calendar, Eye, AlertTriangle, Users, 
-  X, FileText, Loader2
+import {
+  Send,
+  Save,
+  Calendar,
+  Eye,
+  AlertTriangle,
+  Users,
+  X,
+  FileText,
+  Loader2,
 } from "lucide-react";
 import AudienceFilterPanel from "./AudienceFilterPanel";
 import AttachmentsPanel from "./AttachmentsPanel";
@@ -14,13 +21,34 @@ import * as broadcastAPI from "../../../../../../api/cadminBroadcast";
 import { useDebounce } from "../../../../../../hooks/useDebounce";
 
 const PRIORITY_OPTIONS = [
-  { value: "low", label: "Low", color: "bg-gray-100 text-gray-600 border-gray-200" },
-  { value: "normal", label: "Normal", color: "bg-green-50 text-green-700 border-green-200" },
-  { value: "high", label: "High", color: "bg-orange-50 text-orange-700 border-orange-200" },
-  { value: "critical", label: "Critical", color: "bg-red-50 text-red-700 border-red-200" },
+  {
+    value: "low",
+    label: "Low",
+    color: "bg-gray-100 text-gray-600 border-gray-200",
+  },
+  {
+    value: "normal",
+    label: "Normal",
+    color: "bg-green-50 text-green-700 border-green-200",
+  },
+  {
+    value: "high",
+    label: "High",
+    color: "bg-orange-50 text-orange-700 border-orange-200",
+  },
+  {
+    value: "critical",
+    label: "Critical",
+    color: "bg-red-50 text-red-700 border-red-200",
+  },
 ];
 
-function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft = null }) {
+function CreateBroadcastForm({
+  onSuccess,
+  onDraftSaved,
+  onScheduled,
+  editDraft = null,
+}) {
   // Form state
   const [formData, setFormData] = useState({
     title: "",
@@ -68,10 +96,11 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
 
   // Auto-preview recipient count when filters change
   useEffect(() => {
-    const hasFilters = Object.keys(debouncedFilters).length > 0 || 
-                       formData.target_users || 
-                       formData.target_cadmins;
-    
+    const hasFilters =
+      Object.keys(debouncedFilters).length > 0 ||
+      formData.target_users ||
+      formData.target_cadmins;
+
     if (hasFilters) {
       fetchRecipientCount();
     } else {
@@ -138,7 +167,7 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
   };
 
   const prepareFormDataForSubmission = () => {
-    const cleanedAttachments = formData.attachments.map(att => ({
+    const cleanedAttachments = formData.attachments.map((att) => ({
       type: att.type,
       url: att.url,
       label: att.label || att.original_name || null,
@@ -147,9 +176,23 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
       size: att.size || null,
     }));
 
+    // ✅ FIX: Merge audience flags INTO target_filters
+    const mergedFilters = {
+      ...formData.target_filters,
+      includeUsers: formData.target_users,
+      includeCAdmins: formData.target_cadmins,
+    };
+
     return {
-      ...formData,
+      title: formData.title,
+      message: formData.message,
+      priority: formData.priority,
+      target_filters: mergedFilters, // ✅ Filters now include audience flags
       attachments: cleanedAttachments,
+      action_url: formData.action_url,
+      action_label: formData.action_label,
+      target_users: formData.target_users, // Keep for campaign record
+      target_cadmins: formData.target_cadmins, // Keep for campaign record
     };
   };
 
@@ -159,7 +202,7 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
     setError(null);
     try {
       const submissionData = prepareFormDataForSubmission();
-      
+
       if (editDraft?.campaign_id) {
         await broadcastAPI.updateDraft(editDraft.campaign_id, submissionData);
         setSuccess("Draft updated");
@@ -208,14 +251,14 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
     try {
       const submissionData = prepareFormDataForSubmission();
       let campaignId = editDraft?.campaign_id;
-      
+
       if (!campaignId) {
         const draftRes = await broadcastAPI.createDraft(submissionData);
         campaignId = draftRes.data.data.campaign_id;
       } else {
         await broadcastAPI.updateDraft(campaignId, submissionData);
       }
-      
+
       await broadcastAPI.scheduleBroadcast(campaignId, scheduledFor);
       setSuccess(`Scheduled for ${new Date(scheduledFor).toLocaleString()}`);
       setTimeout(() => onScheduled?.(), 1500);
@@ -233,15 +276,20 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
       {/* Alert */}
       {(error || success) && (
         <div className="flex-shrink-0 px-6 pt-4">
-          <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm ${
-            error 
-              ? "bg-red-50 border border-red-200 text-red-700" 
-              : "bg-green-50 border border-green-200 text-green-700"
-          }`}>
+          <div
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm ${
+              error
+                ? "bg-red-50 border border-red-200 text-red-700"
+                : "bg-green-50 border border-green-200 text-green-700"
+            }`}
+          >
             {error && <AlertTriangle size={14} />}
             <span className="font-medium">{error || success}</span>
             {error && (
-              <button onClick={() => setError(null)} className="ml-auto p-0.5 hover:bg-red-100 rounded">
+              <button
+                onClick={() => setError(null)}
+                className="ml-auto p-0.5 hover:bg-red-100 rounded"
+              >
                 <X size={14} />
               </button>
             )}
@@ -252,13 +300,14 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
       {/* Main Content - Horizontal Layout */}
       <div className="flex-1 overflow-y-auto">
         <div className="h-full flex flex-col lg:flex-row">
-          
           {/* LEFT: Message Content */}
           <div className="lg:w-[420px] xl:w-[480px] flex-shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 bg-white">
             <div className="p-5 space-y-5 h-full overflow-y-auto">
               <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
                 <FileText size={16} className="text-[#05015A]" />
-                <h3 className="text-sm font-semibold text-gray-900">Message Content</h3>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Message Content
+                </h3>
               </div>
 
               {/* Title */}
@@ -294,7 +343,9 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-[#05015A]/10 focus:border-[#05015A] disabled:bg-gray-50"
                 />
                 <div className="flex justify-end mt-1">
-                  <span className={`text-[10px] ${charCount > 450 ? "text-amber-600" : "text-gray-400"}`}>
+                  <span
+                    className={`text-[10px] ${charCount > 450 ? "text-amber-600" : "text-gray-400"}`}
+                  >
                     {charCount}/500
                   </span>
                 </div>
@@ -302,19 +353,24 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
 
               {/* Priority */}
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-2 block">Priority</label>
+                <label className="text-xs font-medium text-gray-600 mb-2 block">
+                  Priority
+                </label>
                 <div className="flex flex-wrap gap-2">
                   {PRIORITY_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => setFormData(p => ({ ...p, priority: opt.value }))}
+                      onClick={() =>
+                        setFormData((p) => ({ ...p, priority: opt.value }))
+                      }
                       disabled={loading}
                       className={`
                         px-3 py-1.5 text-xs font-medium rounded-lg border transition-all
-                        ${formData.priority === opt.value 
-                          ? opt.color + " ring-1 ring-offset-1 ring-gray-300" 
-                          : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                        ${
+                          formData.priority === opt.value
+                            ? opt.color + " ring-1 ring-offset-1 ring-gray-300"
+                            : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
                         }
                       `}
                     >
@@ -334,7 +390,8 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
               {/* Action Button */}
               <div className="pt-4 border-t border-gray-100">
                 <label className="text-xs font-medium text-gray-600 mb-2 block">
-                  Action Button <span className="text-gray-400 font-normal">(optional)</span>
+                  Action Button{" "}
+                  <span className="text-gray-400 font-normal">(optional)</span>
                 </label>
                 <div className="space-y-2">
                   <input
@@ -368,9 +425,11 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
               <div className="flex items-center justify-between pb-3 border-b border-gray-200 mb-5">
                 <div className="flex items-center gap-2">
                   <Users size={16} className="text-[#05015A]" />
-                  <h3 className="text-sm font-semibold text-gray-900">Target Audience</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Target Audience
+                  </h3>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                   {isPreviewLoading ? (
                     <span className="text-xs text-gray-400 flex items-center gap-1.5">
@@ -385,82 +444,152 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
                       <span className="text-xs text-white/80">recipients</span>
                     </div>
                   ) : (
-                    <span className="text-xs text-gray-400">Select audience</span>
+                    <span className="text-xs text-gray-400">
+                      Select audience
+                    </span>
                   )}
                 </div>
               </div>
 
               {/* Audience Type Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-                <div 
-                  onClick={() => !loading && handleInputChange({ target: { name: 'target_users', type: 'checkbox', checked: !formData.target_users }})}
+                <div
+                  onClick={() =>
+                    !loading &&
+                    handleInputChange({
+                      target: {
+                        name: "target_users",
+                        type: "checkbox",
+                        checked: !formData.target_users,
+                      },
+                    })
+                  }
                   className={`
                     flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all
-                    ${formData.target_users 
-                      ? "border-[#05015A] bg-white shadow-sm" 
-                      : "border-gray-200 bg-white hover:border-gray-300"
+                    ${
+                      formData.target_users
+                        ? "border-[#05015A] bg-white shadow-sm"
+                        : "border-gray-200 bg-white hover:border-gray-300"
                     }
                   `}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`
+                    <div
+                      className={`
                       w-10 h-10 rounded-lg flex items-center justify-center
-                      ${formData.target_users ? 'bg-[#05015A]/10' : 'bg-gray-100'}
-                    `}>
-                      <Users size={18} className={formData.target_users ? 'text-[#05015A]' : 'text-gray-400'} />
+                      ${formData.target_users ? "bg-[#05015A]/10" : "bg-gray-100"}
+                    `}
+                    >
+                      <Users
+                        size={18}
+                        className={
+                          formData.target_users
+                            ? "text-[#05015A]"
+                            : "text-gray-400"
+                        }
+                      />
                     </div>
                     <div>
-                      <span className="text-sm font-semibold text-gray-900 block">ERP Users</span>
-                      <p className="text-xs text-gray-500">Shop owners & staff</p>
+                      <span className="text-sm font-semibold text-gray-900 block">
+                        ERP Users
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Shop owners & staff
+                      </p>
                     </div>
                   </div>
-                  <div className={`
+                  <div
+                    className={`
                     w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
-                    ${formData.target_users 
-                      ? 'border-[#05015A] bg-[#05015A]' 
-                      : 'border-gray-300'
+                    ${
+                      formData.target_users
+                        ? "border-[#05015A] bg-[#05015A]"
+                        : "border-gray-300"
                     }
-                  `}>
+                  `}
+                  >
                     {formData.target_users && (
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      <svg
+                        className="w-3 h-3 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     )}
                   </div>
                 </div>
 
-                <div 
-                  onClick={() => !loading && handleInputChange({ target: { name: 'target_cadmins', type: 'checkbox', checked: !formData.target_cadmins }})}
+                <div
+                  onClick={() =>
+                    !loading &&
+                    handleInputChange({
+                      target: {
+                        name: "target_cadmins",
+                        type: "checkbox",
+                        checked: !formData.target_cadmins,
+                      },
+                    })
+                  }
                   className={`
                     flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all
-                    ${formData.target_cadmins 
-                      ? "border-[#05015A] bg-white shadow-sm" 
-                      : "border-gray-200 bg-white hover:border-gray-300"
+                    ${
+                      formData.target_cadmins
+                        ? "border-[#05015A] bg-white shadow-sm"
+                        : "border-gray-200 bg-white hover:border-gray-300"
                     }
                   `}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`
+                    <div
+                      className={`
                       w-10 h-10 rounded-lg flex items-center justify-center
-                      ${formData.target_cadmins ? 'bg-[#05015A]/10' : 'bg-gray-100'}
-                    `}>
-                      <Users size={18} className={formData.target_cadmins ? 'text-[#05015A]' : 'text-gray-400'} />
+                      ${formData.target_cadmins ? "bg-[#05015A]/10" : "bg-gray-100"}
+                    `}
+                    >
+                      <Users
+                        size={18}
+                        className={
+                          formData.target_cadmins
+                            ? "text-[#05015A]"
+                            : "text-gray-400"
+                        }
+                      />
                     </div>
                     <div>
-                      <span className="text-sm font-semibold text-gray-900 block">Admins</span>
-                      <p className="text-xs text-gray-500">Internal team members</p>
+                      <span className="text-sm font-semibold text-gray-900 block">
+                        Admins
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Internal team members
+                      </p>
                     </div>
                   </div>
-                  <div className={`
+                  <div
+                    className={`
                     w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
-                    ${formData.target_cadmins 
-                      ? 'border-[#05015A] bg-[#05015A]' 
-                      : 'border-gray-300'
+                    ${
+                      formData.target_cadmins
+                        ? "border-[#05015A] bg-[#05015A]"
+                        : "border-gray-300"
                     }
-                  `}>
+                  `}
+                  >
                     {formData.target_cadmins && (
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      <svg
+                        className="w-3 h-3 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     )}
                   </div>
@@ -493,7 +622,8 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
           )}
           {recipientPreview && !isPreviewLoading && (
             <span className="text-xs text-gray-500">
-              {recipientPreview.by_type?.users || 0} users, {recipientPreview.by_type?.cadmins || 0} admins
+              {recipientPreview.by_type?.users || 0} users,{" "}
+              {recipientPreview.by_type?.cadmins || 0} admins
             </span>
           )}
         </div>
@@ -535,7 +665,11 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
             disabled={loading || !recipientPreview?.total}
             className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white bg-[#05015A] rounded-lg hover:bg-[#05015A]/90 disabled:opacity-50 transition-colors shadow-sm"
           >
-            {loading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+            {loading ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Send size={15} />
+            )}
             Send Now
           </button>
         </div>

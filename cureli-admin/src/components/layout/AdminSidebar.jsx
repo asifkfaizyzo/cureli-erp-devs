@@ -22,15 +22,14 @@ const COLLAPSED_WIDTH = 72;
 
 // Responsive expanded widths based on screen width
 const EXPANDED_WIDTH_CONFIG = {
-  "2xl": 280, // >= 1536px (large monitors)
-  xl: 220, // >= 1280px (standard desktop)
-  lg: 200, // >= 1024px (small desktop / large laptop)
-  md: 180, // >= 768px (tablet / small laptop)
-  sm: 160, // < 768px (mobile - if sidebar is shown)
+  "2xl": 280,
+  xl: 220,
+  lg: 200,
+  md: 180,
+  sm: 160,
   default: 200,
 };
 
-// Get expanded width based on screen size
 const getExpandedWidth = () => {
   if (typeof window === "undefined") return EXPANDED_WIDTH_CONFIG.default;
 
@@ -131,11 +130,23 @@ const CHILD_ROUTES = {
     parentId: "communications",
     breadcrumbs: ["Communications", "Broadcast"],
   },
+  "/communications/broadcast/in-app": {
+    parentId: "communications",
+    breadcrumbs: ["Communications", "Broadcast", "In-App"],
+  },
   "/subscriptions/manage": {
     parentId: "subscriptions",
-    breadcrumbs: ["Subscriptions", "Plans"], 
+    breadcrumbs: ["Subscriptions", "Plans"],
   },
 };
+
+/* ───────────────── NON-SIDEBAR ROUTES ───────────────── */
+// Routes that are valid but don't appear in sidebar
+// These won't trigger a redirect to dashboard
+const NON_SIDEBAR_ROUTES = [
+  "/notifications",
+  // Add more non-sidebar routes here as needed
+];
 
 /* ───────────────── Menu Item Component ───────────────── */
 const MenuItem = ({ item, activeMenu, isExpanded, onNavigate }) => {
@@ -191,10 +202,8 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
 
   const isExpanded = expanded;
 
-  // ✅ Responsive expanded width
   const [expandedWidth, setExpandedWidth] = useState(getExpandedWidth);
 
-  // Update width on resize
   useEffect(() => {
     const handleResize = () => {
       setExpandedWidth(getExpandedWidth());
@@ -226,6 +235,11 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
   useEffect(() => {
     const currentPath = location.pathname;
 
+    // Skip sync for non-sidebar routes (handled by AppLayout)
+    if (NON_SIDEBAR_ROUTES.includes(currentPath)) {
+      return;
+    }
+
     // Check child routes first
     const childRoute = CHILD_ROUTES[currentPath];
     if (childRoute) {
@@ -248,26 +262,37 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
   useEffect(() => {
     const currentPath = location.pathname;
 
+    // Check if it's a valid main menu route
     const isValidMain = MENU_ITEMS.some((m) => m.path === currentPath);
+    
+    // Check if it's a valid child route
     const isValidChild = Object.keys(CHILD_ROUTES).includes(currentPath);
+    
+    // Check if it's a valid non-sidebar route
+    const isNonSidebarRoute = NON_SIDEBAR_ROUTES.includes(currentPath);
 
-    // Only redirect if path is completely invalid
-    if (!isValidMain && !isValidChild) {
-      const allValidPaths = [
-        ...MENU_ITEMS.map((m) => m.path),
-        ...Object.keys(CHILD_ROUTES),
-      ];
+    // If any of these are true, route is valid
+    if (isValidMain || isValidChild || isNonSidebarRoute) {
+      return;
+    }
 
-      // Check if current path starts with any valid path
-      const isPartialMatch = allValidPaths.some((p) =>
-        currentPath.startsWith(p)
-      );
+    // Build list of all valid path prefixes
+    const allValidPaths = [
+      ...MENU_ITEMS.map((m) => m.path),
+      ...Object.keys(CHILD_ROUTES),
+      ...NON_SIDEBAR_ROUTES,
+    ];
 
-      if (!isPartialMatch) {
-        setActiveMenu("dashboard");
-        setBreadcrumbs(["Dashboard"]);
-        navigate("/dashboard");
-      }
+    // Check if current path starts with any valid path (for nested routes)
+    const isPartialMatch = allValidPaths.some((p) =>
+      currentPath.startsWith(p)
+    );
+
+    // Only redirect if completely invalid
+    if (!isPartialMatch) {
+      setActiveMenu("dashboard");
+      setBreadcrumbs(["Dashboard"]);
+      navigate("/dashboard");
     }
   }, [location.pathname, navigate, setActiveMenu, setBreadcrumbs]);
 

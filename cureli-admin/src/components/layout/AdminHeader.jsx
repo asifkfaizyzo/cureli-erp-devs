@@ -1,21 +1,23 @@
+// ============================================
+// cureli-admin/src/components/layout/AdminHeader.jsx
+// ============================================
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bell,
   ChevronDown,
   Settings,
   LogOut,
   Clock,
   Calendar,
-  FileText,
-  Store,
-  CreditCard,
-  AlertCircle,
-  RefreshCw,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import logo from "../../assets/icons/cureli.svg";
 import { useAuth } from "../../context/AuthContext";
+
+// ✅ Import NotificationDropdown
+import { NotificationDropdown } from "../common/notifications";
 
 const AdminHeader = () => {
   const navigate = useNavigate();
@@ -30,12 +32,10 @@ const AdminHeader = () => {
 
   // Dropdowns
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // Refs for click outside
   const profileRef = useRef(null);
-  const notificationRef = useRef(null);
 
   // Update clock every second
   useEffect(() => {
@@ -67,9 +67,6 @@ const AdminHeader = () => {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setShowProfileMenu(false);
       }
-      if (notificationRef.current && !notificationRef.current.contains(e.target)) {
-        setShowNotifications(false);
-      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -96,58 +93,26 @@ const AdminHeader = () => {
   // Get role badge color
   const getRoleBadgeColor = (role) => {
     switch (role) {
-      case "Super cAdmin":
+      case "SUPER_ADMIN":
         return "bg-purple-100 text-purple-700";
-      case "Analyst":
+      case "ANALYST":
         return "bg-blue-100 text-blue-700";
-      case "Accounting":
+      case "ACCOUNTING":
         return "bg-amber-100 text-amber-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
   };
 
-  // Build notification items
-  const notificationItems = [
-    {
-      id: "pending-docs",
-      icon: FileText,
-      label: "Documents pending review",
-      count: pendingCounts?.documents?.pending || 0,
-      color: "text-blue-500",
-      bgColor: "bg-blue-50",
-      link: "/documents",
-    },
-    {
-      id: "pending-shops",
-      icon: Store,
-      label: "Shops awaiting verification",
-      count: pendingCounts?.shops?.pendingVerification || 0,
-      color: "text-emerald-500",
-      bgColor: "bg-emerald-50",
-      link: "/shops",
-    },
-    {
-      id: "expiring-subs",
-      icon: CreditCard,
-      label: "Subscriptions expiring soon",
-      count: pendingCounts?.subscriptions?.expiringSoon || 0,
-      color: "text-orange-500",
-      bgColor: "bg-orange-50",
-      link: "/subscriptions",
-    },
-    {
-      id: "rejected-docs",
-      icon: AlertCircle,
-      label: "Rejected documents",
-      count: pendingCounts?.documents?.rejected || 0,
-      color: "text-red-500",
-      bgColor: "bg-red-50",
-      link: "/documents?status=rejected",
-    },
-  ].filter((item) => item.count > 0);
-
-  const totalNotifications = pendingCounts?.total || 0;
+  // Format role for display
+  const formatRole = (role) => {
+    const roleMap = {
+      SUPER_ADMIN: "Super Admin",
+      ANALYST: "Analyst",
+      ACCOUNTING: "Accounting",
+    };
+    return roleMap[role] || role;
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 shadow-sm">
@@ -203,65 +168,8 @@ const AdminHeader = () => {
             />
           </button>
 
-          {/* Notifications */}
-          <div className="relative" ref={notificationRef}>
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all"
-            >
-              <Bell size={20} />
-              {totalNotifications > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
-                  {totalNotifications > 99 ? "99+" : totalNotifications}
-                </span>
-              )}
-            </button>
-
-            {/* Notifications Dropdown */}
-            {showNotifications && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden z-50">
-                <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-800">Notifications</h3>
-                    <span className="text-xs text-gray-500">
-                      {totalNotifications} pending
-                    </span>
-                  </div>
-                </div>
-
-                <div className="max-h-80 overflow-y-auto">
-                  {notificationItems.length > 0 ? (
-                    notificationItems.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          setShowNotifications(false);
-                          navigate(item.link);
-                        }}
-                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-b-0"
-                      >
-                        <div className={`p-2 rounded-lg ${item.bgColor}`}>
-                          <item.icon size={16} className={item.color} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className="text-sm text-gray-800">{item.label}</p>
-                        </div>
-                        <span className={`text-sm font-bold ${item.color}`}>
-                          {item.count}
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-4 py-8 text-center">
-                      <Bell size={32} className="mx-auto text-gray-300 mb-2" />
-                      <p className="text-gray-500 text-sm">All caught up!</p>
-                      <p className="text-gray-400 text-xs">No pending items</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* ✅ NEW: Notifications Dropdown */}
+          <NotificationDropdown />
 
           {/* Divider */}
           <div className="w-px h-8 bg-gray-200" />
@@ -294,7 +202,7 @@ const AdminHeader = () => {
                       {admin?.name || "Admin"}
                     </span>
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${getRoleBadgeColor(admin?.role)}`}>
-                      {admin?.role || "Admin"}
+                      {formatRole(admin?.role) || "Admin"}
                     </span>
                   </>
                 )}

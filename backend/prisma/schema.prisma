@@ -164,6 +164,7 @@ model CAdmin {
   planActivities      PlanActivityLog[]    @relation("PlanActivityByCAdmin")
   activityLogs        CAdminActivityLog[]  @relation("CAdminActivityLogs")
   enquiryReplies      EnquiryReply[]       @relation("EnquiryRepliedBy")
+  notifications       Notification[]       @relation("CAdminNotifications")  // ✅ ADD THIS
 
   @@map("cadmins")
 }
@@ -1165,6 +1166,8 @@ model StockAdjustment {
   @@map("stock_adjustments")
 }
 
+
+
 // ============================================
 // IN-APP NOTIFICATIONS
 // ============================================
@@ -1172,8 +1175,9 @@ model StockAdjustment {
 model Notification {
   notification_id String @id @default(uuid()) @db.Uuid
 
-  // Recipient
-  user_id String @db.Uuid
+  // Recipient - ONE of these must be set (enforced at app level)
+  user_id   String? @db.Uuid
+  cadmin_id String? @db.Uuid
 
   // Event type
   event_type String @db.VarChar(100)
@@ -1185,7 +1189,7 @@ model Notification {
   // Structured data for click-through actions
   context Json? @db.JsonB
 
-  // Scoping
+  // Scoping (for user notifications)
   shop_id   String? @db.Uuid
   branch_id String? @db.Uuid
 
@@ -1203,11 +1207,14 @@ model Notification {
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  user User @relation("UserNotifications", fields: [user_id], references: [user_id], onDelete: Cascade)
+  user   User?   @relation("UserNotifications", fields: [user_id], references: [user_id], onDelete: Cascade)
+  cadmin CAdmin? @relation("CAdminNotifications", fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
 
   // Indexes
   @@index([user_id, is_read, created_at(sort: Desc)])
   @@index([user_id, created_at(sort: Desc)])
+  @@index([cadmin_id, is_read, created_at(sort: Desc)])
+  @@index([cadmin_id, created_at(sort: Desc)])
   @@index([shop_id, event_type])
   @@index([dedup_key])
   @@index([created_at(sort: Desc)])

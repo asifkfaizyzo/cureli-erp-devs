@@ -15,7 +15,7 @@ const BREADCRUMB_PATHS = {
   "Shops": "/shops",
   "Verification": "/verification",
   "Subscriptions": "/subscriptions",
-   "Plans": "/subscriptions/manage",
+  "Plans": "/subscriptions/manage",
   "Audits": "/audits",
   "Admins": "/admins",
   "Settings": "/settings",
@@ -25,6 +25,9 @@ const BREADCRUMB_PATHS = {
   "Tickets": "/communications/tickets",
   "Enquiries": "/communications/enquiries",
   "Broadcast": "/communications/broadcast",
+
+  // ✅ NEW: Notifications
+  "Notifications": "/notifications",
 };
 
 /**
@@ -63,10 +66,10 @@ const Breadcrumb = () => {
     >
       {/* Home Icon */}
       <Home size={14} className="text-gray-400 flex-shrink-0" />
-      
+
       {/* Arrow after home icon */}
       <span className="text-gray-300 select-none">›</span>
-      
+
       {crumbs.map((crumb, index) => {
         const isLast = index === crumbs.length - 1;
         const path = getBreadcrumbPath(crumb);

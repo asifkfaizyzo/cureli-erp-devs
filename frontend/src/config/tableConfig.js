@@ -1,4 +1,4 @@
-// src/config/tableConfig.js
+// frontend/src/config/tableConfig.js
 // Global table design system configuration
 // All tables across the application should use these values for consistency
 
@@ -8,7 +8,7 @@ export const TABLE_CONFIG = {
   // ============================================
   heights: {
     headerRow: 48,
-    bodyRow: 56,
+    bodyRow: 56, // Increased to accommodate avatar + 2-line content
     pagination: 48,
   },
 
@@ -18,12 +18,17 @@ export const TABLE_CONFIG = {
   // Format: { minHeight: rowCount }
   // ============================================
   rowBreakpoints: {
-    1440: 12,  // 1440p+ / 27" monitors / 4K (very tall screens)
-    1080: 9,   // 1080p Full HD (typical desktop)
-    900: 7,    // 900p / smaller monitors
-    800: 6,    // Tablets / small laptops
+    1440: 13,  // 1440p+ / 27" monitors / 4K
+    1080: 10,  // 1080p Full HD
+    900: 9,    // 900p / smaller monitors
+    800: 8,    // Tablets / small laptops
     0: 5,      // Mobile / fallback (minimum)
   },
+
+  // ============================================
+  // DEFAULT VALUES
+  // ============================================
+  defaultRowCount: 5,
 
   // ============================================
   // STYLE CLASSES
@@ -36,7 +41,7 @@ export const TABLE_CONFIG = {
 
     // Header row
     header: {
-      row: 'bg-gradient-to-r from-[#000060] to-[#0a0280] text-white text-left',
+      row: 'bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white text-left',
       cell: 'p-3 font-semibold text-sm',
       sortIcon: {
         active: 'text-yellow-300',
@@ -48,11 +53,12 @@ export const TABLE_CONFIG = {
     // Body rows
     row: {
       base: 'border-b border-gray-100 transition-all duration-150',
-      even: 'bg-gray-50/50',
+      even: 'bg-gray-50',
       odd: 'bg-white',
-      hover: 'hover:bg-indigo-50/50',
+      hover: 'hover:bg-indigo-50',
       clickable: 'cursor-pointer',
       disabled: 'opacity-60',
+      height: 'h-[56px]', // Must match heights.bodyRow
     },
 
     // Cell styles
@@ -71,10 +77,10 @@ export const TABLE_CONFIG = {
 
     // Action buttons in table
     actions: {
-      container: 'flex items-center justify-center gap-1',
+      container: 'flex items-center justify-center gap-0.5 whitespace-nowrap',
       button: {
         base: 'p-1.5 rounded-lg transition-all',
-        view: 'text-gray-500 hover:text-[#000060] hover:bg-indigo-50',
+        view: 'text-gray-500 hover:text-[#05015A] hover:bg-indigo-50',
         edit: 'text-gray-500 hover:text-amber-600 hover:bg-amber-50',
         suspend: 'text-gray-500 hover:text-orange-600 hover:bg-orange-50',
         activate: 'text-gray-500 hover:text-emerald-600 hover:bg-emerald-50',
@@ -82,8 +88,9 @@ export const TABLE_CONFIG = {
       },
     },
 
-    // Badge styles
+    // Badge styles (for status, roles, etc.)
     badges: {
+      // Status badges - Generic
       status: {
         active: 'inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 min-w-[70px]',
         inactive: 'inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 min-w-[70px]',
@@ -91,13 +98,52 @@ export const TABLE_CONFIG = {
         pending: 'inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 min-w-[70px]',
       },
 
+      // Verification status badges
+      verification: {
+        verified: {
+          wrapper: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-emerald-50 text-emerald-700 border-emerald-200',
+          dot: 'w-1.5 h-1.5 rounded-full bg-emerald-500',
+          label: 'Verified',
+        },
+        pending_review: {
+          wrapper: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-amber-50 text-amber-700 border-amber-200',
+          dot: 'w-1.5 h-1.5 rounded-full bg-amber-500',
+          label: 'Pending Review',
+        },
+        partially_rejected: {
+          wrapper: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-orange-50 text-orange-700 border-orange-200',
+          dot: 'w-1.5 h-1.5 rounded-full bg-orange-500',
+          label: 'Partial Reject',
+        },
+        rejected: {
+          wrapper: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-red-50 text-red-700 border-red-200',
+          dot: 'w-1.5 h-1.5 rounded-full bg-red-500',
+          label: 'Rejected',
+        },
+        default: {
+          wrapper: 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-gray-50 text-gray-700 border-gray-200',
+          dot: 'w-1.5 h-1.5 rounded-full bg-gray-500',
+          label: 'Unknown',
+        },
+      },
+
+      // Role badges
       role: {
-        superAdmin: 'bg-amber-100 text-amber-700 border border-amber-200',
-        branchAdmin: 'bg-purple-100 text-purple-700 border border-purple-200',
+        superAdmin: 'bg-purple-100 text-purple-700 border border-purple-200',
+        admin: 'bg-blue-100 text-blue-700 border border-blue-200',
+        branchAdmin: 'bg-blue-100 text-blue-700 border border-blue-200',
+        manager: 'bg-indigo-100 text-indigo-700 border border-indigo-200',
         staff: 'bg-slate-100 text-slate-700 border border-slate-200',
         default: 'bg-gray-100 text-gray-700 border border-gray-200',
       },
-      roleBase: 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap',
+      // Base style for role badges
+      roleBase: 'inline-block px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap text-center min-w-[90px]',
+
+      // Resubmission count badge
+      resubmission: {
+        active: 'inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold',
+        empty: 'text-gray-300',
+      },
     },
 
     // Skeleton loading
@@ -126,11 +172,15 @@ export const TABLE_CONFIG = {
  */
 export const getRoleBadgeStyle = (role) => {
   const { badges } = TABLE_CONFIG.styles;
-  const roleKey = role?.toLowerCase().replace(/[_\s]+/g, '');
+  const roleKey = role?.toLowerCase().replace(/\s+/g, '');
   
   const roleMap = {
     'superadmin': badges.role.superAdmin,
+    'super_admin': badges.role.superAdmin,
+    'admin': badges.role.admin,
     'branchadmin': badges.role.branchAdmin,
+    'branch_admin': badges.role.branchAdmin,
+    'manager': badges.role.manager,
     'staff': badges.role.staff,
   };
 
@@ -147,6 +197,14 @@ export const getStatusBadgeStyle = (status) => {
     : status?.toLowerCase();
   
   return badges.status[statusKey] || badges.status.inactive;
+};
+
+/**
+ * Get verification status badge config
+ */
+export const getVerificationStatusConfig = (status) => {
+  const { verification } = TABLE_CONFIG.styles.badges;
+  return verification[status] || verification.default;
 };
 
 /**

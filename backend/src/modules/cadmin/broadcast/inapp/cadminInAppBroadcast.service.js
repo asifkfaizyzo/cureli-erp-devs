@@ -141,7 +141,7 @@ export async function previewRecipientCount(filters, includeDetails = false) {
 }
 
 // ============================================
-// ENHANCED SEND IMMEDIATE WITH ATTACHMENTS
+// ✅ FIXED: SEND IMMEDIATE WITH CAMPAIGN RECORD CREATION
 // ============================================
 
 export async function sendImmediate(data, auditContext) {
@@ -154,6 +154,8 @@ export async function sendImmediate(data, auditContext) {
     action_url,
     action_label,
     expires_in_hours,
+    target_users = true,
+    target_cadmins = false,
   } = data;
 
   try {
@@ -190,6 +192,29 @@ export async function sendImmediate(data, auditContext) {
 
     console.log(`[Broadcast Service] Sending to ${recipients.length} recipients`);
 
+    // ✅ NEW: CREATE CAMPAIGN RECORD FIRST (THIS WAS MISSING!)
+    const campaign = await prisma.broadcastCampaign.create({
+      data: {
+        title: title.trim(),
+        message: message.trim(),
+        priority: validPriority,
+        target_filters,
+        attachments: validAttachments.length > 0 ? validAttachments : null,
+        action_url: action_url?.trim() || null,
+        action_label: action_label?.trim() || null,
+        recipient_count: recipients.length,
+        target_users,
+        target_cadmins,
+        expires_at: expiresAt,
+        status: 'sent',  // ✅ Set to 'sent' immediately
+        sent_at: new Date(),  // ✅ Set sent timestamp
+        created_by_cadmin: auditContext.actor_id,
+        cadmin_name: auditContext.actor_name || 'CAdmin',
+      },
+    });
+
+    console.log(`[Broadcast Service] Campaign ${campaign.campaign_id} created with status 'sent'`);
+
     // Send via notification service
     const result = await notify({
       type: NOTIFICATION_EVENTS.BROADCAST_INAPP,
@@ -206,8 +231,19 @@ export async function sendImmediate(data, auditContext) {
       audienceFilters: target_filters,
     });
 
+    // ✅ NEW: UPDATE CAMPAIGN WITH DELIVERY STATS
+    await prisma.broadcastCampaign.update({
+      where: { campaign_id: campaign.campaign_id },
+      data: {
+        delivered_count: result.channels.inapp?.sent || 0,
+      },
+    });
+
+    console.log(`[Broadcast Service] Campaign ${campaign.campaign_id} delivered to ${result.channels.inapp?.sent || 0} recipients`);
+
     return {
       success: result.success,
+      campaign_id: campaign.campaign_id,  // ✅ Now returns campaign ID
       sent_to: recipients.length,
       delivered: result.channels.inapp?.sent || 0,
       failed: result.channels.inapp?.failed || 0,
@@ -463,7 +499,6 @@ export async function useTemplate(templateId) {
   return template;
 }
 
-
 /**
  * Update a draft campaign
  */
@@ -644,6 +679,10 @@ export async function sendScheduled(campaignId) {
       context: {
         title: campaign.title,
         message: campaign.message,
+        attachments: campaign.attachments,
+        action_url: campaign.action_url,
+        action_label: campaign.action_label,
+        expires_at: campaign.expires_at,
       },
       channels: ['inapp'],
       audience: recipients,
@@ -670,11 +709,11 @@ export async function sendScheduled(campaignId) {
   } catch (error) {
     console.error(`[Broadcast Service] Send scheduled campaign ${campaignId} failed:`, error);
     
-    // Mark as failed (you could add a 'failed' status if needed)
+    // Mark as failed
     await prisma.broadcastCampaign.update({
       where: { campaign_id: campaignId },
       data: {
-        status: 'cancelled',  // or create a 'failed' status
+        status: 'cancelled',
         updated_at: new Date(),
       },
     }).catch(err => console.error('Failed to update campaign status:', err));
@@ -754,6 +793,12 @@ export async function getDrafts(cadminId, pagination = {}) {
           message: true,
           priority: true,
           recipient_count: true,
+          target_filters: true,
+          attachments: true,
+          action_url: true,
+          action_label: true,
+          target_users: true,
+          target_cadmins: true,
           created_at: true,
           updated_at: true,
         },
@@ -865,11 +910,8 @@ export async function getHistory(pagination = {}) {
     ]);
 
     // Calculate read counts for each campaign
-    // We'll query notifications created around the sent time
     const enriched = await Promise.all(
       campaigns.map(async (campaign) => {
-        // Find notifications matching this broadcast
-        // (approximate: title match within 1 hour of sent_at)
         const sentTime = new Date(campaign.sent_at);
         const oneHourBefore = new Date(sentTime.getTime() - 60 * 60 * 1000);
         const oneHourAfter = new Date(sentTime.getTime() + 60 * 60 * 1000);

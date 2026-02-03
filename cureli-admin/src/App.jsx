@@ -27,7 +27,10 @@ import CommunicationsPage from "./pages/Communications/CommunicationsPage";
 import TicketsPage from "./pages/Communications/pages/Tickets/TicketsPage";
 import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage";
 import BroadcastPage from "./pages/Communications/pages/Broadcast/BroadcastPage";
-import InAppBroadcastPage from "./pages/Communications/pages/Broadcast/InApp/InAppBroadcastPage"; 
+import InAppBroadcastPage from "./pages/Communications/pages/Broadcast/InApp/InAppBroadcastPage";
+
+// Notifications Page ✅ NEW
+import NotificationsPage from "./pages/Notifications/NotificationsPage";
 
 // Audit Page
 import AuditPage from "./pages/Audit/AuditPage";
@@ -86,45 +89,46 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* ══════════════════════════════════════════════════════
-            PUBLIC ROUTES (No Layout)
-        ══════════════════════════════════════════════════════ */}
+        {/* PUBLIC ROUTES */}
         <Route path="/login" element={<AdminLoginPage />} />
-        <Route path="/admin-forgot-password" element={<CAdminForgotPassword />} />
+        <Route
+          path="/admin-forgot-password"
+          element={<CAdminForgotPassword />}
+        />
         <Route path="/reset-password" element={<CAdminResetPassword />} />
 
-        {/* ══════════════════════════════════════════════════════
-            PROTECTED ROUTES (With AppLayout + AuthProvider)
-        ══════════════════════════════════════════════════════ */}
+        {/* PROTECTED ROUTES */}
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<AdminDashboard />} />
           <Route path="/users" element={<UserPage />} />
           <Route path="/shops" element={<ShopsPage />} />
           <Route path="/verification" element={<VerificationPage />} />
-          
+
           {/* Subscription Management */}
           <Route path="/subscriptions" element={<RiskMonitorPage />} />
           <Route path="/subscriptions/manage" element={<SubscriptionPage />} />
 
           {/* Audit Page */}
           <Route path="/audits" element={<AuditPage />} />
-          
+
           <Route path="/settings" element={<div>Settings Page</div>} />
           <Route path="/admins" element={<AdminsPage />} />
 
-          {/* ══════════════════════════════════════════════════════
-              COMMUNICATIONS ROUTES
-          ══════════════════════════════════════════════════════ */}
+          {/* ✅ ADD THIS: Notifications Route */}
+          <Route path="/notifications" element={<NotificationsPage />} />
+
+          {/* Communications Routes */}
           <Route path="/communications" element={<CommunicationsPage />} />
           <Route path="/communications/tickets" element={<TicketsPage />} />
           <Route path="/communications/enquiries" element={<EnquiriesPage />} />
           <Route path="/communications/broadcast" element={<BroadcastPage />} />
-          <Route path="/communications/broadcast/in-app" element={<InAppBroadcastPage />} /> 
+          <Route
+            path="/communications/broadcast/in-app"
+            element={<InAppBroadcastPage />}
+          />
         </Route>
 
-        {/* ══════════════════════════════════════════════════════
-            REDIRECTS
-        ══════════════════════════════════════════════════════ */}
+        {/* REDIRECTS */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
