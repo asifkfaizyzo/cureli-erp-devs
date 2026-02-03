@@ -1,8 +1,6 @@
-// ============================================
-// frontend\src\pages\notifications\components\NotificationSidePanel.jsx
-// ============================================
+// frontend/src/pages/notifications/components/NotificationSidePanel.jsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   X,
@@ -11,17 +9,24 @@ import {
   CheckCircle,
   Trash2,
   Bell,
+  Megaphone,
+  Link2,
+  Image,
+  Video,
+  Play,
+  Download,
+  Maximize2,
 } from 'lucide-react';
 import { NotificationIcon } from '../../../components/common/notifications';
 import {
-  formatNotificationFullDate,
+  formatNotificationTime,
   getPriorityConfig,
   getNotificationRoute,
+  isBroadcastNotification,
 } from '../../../config/notifications';
 
-/**
- * NotificationSidePanel - Full detail view for selected notification
- */
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const NotificationSidePanel = ({
   notification,
   onClose,
@@ -30,17 +35,18 @@ const NotificationSidePanel = ({
   isDeleting,
 }) => {
   const navigate = useNavigate();
+  const [imageError, setImageError] = useState(false);
+  const [showFullImage, setShowFullImage] = useState(false);
 
+  // Empty state
   if (!notification) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center px-6">
-        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-          <Bell size={28} className="text-gray-300" />
+      <div className="h-full flex flex-col items-center justify-center text-center px-6 bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div className="w-14 h-14 rounded-full bg-[#000060]/5 flex items-center justify-center mb-3">
+          <Bell size={24} className="text-[#000060]/30" />
         </div>
         <p className="text-sm font-medium text-gray-500">Select a notification</p>
-        <p className="text-xs text-gray-400 mt-1">
-          Click on any notification to view details
-        </p>
+        <p className="text-xs text-gray-400 mt-1">Click to view details</p>
       </div>
     );
   }
@@ -52,52 +58,112 @@ const NotificationSidePanel = ({
     message,
     priority,
     is_read,
-    read_at,
     created_at,
     context,
   } = notification;
 
   const priorityConfig = getPriorityConfig(priority);
-  const route = getNotificationRoute(event_type);
+  const isBroadcast = isBroadcastNotification(event_type);
+  const route = getNotificationRoute(event_type, context);
+  
+  const attachments = context?.attachments || [];
+  const actionUrl = context?.action_url;
+  const actionLabel = context?.action_label || 'View Details';
+  const expiresAt = context?.expires_at;
+  const attachment = attachments.length > 0 ? attachments[0] : null;
 
-  const handleNavigate = () => {
-    if (route) {
-      navigate(route);
-    }
+  const isExpired = expiresAt && new Date(expiresAt) < new Date();
+
+  const getAttachmentUrl = (att) => {
+    if (!att?.url) return null;
+    if (att.url.startsWith('http://') || att.url.startsWith('https://')) return att.url;
+    return `${BACKEND_URL}${att.url}`;
   };
 
-  const handleDelete = async () => {
-    if (onDelete) {
-      await onDelete(notification_id);
+  const handleNavigate = () => {
+    if (route) navigate(route);
+    else if (actionUrl) window.open(actionUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleAttachmentClick = (att) => {
+    if (att.type === 'image' && !imageError) setShowFullImage(true);
+    else if (att.url) window.open(getAttachmentUrl(att), '_blank', 'noopener,noreferrer');
+  };
+
+  const handleDownload = (att) => {
+    if (att.url) {
+      const link = document.createElement('a');
+      link.href = getAttachmentUrl(att);
+      link.download = att.original_name || att.label || 'attachment';
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <NotificationIcon eventType={event_type} size="lg" />
-          <div className="pt-1">
-            <h2 className="font-semibold text-gray-900 text-base leading-tight">
-              {title}
-            </h2>
-            <div className="flex items-center gap-2 mt-2">
-              <span className={`
-                text-xs font-semibold px-2 py-0.5 rounded-full
-                ${priorityConfig.badgeBg} ${priorityConfig.badgeText}
-              `}>
+      <div className={`px-4 py-3 border-b flex items-start justify-between gap-3 ${
+        isBroadcast ? 'bg-[#000060]/5 border-[#000060]/10' : 'border-gray-100'
+      }`}>
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          {/* Icon */}
+          {isBroadcast ? (
+            <div className="w-9 h-9 rounded-full bg-[#000060]/10 flex items-center justify-center flex-shrink-0">
+              <Megaphone size={16} className="text-[#000060]" />
+            </div>
+          ) : (
+            <NotificationIcon eventType={event_type} size="md" />
+          )}
+          
+          <div className="flex-1 min-w-0">
+            {/* Title with time */}
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-gray-900 text-sm truncate">
+                {title}
+              </h2>
+              <span className="text-[10px] text-gray-400 flex-shrink-0 flex items-center gap-0.5">
+                <Clock size={9} />
+                {formatNotificationTime(created_at)}
+              </span>
+            </div>
+            
+            {/* Badges row */}
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              {isBroadcast && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[#000060]/10 text-[#000060] text-[9px] font-semibold rounded">
+                  <Megaphone size={8} />
+                  ANNOUNCEMENT
+                </span>
+              )}
+              
+              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${priorityConfig.badgeBg} ${priorityConfig.badgeText}`}>
                 {priorityConfig.label}
               </span>
-              {is_read ? (
-                <span className="text-xs text-gray-400 flex items-center gap-1">
-                  <CheckCircle size={12} />
-                  Read
-                </span>
-              ) : (
-                <span className="text-xs text-[#000060] font-medium flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-[#000060]" />
+              
+              {!is_read && (
+                <span className="text-[9px] text-[#000060] font-medium flex items-center gap-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#000060]" />
                   Unread
+                </span>
+              )}
+
+              {isExpired && (
+                <span className="text-[9px] text-gray-400 flex items-center gap-0.5 bg-gray-100 px-1.5 py-0.5 rounded">
+                  Expired
+                </span>
+              )}
+
+              {attachment && (
+                <span className={`text-[9px] flex items-center gap-0.5 px-1.5 py-0.5 rounded ${
+                  attachment.type === 'image' ? 'bg-green-100 text-green-700' : 
+                  attachment.type === 'video' ? 'bg-purple-100 text-purple-700' : 'bg-[#000060]/10 text-[#000060]'
+                }`}>
+                  {attachment.type === 'image' && <Image size={8} />}
+                  {attachment.type === 'video' && <Video size={8} />}
+                  {attachment.type === 'link' && <Link2 size={8} />}
                 </span>
               )}
             </div>
@@ -106,175 +172,213 @@ const NotificationSidePanel = ({
 
         <button
           onClick={onClose}
-          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-1 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
         >
-          <X size={18} className="text-gray-400" />
+          <X size={16} className="text-gray-400" />
         </button>
       </div>
 
-      {/* Body - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-5">
-        {/* Full Message */}
-        <div className="mb-6">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Message
-          </h3>
-          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-            {message}
-          </p>
-        </div>
+      {/* Content - Scrollable with max height */}
+      <div className="p-4 max-h-[60vh] overflow-y-auto overflow-x-hidden">
+        {/* Message - Justified text with word break */}
+        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words">
+          {message}
+        </p>
 
-        {/* Context Details */}
-        {context && Object.keys(context).length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Details
-            </h3>
-            <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-              {renderContextDetails(context)}
-            </div>
+        {/* Image Attachment */}
+        {attachment && attachment.type === 'image' && (
+          <div className="mt-4">
+            {!imageError ? (
+              <div 
+                className="relative rounded-lg overflow-hidden bg-gray-100 cursor-pointer group"
+                onClick={() => handleAttachmentClick(attachment)}
+              >
+                <img
+                  src={getAttachmentUrl(attachment)}
+                  alt={attachment.label || 'Attachment'}
+                  className="w-full h-auto max-h-48 object-contain"
+                  onError={() => setImageError(true)}
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowFullImage(true); }}
+                      className="p-1.5 bg-white/90 rounded-full shadow hover:bg-white"
+                      title="View full size"
+                    >
+                      <Maximize2 size={14} className="text-gray-700" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDownload(attachment); }}
+                      className="p-1.5 bg-white/90 rounded-full shadow hover:bg-white"
+                      title="Download"
+                    >
+                      <Download size={14} className="text-gray-700" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                <Image size={16} className="text-gray-400" />
+                <span className="text-xs text-gray-500">Failed to load image</span>
+              </div>
+            )}
+            {/* File info */}
+            {attachment.original_name && (
+              <p className="text-[10px] text-gray-400 mt-1.5 truncate">
+                {attachment.original_name}
+                {attachment.size_formatted && ` · ${attachment.size_formatted}`}
+              </p>
+            )}
           </div>
         )}
 
-        {/* Timestamps */}
-        <div>
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-            Timeline
-          </h3>
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 text-sm">
-              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                <Clock size={14} className="text-gray-500" />
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs">Created</p>
-                <p className="text-gray-700 font-medium">
-                  {formatNotificationFullDate(created_at)}
-                </p>
+        {/* Video Attachment */}
+        {attachment && attachment.type === 'video' && (
+          <div className="mt-4">
+            <div 
+              className="relative rounded-lg overflow-hidden bg-gray-900 cursor-pointer group"
+              onClick={() => handleAttachmentClick(attachment)}
+            >
+              <div className="aspect-video flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mx-auto group-hover:bg-white/30 transition-colors">
+                    <Play size={20} className="text-white ml-0.5" />
+                  </div>
+                  <p className="text-white/70 text-xs mt-2">Click to play</p>
+                </div>
               </div>
             </div>
-
-            {read_at && (
-              <div className="flex items-center gap-3 text-sm">
-                <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center">
-                  <CheckCircle size={14} className="text-green-500" />
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs">Read</p>
-                  <p className="text-gray-700 font-medium">
-                    {formatNotificationFullDate(read_at)}
-                  </p>
-                </div>
-              </div>
+            {/* File info */}
+            {attachment.original_name && (
+              <p className="text-[10px] text-gray-400 mt-1.5 truncate">
+                {attachment.original_name}
+                {attachment.size_formatted && ` · ${attachment.size_formatted}`}
+              </p>
             )}
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Footer - Actions */}
-      <div className="px-5 py-4 border-t border-gray-100 space-y-2">
-        {/* Navigate Button */}
-        {route && (
+        {/* Link Attachment */}
+        {attachment && attachment.type === 'link' && (
           <button
-            onClick={handleNavigate}
-            className="
-              w-full flex items-center justify-center gap-2
-              px-4 py-2.5 rounded-lg
-              bg-[#000060] text-white text-sm font-medium
-              hover:bg-[#000080] transition-colors
-            "
+            onClick={() => handleAttachmentClick(attachment)}
+            className="mt-4 w-full flex items-center gap-2 p-2.5 bg-[#000060]/5 border border-[#000060]/10 rounded-lg hover:border-[#000060]/30 hover:bg-[#000060]/10 transition-all group text-left"
           >
-            <span>View Details</span>
-            <ExternalLink size={14} />
+            <div className="w-8 h-8 rounded-lg bg-[#000060]/10 flex items-center justify-center flex-shrink-0">
+              <Link2 size={14} className="text-[#000060]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-gray-700 truncate">
+                {attachment.label || 'External Link'}
+              </p>
+              <p className="text-[10px] text-gray-400 truncate">
+                {(() => {
+                  try {
+                    return new URL(attachment.url).hostname;
+                  } catch {
+                    return attachment.url;
+                  }
+                })()}
+              </p>
+            </div>
+            <ExternalLink size={12} className="text-gray-400 group-hover:text-[#000060] flex-shrink-0" />
           </button>
         )}
 
-        {/* Secondary Actions */}
+        {/* Context Details (non-broadcast) */}
+        {!isBroadcast && context && Object.keys(context).filter(k => 
+          !['shop_id', 'branch_id', 'user_id', 'attachments', 'action_url', 'action_label', 'expires_at'].includes(k)
+        ).length > 0 && (
+          <div className="mt-4 pt-3 border-t border-gray-100">
+            <div className="space-y-1.5">
+              {Object.entries(context)
+                .filter(([k]) => !['shop_id', 'branch_id', 'user_id', 'attachments', 'action_url', 'action_label', 'expires_at'].includes(k))
+                .slice(0, 4)
+                .map(([key, value]) => (
+                  <div key={key} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                    <span className="text-gray-700 font-medium truncate max-w-[150px]">{String(value)}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer - Actions */}
+      <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
         <div className="flex items-center gap-2">
-          {/* Mark as Read (if unread) */}
+          {/* Primary Action */}
+          {(route || actionUrl) && (
+            <button
+              onClick={handleNavigate}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors bg-[#000060] text-white hover:bg-[#000080]"
+            >
+              {actionUrl ? actionLabel : 'View Details'}
+              <ExternalLink size={12} />
+            </button>
+          )}
+
+          {/* Mark as Read */}
           {!is_read && (
             <button
               onClick={() => onMarkAsRead?.(notification_id)}
-              className="
-                flex-1 flex items-center justify-center gap-2
-                px-4 py-2 rounded-lg border border-gray-200
-                text-sm font-medium text-gray-600
-                hover:bg-gray-50 transition-colors
-              "
+              className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors"
+              title="Mark as read"
             >
               <CheckCircle size={14} />
-              Mark as Read
             </button>
           )}
 
           {/* Delete */}
           <button
-            onClick={handleDelete}
+            onClick={() => onDelete?.(notification_id)}
             disabled={isDeleting}
-            className="
-              flex items-center justify-center gap-2
-              px-4 py-2 rounded-lg border border-red-200
-              text-sm font-medium text-red-600
-              hover:bg-red-50 transition-colors
-              disabled:opacity-50
-            "
+            className="p-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+            title="Delete"
           >
             {isDeleting ? (
-              <div className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
             ) : (
               <Trash2 size={14} />
             )}
-            {!is_read ? '' : 'Delete'}
           </button>
         </div>
       </div>
+
+      {/* Full Image Modal */}
+      {showFullImage && attachment?.type === 'image' && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setShowFullImage(false)}
+        >
+          <button
+            onClick={() => setShowFullImage(false)}
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+          >
+            <X size={20} className="text-white" />
+          </button>
+          <img
+            src={getAttachmentUrl(attachment)}
+            alt="Full size"
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDownload(attachment); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs rounded-lg transition-colors"
+            >
+              <Download size={12} />
+              Download
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-/**
- * Render context details in a readable format
- */
-const renderContextDetails = (context) => {
-  // Filter out internal/sensitive fields
-  const excludeKeys = [
-    'shop_id', 'branch_id', 'user_id', 'inventory_id', 
-    'medicine_id', 'subscription_id', 'ticket_id', 'transaction_id'
-  ];
-  
-  const displayFields = Object.entries(context).filter(([key]) => {
-    return !excludeKeys.includes(key);
-  });
-
-  if (displayFields.length === 0) {
-    return <p className="text-xs text-gray-400 italic">No additional details</p>;
-  }
-
-  return displayFields.map(([key, value]) => {
-    // Format key for display
-    const formattedKey = key
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (l) => l.toUpperCase());
-
-    // Format value
-    let displayValue = value;
-    if (typeof value === 'boolean') {
-      displayValue = value ? 'Yes' : 'No';
-    } else if (value === null || value === undefined) {
-      return null;
-    } else if (typeof value === 'object') {
-      displayValue = JSON.stringify(value);
-    }
-
-    return (
-      <div key={key} className="flex items-start justify-between gap-4 text-sm">
-        <span className="text-gray-500 flex-shrink-0">{formattedKey}</span>
-        <span className="text-gray-700 font-medium text-right truncate max-w-[180px]">
-          {String(displayValue)}
-        </span>
-      </div>
-    );
-  });
 };
 
 export default NotificationSidePanel;

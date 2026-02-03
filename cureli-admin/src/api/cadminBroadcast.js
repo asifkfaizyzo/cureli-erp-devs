@@ -1,6 +1,42 @@
-// cureli-admin/src/api/cadminBroadcast.js
+// src/api/cadminBroadcast.js
 
 import CAdminAPI from "./axios";
+
+// ============================================
+// FILE UPLOAD
+// ============================================
+
+/**
+ * Upload a broadcast attachment (image or video)
+ * @param {File} file - The file to upload
+ * @param {function} onProgress - Progress callback (0-100)
+ * @returns {Promise} - Upload response
+ */
+export function uploadBroadcastAttachment(file, onProgress) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return CAdminAPI.post("/broadcast/inapp/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    onUploadProgress: (progressEvent) => {
+      if (onProgress && progressEvent.total) {
+        const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        onProgress(percent);
+      }
+    },
+  });
+}
+
+/**
+ * Delete a broadcast attachment
+ * @param {string} filename - The filename to delete
+ * @returns {Promise} - Delete response
+ */
+export function deleteBroadcastAttachment(filename) {
+  return CAdminAPI.delete(`/broadcast/inapp/upload/${filename}`);
+}
 
 // ============================================
 // PREVIEW
@@ -72,7 +108,7 @@ export function getCampaignById(campaignId) {
 }
 
 // ============================================
-// FILTER OPTIONS (NEW)
+// FILTER OPTIONS
 // ============================================
 
 export function getShopsForFilter(search = '', page = 1, limit = 50) {
@@ -96,7 +132,7 @@ export function getActivePlans() {
 }
 
 // ============================================
-// SEGMENTS (NEW)
+// SEGMENTS
 // ============================================
 
 export function createSegment(data) {
@@ -112,7 +148,7 @@ export function deleteSegment(segmentId) {
 }
 
 // ============================================
-// TEMPLATES (NEW)
+// TEMPLATES
 // ============================================
 
 export function createTemplate(data) {
@@ -128,24 +164,34 @@ export function useTemplate(templateId) {
 }
 
 export default {
+  // File upload
+  uploadBroadcastAttachment,
+  deleteBroadcastAttachment,
+  // Preview & Send
   previewBroadcast,
   sendBroadcastNow,
+  // Drafts
   createDraft,
   updateDraft,
   deleteDraft,
+  // Scheduling
   scheduleBroadcast,
   cancelScheduled,
+  // Lists
   getDrafts,
   getScheduled,
   getHistory,
   getCampaignById,
+  // Filters
   getShopsForFilter,
   getUserRoles,
   getCAdminRoles,
   getActivePlans,
+  // Segments
   createSegment,
   getSegments,
   deleteSegment,
+  // Templates
   createTemplate,
   getTemplates,
   useTemplate,

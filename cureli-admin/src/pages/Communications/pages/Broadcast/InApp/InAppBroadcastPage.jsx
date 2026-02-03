@@ -28,10 +28,32 @@ const InAppBroadcastPage = () => {
   };
 
   const tabs = [
-    { id: "create", label: "Create New", icon: Plus },
-    { id: "drafts", label: "Drafts", icon: Archive, count: draftCount },
-    { id: "scheduled", label: "Scheduled", icon: Calendar, count: scheduledCount },
-    { id: "history", label: "History", icon: History },
+    {
+      id: "create",
+      label: "Create New",
+      expandedLabel: "Create New Broadcast",
+      icon: Plus,
+    },
+    {
+      id: "drafts",
+      label: "Drafts",
+      expandedLabel: "Saved Drafts",
+      icon: Archive,
+      count: draftCount,
+    },
+    {
+      id: "scheduled",
+      label: "Scheduled",
+      expandedLabel: "Scheduled Broadcasts",
+      icon: Calendar,
+      count: scheduledCount,
+    },
+    {
+      id: "history",
+      label: "History",
+      expandedLabel: "Broadcast History",
+      icon: History,
+    },
   ];
 
   return (
@@ -43,46 +65,55 @@ const InAppBroadcastPage = () => {
             <Megaphone size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">In-App Broadcast</h1>
+            <h1 className="text-xl font-bold text-gray-900">
+              In-App Broadcast
+            </h1>
             <p className="text-xs text-gray-500">Send announcements to users</p>
           </div>
         </div>
-        
-        {/* Compact Tips */}
-        <div className="hidden lg:flex items-center gap-2 text-xs text-gray-500 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-          <AlertCircle size={14} className="text-blue-500" />
-          <span>Max 500 chars • Schedule 9AM-6PM • Preview before sending</span>
-        </div>
-      </div>
 
-      {/* Tabs - Inline */}
-      <div className="flex-shrink-0 flex items-center gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => {
-              if (tab.id !== "create") setEditingDraft(null);
-              setActiveTab(tab.id);
-            }}
-            className={`relative flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeTab === tab.id
-                ? "bg-white text-[#05015A] shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            <tab.icon size={16} />
-            {tab.label}
-            {tab.count > 0 && (
-              <span className={`ml-1 px-1.5 py-0.5 text-xs rounded-full ${
-                tab.id === "drafts" 
-                  ? "bg-amber-100 text-amber-700" 
-                  : "bg-orange-100 text-orange-700"
-              }`}>
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
+        {/* Compact Tips */}
+        {/* Tabs - Inline with Expanding Labels */}
+        <div className="flex-shrink-0 flex items-center gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  if (tab.id !== "create") setEditingDraft(null);
+                  setActiveTab(tab.id);
+                }}
+                className={`relative flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  isActive
+                    ? "bg-white text-[#05015A] shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <tab.icon size={16} className="flex-shrink-0" />
+
+                {/* Animated Label */}
+                <span className="whitespace-nowrap overflow-hidden transition-all duration-200">
+                  {isActive ? tab.expandedLabel : tab.label}
+                </span>
+
+                {/* Count Badge */}
+                {tab.count > 0 && (
+                  <span
+                    className={`ml-1 px-1.5 py-0.5 text-xs rounded-full flex-shrink-0 ${
+                      tab.id === "drafts"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-orange-100 text-orange-700"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Content */}

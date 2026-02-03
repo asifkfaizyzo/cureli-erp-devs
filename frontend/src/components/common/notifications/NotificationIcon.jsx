@@ -1,69 +1,60 @@
-// ============================================
-// NOTIFICATION ICON COMPONENT
-// Renders appropriate icon based on event type
-// ============================================
+// frontend/src/components/common/notifications/NotificationIcon.jsx
 
 import React from 'react';
-import { getNotificationIconConfig } from '../../../config/notifications';
+import { Megaphone } from 'lucide-react';
+import { 
+  getNotificationIconConfig, 
+  isBroadcastNotification,
+  NOTIFICATION_EVENTS 
+} from '../../../config/notifications';
 
 /**
- * NotificationIcon - Renders icon with background based on event type
- * 
- * @param {string} eventType - Notification event type
- * @param {string} size - Icon size: 'sm' | 'md' | 'lg' (default: 'md')
- * @param {boolean} showBackground - Whether to show background circle (default: true)
- * @param {string} className - Additional classes
+ * NotificationIcon - Renders appropriate icon for notification type
  */
-const NotificationIcon = ({
-  eventType,
-  size = 'md',
-  showBackground = true,
-  className = '',
-}) => {
+const NotificationIcon = ({ eventType, size = 'md', className = '' }) => {
   const config = getNotificationIconConfig(eventType);
-  const IconComponent = config.icon;
+  const Icon = config.icon;
+  const isBroadcast = isBroadcastNotification(eventType);
 
-  // Size configurations
-  const sizeConfig = {
-    sm: {
-      wrapper: 'w-8 h-8',
-      icon: 14,
-    },
-    md: {
-      wrapper: 'w-10 h-10',
-      icon: 18,
-    },
-    lg: {
-      wrapper: 'w-12 h-12',
-      icon: 22,
-    },
+  const sizeClasses = {
+    sm: 'w-8 h-8',
+    md: 'w-10 h-10',
+    lg: 'w-12 h-12',
   };
 
-  const currentSize = sizeConfig[size] || sizeConfig.md;
+  const iconSizes = {
+    sm: 14,
+    md: 18,
+    lg: 22,
+  };
 
-  if (!showBackground) {
+  // Special styling for broadcast notifications
+  if (isBroadcast) {
     return (
-      <IconComponent
-        size={currentSize.icon}
-        className={`${config.iconColor} ${className}`}
-      />
+      <div className={`
+        ${sizeClasses[size]} 
+        rounded-full 
+        bg-gradient-to-br from-indigo-100 to-purple-100
+        flex items-center justify-center 
+        flex-shrink-0
+        ring-2 ring-indigo-200/50
+        ${className}
+      `}>
+        <Megaphone size={iconSizes[size]} className="text-indigo-600" />
+      </div>
     );
   }
 
   return (
-    <div
-      className={`
-        ${currentSize.wrapper} 
-        rounded-xl 
-        flex items-center justify-center 
-        flex-shrink-0
-        ${config.bgColor}
-        border
-        ${config.borderColor}
-        ${className}
-      `}
-    >
-      <IconComponent size={currentSize.icon} className={config.iconColor} />
+    <div className={`
+      ${sizeClasses[size]} 
+      rounded-full 
+      ${config.bgColor} 
+      flex items-center justify-center 
+      flex-shrink-0
+      ${className}
+    `}>
+      <Icon size={iconSizes[size]} className={config.iconColor} />
     </div>
   );
 };

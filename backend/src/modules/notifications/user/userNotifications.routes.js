@@ -1,5 +1,5 @@
 // ============================================
-// USER NOTIFICATIONS ROUTES
+// backend\src\modules\notifications\user\userNotifications.routes.js
 // ============================================
 
 import { Router } from 'express';

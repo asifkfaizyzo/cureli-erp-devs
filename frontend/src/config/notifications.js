@@ -1,7 +1,4 @@
-// ============================================
-// NOTIFICATION CONFIGURATION
-// Icon mappings, route mappings, and display config
-// ============================================
+// frontend/src/config/notifications.js
 
 import {
   Package,
@@ -25,6 +22,12 @@ import {
   Phone,
   FileCheck,
   AlertCircle,
+  Megaphone,
+  Info,
+  Sparkles,
+  Link2,
+  Image,
+  Video,
 } from 'lucide-react';
 
 // ============================================
@@ -77,6 +80,9 @@ export const NOTIFICATION_EVENTS = {
   // Tickets
   TICKET_CREATED: 'TICKET_CREATED',
   TICKET_STATUS_CHANGED: 'TICKET_STATUS_CHANGED',
+
+  // ✅ NEW: Broadcast from CAdmin
+  BROADCAST_INAPP: 'BROADCAST_INAPP',
 };
 
 // ============================================
@@ -84,6 +90,19 @@ export const NOTIFICATION_EVENTS = {
 // ============================================
 
 export const NOTIFICATION_ICON_CONFIG = {
+  // ... (keep all existing configs)
+
+  // ─────────────────────────────────────────
+  // BROADCAST (NEW)
+  // ─────────────────────────────────────────
+  [NOTIFICATION_EVENTS.BROADCAST_INAPP]: {
+    icon: Megaphone,
+    iconColor: 'text-indigo-600',
+    bgColor: 'bg-indigo-50',
+    borderColor: 'border-indigo-200',
+    label: 'Announcement',
+  },
+
   // ─────────────────────────────────────────
   // INVENTORY
   // ─────────────────────────────────────────
@@ -365,6 +384,9 @@ export const NOTIFICATION_ROUTES = {
   // Tickets
   [NOTIFICATION_EVENTS.TICKET_CREATED]: '/tickets',
   [NOTIFICATION_EVENTS.TICKET_STATUS_CHANGED]: '/tickets',
+
+  // Broadcast - Check for action_url in context
+  [NOTIFICATION_EVENTS.BROADCAST_INAPP]: null, // Dynamic - uses context.action_url
 };
 
 // ============================================
@@ -415,6 +437,13 @@ export const PRIORITY_CONFIG = {
 // ============================================
 
 export const EVENT_TYPE_GROUPS = {
+  announcements: {
+    label: 'Announcements',
+    icon: Megaphone,
+    events: [
+      NOTIFICATION_EVENTS.BROADCAST_INAPP,
+    ],
+  },
   inventory: {
     label: 'Inventory',
     icon: Package,
@@ -498,8 +527,13 @@ export const getNotificationIconConfig = (eventType) => {
 
 /**
  * Get route for a notification event type
+ * For broadcasts, check context.action_url
  */
-export const getNotificationRoute = (eventType) => {
+export const getNotificationRoute = (eventType, context = {}) => {
+  // For broadcasts, use action_url from context if available
+  if (eventType === NOTIFICATION_EVENTS.BROADCAST_INAPP) {
+    return context?.action_url || null;
+  }
   return NOTIFICATION_ROUTES[eventType] || null;
 };
 
@@ -508,6 +542,25 @@ export const getNotificationRoute = (eventType) => {
  */
 export const getPriorityConfig = (priority) => {
   return PRIORITY_CONFIG[priority] || PRIORITY_CONFIG.normal;
+};
+
+/**
+ * Check if notification is a broadcast
+ */
+export const isBroadcastNotification = (eventType) => {
+  return eventType === NOTIFICATION_EVENTS.BROADCAST_INAPP;
+};
+
+/**
+ * Get attachment icon
+ */
+export const getAttachmentIcon = (type) => {
+  const icons = {
+    link: Link2,
+    image: Image,
+    video: Video,
+  };
+  return icons[type] || Link2;
 };
 
 /**
@@ -560,6 +613,8 @@ export default {
   getNotificationIconConfig,
   getNotificationRoute,
   getPriorityConfig,
+  isBroadcastNotification,
+  getAttachmentIcon,
   formatNotificationTime,
   formatNotificationFullDate,
 };

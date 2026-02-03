@@ -4,6 +4,7 @@ import { Edit2, Trash2, FileText, Loader2 } from "lucide-react";
 import * as broadcastAPI from "../../../../../../api/cadminBroadcast";
 import Pagination from '../../../../../../components/common/Pagination';
 import { TABLE_CONFIG } from "../../../../../../config/tableConfig";
+import useDynamicRowCount from "../../../../../../hooks/useDynamicRowCount";
 
 function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
   const [drafts, setDrafts] = useState([]);
@@ -13,11 +14,12 @@ function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  const rowsPerPage = 10;
+  // ✅ Dynamic row count based on screen height
+  const rowsPerPage = useDynamicRowCount();
 
   useEffect(() => {
     loadDrafts();
-  }, [refreshTrigger, page]);
+  }, [refreshTrigger, page, rowsPerPage]); // ✅ Added rowsPerPage dependency
 
   const loadDrafts = async () => {
     setLoading(true);
@@ -50,7 +52,7 @@ function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDateTime = (dateString) => {
     if (!dateString) return "N/A";
     try {
       return new Date(dateString).toLocaleString("en-IN", {
@@ -72,9 +74,12 @@ function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
     return map[priority] || map.normal;
   };
 
+  // Get styles from config
+  const { styles } = TABLE_CONFIG;
+
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
+      <div className={styles.emptyState.container}>
         <Loader2 size={32} className="animate-spin text-[#05015A] mb-3" />
         <p className="text-sm text-gray-500">Loading drafts...</p>
       </div>
@@ -91,24 +96,18 @@ function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
 
   if (drafts.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 bg-white rounded-xl border border-gray-200">
-        <FileText size={48} className="text-gray-300 mb-3" />
-        <p className="text-lg font-medium text-gray-500 mb-1">No drafts yet</p>
-        <p className="text-sm text-gray-400">Saved drafts will appear here</p>
+      <div className={styles.emptyState.container}>
+        <div className={styles.emptyState.iconWrapper}>
+          <FileText size={48} className={styles.emptyState.icon} />
+        </div>
+        <p className={styles.emptyState.title}>No drafts yet</p>
+        <p className={styles.emptyState.subtitle}>Saved drafts will appear here</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
-      {/* Header */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">Saved Drafts</h3>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {totalItems} total draft{totalItems !== 1 ? "s" : ""}
-        </p>
-      </div>
-
+    <div className={styles.container.wrapper}>
       {/* Table */}
       <div className="flex-1 min-h-0 overflow-auto">
         <table
@@ -116,44 +115,50 @@ function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
           style={{ minWidth: "900px" }}
         >
           <thead className="sticky top-0 z-10">
-            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white text-left">
-              <th className="p-3 font-semibold text-sm">Title</th>
-              <th className="p-3 font-semibold text-sm">Message Preview</th>
-              <th className="p-3 font-semibold text-sm text-center">
-                Recipients
-              </th>
-              <th className="p-3 font-semibold text-sm text-center">
-                Priority
-              </th>
-              <th className="p-3 font-semibold text-sm">Last Updated</th>
-              <th className="p-3 font-semibold text-sm text-center">Actions</th>
+            <tr className={styles.header.row}>
+              <th className={styles.header.cell}>Title</th>
+              <th className={styles.header.cell}>Message Preview</th>
+              <th className={`${styles.header.cell} text-center`}>Recipients</th>
+              <th className={`${styles.header.cell} text-center`}>Priority</th>
+              <th className={styles.header.cell}>Last Updated</th>
+              <th className={`${styles.header.cell} text-center`}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {drafts.map((draft, index) => (
               <tr
                 key={draft.campaign_id}
-                className={`border-b border-gray-100 transition-all duration-150 ${
-                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                } hover:bg-indigo-50`}
+                className={`
+                  ${styles.row.base}
+                  ${index % 2 === 0 ? styles.row.even : styles.row.odd}
+                  ${styles.row.hover}
+                `}
+                style={{ height: `${TABLE_CONFIG.heights.bodyRow}px` }}
               >
-                <td className="px-3 py-3">
-                  <span className="font-medium text-gray-900 line-clamp-2">
+                {/* Title */}
+                <td className={styles.cell.base}>
+                  <span className={`${styles.cell.primary} line-clamp-2`}>
                     {draft.title}
                   </span>
                 </td>
-                <td className="px-3 py-3">
-                  <p className="text-sm text-gray-600 line-clamp-2">
+
+                {/* Message Preview */}
+                <td className={styles.cell.base}>
+                  <p className={`${styles.cell.secondary} line-clamp-2`}>
                     {draft.message.substring(0, 80)}
                     {draft.message.length > 80 && "..."}
                   </p>
                 </td>
-                <td className="px-3 py-3 text-center">
-                  <span className="text-sm font-medium text-gray-900">
+
+                {/* Recipients Count */}
+                <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                  <span className={styles.cell.primary}>
                     {draft.recipient_count || "N/A"}
                   </span>
                 </td>
-                <td className="px-3 py-3 text-center">
+
+                {/* Priority Badge */}
+                <td className={`${styles.cell.base} ${styles.cell.center}`}>
                   <span
                     className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityBadgeClass(
                       draft.priority,
@@ -162,24 +167,28 @@ function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
                     {draft.priority}
                   </span>
                 </td>
-                <td className="px-3 py-3">
-                  <span className="text-xs text-gray-600">
-                    {formatDate(draft.updated_at)}
+
+                {/* Last Updated */}
+                <td className={styles.cell.base}>
+                  <span className={styles.cell.muted}>
+                    {formatDateTime(draft.updated_at)}
                   </span>
                 </td>
-                <td className="px-3 py-3">
-                  <div className="flex items-center justify-center gap-1">
+
+                {/* Actions */}
+                <td className={styles.cell.base}>
+                  <div className={styles.actions.container}>
                     <button
                       onClick={() => onEdit(draft)}
-                      className="p-1.5 rounded-lg text-gray-500 hover:text-amber-600 hover:bg-amber-50 transition-all"
-                      title="Edit"
+                      className={`${styles.actions.button.base} ${styles.actions.button.edit}`}
+                      title="Edit Draft"
                     >
                       <Edit2 size={16} />
                     </button>
                     <button
                       onClick={() => handleDelete(draft.campaign_id)}
-                      className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all"
-                      title="Delete"
+                      className={`${styles.actions.button.base} ${styles.actions.button.delete}`}
+                      title="Delete Draft"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -191,17 +200,13 @@ function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
         </table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50">
-          <Pagination
-            currentPage={page}
-            setCurrentPage={setPage}
-            totalItems={totalItems}
-            rowsPerPage={rowsPerPage}
-          />
-        </div>
-      )}
+      {/* Pagination - Always show if there are items */}
+      <Pagination
+        currentPage={page}
+        setCurrentPage={setPage}
+        totalItems={totalItems}
+        rowsPerPage={rowsPerPage}
+      />
     </div>
   );
 }

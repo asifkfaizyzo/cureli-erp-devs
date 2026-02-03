@@ -6,7 +6,7 @@ import { useMenuStore } from "../../store/useMenuStore";
 
 /**
  * Complete breadcrumb path mapping
- * Derived from your App.jsx routes and Sidebar.jsx menu structure
+ * Derived from App.jsx routes and Sidebar.jsx menu structure
  */
 const BREADCRUMB_PATHS = {
   // ═══════════════════════════════════════════
@@ -47,7 +47,13 @@ const BREADCRUMB_PATHS = {
   // ═══════════════════════════════════════════
   // SUPPORT
   // ═══════════════════════════════════════════
+  "Support": "/tickets",
   "Tickets": "/tickets",
+
+  // ═══════════════════════════════════════════
+  // NOTIFICATIONS
+  // ═══════════════════════════════════════════
+  "Notifications": "/notifications",
 };
 
 /**
@@ -98,11 +104,8 @@ const Breadcrumb = () => {
     const path = getBreadcrumbPath(crumb, crumbs, index);
 
     if (path) {
-      // Update breadcrumbs to show path up to clicked crumb
       const newBreadcrumbs = crumbs.slice(0, index + 1);
       setBreadcrumbs(newBreadcrumbs);
-
-      // Navigate
       navigate(path);
     }
   };
@@ -122,7 +125,7 @@ const Breadcrumb = () => {
             {isClickable ? (
               <button
                 onClick={() => handleCrumbClick(crumb, index)}
-                className="text-gray-400 hover:text-[#000060]  transition-colors duration-150"
+                className="text-gray-400 hover:text-[#000060] transition-colors duration-150"
               >
                 {crumb}
               </button>

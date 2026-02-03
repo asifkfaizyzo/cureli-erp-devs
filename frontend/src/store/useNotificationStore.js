@@ -1,5 +1,5 @@
 // ============================================
-// NOTIFICATION STORE (Zustand)
+// frontend\src\store\useNotificationStore.js
 // ============================================
 
 import { create } from 'zustand';

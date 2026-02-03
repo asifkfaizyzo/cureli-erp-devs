@@ -1,3 +1,5 @@
+// src/components/layout/AppLayout.jsx
+
 import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Outlet, useLocation } from "react-router-dom";
@@ -9,12 +11,32 @@ import { useMenuStore } from "../../store/useMenuStore";
 import { useSubscriptionStore } from "../../store/useSubscriptionStore";
 import { useAuthStore } from "../../store/useAuthStore";
 
+/**
+ * Route-to-breadcrumb mapping for pages NOT in the sidebar
+ * Add any page that isn't navigated to via sidebar here
+ */
+const NON_SIDEBAR_ROUTES = {
+  "/notifications": {
+    breadcrumbs: ["Dashboard","Notifications"],
+    menuId: null, // No sidebar item to highlight
+  },
+  "/tickets": {
+    breadcrumbs: ["Dashboard", "Support Tickets"],
+    menuId: null, // No sidebar item to highlight
+  },
+  "/settings/upgrade": {
+    breadcrumbs: ["Settings", "Profile", "Plans"],
+    menuId: "settings-profile",
+  },
+};
+
 const AppLayout = () => {
   const location = useLocation();
 
-  // ⚠️ NEW: Load subscription status for super admin
   const user = useAuthStore((state) => state.user);
   const loadSubscriptionStatus = useSubscriptionStore((s) => s.loadSubscriptionStatus);
+  const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
+  const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
 
   const pageVariants = {
     initial: { opacity: 0, x: 60 },
@@ -22,12 +44,29 @@ const AppLayout = () => {
     exit: { opacity: 0, x: -40, transition: { duration: 0.25, ease: "easeIn" } },
   };
 
-  // ⚠️ NEW: Load subscription status on mount
+  // Load subscription status on mount
   useEffect(() => {
     if (user?.role === "super_admin") {
       loadSubscriptionStatus();
     }
   }, [user?.role, loadSubscriptionStatus]);
+
+  // Auto-set breadcrumbs for non-sidebar routes
+  useEffect(() => {
+    const routeConfig = NON_SIDEBAR_ROUTES[location.pathname];
+    
+    if (routeConfig) {
+      // Set breadcrumbs for non-sidebar routes
+      setBreadcrumbs(routeConfig.breadcrumbs);
+      
+      // Only update active menu if explicitly set (not null)
+      if (routeConfig.menuId !== null) {
+        setActiveMenu(routeConfig.menuId);
+      }
+      // If menuId is null, we DON'T call setActiveMenu at all
+      // This preserves any existing state and prevents potential issues
+    }
+  }, [location.pathname, setBreadcrumbs, setActiveMenu]);
 
   return (
     <div className="h-screen w-full flex bg-gray-50 overflow-hidden">

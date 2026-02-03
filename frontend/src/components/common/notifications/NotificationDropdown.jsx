@@ -1,6 +1,5 @@
 // ============================================
-// NOTIFICATION DROPDOWN COMPONENT
-// Dropdown panel for quick notification view
+// frontend\src\components\common\notifications\NotificationDropdown.jsx
 // ============================================
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -166,8 +165,8 @@ const NotificationDropdown = () => {
   // Badge color based on priority
   const getBadgeColor = () => {
     if (hasCritical) return 'bg-red-500';
-    if (hasHigh) return 'bg-orange-500';
-    return 'bg-blue-500';
+    if (hasHigh) return 'bg-[#000080]';
+    return 'bg-[#000080]';
   };
 
   return (

@@ -84,6 +84,18 @@ export const PERMISSIONS = {
   // ============================================
   DASHBOARD_VIEW: "dashboard:view",
   DASHBOARD_ANALYTICS: "dashboard:analytics",
+
+  // ============================================
+  // TICKETS / SUPPORT
+  // ============================================
+  TICKETS_VIEW: "tickets:view",
+  TICKETS_CREATE: "tickets:create",
+  TICKETS_MANAGE: "tickets:manage",
+
+  // ============================================
+  // NOTIFICATIONS (all authenticated users)
+  // ============================================
+  NOTIFICATIONS_VIEW: "notifications:view",
 };
 
 /**
@@ -144,6 +156,13 @@ export const ROLE_PERMISSIONS = {
     // Dashboard
     PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.DASHBOARD_ANALYTICS,
+
+    // Tickets - all users can create/view their own tickets
+    PERMISSIONS.TICKETS_VIEW,
+    PERMISSIONS.TICKETS_CREATE,
+
+    // Notifications - all authenticated users
+    PERMISSIONS.NOTIFICATIONS_VIEW,
   ],
 
   // Staff - limited access
@@ -155,6 +174,13 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.SUPPLIERS_VIEW,
     PERMISSIONS.REPORTS_SALES,
     PERMISSIONS.DASHBOARD_VIEW,
+
+    // Tickets - all users can create/view their own tickets
+    PERMISSIONS.TICKETS_VIEW,
+    PERMISSIONS.TICKETS_CREATE,
+
+    // Notifications - all authenticated users
+    PERMISSIONS.NOTIFICATIONS_VIEW,
   ],
 };
 
@@ -194,8 +220,14 @@ export const ROUTE_PERMISSIONS = {
   // Settings
   "/settings/users": [PERMISSIONS.USERS_VIEW],
   "/settings/branches": [PERMISSIONS.BRANCHES_VIEW],
-  "/settings/profile": [],
-  "/settings/upgrade": [],
+  "/settings/profile": [], // No permission required
+  "/settings/upgrade": [], // No permission required
+  
+  // Tickets
+  "/tickets": [PERMISSIONS.TICKETS_VIEW],
+
+  // Notifications - empty array means all authenticated users can access
+  "/notifications": [],
   
   // Legacy
   "/pending-users": [PERMISSIONS.USERS_MANAGE],
