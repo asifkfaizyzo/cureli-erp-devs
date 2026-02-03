@@ -9,10 +9,14 @@ import ViewTicketModal from "./components/ViewTicketModal";
 import CancelTicketModal from "./components/CancelTicketModal";
 import StyledSelect from "../../components/common/StyledSelect";
 import { useToast } from "../../components/common/Toast";
+import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 import { TICKET_STATUSES, TICKET_CATEGORIES, SLA_RESPONSE_HINT } from "../../constant/tickets";
 
 const TicketsPage = () => {
   const toast = useToast();
+  
+  // Use dynamic row count hook
+  const rowsPerPage = useDynamicRowCount();
 
   // Tickets data
   const [tickets, setTickets] = useState([]);
@@ -29,7 +33,6 @@ const TicketsPage = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Sorting
   const [sortConfig, setSortConfig] = useState({
@@ -44,46 +47,32 @@ const TicketsPage = () => {
   const [selectedTicket, setSelectedTicket] = useState(null);
 
   // Status options for filter
-  const statusOptions = [
+  const statusOptions = useMemo(() => [
     { label: "All Status", value: "" },
     ...Object.entries(TICKET_STATUSES).map(([key, label]) => ({
       label,
       value: key,
     })),
-  ];
+  ], []);
 
   // Category options for filter
-  const categoryOptions = [
+  const categoryOptions = useMemo(() => [
     { label: "All Categories", value: "" },
     ...Object.entries(TICKET_CATEGORIES).map(([key, label]) => ({
       label,
       value: key,
     })),
-  ];
+  ], []);
 
   // Count active filters
-  const activeFiltersCount = [statusFilter, categoryFilter, dateFrom, dateTo].filter(Boolean).length;
+  const activeFiltersCount = useMemo(() => 
+    [statusFilter, categoryFilter, dateFrom, dateTo].filter(Boolean).length,
+  [statusFilter, categoryFilter, dateFrom, dateTo]);
 
   // Check if any filters are active (including search)
   const hasActiveFilters = useMemo(() => {
     return !!(searchText || statusFilter || categoryFilter || dateFrom || dateTo);
   }, [searchText, statusFilter, categoryFilter, dateFrom, dateTo]);
-
-  // Responsive rows per page
-  useEffect(() => {
-    const updateRows = () => {
-      const width = window.innerWidth;
-      if (width >= 2560) setRowsPerPage(14);
-      else if (width >= 1920) setRowsPerPage(12);
-      else if (width >= 1440) setRowsPerPage(9);
-      else if (width >= 1366) setRowsPerPage(8);
-      else setRowsPerPage(6);
-    };
-
-    updateRows();
-    window.addEventListener("resize", updateRows);
-    return () => window.removeEventListener("resize", updateRows);
-  }, []);
 
   // Fetch tickets
   const fetchTickets = useCallback(async () => {
@@ -114,10 +103,15 @@ const TicketsPage = () => {
     }
   }, [currentPage, rowsPerPage, searchText, statusFilter, categoryFilter, dateFrom, dateTo, sortConfig, toast]);
 
-  // Initial fetch
+  // Initial fetch and refetch on dependency changes
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
+
+  // Reset to page 1 when rowsPerPage changes (screen resize)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [rowsPerPage]);
 
   // Handlers
   const handleSortChange = (column) => {
@@ -131,7 +125,11 @@ const TicketsPage = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     setCurrentPage(1);
-    fetchTickets();
+  };
+
+  const handleClearSearch = () => {
+    setSearchText("");
+    setCurrentPage(1);
   };
 
   const handleClearFilters = () => {
@@ -168,17 +166,13 @@ const TicketsPage = () => {
     }
   };
 
-  // Handle ticket creation with SLA hint
   const handleTicketCreated = () => {
     setIsCreateModalOpen(false);
-    
-    // Show success toast with SLA hint
     toast.success(
       "Ticket Created Successfully",
       SLA_RESPONSE_HINT,
-      6000 // Show for 6 seconds to ensure user reads the SLA hint
+      6000
     );
-    
     fetchTickets();
   };
 
@@ -189,7 +183,6 @@ const TicketsPage = () => {
     fetchTickets();
   };
 
-  // Handler for creating ticket from empty state
   const handleCreateFromEmpty = () => {
     setIsCreateModalOpen(true);
   };
@@ -197,7 +190,7 @@ const TicketsPage = () => {
   return (
     <div className="h-full flex flex-col gap-4 p-6 bg-gray-50">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
         </div>
@@ -213,7 +206,7 @@ const TicketsPage = () => {
       </div>
 
       {/* Search & Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 flex-shrink-0">
         {/* Search Bar */}
         <form onSubmit={handleSearch} className="flex items-center gap-3">
           <div className="relative flex-1">
@@ -230,10 +223,7 @@ const TicketsPage = () => {
             {searchText && (
               <button
                 type="button"
-                onClick={() => {
-                  setSearchText("");
-                  setCurrentPage(1);
-                }}
+                onClick={handleClearSearch}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded
                            text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
               >
@@ -275,7 +265,7 @@ const TicketsPage = () => {
         {/* Filter Options */}
         {showFilters && (
           <div className="pt-4 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center gap-3 px-4 py-2 text-sm font-medium">
+            <div className="flex items-end gap-3 flex-wrap">
               <StyledSelect
                 label="Status"
                 value={statusFilter}
@@ -337,25 +327,23 @@ const TicketsPage = () => {
                              ${dateTo ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium" : "bg-white border-gray-200 text-gray-700"}`}
                 />
               </div>
-            </div>
 
-            {activeFiltersCount > 0 && (
-              <div className="mt-3 flex items-center justify-end">
+              {activeFiltersCount > 0 && (
                 <button
                   onClick={handleClearFilters}
-                  className="px-4 py-2 text-sm text-red-600 hover:text-red-700 
-                             hover:bg-red-50 rounded-lg transition-all flex items-center gap-2"
+                  className="h-10 px-4 text-sm text-red-600 hover:text-red-700 
+                             hover:bg-red-50 rounded-lg transition-all flex items-center gap-2 ml-auto"
                 >
                   <X size={16} />
-                  Clear all filters
+                  Clear filters
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Table */}
+      {/* Table - Takes remaining space */}
       <div className="flex-1 min-h-0">
         <TicketListTable
           tickets={tickets}
