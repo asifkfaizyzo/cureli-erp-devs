@@ -6,6 +6,8 @@ import {
   createPurchaseInvoiceSchema,
   updatePurchaseInvoiceSchema,
   cancelInvoiceSchema,
+  updatePaymentStatusSchema,
+  recordPaymentSchema,
 } from "./purchase.schema.js";
 import {
   createPurchaseInvoiceController,
@@ -15,6 +17,8 @@ import {
   updatePurchaseInvoiceController,
   cancelPurchaseInvoiceController,
   getPurchaseStatsController,
+  updatePaymentStatusController,
+  recordPaymentController,
 } from "./purchase.controller.js";
 
 const router = express.Router();
@@ -48,6 +52,20 @@ router.post(
   "/:invoiceId/cancel",
   validateBody(cancelInvoiceSchema),
   cancelPurchaseInvoiceController
+);
+
+// ✅ NEW: Payment status update (Super Admin only)
+router.patch(
+  "/:invoiceId/payment-status",
+  validateBody(updatePaymentStatusSchema),
+  updatePaymentStatusController
+);
+
+// ✅ NEW: Record payment
+router.post(
+  "/:invoiceId/payments",
+  validateBody(recordPaymentSchema),
+  recordPaymentController
 );
 
 export default router;

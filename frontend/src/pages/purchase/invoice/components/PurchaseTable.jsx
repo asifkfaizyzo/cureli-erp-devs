@@ -15,6 +15,10 @@ import {
   Loader2,
   Layers,
 } from "lucide-react";
+import { 
+  PAYMENT_BALANCE_THRESHOLD,
+  getEffectivePaymentDisplay,
+} from "./invoiceModalHelpers";
 
 // ════════════════════════════════════════════════════════════════════════════
 // STATUS BADGES
@@ -40,8 +44,15 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const PaymentStatusBadge = ({ status }) => {
-  const normalizedStatus = status?.toUpperCase() || 'UNPAID';
+/**
+ * PaymentStatusBadge - Uses threshold logic to display effective payment status
+ * If balance <= PAYMENT_BALANCE_THRESHOLD (₹10), shows as PAID
+ * 
+ * @param {Object} invoice - Invoice object with payment_status, paid_amount, net_amount
+ */
+const PaymentStatusBadge = ({ invoice }) => {
+  // Use the helper to get effective payment display with threshold logic
+  const { effectiveStatus, thresholdApplied } = getEffectivePaymentDisplay(invoice);
   
   const badges = {
     UNPAID: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300' },
@@ -49,12 +60,18 @@ const PaymentStatusBadge = ({ status }) => {
     PAID: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
   };
 
-  const config = badges[normalizedStatus] || badges.UNPAID;
-  const displayText = normalizedStatus.replace('_', ' ');
+  const config = badges[effectiveStatus] || badges.UNPAID;
+  const displayText = effectiveStatus.replace('_', ' ');
 
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${config.bg} ${config.text} ${config.border}`}>
+    <span 
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${config.bg} ${config.text} ${config.border}`}
+      title={thresholdApplied ? `Marked as PAID (balance ≤ ₹${PAYMENT_BALANCE_THRESHOLD})` : undefined}
+    >
       {displayText}
+      {thresholdApplied && (
+        <span className="ml-0.5 text-[8px] opacity-70" title="Threshold applied">~</span>
+      )}
     </span>
   );
 };
@@ -210,6 +227,14 @@ const PurchaseTable = ({
     };
   };
 
+  /**
+   * Get effective payment display for an invoice using threshold logic
+   * Returns showBalance: true only if balance > PAYMENT_BALANCE_THRESHOLD
+   */
+  const getPaymentDisplayInfo = (invoice) => {
+    return getEffectivePaymentDisplay(invoice);
+  };
+
   const uniqueBranches = showBranchColumn 
     ? [...new Set(safeInvoices.map(inv => inv.branch?.branch_name).filter(Boolean))]
     : [];
@@ -322,6 +347,9 @@ const PurchaseTable = ({
                 const editConfig = getEditButtonConfig(invoice);
                 const EditIcon = editConfig.icon;
 
+                // Get effective payment display with threshold logic
+                const paymentDisplay = getPaymentDisplayInfo(invoice);
+
                 return (
                   <tr 
                     key={invoice.invoice_id} 
@@ -399,12 +427,13 @@ const PurchaseTable = ({
                       </div>
                     </td>
 
-                    {/* Payment Status */}
+                    {/* Payment Status - Using threshold logic */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs">
-                      <PaymentStatusBadge status={invoice.payment_status} />
-                      {invoice.payment_status?.toUpperCase() !== 'PAID' && parseFloat(invoice.balance_amount) > 0 && (
+                      <PaymentStatusBadge invoice={invoice} />
+                      {/* Only show "Due" if balance > threshold (₹10) */}
+                      {paymentDisplay.showBalance && paymentDisplay.balance > 0 && (
                         <div className="text-[10px] text-gray-500 mt-0.5">
-                          Due: {formatCurrency(invoice.balance_amount)}
+                          Due: {formatCurrency(paymentDisplay.balance)}
                         </div>
                       )}
                     </td>

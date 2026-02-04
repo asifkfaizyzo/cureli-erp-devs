@@ -277,3 +277,77 @@ export async function getPurchaseStatsController(req, res) {
     return fail(res, error.message || "Failed to retrieve purchase statistics", 500);
   }
 }
+
+export async function updatePaymentStatusController(req, res) {
+  try {
+    const userId = req.user.user_id;
+    const shopId = req.user.shop_id;
+    const role = req.user.role;
+    const { invoiceId } = req.params;
+    const { branchId, branchMode } = extractBranchContext(req);
+    const data = req.validated;
+    const auditContext = audit.extractRequestContext(req);
+
+    if (!shopId) {
+      return fail(res, "No shop associated with your account", 400);
+    }
+
+    // Only super_admin can change payment status directly
+    if (role !== "super_admin") {
+      return fail(res, "Only super admin can change payment status directly", 403);
+    }
+
+    const invoice = await purchaseService.updatePaymentStatus(
+      userId,
+      shopId,
+      branchId,
+      role,
+      branchMode,
+      invoiceId,
+      data,
+      auditContext
+    );
+
+    return success(res, invoice, "Payment status updated successfully");
+  } catch (error) {
+    console.error("purchase.updatePaymentStatus ERROR:", error);
+    const statusCode = error.code === "NOT_FOUND" ? 404 : 
+                       error.code === "PERMISSION_DENIED" ? 403 : 400;
+    return fail(res, error.message || "Failed to update payment status", statusCode);
+  }
+}
+
+// ✅ NEW: Record Payment Controller
+export async function recordPaymentController(req, res) {
+  try {
+    const userId = req.user.user_id;
+    const shopId = req.user.shop_id;
+    const role = req.user.role;
+    const { invoiceId } = req.params;
+    const { branchId, branchMode } = extractBranchContext(req);
+    const data = req.validated;
+    const auditContext = audit.extractRequestContext(req);
+
+    if (!shopId) {
+      return fail(res, "No shop associated with your account", 400);
+    }
+
+    const result = await purchaseService.recordPayment(
+      userId,
+      shopId,
+      branchId,
+      role,
+      branchMode,
+      invoiceId,
+      data,
+      auditContext
+    );
+
+    return success(res, result, "Payment recorded successfully");
+  } catch (error) {
+    console.error("purchase.recordPayment ERROR:", error);
+    const statusCode = error.code === "NOT_FOUND" ? 404 : 
+                       error.code === "OVERPAYMENT" ? 400 : 400;
+    return fail(res, error.message || "Failed to record payment", statusCode);
+  }
+}

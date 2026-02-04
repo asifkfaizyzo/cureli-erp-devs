@@ -283,20 +283,38 @@ export const AuditAction = Object.freeze({
   SYSTEM_MAINTENANCE_DISABLED: "SYSTEM_MAINTENANCE_DISABLED",
 
   
-  // =========================
+   // ============================================
   // PURCHASE MODULE ACTIONS ✅
-  // =========================
+  // ============================================
+  // metadata: { invoice_number, supplier_id, supplier_name, item_count, total_amount, paid_amount, payment_status }
   PURCHASE_INVOICE_CREATED: "PURCHASE_INVOICE_CREATED",
-  PURCHASE_INVOICE_UPDATED: "PURCHASE_INVOICE_UPDATED",
-  PURCHASE_INVOICE_CONFIRMED: "PURCHASE_INVOICE_CONFIRMED",
-  PURCHASE_INVOICE_CONFIRMED_EDITED: "PURCHASE_INVOICE_CONFIRMED_EDITED",
-  PURCHASE_INVOICE_CANCELLED: "PURCHASE_INVOICE_CANCELLED",
-  PURCHASE_PAYMENT_CREATED: "PURCHASE_PAYMENT_CREATED",
-  PURCHASE_RETURN_CREATED: "PURCHASE_RETURN_CREATED",
   
+  // metadata: { invoice_number, invoice_status, updated_fields, old_item_count, new_item_count, old_net_amount, new_net_amount }
+  PURCHASE_INVOICE_UPDATED: "PURCHASE_INVOICE_UPDATED",
+  
+  // metadata: { invoice_number, supplier_name, item_count, total_amount }
+  PURCHASE_INVOICE_CONFIRMED: "PURCHASE_INVOICE_CONFIRMED",
+  
+  // metadata: { invoice_number, invoice_status, was_confirmed, updated_fields, old_item_count, new_item_count, old_net_amount, new_net_amount }
+  PURCHASE_INVOICE_CONFIRMED_EDITED: "PURCHASE_INVOICE_CONFIRMED_EDITED",
+  
+  // metadata: { invoice_number, supplier_name, cancellation_reason }
+  PURCHASE_INVOICE_CANCELLED: "PURCHASE_INVOICE_CANCELLED",
+  
+  // metadata: { invoice_number, payment_id, amount, payment_mode }
+  PURCHASE_PAYMENT_CREATED: "PURCHASE_PAYMENT_CREATED",
+  
+  // metadata: { invoice_number, item_count, total_amount }
+  PURCHASE_RETURN_CREATED: "PURCHASE_RETURN_CREATED",
 
-
+  // ✅ NEW: Payment Status Actions
+  // metadata: { invoice_number, supplier_name, old_payment_status, new_payment_status, old_paid_amount, new_paid_amount, net_amount }
+  PURCHASE_PAYMENT_STATUS_UPDATED: "PURCHASE_PAYMENT_STATUS_UPDATED",
+  
+  // metadata: { invoice_number, payment_id, payment_amount, payment_mode, old_payment_status, new_payment_status, total_paid, balance_remaining }
+  PURCHASE_PAYMENT_RECORDED: "PURCHASE_PAYMENT_RECORDED",
 });
+
 
 /** a
  * Set for O(1) validation lookup

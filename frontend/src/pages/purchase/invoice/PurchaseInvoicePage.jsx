@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 
 // ════════════════════════════════════════════════════════════════════════════
-// BRANCH CONTEXT BANNER
+// BRANCH CONTEXT BANNER (unchanged)
 // ════════════════════════════════════════════════════════════════════════════
 
 const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
@@ -119,9 +119,11 @@ const PurchaseInvoicePage = () => {
 
   /* ---------------- MODAL STATE ---------------- */
   const [openModal, setOpenModal] = useState(false);
-  const [modalMode, setModalMode] = useState("view");
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  
+  // ✅ NEW: Modal mode state - controls whether modal opens in view or edit mode
+  const [modalInitialMode, setModalInitialMode] = useState('view'); // 'view' | 'edit'
 
   /* ---------------- CONFIRMATION STATE ---------------- */
   const [confirmDialog, setConfirmDialog] = useState({
@@ -136,7 +138,7 @@ const PurchaseInvoicePage = () => {
   /* ---------------- DYNAMIC ROW COUNT ---------------- */
   const rowsPerPage = useDynamicRowCount();
 
-  /* ---------------- LOAD INVOICES ---------------- */
+  /* ---------------- LOAD INVOICES (unchanged) ---------------- */
   const loadInvoices = useCallback(async (showBranchSwitchingState = false) => {
     try {
       if (showBranchSwitchingState) {
@@ -190,12 +192,11 @@ const PurchaseInvoicePage = () => {
     isGlobalMode
   ]);
 
-  /* ---------------- INITIAL LOAD & FILTER CHANGES ---------------- */
+  /* ---------------- EFFECTS (unchanged) ---------------- */
   useEffect(() => {
     loadInvoices();
   }, [loadInvoices]);
 
-  // Reset to page 1 and show branch switching state when branch context changes
   useEffect(() => {
     const prevBranch = prevBranchRef.current;
     const branchChanged = 
@@ -223,7 +224,7 @@ const PurchaseInvoicePage = () => {
     }
   }, [branchContext.mode, branchContext.branch_id, branchContext.branch_name, currentPage, toast]);
 
-  /* ---------------- FILTER HANDLER ---------------- */
+  /* ---------------- FILTER HANDLERS (unchanged) ---------------- */
   const handleFilterChange = useCallback((field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
     setCurrentPage(1);
@@ -244,7 +245,7 @@ const PurchaseInvoicePage = () => {
     setCurrentPage(1);
   }, []);
 
-  /* ---------------- REFRESH HANDLER ---------------- */
+  /* ---------------- REFRESH HANDLER (unchanged) ---------------- */
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadInvoices();
@@ -253,7 +254,7 @@ const PurchaseInvoicePage = () => {
   }, [loadInvoices, toast]);
 
   // ════════════════════════════════════════════════════════════════════════
-  // COMPUTED VALUES
+  // COMPUTED VALUES (unchanged)
   // ════════════════════════════════════════════════════════════════════════
 
   const uniqueBranches = useMemo(() => {
@@ -262,16 +263,6 @@ const PurchaseInvoicePage = () => {
       .filter(Boolean)
       .filter(b => b !== "-" && b.trim() !== "");
     return [...new Set(branches)].sort();
-  }, [invoices]);
-
-  const calculatedStats = useMemo(() => {
-    const confirmed = invoices.filter(i => i.status?.toUpperCase() === "CONFIRMED").length;
-    const draft = invoices.filter(i => i.status?.toUpperCase() === "DRAFT").length;
-    const totalAmount = invoices.reduce((sum, i) => sum + (parseFloat(i.net_amount) || 0), 0);
-    const paidCount = invoices.filter(i => i.payment_status?.toUpperCase() === "PAID").length;
-    const unpaidCount = invoices.filter(i => i.payment_status?.toUpperCase() === "UNPAID").length;
-
-    return { totalInvoices: invoices.length, confirmed, draft, totalAmount, paidCount, unpaidCount };
   }, [invoices]);
 
   // ════════════════════════════════════════════════════════════════════════
@@ -293,26 +284,29 @@ const PurchaseInvoicePage = () => {
     }
   }, [toast]);
 
+  // ✅ UPDATED: Open modal in VIEW mode
   const handleRowClick = useCallback(async (invoice) => {
     const fullInvoice = await fetchInvoiceDetails(invoice.invoice_id);
     if (fullInvoice) {
       setSelectedInvoice(fullInvoice);
-      setModalMode("view");
+      setModalInitialMode('view'); // ✅ View mode
       setOpenModal(true);
     }
   }, [fetchInvoiceDetails]);
 
+  // ✅ UPDATED: Open modal in VIEW mode
   const handleView = useCallback(async (invoice, event) => {
     event?.stopPropagation();
     const fullInvoice = await fetchInvoiceDetails(invoice.invoice_id);
     if (fullInvoice) {
       setSelectedInvoice(fullInvoice);
-      setModalMode("view");
+      setModalInitialMode('view'); // ✅ View mode
       setOpenModal(true);
     }
   }, [fetchInvoiceDetails]);
 
-  const handleEdit = useCallback((invoice, event) => {
+  // ✅ COMPLETELY REWRITTEN: Open modal in EDIT mode (no navigation)
+  const handleEdit = useCallback(async (invoice, event) => {
     if (event?.stopPropagation) event.stopPropagation();
     
     const invoiceId = invoice?.invoice_id || invoice?.id;
@@ -324,60 +318,76 @@ const PurchaseInvoicePage = () => {
       return;
     }
 
-    if (invoiceStatus === "DRAFT") {
-      setOpenModal(false);
-      setSelectedInvoice(null);
-      setTimeout(() => navigate(`/purchase/billing/${invoiceId}`), 150);
-      return;
-    }
-
-    if (invoiceStatus === "CONFIRMED") {
-      if (isSuperAdmin) {
-        setConfirmDialog({
-          isOpen: true,
-          type: 'warning',
-          title: 'Edit Confirmed Invoice',
-          message: (
-            <div className="space-y-3">
-              <p className="font-medium text-amber-800">
-                You are about to edit a <strong>CONFIRMED</strong> invoice as Super Admin.
-              </p>
-              <div className="bg-amber-50 p-3 rounded border border-amber-200 text-sm">
-                <p className="font-semibold text-gray-900">Invoice: {invoiceNumber}</p>
-                <p className="text-gray-600">Supplier: {invoice.supplier?.name}</p>
-                <p className="text-gray-600">Amount: ₹{parseFloat(invoice.net_amount || 0).toLocaleString('en-IN')}</p>
-              </div>
-              <div className="bg-red-50 p-3 rounded border border-red-200">
-                <p className="text-sm text-red-800 font-medium">⚠️ Important Warning:</p>
-                <ul className="text-xs text-red-700 mt-1 list-disc list-inside space-y-1">
-                  <li>Current stock will be <strong>reversed</strong> automatically</li>
-                  <li>New stock will be added after saving changes</li>
-                </ul>
-              </div>
-            </div>
-          ),
-          confirmText: 'Proceed to Edit',
-          onConfirm: () => {
-            setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-            setOpenModal(false);
-            setSelectedInvoice(null);
-            setTimeout(() => navigate(`/purchase/billing/${invoiceId}?mode=edit-confirmed`), 150);
-          },
-        });
-      } else {
-        toast.warning("Permission Denied", "Only Super Admin can edit confirmed invoices.");
-      }
-      return;
-    }
-
+    // ❌ CANCELLED - Cannot edit
     if (invoiceStatus === "CANCELLED") {
       toast.warning("Cannot Edit", "Cancelled invoices cannot be edited.");
       return;
     }
 
-    toast.warning("Cannot Edit", `Invoice ${invoiceNumber} has status "${invoiceStatus}" and cannot be edited.`);
-  }, [navigate, toast, isSuperAdmin]);
+    // ✅ DRAFT - Direct edit (Super Admin or regular user)
+    if (invoiceStatus === "DRAFT") {
+      const fullInvoice = await fetchInvoiceDetails(invoiceId);
+      if (fullInvoice) {
+        setSelectedInvoice(fullInvoice);
+        setModalInitialMode('edit'); // ✅ Open in edit mode
+        setOpenModal(true);
+      }
+      return;
+    }
 
+    // ✅ CONFIRMED - Only Super Admin with confirmation
+    if (invoiceStatus === "CONFIRMED") {
+      if (!isSuperAdmin) {
+        toast.warning("Permission Denied", "Only Super Admin can edit confirmed invoices.");
+        return;
+      }
+
+      // Show confirmation dialog first
+      setConfirmDialog({
+        isOpen: true,
+        type: 'warning',
+        title: 'Edit Confirmed Invoice',
+        message: (
+          <div className="space-y-3">
+            <p className="font-medium text-amber-800">
+              You are about to edit a <strong>CONFIRMED</strong> invoice as Super Admin.
+            </p>
+            <div className="bg-amber-50 p-3 rounded border border-amber-200 text-sm">
+              <p className="font-semibold text-gray-900">Invoice: {invoiceNumber}</p>
+              <p className="text-gray-600">Supplier: {invoice.supplier?.name}</p>
+              <p className="text-gray-600">Amount: ₹{parseFloat(invoice.net_amount || 0).toLocaleString('en-IN')}</p>
+            </div>
+            <div className="bg-red-50 p-3 rounded border border-red-200">
+              <p className="text-sm text-red-800 font-medium">⚠️ Important Warning:</p>
+              <ul className="text-xs text-red-700 mt-1 list-disc list-inside space-y-1">
+                <li>Current stock will be <strong>reversed</strong> automatically</li>
+                <li>New stock will be added after saving changes</li>
+                <li>All changes are logged in audit trail</li>
+              </ul>
+            </div>
+          </div>
+        ),
+        confirmText: 'Proceed to Edit',
+        onConfirm: async () => {
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+          
+          // Fetch full invoice and open modal in edit mode
+          const fullInvoice = await fetchInvoiceDetails(invoiceId);
+          if (fullInvoice) {
+            setSelectedInvoice(fullInvoice);
+            setModalInitialMode('edit'); // ✅ Open in edit mode
+            setOpenModal(true);
+          }
+        },
+      });
+      return;
+    }
+
+    // Unknown status
+    toast.warning("Cannot Edit", `Invoice ${invoiceNumber} has status "${invoiceStatus}" and cannot be edited.`);
+  }, [toast, isSuperAdmin, fetchInvoiceDetails]);
+
+  // ✅ Delete handler (unchanged, but cleaned up)
   const handleDelete = useCallback((invoice, event) => {
     if (event?.stopPropagation) event.stopPropagation();
     
@@ -395,6 +405,7 @@ const PurchaseInvoicePage = () => {
       return;
     }
 
+    // Close modal if open
     setOpenModal(false);
     setSelectedInvoice(null);
 
@@ -427,6 +438,7 @@ const PurchaseInvoicePage = () => {
     });
   }, [toast, loadInvoices]);
 
+  // Print handler (unchanged)
   const handlePrint = useCallback(async (invoice) => {
     let invoiceToPrint = invoice;
     if (!invoice.lineItems || invoice.lineItems.length === 0) {
@@ -437,6 +449,7 @@ const PurchaseInvoicePage = () => {
     toast.info("Print Dialog", "Print dialog opened.");
   }, [toast, fetchInvoiceDetails]);
 
+  // Close handlers
   const closeConfirmDialog = useCallback(() => {
     setConfirmDialog(prev => ({ ...prev, isOpen: false }));
   }, []);
@@ -444,23 +457,22 @@ const PurchaseInvoicePage = () => {
   const handleCloseModal = useCallback(() => {
     setOpenModal(false);
     setSelectedInvoice(null);
+    setModalInitialMode('view'); // Reset to view for next open
   }, []);
 
   // Loading states
   const isTableLoading = (isInitialLoad && isLoading) || isBranchSwitching;
 
   /* ════════════════════════════════════════════════════════════════════════ */
-  /* UI - NO PAGE SCROLL, ONLY TABLE SCROLLS                                  */
+  /* UI                                                                        */
   /* ════════════════════════════════════════════════════════════════════════ */
   return (
     <div className="h-full w-full flex flex-col overflow-hidden font-sans bg-gray-50 p-2">
       
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      {/* FIXED HEADER SECTION - Never scrolls                               */}
-      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* FIXED HEADER SECTION */}
       <div className="shrink-0 flex flex-col gap-2">
         
-        {/* BRANCH CONTEXT BANNER - Only for Super Admin */}
+        {/* BRANCH CONTEXT BANNER */}
         {isSuperAdmin && (
           <BranchContextBanner 
             isGlobalMode={isGlobalMode}
@@ -494,7 +506,7 @@ const PurchaseInvoicePage = () => {
                 Refresh
               </button>
               <button
-                onClick={() => navigate('/purchase/billing')}
+                onClick={() => navigate('/purchase-billing')}
                 disabled={isGlobalMode}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors shadow-sm ${
                   isGlobalMode
@@ -521,9 +533,7 @@ const PurchaseInvoicePage = () => {
         />
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      {/* SCROLLABLE TABLE SECTION - Only this scrolls                       */}
-      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* SCROLLABLE TABLE SECTION */}
       <div className="flex-1 min-h-0 mt-2 relative">
         
         {/* Loading overlay for detail fetch */}
@@ -551,7 +561,7 @@ const PurchaseInvoicePage = () => {
           </div>
         )}
         
-        {/* TABLE WITH INTERNAL SCROLL */}
+        {/* TABLE */}
         <PurchaseTable
           invoices={invoices}
           onRowClick={handleRowClick}
@@ -574,17 +584,16 @@ const PurchaseInvoicePage = () => {
         </PurchaseTable>
       </div>
 
-      {/* MODALS */}
+      {/* ✅ UPDATED MODAL - Now with initialMode prop */}
       <ViewInvoiceModal
         open={openModal}
-        mode={modalMode}
         invoice={selectedInvoice}
         onClose={handleCloseModal}
         onPrint={handlePrint}
-        onEdit={handleEdit}
         onDelete={handleDelete}
         onRefresh={loadInvoices}
         isSuperAdmin={isSuperAdmin}
+        initialMode={modalInitialMode} // ✅ NEW PROP
       />
 
       <ConfirmDialog

@@ -174,8 +174,8 @@ const InventoryRowFixed = memo(forwardRef(({
 
       {/* 8. SUPPLIER */}
       <td className={`${cellBase} bg-purple-50/20`}>
-        <div className="px-1.5 py-1 h-full flex items-center">
-          <span className="text-[9px] 2xl:text-[10px] text-slate-600 truncate">
+        <div className="px-1.5 py-1 h-full flex  items-center justify-center">
+          <span className="text-[9px] 2xl:text-[10px] text-slate-600  truncate">
             {item.supplier || item.supplier_name || '-'}
           </span>
         </div>

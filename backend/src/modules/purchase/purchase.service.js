@@ -5,6 +5,12 @@ import inventoryService from "../inventory/inventory.service.js";
 import * as audit from "../audit/index.js";
 
 // ============================================
+// CONSTANTS
+// ============================================
+
+const PAYMENT_BALANCE_THRESHOLD = 10; // Balance <= this amount is treated as PAID
+
+// ============================================
 // HELPER: Build Branch Filter
 // ============================================
 
@@ -17,8 +23,13 @@ function buildBranchFilter(shopId, branchId, role, branchMode) {
     branchMode,
   });
 
-
   // Super Admin in GLOBAL mode: show all invoices for shop
+  if (role === "super_admin" && branchMode === "GLOBAL") {
+    console.log("✅ Super Admin GLOBAL mode - no branch filter");
+    return filter;
+  }
+
+  // Super Admin in BRANCH mode: filter by selected branch
   if (role === "super_admin" && branchMode === "BRANCH") {
     if (branchId) {
       filter.branch_id = branchId;
@@ -29,7 +40,7 @@ function buildBranchFilter(shopId, branchId, role, branchMode) {
     return filter;
   }
 
-  // Super Admin in BRANCH mode OR branch_admin/staff: filter by branch
+  // branch_admin/staff: filter by assigned branch
   if (branchId) {
     filter.branch_id = branchId;
     console.log("✅ Non-admin user - filtering by assigned branch:", branchId);
@@ -41,24 +52,180 @@ function buildBranchFilter(shopId, branchId, role, branchMode) {
 }
 
 // ============================================
-// CREATE PURCHASE INVOICE
+// HELPER: Calculate Payment Status with Threshold
 // ============================================
 
-// backend/src/modules/purchase/purchase.service.js - UPDATE createPurchaseInvoice
+/**
+ * Calculate payment status based on paid amount and net amount
+ * - If balance <= threshold (default 10), treat as PAID (handles rounding)
+ * - If paid amount is 0, treat as UNPAID
+ * - Otherwise, PARTIALLY_PAID
+ * 
+ * @param {number|string} paidAmount - Amount paid
+ * @param {number|string} netAmount - Total invoice amount
+ * @param {number} threshold - Minimum balance to be partially paid (default: 10)
+ * @returns {Object} - { status, paidAmount, balanceAmount }
+ */
+function calculatePaymentStatus(paidAmount, netAmount, threshold = PAYMENT_BALANCE_THRESHOLD) {
+  const paid = parseFloat(paidAmount) || 0;
+  const net = parseFloat(netAmount) || 0;
+  const balance = net - paid;
 
-// backend/src/modules/purchase/purchase.service.js - FIX createPurchaseInvoice
+  // If nothing paid, it's unpaid
+  if (paid <= 0) {
+    return {
+      status: "UNPAID",
+      paidAmount: 0,
+      balanceAmount: net,
+    };
+  }
+
+  // If balance is within threshold (e.g., ₹10), treat as fully paid
+  // This handles small rounding differences
+  if (balance <= threshold) {
+    return {
+      status: "PAID",
+      paidAmount: net, // Set to full amount
+      balanceAmount: 0,
+    };
+  }
+
+  // Otherwise, it's partially paid
+  return {
+    status: "PARTIALLY_PAID",
+    paidAmount: paid,
+    balanceAmount: balance,
+  };
+}
+
+// ============================================
+// HELPER: Calculate Line Item for DB
+// ============================================
+
+function calculateLineItemForDB(item) {
+  const qty = parseFloat(item.quantity || 0);
+  const rate = parseFloat(item.purchase_rate || 0);
+  const schemeDisc = parseFloat(item.scheme_discount || 0);
+  const tradeDisc = parseFloat(item.trade_discount || 0);
+
+  const gross = qty * rate;
+
+  const schemeAmt = (gross * schemeDisc) / 100;
+  const afterScheme = gross - schemeAmt;
+  const tradeAmt = (afterScheme * tradeDisc) / 100;
+
+  const discountAmount = schemeAmt + tradeAmt;
+  const taxableAmount = gross - discountAmount;
+
+  const cgstPct = parseFloat(item.cgst_percent || 0);
+  const sgstPct = parseFloat(item.sgst_percent || 0);
+  const igstPct = parseFloat(item.igst_percent || 0);
+
+  const cgstAmount = (taxableAmount * cgstPct) / 100;
+  const sgstAmount = (taxableAmount * sgstPct) / 100;
+  const igstAmount = (taxableAmount * igstPct) / 100;
+
+  const lineTotal = taxableAmount + cgstAmount + sgstAmount + igstAmount;
+
+  return {
+    discount_amount: Number(discountAmount.toFixed(2)),
+    taxable_amount: Number(taxableAmount.toFixed(2)),
+    cgst_amount: Number(cgstAmount.toFixed(2)),
+    sgst_amount: Number(sgstAmount.toFixed(2)),
+    igst_amount: Number(igstAmount.toFixed(2)),
+    line_total: Number(lineTotal.toFixed(2)),
+  };
+}
+
+// ============================================
+// HELPER: Calculate Invoice Totals
+// ============================================
+
+function calculateInvoiceTotals(lineItems) {
+  let subtotal = 0;
+  let discountAmount = 0;
+  let taxableAmount = 0;
+  let cgstAmount = 0;
+  let sgstAmount = 0;
+  let igstAmount = 0;
+
+  lineItems.forEach((item) => {
+    const qty = parseFloat(item.quantity || 0);
+    const rate = parseFloat(item.purchase_rate || 0);
+    const schemeDisc = parseFloat(item.scheme_discount || 0);
+    const tradeDisc = parseFloat(item.trade_discount || 0);
+
+    const gross = qty * rate;
+    const schemeAmt = (gross * schemeDisc) / 100;
+    const afterScheme = gross - schemeAmt;
+    const tradeAmt = (afterScheme * tradeDisc) / 100;
+
+    const itemDiscount = schemeAmt + tradeAmt;
+    const itemTaxable = gross - itemDiscount;
+
+    const cgstPct = parseFloat(item.cgst_percent || 0);
+    const sgstPct = parseFloat(item.sgst_percent || 0);
+    const igstPct = parseFloat(item.igst_percent || 0);
+
+    subtotal += gross;
+    discountAmount += itemDiscount;
+    taxableAmount += itemTaxable;
+    cgstAmount += (itemTaxable * cgstPct) / 100;
+    sgstAmount += (itemTaxable * sgstPct) / 100;
+    igstAmount += (itemTaxable * igstPct) / 100;
+  });
+
+  const totalTax = cgstAmount + sgstAmount + igstAmount;
+  const grossTotal = taxableAmount + totalTax;
+  const roundOff = Math.round(grossTotal) - grossTotal;
+  const netAmount = Math.round(grossTotal);
+
+  return {
+    subtotal: Number(subtotal.toFixed(2)),
+    discount_amount: Number(discountAmount.toFixed(2)),
+    taxable_amount: Number(taxableAmount.toFixed(2)),
+    cgst_amount: Number(cgstAmount.toFixed(2)),
+    sgst_amount: Number(sgstAmount.toFixed(2)),
+    igst_amount: Number(igstAmount.toFixed(2)),
+    total_tax: Number(totalTax.toFixed(2)),
+    round_off: Number(roundOff.toFixed(2)),
+    net_amount: Number(netAmount.toFixed(2)),
+    balance_amount: Number(netAmount.toFixed(2)),
+  };
+}
+
+// ============================================
+// HELPER: Generate Invoice Number
+// ============================================
+
+async function generateInvoiceNumber(shopId) {
+  const lastInvoice = await prisma.purchaseInvoice.findFirst({
+    where: { shop_id: shopId },
+    orderBy: { created_at: "desc" },
+    select: { invoice_number: true },
+  });
+
+  if (!lastInvoice) return "PUR-000001";
+
+  const lastNumber = parseInt(lastInvoice.invoice_number.split("-")[1]);
+  return `PUR-${String(lastNumber + 1).padStart(6, "0")}`;
+}
+
+// ============================================
+// CREATE PURCHASE INVOICE
+// ============================================
 
 export async function createPurchaseInvoice(userId, shopId, branchId, data, auditContext) {
   const { supplier_id, invoice_date, lineItems, paid_amount, payment_mode, ...invoiceData } = data;
 
-  // ✅ FIXED: Add validation check at the beginning
+  // Validate branch selection
   if (!branchId) {
     const err = new Error("Branch selection is required to create purchase invoices. Please select a specific branch.");
     err.code = "BRANCH_REQUIRED";
     throw err;
   }
 
-  // ✅ FIXED: Get user info BEFORE using it
+  // Get user info
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -121,25 +288,13 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
   const invoiceNumber = await generateInvoiceNumber(shopId);
   const calculations = calculateInvoiceTotals(lineItems);
 
-  // ✅ FIXED: Calculate payment status based on paid amount
+  // Calculate payment status with threshold
   const paidAmt = parseFloat(paid_amount) || 0;
   const netAmt = calculations.net_amount;
-  
-  let paymentStatus = "UNPAID";
-  let balanceAmount = netAmt;
-  
-  if (paidAmt > 0) {
-    if (paidAmt >= netAmt) {
-      paymentStatus = "PAID";
-      balanceAmount = 0;
-    } else {
-      paymentStatus = "PARTIALLY_PAID";
-      balanceAmount = netAmt - paidAmt;
-    }
-  }
+  const paymentCalc = calculatePaymentStatus(paidAmt, netAmt, PAYMENT_BALANCE_THRESHOLD);
 
   const result = await prisma.$transaction(async (tx) => {
-    // Header
+    // Create invoice header
     const invoice = await tx.purchaseInvoice.create({
       data: {
         ...invoiceData,
@@ -158,16 +313,16 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
         total_tax: calculations.total_tax,
         round_off: calculations.round_off,
         net_amount: netAmt,
-        // ✅ FIXED: Set payment fields
-        payment_status: paymentStatus,
-        paid_amount: paidAmt,
-        balance_amount: balanceAmount,
+        // Use calculated payment values
+        payment_status: paymentCalc.status,
+        paid_amount: paymentCalc.paidAmount,
+        balance_amount: paymentCalc.balanceAmount,
         payment_mode: payment_mode || null,
         status: "DRAFT",
       },
     });
 
-    // Items
+    // Create line items
     const items = await Promise.all(
       lineItems.map((item) => {
         const itemCalc = calculateLineItemForDB(item);
@@ -206,7 +361,7 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
       })
     );
 
-    // ✅ FIXED: Create payment record if amount paid > 0
+    // Create payment record only if actually paid something
     if (paidAmt > 0) {
       await tx.purchasePayment.create({
         data: {
@@ -214,11 +369,13 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
           shop_id: shopId,
           supplier_id,
           payment_date: new Date(invoice_date),
-          amount: paidAmt,
+          amount: paidAmt, // Use original amount for payment record
           payment_mode: payment_mode || "CASH",
           status: "COMPLETED",
           created_by: userId,
-          remarks: "Initial payment on invoice creation",
+          remarks: paymentCalc.status === "PAID" && paidAmt < netAmt 
+            ? `Full payment (balance ₹${(netAmt - paidAmt).toFixed(2)} within threshold)` 
+            : "Initial payment on invoice creation",
         },
       });
     }
@@ -226,7 +383,7 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
     return { ...invoice, lineItems: items };
   });
 
-  // ✅ FIXED: Audit log - user is now defined above
+  // Audit log
   await audit.log({
     action: audit.AuditAction.PURCHASE_INVOICE_CREATED,
     entity_type: audit.EntityType.PURCHASE_INVOICE,
@@ -235,7 +392,7 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
     branch_id: branchId,
     actor_type: audit.ActorType.ERP_USER,
     actor_id: userId,
-    actor_role: user.role, // ✅ NOW DEFINED
+    actor_role: user.role,
     ...auditContext,
     reason_code: audit.AuditReasonCode.USER_REQUEST,
     metadata: {
@@ -245,12 +402,13 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
       item_count: lineItems.length,
       total_amount: result.net_amount,
       paid_amount: paidAmt,
-      payment_status: paymentStatus,
+      payment_status: paymentCalc.status, // Fixed: use paymentCalc.status
     },
   });
 
   return result;
 }
+
 // ============================================
 // CONFIRM PURCHASE INVOICE & UPDATE STOCK
 // ============================================
@@ -278,7 +436,7 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
     throw err;
   }
 
-  // ✅ NEW: Validate branch access for non-super-admin
+  // Validate branch access for non-super-admin
   if (user.role !== "super_admin" && invoice.branch_id !== branchId) {
     const err = new Error("You don't have access to confirm this invoice");
     err.code = "BRANCH_ACCESS_DENIED";
@@ -297,7 +455,7 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
     throw err;
   }
 
-  // Use invoice's branch_id for all operations (not the user's current branch)
+  // Use invoice's branch_id for all operations
   const invoiceBranchId = invoice.branch_id;
 
   const result = await prisma.$transaction(async (tx) => {
@@ -313,10 +471,10 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
 
     // Process each line item - update inventory
     for (const item of invoice.lineItems) {
-      // Get or create inventory entry - ✅ Use invoice's branch_id
+      // Get or create inventory entry
       const inventory = await inventoryService.getOrCreateInventory(
         shopId,
-        invoiceBranchId,  // ✅ Use invoice's branch
+        invoiceBranchId,
         item.medicine_id,
         item.batch_number,
         item.expiry_date,
@@ -326,12 +484,12 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
       // Calculate total quantity (purchased + free)
       const totalQuantity = Number(item.quantity) + Number(item.free_quantity || 0);
 
-      // Update stock - ✅ Use invoice's branch_id
+      // Update stock
       await inventoryService.updateStock(
         {
           inventoryId: inventory.inventory_id,
           shopId: shopId,
-          branchId: invoiceBranchId,  // ✅ Use invoice's branch
+          branchId: invoiceBranchId,
           medicineId: item.medicine_id,
           batchNumber: item.batch_number,
           movementType: "PURCHASE",
@@ -376,7 +534,7 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
     entity_type: audit.EntityType.PURCHASE_INVOICE,
     entity_id: invoiceId,
     shop_id: shopId,
-    branch_id: invoiceBranchId,  // ✅ Use invoice's branch for audit
+    branch_id: invoiceBranchId,
     actor_type: audit.ActorType.ERP_USER,
     actor_id: userId,
     actor_role: user.role,
@@ -394,10 +552,8 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
 }
 
 // ============================================
-// GET PURCHASE INVOICES - ✅ UPDATED: Branch Context Aware
+// GET PURCHASE INVOICES
 // ============================================
-
-// backend/src/modules/purchase/purchase.service.js - UPDATE getPurchaseInvoices
 
 export async function getPurchaseInvoices(shopId, branchId, role, branchMode, filters = {}) {
   const {
@@ -447,7 +603,6 @@ export async function getPurchaseInvoices(shopId, branchId, role, branchMode, fi
             full_name: true,
           },
         },
-        // ✅ FIXED: Include line items count properly
         lineItems: {
           select: {
             item_id: true,
@@ -461,13 +616,12 @@ export async function getPurchaseInvoices(shopId, branchId, role, branchMode, fi
     prisma.purchaseInvoice.count({ where }),
   ]);
 
-  // ✅ FIXED: Transform to include _count
+  // Transform to include _count
   const transformedInvoices = invoices.map(invoice => ({
     ...invoice,
     _count: {
       lineItems: invoice.lineItems?.length || 0,
     },
-    // Remove full lineItems from response to keep it lightweight
     lineItems: undefined,
   }));
 
@@ -475,13 +629,10 @@ export async function getPurchaseInvoices(shopId, branchId, role, branchMode, fi
 }
 
 // ============================================
-// GET INVOICE DETAILS - ✅ UPDATED: Branch Access Check
+// GET INVOICE DETAILS
 // ============================================
 
-// backend/src/modules/purchase/purchase.service.js - UPDATE getInvoiceDetails
-
 export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branchMode) {
-  // Build branch filter
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const invoice = await prisma.purchaseInvoice.findFirst({
@@ -490,7 +641,6 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
       ...baseFilter,
     },
     include: {
-      // ✅ COMPLETE: Supplier with all fields
       supplier: {
         select: {
           supplier_id: true,
@@ -512,7 +662,6 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
           credit_limit: true,
         },
       },
-      // ✅ COMPLETE: Branch info
       branch: {
         select: {
           branch_id: true,
@@ -523,7 +672,6 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
           state: true,
         },
       },
-      // ✅ COMPLETE: Line items with medicine details
       lineItems: {
         include: {
           medicine: {
@@ -553,7 +701,6 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
           created_at: 'asc',
         },
       },
-      // ✅ COMPLETE: Payment records
       payments: {
         select: {
           payment_id: true,
@@ -570,7 +717,6 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
           payment_date: 'desc',
         },
       },
-      // ✅ COMPLETE: Creator info
       creator: {
         select: {
           user_id: true,
@@ -579,7 +725,6 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
           role: true,
         },
       },
-      // ✅ COMPLETE: Confirmer info (if confirmed)
       confirmer: {
         select: {
           user_id: true,
@@ -601,13 +746,10 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
 }
 
 // ============================================
-// UPDATE PURCHASE INVOICE (DRAFT ONLY) - ✅ UPDATED
+// UPDATE PURCHASE INVOICE
 // ============================================
 
-// backend/src/modules/purchase/purchase.service.js - UPDATE updatePurchaseInvoice
-
 export async function updatePurchaseInvoice(userId, shopId, branchId, role, branchMode, invoiceId, data, auditContext) {
-  // Get user first
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -638,7 +780,6 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
     throw err;
   }
 
-  // ✅ NEW: Check edit permissions based on status and role
   const isConfirmed = invoice.status === "CONFIRMED";
   const isSuperAdmin = user.role === "super_admin";
 
@@ -689,24 +830,14 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
       const paidAmt = parseFloat(paid_amount) || 0;
       const netAmt = parseFloat(invoice.net_amount);
       
-      let paymentStatus = "UNPAID";
-      let balanceAmount = netAmt;
-      
-      if (paidAmt > 0) {
-        if (paidAmt >= netAmt) {
-          paymentStatus = "PAID";
-          balanceAmount = 0;
-        } else {
-          paymentStatus = "PARTIALLY_PAID";
-          balanceAmount = netAmt - paidAmt;
-        }
-      }
+      // Use threshold-based calculation
+      const paymentCalc = calculatePaymentStatus(paidAmt, netAmt, PAYMENT_BALANCE_THRESHOLD);
       
       updateData = {
         ...updateData,
-        payment_status: paymentStatus,
-        paid_amount: paidAmt,
-        balance_amount: balanceAmount,
+        payment_status: paymentCalc.status,
+        paid_amount: paymentCalc.paidAmount,
+        balance_amount: paymentCalc.balanceAmount,
         payment_mode: payment_mode || invoice.payment_mode,
       };
     }
@@ -716,19 +847,17 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
       data: updateData,
     });
 
-    // ✅ NEW: Handle line items update for CONFIRMED invoices (stock reversal)
+    // Handle line items update
     if (lineItems && lineItems.length > 0) {
       
-      // If invoice was CONFIRMED, we need to reverse the old stock first
+      // If invoice was CONFIRMED, reverse old stock first
       if (isConfirmed) {
         console.log("🔄 Super Admin editing CONFIRMED invoice - reversing stock...");
         
-        // Reverse stock for each old line item
         for (const oldItem of invoice.lineItems) {
           if (oldItem.inventory_id) {
             const oldTotalQty = Number(oldItem.quantity) + Number(oldItem.free_quantity || 0);
             
-            // Create reversal stock ledger entry
             await inventoryService.updateStock(
               {
                 inventoryId: oldItem.inventory_id,
@@ -736,7 +865,7 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
                 branchId: invoice.branch_id,
                 medicineId: oldItem.medicine_id,
                 batchNumber: oldItem.batch_number,
-                movementType: "PURCHASE_RETURN", // Using return type for reversal
+                movementType: "PURCHASE_RETURN",
                 quantityIn: 0,
                 quantityOut: oldTotalQty,
                 rate: oldItem.purchase_rate,
@@ -799,38 +928,26 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
       // Recalculate invoice totals
       const calculations = calculateInvoiceTotals(lineItems);
       
-      // Update payment status based on new totals
+      // Use threshold-based calculation for payment status
       const paidAmt = parseFloat(paid_amount) || parseFloat(invoice.paid_amount) || 0;
       const newNetAmt = calculations.net_amount;
-      
-      let paymentStatus = "UNPAID";
-      let balanceAmount = newNetAmt;
-      
-      if (paidAmt > 0) {
-        if (paidAmt >= newNetAmt) {
-          paymentStatus = "PAID";
-          balanceAmount = 0;
-        } else {
-          paymentStatus = "PARTIALLY_PAID";
-          balanceAmount = newNetAmt - paidAmt;
-        }
-      }
+      const paymentCalc = calculatePaymentStatus(paidAmt, newNetAmt, PAYMENT_BALANCE_THRESHOLD);
 
       updatedInvoice = await tx.purchaseInvoice.update({
         where: { invoice_id: invoiceId },
         data: {
           ...calculations,
-          payment_status: paymentStatus,
-          balance_amount: balanceAmount,
+          payment_status: paymentCalc.status,
+          paid_amount: paymentCalc.paidAmount,
+          balance_amount: paymentCalc.balanceAmount,
         },
       });
 
-      // ✅ NEW: If invoice was CONFIRMED, add new stock
+      // If invoice was CONFIRMED, add new stock
       if (isConfirmed) {
         console.log("🔄 Adding new stock for edited CONFIRMED invoice...");
         
         for (const item of newItems) {
-          // Get or create inventory entry
           const inventory = await inventoryService.getOrCreateInventory(
             shopId,
             invoice.branch_id,
@@ -842,7 +959,6 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
 
           const totalQuantity = Number(item.quantity) + Number(item.free_quantity || 0);
 
-          // Add new stock
           await inventoryService.updateStock(
             {
               inventoryId: inventory.inventory_id,
@@ -863,7 +979,6 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
             userId
           );
 
-          // Update inventory record
           await tx.inventory.update({
             where: { inventory_id: inventory.inventory_id },
             data: {
@@ -874,7 +989,6 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
             },
           });
 
-          // Link inventory to purchase item
           await tx.purchaseInvoiceItem.update({
             where: { item_id: item.item_id },
             data: {
@@ -890,7 +1004,7 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
     return updatedInvoice;
   });
 
-  // ✅ NEW: Enhanced audit log for confirmed invoice edits
+  // Audit log
   await audit.log({
     action: isConfirmed 
       ? audit.AuditAction.PURCHASE_INVOICE_CONFIRMED_EDITED 
@@ -920,14 +1034,12 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
 
   return result;
 }
-// ============================================
-// CANCEL PURCHASE INVOICE - ✅ UPDATED
-// ============================================
 
-// backend/src/modules/purchase/purchase.service.js - FIX cancelPurchaseInvoice
+// ============================================
+// CANCEL PURCHASE INVOICE
+// ============================================
 
 export async function cancelPurchaseInvoice(userId, shopId, branchId, role, branchMode, invoiceId, reason, auditContext) {
-  // ✅ FIXED: Get user first
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -983,7 +1095,7 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, role, bran
     branch_id: invoice.branch_id,
     actor_type: audit.ActorType.ERP_USER,
     actor_id: userId,
-    actor_role: user.role, // ✅ NOW DEFINED
+    actor_role: user.role,
     ...auditContext,
     reason_code: audit.AuditReasonCode.USER_REQUEST,
     metadata: {
@@ -995,14 +1107,14 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, role, bran
 
   return result;
 }
+
 // ============================================
-// GET PURCHASE STATISTICS - ✅ UPDATED
+// GET PURCHASE STATISTICS
 // ============================================
 
 export async function getPurchaseStats(shopId, branchId, role, branchMode, filters = {}) {
   const { startDate, endDate } = filters;
 
-  // ✅ NEW: Build branch filter
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const where = {
@@ -1040,106 +1152,262 @@ export async function getPurchaseStats(shopId, branchId, role, branchMode, filte
 }
 
 // ============================================
-// HELPER FUNCTIONS (unchanged)
+// UPDATE PAYMENT STATUS (Super Admin Only)
 // ============================================
 
-function calculateLineItemForDB(item) {
-  const qty = parseFloat(item.quantity || 0);
-  const rate = parseFloat(item.purchase_rate || 0);
-  const schemeDisc = parseFloat(item.scheme_discount || 0);
-  const tradeDisc = parseFloat(item.trade_discount || 0);
-
-  const gross = qty * rate;
-
-  const schemeAmt = (gross * schemeDisc) / 100;
-  const afterScheme = gross - schemeAmt;
-  const tradeAmt = (afterScheme * tradeDisc) / 100;
-
-  const discountAmount = schemeAmt + tradeAmt;
-  const taxableAmount = gross - discountAmount;
-
-  const cgstPct = parseFloat(item.cgst_percent || 0);
-  const sgstPct = parseFloat(item.sgst_percent || 0);
-  const igstPct = parseFloat(item.igst_percent || 0);
-
-  const cgstAmount = (taxableAmount * cgstPct) / 100;
-  const sgstAmount = (taxableAmount * sgstPct) / 100;
-  const igstAmount = (taxableAmount * igstPct) / 100;
-
-  const lineTotal = taxableAmount + cgstAmount + sgstAmount + igstAmount;
-
-  return {
-    discount_amount: Number(discountAmount.toFixed(2)),
-    taxable_amount: Number(taxableAmount.toFixed(2)),
-    cgst_amount: Number(cgstAmount.toFixed(2)),
-    sgst_amount: Number(sgstAmount.toFixed(2)),
-    igst_amount: Number(igstAmount.toFixed(2)),
-    line_total: Number(lineTotal.toFixed(2)),
-  };
-}
-
-function calculateInvoiceTotals(lineItems) {
-  let subtotal = 0;
-  let discountAmount = 0;
-  let taxableAmount = 0;
-  let cgstAmount = 0;
-  let sgstAmount = 0;
-  let igstAmount = 0;
-
-  lineItems.forEach((item) => {
-    const qty = parseFloat(item.quantity || 0);
-    const rate = parseFloat(item.purchase_rate || 0);
-    const schemeDisc = parseFloat(item.scheme_discount || 0);
-    const tradeDisc = parseFloat(item.trade_discount || 0);
-
-    const gross = qty * rate;
-    const schemeAmt = (gross * schemeDisc) / 100;
-    const afterScheme = gross - schemeAmt;
-    const tradeAmt = (afterScheme * tradeDisc) / 100;
-
-    const itemDiscount = schemeAmt + tradeAmt;
-    const itemTaxable = gross - itemDiscount;
-
-    const cgstPct = parseFloat(item.cgst_percent || 0);
-    const sgstPct = parseFloat(item.sgst_percent || 0);
-    const igstPct = parseFloat(item.igst_percent || 0);
-
-    subtotal += gross;
-    discountAmount += itemDiscount;
-    taxableAmount += itemTaxable;
-    cgstAmount += (itemTaxable * cgstPct) / 100;
-    sgstAmount += (itemTaxable * sgstPct) / 100;
-    igstAmount += (itemTaxable * igstPct) / 100;
+export async function updatePaymentStatus(userId, shopId, branchId, role, branchMode, invoiceId, data, auditContext) {
+  const user = await prisma.user.findUnique({
+    where: { user_id: userId },
+    select: { role: true },
   });
 
-  const totalTax = cgstAmount + sgstAmount + igstAmount;
-  const grossTotal = taxableAmount + totalTax;
-  const roundOff = Math.round(grossTotal) - grossTotal;
-  const netAmount = Math.round(grossTotal);
+  if (!user) {
+    const err = new Error("User not found");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
 
-  return {
-    subtotal: Number(subtotal.toFixed(2)),
-    discount_amount: Number(discountAmount.toFixed(2)),
-    taxable_amount: Number(taxableAmount.toFixed(2)),
-    cgst_amount: Number(cgstAmount.toFixed(2)),
-    sgst_amount: Number(sgstAmount.toFixed(2)),
-    igst_amount: Number(igstAmount.toFixed(2)),
-    total_tax: Number(totalTax.toFixed(2)),
-    round_off: Number(roundOff.toFixed(2)),
-    net_amount: Number(netAmount.toFixed(2)),
-    balance_amount: Number(netAmount.toFixed(2)),
-  };
-}
+  // Only super_admin can directly change payment status
+  if (user.role !== "super_admin") {
+    const err = new Error("Only super admin can change payment status directly");
+    err.code = "PERMISSION_DENIED";
+    throw err;
+  }
 
-async function generateInvoiceNumber(shopId) {
-  const lastInvoice = await prisma.purchaseInvoice.findFirst({
-    where: { shop_id: shopId },
-    orderBy: { created_at: "desc" },
-    select: { invoice_number: true },
+  const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
+  const invoice = await prisma.purchaseInvoice.findFirst({
+    where: { 
+      invoice_id: invoiceId, 
+      ...baseFilter,
+    },
+    include: {
+      supplier: true,
+    },
   });
 
-  if (!lastInvoice) return "PUR-000001";
+  if (!invoice) {
+    const err = new Error("Invoice not found or you don't have access");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
 
-  const lastNumber = parseInt(lastInvoice.invoice_number.split("-")[1]);
-  return `PUR-${String(lastNumber + 1).padStart(6, "0")}`;
+  if (invoice.status === "CANCELLED") {
+    const err = new Error("Cannot update payment status of cancelled invoice");
+    err.code = "INVOICE_CANCELLED";
+    throw err;
+  }
+
+  const { payment_status, paid_amount, payment_mode, remarks } = data;
+  const netAmount = parseFloat(invoice.net_amount);
+  
+  let newPaidAmount = paid_amount !== undefined ? parseFloat(paid_amount) : parseFloat(invoice.paid_amount);
+  let newBalanceAmount = netAmount - newPaidAmount;
+  let newPaymentStatus = payment_status;
+
+  // Auto-calculate based on status
+  if (payment_status === "PAID") {
+    newPaidAmount = netAmount;
+    newBalanceAmount = 0;
+  } else if (payment_status === "UNPAID") {
+    newPaidAmount = 0;
+    newBalanceAmount = netAmount;
+  } else if (payment_status === "PARTIALLY_PAID") {
+    // Validate for PARTIALLY_PAID
+    if (newPaidAmount <= 0) {
+      const err = new Error("Partial payment requires a paid amount greater than 0");
+      err.code = "INVALID_AMOUNT";
+      throw err;
+    }
+    
+    // If balance is within threshold, auto-upgrade to PAID
+    if (newBalanceAmount <= PAYMENT_BALANCE_THRESHOLD) {
+      newPaymentStatus = "PAID";
+      newPaidAmount = netAmount;
+      newBalanceAmount = 0;
+    }
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Update invoice payment status
+    const updatedInvoice = await tx.purchaseInvoice.update({
+      where: { invoice_id: invoiceId },
+      data: {
+        payment_status: newPaymentStatus,
+        paid_amount: newPaidAmount,
+        balance_amount: newBalanceAmount,
+        payment_mode: payment_mode || invoice.payment_mode,
+        remarks: remarks || invoice.remarks,
+      },
+    });
+
+    // If marking as PAID and no previous payment record exists, create one
+    if (payment_status === "PAID" && parseFloat(invoice.paid_amount) < netAmount) {
+      const paymentDiff = netAmount - parseFloat(invoice.paid_amount);
+      
+      await tx.purchasePayment.create({
+        data: {
+          invoice_id: invoiceId,
+          shop_id: shopId,
+          supplier_id: invoice.supplier_id,
+          payment_date: new Date(),
+          amount: paymentDiff,
+          payment_mode: payment_mode || "CASH",
+          status: "COMPLETED",
+          created_by: userId,
+          remarks: remarks || "Payment status updated by Super Admin",
+        },
+      });
+    }
+
+    return updatedInvoice;
+  });
+
+  // Audit log
+  await audit.log({
+    action: audit.AuditAction.PURCHASE_PAYMENT_STATUS_UPDATED,
+    entity_type: audit.EntityType.PURCHASE_INVOICE,
+    entity_id: invoiceId,
+    shop_id: shopId,
+    branch_id: invoice.branch_id,
+    actor_type: audit.ActorType.ERP_USER,
+    actor_id: userId,
+    actor_role: user.role,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.SUPER_ADMIN_OVERRIDE,
+    metadata: {
+      invoice_number: invoice.invoice_number,
+      supplier_name: invoice.supplier.name,
+      old_payment_status: invoice.payment_status,
+      new_payment_status: newPaymentStatus,
+      old_paid_amount: invoice.paid_amount,
+      new_paid_amount: newPaidAmount,
+      net_amount: netAmount,
+      threshold_applied: newPaymentStatus === "PAID" && payment_status === "PARTIALLY_PAID",
+    },
+  });
+
+  return result;
+}
+
+// ============================================
+// RECORD PAYMENT
+// ============================================
+
+export async function recordPayment(userId, shopId, branchId, role, branchMode, invoiceId, data, auditContext) {
+  const user = await prisma.user.findUnique({
+    where: { user_id: userId },
+    select: { role: true },
+  });
+
+  if (!user) {
+    const err = new Error("User not found");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
+  const invoice = await prisma.purchaseInvoice.findFirst({
+    where: { 
+      invoice_id: invoiceId, 
+      ...baseFilter,
+    },
+    include: {
+      supplier: true,
+    },
+  });
+
+  if (!invoice) {
+    const err = new Error("Invoice not found or you don't have access");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  if (invoice.status === "CANCELLED") {
+    const err = new Error("Cannot record payment for cancelled invoice");
+    err.code = "INVOICE_CANCELLED";
+    throw err;
+  }
+
+  if (invoice.payment_status === "PAID") {
+    const err = new Error("Invoice is already fully paid");
+    err.code = "ALREADY_PAID";
+    throw err;
+  }
+
+  const { amount, payment_mode, payment_date, reference_number, bank_name, remarks } = data;
+  const paymentAmount = parseFloat(amount);
+  const currentPaid = parseFloat(invoice.paid_amount);
+  const netAmount = parseFloat(invoice.net_amount);
+  const newPaidAmount = currentPaid + paymentAmount;
+
+  // Check for overpayment
+  if (newPaidAmount > netAmount) {
+    const err = new Error(`Payment of ₹${paymentAmount} would exceed balance of ₹${invoice.balance_amount}`);
+    err.code = "OVERPAYMENT";
+    throw err;
+  }
+
+  // Use threshold-based calculation
+  const paymentCalc = calculatePaymentStatus(newPaidAmount, netAmount, PAYMENT_BALANCE_THRESHOLD);
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Create payment record with original amount
+    const payment = await tx.purchasePayment.create({
+      data: {
+        invoice_id: invoiceId,
+        shop_id: shopId,
+        supplier_id: invoice.supplier_id,
+        payment_date: payment_date ? new Date(payment_date) : new Date(),
+        amount: paymentAmount,
+        payment_mode,
+        reference_number: reference_number || null,
+        bank_name: bank_name || null,
+        status: "COMPLETED",
+        created_by: userId,
+        remarks: remarks || null,
+      },
+    });
+
+    // Update invoice with calculated status
+    const updatedInvoice = await tx.purchaseInvoice.update({
+      where: { invoice_id: invoiceId },
+      data: {
+        payment_status: paymentCalc.status,
+        paid_amount: paymentCalc.paidAmount,
+        balance_amount: paymentCalc.balanceAmount,
+        payment_mode: payment_mode,
+      },
+    });
+
+    return { payment, invoice: updatedInvoice };
+  });
+
+  // Audit log
+  await audit.log({
+    action: audit.AuditAction.PURCHASE_PAYMENT_RECORDED,
+    entity_type: audit.EntityType.PURCHASE_INVOICE,
+    entity_id: invoiceId,
+    shop_id: shopId,
+    branch_id: invoice.branch_id,
+    actor_type: audit.ActorType.ERP_USER,
+    actor_id: userId,
+    actor_role: user.role,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.USER_REQUEST,
+    metadata: {
+      invoice_number: invoice.invoice_number,
+      payment_id: result.payment.payment_id,
+      payment_amount: paymentAmount,
+      payment_mode,
+      old_payment_status: invoice.payment_status,
+      new_payment_status: paymentCalc.status,
+      total_paid: paymentCalc.paidAmount,
+      balance_remaining: paymentCalc.balanceAmount,
+      threshold_applied: paymentCalc.status === "PAID" && (netAmount - newPaidAmount) > 0,
+    },
+  });
+
+  return result;
 }
