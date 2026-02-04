@@ -175,9 +175,6 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.REPORTS_SALES,
     PERMISSIONS.DASHBOARD_VIEW,
 
-    // Tickets - all users can create/view their own tickets
-    PERMISSIONS.TICKETS_VIEW,
-    PERMISSIONS.TICKETS_CREATE,
 
     // Notifications - all authenticated users
     PERMISSIONS.NOTIFICATIONS_VIEW,

@@ -5,6 +5,7 @@ import {
   Eye,
   XCircle,
   ChevronUp,
+  ChevronDown,
   Loader2,
   FileText,
   Inbox,
@@ -16,6 +17,7 @@ import {
 import { TICKET_STATUSES, TICKET_CATEGORIES, EMPTY_STATE_MESSAGES } from "../../../constant/tickets";
 import { format, formatDistanceToNow } from "date-fns";
 import Pagination from "../../../components/common/Pagination";
+import { TABLE_CONFIG } from "../../../config/tableConfig";
 
 // ============================================
 // STATUS BADGE COMPONENT
@@ -90,10 +92,11 @@ const CategoryBadge = ({ category }) => {
 };
 
 // ============================================
-// SORT INDICATOR
+// SORT INDICATOR COMPONENT
 // ============================================
 const SortIndicator = ({ column, sortConfig }) => {
   const isActive = sortConfig.sortBy === column;
+  
   if (!isActive) {
     return (
       <div className="opacity-0 group-hover:opacity-50 transition-opacity">
@@ -101,9 +104,14 @@ const SortIndicator = ({ column, sortConfig }) => {
       </div>
     );
   }
+  
   return (
-    <div className={`transition-transform ${sortConfig.order === "desc" ? "rotate-180" : ""}`}>
-      <ChevronUp size={14} className="text-white" />
+    <div className="text-white">
+      {sortConfig.order === "asc" ? (
+        <ChevronUp size={14} />
+      ) : (
+        <ChevronDown size={14} />
+      )}
     </div>
   );
 };
@@ -114,15 +122,15 @@ const SortIndicator = ({ column, sortConfig }) => {
 const EmptyState = ({ hasActiveFilters, onCreateTicket }) => {
   if (hasActiveFilters) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-20">
-        <div className="w-20 h-20 rounded-2xl bg-amber-50 flex items-center justify-center">
-          <FilterX size={36} className="text-amber-500" />
+      <div className="flex flex-col items-center justify-center gap-4 py-16">
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center">
+          <FilterX size={32} className="text-amber-500" />
         </div>
         <div className="text-center max-w-sm">
           <p className="text-lg font-semibold text-gray-900">{EMPTY_STATE_MESSAGES.NO_RESULTS}</p>
-          <p className="text-sm text-gray-500 mt-2">Try adjusting your search or filter criteria to find what you're looking for</p>
+          <p className="text-sm text-gray-500 mt-2">Try adjusting your search or filter criteria</p>
         </div>
-        <div className="flex items-center gap-2 mt-2 px-4 py-2 bg-gray-50 rounded-full">
+        <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-full">
           <Search size={14} className="text-gray-400" />
           <span className="text-xs text-gray-500">Tip: Clear filters to see all tickets</span>
         </div>
@@ -131,22 +139,22 @@ const EmptyState = ({ hasActiveFilters, onCreateTicket }) => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-20">
-      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#05015A]/10 to-[#0a0280]/20 flex items-center justify-center">
-        <Inbox size={36} className="text-[#05015A]" />
+    <div className="flex flex-col items-center justify-center gap-4 py-16">
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#05015A]/10 to-[#0a0280]/20 flex items-center justify-center">
+        <Inbox size={32} className="text-[#05015A]" />
       </div>
       <div className="text-center max-w-sm">
         <p className="text-lg font-semibold text-gray-900">{EMPTY_STATE_MESSAGES.NO_TICKETS}</p>
-        <p className="text-sm text-gray-500 mt-2">Create your first support ticket and we'll help you resolve your issues</p>
+        <p className="text-sm text-gray-500 mt-2">Create your first support ticket</p>
       </div>
       {onCreateTicket && (
         <button
           onClick={onCreateTicket}
-          className="mt-4 px-6 py-3 bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white rounded-xl text-sm font-semibold 
+          className="mt-2 px-5 py-2.5 bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white rounded-xl text-sm font-semibold 
                      flex items-center gap-2 hover:shadow-lg hover:shadow-[#05015A]/25 hover:-translate-y-0.5
                      transition-all duration-200"
         >
-          <Plus size={18} />
+          <Plus size={16} />
           <span>Create Your First Ticket</span>
         </button>
       )}
@@ -155,24 +163,51 @@ const EmptyState = ({ hasActiveFilters, onCreateTicket }) => {
 };
 
 // ============================================
-// LOADING STATE
+// LOADING STATE - SKELETON ROWS
 // ============================================
-const LoadingState = () => (
-  <div className="flex flex-col items-center justify-center gap-4 py-20">
-    <div className="relative">
-      <div className="w-16 h-16 rounded-2xl bg-[#05015A]/10 flex items-center justify-center">
-        <Loader2 size={28} className="animate-spin text-[#05015A]" />
-      </div>
-      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#05015A] rounded-lg flex items-center justify-center animate-bounce">
-        <FileText size={12} className="text-white" />
-      </div>
-    </div>
-    <div className="text-center">
-      <p className="text-sm font-medium text-gray-900">Loading tickets...</p>
-      <p className="text-xs text-gray-500 mt-1">Please wait a moment</p>
-    </div>
-  </div>
-);
+const LoadingState = ({ rowCount = 5 }) => {
+  return (
+    <>
+      {Array.from({ length: rowCount }).map((_, index) => (
+        <tr key={index} className="border-b border-gray-100 animate-pulse">
+          <td className="px-4 py-3.5">
+            <div className="h-4 w-6 bg-gray-200 rounded" />
+          </td>
+          <td className="px-4 py-3.5">
+            <div className="space-y-2">
+              <div className="h-4 w-28 bg-gray-200 rounded" />
+              <div className="h-3 w-48 bg-gray-100 rounded" />
+            </div>
+          </td>
+          <td className="px-4 py-3.5">
+            <div className="h-6 w-24 bg-gray-200 rounded-lg" />
+          </td>
+          <td className="px-4 py-3.5">
+            <div className="h-6 w-20 bg-gray-200 rounded-full" />
+          </td>
+          <td className="px-4 py-3.5">
+            <div className="space-y-1.5">
+              <div className="h-4 w-24 bg-gray-200 rounded" />
+              <div className="h-3 w-16 bg-gray-100 rounded" />
+            </div>
+          </td>
+          <td className="px-4 py-3.5">
+            <div className="space-y-1.5">
+              <div className="h-4 w-20 bg-gray-200 rounded" />
+              <div className="h-3 w-16 bg-gray-100 rounded" />
+            </div>
+          </td>
+          <td className="px-4 py-3.5">
+            <div className="flex justify-center gap-1">
+              <div className="h-8 w-8 bg-gray-200 rounded-lg" />
+              <div className="h-8 w-8 bg-gray-200 rounded-lg" />
+            </div>
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+};
 
 // ============================================
 // TICKET ROW COMPONENT
@@ -200,22 +235,26 @@ const TicketRow = ({ ticket, index, currentPage, rowsPerPage, onViewTicket, onCa
 
   const canCancel = ticket.status === "PENDING" || ticket.status === "IN_PROGRESS";
   const hasAttachments = ticket.attachment_count > 0;
+  
+  // Get row styling from config
+  const rowBg = index % 2 === 0 ? "bg-white" : "bg-gray-50/50";
 
   return (
     <tr 
-      className={`group transition-all duration-200 ${isHovered ? "bg-[#05015A]/[0.02]" : "hover:bg-gray-50/80"}`}
+      className={`group border-b border-gray-100 transition-all duration-150 ${rowBg} ${isHovered ? "bg-indigo-50/50" : "hover:bg-gray-50"}`}
+      style={{ height: `${TABLE_CONFIG.heights.bodyRow}px` }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Row Number */}
-      <td className="px-4 py-3.5 align-middle">
+      <td className="px-4 py-3 align-middle">
         <span className="text-sm text-gray-400 font-medium tabular-nums">
           {String((currentPage - 1) * rowsPerPage + index + 1).padStart(2, '0')}
         </span>
       </td>
 
       {/* Ticket Number & Subject */}
-      <td className="px-4 py-3.5 align-middle">
+      <td className="px-4 py-3 align-middle">
         <button
           onClick={() => onViewTicket(ticket)}
           className="text-left group/ticket"
@@ -238,17 +277,17 @@ const TicketRow = ({ ticket, index, currentPage, rowsPerPage, onViewTicket, onCa
       </td>
 
       {/* Category */}
-      <td className="px-4 py-3.5 align-middle">
+      <td className="px-4 py-3 align-middle">
         <CategoryBadge category={ticket.category} />
       </td>
 
       {/* Status */}
-      <td className="px-4 py-3.5 align-middle">
+      <td className="px-4 py-3 align-middle">
         <StatusBadge status={ticket.status} />
       </td>
 
       {/* Created By */}
-      <td className="px-4 py-3.5 align-middle">
+      <td className="px-4 py-3 align-middle">
         <div className="min-w-0">
           <p className="text-sm font-medium text-gray-900 truncate">
             {ticket.created_by_name || "Unknown"}
@@ -260,7 +299,7 @@ const TicketRow = ({ ticket, index, currentPage, rowsPerPage, onViewTicket, onCa
       </td>
 
       {/* Created Date */}
-      <td className="px-4 py-3.5 align-middle">
+      <td className="px-4 py-3 align-middle">
         <div className="flex flex-col">
           <span className="text-sm font-medium text-gray-900">{formatDate(ticket.created_at)}</span>
           <span className="text-xs text-gray-500">{formatRelativeTime(ticket.created_at)}</span>
@@ -268,7 +307,7 @@ const TicketRow = ({ ticket, index, currentPage, rowsPerPage, onViewTicket, onCa
       </td>
 
       {/* Actions */}
-      <td className="px-4 py-3.5 align-middle">
+      <td className="px-4 py-3 align-middle">
         <div className={`flex items-center justify-center gap-1 transition-opacity duration-200 ${isHovered ? "opacity-100" : "opacity-60"}`}>
           <button
             onClick={() => onViewTicket(ticket)}
@@ -287,7 +326,7 @@ const TicketRow = ({ ticket, index, currentPage, rowsPerPage, onViewTicket, onCa
               <XCircle size={18} />
             </button>
           ) : (
-            <div className="w-9 h-9" />
+            <div className="w-9 h-9" /> 
           )}
         </div>
       </td>
@@ -312,66 +351,69 @@ const TicketListTable = ({
   onCreateTicket,
   hasActiveFilters = false,
 }) => {
+  
+  // Calculate total pages
+  const totalPages = Math.ceil(totalItems / rowsPerPage);
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
+    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden flex flex-col h-full">
       {/* Table Container */}
       <div className="flex-1 overflow-auto">
         <table className="w-full min-w-[900px]">
           {/* Header */}
           <thead className="sticky top-0 z-10">
-            <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280]">
-              <th className="w-14 px-4 py-3.5 text-left text-xs font-semibold text-white/70 uppercase tracking-wider align-middle">
+            <tr 
+              className="bg-gradient-to-r from-[#05015A] to-[#0a0280]"
+              style={{ height: `${TABLE_CONFIG.heights.headerRow}px` }}
+            >
+              <th className="w-14 px-4 py-3 text-left text-xs font-semibold text-white/70 uppercase tracking-wider align-middle">
                 #
               </th>
               <th 
                 onClick={() => onSortChange("ticket_number")}
-                className="min-w-[280px] px-4 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group align-middle"
+                className="min-w-[280px] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group align-middle"
               >
                 <div className="flex items-center gap-2">
                   <span>Ticket</span>
                   <SortIndicator column="ticket_number" sortConfig={sortConfig} />
                 </div>
               </th>
-              <th className="min-w-[130px] px-4 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider align-middle">
+              <th className="min-w-[130px] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider align-middle">
                 Category
               </th>
               <th 
                 onClick={() => onSortChange("status")}
-                className="min-w-[120px] px-4 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group align-middle"
+                className="min-w-[120px] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group align-middle"
               >
                 <div className="flex items-center gap-2">
                   <span>Status</span>
                   <SortIndicator column="status" sortConfig={sortConfig} />
                 </div>
               </th>
-              <th className="min-w-[140px] px-4 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider align-middle">
+              <th className="min-w-[140px] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider align-middle">
                 Created By
               </th>
               <th 
                 onClick={() => onSortChange("created_at")}
-                className="min-w-[130px] px-4 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group align-middle"
+                className="min-w-[130px] px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-colors select-none group align-middle"
               >
                 <div className="flex items-center gap-2">
                   <span>Created</span>
                   <SortIndicator column="created_at" sortConfig={sortConfig} />
                 </div>
               </th>
-              <th className="w-24 px-4 py-3.5 text-center text-xs font-semibold text-white uppercase tracking-wider align-middle">
+              <th className="w-24 px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider align-middle">
                 Actions
               </th>
             </tr>
           </thead>
 
           {/* Body */}
-          <tbody className="divide-y divide-gray-100">
-            {loading && (
-              <tr>
-                <td colSpan="7">
-                  <LoadingState />
-                </td>
-              </tr>
-            )}
+          <tbody>
+            {/* Loading State */}
+            {loading && <LoadingState rowCount={rowsPerPage} />}
 
+            {/* Empty State */}
             {!loading && tickets.length === 0 && (
               <tr>
                 <td colSpan="7">
@@ -383,6 +425,7 @@ const TicketListTable = ({
               </tr>
             )}
 
+            {/* Data Rows */}
             {!loading && tickets.map((ticket, index) => (
               <TicketRow
                 key={ticket.ticket_id}
@@ -398,9 +441,12 @@ const TicketListTable = ({
         </table>
       </div>
 
-      {/* Pagination - Using Reusable Component */}
-      {!loading && tickets.length > 0 && (
-        <div className="flex-shrink-0 border-t border-gray-200">
+      {/* Pagination */}
+      {!loading && tickets.length > 0 && totalPages > 0 && (
+        <div 
+          className="flex-shrink-0 border-t border-gray-100 bg-gray-50/50"
+          style={{ height: `${TABLE_CONFIG.heights.pagination}px` }}
+        >
           <Pagination
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}

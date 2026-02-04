@@ -437,9 +437,10 @@ export async function createTicket({
 // ============================================
 // Get Tickets
 // ============================================
+
 export async function getTickets({
   shop_id,
-  branch_id,
+  branch_id, // ⚠️ This is from query params (filter), NOT requester's branch
   status,
   category,
   search,
@@ -450,24 +451,42 @@ export async function getTickets({
   sort_by = "created_at",
   sort_order = "desc",
   requester_role,
-  requester_branch_id,
+  requester_branch_id, // ✅ This is the authenticated user's branch
 }) {
   const andConditions = [];
 
+  // Always filter by shop
   andConditions.push({ shop_id });
 
+  // ============================================
+  // ROLE-BASED BRANCH FILTERING
+  // ============================================
+  
   if (requester_role === "super_admin") {
+    // Super admin sees ALL tickets from their shop (all branches + shop-level)
+    // Optional: Allow filtering by specific branch via query param
     if (branch_id) {
       andConditions.push({ branch_id });
     }
+    // If no branch_id filter, sees everything (including branch_id: null)
   } else if (requester_role === "branch_admin") {
-    if (requester_branch_id) {
-      andConditions.push({
-        OR: [{ branch_id: requester_branch_id }, { branch_id: null }],
-      });
+    // Branch admin ONLY sees tickets from their assigned branch
+    // Does NOT see shop-level tickets (branch_id: null)
+    if (!requester_branch_id) {
+      // Safety check: if branch_admin has no branch, return empty
+      andConditions.push({ branch_id: "impossible-value-no-match" });
+    } else {
+      andConditions.push({ branch_id: requester_branch_id });
     }
+  } else {
+    // Staff or unknown role: no access (should be blocked by middleware)
+    andConditions.push({ branch_id: "impossible-value-no-match" });
   }
 
+  // ============================================
+  // OTHER FILTERS (unchanged)
+  // ============================================
+  
   if (status) {
     andConditions.push({ status });
   }
@@ -755,10 +774,23 @@ export async function getTicketStats(
 ) {
   const andConditions = [{ shop_id }];
 
-  if (requester_role === "branch_admin" && requester_branch_id) {
-    andConditions.push({
-      OR: [{ branch_id: requester_branch_id }, { branch_id: null }],
-    });
+  // ============================================
+  // ROLE-BASED FILTERING
+  // ============================================
+  
+  if (requester_role === "super_admin") {
+    // Super admin: sees all tickets (no additional filter)
+  } else if (requester_role === "branch_admin") {
+    // Branch admin: ONLY their branch
+    if (requester_branch_id) {
+      andConditions.push({ branch_id: requester_branch_id });
+    } else {
+      // Safety: no branch = no stats
+      andConditions.push({ branch_id: "impossible-value-no-match" });
+    }
+  } else {
+    // Staff: no access
+    andConditions.push({ branch_id: "impossible-value-no-match" });
   }
 
   const where = { AND: andConditions };
@@ -841,11 +873,17 @@ export async function canAccessTicket(
     });
 
     if (!ticket) return false;
+
+    // Super admin: can access all tickets in their shop
     if (requester_role === "super_admin") return true;
 
-    return (
-      ticket.branch_id === requester_branch_id || ticket.branch_id === null
-    );
+    // Branch admin: ONLY tickets from their branch (NOT shop-level tickets)
+    if (requester_role === "branch_admin") {
+      return ticket.branch_id === requester_branch_id;
+    }
+
+    // Staff or unknown: no access
+    return false;
   } catch (error) {
     console.error("canAccessTicket error:", error.message);
     return false;

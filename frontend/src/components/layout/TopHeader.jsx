@@ -20,35 +20,37 @@ import {
 } from "lucide-react";
 import logo from "../../assets/icons/cureli.svg";
 
-import { 
-  useAuthStore, 
-  selectBranchContext, 
+import {
+  useAuthStore,
+  selectBranchContext,
   selectIsSuperAdmin,
   selectIsGlobalMode,
-  BRANCH_MODE 
+  BRANCH_MODE,
 } from "../../store/useAuthStore";
 import { usePermission } from "../../hooks/usePermission";
 import { PERMISSIONS } from "../../config/permissions";
 import { logoutUser } from "../../api/auth";
 import { fetchBranchesDropdown, switchBranch } from "../../api/branches";
 import ConfirmDialog from "../common/ConfirmDialog";
-import { useSubscriptionStore, selectNeedsRenewal, selectDaysRemaining, selectIsInGrace } from "../../store/useSubscriptionStore";
+import {
+  useSubscriptionStore,
+  selectNeedsRenewal,
+  selectDaysRemaining,
+  selectIsInGrace,
+} from "../../store/useSubscriptionStore";
 import { useToast } from "../common/Toast";
 
 // NEW: Import NotificationDropdown
 import { NotificationDropdown } from "../common/notifications";
 
 // Define write routes that require BRANCH mode
-const WRITE_ROUTES = [
-  "/Salesbilling",
-  "/purchase-billing",
-];
+const WRITE_ROUTES = ["/Salesbilling", "/purchase-billing"];
 
 const TopHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  
+
   const profileRef = useRef(null);
   const branchRef = useRef(null);
 
@@ -59,7 +61,7 @@ const TopHeader = () => {
   const shopName = useAuthStore((state) => state.shopName);
   const logout = useAuthStore((state) => state.logout);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  
+
   // Branch context from store
   const branchContext = useAuthStore(selectBranchContext);
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
@@ -71,7 +73,9 @@ const TopHeader = () => {
   const needsRenewal = useSubscriptionStore(selectNeedsRenewal);
   const daysRemaining = useSubscriptionStore(selectDaysRemaining);
   const isInGrace = useSubscriptionStore(selectIsInGrace);
-  const loadSubscriptionStatus = useSubscriptionStore((s) => s.loadSubscriptionStatus);
+  const loadSubscriptionStatus = useSubscriptionStore(
+    (s) => s.loadSubscriptionStatus,
+  );
 
   const shopId = user?.shop_id || null;
   const userRole = user?.role || null;
@@ -142,9 +146,8 @@ const TopHeader = () => {
     });
   }, [branches]);
 
-  const selectedBranchId = branchContext.mode === BRANCH_MODE.BRANCH 
-    ? branchContext.branch_id 
-    : null;
+  const selectedBranchId =
+    branchContext.mode === BRANCH_MODE.BRANCH ? branchContext.branch_id : null;
 
   const selectedBranch = selectedBranchId
     ? branches.find((b) => b.branch_id === selectedBranchId)
@@ -157,7 +160,11 @@ const TopHeader = () => {
       if (isAllBranches) {
         return "All Branches";
       }
-      return selectedBranch?.branch_name || branchContext.branch_name || "Select Branch";
+      return (
+        selectedBranch?.branch_name ||
+        branchContext.branch_name ||
+        "Select Branch"
+      );
     } else {
       return branchContext.branch_name || "My Branch";
     }
@@ -257,13 +264,13 @@ const TopHeader = () => {
 
   const handleSelectAllBranches = () => {
     setShowBranchSelector(false);
-    
+
     if (isOnWriteRoute) {
       navigate("/dashboard");
       setGlobalBranch();
       toast.info(
         "Switched to All Branches",
-        "Select a specific branch to create bills or purchases"
+        "Select a specific branch to create bills or purchases",
       );
     } else {
       setGlobalBranch();
@@ -325,9 +332,10 @@ const TopHeader = () => {
         className={`
           flex items-center gap-2 h-10 px-3 rounded-lg
           border transition-all duration-150 font-medium text-sm
-          ${isUrgent
-            ? "bg-red-50 border-red-300 text-red-700 hover:bg-red-100"
-            : "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
+          ${
+            isUrgent
+              ? "bg-red-50 border-red-300 text-red-700 hover:bg-red-100"
+              : "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
           }
         `}
       >
@@ -408,15 +416,19 @@ const TopHeader = () => {
                   className={`
                     flex items-center gap-2.5 h-10 px-3 rounded-lg
                     border transition-all duration-150
-                    ${showBranchSelector
-                      ? "border-[#000060]/30 bg-[#000060]/[0.03] shadow-sm"
-                      : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
+                    ${
+                      showBranchSelector
+                        ? "border-[#000060]/30 bg-[#000060]/[0.03] shadow-sm"
+                        : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50"
                     }
                     disabled:opacity-50 disabled:cursor-not-allowed
                   `}
                 >
                   {isSwitchingBranch ? (
-                    <Loader2 size={15} className="text-[#000060] animate-spin" />
+                    <Loader2
+                      size={15}
+                      className="text-[#000060] animate-spin"
+                    />
                   ) : isAllBranches ? (
                     <Layers size={15} className="text-[#000060]" />
                   ) : (
@@ -443,7 +455,10 @@ const TopHeader = () => {
                           Select Branch
                         </span>
                         {isBranchesLoading && (
-                          <Loader2 size={12} className="animate-spin text-gray-400" />
+                          <Loader2
+                            size={12}
+                            className="animate-spin text-gray-400"
+                          />
                         )}
                       </div>
                     </div>
@@ -451,7 +466,10 @@ const TopHeader = () => {
                     <div className="max-h-64 overflow-y-auto py-1">
                       {isBranchesLoading && branches.length === 0 ? (
                         <div className="px-3 py-6 text-center">
-                          <Loader2 size={20} className="animate-spin text-gray-300 mx-auto mb-2" />
+                          <Loader2
+                            size={20}
+                            className="animate-spin text-gray-300 mx-auto mb-2"
+                          />
                           <p className="text-xs text-gray-400">Loading...</p>
                         </div>
                       ) : (
@@ -467,20 +485,30 @@ const TopHeader = () => {
                               disabled:opacity-50
                             `}
                           >
-                            <div className={`
+                            <div
+                              className={`
                               w-8 h-8 rounded-md flex items-center justify-center
                               ${isAllBranches ? "bg-[#000060]/10" : "bg-gray-100"}
-                            `}>
+                            `}
+                            >
                               <Layers
                                 size={14}
-                                className={isAllBranches ? "text-[#000060]" : "text-gray-500"}
+                                className={
+                                  isAllBranches
+                                    ? "text-[#000060]"
+                                    : "text-gray-500"
+                                }
                               />
                             </div>
 
                             <div className="flex-1 text-left">
-                              <span className={`text-sm font-medium ${
-                                isAllBranches ? "text-[#000060]" : "text-gray-700"
-                              }`}>
+                              <span
+                                className={`text-sm font-medium ${
+                                  isAllBranches
+                                    ? "text-[#000060]"
+                                    : "text-gray-700"
+                                }`}
+                              >
                                 All Branches
                               </span>
                               <p className="text-[10px] text-gray-400 mt-0.5">
@@ -499,7 +527,8 @@ const TopHeader = () => {
 
                           {/* Individual Branches */}
                           {sortedBranches.map((branch) => {
-                            const isSelected = selectedBranchId === branch.branch_id;
+                            const isSelected =
+                              selectedBranchId === branch.branch_id;
                             const isMain = branch.is_main;
 
                             return (
@@ -514,13 +543,19 @@ const TopHeader = () => {
                                   disabled:opacity-50
                                 `}
                               >
-                                <div className={`
+                                <div
+                                  className={`
                                   w-8 h-8 rounded-md flex items-center justify-center relative
                                   ${isMain ? "bg-[#000060]/10" : isSelected ? "bg-[#000060]/10" : "bg-gray-100"}
-                                `}>
+                                `}
+                                >
                                   <Building2
                                     size={14}
-                                    className={isMain || isSelected ? "text-[#000060]" : "text-gray-500"}
+                                    className={
+                                      isMain || isSelected
+                                        ? "text-[#000060]"
+                                        : "text-gray-500"
+                                    }
                                   />
                                   {isMain && (
                                     <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#000060] rounded-full" />
@@ -529,9 +564,13 @@ const TopHeader = () => {
 
                                 <div className="flex-1 text-left min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <span className={`text-sm font-medium truncate ${
-                                      isSelected ? "text-[#000060]" : "text-gray-700"
-                                    }`}>
+                                    <span
+                                      className={`text-sm font-medium truncate ${
+                                        isSelected
+                                          ? "text-[#000060]"
+                                          : "text-gray-700"
+                                      }`}
+                                    >
                                       {branch.branch_name}
                                     </span>
                                     {isMain && (
@@ -543,30 +582,40 @@ const TopHeader = () => {
                                 </div>
 
                                 {isSelected && (
-                                  <Check size={14} className="text-[#000060] flex-shrink-0" />
+                                  <Check
+                                    size={14}
+                                    className="text-[#000060] flex-shrink-0"
+                                  />
                                 )}
                               </button>
                             );
                           })}
 
-                          {sortedBranches.length === 0 && !isBranchesLoading && (
-                            <div className="px-3 py-4 text-center">
-                              <p className="text-xs text-gray-400">No branches found</p>
-                            </div>
-                          )}
+                          {sortedBranches.length === 0 &&
+                            !isBranchesLoading && (
+                              <div className="px-3 py-4 text-center">
+                                <p className="text-xs text-gray-400">
+                                  No branches found
+                                </p>
+                              </div>
+                            )}
                         </>
                       )}
                     </div>
 
                     <div className="px-3 py-2 bg-gray-50/50 border-t border-gray-100">
                       <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
-                        <div className={`w-1.5 h-1.5 rounded-full ${
-                          isAllBranches ? "bg-blue-500" : "bg-green-500"
-                        }`} />
+                        <div
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isAllBranches ? "bg-blue-500" : "bg-green-500"
+                          }`}
+                        />
                         <span>
                           Mode:{" "}
                           <span className="text-gray-600 font-medium">
-                            {isAllBranches ? "Global (Read-only)" : displayBranchName}
+                            {isAllBranches
+                              ? "Global (Read-only)"
+                              : displayBranchName}
                           </span>
                         </span>
                       </div>
@@ -614,7 +663,9 @@ const TopHeader = () => {
                   <span className="text-sm font-semibold text-gray-800 leading-tight">
                     {userName}
                   </span>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${currentRole.color}`}>
+                  <span
+                    className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${currentRole.color}`}
+                  >
                     {currentRole.label}
                   </span>
                 </div>
@@ -635,9 +686,15 @@ const TopHeader = () => {
                         {userInitials}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 truncate">{userName}</p>
-                        <p className="text-xs text-gray-500 truncate">@{user?.username || "user"}</p>
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded mt-1 ${currentRole.color}`}>
+                        <p className="font-semibold text-gray-800 truncate">
+                          {userName}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          @{user?.username || "user"}
+                        </p>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded mt-1 ${currentRole.color}`}
+                        >
                           <currentRole.icon size={10} />
                           {currentRole.label}
                         </span>
@@ -651,7 +708,11 @@ const TopHeader = () => {
                       <span className="truncate">{displayShopName}</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                      {isAllBranches ? <Layers size={12} /> : <Building2 size={12} />}
+                      {isAllBranches ? (
+                        <Layers size={12} />
+                      ) : (
+                        <Building2 size={12} />
+                      )}
                       <span className="truncate">{displayBranchName}</span>
                       {isAllBranches && (
                         <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-medium">
@@ -662,17 +723,19 @@ const TopHeader = () => {
                   </div>
 
                   <div className="py-2">
-                    <button
-                      onClick={() => {
-                        navigate("/tickets");
-                        setShowProfileMenu(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 
-                                 flex items-center gap-3 transition-colors"
-                    >
-                      <Ticket size={16} className="text-gray-500" />
-                      <span>Tickets</span>
-                    </button>
+                    {hasPermission(PERMISSIONS.TICKETS_VIEW) && (
+                      <button
+                        onClick={() => {
+                          navigate("/tickets");
+                          setShowProfileMenu(false);
+                        }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 
+               flex items-center gap-3 transition-colors"
+                      >
+                        <Ticket size={16} className="text-gray-500" />
+                        <span>Tickets</span>
+                      </button>
+                    )}
                   </div>
 
                   <div className="border-t border-gray-100 p-2">
