@@ -9,8 +9,8 @@ import InventoryTable from "./components/InventoryTable";
 import ViewInventoryModal from "./components/ViewInventoryModal";
 import StockAdjustmentModal from "./components/StockAdjustmentModal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
-import ProductMasterModal from "../../components/common/ProductMasterModal";  // ✅ NEW
-import medicinesAPI from "../../api/medicines";  // ✅ NEW
+import ProductMasterModal from "../../components/common/ProductMasterModal";
+import medicinesAPI from "../../api/medicines";
 import { 
   AlertCircle, 
   RefreshCw, 
@@ -144,14 +144,11 @@ const InventoryPage = () => {
   const [adjustmentModal, setAdjustmentModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ============================================
   // ✅ NEW: Add Medicine Modal State
-  // ============================================
   const [productModalOpen, setProductModalOpen] = useState(false);
 
   // ✅ NEW: Handler to open Add Medicine modal
   const handleAddMedicine = useCallback(() => {
-    // Check if branch is selected (required for adding medicines)
     if (isGlobalMode) {
       toast.warning(
         "Branch Required",
@@ -165,6 +162,13 @@ const InventoryPage = () => {
   // ✅ NEW: Handler to save new medicine
   const handleMedicineSave = useCallback(async (medicineData) => {
     try {
+      // ✅ Helper: safely convert to number or null
+      const toNumberOrNull = (val) => {
+        if (val === null || val === undefined || val === '') return null;
+        const num = Number(val);
+        return isNaN(num) ? null : num;
+      };
+
       const payload = {
         name: medicineData.name,
         generic_name: medicineData.genericName || null,
@@ -175,21 +179,32 @@ const InventoryPage = () => {
         hsn_code: medicineData.hsnCode || null,
         pack_size: medicineData.packSize || null,
         unit_of_measure: medicineData.unitOfMeasure || "UNIT",
-        gst_percentage: medicineData.gst ? parseFloat(medicineData.gst) : 12,
-        cgst_percentage: medicineData.cgstPercent 
-          ? parseFloat(medicineData.cgstPercent) 
-          : 6,
-        sgst_percentage: medicineData.sgstPercent 
-          ? parseFloat(medicineData.sgstPercent) 
-          : 6,
+        gst_percentage: toNumberOrNull(medicineData.gst) ?? 12,
+        cgst_percentage: toNumberOrNull(medicineData.cgstPercent) ?? 6,
+        sgst_percentage: toNumberOrNull(medicineData.sgstPercent) ?? 6,
         rack_no: medicineData.rackNo || null,
+        
+        // ✅ FIXED: Include stock levels
+        min_stock_level: toNumberOrNull(medicineData.min_stock_level),
+        max_stock_level: toNumberOrNull(medicineData.max_stock_level),
+        reorder_point: toNumberOrNull(medicineData.reorder_point),
       };
 
-      console.log("📤 Creating medicine:", payload);
+      console.log("📤 Creating medicine with stock levels:", {
+        name: payload.name,
+        min_stock_level: payload.min_stock_level,
+        max_stock_level: payload.max_stock_level,
+        reorder_point: payload.reorder_point,
+      });
 
       const response = await medicinesAPI.create(payload);
       
-      console.log("✅ Medicine created:", response.data);
+      console.log("✅ Medicine created:", {
+        id: response.data.medicine_id,
+        min_stock_level: response.data.min_stock_level,
+        max_stock_level: response.data.max_stock_level,
+        reorder_point: response.data.reorder_point,
+      });
       
       toast.success(
         "Medicine Added", 
@@ -197,8 +212,6 @@ const InventoryPage = () => {
       );
       
       setProductModalOpen(false);
-      
-      // Refresh inventory list to show the new medicine if it has stock
       await refresh(filters);
       
     } catch (error) {
@@ -207,7 +220,7 @@ const InventoryPage = () => {
         "Failed to add medicine", 
         error.response?.data?.message || error.message
       );
-      throw error; // Re-throw so modal shows error state
+      throw error;
     }
   }, [toast, refresh, filters]);
 
@@ -245,23 +258,7 @@ const InventoryPage = () => {
     }
   }, [items.length, isInitialLoad]);
 
-  // Debug: Log unique status values in data
-  useEffect(() => {
-    if (items.length > 0) {
-      const uniqueStatuses = [...new Set(items.map(i => i.status))];
-      console.log("📊 Unique status values in data:", uniqueStatuses);
-      console.log("📊 Sample items:", items.slice(0, 3).map(i => ({ 
-        name: i.name, 
-        status: i.status, 
-        qty: i.qty,
-        current_stock: i.current_stock 
-      })));
-    }
-  }, [items]);
-
-  // ============================================
-  // IMPROVED FILTERING LOGIC
-  // ============================================
+  // Filtered data with improved filtering logic
   const filteredData = useMemo(() => {
     if (!items || items.length === 0) return [];
 
@@ -427,9 +424,7 @@ const InventoryPage = () => {
     };
   }, [items]);
 
-  // ============================================
-  // HANDLERS
-  // ============================================
+  // Handlers
   const handleRefresh = async () => {
     setRefreshing(true);
     await refresh(filters);
@@ -473,10 +468,40 @@ const InventoryPage = () => {
     setAdjustmentModal(true);
   };
 
-  const handleSave = async (updated) => {
-    setOpenModal(false);
-    toast.success("Inventory Updated", "Inventory item updated successfully.");
-    refresh(filters);
+  // ✅ UPDATED: Handle save with medicine stock level update
+  const handleEditSave = async (editedItem) => {
+    try {
+      console.log('📤 handleEditSave - Saving item:', {
+        medicine_id: editedItem.medicine_id,
+        inventory_id: editedItem.inventory_id,
+        min_stock_level: editedItem.min_stock_level,
+        max_stock_level: editedItem.max_stock_level,
+        reorder_point: editedItem.reorder_point,
+      });
+
+      // ✅ Update medicine stock levels if they were changed
+      if (editedItem.medicine_id) {
+        await medicinesAPI.update(editedItem.medicine_id, {
+          min_stock_level: editedItem.min_stock_level,
+          max_stock_level: editedItem.max_stock_level,
+          reorder_point: editedItem.reorder_point,
+          rack_no: editedItem.rack || editedItem.rack_no,
+        });
+        
+        console.log('✅ Medicine stock levels updated');
+      }
+
+      // Refresh the inventory list
+      await refresh(filters);
+      
+      toast.success('Item Updated', 'Inventory item has been updated successfully.');
+      setOpenModal(false);
+      setSelectedItem(null);
+    } catch (error) {
+      console.error('Failed to save inventory item:', error);
+      toast.error('Save Failed', error.message || 'Failed to update inventory item');
+      throw error;
+    }
   };
 
   const handleAdjustmentSubmit = async (adjustmentData) => {
@@ -500,21 +525,6 @@ const InventoryPage = () => {
       toast.error("Adjustment Failed", result.error);
     }
   };
-
-  useEffect(() => {
-    if (items.length > 0) {
-      console.log("🔍 FULL FIRST ITEM:", JSON.stringify(items[0], null, 2));
-      console.log("📊 Field check:", {
-        name: items[0].name,
-        manufacturer: items[0].manufacturer,
-        category: items[0].category,
-        batch: items[0].batch,
-        qty: items[0].qty,
-        status: items[0].status,
-        medicine: items[0].medicine,
-      });
-    }
-  }, [items]);
 
   // Determine loading states
   const isTableLoading = loading && !isInitialLoad;
@@ -610,7 +620,7 @@ const InventoryPage = () => {
               categories={uniqueCategories}
               branches={uniqueBranches}
               showBranchFilter={isGlobalMode}
-              onAddMedicine={handleAddMedicine}  // ✅ NEW: Pass handler
+              onAddMedicine={handleAddMedicine}
             />
           </div>
           
@@ -651,8 +661,11 @@ const InventoryPage = () => {
         open={openModal}
         item={selectedItem}
         mode={modalMode}
-        onClose={() => setOpenModal(false)}
-        onSave={handleSave}
+        onClose={() => {
+          setOpenModal(false);
+          setSelectedItem(null);
+        }}
+        onSave={handleEditSave}
         onDelete={handleDelete}
         onAdjust={handleStockAdjustment}
         canAdjustStock={canAdjustStock}
@@ -685,7 +698,7 @@ const InventoryPage = () => {
         type="danger"
       />
 
-      {/* ✅ NEW: ADD MEDICINE MODAL */}
+      {/* ADD MEDICINE MODAL */}
       <ProductMasterModal
         open={productModalOpen}
         onClose={() => setProductModalOpen(false)}

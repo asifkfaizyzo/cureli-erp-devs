@@ -753,84 +753,94 @@ const PurchasePage = () => {
   }, []);
 
   const handleProductSave = useCallback(
-    async (newProductData) => {
-      try {
-        console.log('📤 handleProductSave - Input data:', newProductData);
+  async (newProductData) => {
+    try {
+      console.log('📤 handleProductSave - Input data:', newProductData);
+      
+      const createdMedicine = await createMedicine({
+        name: newProductData.name,
+        manufacturer: newProductData.manufacturer,
+        genericName: newProductData.genericName,
+        category: newProductData.category,
+        subCategory: newProductData.subCategory,
+        schedule: newProductData.schedule,
+        hsnCode: newProductData.hsnCode,
+        packSize: newProductData.packSize,
+        rackNo: newProductData.rackNo,
+        gst: newProductData.gst,
+        cgstPercent: newProductData.cgstPercent,
+        sgstPercent: newProductData.sgstPercent,
         
-        const createdMedicine = await createMedicine({
-          name: newProductData.name,
-          manufacturer: newProductData.manufacturer,
-          genericName: newProductData.genericName,
-          category: newProductData.category,
-          subCategory: newProductData.subCategory,
-          schedule: newProductData.schedule,
-          hsnCode: newProductData.hsnCode,
-          packSize: newProductData.packSize,
-          rackNo: newProductData.rackNo,
-          gst: newProductData.gst,
-          cgstPercent: newProductData.cgstPercent,
-          sgstPercent: newProductData.sgstPercent,
-        });
+        // ✅ FIXED: Include stock levels
+        min_stock_level: newProductData.min_stock_level,
+        max_stock_level: newProductData.max_stock_level,
+        reorder_point: newProductData.reorder_point,
+      });
 
-        console.log('✅ handleProductSave - Created medicine:', createdMedicine);
+      console.log('✅ handleProductSave - Created medicine:', createdMedicine);
+      console.log('📊 Stock levels saved:', {
+        min_stock_level: createdMedicine.min_stock_level,
+        max_stock_level: createdMedicine.max_stock_level,
+        reorder_point: createdMedicine.reorder_point,
+      });
 
-        if (createdMedicine && pendingProductData) {
-          const { rowIndex } = pendingProductData;
+      if (createdMedicine && pendingProductData) {
+        const { rowIndex } = pendingProductData;
+        
+        setRows((prev) => {
+          const newRows = [...prev];
           
-          setRows((prev) => {
-            const newRows = [...prev];
-            
-            const updatedRow = {
-              ...newRows[rowIndex],
-              medicine_id: createdMedicine.medicine_id || createdMedicine.id,
-              name: createdMedicine.name,
-              mfac: createdMedicine.manufacturer || createdMedicine.mfac,
-              hsn: createdMedicine.hsn || 
-                   createdMedicine.hsnCode || 
-                   createdMedicine.hsn_code || 
-                   newProductData.hsnCode || 
-                   '',
-              rack: createdMedicine.rack || 
-                    createdMedicine.rackNo || 
-                    createdMedicine.rack_no || 
-                    newProductData.rackNo || 
-                    '',
-              pack: createdMedicine.pack || 
-                    createdMedicine.packSize || 
-                    createdMedicine.pack_size || 
-                    newProductData.packSize || 
-                    '',
-              cgstPercent: createdMedicine.cgstPercent?.toString() || 
-                           createdMedicine.cgst_percentage?.toString() || 
-                           newProductData.cgstPercent?.toString() || 
-                           "6",
-              sgstPercent: createdMedicine.sgstPercent?.toString() || 
-                           createdMedicine.sgst_percentage?.toString() || 
-                           newProductData.sgstPercent?.toString() || 
-                           "6",
-            };
-            
-            console.log('📝 Updated row with pack:', {
-              medicine_id: updatedRow.medicine_id,
-              name: updatedRow.name,
-              hsn: updatedRow.hsn,
-              pack: updatedRow.pack,
-              rack: updatedRow.rack,
-            });
-            
-            newRows[rowIndex] = calculateRow(updatedRow);
-            return newRows;
+          const updatedRow = {
+            ...newRows[rowIndex],
+            medicine_id: createdMedicine.medicine_id || createdMedicine.id,
+            name: createdMedicine.name,
+            mfac: createdMedicine.manufacturer || createdMedicine.mfac,
+            hsn: createdMedicine.hsn || 
+                 createdMedicine.hsnCode || 
+                 createdMedicine.hsn_code || 
+                 newProductData.hsnCode || 
+                 '',
+            rack: createdMedicine.rack || 
+                  createdMedicine.rackNo || 
+                  createdMedicine.rack_no || 
+                  newProductData.rackNo || 
+                  '',
+            pack: createdMedicine.pack || 
+                  createdMedicine.packSize || 
+                  createdMedicine.pack_size || 
+                  newProductData.packSize || 
+                  '',
+            cgstPercent: createdMedicine.cgstPercent?.toString() || 
+                         createdMedicine.cgst_percentage?.toString() || 
+                         newProductData.cgstPercent?.toString() || 
+                         "6",
+            sgstPercent: createdMedicine.sgstPercent?.toString() || 
+                         createdMedicine.sgst_percentage?.toString() || 
+                         newProductData.sgstPercent?.toString() || 
+                         "6",
+          };
+          
+          console.log('📝 Updated row with pack:', {
+            medicine_id: updatedRow.medicine_id,
+            name: updatedRow.name,
+            hsn: updatedRow.hsn,
+            pack: updatedRow.pack,
+            rack: updatedRow.rack,
           });
-        }
-
-        setProductModalOpen(false);
-        setPendingProductData(null);
-      } catch (error) {
-        console.error("Product save error:", error);
+          
+          newRows[rowIndex] = calculateRow(updatedRow);
+          return newRows;
+        });
       }
-    },
-    [pendingProductData, setRows, createMedicine]
-  );
+
+      setProductModalOpen(false);
+      setPendingProductData(null);
+    } catch (error) {
+      console.error("Product save error:", error);
+    }
+  },
+  [pendingProductData, setRows, createMedicine]
+);
 
   // ============================================
   // BATCH PRODUCT IMPORT HANDLERS

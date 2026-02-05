@@ -24,6 +24,10 @@ import {
   XCircle,
   AlertTriangle,
   RefreshCw,
+  Loader2,
+  ShoppingCart,
+  BarChart3,
+  Settings,
 } from "lucide-react";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 
@@ -34,19 +38,76 @@ const backdropVariants = {
 };
 
 const panelVariants = {
-  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  hidden: { opacity: 0, x: 50, scale: 0.98 },
   visible: {
     opacity: 1,
-    y: 0,
+    x: 0,
     scale: 1,
-    transition: { type: "spring", stiffness: 280, damping: 24 },
+    transition: { type: "spring", stiffness: 300, damping: 28 },
   },
   exit: {
     opacity: 0,
-    y: 20,
-    scale: 0.95,
-    transition: { duration: 0.2 },
+    x: 50,
+    scale: 0.98,
+    transition: { duration: 0.15 },
   },
+};
+
+/* ---------------- STATUS HELPERS ---------------- */
+const getStatusInfo = (status) => {
+  const normalizedStatus = (status || "").toLowerCase();
+  const statusMap = {
+    "in stock": {
+      icon: CheckCircle2,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      border: "border-emerald-200",
+      badge: "bg-emerald-100 text-emerald-700",
+      progressColor: "bg-emerald-500",
+    },
+    "low stock": {
+      icon: AlertTriangle,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      border: "border-amber-200",
+      badge: "bg-amber-100 text-amber-700",
+      progressColor: "bg-amber-500",
+    },
+    "out of stock": {
+      icon: XCircle,
+      color: "text-red-600",
+      bg: "bg-red-50",
+      border: "border-red-200",
+      badge: "bg-red-100 text-red-700",
+      progressColor: "bg-red-500",
+    },
+    expired: {
+      icon: XCircle,
+      color: "text-slate-600",
+      bg: "bg-slate-100",
+      border: "border-slate-300",
+      badge: "bg-slate-200 text-slate-700",
+      progressColor: "bg-slate-400",
+    },
+    "expiring soon": {
+      icon: Clock,
+      color: "text-orange-600",
+      bg: "bg-orange-50",
+      border: "border-orange-200",
+      badge: "bg-orange-100 text-orange-700",
+      progressColor: "bg-orange-500",
+    },
+  };
+  return (
+    statusMap[normalizedStatus] || {
+      icon: AlertCircle,
+      color: "text-slate-600",
+      bg: "bg-slate-50",
+      border: "border-slate-200",
+      badge: "bg-slate-100 text-slate-600",
+      progressColor: "bg-slate-400",
+    }
+  );
 };
 
 /* ---------------- MAIN COMPONENT ---------------- */
@@ -62,11 +123,17 @@ const ViewInventoryModal = ({
 }) => {
   const isEdit = mode === "edit";
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
-  /* -------- Local editable state -------- */
   const initialItem = useMemo(() => {
     if (!item) return null;
-    return { ...item };
+    return {
+      ...item,
+      min_stock_level: item.medicine_min_stock ?? item.minStock ?? item.minimum_stock ?? "",
+      max_stock_level: item.medicine_max_stock ?? "",
+      reorder_point: item.medicine_reorder_point ?? "",
+    };
   }, [item]);
 
   const [editableItem, setEditableItem] = useState(initialItem);
@@ -74,102 +141,57 @@ const ViewInventoryModal = ({
   useEffect(() => {
     if (open && item) {
       setEditableItem(initialItem);
+      setSaveError(null);
     }
   }, [open, item, initialItem]);
 
   if (!open || !editableItem) return null;
 
+  const statusInfo = getStatusInfo(editableItem.status);
+  const StatusIcon = statusInfo.icon;
+
   /* ---------------- HANDLERS ---------------- */
   const updateField = (field, value) => {
     if (!isEdit) return;
     setEditableItem((prev) => ({ ...prev, [field]: value }));
+    setSaveError(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editableItem.name) {
+      setSaveError("Item name is required");
       return;
     }
-    onSave?.(editableItem);
-  };
-
-  const handleDelete = () => {
-    setConfirmDelete(true);
-  };
-
-  const handleAdjust = () => {
-    if (canAdjustStock && onAdjust) {
-      onAdjust(editableItem);
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const dataToSave = {
+        ...editableItem,
+        min_stock_level: editableItem.min_stock_level !== "" ? Number(editableItem.min_stock_level) : null,
+        max_stock_level: editableItem.max_stock_level !== "" ? Number(editableItem.max_stock_level) : null,
+        reorder_point: editableItem.reorder_point !== "" ? Number(editableItem.reorder_point) : null,
+      };
+      await onSave?.(dataToSave);
       onClose();
+    } catch (error) {
+      setSaveError(error.message || "Failed to save changes");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  /* ---------------- STATUS HELPERS ---------------- */
-  const getStatusInfo = (status) => {
-    const normalizedStatus = (status || "").toLowerCase();
-    
-    switch (normalizedStatus) {
-      case "in stock":
-        return {
-          icon: CheckCircle2,
-          color: "text-green-600",
-          bg: "bg-green-50",
-          border: "border-green-200",
-          badge: "bg-green-100 text-green-700 border-green-300",
-        };
-      case "low stock":
-        return {
-          icon: AlertTriangle,
-          color: "text-yellow-600",
-          bg: "bg-yellow-50",
-          border: "border-yellow-200",
-          badge: "bg-yellow-100 text-yellow-700 border-yellow-300",
-        };
-      case "out of stock":
-        return {
-          icon: XCircle,
-          color: "text-red-600",
-          bg: "bg-red-50",
-          border: "border-red-200",
-          badge: "bg-red-100 text-red-700 border-red-300",
-        };
-      case "expired":
-        return {
-          icon: XCircle,
-          color: "text-gray-600",
-          bg: "bg-gray-50",
-          border: "border-gray-200",
-          badge: "bg-gray-100 text-gray-700 border-gray-300",
-        };
-      case "expiring soon":
-        return {
-          icon: Clock,
-          color: "text-orange-600",
-          bg: "bg-orange-50",
-          border: "border-orange-200",
-          badge: "bg-orange-100 text-orange-700 border-orange-300",
-        };
-      default:
-        return {
-          icon: AlertCircle,
-          color: "text-slate-600",
-          bg: "bg-slate-50",
-          border: "border-slate-200",
-          badge: "bg-slate-100 text-slate-700 border-slate-300",
-        };
-    }
-  };
+  const currentStock = Number(editableItem.qty || editableItem.current_stock || 0);
+  const minStock = Number(editableItem.min_stock_level || 0);
+  const maxStock = Number(editableItem.max_stock_level || 100);
+  const stockPercent = maxStock > 0 ? Math.min((currentStock / maxStock) * 100, 100) : 0;
 
-  const statusInfo = getStatusInfo(editableItem.status);
-  const StatusIcon = statusInfo.icon;
-
-  /* ---------------- RENDER ---------------- */
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 font-poppins">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 font-poppins">
           {/* BACKDROP */}
           <motion.div
-            className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             variants={backdropVariants}
             initial="hidden"
             animate="visible"
@@ -177,17 +199,9 @@ const ViewInventoryModal = ({
             onClick={onClose}
           />
 
-          {/* MODAL PANEL */}
+          {/* MODAL */}
           <motion.div
-            className="
-              relative bg-white
-              w-full max-w-[95vw] lg:max-w-5xl
-              rounded-2xl shadow-2xl
-              flex flex-col
-              max-h-[95vh]
-              overflow-hidden
-              border border-slate-200
-            "
+            className="relative bg-white w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden"
             variants={panelVariants}
             initial="hidden"
             animate="visible"
@@ -196,338 +210,310 @@ const ViewInventoryModal = ({
             aria-modal="true"
           >
             {/* HEADER */}
-            <div className="flex justify-between items-start px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-[#05015A] to-[#0a0280]">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2 text-indigo-200 font-semibold uppercase tracking-wider text-[9px]">
-                  <Package size={14} />
-                  <span>{isEdit ? "Edit Inventory Item" : "View Inventory Item"}</span>
+            <div className="flex justify-between items-center px-6 py-4 bg-gradient-to-r from-[#05015A] to-[#1a1a8e] shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center">
+                  <Package size={24} className="text-white" />
                 </div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2 flex-wrap">
-                  {editableItem.name}
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusInfo.badge}`}>
-                    {editableItem.status}
-                  </span>
-                </h2>
-                <div className="flex items-center gap-3 text-[10px] text-indigo-200 mt-0.5 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <Tag size={10} />
-                    {editableItem.category || "-"}
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Hash size={10} />
-                    Batch: {editableItem.batch || editableItem.batch_number || "-"}
-                  </span>
-                  {(editableItem.branch || editableItem.branch_name) && (
-                    <>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <Building2 size={10} />
-                        {editableItem.branch || editableItem.branch_name}
-                      </span>
-                    </>
-                  )}
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    {editableItem.name}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusInfo.badge}`}>
+                      {editableItem.status}
+                    </span>
+                  </h2>
+                  <div className="flex items-center gap-3 text-[11px] text-indigo-200 mt-0.5">
+                    <span className="flex items-center gap-1">
+                      <Tag size={10} />
+                      {editableItem.category || "Uncategorized"}
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Hash size={10} />
+                      {editableItem.batch || editableItem.batch_number || "N/A"}
+                    </span>
+                    {(editableItem.branch || editableItem.branch_name) && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Building2 size={10} />
+                          {editableItem.branch || editableItem.branch_name}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Stock Adjustment Button */}
                 {!isEdit && canAdjustStock && onAdjust && (
                   <button
-                    onClick={handleAdjust}
-                    className="
-                      flex items-center gap-2
-                      px-4 py-2
-                      bg-amber-500 text-white
-                      rounded-lg text-sm font-semibold
-                      hover:bg-amber-600
-                      transition-all shadow-lg hover:shadow-xl
-                      border border-amber-400
-                    "
+                    onClick={() => { onAdjust(editableItem); onClose(); }}
+                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-all"
                   >
-                    <RefreshCw size={16} />
+                    <RefreshCw size={15} />
                     Adjust Stock
                   </button>
                 )}
-
-                {isEdit && (
-                  <button
-                    onClick={handleSave}
-                    className="
-                      flex items-center gap-2
-                      px-4 py-2
-                      bg-emerald-500 text-white
-                      rounded-lg text-sm font-semibold
-                      hover:bg-emerald-600
-                      transition-all shadow-lg hover:shadow-xl
-                      border border-emerald-400
-                    "
-                  >
-                    <Save size={16} />
-                    Save Changes
-                  </button>
-                )}
-
                 {isEdit && onDelete && canAdjustStock && (
                   <button
-                    onClick={handleDelete}
-                    className="p-2.5 rounded-lg text-red-200 hover:text-white hover:bg-red-600 transition-all border border-red-400/30"
-                    title="Delete Item"
+                    onClick={() => setConfirmDelete(true)}
+                    className="p-2 rounded-lg text-red-300 hover:text-white hover:bg-red-500/30 transition-all"
+                    title="Delete"
                   >
                     <Trash2 size={18} />
                   </button>
                 )}
-
                 <button
                   onClick={onClose}
-                  className="p-2.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
-                  title="Close"
+                  className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
                 >
                   <X size={20} />
                 </button>
               </div>
             </div>
 
-            {/* BODY */}
-            <div className="flex-1 overflow-y-auto bg-slate-50">
-              {/* QUICK STATS BAR */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-white border-b border-slate-200">
-                <StatCard
-                  label="Current Stock"
-                  value={editableItem.qty || editableItem.current_stock || "0"}
-                  icon={Layers}
-                  color="blue"
-                  suffix="units"
-                />
-                <StatCard
-                  label="MRP"
-                  value={editableItem.mrp ? `₹${Number(editableItem.mrp).toFixed(2)}` : "₹0.00"}
-                  icon={DollarSign}
-                  color="green"
-                />
-                <StatCard
-                  label="Selling Rate"
-                  value={editableItem.slr || editableItem.selling_rate ? `₹${Number(editableItem.slr || editableItem.selling_rate).toFixed(2)}` : "-"}
-                  icon={TrendingUp}
-                  color="purple"
-                />
-                <StatCard
-                  label="Rack Location"
-                  value={editableItem.rack || editableItem.rack_no || "Not Assigned"}
-                  icon={MapPin}
-                  color="orange"
-                />
+            {/* ERROR BANNER */}
+            {saveError && (
+              <div className="px-6 py-2.5 bg-red-50 border-b border-red-200 flex items-center gap-2">
+                <AlertCircle size={14} className="text-red-600" />
+                <span className="text-xs text-red-700 font-medium">{saveError}</span>
+              </div>
+            )}
+
+            {/* TWO-SECTION BODY */}
+            <div className="flex flex-1">
+              {/* LEFT SECTION - Product & Pricing Details */}
+              <div className="flex-1 p-6 bg-slate-50 border-r border-slate-200">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  {/* Product Information */}
+                  <div className="col-span-2 mb-2">
+                    <SectionHeader icon={FileText} title="Product Information" />
+                  </div>
+
+                  <Field
+                    label="Item Name"
+                    value={editableItem.name}
+                    editable={isEdit}
+                    onChange={(v) => updateField("name", v)}
+                    icon={Package}
+                    required
+                  />
+                  <Field
+                    label="Manufacturer"
+                    value={editableItem.manufacturer || editableItem.mfac || ""}
+                    editable={isEdit}
+                    onChange={(v) => updateField("manufacturer", v)}
+                    icon={Building2}
+                  />
+                  <Field
+                    label="Category"
+                    value={editableItem.category}
+                    editable={isEdit}
+                    onChange={(v) => updateField("category", v)}
+                    icon={Tag}
+                  />
+                  <Field
+                    label="HSN Code"
+                    value={editableItem.hsn || ""}
+                    editable={isEdit}
+                    onChange={(v) => updateField("hsn", v)}
+                    icon={Hash}
+                  />
+                  <Field
+                    label="Batch ID"
+                    value={editableItem.batch || editableItem.batch_number}
+                    editable={isEdit}
+                    onChange={(v) => updateField("batch", v)}
+                    icon={Box}
+                  />
+                  <Field
+                    label="Expiry Date"
+                    value={editableItem.expiry}
+                    editable={isEdit}
+                    onChange={(v) => updateField("expiry", v)}
+                    icon={Calendar}
+                    placeholder="MM/YYYY"
+                  />
+
+                  {/* Pricing */}
+                  <div className="col-span-2 mt-4 mb-2">
+                    <SectionHeader icon={DollarSign} title="Pricing & Supplier" />
+                  </div>
+
+                  <Field
+                    label="Supplier"
+                    value={editableItem.supplier || editableItem.supplier_name}
+                    editable={isEdit}
+                    onChange={(v) => updateField("supplier", v)}
+                    icon={Truck}
+                  />
+                  <Field
+                    label="Rack Location"
+                    value={editableItem.rack || editableItem.rack_no}
+                    editable={isEdit}
+                    onChange={(v) => updateField("rack", v)}
+                    icon={MapPin}
+                    placeholder="e.g., A1"
+                  />
+                  <Field
+                    label="MRP"
+                    value={editableItem.mrp}
+                    editable={isEdit}
+                    onChange={(v) => updateField("mrp", v)}
+                    icon={DollarSign}
+                    type="number"
+                    prefix="₹"
+                  />
+                  <Field
+                    label="Purchase Rate"
+                    value={editableItem.purchaseRate || editableItem.last_purchase_rate || ""}
+                    editable={isEdit}
+                    onChange={(v) => updateField("purchaseRate", v)}
+                    icon={ShoppingCart}
+                    type="number"
+                    prefix="₹"
+                  />
+                  <Field
+                    label="Selling Rate"
+                    value={editableItem.slr || editableItem.selling_rate || ""}
+                    editable={isEdit}
+                    onChange={(v) => updateField("slr", v)}
+                    icon={TrendingUp}
+                    type="number"
+                    prefix="₹"
+                  />
+                </div>
               </div>
 
-              {/* MAIN CONTENT */}
-              <div className="p-6">
-                {/* PRODUCT INFORMATION */}
-                <Section title="Product Information" icon={Package}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <InfoField
-                      label="Item Name"
-                      value={editableItem.name}
-                      editable={isEdit}
-                      onChange={(v) => updateField("name", v)}
-                      icon={FileText}
-                      required
-                    />
-                    <InfoField
-                      label="Category"
-                      value={editableItem.category}
-                      editable={isEdit}
-                      onChange={(v) => updateField("category", v)}
-                      icon={Tag}
-                    />
-                    <InfoField
-                      label="Manufacturer"
-                      value={editableItem.manufacturer || editableItem.mfac || ""}
-                      editable={isEdit}
-                      onChange={(v) => updateField("manufacturer", v)}
-                      icon={Building2}
-                    />
-                  </div>
-                </Section>
-
-                {/* BATCH & TRACKING */}
-                <Section title="Batch & Tracking" icon={Box}>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <InfoField
-                      label="Batch ID"
-                      value={editableItem.batch || editableItem.batch_number}
-                      editable={isEdit}
-                      onChange={(v) => updateField("batch", v)}
-                      icon={Hash}
-                    />
-                    <InfoField
-                      label="Expiry Date"
-                      value={editableItem.expiry}
-                      editable={isEdit}
-                      onChange={(v) => updateField("expiry", v)}
-                      icon={Calendar}
-                      type="text"
-                      placeholder="MM/YYYY"
-                    />
-                    <InfoField
-                      label="HSN Code"
-                      value={editableItem.hsn || ""}
-                      editable={isEdit}
-                      onChange={(v) => updateField("hsn", v)}
-                      icon={Hash}
-                    />
-                    <InfoField
-                      label="Branch"
-                      value={editableItem.branch || editableItem.branch_name || ""}
-                      editable={false}
-                      icon={Building2}
-                    />
-                  </div>
-                </Section>
-
-                {/* SUPPLIER & PRICING */}
-                <Section title="Supplier & Pricing" icon={Truck}>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <InfoField
-                      label="Supplier"
-                      value={editableItem.supplier || editableItem.supplier_name}
-                      editable={isEdit}
-                      onChange={(v) => updateField("supplier", v)}
-                      icon={Truck}
-                    />
-                    <InfoField
-                      label="MRP"
-                      value={editableItem.mrp}
-                      editable={isEdit}
-                      onChange={(v) => updateField("mrp", v)}
-                      icon={DollarSign}
-                      type="number"
-                      prefix="₹"
-                    />
-                    <InfoField
-                      label="Purchase Rate"
-                      value={editableItem.purchaseRate || editableItem.last_purchase_rate || ""}
-                      editable={isEdit}
-                      onChange={(v) => updateField("purchaseRate", v)}
-                      icon={DollarSign}
-                      type="number"
-                      prefix="₹"
-                    />
-                    <InfoField
-                      label="Selling Rate"
-                      value={editableItem.slr || editableItem.selling_rate || ""}
-                      editable={isEdit}
-                      onChange={(v) => updateField("slr", v)}
-                      icon={TrendingUp}
-                      type="number"
-                      prefix="₹"
-                    />
-                  </div>
-                </Section>
-
-                {/* STOCK & LOCATION */}
-                <Section title="Stock & Location" icon={Layers}>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <InfoField
-                      label="Current Stock"
-                      value={editableItem.qty || editableItem.current_stock}
-                      editable={false}
-                      icon={Layers}
-                      type="number"
-                    />
-                    <InfoField
-                      label="Available Stock"
-                      value={editableItem.available_stock || editableItem.qty || editableItem.current_stock}
-                      editable={false}
-                      icon={Layers}
-                      type="number"
-                    />
-                    <InfoField
-                      label="Minimum Stock"
-                      value={editableItem.minStock || editableItem.minimum_stock || ""}
-                      editable={isEdit}
-                      onChange={(v) => updateField("minStock", v)}
-                      icon={AlertTriangle}
-                      type="number"
-                    />
-                    <InfoField
-                      label="Rack Location"
-                      value={editableItem.rack || editableItem.rack_no}
-                      editable={isEdit}
-                      onChange={(v) => updateField("rack", v)}
-                      icon={MapPin}
-                    />
-                  </div>
-
-                  {/* Status Row */}
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-                        <StatusIcon size={12} className={statusInfo.color} />
-                        Status
-                      </label>
-                      {isEdit ? (
-                        <select
-                          value={editableItem.status}
-                          onChange={(e) => updateField("status", e.target.value)}
-                          className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
-                        >
-                          <option value="In Stock">In Stock</option>
-                          <option value="Low Stock">Low Stock</option>
-                          <option value="Out of Stock">Out of Stock</option>
-                          <option value="Expired">Expired</option>
-                          <option value="Expiring Soon">Expiring Soon</option>
-                        </select>
-                      ) : (
-                        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${statusInfo.bg} ${statusInfo.border}`}>
-                          <StatusIcon size={16} className={statusInfo.color} />
-                          <span className={`text-sm font-semibold ${statusInfo.color}`}>
-                            {editableItem.status}
-                          </span>
+              {/* RIGHT SECTION - Stock & Status */}
+              <div className="w-[360px] p-6 bg-white flex flex-col">
+                {/* Stock Status Card (Read-Only) */}
+                <div className="mb-5">
+                  <SectionHeader icon={Layers} title="Stock Status" />
+                  <div className={`mt-3 p-4 rounded-xl border-2 ${statusInfo.border} ${statusInfo.bg}`}>
+                    {/* Status Display */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`p-2 rounded-lg ${statusInfo.bg} border ${statusInfo.border}`}>
+                          <StatusIcon size={20} className={statusInfo.color} />
                         </div>
-                      )}
+                        <div>
+                          <p className="text-[10px] font-medium text-slate-500 uppercase">Current Status</p>
+                          <p className={`text-sm font-bold ${statusInfo.color}`}>{editableItem.status}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-medium text-slate-500 uppercase">Quantity</p>
+                        <p className="text-2xl font-bold text-slate-800">{currentStock}</p>
+                      </div>
                     </div>
 
-                    {/* Read-only mode notice */}
-                    {!canAdjustStock && (
-                      <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                        <AlertTriangle size={16} className="text-amber-600" />
-                        <span className="text-sm text-amber-700">
-                          Select a specific branch to adjust stock
-                        </span>
-                      </div>
-                    )}
+                    {/* Progress Bar */}
+                    <div className="h-2.5 bg-white/60 rounded-full overflow-hidden mb-2">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${statusInfo.progressColor}`}
+                        style={{ width: `${stockPercent}%` }}
+                      />
+                    </div>
+
+                    <div className="flex justify-between text-[10px] text-slate-500 font-medium">
+                      <span>Min: {minStock}</span>
+                      <span>{stockPercent.toFixed(0)}% of capacity</span>
+                      <span>Max: {maxStock || "∞"}</span>
+                    </div>
                   </div>
-                </Section>
+                </div>
+
+                {/* Stock Thresholds (Editable) */}
+                <div className="mb-5">
+                  <SectionHeader icon={Settings} title="Stock Thresholds" />
+                  <div className="grid grid-cols-3 gap-3 mt-3">
+                    <Field
+                      label="Min Stock"
+                      value={editableItem.min_stock_level}
+                      editable={isEdit}
+                      onChange={(v) => updateField("min_stock_level", v)}
+                      type="number"
+                      compact
+                    />
+                    <Field
+                      label="Max Stock"
+                      value={editableItem.max_stock_level}
+                      editable={isEdit}
+                      onChange={(v) => updateField("max_stock_level", v)}
+                      type="number"
+                      compact
+                    />
+                    <Field
+                      label="Reorder Point"
+                      value={editableItem.reorder_point}
+                      editable={isEdit}
+                      onChange={(v) => updateField("reorder_point", v)}
+                      type="number"
+                      compact
+                    />
+                  </div>
+                  <p className="mt-2 text-[10px] text-slate-400 italic">
+                    * Status is automatically calculated based on stock levels
+                  </p>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="flex-1">
+                  <SectionHeader icon={BarChart3} title="Quick Info" />
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <QuickStat label="MRP" value={`₹${editableItem.mrp || 0}`} />
+                    <QuickStat label="Selling" value={`₹${editableItem.slr || editableItem.selling_rate || 0}`} />
+                    <QuickStat label="Rack" value={editableItem.rack || editableItem.rack_no || "-"} />
+                    <QuickStat label="Branch" value={editableItem.branch || editableItem.branch_name || "-"} />
+                  </div>
+                </div>
+
+                {/* Branch Warning */}
+                {!canAdjustStock && (
+                  <div className="mt-4 flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                    <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                    <span className="text-[11px] text-amber-700">Select a branch to adjust stock</span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* FOOTER */}
-            <div className="flex justify-between items-center px-6 py-3 bg-slate-50 border-t border-slate-200">
+            <div className="flex justify-between items-center px-6 py-3 bg-slate-100 border-t border-slate-200 shrink-0">
               <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                <Clock size={12} />
+                <Clock size={11} />
                 <span>
-                  Last updated: {editableItem.updated_at 
-                    ? new Date(editableItem.updated_at).toLocaleDateString() 
-                    : new Date().toLocaleDateString()
-                  }
+                  Updated: {editableItem.updated_at ? new Date(editableItem.updated_at).toLocaleDateString() : "Today"}
                 </span>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition-all"
                 >
-                  Close
+                  {isEdit ? "Cancel" : "Close"}
                 </button>
-                
+
                 {isEdit && (
                   <button
                     onClick={handleSave}
-                    className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm flex items-center gap-2"
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50 transition-all shadow-sm"
                   >
-                    <Save size={14} />
-                    Save Changes
+                    {isSaving ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={14} />
+                        Save Changes
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -555,42 +541,24 @@ const ViewInventoryModal = ({
   );
 };
 
-/* ---------------- SECTION COMPONENT ---------------- */
-const Section = ({ title, icon: Icon, children }) => (
-  <div className="mb-6 last:mb-0">
-    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200">
-      <Icon size={16} className="text-indigo-600" />
-      <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">{title}</h3>
-    </div>
-    {children}
+/* ---------------- SECTION HEADER ---------------- */
+const SectionHeader = ({ icon: Icon, title }) => (
+  <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+    <Icon size={14} className="text-indigo-600" />
+    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide">{title}</h3>
   </div>
 );
 
-/* ---------------- STAT CARD COMPONENT ---------------- */
-const StatCard = ({ label, value, icon: Icon, color, suffix }) => {
-  const colorClasses = {
-    blue: "bg-blue-50 border-blue-200 text-blue-700",
-    green: "bg-green-50 border-green-200 text-green-700",
-    purple: "bg-purple-50 border-purple-200 text-purple-700",
-    orange: "bg-orange-50 border-orange-200 text-orange-700",
-  };
-
-  return (
-    <div className={`flex flex-col gap-1 p-3 rounded-lg border ${colorClasses[color] || colorClasses.blue}`}>
-      <div className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide opacity-70">
-        <Icon size={12} />
-        {label}
-      </div>
-      <div className="text-lg font-bold">
-        {value}
-        {suffix && <span className="text-[10px] font-medium ml-1 opacity-70">{suffix}</span>}
-      </div>
-    </div>
-  );
-};
+/* ---------------- QUICK STAT ---------------- */
+const QuickStat = ({ label, value }) => (
+  <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
+    <p className="text-[9px] font-medium text-slate-500 uppercase">{label}</p>
+    <p className="text-sm font-bold text-slate-800 truncate">{value}</p>
+  </div>
+);
 
 /* ---------------- FIELD COMPONENT ---------------- */
-const InfoField = ({
+const Field = ({
   label,
   value,
   editable,
@@ -600,10 +568,11 @@ const InfoField = ({
   type = "text",
   prefix,
   placeholder,
+  compact,
 }) => (
   <div className="flex flex-col gap-1">
-    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-      {Icon && <Icon size={12} />}
+    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1">
+      {Icon && <Icon size={10} />}
       {label}
       {required && <span className="text-red-500">*</span>}
     </label>
@@ -611,7 +580,7 @@ const InfoField = ({
     {editable ? (
       <div className="relative">
         {prefix && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-medium">
             {prefix}
           </span>
         )}
@@ -621,20 +590,20 @@ const InfoField = ({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           className={`
-            w-full px-3 py-2 
-            ${prefix ? 'pl-7' : ''}
+            w-full ${compact ? "px-2.5 py-1.5 text-xs" : "px-3 py-2 text-sm"}
+            ${prefix ? "pl-6" : ""}
             bg-white border border-slate-300 rounded-lg
-            text-sm font-medium text-slate-700
+            font-medium text-slate-700
             focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-            placeholder:text-slate-400
-            transition-all
+            placeholder:text-slate-400 transition-all
           `}
         />
       </div>
     ) : (
-      <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
-        <span className="text-sm font-semibold text-slate-800">
-          {prefix}{value || "-"}
+      <div className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} bg-slate-100 border border-slate-200 rounded-lg`}>
+        <span className={`${compact ? "text-xs" : "text-sm"} font-semibold text-slate-800`}>
+          {prefix}
+          {value || "-"}
         </span>
       </div>
     )}

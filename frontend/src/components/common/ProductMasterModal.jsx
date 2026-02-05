@@ -196,17 +196,29 @@ const ProductMasterModal = ({
     }
   };
 
-  const handleSubmit = async (e) => {
+  // src/components/common/ProductMasterModal.jsx - UPDATE handleSubmit
+
+const handleSubmit = async (e) => {
   e.preventDefault();
   
   if (!validateForm()) {
-    // ... validation handling
+    const firstError = Object.keys(errors)[0];
+    const section = firstError === 'name' || firstError === 'manufacturer' ? 'basic' : 
+                    firstError === 'maxLevel' ? 'storage' : 'basic';
+    scrollToSection(section);
     return;
   }
   
   setIsSubmitting(true);
   
   try {
+    // ✅ Helper: safely convert to number or null
+    const toNumberOrNull = (val) => {
+      if (val === null || val === undefined || val === '') return null;
+      const num = Number(val);
+      return isNaN(num) ? null : num;
+    };
+
     const productData = {
       name: formData.name.trim(),
       manufacturer: formData.manufacturer.trim(),
@@ -216,21 +228,26 @@ const ProductMasterModal = ({
       schedule: formData.schedule || null,
       hsnCode: formData.hsnCode?.trim() || null,
       packSize: formData.packSize?.trim() || null,
-      gst: parseFloat(formData.gst) || 12,
-      cgstPercent: parseFloat(formData.cgstPercent) || 6,
-      sgstPercent: parseFloat(formData.sgstPercent) || 6,
+      gst: toNumberOrNull(formData.gst) ?? 12,
+      cgstPercent: toNumberOrNull(formData.cgstPercent) ?? 6,
+      sgstPercent: toNumberOrNull(formData.sgstPercent) ?? 6,
       rackNo: formData.rackNo?.trim()?.toUpperCase() || null,
       
-      // ✅ ENSURE THESE ARE PASSED:
-      minLevel: formData.minLevel ? parseFloat(formData.minLevel) : null,
-      maxLevel: formData.maxLevel ? parseFloat(formData.maxLevel) : null,
-      reorderPoint: formData.reorderPoint ? parseFloat(formData.reorderPoint) : null,
+      // ✅ FIXED: Use correct field names that match backend schema
+      min_stock_level: toNumberOrNull(formData.minLevel),
+      max_stock_level: toNumberOrNull(formData.maxLevel),
+      reorder_point: toNumberOrNull(formData.reorderPoint),
       
       priceControlled: formData.priceControlled || false,
       subHead: formData.subHead?.trim() || null,
     };
     
-    console.log('📤 Saving product with data:', productData);
+    console.log('📤 ProductMasterModal sending:', {
+      min_stock_level: productData.min_stock_level,
+      max_stock_level: productData.max_stock_level,
+      reorder_point: productData.reorder_point,
+    });
+    
     await onSave(productData);
     onClose();
   } catch (error) {

@@ -6,6 +6,15 @@ import suppliersAPI from "../../api/suppliers";
 import inventoryAPI from "../../api/inventory";
 import { useToast } from "../../components/common/Toast";
 
+
+
+const safeParseFloat = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? null : parsed;
+};
 /**
  * Convert date string to ISO datetime string
  * Handles: "2026-01-31" -> "2026-01-31T00:00:00.000Z"
@@ -198,6 +207,23 @@ export const usePurchaseAPI = () => {
     }
   }, []);
 
+  // ✅ FIXED: Helper to parse Prisma Decimal values from response
+const parseDecimalValue = (value) => {
+  if (value === null || value === undefined) return null;
+  // Prisma Decimal comes as string in JSON response
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? null : parsed;
+  }
+  if (typeof value === 'number') return value;
+  // Handle Prisma Decimal object
+  if (typeof value === 'object' && value.toString) {
+    const parsed = parseFloat(value.toString());
+    return isNaN(parsed) ? null : parsed;
+  }
+  return null;
+};
+
   // ============================================
   // CREATE NEW MEDICINE - ✅ FIXED: Include pack in response
   // ============================================
@@ -207,83 +233,81 @@ const createMedicine = useCallback(
     try {
       setIsLoading(true);
 
-      const payload = {
-        name: medicineData.name,
-        generic_name: medicineData.genericName || null,
-        manufacturer: medicineData.manufacturer,
-        category: medicineData.category || null,
-        sub_category: medicineData.subCategory || null,
-        schedule: medicineData.schedule || null,  // ✅ ENSURE THIS IS HERE
-        hsn_code: medicineData.hsnCode || null,
-        pack_size: medicineData.packSize || null,
-        unit_of_measure: medicineData.unitOfMeasure || "UNIT",
-        gst_percentage: medicineData.gst ? parseFloat(medicineData.gst) : 12,
-        cgst_percentage: medicineData.cgstPercent ? parseFloat(medicineData.cgstPercent) : 
-                        (medicineData.gst ? parseFloat(medicineData.gst) / 2 : 6),
-        sgst_percentage: medicineData.sgstPercent ? parseFloat(medicineData.sgstPercent) : 
-                        (medicineData.gst ? parseFloat(medicineData.gst) / 2 : 6),
-        rack_no: medicineData.rackNo || null,
-        
-        // ✅ Stock level thresholds
-        min_stock_level: medicineData.minLevel ? parseFloat(medicineData.minLevel) : null,
-        max_stock_level: medicineData.maxLevel ? parseFloat(medicineData.maxLevel) : null,
-        reorder_point: medicineData.reorderPoint ? parseFloat(medicineData.reorderPoint) : null,
+      // ✅ Helper: safely convert to number or null
+      const toNumberOrNull = (val) => {
+        if (val === null || val === undefined || val === '') return null;
+        const num = Number(val);
+        return isNaN(num) ? null : num;
       };
 
-      console.log('📤 Creating medicine with payload:', payload);
+      const payload = {
+        name: medicineData.name,
+        generic_name: medicineData.genericName || medicineData.generic_name || null,
+        manufacturer: medicineData.manufacturer,
+        category: medicineData.category || null,
+        sub_category: medicineData.subCategory || medicineData.sub_category || null,
+        schedule: medicineData.schedule || null,
+        hsn_code: medicineData.hsnCode || medicineData.hsn_code || null,
+        pack_size: medicineData.packSize || medicineData.pack_size || null,
+        unit_of_measure: medicineData.unitOfMeasure || medicineData.unit_of_measure || "UNIT",
+        gst_percentage: toNumberOrNull(medicineData.gst) ?? 12,
+        cgst_percentage: toNumberOrNull(medicineData.cgstPercent) ?? 6,
+        sgst_percentage: toNumberOrNull(medicineData.sgstPercent) ?? 6,
+        rack_no: medicineData.rackNo || medicineData.rack_no || null,
+        
+        // ✅ FIXED: Accept both field name formats
+        min_stock_level: toNumberOrNull(medicineData.min_stock_level || medicineData.minLevel),
+        max_stock_level: toNumberOrNull(medicineData.max_stock_level || medicineData.maxLevel),
+        reorder_point: toNumberOrNull(medicineData.reorder_point || medicineData.reorderPoint),
+      };
+
+      console.log('📤 usePurchaseAPI createMedicine payload:', {
+        name: payload.name,
+        min_stock_level: payload.min_stock_level,
+        max_stock_level: payload.max_stock_level,
+        reorder_point: payload.reorder_point,
+      });
 
       const response = await medicinesAPI.create(payload);
 
-      console.log('✅ Medicine API response:', response.data);
+      console.log('📥 Backend response:', {
+        id: response.data.medicine_id,
+        min_stock_level: response.data.min_stock_level,
+        max_stock_level: response.data.max_stock_level,
+        reorder_point: response.data.reorder_point,
+      });
 
-      // ✅ Map ALL fields from response
+      // Parse response
+      const parseDecimal = (val) => {
+        if (val === null || val === undefined) return null;
+        const num = Number(val);
+        return isNaN(num) ? null : num;
+      };
+
       const newMedicine = {
         id: response.data.medicine_id,
         medicine_id: response.data.medicine_id,
         name: response.data.name,
-        
-        // Basic Info
         manufacturer: response.data.manufacturer,
         mfac: response.data.manufacturer,
         genericName: response.data.generic_name,
-        generic_name: response.data.generic_name,
-        
-        // Classification
         category: response.data.category,
         subCategory: response.data.sub_category,
-        sub_category: response.data.sub_category,
-        schedule: response.data.schedule,  // ✅ ADD THIS
-        
-        // Identification
+        schedule: response.data.schedule,
         hsnCode: response.data.hsn_code,
         hsn: response.data.hsn_code,
-        hsn_code: response.data.hsn_code,
-        
-        // Packaging
         packSize: response.data.pack_size,
         pack: response.data.pack_size,
-        pack_size: response.data.pack_size,
-        
-        // Storage
         rackNo: response.data.rack_no,
         rack: response.data.rack_no,
-        rack_no: response.data.rack_no,
+        gst: parseDecimal(response.data.gst_percentage)?.toString() || '12',
+        cgstPercent: parseDecimal(response.data.cgst_percentage)?.toString() || '6',
+        sgstPercent: parseDecimal(response.data.sgst_percentage)?.toString() || '6',
         
-        // Tax
-        gst: response.data.gst_percentage?.toString(),
-        gst_percentage: response.data.gst_percentage,
-        cgstPercent: response.data.cgst_percentage?.toString(),
-        cgst_percentage: response.data.cgst_percentage,
-        sgstPercent: response.data.sgst_percentage?.toString(),
-        sgst_percentage: response.data.sgst_percentage,
-        
-        // ✅ Stock level thresholds
-        minLevel: response.data.min_stock_level?.toString() || null,
-        min_stock_level: response.data.min_stock_level,
-        maxLevel: response.data.max_stock_level?.toString() || null,
-        max_stock_level: response.data.max_stock_level,
-        reorderPoint: response.data.reorder_point?.toString() || null,
-        reorder_point: response.data.reorder_point,
+        // ✅ FIXED: Include stock levels in the returned object
+        min_stock_level: parseDecimal(response.data.min_stock_level),
+        max_stock_level: parseDecimal(response.data.max_stock_level),
+        reorder_point: parseDecimal(response.data.reorder_point),
       };
 
       setMedicines((prev) => [newMedicine, ...prev]);
@@ -292,6 +316,7 @@ const createMedicine = useCallback(
       return newMedicine;
     } catch (error) {
       console.error("Create medicine error:", error);
+      console.error("Error response:", error.response?.data);
       toast.error("Failed to create medicine", error.response?.data?.message || error.message);
       throw error;
     } finally {
@@ -300,11 +325,9 @@ const createMedicine = useCallback(
   },
   [toast]
 );
-  // ============================================
-  // BULK CREATE MEDICINES
-  // ============================================
 
-  const bulkCreateMedicines = useCallback(
+// ✅ Also fix bulkCreateMedicines to use same parsing
+const bulkCreateMedicines = useCallback(
   async (medicinesData) => {
     try {
       setIsLoading(true);
@@ -314,22 +337,26 @@ const createMedicine = useCallback(
         generic_name: med.genericName || null,
         manufacturer: med.manufacturer,
         category: med.category || null,
-        sub_category: med.subCategory || null,    // ✅ ADD
-        schedule: med.schedule || null,            // ✅ ADD
+        sub_category: med.subCategory || null,
+        schedule: med.schedule || null,
         hsn_code: med.hsnCode || null,
-        pack_size: med.packSize || null,           // ✅ ENSURE
+        pack_size: med.packSize || null,
         unit_of_measure: med.unitOfMeasure || "UNIT",
-        gst_percentage: med.gst ? parseFloat(med.gst) : 12,
-        cgst_percentage: med.cgstPercent ? parseFloat(med.cgstPercent) : 
-                        (med.gst ? parseFloat(med.gst) / 2 : 6),
-        sgst_percentage: med.sgstPercent ? parseFloat(med.sgstPercent) : 
-                        (med.gst ? parseFloat(med.gst) / 2 : 6),
+        gst_percentage: safeParseFloat(med.gst) ?? 12,
+        cgst_percentage: safeParseFloat(med.cgstPercent) ?? 
+                        (safeParseFloat(med.gst) ? safeParseFloat(med.gst) / 2 : 6),
+        sgst_percentage: safeParseFloat(med.sgstPercent) ?? 
+                        (safeParseFloat(med.gst) ? safeParseFloat(med.gst) / 2 : 6),
         rack_no: med.rackNo || null,
+        // ✅ FIXED: Include stock levels in bulk create
+        min_stock_level: safeParseFloat(med.minLevel),
+        max_stock_level: safeParseFloat(med.maxLevel),
+        reorder_point: safeParseFloat(med.reorderPoint),
       }));
 
       const response = await medicinesAPI.bulkCreate(payload);
 
-      // ✅ FIXED: Map all fields including pack
+      // ✅ FIXED: Map all fields including stock levels with proper parsing
       const createdMedicines = response.data.created.map((med) => ({
         id: med.medicine_id,
         medicine_id: med.medicine_id,
@@ -346,9 +373,13 @@ const createMedicine = useCallback(
         rack: med.rack_no,
         packSize: med.pack_size,
         pack: med.pack_size,
-        gst: med.gst_percentage?.toString(),
-        cgstPercent: med.cgst_percentage?.toString(),
-        sgstPercent: med.sgst_percentage?.toString(),
+        gst: parseDecimalValue(med.gst_percentage)?.toString() || '12',
+        cgstPercent: parseDecimalValue(med.cgst_percentage)?.toString() || '6',
+        sgstPercent: parseDecimalValue(med.sgst_percentage)?.toString() || '6',
+        // ✅ NEW: Stock levels
+        minLevel: parseDecimalValue(med.min_stock_level),
+        maxLevel: parseDecimalValue(med.max_stock_level),
+        reorderPoint: parseDecimalValue(med.reorder_point),
       }));
 
       setMedicines((prev) => [...createdMedicines, ...prev]);
@@ -369,6 +400,7 @@ const createMedicine = useCallback(
   },
   [toast]
 );
+
 
   // ============================================
   // CREATE NEW SUPPLIER
