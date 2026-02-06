@@ -313,6 +313,16 @@ export const AuditAction = Object.freeze({
   
   // metadata: { invoice_number, payment_id, payment_amount, payment_mode, old_payment_status, new_payment_status, total_paid, balance_remaining }
   PURCHASE_PAYMENT_RECORDED: "PURCHASE_PAYMENT_RECORDED",
+
+
+  PURCHASE_RETURN_CREATED: "PURCHASE_RETURN_CREATED",
+  PURCHASE_RETURN_APPROVED: "PURCHASE_RETURN_APPROVED",
+  PURCHASE_RETURN_REJECTED: "PURCHASE_RETURN_REJECTED",
+  
+  // Credit Notes
+  CREDIT_NOTE_CREATED: "CREDIT_NOTE_CREATED",
+  CREDIT_NOTE_APPLIED: "CREDIT_NOTE_APPLIED",
+  CREDIT_NOTE_EXPIRED: "CREDIT_NOTE_EXPIRED"
 });
 
 

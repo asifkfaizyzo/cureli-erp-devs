@@ -45,6 +45,7 @@ import DashboardPage from "./pages/dashboard/DashboardPage.jsx";
 import BillingPage from "./pages/sales/billing/BillingPage.jsx";
 import InvoicePage from "./pages/sales/invoice/InvoicePage.jsx";
 import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.jsx";
+import PurchaseReturnsPage from "./pages/purchase/returns/PurchaseReturnsPage";
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 import InventoryPage from "./pages/inventory/InventoryPage.jsx";
@@ -353,6 +354,18 @@ const App = () => {
                               permission={PERMISSIONS.PURCHASE_VIEW}
                             >
                               <PurchaseInvoicePage />
+                            </PermissionGuard>
+                          }
+                        />
+
+                        {/* Purchase Invoices - Read only, works in GLOBAL mode */}
+                        <Route
+                          path="/purchase-returns"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.PURCHASE_VIEW}
+                            >
+                              <PurchaseReturnsPage />
                             </PermissionGuard>
                           }
                         />

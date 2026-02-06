@@ -137,6 +137,106 @@ const purchaseAPI = {
       throw error;
     }
   },
+
+ // ═══════════════════════════════════════════════════════════════════════
+  // PURCHASE RETURNS
+  // ═══════════════════════════════════════════════════════════════════════
+
+  createReturn: async (data) => {
+    try {
+      const response = await API.post("/purchase/returns", data, {
+        headers: getBranchHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error("❌ Create return failed:", error.response?.data);
+      throw error;
+    }
+  },
+
+  getAllReturns: async (filters = {}) => {
+    try {
+      const response = await API.get("/purchase/returns", {
+        params: filters,
+        headers: getBranchHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error("❌ Get returns failed:", error.response?.data);
+      throw error;
+    }
+  },
+
+  getReturnById: async (returnId) => {
+    try {
+      const response = await API.get(`/purchase/returns/${returnId}`, {
+        headers: getBranchHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error("❌ Get return details failed:", error.response?.data);
+      throw error;
+    }
+  },
+
+  approveReturn: async (returnId, data) => {
+    try {
+      const response = await API.post(
+        `/purchase/returns/${returnId}/approve`,
+        data,
+        { headers: getBranchHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("❌ Approve return failed:", error.response?.data);
+      throw error;
+    }
+  },
+
+  rejectReturn: async (returnId, reason) => {
+    try {
+      const response = await API.post(
+        `/purchase/returns/${returnId}/approve`,
+        { action: "REJECT", rejection_reason: reason },
+        { headers: getBranchHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("❌ Reject return failed:", error.response?.data);
+      throw error;
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // SUPPLIER CREDITS
+  // ═══════════════════════════════════════════════════════════════════════
+
+  getSupplierCredits: async (filters = {}) => {
+    try {
+      const response = await API.get("/purchase/credits", {
+        params: filters,
+        headers: getBranchHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error("❌ Get credits failed:", error.response?.data);
+      throw error;
+    }
+  },
+
+  applyCreditNote: async (data) => {
+    try {
+      const response = await API.post("/purchase/credits/apply", data, {
+        headers: getBranchHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error("❌ Apply credit failed:", error.response?.data);
+      throw error;
+    }
+  },
 };
+
+
 
 export default purchaseAPI;

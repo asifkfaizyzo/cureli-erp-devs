@@ -224,6 +224,8 @@ const EditModeContent = ({
   onAddRow,
   onRemoveRow,
   tableBodyRef,
+  onCreateReturn,
+  showCreateReturnButton,
 }) => {
   const filledRows = editRows.filter(r => r.name).length;
 
@@ -365,6 +367,27 @@ const EditModeContent = ({
           )}
         </div>
       </div>
+ {/* ✅ ADD THIS ENTIRE SECTION - Footer Actions */}
+      <div className="shrink-0 px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {/* Create Return Button - Only for CONFIRMED invoices */}
+          {showCreateReturnButton && onCreateReturn && (
+            <button
+              onClick={onCreateReturn}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg font-medium"
+            >
+              <Package size={18} />
+              <span className="text-sm">Create Return</span>
+            </button>
+          )}
+        </div>
+
+        {/* Placeholder for future actions (e.g., save reminders) */}
+        <div className="flex items-center gap-3">
+          {/* Reserved for additional edit mode actions */}
+        </div>
+      </div>
+
     </div>
   );
 };

@@ -83,6 +83,29 @@ enum AdjustmentReason {
   OTHER
 }
 
+//----- purchase return ---
+enum ReturnReason {
+  DAMAGED_GOODS
+  EXPIRED_GOODS
+  WRONG_ITEM_RECEIVED
+  QUALITY_ISSUE
+  EXCESS_STOCK
+  PRICE_DIFFERENCE
+  OTHER
+}
+
+enum PaymentAdjustmentType {
+  CASH_REFUND
+  CREDIT_NOTE
+  OFFSET_NEXT_PURCHASE
+}
+
+enum ReturnApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
 // ============================================
 // AUDIT LOG (APPEND-ONLY, COMPLIANCE-GRADE)
 // ============================================
@@ -280,6 +303,9 @@ model User {
   stockLedgerEntries            StockLedger[]         @relation("StockLedgerCreator")
   adjustmentsCreated            StockAdjustment[]     @relation("AdjustmentCreator")
   adjustmentsApproved           StockAdjustment[]     @relation("AdjustmentApprover")
+  returnsApproved    PurchaseInvoice[]     @relation("ReturnApprover")
+  returnsRejected    PurchaseInvoice[]     @relation("ReturnRejecter")
+  creditApplications CreditApplication[]   @relation("CreditApplicationsBy")
 
   @@map("users")
 }
@@ -347,6 +373,7 @@ model Shop {
   inventory           Inventory[]          @relation("ShopInventory")
   stockLedger         StockLedger[]        @relation("ShopStockLedger")
   stockAdjustments    StockAdjustment[]    @relation("ShopStockAdjustments")
+  supplierCredits SupplierCredit[] @relation("ShopSupplierCredits")
 
   @@map("shops")
 }
@@ -819,6 +846,7 @@ model Supplier {
   creator          User              @relation("SupplierCreator", fields: [created_by], references: [user_id])
   purchaseInvoices PurchaseInvoice[] @relation("SupplierPurchaseInvoices")
   payments         PurchasePayment[] @relation("SupplierPayments")
+  credits SupplierCredit[] @relation("SupplierCredits")
 
   // Indexes
   @@unique([shop_id, name])
@@ -848,11 +876,24 @@ model PurchaseInvoice {
   confirmed_by      String? @db.Uuid
   parent_invoice_id String? @db.Uuid
 
+  // ✅ NEW: Return-specific fields
+  return_reason          ReturnReason?
+  return_reason_notes    String?                 @db.Text
+
   // Dates
   invoice_date  DateTime  @db.Date
   due_date      DateTime? @db.Date
   received_date DateTime? @db.Date
   confirmed_at  DateTime? @db.Timestamptz(6)
+
+
+   // Approval workflow
+  return_approval_status ReturnApprovalStatus?
+  approved_by            String?                 @db.Uuid
+  approved_at            DateTime?               @db.Timestamptz(6)
+  rejected_by            String?                 @db.Uuid
+  rejected_at            DateTime?               @db.Timestamptz(6)
+  rejection_reason       String?                 @db.Text
 
   // Financial Summary
   subtotal        Decimal @default(0) @db.Decimal(12, 2)
@@ -870,6 +911,12 @@ model PurchaseInvoice {
   paid_amount    Decimal @default(0) @db.Decimal(12, 2)
   balance_amount Decimal @default(0) @db.Decimal(12, 2)
   payment_mode   String? @db.VarChar(50)
+
+  // Payment adjustment
+  adjustment_type        PaymentAdjustmentType?
+  credit_note_number     String?                 @db.VarChar(50)
+  refund_amount          Decimal?                @db.Decimal(12, 2)
+  refund_notes           String?                 @db.Text
 
   // Status
   status    String  @default("DRAFT")
@@ -895,6 +942,10 @@ model PurchaseInvoice {
   lineItems          PurchaseInvoiceItem[] @relation("InvoiceLineItems")
   payments           PurchasePayment[]     @relation("InvoicePayments")
   stockLedgerEntries StockLedger[]         @relation("StockLedgerPurchaseInvoice") // ✅ ADD THIS
+  approver           User?             @relation("ReturnApprover", fields: [approved_by], references: [user_id], onDelete: SetNull)
+  rejecter           User?             @relation("ReturnRejecter", fields: [rejected_by], references: [user_id], onDelete: SetNull)
+  supplierCredits    SupplierCredit[]  @relation("ReturnCredits")
+  creditApplications CreditApplication[] @relation("CreditApplicationsToInvoice")
 
   // Indexes
   @@unique([shop_id, invoice_number])
@@ -906,6 +957,67 @@ model PurchaseInvoice {
   @@index([created_at])
   @@map("purchase_invoices")
 }
+
+model SupplierCredit {
+  credit_id          String   @id @default(uuid()) @db.Uuid
+  
+  shop_id            String   @db.Uuid
+  supplier_id        String   @db.Uuid
+  return_invoice_id  String   @db.Uuid
+  
+  credit_note_number String   @db.VarChar(50)
+  credit_amount      Decimal  @db.Decimal(12, 2)
+  utilized_amount    Decimal  @default(0) @db.Decimal(12, 2)
+  balance_amount     Decimal  @db.Decimal(12, 2)
+  
+  status             String   @default("ACTIVE") @db.VarChar(20) // ACTIVE, FULLY_UTILIZED, EXPIRED
+  
+  issued_date        DateTime @db.Date
+  expiry_date        DateTime @db.Date // ✅ Always 1 year from issued_date
+  
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  shop           Shop                  @relation("ShopSupplierCredits", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  supplier       Supplier              @relation("SupplierCredits", fields: [supplier_id], references: [supplier_id], onDelete: Cascade)
+  returnInvoice  PurchaseInvoice       @relation("ReturnCredits", fields: [return_invoice_id], references: [invoice_id], onDelete: Cascade)
+  applications   CreditApplication[]   @relation("CreditApplications")
+  
+  @@unique([credit_note_number])
+  @@index([shop_id, supplier_id, status])
+  @@index([expiry_date])
+  @@map("supplier_credits")
+}
+
+// ============================================
+// NEW: Credit Application Tracking
+// ============================================
+
+model CreditApplication {
+  application_id       String   @id @default(uuid()) @db.Uuid
+  
+  credit_id            String   @db.Uuid
+  applied_to_invoice_id String  @db.Uuid
+  
+  applied_amount       Decimal  @db.Decimal(12, 2)
+  applied_date         DateTime @db.Date
+  applied_by           String   @db.Uuid
+  notes                String?  @db.Text
+  
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  credit         SupplierCredit  @relation("CreditApplications", fields: [credit_id], references: [credit_id], onDelete: Cascade)
+  appliedInvoice PurchaseInvoice @relation("CreditApplicationsToInvoice", fields: [applied_to_invoice_id], references: [invoice_id], onDelete: Cascade)
+  appliedBy      User            @relation("CreditApplicationsBy", fields: [applied_by], references: [user_id], onDelete: SetNull)
+  
+  @@index([credit_id])
+  @@index([applied_to_invoice_id])
+  @@map("credit_applications")
+}
+
+
 model PurchaseInvoiceItem {
   item_id String @id @default(uuid()) @db.Uuid
 

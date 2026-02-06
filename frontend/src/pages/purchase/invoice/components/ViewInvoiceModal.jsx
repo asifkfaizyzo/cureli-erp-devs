@@ -40,6 +40,7 @@ import ConfirmDialog from "../../../../components/common/ConfirmDialog";
 import purchaseAPI from "../../../../api/purchase";
 import medicinesAPI from "../../../../api/medicines";
 
+import CreateReturnModal from "../../returns/components/CreateReturnModal";
 import ViewModeContent from "./ViewModeContent";
 import EditModeContent from "./EditModeContent";
 import { 
@@ -484,6 +485,8 @@ const PaymentStatusDropdownPortal = ({
   );
 };
 
+
+
 // ════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
@@ -517,6 +520,7 @@ const ViewInvoiceModal = ({
   
   const [showPaymentStatusMenu, setShowPaymentStatusMenu] = useState(false);
   const [isChangingPaymentStatus, setIsChangingPaymentStatus] = useState(false);
+  const [createReturnModal, setCreateReturnModal] = useState(false);
   
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -1590,9 +1594,33 @@ const ViewInvoiceModal = ({
                 onAddRow={handleAddRow}
                 onRemoveRow={handleRemoveRow}
                 tableBodyRef={tableBodyRef}
+                onCreateReturn={() => setCreateReturnModal(true)}
+                showCreateReturnButton={isConfirmed}
               />
             )}
           </motion.div>
+
+          <ConfirmDialog
+            isOpen={confirmDialog.isOpen}
+            onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+            onConfirm={confirmDialog.onConfirm}
+            title={confirmDialog.title}
+            message={confirmDialog.message}
+            confirmText={confirmDialog.confirmText}
+            cancelText="Cancel"
+            type={confirmDialog.type}
+          />
+
+          <CreateReturnModal
+            open={createReturnModal}
+            onClose={() => setCreateReturnModal(false)}
+            invoice={invoice}
+            onSuccess={() => {
+              setCreateReturnModal(false);
+              onRefresh?.();
+            }}
+            isSuperAdmin={isSuperAdmin}
+          />
 
           <ConfirmDialog
             isOpen={confirmDialog.isOpen}

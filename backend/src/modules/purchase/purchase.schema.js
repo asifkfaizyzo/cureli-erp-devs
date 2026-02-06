@@ -54,7 +54,6 @@ export const cancelInvoiceSchema = z.object({
   reason: z.string().max(500),
 });
 
-// ✅ NEW: Payment status update schema
 export const updatePaymentStatusSchema = z.object({
   payment_status: z.enum(["UNPAID", "PARTIALLY_PAID", "PAID"]),
   paid_amount: z.number().min(0).optional(),
@@ -62,7 +61,6 @@ export const updatePaymentStatusSchema = z.object({
   remarks: z.string().max(500).optional().nullable(),
 });
 
-// ✅ NEW: Record payment schema
 export const recordPaymentSchema = z.object({
   amount: z.number().positive(),
   payment_mode: z.enum(["CASH", "CARD", "UPI", "CHEQUE", "BANK_TRANSFER", "CREDIT"]),
@@ -70,4 +68,52 @@ export const recordPaymentSchema = z.object({
   reference_number: z.string().max(100).optional().nullable(),
   bank_name: z.string().max(100).optional().nullable(),
   remarks: z.string().max(500).optional().nullable(),
+});
+
+export const createReturnInvoiceSchema = z.object({
+  parent_invoice_id: z.string().uuid(),
+  supplier_id: z.string().uuid(),
+  branch_id: z.string().uuid().optional().nullable(),
+  
+  return_reason: z.enum([
+    'DAMAGED_GOODS',
+    'EXPIRED_GOODS',
+    'WRONG_ITEM_RECEIVED',
+    'QUALITY_ISSUE',
+    'EXCESS_STOCK',
+    'PRICE_DIFFERENCE',
+    'OTHER'
+  ]),
+  return_reason_notes: z.string().max(500).optional().nullable(),
+  
+  adjustment_type: z.enum(['CASH_REFUND', 'CREDIT_NOTE', 'OFFSET_NEXT_PURCHASE']),
+  refund_amount: z.number().min(0).optional().nullable(),
+  refund_notes: z.string().max(500).optional().nullable(),
+  
+  invoice_date: z.string().datetime(),
+  remarks: z.string().max(500).optional().nullable(),
+  
+  lineItems: z.array(z.object({
+    medicine_id: z.string().uuid(),
+    batch_number: z.string().max(50),
+    expiry_date: z.string().datetime(),
+    quantity: z.number().positive(),
+    purchase_rate: z.number().positive(),
+    mrp: z.number().positive(),
+    cgst_percent: z.number().min(0).max(100).default(0),
+    sgst_percent: z.number().min(0).max(100).default(0),
+  })).min(1),
+});
+
+export const approveReturnSchema = z.object({
+  action: z.enum(['APPROVE', 'REJECT']),
+  rejection_reason: z.string().max(500).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+export const applyCreditNoteSchema = z.object({
+  credit_id: z.string().uuid(),
+  applied_to_invoice_id: z.string().uuid(),
+  applied_amount: z.number().positive(),
+  notes: z.string().max(500).optional(),
 });
