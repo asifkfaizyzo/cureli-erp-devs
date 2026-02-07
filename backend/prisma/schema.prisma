@@ -104,7 +104,9 @@ enum ReturnApprovalStatus {
   PENDING_APPROVAL
   APPROVED
   REJECTED
+  CANCELLED 
 }
+
 
 // ============================================
 // AUDIT LOG (APPEND-ONLY, COMPLIANCE-GRADE)

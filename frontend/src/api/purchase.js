@@ -235,6 +235,33 @@ const purchaseAPI = {
       throw error;
     }
   },
+
+ // Make sure these match the schema exactly:
+cancelApprovedReturn: async (returnId, data) => {
+  console.log("📤 Sending cancel data:", data); // ✅ Debug log
+  try {
+    const response = await API.patch(`/purchase/returns/${returnId}/cancel`, data, {
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error("❌ Cancel approved return failed:", error.response?.data);
+    throw error;
+  }
+},
+
+revertReturnToPending: async (returnId, data) => {
+  console.log("📤 Sending revert data:", data); // ✅ Debug log
+  try {
+    const response = await API.patch(`/purchase/returns/${returnId}/revert`, data, {
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error("❌ Revert return failed:", error.response?.data);
+    throw error;
+  }
+},
 };
 
 

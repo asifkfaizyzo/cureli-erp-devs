@@ -8,7 +8,6 @@ import {
   Calendar,
   Building2,
   RefreshCw,
-  AlertCircle,
   CheckCircle2,
   Clock,
   XCircle,
@@ -16,23 +15,21 @@ import {
   Shield,
   ChevronDown,
   FileText,
-  TrendingUp,
+  Ban,
+  X,
 } from "lucide-react";
 import { useToast } from "../../../components/common/Toast";
 import purchaseAPI from "../../../api/purchase";
 import { useAuthStore } from "../../../store/useAuthStore";
 import ViewReturnModal from "./components/ViewReturnModal";
-import ReturnStatusBadge from "./components/ReturnStatusBadge";
+import ReturnsTable from "./components/ReturnsTable";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
-import TableSkeleton from "../../../components/common/TableSkeleton";
-import TableEmptyState from "../../../components/common/TableEmptyState";
-import Pagination from "../../../components/common/Pagination";
+import StyledSelect from "../../../components/common/StyledSelect";
+import StyledDateFilter from "../../../components/common/StyledDateFilter";
 
 // ════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ════════════════════════════════════════════════════════════════════════════
-
-const NAVY = "#000060";
 
 const RETURN_REASON_LABELS = {
   DAMAGED_GOODS: "Damaged Goods",
@@ -62,6 +59,14 @@ const ADJUSTMENT_TYPE_CONFIG = {
   },
 };
 
+const APPROVAL_STATUS_OPTIONS = [
+  { value: "", label: "All Statuses" },
+  { value: "PENDING_APPROVAL", label: "Pending Approval" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "REJECTED", label: "Rejected" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
+
 const formatCurrency = (value) => {
   const num = parseFloat(value) || 0;
   return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -88,155 +93,288 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
   if (pendingReturns.length === 0) return null;
 
   return (
-    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-6 mb-6">
-      <div className="flex items-start justify-between mb-4">
+    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4 mb-4">
+      <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-amber-500 flex items-center justify-center shadow-lg">
-            <Shield size={24} className="text-white" />
+          <div className="w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center shadow-lg">
+            <Shield size={20} className="text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-amber-900">Pending Approvals</h3>
-            <p className="text-sm text-amber-700">
-              {pendingReturns.length} return{pendingReturns.length !== 1 ? "s" : ""} awaiting your approval
+            <h3 className="text-base font-bold text-amber-900">Pending Approvals</h3>
+            <p className="text-xs text-amber-700">
+              {pendingReturns.length} return{pendingReturns.length !== 1 ? "s" : ""} awaiting approval
             </p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xs text-amber-600 uppercase tracking-wider mb-1">Total Amount</p>
-          <p className="text-2xl font-bold text-amber-900">{formatCurrency(totalPendingAmount)}</p>
+          <p className="text-[10px] text-amber-600 uppercase tracking-wider mb-0.5">Total Amount</p>
+          <p className="text-lg font-bold text-amber-900">{formatCurrency(totalPendingAmount)}</p>
         </div>
       </div>
 
-      <div className="space-y-2 max-h-80 overflow-y-auto">
-        {pendingReturns.map((returnInvoice) => (
+      <div className="space-y-2 max-h-48 overflow-y-auto">
+        {pendingReturns.slice(0, 5).map((returnInvoice) => (
           <div
             key={returnInvoice.invoice_id}
-            className="bg-white rounded-lg p-4 border border-amber-200 hover:border-amber-400 hover:shadow-md transition-all cursor-pointer"
+            className="bg-white rounded-lg p-3 border border-amber-200 hover:border-amber-400 hover:shadow-md transition-all cursor-pointer"
             onClick={() => onViewReturn(returnInvoice)}
           >
             <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <p className="font-mono font-bold text-[#000060]">{returnInvoice.invoice_number}</p>
-                  <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="font-mono font-bold text-sm text-[#000060]">{returnInvoice.invoice_number}</p>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">
                     {RETURN_REASON_LABELS[returnInvoice.return_reason] || returnInvoice.return_reason}
                   </span>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <span className="flex items-center gap-1">
-                    <Building2 size={14} />
+                <div className="flex items-center gap-3 text-xs text-gray-600">
+                  <span className="flex items-center gap-1 truncate">
+                    <Building2 size={12} />
                     {returnInvoice.supplier?.name}
                   </span>
                   <span className="flex items-center gap-1">
-                    <Calendar size={14} />
+                    <Calendar size={12} />
                     {formatDate(returnInvoice.created_at)}
                   </span>
                   <span className="flex items-center gap-1">
-                    <FileText size={14} />
+                    <FileText size={12} />
                     {returnInvoice._count?.lineItems || 0} items
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 ml-3">
                 <div className="text-right">
-                  <p className="text-xs text-gray-500">Amount</p>
-                  <p className="text-lg font-bold text-[#000060]">{formatCurrency(returnInvoice.net_amount)}</p>
+                  <p className="text-[10px] text-gray-500">Amount</p>
+                  <p className="text-sm font-bold text-[#000060]">{formatCurrency(returnInvoice.net_amount)}</p>
                 </div>
-                <button className="p-2 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors">
-                  <Eye size={18} />
+                <button className="p-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors">
+                  <Eye size={14} />
                 </button>
               </div>
             </div>
           </div>
         ))}
+        {pendingReturns.length > 5 && (
+          <p className="text-xs text-amber-700 text-center py-1">
+            +{pendingReturns.length - 5} more pending returns
+          </p>
+        )}
       </div>
     </div>
   );
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// FILTERS COMPONENT
+// FILTERS COMPONENT - UPDATED WITH STYLED COMPONENTS
 // ════════════════════════════════════════════════════════════════════════════
 
 const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
   const [showFilters, setShowFilters] = useState(false);
 
+  const hasActiveFilters = filters.startDate || filters.endDate || filters.approvalStatus || filters.search;
+
+  // Count active filters
+  const activeFilterCount = [
+    filters.startDate,
+    filters.endDate,
+    filters.approvalStatus,
+    filters.search,
+  ].filter(Boolean).length;
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* Filter Header */}
+      <div className="flex items-center justify-between px-4 py-3">
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-[#000060] transition-colors"
+          className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-[#000060] transition-colors"
         >
-          <Filter size={18} />
-          Filters
+          <Filter size={16} />
+          <span>Filters</span>
+          {activeFilterCount > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-[#000060] text-white rounded-full min-w-[18px] text-center">
+              {activeFilterCount}
+            </span>
+          )}
           <ChevronDown
-            size={16}
-            className={`transition-transform ${showFilters ? "rotate-180" : ""}`}
+            size={14}
+            className={`transition-transform duration-200 ${showFilters ? "rotate-180" : ""}`}
           />
         </button>
 
-        {(filters.startDate || filters.endDate || filters.approvalStatus) && (
+        {hasActiveFilters && (
           <button
             onClick={onReset}
-            className="text-sm text-red-600 hover:text-red-700 font-medium"
+            className="flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700 font-medium px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
           >
-            Reset Filters
+            <X size={12} />
+            Reset All
           </button>
         )}
       </div>
 
+      {/* Filter Content */}
       {showFilters && (
-        <div className="grid grid-cols-4 gap-4 pt-4 border-t border-gray-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
-            <input
-              type="date"
-              value={filters.startDate || ""}
-              onChange={(e) => onFilterChange("startDate", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#000060] focus:border-[#000060]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
-            <input
-              type="date"
-              value={filters.endDate || ""}
-              onChange={(e) => onFilterChange("endDate", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#000060] focus:border-[#000060]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Approval Status</label>
-            <select
-              value={filters.approvalStatus || ""}
-              onChange={(e) => onFilterChange("approvalStatus", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#000060] focus:border-[#000060]"
-            >
-              <option value="">All Statuses</option>
-              <option value="PENDING_APPROVAL">Pending</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-            <div className="relative">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Return number..."
-                value={filters.search || ""}
-                onChange={(e) => onFilterChange("search", e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#000060] focus:border-[#000060]"
+        <div className="px-4 pb-4 pt-2 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white">
+          <div className="flex items-end gap-4 flex-wrap">
+            {/* From Date */}
+            <div className="flex-shrink-0">
+              <StyledDateFilter
+                label="From Date"
+                date={filters.startDate}
+                setDate={(value) => onFilterChange("startDate", value)}
               />
             </div>
+
+            {/* To Date */}
+            <div className="flex-shrink-0">
+              <StyledDateFilter
+                label="To Date"
+                date={filters.endDate}
+                setDate={(value) => onFilterChange("endDate", value)}
+              />
+            </div>
+
+            {/* Approval Status */}
+            <div className="w-48 flex-shrink-0">
+              <StyledSelect
+                label="Approval Status"
+                value={filters.approvalStatus}
+                onChange={(value) => onFilterChange("approvalStatus", value)}
+                options={APPROVAL_STATUS_OPTIONS}
+                placeholder="All Statuses"
+              />
+            </div>
+
+            {/* Search Input */}
+            <div className="flex-1 min-w-[200px]">
+              <label className="text-xs text-gray-500 font-medium mb-1.5 block">Search</label>
+              <div className="relative">
+                <Search 
+                  size={16} 
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
+                    filters.search ? "text-[#000060]" : "text-gray-400"
+                  }`} 
+                />
+                <input
+                  type="text"
+                  placeholder="Return number, supplier..."
+                  value={filters.search || ""}
+                  onChange={(e) => onFilterChange("search", e.target.value)}
+                  className={`w-full h-10 pl-10 pr-10 text-sm border rounded-lg shadow-sm
+                    focus:outline-none focus:ring-2 focus:ring-[#000060]/20 focus:border-[#000060]
+                    transition-all duration-200
+                    ${filters.search 
+                      ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium" 
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
+                />
+                {filters.search && (
+                  <button
+                    onClick={() => onFilterChange("search", "")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-indigo-200 text-indigo-500 transition-colors"
+                  >
+                    <X size={14} strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* Active Filters Summary */}
+          {hasActiveFilters && (
+            <div className="mt-4 pt-3 border-t border-slate-100">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-slate-500 font-medium">Active Filters:</span>
+                
+                {filters.startDate && (
+                  <FilterTag
+                    label={`From: ${formatDate(filters.startDate)}`}
+                    onRemove={() => onFilterChange("startDate", "")}
+                  />
+                )}
+                
+                {filters.endDate && (
+                  <FilterTag
+                    label={`To: ${formatDate(filters.endDate)}`}
+                    onRemove={() => onFilterChange("endDate", "")}
+                  />
+                )}
+                
+                {filters.approvalStatus && (
+                  <FilterTag
+                    label={APPROVAL_STATUS_OPTIONS.find(o => o.value === filters.approvalStatus)?.label || filters.approvalStatus}
+                    onRemove={() => onFilterChange("approvalStatus", "")}
+                  />
+                )}
+                
+                {filters.search && (
+                  <FilterTag
+                    label={`"${filters.search}"`}
+                    onRemove={() => onFilterChange("search", "")}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+};
+
+// Filter Tag Component
+const FilterTag = ({ label, onRemove }) => (
+  <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#000060]/10 text-[#000060] rounded-lg text-xs font-medium">
+    {label}
+    <button
+      onClick={onRemove}
+      className="p-0.5 hover:bg-[#000060]/20 rounded-full transition-colors"
+    >
+      <X size={10} strokeWidth={2.5} />
+    </button>
+  </span>
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// STATS CARDS COMPONENT
+// ════════════════════════════════════════════════════════════════════════════
+
+const StatsCards = ({ stats }) => {
+  const cards = [
+    { label: "Total Returns", value: stats.total, icon: Package, color: "slate", bgColor: "bg-white" },
+    { label: "Pending", value: stats.pending, icon: Clock, color: "amber", bgColor: "bg-amber-50" },
+    { label: "Approved", value: stats.approved, icon: CheckCircle2, color: "green", bgColor: "bg-green-50" },
+    { label: "Rejected", value: stats.rejected, icon: XCircle, color: "red", bgColor: "bg-red-50" },
+    { label: "Cancelled", value: stats.cancelled, icon: Ban, color: "gray", bgColor: "bg-gray-50" },
+  ];
+
+  const colorMap = {
+    slate: { text: "text-[#000060]", icon: "text-[#000060]", border: "border-slate-200" },
+    amber: { text: "text-amber-700", icon: "text-amber-600", border: "border-amber-200" },
+    green: { text: "text-green-700", icon: "text-green-600", border: "border-green-200" },
+    red: { text: "text-red-700", icon: "text-red-600", border: "border-red-200" },
+    gray: { text: "text-gray-700", icon: "text-gray-600", border: "border-gray-200" },
+  };
+
+  return (
+    <div className="grid grid-cols-5 gap-3 mb-4">
+      {cards.map((card) => {
+        const Icon = card.icon;
+        const colors = colorMap[card.color];
+        return (
+          <div
+            key={card.label}
+            className={`${card.bgColor} rounded-xl border ${colors.border} p-3 shadow-sm hover:shadow-md transition-shadow`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <p className={`text-xs font-medium ${colors.text}`}>{card.label}</p>
+              <Icon size={16} className={colors.icon} />
+            </div>
+            <p className={`text-xl font-bold ${colors.text}`}>{card.value}</p>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -255,17 +393,14 @@ const PurchaseReturnsPage = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // Filters & Pagination
+  // Filters
   const [filters, setFilters] = useState({
     startDate: "",
     endDate: "",
     approvalStatus: "",
     search: "",
-  });
-  const [pagination, setPagination] = useState({
-    limit: 20,
-    offset: 0,
   });
 
   // Modals
@@ -303,16 +438,27 @@ const PurchaseReturnsPage = () => {
     return result;
   }, [returns, filters.search]);
 
-  // Load Returns
+  // Stats
+  const stats = useMemo(() => {
+    return {
+      total: total,
+      pending: returns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length,
+      approved: returns.filter((r) => r.return_approval_status === "APPROVED").length,
+      rejected: returns.filter((r) => r.return_approval_status === "REJECTED").length,
+      cancelled: returns.filter((r) => r.return_approval_status === "CANCELLED").length,
+    };
+  }, [returns, total]);
+
+  // ══════════════════════════════════════════════════════════════════════
+  // LOAD RETURNS
+  // ══════════════════════════════════════════════════════════════════════
+
   const loadReturns = async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
       else setRefreshing(true);
 
-      const params = {
-        ...filters,
-        ...pagination,
-      };
+      const params = { ...filters };
 
       // Remove empty filters
       Object.keys(params).forEach((key) => {
@@ -336,12 +482,14 @@ const PurchaseReturnsPage = () => {
   // Effects
   useEffect(() => {
     loadReturns();
-  }, [filters.startDate, filters.endDate, filters.approvalStatus, pagination.limit, pagination.offset]);
+  }, [filters.startDate, filters.endDate, filters.approvalStatus]);
 
-  // Handlers
+  // ══════════════════════════════════════════════════════════════════════
+  // FILTER HANDLERS
+  // ══════════════════════════════════════════════════════════════════════
+
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
-    setPagination((prev) => ({ ...prev, offset: 0 })); // Reset to first page
   };
 
   const handleResetFilters = () => {
@@ -351,28 +499,33 @@ const PurchaseReturnsPage = () => {
       approvalStatus: "",
       search: "",
     });
-    setPagination({ limit: 20, offset: 0 });
   };
 
   const handleRefresh = () => {
     loadReturns(false);
   };
 
- const handleViewReturn = async (returnInvoice) => {
-  try {
-    // If lineItems is missing or it's just a summary, fetch full details
-    if (!returnInvoice.lineItems || returnInvoice._count) {
-      console.log("📦 Fetching full return details for:", returnInvoice.invoice_id);
+  // ══════════════════════════════════════════════════════════════════════
+  // VIEW RETURN
+  // ══════════════════════════════════════════════════════════════════════
+
+  const handleViewReturn = async (returnInvoice) => {
+    try {
       const response = await purchaseAPI.getReturnById(returnInvoice.invoice_id);
       setViewReturnModal({ open: true, returnInvoice: response.data });
-    } else {
-      setViewReturnModal({ open: true, returnInvoice });
+    } catch (error) {
+      console.error("Failed to get return details:", error);
+      toast.error("Failed to load return details", error.response?.data?.message || error.message);
     }
-  } catch (error) {
-    console.error("Failed to get return details:", error);
-    toast.error("Failed to load return details");
-  }
-};
+  };
+
+  const closeViewModal = () => {
+    setViewReturnModal({ open: false, returnInvoice: null });
+  };
+
+  // ══════════════════════════════════════════════════════════════════════
+  // APPROVE RETURN
+  // ══════════════════════════════════════════════════════════════════════
 
   const handleApproveReturn = (returnInvoice) => {
     setConfirmDialog({
@@ -406,18 +559,23 @@ const PurchaseReturnsPage = () => {
 
   const performApproval = async (returnId) => {
     try {
-      await purchaseAPI.approveReturn(returnId, {
-        action: "APPROVE",
-      });
+      setActionLoading(true);
+      await purchaseAPI.approveReturn(returnId, { action: "APPROVE" });
 
       toast.success("Return Approved", "Stock deducted and payment adjustment processed.");
-      setViewReturnModal({ open: false, returnInvoice: null });
+      closeViewModal();
       loadReturns(false);
     } catch (error) {
       console.error("Approve return error:", error);
       toast.error("Approval Failed", error.response?.data?.message || error.message);
+    } finally {
+      setActionLoading(false);
     }
   };
+
+  // ══════════════════════════════════════════════════════════════════════
+  // REJECT RETURN
+  // ══════════════════════════════════════════════════════════════════════
 
   const handleRejectReturn = (returnInvoice) => {
     setConfirmDialog({
@@ -439,7 +597,7 @@ const PurchaseReturnsPage = () => {
               id="rejection-reason"
               placeholder="Enter reason for rejection..."
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
             />
           </div>
           <p className="text-sm text-red-600 font-medium">⚠️ This action cannot be undone.</p>
@@ -460,226 +618,123 @@ const PurchaseReturnsPage = () => {
 
   const performRejection = async (returnId, reason) => {
     try {
+      setActionLoading(true);
       await purchaseAPI.rejectReturn(returnId, reason);
 
-      toast.success("Return Rejected", "Return has been rejected and marked as cancelled.");
-      setViewReturnModal({ open: false, returnInvoice: null });
+      toast.success("Return Rejected", "Return has been rejected.");
+      closeViewModal();
       loadReturns(false);
     } catch (error) {
       console.error("Reject return error:", error);
       toast.error("Rejection Failed", error.response?.data?.message || error.message);
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handlePageChange = (newPage) => {
-    setPagination((prev) => ({
-      ...prev,
-      offset: (newPage - 1) * prev.limit,
-    }));
+  // ══════════════════════════════════════════════════════════════════════
+  // CANCEL APPROVED RETURN
+  // ══════════════════════════════════════════════════════════════════════
+
+  const handleCancelReturn = async (returnInvoice, data) => {
+    try {
+      setActionLoading(true);
+      await purchaseAPI.cancelApprovedReturn(returnInvoice.invoice_id, data);
+
+      toast.success("Return Cancelled", "Stock has been restored and credit notes have been cancelled.");
+      closeViewModal();
+      loadReturns(false);
+    } catch (error) {
+      console.error("Cancel return error:", error);
+      toast.error("Cancellation Failed", error.response?.data?.message || error.message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const currentPage = Math.floor(pagination.offset / pagination.limit) + 1;
-  const totalPages = Math.ceil(total / pagination.limit);
+  // ══════════════════════════════════════════════════════════════════════
+  // REVERT TO PENDING
+  // ══════════════════════════════════════════════════════════════════════
+
+  const handleRevertReturn = async (returnInvoice, reason) => {
+    try {
+      setActionLoading(true);
+      await purchaseAPI.revertReturnToPending(returnInvoice.invoice_id, { revert_reason: reason });
+
+      toast.success("Return Reverted", "Return has been reverted to pending approval.");
+      closeViewModal();
+      loadReturns(false);
+    } catch (error) {
+      console.error("Revert return error:", error);
+      toast.error("Revert Failed", error.response?.data?.message || error.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ══════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ══════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
+    <div className="h-full flex flex-col p-4 max-w-[1800px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="shrink-0 flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-3xl font-bold text-[#000060] mb-2">Purchase Returns</h1>
-          <p className="text-gray-600">Manage product returns and approval workflow</p>
+          <h1 className="text-2xl font-bold text-[#000060]">Purchase Returns</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Manage product returns and approval workflow</p>
         </div>
 
         <button
           onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#000060] text-white hover:bg-[#000060]/90 transition-colors disabled:opacity-50"
+          disabled={refreshing || actionLoading}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#000060] text-white text-sm font-medium hover:bg-[#000060]/90 transition-colors disabled:opacity-50 shadow-lg shadow-[#000060]/20"
         >
-          <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+          <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600">Total Returns</p>
-            <Package size={20} className="text-[#000060]" />
-          </div>
-          <p className="text-2xl font-bold text-[#000060]">{total}</p>
-        </div>
-
-        <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-amber-700">Pending</p>
-            <Clock size={20} className="text-amber-600" />
-          </div>
-          <p className="text-2xl font-bold text-amber-700">{pendingReturns.length}</p>
-        </div>
-
-        <div className="bg-green-50 rounded-lg border border-green-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-green-700">Approved</p>
-            <CheckCircle2 size={20} className="text-green-600" />
-          </div>
-          <p className="text-2xl font-bold text-green-700">
-            {returns.filter((r) => r.return_approval_status === "APPROVED").length}
-          </p>
-        </div>
-
-        <div className="bg-red-50 rounded-lg border border-red-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-red-700">Rejected</p>
-            <XCircle size={20} className="text-red-600" />
-          </div>
-          <p className="text-2xl font-bold text-red-700">
-            {returns.filter((r) => r.return_approval_status === "REJECTED").length}
-          </p>
-        </div>
+      <div className="shrink-0">
+        <StatsCards stats={stats} />
       </div>
 
       {/* Approval Queue (Super Admin Only) */}
-      {isSuperAdmin && (
-        <ApprovalQueueCard pendingReturns={pendingReturns} onViewReturn={handleViewReturn} />
+      {isSuperAdmin && pendingReturns.length > 0 && (
+        <div className="shrink-0">
+          <ApprovalQueueCard pendingReturns={pendingReturns} onViewReturn={handleViewReturn} />
+        </div>
       )}
 
       {/* Filters */}
-      <ReturnsFilters
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        onReset={handleResetFilters}
-      />
+      <div className="shrink-0 mb-4">
+        <ReturnsFilters
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onReset={handleResetFilters}
+        />
+      </div>
 
-      {/* Returns Table */}
-      <div className="bg-white rounded-lg border border-gray-200 mt-6 overflow-hidden">
-        {loading ? (
-          <TableSkeleton rows={10} columns={8} />
-        ) : filteredReturns.length === 0 ? (
-          <TableEmptyState
-            icon={Package}
-            title="No Returns Found"
-            description={
-              filters.startDate || filters.endDate || filters.approvalStatus || filters.search
-                ? "Try adjusting your filters"
-                : "No purchase returns have been created yet"
-            }
-          />
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    <th className="px-4 py-3 text-left">Return #</th>
-                    <th className="px-4 py-3 text-left">Original Invoice</th>
-                    <th className="px-4 py-3 text-left">Supplier</th>
-                    <th className="px-4 py-3 text-center">Items</th>
-                    <th className="px-4 py-3 text-left">Reason</th>
-                    <th className="px-4 py-3 text-left">Adjustment</th>
-                    <th className="px-4 py-3 text-right">Amount</th>
-                    <th className="px-4 py-3 text-center">Status</th>
-                    <th className="px-4 py-3 text-center">Date</th>
-                    <th className="px-4 py-3 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredReturns.map((returnInvoice) => {
-                    const adjustmentConfig = ADJUSTMENT_TYPE_CONFIG[returnInvoice.adjustment_type];
-
-                    return (
-                      <tr
-                        key={returnInvoice.invoice_id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <p className="font-mono font-bold text-[#000060]">
-                            {returnInvoice.invoice_number}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="font-mono text-sm text-gray-700">
-                            {returnInvoice.parentInvoice?.invoice_number || "N/A"}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-gray-900">
-                            {returnInvoice.supplier?.name}
-                          </p>
-                          {returnInvoice.supplier?.supplier_code && (
-                            <p className="text-xs text-gray-500 font-mono">
-                              {returnInvoice.supplier.supplier_code}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="font-semibold text-gray-900">
-                            {returnInvoice._count?.lineItems || 0}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                            {RETURN_REASON_LABELS[returnInvoice.return_reason] ||
-                              returnInvoice.return_reason}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {adjustmentConfig && (
-                            <span
-                              className={`text-xs px-2 py-1 bg-${adjustmentConfig.color}-100 text-${adjustmentConfig.color}-700 rounded`}
-                            >
-                              {adjustmentConfig.icon} {adjustmentConfig.label}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <p className="font-bold text-[#000060]">
-                            {formatCurrency(returnInvoice.net_amount)}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <ReturnStatusBadge status={returnInvoice.return_approval_status} size="sm" />
-                        </td>
-                        <td className="px-4 py-3 text-center text-sm text-gray-600">
-                          {formatDate(returnInvoice.created_at)}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => handleViewReturn(returnInvoice)}
-                            className="p-2 rounded-lg bg-[#000060]/10 text-[#000060] hover:bg-[#000060]/20 transition-colors"
-                            title="View Details"
-                          >
-                            <Eye size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-6 py-4 border-t border-gray-200">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                />
-              </div>
-            )}
-          </>
-        )}
+      {/* Table - Takes remaining space */}
+      <div className="flex-1 min-h-0">
+        <ReturnsTable
+          data={filteredReturns}
+          loading={loading}
+          actionLoading={actionLoading}
+          onViewReturn={handleViewReturn}
+        />
       </div>
 
       {/* View Return Modal */}
       <ViewReturnModal
         open={viewReturnModal.open}
-        onClose={() => setViewReturnModal({ open: false, returnInvoice: null })}
+        onClose={closeViewModal}
         returnInvoice={viewReturnModal.returnInvoice}
         onApprove={handleApproveReturn}
         onReject={handleRejectReturn}
+        onCancel={handleCancelReturn}
+        onRevert={handleRevertReturn}
         isSuperAdmin={isSuperAdmin}
       />
 
@@ -694,6 +749,16 @@ const PurchaseReturnsPage = () => {
         cancelText="Cancel"
         type={confirmDialog.type}
       />
+
+      {/* Loading Overlay */}
+      {actionLoading && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-xl p-6 shadow-2xl flex items-center gap-4">
+            <div className="w-8 h-8 border-4 border-[#000060]/30 border-t-[#000060] rounded-full animate-spin" />
+            <p className="text-lg font-medium text-gray-700">Processing...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

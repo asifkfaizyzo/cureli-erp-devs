@@ -247,6 +247,7 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
 
   const invoiceBranchId = invoice.branch_id;
 
+  // ✅ OPTION 3: Single transaction for confirm + stock update
   const result = await prisma.$transaction(async (tx) => {
     const updatedInvoice = await tx.purchaseInvoice.update({
       where: { invoice_id: invoiceId },
@@ -269,6 +270,7 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
 
       const totalQuantity = Number(item.quantity) + Number(item.free_quantity || 0);
 
+      // ✅ PASS TRANSACTION TO updateStock
       await inventoryService.updateStock(
         {
           inventoryId: inventory.inventory_id,
@@ -286,7 +288,8 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
           transactionDate: invoice.invoice_date,
           remarks: `Purchase from ${invoice.supplier_invoice_no || invoice.invoice_number}`,
         },
-        userId
+        userId,
+        tx  // ✅ CRITICAL: Pass transaction
       );
 
       await tx.inventory.update({
@@ -331,6 +334,7 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
 
   return result;
 }
+
 
 // ============================================
 // GET PURCHASE INVOICES

@@ -13,6 +13,9 @@ import {
   RefreshCw,
   Plus,
   Loader2,
+  FileText,
+  ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import { FinanceRow } from "./ViewModeContent";
 
@@ -226,6 +229,7 @@ const EditModeContent = ({
   tableBodyRef,
   onCreateReturn,
   showCreateReturnButton,
+  onViewReturn,  // ✅ NEW PROP
 }) => {
   const filledRows = editRows.filter(r => r.name).length;
 
@@ -260,6 +264,62 @@ const EditModeContent = ({
             <IndianRupee size={14} />
             <span>Live Summary</span>
           </div>
+
+          {/* ✅ NEW: Linked Returns Warning Banner */}
+          {invoice.returnInvoices && invoice.returnInvoices.length > 0 && (
+            <div className="mb-4 p-4 rounded-xl bg-red-50 border-2 border-red-300 animate-pulse">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={18} className="text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-red-900 text-sm mb-1">
+                    ⚠️ Returns Linked ({invoice.returnInvoices.length})
+                  </p>
+                  <p className="text-xs text-red-700 leading-relaxed mb-3">
+                    This invoice has {invoice.returnInvoices.length} approved return(s). 
+                    You cannot save edits until returns are cancelled.
+                  </p>
+                  
+                  {/* Return List */}
+                  <div className="space-y-2 mb-3">
+                    {invoice.returnInvoices.map((ret) => (
+                      <div
+                        key={ret.invoice_id}
+                        className="flex items-center justify-between p-2 bg-white rounded border border-red-200"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Package size={14} className="text-red-500" />
+                          <span className="font-mono text-xs font-semibold text-gray-900">
+                            {ret.invoice_number}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            ({ret.return_reason?.replace(/_/g, ' ')})
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => onViewReturn?.(ret)}
+                          className="flex items-center gap-1 px-2 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700 text-xs font-medium transition-colors"
+                          title="View Return Details"
+                        >
+                          <ExternalLink size={12} />
+                          View
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Action Guidance */}
+                  <div className="flex items-center gap-2 p-2 bg-amber-50 rounded border border-amber-200">
+                    <AlertCircle size={12} className="text-amber-600 shrink-0" />
+                    <p className="text-xs text-amber-800">
+                      <strong>To edit:</strong> Cancel returns first or create a new invoice
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="text-center p-3 rounded-xl bg-amber-50 border border-amber-200">
@@ -366,28 +426,28 @@ const EditModeContent = ({
             </table>
           )}
         </div>
-      </div>
- {/* ✅ ADD THIS ENTIRE SECTION - Footer Actions */}
-      <div className="shrink-0 px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {/* Create Return Button - Only for CONFIRMED invoices */}
-          {showCreateReturnButton && onCreateReturn && (
-            <button
-              onClick={onCreateReturn}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg font-medium"
-            >
-              <Package size={18} />
-              <span className="text-sm">Create Return</span>
-            </button>
-          )}
-        </div>
 
-        {/* Placeholder for future actions (e.g., save reminders) */}
-        <div className="flex items-center gap-3">
-          {/* Reserved for additional edit mode actions */}
+        {/* Footer Actions */}
+        <div className="shrink-0 px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Create Return Button - Only for CONFIRMED invoices without existing returns */}
+            {showCreateReturnButton && onCreateReturn && !(invoice.returnInvoices?.length > 0) && (
+              <button
+                onClick={onCreateReturn}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg font-medium"
+              >
+                <Package size={18} />
+                <span className="text-sm">Create Return</span>
+              </button>
+            )}
+          </div>
+
+          {/* Placeholder for future actions */}
+          <div className="flex items-center gap-3">
+            {/* Reserved for additional edit mode actions */}
+          </div>
         </div>
       </div>
-
     </div>
   );
 };

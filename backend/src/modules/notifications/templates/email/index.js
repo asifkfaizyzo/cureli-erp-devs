@@ -27,6 +27,7 @@ import { emailChangedTemplate } from "./emailChanged.js";
 import { passwordChangedTemplate } from "./passwordChanged.js";
 import { phoneChangedTemplate } from "./phoneChanged.js";
 import { NOTIFICATION_EVENTS } from "../../notification.events.js";
+export { returnApprovalToSupplier } from "./returnApprovalToSupplier.js";
 
 export const EMAIL_TEMPLATES = {
   // Account Security

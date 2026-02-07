@@ -33,6 +33,9 @@ import {
   AlertCircle,
   IndianRupee,
   Info,
+  FileText,
+  Package,
+  Plus,
 } from "lucide-react";
 
 import { useToast } from "../../../../components/common/Toast";
@@ -43,6 +46,7 @@ import medicinesAPI from "../../../../api/medicines";
 import CreateReturnModal from "../../returns/components/CreateReturnModal";
 import ViewModeContent from "./ViewModeContent";
 import EditModeContent from "./EditModeContent";
+import ViewReturnModal from "../../returns/components/ViewReturnModal";
 import { 
   calculateEditRow, 
   makeEmptyRow, 
@@ -522,6 +526,15 @@ const ViewInvoiceModal = ({
   const [isChangingPaymentStatus, setIsChangingPaymentStatus] = useState(false);
   const [createReturnModal, setCreateReturnModal] = useState(false);
   
+  // ✅ NEW: Return viewing state
+  const [selectedReturn, setSelectedReturn] = useState(null);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  
+  // ✅ NEW: Linked returns state
+  const [linkedReturns, setLinkedReturns] = useState([]);
+  const [loadingReturns, setLoadingReturns] = useState(false);
+  
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     type: 'warning',
@@ -567,6 +580,66 @@ const ViewInvoiceModal = ({
       }
     }
   }, [open, invoice?.invoice_id, initialMode]);
+
+  // ✅ NEW: Fetch linked returns
+// Around line 920 in ViewInvoiceModal.jsx
+useEffect(() => {
+  const fetchLinkedReturns = async () => {
+    if (!invoice || !invoice.invoice_id) {
+      setLinkedReturns([]);
+      return;
+    }
+
+    // Don't fetch returns if this invoice itself is a return
+    if (invoice.is_return) {
+      setLinkedReturns([]);
+      return;
+    }
+
+    try {
+      setLoadingReturns(true);
+      console.log(`Fetching returns for invoice ${invoice.invoice_number} (ID: ${invoice.invoice_id})...`);
+      
+      // ✅ This should filter returns by parent_invoice_id
+      const response = await purchaseAPI.getAllReturns({
+        parent_invoice_id: invoice.invoice_id,  // ✅ This is the key filter
+        limit: 100,
+      });
+      
+      console.log("Returns API response:", response);
+      
+      if (response.success && response.data?.returns) {
+        // Additional filter to ensure only returns for THIS invoice
+        const filteredReturns = response.data.returns.filter(ret => 
+          ret.parent_invoice_id === invoice.invoice_id
+        );
+        
+        // Filter only approved returns
+        const approvedReturns = filteredReturns.filter(
+          ret => ret.status === 'CONFIRMED' || ret.return_approval_status === 'APPROVED'
+        );
+        
+        setLinkedReturns(approvedReturns);
+        
+        console.log(`Found ${approvedReturns.length} approved returns for invoice ${invoice.invoice_number}`);
+        console.log("Filtered returns:", approvedReturns);
+      } else {
+        setLinkedReturns([]);
+      }
+    } catch (error) {
+      console.error('Error fetching linked returns:', error);
+      setLinkedReturns([]);
+    } finally {
+      setLoadingReturns(false);
+    }
+  };
+
+  if (open && invoice) {
+    fetchLinkedReturns();
+  } else {
+    setLinkedReturns([]);
+  }
+}, [open, invoice?.invoice_id, invoice?.invoice_number]); // Added invoice_number to deps
 
   useEffect(() => {
     const handleEscape = (e) => {
@@ -1033,6 +1106,208 @@ const ViewInvoiceModal = ({
   }, [invoice, toast, onRefresh, onClose]);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // ✅ NEW: RETURN VIEW HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const handleViewReturn = useCallback(async (returnInvoice) => {
+    try {
+      // If the return invoice doesn't have full details, fetch them
+      if (!returnInvoice.lineItems) {
+        setIsLoadingDetails(true);
+        const response = await purchaseAPI.getReturnById(returnInvoice.invoice_id);
+        if (response.success && response.data) {
+          setSelectedReturn(response.data);
+        } else {
+          setSelectedReturn(returnInvoice);
+        }
+      } else {
+        setSelectedReturn(returnInvoice);
+      }
+      setShowReturnModal(true);
+    } catch (error) {
+      console.error("Failed to fetch return details:", error);
+      toast.error("Failed to load return details");
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  }, [toast]);
+
+  const handleCloseReturnModal = useCallback(() => {
+    setShowReturnModal(false);
+    setSelectedReturn(null);
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ✅ UPDATED: APPROVED RETURNS ERROR HANDLER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const handleApprovedReturnsError = useCallback((errorData) => {
+    const errorMessage = errorData.message || "";
+    
+    // Use fetched returns if available, otherwise parse from error
+    let returnNumbers = [];
+    let returnReasons = [];
+
+    if (linkedReturns.length > 0) {
+      returnNumbers = linkedReturns.map(ret => ret.invoice_number);
+      returnReasons = linkedReturns.map(ret => ret.return_reason || 'APPROVED');
+    } else {
+      // Fallback: Parse from error message
+      const returnNumberMatch = errorMessage.match(/return\(s\):\s*([A-Z0-9-,\s]+)\./);
+      returnNumbers = returnNumberMatch 
+        ? returnNumberMatch[1].split(',').map(s => s.trim())
+        : [];
+      
+      const reasonMatch = errorMessage.match(/Reason\(s\):\s*([A-Z_,\s]+)\./);
+      returnReasons = reasonMatch
+        ? reasonMatch[1].split(',').map(s => s.trim().replace(/_/g, ' '))
+        : [];
+    }
+
+    setConfirmDialog({
+      isOpen: true,
+      type: 'danger',
+      title: 'Cannot Edit Invoice with Approved Returns',
+      message: (
+        <div className="space-y-4">
+          {/* Main Alert */}
+          <div className="flex items-start gap-3 p-4 bg-red-50 rounded-lg border-2 border-red-200">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+              <XCircle size={24} className="text-red-600" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-red-900 text-base">Editing Blocked</h4>
+              <p className="text-sm text-red-700 mt-1">
+                This invoice cannot be edited because it has approved return(s) linked to it.
+              </p>
+            </div>
+          </div>
+
+          {/* Invoice Details */}
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText size={16} className="text-gray-600" />
+              <span className="font-semibold text-gray-900">Invoice Details</span>
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Invoice Number:</span>
+                <span className="font-mono font-semibold text-gray-900">{invoice.invoice_number}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Supplier:</span>
+                <span className="font-medium text-gray-900">{invoice.supplier?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total Amount:</span>
+                <span className="font-bold text-gray-900">{formatCurrency(invoice.net_amount)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Linked Returns */}
+          {returnNumbers.length > 0 && (
+            <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Package size={16} className="text-amber-600" />
+                <span className="font-semibold text-amber-900">Linked Returns ({returnNumbers.length})</span>
+              </div>
+              <div className="space-y-2">
+                {returnNumbers.map((returnNumber, index) => (
+                  <div key={returnNumber} className="flex items-center justify-between p-2 bg-white rounded border border-amber-200">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center">
+                        {index + 1}
+                      </span>
+                      <span className="font-mono text-sm font-semibold text-gray-900">{returnNumber}</span>
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 font-medium">
+                      {returnReasons[index] || 'APPROVED'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Why This Happens */}
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <div className="flex items-start gap-2">
+              <Info size={16} className="text-blue-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-blue-800">
+                <p className="font-semibold mb-1">Why can't I edit this invoice?</p>
+                <p className="opacity-90">
+                  Approved returns have already deducted stock from inventory. 
+                  Editing the original invoice would create stock inconsistencies and accounting errors.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Solution Steps */}
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <div className="flex items-start gap-2 mb-2">
+              <CheckCircle2 size={16} className="text-green-600 shrink-0 mt-0.5" />
+              <h5 className="font-semibold text-green-900">Solutions:</h5>
+            </div>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-green-800 ml-4">
+              <li>
+                <strong>Cancel the return(s) first</strong>
+                <p className="text-xs opacity-90 ml-5 mt-1">
+                  Go to Purchase Returns → Find {returnNumbers.join(', ')} → Cancel Return → Then edit this invoice
+                </p>
+              </li>
+              <li>
+                <strong>Create a new purchase invoice</strong>
+                <p className="text-xs opacity-90 ml-5 mt-1">
+                  Instead of editing, create a fresh invoice with the correct quantities
+                </p>
+              </li>
+              <li>
+                <strong>Contact support</strong>
+                <p className="text-xs opacity-90 ml-5 mt-1">
+                  If you need assistance with complex adjustments
+                </p>
+              </li>
+            </ol>
+          </div>
+
+          {/* Action Buttons Row */}
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={() => {
+                setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                // Navigate to returns page
+                window.location.href = '/purchase-returns';
+              }}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all shadow-lg"
+            >
+              <Package size={18} />
+              View Returns
+            </button>
+            <button
+              onClick={() => {
+                setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                // Navigate to create new purchase
+                window.location.href = '/purchase-billing';
+              }}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold transition-all shadow-lg"
+            >
+              <Plus size={18} />
+              New Invoice
+            </button>
+          </div>
+        </div>
+      ),
+      confirmText: 'Close',
+      cancelText: '', // Hide cancel button
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      },
+    });
+  }, [invoice, formatCurrency, setConfirmDialog, linkedReturns]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // EDIT MODE HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1257,13 +1532,20 @@ const ViewInvoiceModal = ({
 
     } catch (error) {
       console.error("Save error:", error);
+      
+      // ✅ Check for approved returns error
+      if (error.response?.data?.code === 'APPROVED_RETURNS_EXIST') {
+        handleApprovedReturnsError(error.response.data);
+        return;
+      }
+      
       let errorMessage = "Failed to update invoice";
       if (error.response?.data?.message) errorMessage = error.response.data.message;
       toast.error("Update Failed", errorMessage);
     } finally {
       setIsSaving(false);
     }
-  }, [invoice, toast, onRefresh, onClose]);
+  }, [invoice, toast, onRefresh, onClose, handleApprovedReturnsError]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // COMPUTED VALUES
@@ -1317,6 +1599,9 @@ const ViewInvoiceModal = ({
   // Status/Payment dropdowns only available in EDIT mode
   const canChangeStatus = isSuperAdmin && !isCancelled && mode === 'edit';
   const canChangePaymentStatus = isSuperAdmin && !isCancelled && mode === 'edit';
+
+  // ✅ Use linkedReturns for UI decisions
+  const showCreateReturnButton = isConfirmed && linkedReturns.length === 0;
 
   const currentStatus = STATUS_CONFIG[invoice.status] || STATUS_CONFIG.DRAFT;
   
@@ -1427,7 +1712,7 @@ const ViewInvoiceModal = ({
                       {canChangeStatus && <ChevronDown size={12} className={`transition-transform duration-200 ${showStatusMenu ? 'rotate-180' : ''}`} />}
                     </button>
 
-                    <StatusDropdownPortal
+                                        <StatusDropdownPortal
                       isOpen={showStatusMenu}
                       anchorRef={statusButtonRef}
                       options={getStatusMenuOptions()}
@@ -1474,6 +1759,22 @@ const ViewInvoiceModal = ({
                       currentStatus={invoice.payment_status}
                       invoice={invoice}
                     />
+
+                    {/* ✅ NEW: Loading Returns Badge */}
+                    {loadingReturns && (
+                      <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                        <Loader2 size={10} className="animate-spin" />
+                        Loading returns...
+                      </span>
+                    )}
+
+                    {/* ✅ NEW: Linked Returns Badge */}
+                    {!loadingReturns && linkedReturns.length > 0 && (
+                      <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200 animate-pulse">
+                        <Package size={10} />
+                        {linkedReturns.length} Return{linkedReturns.length > 1 ? 's' : ''} Linked
+                      </span>
+                    )}
 
                     {mode === 'edit' && (
                       <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-300 animate-pulse">
@@ -1570,7 +1871,10 @@ const ViewInvoiceModal = ({
             {/* ════════════════════════════════════════════════════════════════ */}
             {mode === 'view' ? (
               <ViewModeContent
-                invoice={invoice}
+                invoice={{
+                  ...invoice,
+                  returnInvoices: linkedReturns, // ✅ Pass fetched returns
+                }}
                 formatCurrency={formatCurrency}
                 formatDate={formatDate}
                 totalQty={totalQty}
@@ -1579,10 +1883,16 @@ const ViewInvoiceModal = ({
                 canEdit={canEdit}
                 isConfirmed={isConfirmed}
                 onEnterEditMode={handleEnterEditMode}
+                onCreateReturn={() => setCreateReturnModal(true)}
+                showCreateReturnButton={showCreateReturnButton}
+                onViewReturn={handleViewReturn}
               />
             ) : (
               <EditModeContent
-                invoice={invoice}
+                invoice={{
+                  ...invoice,
+                  returnInvoices: linkedReturns, // ✅ Pass fetched returns
+                }}
                 editRows={editRows}
                 editSummary={editSummary}
                 medicines={medicines}
@@ -1595,21 +1905,41 @@ const ViewInvoiceModal = ({
                 onRemoveRow={handleRemoveRow}
                 tableBodyRef={tableBodyRef}
                 onCreateReturn={() => setCreateReturnModal(true)}
-                showCreateReturnButton={isConfirmed}
+                showCreateReturnButton={showCreateReturnButton}
+                onViewReturn={handleViewReturn}
               />
             )}
           </motion.div>
 
-          <ConfirmDialog
-            isOpen={confirmDialog.isOpen}
-            onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
-            onConfirm={confirmDialog.onConfirm}
-            title={confirmDialog.title}
-            message={confirmDialog.message}
-            confirmText={confirmDialog.confirmText}
-            cancelText="Cancel"
-            type={confirmDialog.type}
-          />
+          {/* ✅ NEW: View Return Modal */}
+          {showReturnModal && selectedReturn && (
+            <ViewReturnModal
+              open={showReturnModal}
+              onClose={handleCloseReturnModal}
+              returnInvoice={selectedReturn}
+              onApprove={() => {
+                handleCloseReturnModal();
+                onRefresh?.();
+                toast.success("Return Approved", "Stock has been deducted and credit note generated.");
+              }}
+              onReject={() => {
+                handleCloseReturnModal();
+                onRefresh?.();
+                toast.info("Return Rejected", "The return has been rejected.");
+              }}
+              isSuperAdmin={isSuperAdmin}
+            />
+          )}
+
+          {/* Loading overlay for return details */}
+          {isLoadingDetails && (
+            <div className="fixed inset-0 bg-white/70 z-[60] flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 size={32} className="text-[#000060] animate-spin" />
+                <span className="text-sm text-gray-600">Loading return details...</span>
+              </div>
+            </div>
+          )}
 
           <CreateReturnModal
             open={createReturnModal}
@@ -1629,7 +1959,7 @@ const ViewInvoiceModal = ({
             title={confirmDialog.title}
             message={confirmDialog.message}
             confirmText={confirmDialog.confirmText}
-            cancelText="Cancel"
+            cancelText={confirmDialog.cancelText || "Cancel"}
             type={confirmDialog.type}
           />
         </div>

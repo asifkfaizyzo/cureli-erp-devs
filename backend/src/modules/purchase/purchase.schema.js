@@ -117,3 +117,16 @@ export const applyCreditNoteSchema = z.object({
   applied_amount: z.number().positive(),
   notes: z.string().max(500).optional(),
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// ✅ NEW SCHEMAS FOR CANCEL & REVERT
+// ════════════════════════════════════════════════════════════════════════════
+
+export const cancelApprovedReturnSchema = z.object({
+  cancellation_reason: z.string().min(10, "Reason must be at least 10 characters").max(500),
+  refund_action: z.enum(['REVERSE_REFUND', 'ADJUST_NEXT_BILL']).optional().nullable(),
+});
+
+export const revertReturnToPendingSchema = z.object({
+  revert_reason: z.string().min(10, "Reason must be at least 10 characters").max(500),
+});

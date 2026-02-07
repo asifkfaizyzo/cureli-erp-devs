@@ -574,3 +574,101 @@ export async function applyCreditNoteController(req, res) {
     return fail(res, error.message || "Failed to apply credit note", statusCode);
   }
 }
+
+/**
+ * Cancel an APPROVED return
+ * - Reverses stock deduction
+ * - Marks credit note as CANCELLED
+ * - Handles refund reversal
+ * - Super Admin only
+ */
+export async function cancelApprovedReturnController(req, res) {
+  try {
+    const userId = req.user.user_id;
+    const shopId = req.user.shop_id;
+    const role = req.user.role;
+    const { returnId } = req.params;
+    const { branchId } = extractBranchContext(req);
+    const data = req.validated;
+    const auditContext = audit.extractRequestContext(req);
+
+    console.log("=== Cancel Approved Return ===");
+    console.log("Return ID:", returnId);
+    console.log("User Role:", role);
+    console.log("Cancellation Data:", data);
+
+    if (!shopId) {
+      return fail(res, "No shop associated with your account", 400);
+    }
+
+    if (role !== "super_admin") {
+      return fail(res, "Only super admin can cancel approved returns", 403);
+    }
+
+    const result = await purchaseService.cancelApprovedReturn(
+      userId,
+      shopId,
+      branchId,
+      returnId,
+      data,
+      auditContext
+    );
+
+    return success(res, result, "Return cancelled successfully. Stock has been restored.");
+  } catch (error) {
+    console.error("purchase.cancelApprovedReturn ERROR:", error);
+    const statusCode = error.code === "NOT_FOUND" ? 404 :
+                       error.code === "PERMISSION_DENIED" ? 403 :
+                       error.code === "INVALID_STATUS" ? 400 : 500;
+    return fail(res, error.message || "Failed to cancel return", statusCode);
+  }
+}
+
+/**
+ * Revert an APPROVED return to PENDING_APPROVAL
+ * - Adds stock back temporarily
+ * - Marks credit note as CANCELLED
+ * - Reverses payment adjustments
+ * - Super Admin only
+ */
+export async function revertReturnToPendingController(req, res) {
+  try {
+    const userId = req.user.user_id;
+    const shopId = req.user.shop_id;
+    const role = req.user.role;
+    const { returnId } = req.params;
+    const { branchId } = extractBranchContext(req);
+    const data = req.validated;
+    const auditContext = audit.extractRequestContext(req);
+
+    console.log("=== Revert Return to Pending ===");
+    console.log("Return ID:", returnId);
+    console.log("User Role:", role);
+    console.log("Revert Data:", data);
+
+    if (!shopId) {
+      return fail(res, "No shop associated with your account", 400);
+    }
+
+    if (role !== "super_admin") {
+      return fail(res, "Only super admin can revert returns", 403);
+    }
+
+    const result = await purchaseService.revertReturnToPending(
+      userId,
+      shopId,
+      branchId,
+      returnId,
+      data,
+      auditContext
+    );
+
+    return success(res, result, "Return reverted to pending. Stock has been restored temporarily.");
+  } catch (error) {
+    console.error("purchase.revertReturnToPending ERROR:", error);
+    const statusCode = error.code === "NOT_FOUND" ? 404 :
+                       error.code === "PERMISSION_DENIED" ? 403 :
+                       error.code === "INVALID_STATUS" ? 400 : 500;
+    return fail(res, error.message || "Failed to revert return", statusCode);
+  }
+}

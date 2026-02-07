@@ -22,4 +22,6 @@ export {
   applyCreditNote,
   expireOldCreditNotes,
   getReturnDetails,
+  cancelApprovedReturn,
+  revertReturnToPending,
 } from "./purchase1.service.js";

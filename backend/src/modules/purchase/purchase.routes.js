@@ -11,6 +11,8 @@ import {
   createReturnInvoiceSchema,
   approveReturnSchema,
   applyCreditNoteSchema,
+  cancelApprovedReturnSchema,
+  revertReturnToPendingSchema,
 } from "./purchase.schema.js";
 import {
   createPurchaseInvoiceController,
@@ -28,6 +30,8 @@ import {
   getReturnDetailsController,
   getSupplierCreditsController,
   applyCreditNoteController,
+  cancelApprovedReturnController,
+  revertReturnToPendingController,
 } from "./purchase.controller.js";
 
 const router = express.Router();
@@ -122,6 +126,23 @@ router.post(
   "/:invoiceId/payments",
   validateBody(recordPaymentSchema),
   recordPaymentController
+);
+
+
+// ✅ ADD THESE TWO ROUTES
+
+// Cancel approved return (Super Admin only)
+router.patch(
+  "/returns/:returnId/cancel",
+  validateBody(cancelApprovedReturnSchema),
+  cancelApprovedReturnController
+);
+
+// Revert approved return to pending (Super Admin only)
+router.patch(
+  "/returns/:returnId/revert",
+  validateBody(revertReturnToPendingSchema),
+  revertReturnToPendingController
 );
 
 export default router;
