@@ -42,7 +42,7 @@ import MaintenancePage from "./pages/maintenance/MaintenancePage.jsx";
 // ============================================
 import AppLayout from "./components/layout/AppLayout.jsx";
 import DashboardPage from "./pages/dashboard/DashboardPage.jsx";
-import BillingPage from "./pages/sales/billing/BillingPage.jsx";
+import BillingPage from "./pages/sales/billing/SalesBillingPage.jsx";
 import InvoicePage from "./pages/sales/invoice/InvoicePage.jsx";
 import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.jsx";
 import PurchaseReturnsPage from "./pages/purchase/returns/PurchaseReturnsPage";
