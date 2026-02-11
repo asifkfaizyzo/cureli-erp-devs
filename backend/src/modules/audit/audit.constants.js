@@ -1,3 +1,5 @@
+// backend/src/modules/audit/audit.constants.js
+
 // ============================================
 // AUDIT CONSTANTS
 // ============================================
@@ -30,11 +32,24 @@ export const EntityType = Object.freeze({
   CADMIN: 'cadmin',
   SESSION: 'session',
   SYSTEM: 'system',
-  // =========================
-  // PURCHASE ENTITIES ✅
-  // =========================
-  PURCHASE_INVOICE: "PURCHASE_INVOICE",
-  PURCHASE_PAYMENT: "PURCHASE_PAYMENT",
+  
+  // ✅ PURCHASE ENTITIES
+  PURCHASE_INVOICE: "purchase_invoice",
+  PURCHASE_PAYMENT: "purchase_payment",
+  
+  // ✅ SALES ENTITIES (ADDED)
+  SALES_INVOICE: "sales_invoice",
+  SALES_PAYMENT: "sales_payment",
+  
+  // ✅ CUSTOMER ENTITY (ADDED)
+  CUSTOMER: "customer",
+  
+  // ✅ INVENTORY ENTITIES (ADDED)
+  MEDICINE: "medicine",
+  SUPPLIER: "supplier",
+  INVENTORY: "inventory",
+  STOCK_ADJUSTMENT: "stock_adjustment",
+  STOCK_LEDGER: "stock_ledger",
 });
 
 export const VALID_ENTITY_TYPES = new Set(Object.values(EntityType));

@@ -1,3 +1,5 @@
+// backend/src/modules/audit/audit.reasons.js
+
 // ============================================
 // AUDIT REASON CODES
 // ============================================
@@ -31,6 +33,15 @@ export const AuditReasonCode = Object.freeze({
 
   /** Automated process (cron, scheduled jobs) */
   AUTOMATION: 'AUTOMATION',
+
+  /** ✅ NEW: Stock validation failure */
+  STOCK_VALIDATION: 'STOCK_VALIDATION',
+
+  /** ✅ NEW: Credit limit exceeded */
+  CREDIT_LIMIT_EXCEEDED: 'CREDIT_LIMIT_EXCEEDED',
+
+  /** ✅ NEW: Super admin override */
+  SUPER_ADMIN_OVERRIDE: 'SUPER_ADMIN_OVERRIDE',
 
   /** Reason not specified or not applicable */
   UNKNOWN: 'UNKNOWN',

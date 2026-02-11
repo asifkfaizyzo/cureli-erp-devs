@@ -67,11 +67,10 @@ const SalesBillingPage = () => {
   // ============================================
   // AUTH & BRANCH CONTEXT
   // ============================================
-   const branchContext = useAuthStore(selectBranchContext);
+  const branchContext = useAuthStore(selectBranchContext);
   const user = useAuthStore(state => state.user);
   const isSuperAdmin = user?.role === "super_admin";
   
-  // ✅ FIX: Get actual user name properly
   const billedByName = user?.full_name || user?.first_name || user?.username || "Staff";
 
   // ============================================
@@ -105,6 +104,9 @@ const SalesBillingPage = () => {
     summary: true,
   });
   const [isSaving, setIsSaving] = useState(false);
+
+  // ✅ NEW: Preview invoice number state
+  const [previewInvoiceNumber, setPreviewInvoiceNumber] = useState(null);
 
   // ============================================
   // INVOICE METADATA
@@ -159,6 +161,21 @@ const SalesBillingPage = () => {
   }, [isEditingConfirmed, isSuperAdmin, navigate, toast]);
 
   // ============================================
+  // ✅ FIX 1: GENERATE PREVIEW INVOICE NUMBER
+  // ============================================
+  useEffect(() => {
+    if (!currentInvoice && branchContext.branch_id && branchContext.branch_name) {
+      const branchCode = branchContext.branch_name
+        .substring(0, 3)
+        .toUpperCase()
+        .replace(/\s/g, '') || 'BR1';
+      
+      const timestamp = Date.now().toString().slice(-6);
+      setPreviewInvoiceNumber(`SALE-${branchCode}-DRAFT-${timestamp}`);
+    }
+  }, [currentInvoice, branchContext]);
+
+  // ============================================
   // UPDATE BRANCH_ID WHEN CONTEXT CHANGES
   // ============================================
   useEffect(() => {
@@ -192,7 +209,6 @@ const SalesBillingPage = () => {
   // ============================================
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // F5 - Confirm & Print
       if (e.key === 'F5') {
         e.preventDefault();
         if (!isSaving && currentInvoice?.status !== 'CONFIRMED') {
@@ -200,13 +216,11 @@ const SalesBillingPage = () => {
         }
       }
       
-      // Ctrl+N - New Bill
       if (e.ctrlKey && e.key === 'n') {
         e.preventDefault();
         handleNewBill();
       }
       
-      // Ctrl+S - Save Draft
       if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
         if (!isSaving && currentInvoice?.status !== 'CONFIRMED') {
@@ -214,7 +228,6 @@ const SalesBillingPage = () => {
         }
       }
       
-      // Ctrl+P - Print (only for confirmed)
       if (e.ctrlKey && e.key === 'p') {
         if (currentInvoice?.status === 'CONFIRMED') {
           e.preventDefault();
@@ -240,20 +253,16 @@ const SalesBillingPage = () => {
       });
 
       try {
-        // Header loads first (fast)
         setTimeout(() => {
           setLoadingStates(prev => ({ ...prev, header: false }));
         }, 200);
 
-        // Load medicines for product search
         await loadMedicines();
         setLoadingStates(prev => ({ ...prev, table: false, summary: false }));
 
-        // Load customers for customer search
         await loadCustomers();
         setLoadingStates(prev => ({ ...prev, customer: false }));
 
-        // If editing existing invoice
         if (invoiceId) {
           setLoadingStates(prev => ({ ...prev, table: true, customer: true, summary: true }));
           const invoice = await loadInvoiceForEdit(invoiceId);
@@ -288,7 +297,6 @@ const SalesBillingPage = () => {
   const populateInvoiceData = useCallback((invoice) => {
     if (!invoice) return;
 
-    // Set customer data
     if (invoice.customer) {
       setCustomer({
         customer_id: invoice.customer.customer_id,
@@ -309,7 +317,6 @@ const SalesBillingPage = () => {
         sameAsCustomer: invoice.walkin_name === invoice.customer.name,
       });
     } else {
-      // Walk-in customer
       setCustomer(prev => ({
         ...prev,
         customer_id: null,
@@ -324,7 +331,6 @@ const SalesBillingPage = () => {
       }));
     }
 
-    // Set invoice metadata
     setInvoiceData({
       invoice_date: invoice.invoice_date,
       branch_id: invoice.branch_id,
@@ -332,7 +338,6 @@ const SalesBillingPage = () => {
       remarks: invoice.remarks || "",
     });
 
-    // Populate rows from line items
     const populatedRows = invoice.lineItems.map((item) => {
       let expiry = "";
       if (item.expiry_date) {
@@ -378,7 +383,6 @@ const SalesBillingPage = () => {
         address: selectedCustomer.address_line_1 || "",
         gstNumber: selectedCustomer.gst_number || "",
         discountPercent: selectedCustomer.discount_percent || 0,
-        // If same as customer was checked, update patient name too
         patientName: prev.sameAsCustomer ? selectedCustomer.name : prev.patientName,
       }));
       toast.success("Customer Selected", `${selectedCustomer.name} selected`);
@@ -467,7 +471,7 @@ const SalesBillingPage = () => {
   // ============================================
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `Sales_Invoice_${currentInvoice?.invoice_number || 'NEW'}`,
+    documentTitle: `Sales_Invoice_${currentInvoice?.invoice_number || previewInvoiceNumber || 'NEW'}`,
     onAfterPrint: () => toast.success("Print Complete", "Invoice printed successfully."),
     onPrintError: () => toast.error("Print Failed", "Failed to print invoice."),
     pageStyle: `
@@ -538,12 +542,11 @@ const SalesBillingPage = () => {
         ),
         confirmText: 'Start New',
         onConfirm: () => {
-          // Clear all data
           clearAllRows();
           clearCustomer();
           resetInvoice();
+          setPreviewInvoiceNumber(null); // ✅ NEW: Clear preview number
           
-          // Reset invoice metadata
           setInvoiceData({
             invoice_date: new Date().toISOString().split('T')[0],
             branch_id: branchContext.branch_id || null,
@@ -553,7 +556,6 @@ const SalesBillingPage = () => {
           
           closeConfirmDialog();
           
-          // Navigate to clean URL if editing
           if (invoiceId) {
             navigate('/sales/billing');
           }
@@ -562,10 +564,11 @@ const SalesBillingPage = () => {
         },
       });
     } else {
-      // No data, just reset
       clearAllRows();
       clearCustomer();
       resetInvoice();
+      setPreviewInvoiceNumber(null); // ✅ NEW: Clear preview number
+      
       setInvoiceData({
         invoice_date: new Date().toISOString().split('T')[0],
         branch_id: branchContext.branch_id || null,
@@ -593,24 +596,90 @@ const SalesBillingPage = () => {
   ]);
 
   // ============================================
+  // ✅ FIX 2: CUSTOMER VALIDATION HELPER
+  // ============================================
+  const validateCustomerData = useCallback(() => {
+    const errors = [];
+    
+    if (!customer.customer_id && customer.phone) {
+      const phoneDigits = customer.phone.replace(/\D/g, '');
+      if (phoneDigits && !/^\d{10}$/.test(phoneDigits)) {
+        errors.push("Invalid phone number (must be 10 digits)");
+      }
+    }
+    
+    if (customer.gstNumber) {
+      if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(customer.gstNumber)) {
+        errors.push("Invalid GSTIN format");
+      }
+    }
+    
+    if (customer.paymentType === "CREDIT" && !customer.customer_id) {
+      errors.push("Credit sales require a registered customer");
+    }
+    
+    return errors;
+  }, [customer]);
+
+  // ============================================
+  // ✅ FIX 3: DUPLICATE BATCH VALIDATION
+  // ============================================
+  const validateNoDuplicateBatches = useCallback(() => {
+    const inventoryUsage = new Map();
+    const dataRows = getFilledRows();
+    
+    for (const row of dataRows) {
+      const key = `${row.medicine_id}_${row.inventory_id}`;
+      const current = inventoryUsage.get(key) || { qty: 0, name: row.name, batch: row.batch, stock: row.stock };
+      current.qty += parseFloat(row.qty) || 0;
+      inventoryUsage.set(key, current);
+    }
+    
+    for (const [key, data] of inventoryUsage) {
+      const totalUsed = data.qty;
+      const stock = parseFloat(data.stock) || 0;
+      
+      if (totalUsed > stock) {
+        return {
+          isValid: false,
+          error: `${data.name} (Batch: ${data.batch}): Total ${totalUsed} units used across rows, only ${stock} available`
+        };
+      }
+    }
+    
+    return { isValid: true };
+  }, [getFilledRows]);
+
+  // ============================================
   // SAVE HANDLER (DRAFT)
   // ============================================
   const handleSave = useCallback(async () => {
     const dataRows = getFilledRows();
     
-    // Validation: At least one item
     if (dataRows.length === 0) {
       toast.warning("Missing Items", "Please add at least one item.");
       return false;
     }
 
-    // Validation: Branch required
     if (!invoiceData.branch_id) {
       toast.warning("Branch Required", "Please select a branch to create sales invoice");
       return false;
     }
 
-    // Validation: Stock availability
+    // ✅ NEW: Validate customer data
+    const customerErrors = validateCustomerData();
+    if (customerErrors.length > 0) {
+      toast.error("Customer Validation Failed", customerErrors.join(", "));
+      return false;
+    }
+
+    // ✅ NEW: Validate no duplicate batches
+    const duplicateCheck = validateNoDuplicateBatches();
+    if (!duplicateCheck.isValid) {
+      toast.error("Duplicate Batch Detected", duplicateCheck.error);
+      return false;
+    }
+
     for (const row of dataRows) {
       const qty = parseFloat(row.qty) || 0;
       const stock = parseFloat(row.stock) || 0;
@@ -637,27 +706,38 @@ const SalesBillingPage = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [getFilledRows, invoiceData, customer, saveSalesInvoice, toast]);
+  }, [getFilledRows, invoiceData, customer, saveSalesInvoice, toast, validateCustomerData, validateNoDuplicateBatches]);
 
   // ============================================
-  // CONFIRM & PRINT HANDLER
+  // ✅ FIX 4: CONFIRM & PRINT HANDLER (UPDATED)
   // ============================================
   const handleConfirmAndPrint = useCallback(async () => {
     const dataRows = getFilledRows();
     
-    // Validation: At least one item
     if (dataRows.length === 0) {
       toast.warning("Missing Items", "Please add at least one item.");
       return;
     }
 
-    // Validation: Branch required
     if (!invoiceData.branch_id) {
       toast.warning("Branch Required", "Please select a branch");
       return;
     }
 
-    // Validation: Stock availability
+    // ✅ NEW: Validate customer data
+    const customerErrors = validateCustomerData();
+    if (customerErrors.length > 0) {
+      toast.error("Customer Validation Failed", customerErrors.join(", "));
+      return;
+    }
+
+    // ✅ NEW: Validate no duplicate batches
+    const duplicateCheck = validateNoDuplicateBatches();
+    if (!duplicateCheck.isValid) {
+      toast.error("Duplicate Batch Detected", duplicateCheck.error);
+      return;
+    }
+
     for (const row of dataRows) {
       const qty = parseFloat(row.qty) || 0;
       const stock = parseFloat(row.stock) || 0;
@@ -670,8 +750,8 @@ const SalesBillingPage = () => {
       }
     }
 
-    // Validation: Payment for CASH type
-    if (customer.paymentType === "CASH") {
+    // ✅ FIX: Payment validation for non-CREDIT
+    if (customer.paymentType !== "CREDIT") {
       const cashReceived = parseFloat(customer.cashReceived) || 0;
       if (cashReceived < summary.netAmount) {
         toast.warning(
@@ -682,20 +762,10 @@ const SalesBillingPage = () => {
       }
     }
 
-    // Validation: Credit sale requires registered customer
-    if (customer.paymentType === "CREDIT" && !customer.customer_id) {
-      toast.warning(
-        "Customer Required",
-        "Credit sales require a registered customer. Please select or create a customer."
-      );
-      return;
-    }
-
     setIsSaving(true);
     try {
       let invoiceToConfirm = currentInvoice;
       
-      // Save first if not already saved
       if (!currentInvoice) {
         const savedInvoice = await saveSalesInvoice(invoiceData, dataRows, customer);
         if (!savedInvoice) {
@@ -705,7 +775,6 @@ const SalesBillingPage = () => {
         invoiceToConfirm = savedInvoice;
       }
 
-      // Prepare payment data
       const payments = [];
       
       if (customer.paymentType !== "CREDIT") {
@@ -722,7 +791,6 @@ const SalesBillingPage = () => {
         }
       }
 
-      // Add credit payment if applicable
       if (customer.paymentType === "CREDIT" && customer.customer_id) {
         payments.push({
           amount: summary.netAmount,
@@ -730,19 +798,22 @@ const SalesBillingPage = () => {
         });
       }
 
-      // Confirm the invoice
       const confirmedInvoice = await confirmSalesInvoice(invoiceToConfirm.invoice_id, { payments });
       
       if (confirmedInvoice) {
         toast.success("Confirmed", `Bill ${confirmedInvoice.invoice_number} confirmed. Stock deducted.`);
         
-        // Clear persisted data after successful confirmation
-        clearAllRows();
-        clearCustomer();
-        
-        // Trigger print after a short delay
+        // ✅ FIX: Trigger print FIRST, then clear state
         setTimeout(() => {
           handlePrint();
+          
+          // ✅ Clear state AFTER print dialog opens
+          setTimeout(() => {
+            clearAllRows();
+            clearCustomer();
+            resetInvoice();
+            setPreviewInvoiceNumber(null);
+          }, 500);
         }, 100);
       }
     } catch (error) {
@@ -761,7 +832,10 @@ const SalesBillingPage = () => {
     handlePrint, 
     toast,
     clearAllRows,
-    clearCustomer
+    clearCustomer,
+    resetInvoice,
+    validateCustomerData,
+    validateNoDuplicateBatches
   ]);
 
   // ============================================
@@ -785,173 +859,158 @@ const SalesBillingPage = () => {
   // RENDER
   // ============================================
   return (
-     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
-      
-      {/* ============================================ */}
-      {/* WARNING BANNER FOR EDITING CONFIRMED INVOICE */}
-      {/* ============================================ */}
-      {isEditingConfirmed && (
-        <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-lg overflow-hidden shadow-sm">
-          <div className="px-4 py-3 flex items-start gap-4">
-            <div className="shrink-0 w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center shadow-sm">
-              <Shield size={20} className="text-white" />
-            </div>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-amber-900">
-                  Super Admin: Editing Confirmed Bill
-                </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white uppercase">
-                  Confirmed
-                </span>
-              </div>
-              <p className="text-sm text-amber-800 mt-1">
-                Bill <span className="font-mono font-semibold">{currentInvoice?.invoice_number}</span> • 
-                Changes will affect inventory and customer balance.
-              </p>
-              
-              <div className="flex flex-wrap gap-3 mt-2">
-                <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
-                  <RefreshCw size={12} />
-                  Stock will be adjusted
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
-                  <AlertTriangle size={12} />
-                  Audit logged
-                </span>
-              </div>
-            </div>
-            
-            <button
-              onClick={() => navigate('/sales/invoice')}
-              className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
-            >
-              <ArrowLeft size={16} />
-              Cancel Edit
-            </button>
+  <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
+    
+    {/* WARNING BANNER FOR EDITING CONFIRMED INVOICE */}
+    {isEditingConfirmed && (
+      <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-lg overflow-hidden shadow-sm">
+        <div className="px-4 py-3 flex items-start gap-4">
+          <div className="shrink-0 w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center shadow-sm">
+            <Shield size={20} className="text-white" />
           </div>
-        </div>
-      )}
-
-      {/* ============================================ */}
-      {/* HEADER */}
-      {/* ============================================ */}
-      <div className={`
-        shrink-0 transition-all duration-300 ease-out
-        ${!loadingStates.header ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
-      `}>
-        <SalesHeader
-          onSave={handleSave}
-          onConfirmPrint={handleConfirmAndPrint}
-          onPrint={handlePrintOnly}
-          onClearTable={handleClearTable}
-          onNewBill={handleNewBill}
-          invoiceNumber={currentInvoice?.invoice_number || null}  // ✅ FIX: Pass null if no invoice
-          invoiceStatus={currentInvoice?.status || null}
-          isLoading={loadingStates.header}
-          isSaving={isSaving}
-          hasUnsavedData={hasData}
-          billedBy={billedByName}  // ✅ FIX: Pass actual name
-        />
-      </div>
-
-      {/* ============================================ */}
-      {/* TABLE */}
-      {/* ============================================ */}
-      <div className={`
-        flex-1 flex flex-col overflow-hidden bg-white rounded-lg border shadow-sm
-        transition-all duration-300 ease-out delay-75
-        ${isEditingConfirmed ? 'border-amber-300' : 'border-gray-200'}
-      `}>
-        <SalesTable
-          rows={rows}
-          setRows={setRows}
-          productMaster={medicines}
-          calculateRow={calculateSalesRow}
-          visibleRows={visibleRows}
-          rowHeight={rowHeight}
-          onProductSelect={handleProductSelect}
-          onBatchSelect={handleBatchSelect}
-          isLoading={loadingStates.table}
-          getAvailableBatches={getAvailableBatches}
-        />
-      </div>
-
-      {/* ============================================ */}
-      {/* FOOTER: CUSTOMER DETAILS + SUMMARY */}
-      {/* ============================================ */}
-      <div className="shrink-0 flex gap-2 h-[220px] 2xl:h-[240px]">
-        {/* Customer Details Card */}
-        <div className={`
-          flex-1 transition-all duration-300 ease-out delay-100
-          ${!loadingStates.customer ? 'opacity-100 translate-y-0' : 'opacity-100'}
-        `}>
-          <CustomerDetailsCard
-            customer={customer}
-            setCustomer={setCustomer}
-            onSearchCustomer={() => setCustomerSearchOpen(true)}
-            netAmount={summary.netAmount}
-            isLoading={loadingStates.customer}
-          />
-        </div>
-        
-        {/* Summary Card */}
-        <div className={`
-          w-72 2xl:w-80 transition-all duration-300 ease-out delay-150
-          ${!loadingStates.summary ? 'opacity-100 translate-y-0' : 'opacity-100'}
-        `}>
-          <SalesSummaryCard 
-            summary={summary}
-            customer={customer}
-            isLoading={loadingStates.summary}
-          />
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-amber-900">
+                Super Admin: Editing Confirmed Bill
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white uppercase">
+                Confirmed
+              </span>
+            </div>
+            <p className="text-sm text-amber-800 mt-1">
+              Bill <span className="font-mono font-semibold">{currentInvoice?.invoice_number}</span> • 
+              Changes will affect inventory and customer balance.
+            </p>
+            
+            <div className="flex flex-wrap gap-3 mt-2">
+              <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                <RefreshCw size={12} />
+                Stock will be adjusted
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                <AlertTriangle size={12} />
+                Audit logged
+              </span>
+            </div>
+          </div>
+          
+          <button
+            onClick={() => navigate('/sales/invoice')}
+            className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Cancel Edit
+          </button>
         </div>
       </div>
+    )}
 
-      {/* ============================================ */}
-      {/* PRINT COMPONENT (HIDDEN) */}
-      {/* ============================================ */}
-      <div className="hidden">
-        <div ref={printRef}>
-          <SalesInvoicePrint
-            rows={rows}
-            customer={customer}
-            summary={summary}
-            companyDetails={COMPANY_DETAILS}
-            invoiceNumber={currentInvoice?.invoice_number}
-            invoiceDate={currentInvoice?.invoice_date || invoiceData.invoice_date}
-            billedBy={billedByName}
-          />
-        </div>
-      </div>
-
-      {/* ============================================ */}
-      {/* CUSTOMER SEARCH MODAL */}
-      {/* ============================================ */}
-      <CustomerSearchModal
-        isOpen={customerSearchOpen}
-        onClose={() => setCustomerSearchOpen(false)}
-        onSelect={handleCustomerSelect}
-        searchCustomers={searchCustomers}
-        createCustomer={createCustomer}
-      />
-
-      {/* ============================================ */}
-      {/* CONFIRM DIALOG */}
-      {/* ============================================ */}
-      <ConfirmDialog
-        isOpen={confirmDialog.isOpen}
-        onClose={closeConfirmDialog}
-        onConfirm={confirmDialog.onConfirm}
-        title={confirmDialog.title}
-        message={confirmDialog.message}
-        confirmText={confirmDialog.confirmText}
-        cancelText="Cancel"
-        type={confirmDialog.type}
+    {/* HEADER */}
+    <div className={`
+      shrink-0 transition-all duration-300 ease-out
+      ${!loadingStates.header ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
+    `}>
+      <SalesHeader
+        onSave={handleSave}
+        onConfirmPrint={handleConfirmAndPrint}
+        onPrint={handlePrintOnly}
+        onClearTable={handleClearTable}
+        onNewBill={handleNewBill}
+        invoiceNumber={currentInvoice?.invoice_number || previewInvoiceNumber}
+        invoiceStatus={currentInvoice?.status || null}
+        isLoading={loadingStates.header}
+        isSaving={isSaving}
+        hasUnsavedData={hasData}
+        billedBy={billedByName}
       />
     </div>
-  );
-};
+
+    {/* TABLE */}
+    <div className={`
+      flex-1 flex flex-col overflow-hidden bg-white rounded-lg border shadow-sm
+      transition-all duration-300 ease-out delay-75
+      ${isEditingConfirmed ? 'border-amber-300' : 'border-gray-200'}
+    `}>
+      <SalesTable
+        rows={rows}
+        setRows={setRows}
+        productMaster={medicines}
+        calculateRow={calculateSalesRow}
+        visibleRows={visibleRows}
+        rowHeight={rowHeight}
+        onProductSelect={handleProductSelect}
+        onBatchSelect={handleBatchSelect}
+        isLoading={loadingStates.table}
+        getAvailableBatches={getAvailableBatches}
+      />
+    </div>
+
+    {/* FOOTER: CUSTOMER DETAILS + SUMMARY */}
+    <div className="shrink-0 flex gap-2 h-[220px] 2xl:h-[240px]">
+      <div className={`
+        flex-1 transition-all duration-300 ease-out delay-100
+        ${!loadingStates.customer ? 'opacity-100 translate-y-0' : 'opacity-100'}
+      `}>
+        <CustomerDetailsCard
+          customer={customer}
+          setCustomer={setCustomer}
+          onSearchCustomer={() => setCustomerSearchOpen(true)}
+          netAmount={summary.netAmount}
+          isLoading={loadingStates.customer}
+          billNo={currentInvoice?.invoice_number || previewInvoiceNumber || 'DRAFT'}
+        />
+      </div>
+      
+      <div className={`
+        w-72 2xl:w-80 transition-all duration-300 ease-out delay-150
+        ${!loadingStates.summary ? 'opacity-100 translate-y-0' : 'opacity-100'}
+      `}>
+        <SalesSummaryCard 
+          summary={summary}
+          customer={customer}
+          isLoading={loadingStates.summary}
+        />
+      </div>
+    </div>
+
+    {/* PRINT COMPONENT (HIDDEN) */}
+    <div className="hidden">
+      <div ref={printRef}>
+        <SalesInvoicePrint
+          rows={rows}
+          customer={customer}
+          summary={summary}
+          companyDetails={COMPANY_DETAILS}
+          invoiceNumber={currentInvoice?.invoice_number || previewInvoiceNumber}
+          invoiceDate={currentInvoice?.invoice_date || invoiceData.invoice_date}
+          billedBy={billedByName}
+        />
+      </div>
+    </div>
+
+    {/* CUSTOMER SEARCH MODAL */}
+    <CustomerSearchModal
+      isOpen={customerSearchOpen}
+      onClose={() => setCustomerSearchOpen(false)}
+      onSelect={handleCustomerSelect}
+      searchCustomers={searchCustomers}
+      createCustomer={createCustomer}
+    />
+
+    {/* CONFIRM DIALOG */}
+    <ConfirmDialog
+      isOpen={confirmDialog.isOpen}
+      onClose={closeConfirmDialog}
+      onConfirm={confirmDialog.onConfirm}
+      title={confirmDialog.title}
+      message={confirmDialog.message}
+      confirmText={confirmDialog.confirmText}
+      cancelText="Cancel"
+      type={confirmDialog.type}
+    />
+  </div>
+);
+}
 
 export default SalesBillingPage;

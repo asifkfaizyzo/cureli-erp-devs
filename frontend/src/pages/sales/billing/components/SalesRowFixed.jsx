@@ -31,11 +31,14 @@ const SalesRowFixed = memo(forwardRef(({
   const [batches, setBatches] = useState(item.availableBatches || []);
   const [batchError, setBatchError] = useState(null);
   const [stockError, setStockError] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const [stockErrorPosition, setStockErrorPosition] = useState({ top: 0, left: 0 }); // ✅ NEW
   
   const dropdownRef = useRef(null);
   const batchDropdownRef = useRef(null);
   const rowRef = useRef(null);
   const fieldRefs = useRef({});
+  const qtyFieldRef = useRef(null); // ✅ NEW: Ref for qty field
 
   const filteredProducts = productMaster.filter(p => {
     const searchLower = productSearch.toLowerCase();
@@ -62,10 +65,16 @@ const SalesRowFixed = memo(forwardRef(({
   }), []);
 
   const registerFieldRef = useCallback((fieldKey, inputRef) => {
-    if (inputRef) fieldRefs.current[fieldKey] = inputRef;
+    if (inputRef) {
+      fieldRefs.current[fieldKey] = inputRef;
+      // ✅ NEW: Also store qty field ref separately
+      if (fieldKey === 'qty') {
+        qtyFieldRef.current = inputRef;
+      }
+    }
   }, []);
 
-  // ✅ Calculate stock used in other rows
+  // Calculate stock used in other rows
   const calculateUsedStock = useCallback((inventoryId, excludeIndex = null) => {
     return allRows.reduce((total, row, idx) => {
       if (idx !== excludeIndex && row.inventory_id === inventoryId) {
@@ -75,7 +84,7 @@ const SalesRowFixed = memo(forwardRef(({
     }, 0);
   }, [allRows]);
 
-  // ✅ Check for duplicates
+  // Check for duplicates
   const checkDuplicate = useCallback((medicineId, inventoryId) => {
     return allRows.findIndex((row, idx) => 
       idx !== index && 
@@ -84,13 +93,12 @@ const SalesRowFixed = memo(forwardRef(({
     );
   }, [allRows, index]);
 
-  // ✅ Load batches and auto-open dropdown when product selected
+  // Load batches and auto-open dropdown when product selected
   useEffect(() => {
     if (item.medicine_id && getAvailableBatches) {
       getAvailableBatches(item.medicine_id).then(availableBatches => {
         setBatches(availableBatches);
         
-        // Auto-open batch dropdown if multiple batches and no batch selected yet
         if (availableBatches.length > 1 && !item.inventory_id) {
           setShowBatchDropdown(true);
           setHighlightedIndex(0);
@@ -98,9 +106,21 @@ const SalesRowFixed = memo(forwardRef(({
         }
       });
     }
-  }, [item.medicine_id, getAvailableBatches]);
+  }, [item.medicine_id, getAvailableBatches, item.inventory_id]);
 
-  // ✅ Real-time stock validation
+  // ✅ NEW: Update stock error position when error occurs
+  useEffect(() => {
+    if (stockError && qtyFieldRef.current) {
+      const rect = qtyFieldRef.current.getBoundingClientRect();
+      setStockErrorPosition({
+        top: rect.bottom + 2,
+        left: rect.left,
+        width: rect.width
+      });
+    }
+  }, [stockError]);
+
+  // Real-time stock validation
   useEffect(() => {
     if (item.inventory_id && item.qty) {
       const usedInOtherRows = calculateUsedStock(item.inventory_id, index);
@@ -119,9 +139,56 @@ const SalesRowFixed = memo(forwardRef(({
     } else {
       setStockError(null);
     }
-  }, [item.qty, item.stock, item.inventory_id, calculateUsedStock, index]);
+  }, [item.qty, item.stock, item.inventory_id, calculateUsedStock, index, allRows]);
 
-  // ✅ Product selection with batch handling
+  // Update dropdown position on scroll
+  useEffect(() => {
+    if (!showBatchDropdown && !showProductDropdown) return;
+    
+    const updatePosition = () => {
+      const targetField = showBatchDropdown ? "batch" : "name";
+      const rect = fieldRefs.current[targetField]?.getBoundingClientRect();
+      if (rect) {
+        setDropdownPosition({ 
+          top: rect.bottom + 4, 
+          left: rect.left,
+          width: targetField === "batch" ? 320 : 400
+        });
+      }
+    };
+    
+    updatePosition();
+    
+    const scrollContainer = document.querySelector('.overflow-y-auto');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', updatePosition);
+      return () => scrollContainer.removeEventListener('scroll', updatePosition);
+    }
+  }, [showBatchDropdown, showProductDropdown]);
+
+  // ✅ NEW: Update stock error position on scroll
+  useEffect(() => {
+    if (!stockError) return;
+    
+    const updateErrorPosition = () => {
+      if (qtyFieldRef.current) {
+        const rect = qtyFieldRef.current.getBoundingClientRect();
+        setStockErrorPosition({
+          top: rect.bottom + 2,
+          left: rect.left,
+          width: rect.width
+        });
+      }
+    };
+    
+    const scrollContainer = document.querySelector('.overflow-y-auto');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', updateErrorPosition);
+      return () => scrollContainer.removeEventListener('scroll', updateErrorPosition);
+    }
+  }, [stockError]);
+
+  // Product selection with batch handling
   const handleProductSelection = useCallback(async (product) => {
     try {
       const availableBatches = await getAvailableBatches(product.medicine_id);
@@ -135,7 +202,6 @@ const SalesRowFixed = memo(forwardRef(({
       setBatchError(null);
       
       if (availableBatches.length === 1) {
-        // Single batch - auto-select if not duplicate
         const batch = availableBatches[0];
         const duplicateIndex = checkDuplicate(product.medicine_id, batch.inventory_id);
         
@@ -150,7 +216,6 @@ const SalesRowFixed = memo(forwardRef(({
         setShowBatchDropdown(false);
         setTimeout(() => fieldRefs.current["qty"]?.focus(), 50);
       } else {
-        // Multiple batches - show dropdown
         onProductSelect(index, product, null);
         setShowBatchDropdown(true);
         setHighlightedIndex(0);
@@ -165,7 +230,7 @@ const SalesRowFixed = memo(forwardRef(({
     }
   }, [getAvailableBatches, checkDuplicate, index, onChange, onProductSelect]);
 
-  // ✅ Batch selection with duplicate check
+  // Batch selection with duplicate check
   const handleBatchSelection = useCallback((batch) => {
     const duplicateIndex = checkDuplicate(item.medicine_id, batch.inventory_id);
     if (duplicateIndex !== -1) {
@@ -320,8 +385,17 @@ const SalesRowFixed = memo(forwardRef(({
               setProductSearch(value);
               setShowProductDropdown(value.length > 0);
               handleChange("name", value);
+              
               setBatchError(null);
               setStockError(null);
+              if (!value) {
+                handleChange("medicine_id", null);
+                handleChange("inventory_id", null);
+                handleChange("batch", "");
+                handleChange("exp", "");
+                handleChange("stock", "");
+                setBatches([]);
+              }
             }}
             onFocus={() => {
               setProductSearch(item.name || "");
@@ -331,6 +405,9 @@ const SalesRowFixed = memo(forwardRef(({
             onKeyDown={(e) => handleKeyDown(e, "name")}
             className={`${inputBase} px-1.5 py-1 font-medium text-left ${batchError ? 'text-red-600' : ''}`}
             placeholder="Search product..."
+            aria-label="Product name"
+            aria-autocomplete="list"
+            aria-expanded={showProductDropdown}
           />
           {(batchError || stockError) && (
             <div className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-red-500"></div>
@@ -339,16 +416,24 @@ const SalesRowFixed = memo(forwardRef(({
         
         {/* Product Dropdown */}
         {showProductDropdown && filteredProducts.length > 0 && createPortal(
-          <div className="fixed bg-white border border-slate-300 rounded-lg shadow-2xl max-h-64 overflow-auto w-80 z-[9999]" style={{
-            top: fieldRefs.current["name"]?.getBoundingClientRect().bottom + 4,
-            left: fieldRefs.current["name"]?.getBoundingClientRect().left,
-          }}>
+          <div 
+            className="fixed bg-white border border-slate-300 rounded-lg shadow-2xl max-h-64 overflow-auto z-[9999]" 
+            style={{
+              top: `${dropdownPosition.top}px`,
+              left: `${dropdownPosition.left}px`,
+              width: '400px'
+            }}
+            role="listbox"
+            aria-label="Product search results"
+          >
             <div className="sticky top-0 bg-slate-50 px-3 py-1.5 border-b text-[9px] text-slate-600 font-medium">
               {filteredProducts.length} products found
             </div>
             {filteredProducts.map((product, idx) => (
               <div
                 key={product.medicine_id}
+                role="option"
+                aria-selected={idx === highlightedIndex}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleProductSelection(product);
@@ -392,6 +477,7 @@ const SalesRowFixed = memo(forwardRef(({
             className={`${inputBase} px-1 py-1 text-center font-mono text-[8px] cursor-pointer`}
             placeholder={batches.length > 1 ? "Select..." : ""}
             readOnly={true}
+            aria-label="Batch number"
           />
           {batches.length > 1 && !item.inventory_id && (
             <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
@@ -400,10 +486,16 @@ const SalesRowFixed = memo(forwardRef(({
         
         {/* Batch Dropdown */}
         {showBatchDropdown && batches.length > 0 && createPortal(
-          <div className="fixed bg-white border border-slate-300 rounded-lg shadow-2xl max-h-64 overflow-auto w-80 z-[9999]" style={{
-            top: fieldRefs.current["batch"]?.getBoundingClientRect().bottom + 4,
-            left: fieldRefs.current["batch"]?.getBoundingClientRect().left,
-          }}>
+          <div 
+            className="fixed bg-white border border-slate-300 rounded-lg shadow-2xl max-h-64 overflow-auto z-[9999]" 
+            style={{
+              top: `${dropdownPosition.top}px`,
+              left: `${dropdownPosition.left}px`,
+              width: '320px'
+            }}
+            role="listbox"
+            aria-label="Available batches"
+          >
             <div className="sticky top-0 bg-slate-50 px-3 py-1.5 border-b text-[9px] text-slate-600 font-medium flex items-center gap-2">
               <Package size={10} />
               <span>{batches.length} batch{batches.length > 1 ? 'es' : ''} available</span>
@@ -427,6 +519,9 @@ const SalesRowFixed = memo(forwardRef(({
               return (
                 <div
                   key={batch.inventory_id}
+                  role="option"
+                  aria-selected={idx === highlightedIndex}
+                  aria-disabled={isDuplicate || isOutOfStock}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     if (!isDuplicate && !isOutOfStock) {
@@ -499,13 +594,8 @@ const SalesRowFixed = memo(forwardRef(({
             className={`${inputBase} px-1 py-1 text-center font-bold ${stockError ? 'text-red-700 bg-red-100' : 'text-amber-700'}`}
             placeholder="0"
             min="1"
+            aria-label="Quantity"
           />
-          {stockError && (
-            <div className="absolute -bottom-5 left-0 z-10 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded shadow-lg whitespace-nowrap">
-              {stockError.message}
-              {stockError.details && <span className="opacity-75"> {stockError.details}</span>}
-            </div>
-          )}
         </div>
       </td>
 
@@ -525,6 +615,7 @@ const SalesRowFixed = memo(forwardRef(({
           className={`${inputBase} px-1 py-1 text-right font-semibold text-blue-700`}
           placeholder="0.00"
           step="0.01"
+          aria-label="Selling rate"
         />
       </td>
 
@@ -540,6 +631,7 @@ const SalesRowFixed = memo(forwardRef(({
           placeholder="0"
           min="0"
           max="100"
+          aria-label="Discount percentage"
         />
       </td>
 
@@ -587,9 +679,45 @@ const SalesRowFixed = memo(forwardRef(({
           </span>
         </div>
       </td>
+
+      {/* ✅ NEW: Stock Error Tooltip Portal */}
+      {stockError && createPortal(
+        <div 
+          className="fixed bg-red-600 text-white text-[9px] px-2 py-1 rounded shadow-lg z-[10000] whitespace-nowrap pointer-events-none"
+          style={{
+            top: `${stockErrorPosition.top}px`,
+            left: `${stockErrorPosition.left}px`,
+            minWidth: '120px'
+          }}
+        >
+          <div className="flex items-center gap-1">
+            <AlertTriangle size={10} />
+            <span className="font-medium">{stockError.message}</span>
+          </div>
+          {stockError.details && (
+            <div className="opacity-90 text-[8px] mt-0.5">{stockError.details}</div>
+          )}
+          <div className="absolute -top-1 left-4 w-2 h-2 bg-red-600 transform rotate-45"></div>
+        </div>,
+        document.body
+      )}
     </tr>
   );
-}));
+}), (prevProps, nextProps) => {
+  const prevDuplicates = prevProps.allRows.filter(r => 
+    r.inventory_id && r.inventory_id === prevProps.item.inventory_id
+  ).length;
+  const nextDuplicates = nextProps.allRows.filter(r => 
+    r.inventory_id && r.inventory_id === nextProps.item.inventory_id
+  ).length;
+  
+  return (
+    prevProps.item === nextProps.item &&
+    prevProps.index === nextProps.index &&
+    prevProps.productMaster.length === nextProps.productMaster.length &&
+    prevDuplicates === nextDuplicates
+  );
+});
 
 SalesRowFixed.displayName = 'SalesRowFixed';
 export default SalesRowFixed;

@@ -118,6 +118,27 @@ enum SalesReturnReason {
 }
 
 // ============================================
+// NEW: Sales Return Approval Status Enum
+// ============================================
+
+enum SalesReturnApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// ============================================
+// NEW: Sales Refund Mode Enum
+// ============================================
+
+enum SalesRefundMode {
+  CASH
+  CREDIT
+  ADJUST_NEXT
+}
+
+// ============================================
 // AUDIT LOG (APPEND-ONLY, COMPLIANCE-GRADE)
 // ============================================
 
@@ -322,7 +343,9 @@ model User {
   salesInvoicesConfirmed  SalesInvoice[]   @relation("SalesInvoiceConfirmer")
   salesInvoicesCancelled  SalesInvoice[]   @relation("SalesInvoiceCanceller")
   salesPaymentsCreated    SalesPayment[]   @relation("SalesPaymentCreator")
-
+  salesReturnsApproved    SalesInvoice[]   @relation("SalesReturnApprover")
+  salesReturnsRejected    SalesInvoice[]   @relation("SalesReturnRejecter")
+  customerCreditApplications CustomerCreditApplication[] @relation("CustomerCreditApplicationsBy")
   @@map("users")
 }
 
@@ -392,6 +415,7 @@ model Shop {
   supplierCredits SupplierCredit[] @relation("ShopSupplierCredits")
   customers        Customer[]       @relation("ShopCustomers")
   salesInvoices    SalesInvoice[]   @relation("ShopSalesInvoices")
+  customerCredits    CustomerCredit[]  @relation("ShopCustomerCredits")
 
   @@map("shops")
 }
@@ -421,8 +445,9 @@ model Branch {
   inventory        Inventory[]         @relation("BranchInventory")
   stockLedger      StockLedger[]       @relation("BranchStockLedger")
   stockAdjustments StockAdjustment[]   @relation("BranchStockAdjustments")
-   customers        Customer[]       @relation("BranchCustomers")
+  customers        Customer[]       @relation("BranchCustomers")
   salesInvoices    SalesInvoice[]   @relation("BranchSalesInvoices")
+  customerCredits    CustomerCredit[]  @relation("BranchCustomerCredits")
 
   @@map("branches")
 }
@@ -1497,7 +1522,8 @@ model Customer {
   salesInvoices       SalesInvoice[]    @relation("CustomerSalesInvoices")
   ledgerEntries       CustomerLedger[]  @relation("CustomerLedgerEntries")
   salesPayments       SalesPayment[]    @relation("CustomerPayments")
-
+  credits            CustomerCredit[]  @relation("CustomerCredits")
+  
   @@unique([shop_id, phone])
   @@index([shop_id, is_active])
   @@index([shop_id, name])
@@ -1540,6 +1566,73 @@ model CustomerLedger {
   @@map("customer_ledger")
 }
 
+
+// ============================================
+// NEW: Customer Credit (like SupplierCredit)
+// ============================================
+
+model CustomerCredit {
+  credit_id          String   @id @default(uuid()) @db.Uuid
+  
+  shop_id            String   @db.Uuid
+  branch_id          String   @db.Uuid
+  customer_id        String   @db.Uuid
+  return_invoice_id  String   @db.Uuid
+  
+  credit_note_number String   @db.VarChar(50)
+  credit_amount      Decimal  @db.Decimal(12, 2)
+  utilized_amount    Decimal  @default(0) @db.Decimal(12, 2)
+  balance_amount     Decimal  @db.Decimal(12, 2)
+  
+  status             String   @default("ACTIVE") @db.VarChar(20) // ACTIVE, FULLY_UTILIZED, EXPIRED, CANCELLED
+  
+  issued_date        DateTime @db.Date
+  expiry_date        DateTime @db.Date // 1 year from issued_date
+  
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  shop              Shop              @relation("ShopCustomerCredits", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  branch            Branch            @relation("BranchCustomerCredits", fields: [branch_id], references: [branch_id])
+  customer          Customer          @relation("CustomerCredits", fields: [customer_id], references: [customer_id], onDelete: Cascade)
+  returnInvoice     SalesInvoice      @relation("ReturnCustomerCredits", fields: [return_invoice_id], references: [invoice_id], onDelete: Cascade)
+  applications      CustomerCreditApplication[] @relation("CustomerCreditApplications")
+  
+  @@unique([credit_note_number])
+  @@index([shop_id, customer_id, status])
+  @@index([expiry_date])
+  @@map("customer_credits")
+}
+
+// ============================================
+// NEW: Customer Credit Application Tracking
+// ============================================
+
+model CustomerCreditApplication {
+  application_id        String   @id @default(uuid()) @db.Uuid
+  
+  credit_id             String   @db.Uuid
+  applied_to_invoice_id String   @db.Uuid
+  
+  applied_amount        Decimal  @db.Decimal(12, 2)
+  applied_date          DateTime @db.Date
+  applied_by            String   @db.Uuid
+  notes                 String?  @db.Text
+  
+  created_at            DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  credit         CustomerCredit  @relation("CustomerCreditApplications", fields: [credit_id], references: [credit_id], onDelete: Cascade)
+  appliedInvoice SalesInvoice    @relation("CustomerCreditApplicationsToInvoice", fields: [applied_to_invoice_id], references: [invoice_id], onDelete: Cascade)
+  appliedBy      User            @relation("CustomerCreditApplicationsBy", fields: [applied_by], references: [user_id], onDelete: SetNull)
+  
+  @@index([credit_id])
+  @@index([applied_to_invoice_id])
+  @@map("customer_credit_applications")
+}
+
+
 // ============================================
 // SALES INVOICES
 // ============================================
@@ -1567,22 +1660,20 @@ model SalesInvoice {
 
   // Dates
   invoice_date          DateTime @db.Date
-  due_date              DateTime? @db.Date // For credit sales
+  due_date              DateTime? @db.Date
   confirmed_at          DateTime? @db.Timestamptz(6)
 
   // Financial Summary
-  subtotal              Decimal  @default(0) @db.Decimal(12, 2) // Sum of (qty * mrp)
-  item_discount_amount  Decimal  @default(0) @db.Decimal(12, 2) // Total item-level discounts
+  subtotal              Decimal  @default(0) @db.Decimal(12, 2)
+  item_discount_amount  Decimal  @default(0) @db.Decimal(12, 2)
   
-  // Customer discount (auto-applied based on customer.discount_percent)
   customer_discount_percent Decimal @default(0) @db.Decimal(5, 2)
   customer_discount_amount  Decimal @default(0) @db.Decimal(12, 2)
   
-  // Bill-level discount (manual, on top of others)
   bill_discount_percent Decimal  @default(0) @db.Decimal(5, 2)
   bill_discount_amount  Decimal  @default(0) @db.Decimal(12, 2)
 
-  total_discount        Decimal  @default(0) @db.Decimal(12, 2) // Sum of all discounts
+  total_discount        Decimal  @default(0) @db.Decimal(12, 2)
 
   taxable_amount        Decimal  @default(0) @db.Decimal(12, 2)
   cgst_amount           Decimal  @default(0) @db.Decimal(12, 2)
@@ -1593,20 +1684,34 @@ model SalesInvoice {
   net_amount            Decimal  @default(0) @db.Decimal(12, 2)
 
   // Payment
-  payment_status        String   @default("UNPAID") @db.VarChar(20) // UNPAID, PARTIALLY_PAID, PAID
+  payment_status        String   @default("UNPAID") @db.VarChar(20)
   paid_amount           Decimal  @default(0) @db.Decimal(12, 2)
   balance_amount        Decimal  @default(0) @db.Decimal(12, 2)
-  credit_amount         Decimal  @default(0) @db.Decimal(12, 2) // Amount on credit
+  credit_amount         Decimal  @default(0) @db.Decimal(12, 2)
   is_credit_sale        Boolean  @default(false)
 
   // Status
-  status                String   @default("DRAFT") @db.VarChar(20) // DRAFT, PARKED, CONFIRMED, CANCELLED
+  status                String   @default("DRAFT") @db.VarChar(20)
 
   // Returns
   is_return             Boolean  @default(false)
   parent_invoice_id     String?  @db.Uuid
   return_reason         SalesReturnReason?
   return_notes          String?  @db.Text
+
+  // ✅ NEW: Return Approval Workflow (for staff-created returns)
+  return_approval_status SalesReturnApprovalStatus?
+  approved_by            String?   @db.Uuid
+  approved_at            DateTime? @db.Timestamptz(6)
+  rejected_by            String?   @db.Uuid
+  rejected_at            DateTime? @db.Timestamptz(6)
+  rejection_reason       String?   @db.Text
+
+  // ✅ NEW: Refund tracking
+  refund_mode            SalesRefundMode?
+  refund_amount          Decimal?  @db.Decimal(12, 2)
+  refund_notes           String?   @db.Text
+  credit_note_number     String?   @db.VarChar(50)
 
   // Prescription (optional)
   prescription_number   String?  @db.VarChar(50)
@@ -1633,10 +1738,18 @@ model SalesInvoice {
   canceller             User?             @relation("SalesInvoiceCanceller", fields: [cancelled_by], references: [user_id])
   parentInvoice         SalesInvoice?     @relation("SalesReturns", fields: [parent_invoice_id], references: [invoice_id])
   returnInvoices        SalesInvoice[]    @relation("SalesReturns")
+  
+  // ✅ NEW: Approval relations
+  approver              User?             @relation("SalesReturnApprover", fields: [approved_by], references: [user_id])
+  rejecter              User?             @relation("SalesReturnRejecter", fields: [rejected_by], references: [user_id])
 
   lineItems             SalesInvoiceItem[] @relation("SalesInvoiceLineItems")
   payments              SalesPayment[]     @relation("SalesInvoicePayments")
-
+  
+  // ✅ NEW: Customer credits generated from this return
+  customerCredits       CustomerCredit[]   @relation("ReturnCustomerCredits")
+  creditApplications CustomerCreditApplication[] @relation("CustomerCreditApplicationsToInvoice")
+  
   @@unique([shop_id, branch_id, invoice_number])
   @@index([shop_id, invoice_date(sort: Desc)])
   @@index([branch_id, invoice_date(sort: Desc)])
@@ -1644,6 +1757,7 @@ model SalesInvoice {
   @@index([status])
   @@index([payment_status])
   @@index([is_return])
+  @@index([return_approval_status])
   @@index([created_at(sort: Desc)])
   @@map("sales_invoices")
 }

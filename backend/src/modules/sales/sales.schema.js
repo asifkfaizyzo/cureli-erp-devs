@@ -25,33 +25,20 @@ const salesLineItemSchema = z.object({
 // ============================================
 
 export const createSalesInvoiceSchema = z.object({
-  // Customer (optional)
   customer_id: z.string().uuid().optional().nullable(),
   walkin_name: z.string().max(200).optional().nullable(),
   walkin_phone: z.string().max(20).optional().nullable(),
-
-  // Date
   invoice_date: z.string().datetime(),
   due_date: z.string().datetime().optional().nullable(),
-
-  // Discounts
   bill_discount_percent: z.number().min(0).max(100).default(0),
-
-  // Prescription
   prescription_number: z.string().max(50).optional().nullable(),
   doctor_name: z.string().max(200).optional().nullable(),
-
-  // Items
   lineItems: z.array(salesLineItemSchema).min(1),
-
-  // Payments (optional - can add items first, pay later)
   payments: z.array(z.object({
     amount: z.number().positive(),
     payment_mode: z.enum(["CASH", "CARD", "UPI", "CREDIT"]),
     reference_number: z.string().max(100).optional().nullable(),
   })).optional(),
-
-  // Remarks
   remarks: z.string().max(500).optional().nullable(),
 });
 
@@ -78,14 +65,6 @@ export const updateSalesInvoiceSchema = z.object({
 
 export const addItemsSchema = z.object({
   lineItems: z.array(salesLineItemSchema).min(1),
-});
-
-// ============================================
-// REMOVE ITEM FROM INVOICE
-// ============================================
-
-export const removeItemSchema = z.object({
-  item_id: z.string().uuid(),
 });
 
 // ============================================
@@ -121,7 +100,7 @@ export const cancelInvoiceSchema = z.object({
 });
 
 // ============================================
-// PARK INVOICE (save for later)
+// PARK INVOICE
 // ============================================
 
 export const parkInvoiceSchema = z.object({
@@ -153,13 +132,35 @@ export const createSalesReturnSchema = z.object({
   })).min(1),
 
   // Refund method
-  refund_mode: z.enum(["CASH", "CREDIT", "ADJUST_NEXT"]).default("CASH"),
+  refund_mode: z.enum(["CASH", "CREDIT", "ADJUST_NEXT"]).default("CREDIT"),
 
+  refund_notes: z.string().max(500).optional().nullable(),
   remarks: z.string().max(500).optional().nullable(),
 });
 
+export const approveReturnSchema = z.object({
+  action: z.enum(["APPROVE", "REJECT"]),
+  rejection_reason: z.string().max(500).optional(),
+  notes: z.string().max(500).optional(),
+});
+
 export const cancelSalesReturnSchema = z.object({
-  reason: z.string().min(10, "Reason must be at least 10 characters").max(500),
+  cancellation_reason: z.string().min(10, "Reason must be at least 10 characters").max(500),
+});
+
+export const revertSalesReturnSchema = z.object({
+  revert_reason: z.string().min(10, "Reason must be at least 10 characters").max(500),
+});
+
+// ============================================
+// CUSTOMER CREDIT SCHEMAS
+// ============================================
+
+export const applyCustomerCreditSchema = z.object({
+  credit_id: z.string().uuid(),
+  applied_to_invoice_id: z.string().uuid(),
+  applied_amount: z.number().positive(),
+  notes: z.string().max(500).optional(),
 });
 
 // ============================================
@@ -171,14 +172,4 @@ export const checkStockSchema = z.object({
     inventory_id: z.string().uuid(),
     quantity: z.number().positive(),
   })).min(1),
-});
-
-// ============================================
-// GET AVAILABLE BATCHES
-// ============================================
-
-export const getBatchesSchema = z.object({
-  medicine_id: z.string().uuid(),
-  include_low_stock: z.boolean().default(false),
-  include_expiring: z.boolean().default(true),
 });

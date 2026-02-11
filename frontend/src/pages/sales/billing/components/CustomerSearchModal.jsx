@@ -161,7 +161,7 @@ const CustomerSearchModal = ({
   const [isSearching, setIsSearching] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [errors, setErrors] = useState({});
-
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   // New customer form state
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -322,12 +322,16 @@ const CustomerSearchModal = ({
 
   // Switch to create mode with search term as name
   const handleSwitchToCreate = useCallback(() => {
-    setMode('create');
-    if (searchTerm.trim()) {
-      setNewCustomer(prev => ({ ...prev, name: searchTerm.trim() }));
-    }
-  }, [searchTerm]);
-
+  setMode('create');
+  if (searchTerm.trim()) {
+    setNewCustomer(prev => ({ ...prev, name: searchTerm.trim() }));
+  }
+  // ✅ Clear search state
+  setSearchTerm('');
+  setSearchResults([]);
+  setSelectedCustomer(null);
+  setHighlightedIndex(0); // ✅ Now defined
+}, [searchTerm]);
   if (!isOpen) return null;
 
   return createPortal(

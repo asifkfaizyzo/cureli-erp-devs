@@ -36,7 +36,12 @@ const SalesTable = ({
   const rowRefs = useRef([]);
   const [focusQueue, setFocusQueue] = useState(null);
   const [scrollbarWidth, setScrollbarWidth] = useState(0);
-  const [scrollInfo, setScrollInfo] = useState({ canScrollUp: false, canScrollDown: false, currentTopRow: 1, currentBottomRow: visibleRows });
+  const [scrollInfo, setScrollInfo] = useState({ 
+    canScrollUp: false, 
+    canScrollDown: false, 
+    currentTopRow: 1, 
+    currentBottomRow: visibleRows 
+  });
 
   const viewportHeight = visibleRows * rowHeight;
 
@@ -57,6 +62,34 @@ const SalesTable = ({
     amount: '7%',
   };
 
+  // ============================================
+  // ✅ FIX: Define scrollToRow BEFORE it's used
+  // ============================================
+  const scrollToRow = useCallback((rowIndex) => {
+    const container = tableBodyRef.current;
+    if (!container) return;
+    
+    const rowTop = rowIndex * rowHeight;
+    const rowBottom = rowTop + rowHeight;
+    const viewportTop = container.scrollTop;
+    const viewportBottom = viewportTop + viewportHeight;
+    
+    if (rowBottom > viewportBottom) {
+      container.scrollTo({ 
+        top: rowBottom - viewportHeight, 
+        behavior: 'smooth' 
+      });
+    } else if (rowTop < viewportTop) {
+      container.scrollTo({ 
+        top: rowTop, 
+        behavior: 'smooth' 
+      });
+    }
+  }, [rowHeight, viewportHeight]);
+
+  // ============================================
+  // Update row refs when rows change
+  // ============================================
   useEffect(() => {
     rowRefs.current = rowRefs.current.slice(0, rows.length);
     while (rowRefs.current.length < rows.length) {
@@ -64,6 +97,9 @@ const SalesTable = ({
     }
   }, [rows.length]);
 
+  // ============================================
+  // Calculate scrollbar width
+  // ============================================
   useEffect(() => {
     const container = tableBodyRef.current;
     if (!container) return;
@@ -71,25 +107,43 @@ const SalesTable = ({
     setScrollbarWidth(width);
   }, [rows.length, visibleRows]);
 
+  // ============================================
+  // Update scroll info
+  // ============================================
   const updateScrollInfo = useCallback(() => {
     const container = tableBodyRef.current;
     if (!container) return;
+    
     const { scrollTop, scrollHeight, clientHeight } = container;
     const canScrollUp = scrollTop > 0;
     const canScrollDown = scrollTop + clientHeight < scrollHeight - 5;
     const topRowIndex = Math.floor(scrollTop / rowHeight);
     const bottomRowIndex = Math.min(topRowIndex + visibleRows - 1, rows.length - 1);
-    setScrollInfo({ canScrollUp, canScrollDown, currentTopRow: topRowIndex + 1, currentBottomRow: bottomRowIndex + 1 });
+    
+    setScrollInfo({ 
+      canScrollUp, 
+      canScrollDown, 
+      currentTopRow: topRowIndex + 1, 
+      currentBottomRow: bottomRowIndex + 1 
+    });
   }, [rowHeight, visibleRows, rows.length]);
 
+  // ============================================
+  // Attach scroll listener
+  // ============================================
   useEffect(() => {
     const container = tableBodyRef.current;
     if (!container) return;
+    
     container.addEventListener('scroll', updateScrollInfo);
     updateScrollInfo();
+    
     return () => container.removeEventListener('scroll', updateScrollInfo);
   }, [updateScrollInfo]);
 
+  // ============================================
+  // ✅ Now focusQueue can use scrollToRow safely
+  // ============================================
   useEffect(() => {
     if (focusQueue !== null) {
       const timer = setTimeout(() => {
@@ -103,27 +157,18 @@ const SalesTable = ({
               targetRow.focusFirstField();
             }
           }, 100);
+        } else {
+          console.warn(`[SalesTable] Row ${focusQueue.rowIndex} not found, skipping focus`);
         }
         setFocusQueue(null);
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [focusQueue]);
+  }, [focusQueue, scrollToRow]);
 
-  const scrollToRow = useCallback((rowIndex) => {
-    const container = tableBodyRef.current;
-    if (!container) return;
-    const rowTop = rowIndex * rowHeight;
-    const rowBottom = rowTop + rowHeight;
-    const viewportTop = container.scrollTop;
-    const viewportBottom = viewportTop + viewportHeight;
-    if (rowBottom > viewportBottom) {
-      container.scrollTo({ top: rowBottom - viewportHeight, behavior: 'smooth' });
-    } else if (rowTop < viewportTop) {
-      container.scrollTo({ top: rowTop, behavior: 'smooth' });
-    }
-  }, [rowHeight, viewportHeight]);
-
+  // ============================================
+  // Navigation handlers
+  // ============================================
   const handleNavigateToNextRow = useCallback((currentIndex, fieldKey = null) => {
     const nextIndex = currentIndex + 1;
     if (nextIndex < rows.length) {
@@ -152,9 +197,22 @@ const SalesTable = ({
 
   const handleCreateNewRow = useCallback(() => {
     const newRow = {
-      medicine_id: null, inventory_id: null, name: "", manufacturer: "", batch: "", exp: "",
-      qty: "", mrp: "", rate: "", rack: "", stock: "", discountPercent: "0",
-      cgstPercent: "6", sgstPercent: "6", amount: "", availableBatches: [],
+      medicine_id: null, 
+      inventory_id: null, 
+      name: "", 
+      manufacturer: "", 
+      batch: "", 
+      exp: "",
+      qty: "", 
+      mrp: "", 
+      rate: "", 
+      rack: "", 
+      stock: "", 
+      discountPercent: "0",
+      cgstPercent: "6", 
+      sgstPercent: "6", 
+      amount: "", 
+      availableBatches: [],
     };
     setRows(prev => [...prev, newRow]);
     setFocusQueue({ rowIndex: rows.length, fieldKey: null });
@@ -162,11 +220,13 @@ const SalesTable = ({
 
   const handleRemoveRow = useCallback((index) => {
     if (rows.length <= 1) return;
+    
     setRows(prev => {
       const newRows = [...prev];
       newRows.splice(index, 1);
       return newRows;
     });
+    
     const focusIndex = Math.max(0, index - 1);
     setTimeout(() => {
       const targetRow = rowRefs.current[focusIndex];
@@ -211,15 +271,26 @@ const SalesTable = ({
         <div className="flex items-center gap-1">
           {hasOverflow && (
             <div className="flex items-center gap-0.5 mr-1">
-              <button onClick={() => tableBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} disabled={!scrollInfo.canScrollUp} className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30">
+              <button 
+                onClick={() => tableBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} 
+                disabled={!scrollInfo.canScrollUp} 
+                className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30"
+              >
                 <ChevronUp size={10} />
               </button>
-              <button onClick={() => tableBodyRef.current?.scrollTo({ top: tableBodyRef.current.scrollHeight, behavior: 'smooth' })} disabled={!scrollInfo.canScrollDown} className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30">
+              <button 
+                onClick={() => tableBodyRef.current?.scrollTo({ top: tableBodyRef.current.scrollHeight, behavior: 'smooth' })} 
+                disabled={!scrollInfo.canScrollDown} 
+                className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30"
+              >
                 <ChevronDown size={10} />
               </button>
             </div>
           )}
-          <button onClick={handleCreateNewRow} className="px-1.5 py-0.5 text-[8px] bg-indigo-500 text-white hover:bg-indigo-600 rounded flex items-center gap-0.5 font-medium shadow-sm">
+          <button 
+            onClick={handleCreateNewRow} 
+            className="px-1.5 py-0.5 text-[8px] bg-indigo-500 text-white hover:bg-indigo-600 rounded flex items-center gap-0.5 font-medium shadow-sm"
+          >
             <Plus size={8} />
             Add Row
           </button>
@@ -269,7 +340,11 @@ const SalesTable = ({
         </div>
 
         {/* Scrollable Body */}
-        <div ref={tableBodyRef} className="flex-1 overflow-y-auto overflow-x-hidden" style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}>
+        <div 
+          ref={tableBodyRef} 
+          className="flex-1 overflow-y-auto overflow-x-hidden" 
+          style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}
+        >
           <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: columnWidths.rowNum }} />
@@ -290,7 +365,12 @@ const SalesTable = ({
             <tbody>
               {isLoading ? (
                 Array.from({ length: visibleRows }).map((_, index) => (
-                  <SkeletonRow key={`skeleton-${index}`} rowHeight={rowHeight} isEven={index % 2 === 0} index={index} />
+                  <SkeletonRow 
+                    key={`skeleton-${index}`} 
+                    rowHeight={rowHeight} 
+                    isEven={index % 2 === 0} 
+                    index={index} 
+                  />
                 ))
               ) : (
                 rows.map((item, index) => (
@@ -320,7 +400,10 @@ const SalesTable = ({
           </table>
           
           {!isLoading && rows.length === 0 && (
-            <div className="flex flex-col items-center justify-center text-slate-400" style={{ height: `${viewportHeight}px` }}>
+            <div 
+              className="flex flex-col items-center justify-center text-slate-400" 
+              style={{ height: `${viewportHeight}px` }}
+            >
               <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-2">
                 <Plus size={16} className="text-slate-400" />
               </div>

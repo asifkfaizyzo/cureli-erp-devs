@@ -386,12 +386,11 @@ export async function createSalesReturnController(req, res) {
       auditContext
     );
 
-    return success(
-      res,
-      result,
-      `Return processed successfully. Refund: ₹${result.refund_amount} (${result.refund_mode})`,
-      201
-    );
+    const message = result.return_approval_status === "APPROVED"
+      ? `Return processed successfully. Refund: ₹${result.refund_amount} (${result.refund_mode})`
+      : "Return created. Pending approval from admin.";
+
+    return success(res, result, message, 201);
   } catch (error) {
     console.error("createSalesReturn ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
@@ -409,6 +408,7 @@ export async function getSalesReturnsController(req, res) {
       endDate: req.query.endDate,
       customerId: req.query.customerId,
       returnReason: req.query.returnReason,
+      approvalStatus: req.query.approvalStatus,
       search: req.query.search,
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
@@ -476,13 +476,40 @@ export async function getReturnableItemsController(req, res) {
   }
 }
 
+export async function approveOrRejectReturnController(req, res) {
+  try {
+    const userId = req.user.user_id;
+    const shopId = req.user.shop_id;
+    const { branchId } = extractBranchContext(req);
+    const { returnId } = req.params;
+    const auditContext = audit.extractRequestContext(req);
+
+    const result = await salesReturnService.approveOrRejectReturn(
+      userId,
+      shopId,
+      branchId,
+      returnId,
+      req.validated,
+      auditContext
+    );
+
+    const message = req.validated.action === "APPROVE"
+      ? "Return approved. Stock added back and refund processed."
+      : "Return rejected.";
+
+    return success(res, result, message);
+  } catch (error) {
+    console.error("approveOrRejectReturn ERROR:", error);
+    return fail(res, error.message, error.statusCode || 500);
+  }
+}
+
 export async function cancelSalesReturnController(req, res) {
   try {
     const userId = req.user.user_id;
     const shopId = req.user.shop_id;
     const { branchId } = extractBranchContext(req);
     const { returnId } = req.params;
-    const { reason } = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
     const result = await salesReturnService.cancelSalesReturn(
@@ -490,13 +517,92 @@ export async function cancelSalesReturnController(req, res) {
       shopId,
       branchId,
       returnId,
-      reason,
+      req.validated,
       auditContext
     );
 
-    return success(res, result, "Sales return cancelled. Stock and credits reversed.");
+    return success(res, result, "Return cancelled. Stock has been deducted back.");
   } catch (error) {
     console.error("cancelSalesReturn ERROR:", error);
+    return fail(res, error.message, error.statusCode || 500);
+  }
+}
+
+export async function revertSalesReturnController(req, res) {
+  try {
+    const userId = req.user.user_id;
+    const shopId = req.user.shop_id;
+    const { branchId } = extractBranchContext(req);
+    const { returnId } = req.params;
+    const auditContext = audit.extractRequestContext(req);
+
+    const result = await salesReturnService.revertReturnToPending(
+      userId,
+      shopId,
+      branchId,
+      returnId,
+      req.validated,
+      auditContext
+    );
+
+    return success(res, result, "Return reverted to pending. Awaiting re-approval.");
+  } catch (error) {
+    console.error("revertSalesReturn ERROR:", error);
+    return fail(res, error.message, error.statusCode || 500);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CUSTOMER CREDIT CONTROLLERS
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function getCustomerCreditsController(req, res) {
+  try {
+    const shopId = req.user.shop_id;
+    const role = req.user.role;
+    const { branchId, branchMode } = extractBranchContext(req);
+
+    const filters = {
+      customerId: req.query.customerId,
+      status: req.query.status,
+      includeExpired: req.query.includeExpired === "true",
+      limit: parseInt(req.query.limit) || 50,
+      offset: parseInt(req.query.offset) || 0,
+    };
+
+    const result = await salesReturnService.getCustomerCredits(
+      shopId,
+      branchId,
+      role,
+      branchMode,
+      filters
+    );
+
+    return success(res, result, "Customer credits retrieved");
+  } catch (error) {
+    console.error("getCustomerCredits ERROR:", error);
+    return fail(res, error.message, error.statusCode || 500);
+  }
+}
+
+export async function applyCustomerCreditController(req, res) {
+  try {
+    const userId = req.user.user_id;
+    const shopId = req.user.shop_id;
+    const { branchId } = extractBranchContext(req);
+    const auditContext = audit.extractRequestContext(req);
+
+    const result = await salesReturnService.applyCustomerCredit(
+      userId,
+      shopId,
+      branchId,
+      req.validated,
+      auditContext
+    );
+
+    return success(res, result, "Customer credit applied successfully");
+  } catch (error) {
+    console.error("applyCustomerCredit ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
   }
 }

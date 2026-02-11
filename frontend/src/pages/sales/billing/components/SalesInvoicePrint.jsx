@@ -516,14 +516,6 @@ const SalesInvoicePrint = ({
                   ₹ {(summary?.totalTax || 0).toFixed(2)}
                 </td>
               </tr>
-              {customer?.eWayBillNo && (
-  <tr>
-    <td style={{ padding: '2px 0', color: '#666' }}>E-Way Bill:</td>
-    <td style={{ padding: '2px 0', fontFamily: 'monospace', fontWeight: '600' }}>
-      {customer.eWayBillNo}
-    </td>
-  </tr>
-)}
             </tbody>
           </table>
         </section>

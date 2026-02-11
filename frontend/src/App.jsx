@@ -43,9 +43,10 @@ import MaintenancePage from "./pages/maintenance/MaintenancePage.jsx";
 import AppLayout from "./components/layout/AppLayout.jsx";
 import DashboardPage from "./pages/dashboard/DashboardPage.jsx";
 import BillingPage from "./pages/sales/billing/SalesBillingPage.jsx";
-import InvoicePage from "./pages/sales/invoice/InvoicePage.jsx";
+import InvoicePage from "./pages/sales/invoice/SalesInvoicePage.jsx";
 import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.jsx";
 import PurchaseReturnsPage from "./pages/purchase/returns/PurchaseReturnsPage";
+import SalesReturnsPage from "./pages/sales/returns/SalesReturnsPage.jsx";
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 import InventoryPage from "./pages/inventory/InventoryPage.jsx";
@@ -304,7 +305,7 @@ const App = () => {
 
                         {/* Sales Billing - WRITE ROUTE, requires BRANCH mode */}
                         <Route
-                          path="/Salesbilling"
+                          path="/Sales-billing"
                           element={
                             <PermissionGuard
                               permission={PERMISSIONS.BILLING_CREATE}
@@ -318,12 +319,22 @@ const App = () => {
 
                         {/* Sales Invoices - Read only, works in GLOBAL mode */}
                         <Route
-                          path="/Salesinvoice"
+                          path="/Sales-invoice"
                           element={
                             <PermissionGuard
                               permission={PERMISSIONS.BILLING_VIEW}
                             >
                               <InvoicePage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/Sales-returns"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_VIEW}
+                            >
+                              <SalesReturnsPage />
                             </PermissionGuard>
                           }
                         />

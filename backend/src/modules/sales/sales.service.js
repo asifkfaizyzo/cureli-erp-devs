@@ -42,50 +42,65 @@ class SalesService {
   // ============================================
 
   async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
-    const { includeLowStock = false, includeExpiring = true } = options;
+  const { includeLowStock = false, includeExpiring = true } = options;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  console.log(`🔍 Getting batches for:`, {
+    shopId,
+    branchId,
+    medicineId,
+    options,
+  });
 
-    const where = {
-      shop_id: shopId,
-      branch_id: branchId,
-      medicine_id: medicineId,
-      is_active: true,
-      is_expired: false,
-      available_stock: { gt: 0 },
-      expiry_date: { gte: today },
-    };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    const batches = await prisma.inventory.findMany({
-      where,
-      select: {
-        inventory_id: true,
-        batch_number: true,
-        expiry_date: true,
-        current_stock: true,
-        reserved_stock: true,
-        available_stock: true,
-        mrp: true,
-        selling_rate: true,
-        rack_no: true,
-        medicine: {
-          select: {
-            medicine_id: true,
-            name: true,
-            manufacturer: true,
-            pack_size: true,
-            gst_percentage: true,
-            cgst_percentage: true,
-            sgst_percentage: true,
-          },
+  const where = {
+    shop_id: shopId,
+    branch_id: branchId,
+    medicine_id: medicineId,
+    is_active: true,
+    is_expired: false,
+    // ✅ Include low stock if requested
+    ...(includeLowStock 
+      ? { available_stock: { gt: 0 } }  // Any stock > 0
+      : { available_stock: { gt: 5 } }  // Only stock > 5
+    ),
+    expiry_date: { gte: today },
+  };
+
+  console.log("📋 Query where clause:", where);
+
+  const batches = await prisma.inventory.findMany({
+    where,
+    select: {
+      inventory_id: true,
+      batch_number: true,
+      expiry_date: true,
+      current_stock: true,
+      reserved_stock: true,
+      available_stock: true,
+      mrp: true,
+      selling_rate: true,
+      rack_no: true,
+      medicine: {
+        select: {
+          medicine_id: true,
+          name: true,
+          manufacturer: true,
+          pack_size: true,
+          gst_percentage: true,
+          cgst_percentage: true,
+          sgst_percentage: true,
         },
       },
-      orderBy: [
-        { expiry_date: "asc" },
-        { batch_number: "asc" },
-      ],
-    });
+    },
+    orderBy: [
+      { expiry_date: "asc" },
+      { batch_number: "asc" },
+    ],
+  });
+
+  console.log(`✅ Found ${batches.length} batches`);
 
     const enrichedBatches = batches.map((batch) => {
       const expiryDate = new Date(batch.expiry_date);
@@ -1170,30 +1185,33 @@ class SalesService {
           },
         },
         lineItems: {
-          include: {
-            medicine: {
-              select: {
-                medicine_id: true,
-                name: true,
-                generic_name: true,
-                manufacturer: true,
-                pack_size: true,
-                hsn_code: true,
-                schedule: true,
-              },
-            },
-            inventory: {
-              select: {
-                inventory_id: true,
-                current_stock: true,
-                available_stock: true,
-                rack_no: true,
-              },
-            },
-          },
-          orderBy: { created_at: "asc" },
-        },
-        payments: {
+  include: {
+    medicine: {
+      select: {
+        medicine_id: true,
+        name: true,
+        generic_name: true,
+        manufacturer: true,
+        pack_size: true,
+        hsn_code: true,
+        schedule: true,
+      },
+    },
+    inventory: {
+      select: {
+        inventory_id: true,
+        batch_number: true,        // ✅ ADD THIS
+        expiry_date: true,          // ✅ ADD THIS
+        current_stock: true,
+        available_stock: true,
+        mrp: true,                  // ✅ ADD THIS (for edit mode)
+        selling_rate: true,         // ✅ ADD THIS (for edit mode)
+        rack_no: true,
+      },
+    },
+  },
+  orderBy: { created_at: "asc" },
+},   payments: {
           orderBy: { payment_date: "desc" },
           include: {
             creator: {

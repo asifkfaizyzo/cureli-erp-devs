@@ -1,10 +1,10 @@
-// components/InvoicePagination.jsx
+// frontend/src/pages/purchase/invoice/components/InvoicePagination.jsx
 import React from "react";
 import { 
   ChevronLeft, 
   ChevronRight, 
-  ChevronsLeft,    // Added
-  ChevronsRight,   // Added
+  ChevronsLeft,   // ✅ Added
+  ChevronsRight,  // ✅ Added
   MoreHorizontal 
 } from "lucide-react";
 

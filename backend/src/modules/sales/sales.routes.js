@@ -7,13 +7,17 @@ import {
   createSalesInvoiceSchema,
   addItemsSchema,
   confirmInvoiceSchema,
+  recordPaymentSchema,
   cancelInvoiceSchema,
   parkInvoiceSchema,
-  recordPaymentSchema,
   createSalesReturnSchema,
+  approveReturnSchema,
   cancelSalesReturnSchema,
+  revertSalesReturnSchema,
+  applyCustomerCreditSchema,
 } from "./sales.schema.js";
 import {
+  // Invoice controllers
   getAvailableBatchesController,
   createDraftSaleController,
   addItemsController,
@@ -27,11 +31,17 @@ import {
   getSalesInvoicesController,
   getInvoiceDetailsController,
   getSalesStatsController,
+  // Return controllers
   createSalesReturnController,
   getSalesReturnsController,
   getReturnDetailsController,
   getReturnableItemsController,
+  approveOrRejectReturnController,
   cancelSalesReturnController,
+  revertSalesReturnController,
+  // Customer credit controllers
+  getCustomerCreditsController,
+  applyCustomerCreditController,
 } from "./sales.controller.js";
 
 const router = express.Router();
@@ -40,7 +50,59 @@ const router = express.Router();
 router.use(requireAuth);
 
 // ═══════════════════════════════════════════════════════════════════════
-// STOCK/BATCH ENDPOINTS
+// SALES RETURN ROUTES (Must come BEFORE :invoiceId routes)
+// ═══════════════════════════════════════════════════════════════════════
+
+// Create sales return
+router.post(
+  "/returns",
+  validateBody(createSalesReturnSchema),
+  createSalesReturnController
+);
+
+// Get all sales returns
+router.get("/returns", getSalesReturnsController);
+
+// Get return details
+router.get("/returns/:returnId", getReturnDetailsController);
+
+// Approve or reject return
+router.post(
+  "/returns/:returnId/approve",
+  validateBody(approveReturnSchema),
+  approveOrRejectReturnController
+);
+
+// Cancel approved return (Super Admin only)
+router.patch(
+  "/returns/:returnId/cancel",
+  validateBody(cancelSalesReturnSchema),
+  cancelSalesReturnController
+);
+
+// Revert approved return to pending (Super Admin only)
+router.patch(
+  "/returns/:returnId/revert",
+  validateBody(revertSalesReturnSchema),
+  revertSalesReturnController
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// CUSTOMER CREDIT ROUTES
+// ═══════════════════════════════════════════════════════════════════════
+
+// Get customer credits
+router.get("/credits", getCustomerCreditsController);
+
+// Apply customer credit to invoice
+router.post(
+  "/credits/apply",
+  validateBody(applyCustomerCreditSchema),
+  applyCustomerCreditController
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+// BATCH/STOCK ENDPOINTS
 // ═══════════════════════════════════════════════════════════════════════
 
 router.get("/batches/:medicineId", getAvailableBatchesController);
@@ -52,79 +114,43 @@ router.get("/batches/:medicineId", getAvailableBatchesController);
 router.get("/parked", getParkedInvoicesController);
 
 // ═══════════════════════════════════════════════════════════════════════
-// STATISTICS
+// SALES INVOICE ROUTES
 // ═══════════════════════════════════════════════════════════════════════
 
-router.get("/stats", getSalesStatsController);
+// Create draft sale
+router.post("/", validateBody(createSalesInvoiceSchema), createDraftSaleController);
 
-// ═══════════════════════════════════════════════════════════════════════
-// SALES RETURNS (Must come before /:invoiceId routes)
-// ═══════════════════════════════════════════════════════════════════════
-
-router.get("/returns", getSalesReturnsController);
-
-router.post(
-  "/returns",
-  validateBody(createSalesReturnSchema),
-  createSalesReturnController
-);
-
-router.get("/returns/:returnId", getReturnDetailsController);
-
-router.post(
-  "/returns/:returnId/cancel",
-  validateBody(cancelSalesReturnSchema),
-  cancelSalesReturnController
-);
-
-// ═══════════════════════════════════════════════════════════════════════
-// INVOICE OPERATIONS
-// ═══════════════════════════════════════════════════════════════════════
-
-router.post(
-  "/",
-  validateBody(createSalesInvoiceSchema),
-  createDraftSaleController
-);
-
+// Get all sales invoices
 router.get("/", getSalesInvoicesController);
 
+// Get sales statistics
+router.get("/stats", getSalesStatsController);
+
+// Get invoice details
 router.get("/:invoiceId", getInvoiceDetailsController);
 
+// Get returnable items for an invoice
 router.get("/:invoiceId/returnable-items", getReturnableItemsController);
 
-router.post(
-  "/:invoiceId/items",
-  validateBody(addItemsSchema),
-  addItemsController
-);
+// Add items to draft
+router.post("/:invoiceId/items", validateBody(addItemsSchema), addItemsController);
 
+// Remove item from draft
 router.delete("/:invoiceId/items/:itemId", removeItemController);
 
-router.post(
-  "/:invoiceId/park",
-  validateBody(parkInvoiceSchema),
-  parkInvoiceController
-);
+// Park invoice
+router.post("/:invoiceId/park", validateBody(parkInvoiceSchema), parkInvoiceController);
 
+// Resume parked invoice
 router.post("/:invoiceId/resume", resumeParkedInvoiceController);
 
-router.post(
-  "/:invoiceId/confirm",
-  validateBody(confirmInvoiceSchema),
-  confirmSaleController
-);
+// Confirm sale
+router.post("/:invoiceId/confirm", validateBody(confirmInvoiceSchema), confirmSaleController);
 
-router.post(
-  "/:invoiceId/cancel",
-  validateBody(cancelInvoiceSchema),
-  cancelInvoiceController
-);
+// Cancel invoice
+router.post("/:invoiceId/cancel", validateBody(cancelInvoiceSchema), cancelInvoiceController);
 
-router.post(
-  "/:invoiceId/payments",
-  validateBody(recordPaymentSchema),
-  recordPaymentController
-);
+// Record payment
+router.post("/:invoiceId/payments", validateBody(recordPaymentSchema), recordPaymentController);
 
 export default router;
