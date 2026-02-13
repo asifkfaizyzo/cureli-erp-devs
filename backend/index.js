@@ -16,6 +16,7 @@ import { initializeCronJobs } from "./src/cron/jobs.js";
 // MIDDLEWARE IMPORTS
 // ═══════════════════════════════════════════════════════════
 import maintenanceMiddleware from "./src/middleware/maintenance.js";
+import publicUnsubscribeRoutes from './src/modules/public/unsubscribe/unsubscribe.routes.js';
 
 // ═══════════════════════════════════════════════════════════
 // ROUTE IMPORTS - User/Shop
@@ -59,6 +60,8 @@ import cadminSubscriptionsRoutes from "./src/modules/cadmin/subscriptions/cadmin
 import cadminAuditRoutes from "./src/modules/cadmin/audit/cadminAudit.routes.js";
 import cadminBroadcastInAppRoutes from "./src/modules/cadmin/broadcast/inapp/cadminInAppBroadcast.routes.js";
 import cadminNotificationRoutes from "./src/modules/notifications/cadmin/cadminNotifications.routes.js";
+import cadminEmailBroadcastRoutes from './src//modules/cadmin/broadcast/email/cadminEmailBroadcast.routes.js';
+
 // ═══════════════════════════════════════════════════════════
 // APP SETUP
 // ═══════════════════════════════════════════════════════════
@@ -237,6 +240,8 @@ app.use("/api/tickets", ticketRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/enquiries", enquiriesRoutes);
 app.use('/api/notifications', userNotificationRoutes);
+app.use('/api/public', publicUnsubscribeRoutes);
+
 // ============================================
 // API Routes - Pharmacy ERP (NEW ✅)
 // ============================================
@@ -263,6 +268,8 @@ app.use("/cadmin", cadminSubscriptionsRoutes);
 app.use("/cadmin", cadminAuditRoutes);
 app.use("/cadmin", cadminBroadcastInAppRoutes);  
 app.use("/cadmin", cadminNotificationRoutes);
+app.use('/cadmin', cadminEmailBroadcastRoutes);
+
 // ============================================
 // 404 Handler
 // ============================================
@@ -277,6 +284,14 @@ app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);
   res.status(500).json({ success: false, message: "Internal server error" });
 });
+// ============================================
+// STATIC FILE SERVING (for email attachments)
+// ============================================
+
+app.use(
+  '/uploads/email_attachments',
+  express.static(path.join(process.cwd(), 'uploads/email_attachments'))
+);
 
 // ============================================
 // Start Server

@@ -25,6 +25,8 @@ const BREADCRUMB_PATHS = {
   "Tickets": "/communications/tickets",
   "Enquiries": "/communications/enquiries",
   "Broadcast": "/communications/broadcast",
+  "In-App Broadcast": "/communications/broadcast/in-app",
+  "Email Broadcast": "/communications/broadcast/email",
 
   // ✅ NEW: Notifications
   "Notifications": "/notifications",

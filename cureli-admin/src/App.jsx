@@ -28,7 +28,7 @@ import TicketsPage from "./pages/Communications/pages/Tickets/TicketsPage";
 import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage";
 import BroadcastPage from "./pages/Communications/pages/Broadcast/BroadcastPage";
 import InAppBroadcastPage from "./pages/Communications/pages/Broadcast/InApp/InAppBroadcastPage";
-
+import EmailBroadcastPage from "./pages/Communications/pages/Broadcast/Email/EmailBroadcastPage";
 // Notifications Page ✅ NEW
 import NotificationsPage from "./pages/Notifications/NotificationsPage";
 
@@ -125,6 +125,10 @@ function App() {
           <Route
             path="/communications/broadcast/in-app"
             element={<InAppBroadcastPage />}
+          />
+          <Route
+            path="/communications/broadcast/email"
+            element={<EmailBroadcastPage />}
           />
         </Route>
 

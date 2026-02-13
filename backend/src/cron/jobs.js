@@ -9,6 +9,8 @@ import {
   cleanupIncompleteUsers,
   cleanupOldDeletionLogs,
 } from "../utils/cleanup.js";
+import { initializeEmailBroadcastWorker } from "./emailBroadcastWorker.js";
+import { initializeFileCleanupWorker } from "./emailFileCleanupWorker.js";
 
 // Subscription imports
 import {
@@ -381,6 +383,10 @@ function initializeInventoryExpiryJob() {
 
 export function initializeCronJobs() {
   console.log("Initializing cron jobs...");
+  initializeEmailBroadcastWorker();
+  initializeFileCleanupWorker();
+  console.log("   - Email broadcast worker: Every 1 minute");
+  console.log("   - Email file cleanup: Daily at 4:00 AM");
 
   // Session cleanup (every hour)
   setInterval(runSessionCleanup, 60 * 60 * 1000);
@@ -392,7 +398,7 @@ export function initializeCronJobs() {
   initializePaymentStatusSyncJob();
   initializeReminderJob();
   initializeInventoryExpiryJob(); // ✅ NEW: Inventory expiry checks
-initializeScheduledBroadcastsJob();  
+  initializeScheduledBroadcastsJob();
   // Cleanup jobs
   cron.schedule("0 3 * * *", async () => {
     console.log("🧹 [CRON] Running pending users cleanup...");

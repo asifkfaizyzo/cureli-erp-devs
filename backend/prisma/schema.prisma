@@ -219,7 +219,9 @@ model CAdmin {
   planActivities      PlanActivityLog[]    @relation("PlanActivityByCAdmin")
   activityLogs        CAdminActivityLog[]  @relation("CAdminActivityLogs")
   enquiryReplies      EnquiryReply[]       @relation("EnquiryRepliedBy")
-  notifications       Notification[]       @relation("CAdminNotifications")  // ✅ ADD THIS
+  notifications       Notification[]       @relation("CAdminNotifications") 
+  emailBroadcastCampaigns  EmailBroadcastCampaign[]  @relation("EmailBroadcastCampaigns")
+
 
   @@map("cadmins")
 }
@@ -1172,10 +1174,6 @@ model PurchasePayment {
 // PHARMACY: INVENTORY MANAGEMENT
 // ============================================
 
-// ============================================
-// PHARMACY: INVENTORY MANAGEMENT
-// ============================================
-
 model Inventory {
   inventory_id String @id @default(uuid()) @db.Uuid
 
@@ -1376,7 +1374,93 @@ model Notification {
   @@index([created_at(sort: Desc)])
   @@map("notifications")
 }
+// ============================================
+// EMAIL BROADCAST SYSTEM
+// ============================================
 
+model EmailBroadcastCampaign {
+  campaign_id           String    @id @default(uuid()) @db.Uuid
+
+  // Content
+  subject               String    @db.VarChar(200)
+  message_text          String    @db.Text
+  message_html          String    @db.Text
+
+  // Targeting
+  target_filters        Json      @db.JsonB
+  target_users          Boolean   @default(true)
+  target_cadmins        Boolean   @default(false)
+
+  // Stats
+  recipient_count       Int?
+  delivered_count       Int       @default(0)
+  failed_count          Int       @default(0)
+
+  // Inline Image (single, embedded in email body)
+  inline_image          Json?     @db.JsonB
+
+  // File Attachments (multiple, downloadable)
+  attachments           Json?     @db.JsonB
+
+  // Action Button
+  action_url            String?   @db.VarChar(500)
+  action_label          String?   @db.VarChar(100)
+
+  // Status: draft | scheduled | sending | paused | sent | partial_failure | failed | cancelled
+  status                String    @default("draft") @db.VarChar(20)
+  scheduled_for         DateTime? @db.Timestamptz(6)
+  sent_at               DateTime? @db.Timestamptz(6)
+
+  // Processing State
+  processing            Boolean   @default(false)
+  processing_started_at DateTime? @db.Timestamptz(6)
+  last_processed_index  Int       @default(0)
+
+  // Error Tracking
+  last_error            String?   @db.Text
+
+  // Metadata
+  created_by            String    @db.Uuid
+  cadmin_name           String    @db.VarChar(100)
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime  @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  cadmin                CAdmin    @relation("EmailBroadcastCampaigns", fields: [created_by], references: [cadmin_id])
+
+  @@index([status, scheduled_for])
+  @@index([status, processing])
+  @@index([created_by])
+  @@index([created_at(sort: Desc)])
+  @@map("email_broadcast_campaigns")
+}
+
+model DailySendQuota {
+  id          String   @id @default(uuid()) @db.Uuid
+  date        String   @unique @db.VarChar(10)   // YYYY-MM-DD in IST
+  sent_count  Int      @default(0)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([date])
+  @@map("daily_send_quotas")
+}
+
+model EmailUnsubscribe {
+  id              String   @id @default(uuid()) @db.Uuid
+  email           String   @unique @db.VarChar(255)
+  
+  user_id         String?  @db.Uuid
+  cadmin_id       String?  @db.Uuid
+  
+  reason          String?  @db.Text
+  token           String   @unique @db.VarChar(64)
+  unsubscribed_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([email])
+  @@index([token])
+  @@map("email_unsubscribes")
+}
 // ============================================
 // ✅ NEW: BROADCAST CAMPAIGNS (IN-APP)
 // ============================================
