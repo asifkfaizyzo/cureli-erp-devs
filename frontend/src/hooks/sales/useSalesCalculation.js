@@ -4,17 +4,25 @@ import { useMemo } from "react";
 
 export function calculateSalesRow(item) {
   const qty = parseFloat(item.qty) || 0;
-  const rate = parseFloat(item.rate) || parseFloat(item.mrp) || 0;
+  
+  // ✅ Use rate (selling price) - this is GST-inclusive
+  const inclusiveRate = parseFloat(item.rate) || parseFloat(item.mrp) || 0;
   const discountPercent = parseFloat(item.discountPercent) || 0;
   const cgstPercent = parseFloat(item.cgstPercent) || 6;
   const sgstPercent = parseFloat(item.sgstPercent) || 6;
 
-  const grossAmount = qty * rate;
+  const grossAmount = qty * inclusiveRate;
   const discountAmount = (grossAmount * discountPercent) / 100;
-  const taxableAmount = grossAmount - discountAmount;
+  const amountAfterDiscount = grossAmount - discountAmount;
+
+  // ✅ Back-calculate tax (for display only)
+  const totalGstPercent = cgstPercent + sgstPercent;
+  const taxableAmount = amountAfterDiscount / (1 + totalGstPercent / 100);
   const cgstAmount = (taxableAmount * cgstPercent) / 100;
   const sgstAmount = (taxableAmount * sgstPercent) / 100;
-  const amount = taxableAmount + cgstAmount + sgstAmount;
+
+  // ✅ Amount = rate × qty - discount (NO tax added)
+  const amount = amountAfterDiscount;
 
   return {
     ...item,
@@ -30,43 +38,56 @@ export function useSalesCalculation(rows, customerDiscountPercent = 0) {
   const summary = useMemo(() => {
     let subtotal = 0;
     let itemDiscountAmount = 0;
-    let taxableAmount = 0;
-    let cgstAmount = 0;
-    let sgstAmount = 0;
+    let totalTaxableAmount = 0;
+    let totalCgstAmount = 0;
+    let totalSgstAmount = 0;
 
     rows.forEach((row) => {
       if (!row.name || !row.qty) return;
       
       const qty = parseFloat(row.qty) || 0;
-      const rate = parseFloat(row.rate) || parseFloat(row.mrp) || 0;
+      
+      // ✅ Use rate (selling price)
+      const inclusiveRate = parseFloat(row.rate) || parseFloat(row.mrp) || 0;
       const discountPercent = parseFloat(row.discountPercent) || 0;
       
-      const gross = qty * rate;
+      const gross = qty * inclusiveRate;
       const itemDiscount = (gross * discountPercent) / 100;
-      const itemTaxable = gross - itemDiscount;
+      const amountAfterItemDiscount = gross - itemDiscount;
+
+      // Back-calculate tax
+      const cgstPct = parseFloat(row.cgstPercent) || 6;
+      const sgstPct = parseFloat(row.sgstPercent) || 6;
+      const totalGstPct = cgstPct + sgstPct;
+      
+      const itemTaxable = amountAfterItemDiscount / (1 + totalGstPct / 100);
+      const itemCgst = (itemTaxable * cgstPct) / 100;
+      const itemSgst = (itemTaxable * sgstPct) / 100;
       
       subtotal += gross;
       itemDiscountAmount += itemDiscount;
-      taxableAmount += itemTaxable;
-      cgstAmount += parseFloat(row.cgstAmount) || 0;
-      sgstAmount += parseFloat(row.sgstAmount) || 0;
+      totalTaxableAmount += itemTaxable;
+      totalCgstAmount += itemCgst;
+      totalSgstAmount += itemSgst;
     });
 
-    // Customer discount (applied after item discounts)
+    // Customer discount
     const afterItemDiscount = subtotal - itemDiscountAmount;
     const customerDiscountAmount = (afterItemDiscount * customerDiscountPercent) / 100;
-    const finalTaxable = afterItemDiscount - customerDiscountAmount;
+
+    // Final net (already inclusive)
+    const netAmountBeforeRounding = subtotal - itemDiscountAmount - customerDiscountAmount;
 
     // Recalculate tax proportionally
-    const taxRatio = taxableAmount > 0 ? finalTaxable / taxableAmount : 0;
-    const finalCgst = cgstAmount * taxRatio;
-    const finalSgst = sgstAmount * taxRatio;
+    const discountRatio = afterItemDiscount > 0 ? netAmountBeforeRounding / afterItemDiscount : 0;
+    const finalTaxable = totalTaxableAmount * discountRatio;
+    const finalCgst = totalCgstAmount * discountRatio;
+    const finalSgst = totalSgstAmount * discountRatio;
     const totalTax = finalCgst + finalSgst;
 
     const totalDiscount = itemDiscountAmount + customerDiscountAmount;
-    const grossTotal = finalTaxable + totalTax;
-    const roundOff = Math.round(grossTotal) - grossTotal;
-    const netAmount = Math.round(grossTotal);
+    const roundOff = Math.round(netAmountBeforeRounding) - netAmountBeforeRounding;
+    const netAmount = Math.round(netAmountBeforeRounding);
 
     return {
       subtotal: Number(subtotal.toFixed(2)),

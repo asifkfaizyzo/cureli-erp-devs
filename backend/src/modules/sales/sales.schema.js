@@ -13,13 +13,13 @@ const salesLineItemSchema = z.object({
   expiry_date: z.string().datetime(),
   quantity: z.number().positive(),
   unit_of_measure: z.enum(["UNIT", "STRIP", "BOX", "BOTTLE"]).default("UNIT"),
+  selling_rate: z.number().positive(),
   mrp: z.number().positive(),
   purchase_rate: z.number().positive().optional().nullable(),
   discount_percent: z.number().min(0).max(100).default(0),
   cgst_percent: z.number().min(0).max(100).default(0),
   sgst_percent: z.number().min(0).max(100).default(0),
 });
-
 // ============================================
 // CREATE SALES INVOICE
 // ============================================

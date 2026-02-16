@@ -606,18 +606,18 @@ const SalesRowFixed = memo(forwardRef(({
 
       {/* RATE */}
       <td className={`${cellBase} bg-blue-50/50`}>
-        <input 
-          ref={el => registerFieldRef("rate", el)}
-          type="number"
-          value={item.rate || ""}
-          onChange={(e) => handleChange("rate", e.target.value)}
-          onKeyDown={(e) => handleKeyDown(e, "rate")}
-          className={`${inputBase} px-1 py-1 text-right font-semibold text-blue-700`}
-          placeholder="0.00"
-          step="0.01"
-          aria-label="Selling rate"
-        />
-      </td>
+  <input 
+    ref={el => registerFieldRef("rate", el)}
+    type="number"
+    value={item.rate || ""}
+    onChange={(e) => handleChange("rate", e.target.value)}
+    onKeyDown={(e) => handleKeyDown(e, "rate")}
+    className={`${inputBase} px-1 py-1 text-right font-semibold text-blue-700`}
+    placeholder="0.00"
+    step="0.01"
+    aria-label="Selling rate"
+  />
+</td>
 
       {/* DISCOUNT */}
       <td className={`${cellBase} bg-rose-50/40`}>

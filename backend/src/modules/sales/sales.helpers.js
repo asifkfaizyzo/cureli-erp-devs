@@ -50,29 +50,40 @@ export function buildBranchFilter(shopId, branchId, role, branchMode) {
 // HELPER: Calculate Line Item
 // ============================================
 
+// ============================================
+// HELPER: Calculate Line Item (GST-INCLUSIVE)
+// ============================================
+
 export function calculateLineItem(item) {
   const qty = parseFloat(item.quantity || 0);
-  const mrp = parseFloat(item.mrp || 0);
+  
+  // ✅ CRITICAL: Use selling_rate instead of mrp
+  const inclusiveRate = parseFloat(item.selling_rate || item.mrp || 0);
   const discountPercent = parseFloat(item.discount_percent || 0);
 
-  // Gross amount
-  const grossAmount = qty * mrp;
+  // Gross amount (GST-inclusive)
+  const grossAmount = qty * inclusiveRate;
 
   // Item discount
   const discountAmount = (grossAmount * discountPercent) / 100;
 
-  // Taxable amount (after discount)
-  const taxableAmount = grossAmount - discountAmount;
+  // Amount after discount (still GST-inclusive)
+  const amountAfterDiscount = grossAmount - discountAmount;
 
-  // Tax calculation
+  // ✅ Back-calculate GST (prices are inclusive)
   const cgstPercent = parseFloat(item.cgst_percent || 0);
   const sgstPercent = parseFloat(item.sgst_percent || 0);
+  const totalGstPercent = cgstPercent + sgstPercent;
 
+  // Taxable amount = Amount / (1 + GST%)
+  const taxableAmount = amountAfterDiscount / (1 + totalGstPercent / 100);
+
+  // Tax amounts (for display, already included)
   const cgstAmount = (taxableAmount * cgstPercent) / 100;
   const sgstAmount = (taxableAmount * sgstPercent) / 100;
 
-  // Line total
-  const lineTotal = taxableAmount + cgstAmount + sgstAmount;
+  // ✅ Line total = Amount after discount (tax already included, NOT added again)
+  const lineTotal = amountAfterDiscount;
 
   return {
     gross_amount: Number(grossAmount.toFixed(2)),
@@ -88,57 +99,66 @@ export function calculateLineItem(item) {
 // HELPER: Calculate Invoice Totals
 // ============================================
 
+
 export function calculateInvoiceTotals(lineItems, customerDiscountPercent = 0, billDiscountPercent = 0) {
   let subtotal = 0;
   let itemDiscountAmount = 0;
-  let taxableAmount = 0;
-  let cgstAmount = 0;
-  let sgstAmount = 0;
+  let totalTaxableAmount = 0;
+  let totalCgstAmount = 0;
+  let totalSgstAmount = 0;
 
   // Sum up line items
   lineItems.forEach((item) => {
     const qty = parseFloat(item.quantity || 0);
-    const mrp = parseFloat(item.mrp || 0);
+    
+    // ✅ CRITICAL: Use selling_rate instead of mrp
+    const inclusiveRate = parseFloat(item.selling_rate || item.mrp || 0);
     const discountPercent = parseFloat(item.discount_percent || 0);
 
-    const grossAmount = qty * mrp;
+    const grossAmount = qty * inclusiveRate;
     const itemDiscount = (grossAmount * discountPercent) / 100;
-    const itemTaxable = grossAmount - itemDiscount;
+    const amountAfterItemDiscount = grossAmount - itemDiscount;
 
+    // Back-calculate tax
     const cgstPct = parseFloat(item.cgst_percent || 0);
     const sgstPct = parseFloat(item.sgst_percent || 0);
+    const totalGstPct = cgstPct + sgstPct;
+    
+    const itemTaxable = amountAfterItemDiscount / (1 + totalGstPct / 100);
+    const itemCgst = (itemTaxable * cgstPct) / 100;
+    const itemSgst = (itemTaxable * sgstPct) / 100;
 
     subtotal += grossAmount;
     itemDiscountAmount += itemDiscount;
-    taxableAmount += itemTaxable;
-    cgstAmount += (itemTaxable * cgstPct) / 100;
-    sgstAmount += (itemTaxable * sgstPct) / 100;
+    totalTaxableAmount += itemTaxable;
+    totalCgstAmount += itemCgst;
+    totalSgstAmount += itemSgst;
   });
 
-  // After item discounts, apply customer discount
+  // Customer discount
   const afterItemDiscount = subtotal - itemDiscountAmount;
   const customerDiscountAmount = (afterItemDiscount * customerDiscountPercent) / 100;
 
-  // After customer discount, apply bill discount
+  // Bill discount
   const afterCustomerDiscount = afterItemDiscount - customerDiscountAmount;
   const billDiscountAmount = (afterCustomerDiscount * billDiscountPercent) / 100;
 
   // Total discount
   const totalDiscount = itemDiscountAmount + customerDiscountAmount + billDiscountAmount;
 
-  // Recalculate taxable after all discounts
-  const finalTaxable = subtotal - totalDiscount;
+  // Final net (already inclusive)
+  const netAmountBeforeRounding = subtotal - totalDiscount;
 
   // Recalculate tax proportionally
-  const taxRatio = taxableAmount > 0 ? finalTaxable / taxableAmount : 0;
-  const finalCgst = cgstAmount * taxRatio;
-  const finalSgst = sgstAmount * taxRatio;
-  const totalTax = finalCgst + finalSgst;
+  const discountRatio = afterItemDiscount > 0 ? netAmountBeforeRounding / afterItemDiscount : 0;
+  const finalTaxableAmount = totalTaxableAmount * discountRatio;
+  const finalCgstAmount = totalCgstAmount * discountRatio;
+  const finalSgstAmount = totalSgstAmount * discountRatio;
+  const totalTax = finalCgstAmount + finalSgstAmount;
 
-  // Net amount
-  const grossTotal = finalTaxable + totalTax;
-  const roundOff = Math.round(grossTotal) - grossTotal;
-  const netAmount = Math.round(grossTotal);
+  // Round off
+  const roundOff = Math.round(netAmountBeforeRounding) - netAmountBeforeRounding;
+  const netAmount = Math.round(netAmountBeforeRounding);
 
   return {
     subtotal: Number(subtotal.toFixed(2)),
@@ -148,16 +168,15 @@ export function calculateInvoiceTotals(lineItems, customerDiscountPercent = 0, b
     bill_discount_percent: Number(billDiscountPercent.toFixed(2)),
     bill_discount_amount: Number(billDiscountAmount.toFixed(2)),
     total_discount: Number(totalDiscount.toFixed(2)),
-    taxable_amount: Number(finalTaxable.toFixed(2)),
-    cgst_amount: Number(finalCgst.toFixed(2)),
-    sgst_amount: Number(finalSgst.toFixed(2)),
+    taxable_amount: Number(finalTaxableAmount.toFixed(2)),
+    cgst_amount: Number(finalCgstAmount.toFixed(2)),
+    sgst_amount: Number(finalSgstAmount.toFixed(2)),
     total_tax: Number(totalTax.toFixed(2)),
     round_off: Number(roundOff.toFixed(2)),
     net_amount: netAmount,
     balance_amount: netAmount,
   };
 }
-
 // ============================================
 // HELPER: Calculate Payment Status
 // ============================================

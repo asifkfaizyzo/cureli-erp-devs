@@ -2,7 +2,7 @@ import express from "express";
 import inventoryController from "./inventory.controller.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
-import { createAdjustmentSchema } from "./inventory.schema.js";
+import { createAdjustmentSchema,updateInventorySchema   } from "./inventory.schema.js";
 
 const router = express.Router();
 
@@ -17,6 +17,10 @@ router.get("/medicine/:medicineId", inventoryController.getByMedicine);
 
 // Stock ledger
 router.get("/ledger", inventoryController.getStockLedger);
+
+// ✅ NEW: CRUD operations
+router.put("/:inventoryId", validate(updateInventorySchema), inventoryController.updateInventory);
+router.delete("/:inventoryId", inventoryController.deleteInventory);
 
 // Stock adjustment
 router.post("/adjustment", validate(createAdjustmentSchema), inventoryController.createAdjustment);

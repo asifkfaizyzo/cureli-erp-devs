@@ -47,40 +47,73 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
   }
 
   const medicineIds = lineItems.map((item) => item.medicine_id);
-  const medicines = await prisma.medicine.findMany({
-    where: { 
-      medicine_id: { in: medicineIds }, 
-      shop_id: shopId, 
-      branch_id: branchId,
-      is_active: true 
+
+// ✅ NEW: Get unique medicine IDs (same medicine with different batches is OK)
+const uniqueMedicineIds = [...new Set(medicineIds)];
+
+const medicines = await prisma.medicine.findMany({
+  where: { 
+    medicine_id: { in: uniqueMedicineIds }, // ✅ Use unique IDs
+    shop_id: shopId, 
+    branch_id: branchId,
+    is_active: true 
+  },
+});
+
+if (medicines.length !== uniqueMedicineIds.length) { // ✅ Compare with unique count
+  const foundIds = medicines.map(m => m.medicine_id);
+  const missingIds = uniqueMedicineIds.filter(id => !foundIds.includes(id));
+  
+  // ✅ NEW: Check if medicines exist in other branches
+  const otherBranchMeds = await prisma.medicine.findMany({
+    where: {
+      medicine_id: { in: missingIds },
+      shop_id: shopId,
+      is_active: true,
     },
+    select: { medicine_id: true, name: true, branch_id: true },
   });
 
-  if (medicines.length !== medicineIds.length) {
-    const foundIds = medicines.map(m => m.medicine_id);
-    const missingIds = medicineIds.filter(id => !foundIds.includes(id));
+  if (otherBranchMeds.length > 0) {
+    const details = otherBranchMeds
+      .slice(0, 3)
+      .map(m => `"${m.name}"`)
+      .join(', ');
+    const more = otherBranchMeds.length > 3 ? ` and ${otherBranchMeds.length - 3} more` : '';
     
-    const otherBranchMeds = await prisma.medicine.findMany({
-      where: {
-        medicine_id: { in: missingIds },
-        shop_id: shopId,
-        is_active: true,
-      },
-      select: { medicine_id: true, name: true, branch_id: true },
-    });
+    const err = new Error(
+      `${otherBranchMeds.length} medicine(s) belong to a different branch: ${details}${more}. ` +
+      `Please add these medicines to the current branch first, or switch to the correct branch.`
+    );
+    err.code = "BRANCH_MISMATCH";
+    throw err;
+  }
 
-    if (otherBranchMeds.length > 0) {
-      const err = new Error(
-        `Some medicines belong to a different branch. Cannot use medicines from other branches in this purchase.`
-      );
-      err.code = "BRANCH_MISMATCH";
-      throw err;
-    }
+  // ✅ NEW: Check if medicines exist at all
+  const existingMeds = await prisma.medicine.findMany({
+    where: {
+      medicine_id: { in: missingIds },
+    },
+    select: { medicine_id: true, name: true },
+  });
 
-    const err = new Error("Some medicines are invalid or don't belong to this shop/branch");
+  if (existingMeds.length === 0) {
+    const err = new Error(
+      `${missingIds.length} medicine(s) not found in database. ` +
+      `Medicine IDs: ${missingIds.slice(0, 3).join(', ')}${missingIds.length > 3 ? '...' : ''}. ` +
+      `Please add these products to the master list first.`
+    );
     err.code = "INVALID_MEDICINE";
     throw err;
   }
+
+  const err = new Error(
+    `${missingIds.length} medicine(s) are invalid or don't belong to this shop. ` +
+    `Please verify the products and try again.`
+  );
+  err.code = "INVALID_MEDICINE";
+  throw err;
+}
 
   const invoiceNumber = await generateInvoiceNumber(shopId);
   const calculations = calculateInvoiceTotals(lineItems);

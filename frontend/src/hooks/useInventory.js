@@ -20,6 +20,9 @@ export const useInventory = (initialFilters = {}) => {
   const branchId = branchContext.branch_id;
   const branchName = branchContext.branch_name;
 
+  // =====================
+  // FETCH INVENTORY
+  // =====================
   const fetchInventory = useCallback(async (filters = {}) => {
     setLoading(true);
     setError(null);
@@ -52,6 +55,9 @@ export const useInventory = (initialFilters = {}) => {
     }
   }, []);
 
+  // =====================
+  // FETCH SUMMARY
+  // =====================
   const fetchSummary = useCallback(async (branchIdParam = null) => {
     try {
       const response = await inventoryAPI.getSummary(branchIdParam);
@@ -63,6 +69,9 @@ export const useInventory = (initialFilters = {}) => {
     }
   }, []);
 
+  // =====================
+  // FETCH BY MEDICINE
+  // =====================
   const fetchByMedicine = useCallback(async (medicineId, filters = {}) => {
     setLoading(true);
     setError(null);
@@ -84,6 +93,9 @@ export const useInventory = (initialFilters = {}) => {
     }
   }, []);
 
+  // =====================
+  // CREATE ADJUSTMENT
+  // =====================
   const createAdjustment = useCallback(async (adjustmentData) => {
     try {
       const response = await inventoryAPI.createAdjustment(adjustmentData);
@@ -103,11 +115,75 @@ export const useInventory = (initialFilters = {}) => {
     }
   }, [fetchInventory, fetchSummary]);
 
+  // =====================
+  // ✅ NEW: UPDATE INVENTORY
+  // =====================
+  const updateInventory = useCallback(async (inventoryId, updateData) => {
+    try {
+      console.log("📤 updateInventory called:", { inventoryId, updateData });
+      
+      const response = await inventoryAPI.update(inventoryId, updateData);
+      
+      if (response.success) {
+        console.log("✅ Inventory updated:", response.data);
+        
+        // Refresh inventory list and summary
+        await fetchInventory();
+        await fetchSummary();
+        
+        return { success: true, data: response.data };
+      } else {
+        throw new Error(response.message || "Failed to update inventory");
+      }
+    } catch (err) {
+      console.error("Update inventory error:", err);
+      return { 
+        success: false, 
+        error: err.response?.data?.message || err.message || "Failed to update inventory" 
+      };
+    }
+  }, [fetchInventory, fetchSummary]);
+
+  // =====================
+  // ✅ NEW: DELETE INVENTORY
+  // =====================
+  const deleteInventory = useCallback(async (inventoryId) => {
+    try {
+      console.log("🗑️ deleteInventory called:", { inventoryId });
+      
+      const response = await inventoryAPI.delete(inventoryId);
+      
+      if (response.success) {
+        console.log("✅ Inventory deleted:", response.data);
+        
+        // Refresh inventory list and summary
+        await fetchInventory();
+        await fetchSummary();
+        
+        return { success: true, data: response.data };
+      } else {
+        throw new Error(response.message || "Failed to delete inventory");
+      }
+    } catch (err) {
+      console.error("Delete inventory error:", err);
+      return { 
+        success: false, 
+        error: err.response?.data?.message || err.message || "Failed to delete inventory" 
+      };
+    }
+  }, [fetchInventory, fetchSummary]);
+
+  // =====================
+  // REFRESH
+  // =====================
   const refresh = useCallback((filters = {}) => {
     fetchInventory(filters);
     fetchSummary(filters.branchId);
   }, [fetchInventory, fetchSummary]);
 
+  // =====================
+  // AUTO-FETCH ON BRANCH CHANGE
+  // =====================
   useEffect(() => {
     console.log("🔄 Branch context changed, refetching inventory...", { 
       branchMode, 
@@ -119,25 +195,41 @@ export const useInventory = (initialFilters = {}) => {
     fetchSummary();
   }, [branchMode, branchId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // =====================
+  // RETURN
+  // =====================
   return {
+    // State
     items,
     loading,
     error,
     summary,
     pagination,
+    
+    // Fetch methods
     fetchInventory,
     fetchByMedicine,
     fetchSummary,
+    
+    // CRUD methods
     createAdjustment,
+    updateInventory,    // ✅ NEW
+    deleteInventory,    // ✅ NEW
+    
+    // Utilities
     refresh,
     setItems,
+    
+    // Branch context
     currentBranchMode: branchMode,
     currentBranchId: branchId,
     currentBranchName: branchName,
   };
 };
 
-// ✅ FIXED: Complete field mapping with all fallbacks
+// =====================
+// HELPER: MAP INVENTORY DATA
+// =====================
 export const mapInventoryData = (inventories) => {
   if (!Array.isArray(inventories)) {
     console.warn("mapInventoryData received non-array:", inventories);
@@ -157,7 +249,7 @@ export const mapInventoryData = (inventories) => {
       });
     }
 
-    // ✅ CRITICAL: Get medicine data - handle both nested and flat structures
+    // Get medicine data - handle both nested and flat structures
     const medicine = inv.medicine || {};
     const medicineName = medicine.name || inv.name || inv.medicine_name || "Unknown";
     const manufacturer = medicine.manufacturer || inv.manufacturer || inv.mfac || "-";
@@ -172,7 +264,7 @@ export const mapInventoryData = (inventories) => {
     // Format expiry date
     const formattedExpiry = formatExpiryDate(inv.expiry_date);
     
-    // Calculate status using all available thresholds
+    // Calculate status
     const status = inv.status || calculateStatus({
       current_stock: inv.current_stock,
       minimum_stock: inv.minimum_stock,
@@ -190,7 +282,7 @@ export const mapInventoryData = (inventories) => {
       shop_id: inv.shop_id,
       branch_id: inv.branch_id,
       
-      // ✅ CRITICAL: Product display fields
+      // Product display fields
       name: medicineName,
       category: category,
       manufacturer: manufacturer,
@@ -245,19 +337,10 @@ export const mapInventoryData = (inventories) => {
       created_at: inv.created_at,
       updated_at: inv.updated_at,
       last_purchase_date: inv.last_purchase_date,
+      
+      // Keep medicine object for reference
+      medicine: medicine,
     };
-
-    // Debug first mapped item
-    if (index === 0) {
-      console.log("🔍 First inventory item MAPPED:", {
-        name: mapped.name,
-        category: mapped.category,
-        manufacturer: mapped.manufacturer,
-        batch: mapped.batch,
-        qty: mapped.qty,
-        status: mapped.status,
-      });
-    }
 
     return mapped;
   });
@@ -279,20 +362,17 @@ const formatExpiryDate = (dateString) => {
   }
 };
 
-// ✅ ENHANCED: Status calculation with all thresholds
+// Status calculation with all thresholds
 const calculateStatus = (inv) => {
   const currentStock = Number(inv.current_stock ?? inv.qty ?? 0);
   
-  // Get thresholds - prioritize inventory level, then medicine level
   const minStock = Number(inv.minimum_stock ?? inv.minStock ?? inv.medicine_min_stock ?? 0);
   const reorderPoint = Number(inv.medicine_reorder_point ?? inv.reorder_point ?? 0);
   
-  // 1. Check if expired
   if (inv.is_expired) {
     return "Expired";
   }
   
-  // 2. Check expiry date
   if (inv.expiry_date) {
     const expiryDate = new Date(inv.expiry_date);
     const today = new Date();
@@ -305,12 +385,10 @@ const calculateStatus = (inv) => {
     if (daysUntilExpiry <= 30) return "Expiring Soon";
   }
   
-  // 3. Out of stock
   if (currentStock <= 0) {
     return "Out of Stock";
   }
   
-  // 4. Low stock - check reorder point first, then min stock
   if (reorderPoint > 0 && currentStock <= reorderPoint) {
     return "Low Stock";
   }
@@ -318,7 +396,6 @@ const calculateStatus = (inv) => {
     return "Low Stock";
   }
   
-  // 5. Default fallback when no thresholds set
   if (minStock === 0 && reorderPoint === 0) {
     if (currentStock <= 5) return "Low Stock";
   }

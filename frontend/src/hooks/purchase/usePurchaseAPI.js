@@ -491,7 +491,7 @@ const savePurchaseInvoice = useCallback(
         return null;
       }
 
-      // Validate supplier_id is a valid UUID
+      // Validate supplier_id
       if (!supplier.supplier_id) {
         toast.error("Missing Supplier", "Please select a valid supplier");
         return null;
@@ -499,8 +499,45 @@ const savePurchaseInvoice = useCallback(
 
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(supplier.supplier_id)) {
-        console.error("❌ Invalid supplier_id format:", supplier.supplier_id);
-        toast.error("Invalid Supplier", `Supplier ID must be a UUID. Got: ${typeof supplier.supplier_id} - ${supplier.supplier_id}`);
+        toast.error("Invalid Supplier", `Supplier ID must be a UUID.`);
+        return null;
+      }
+
+      // ✅ NEW: Validate all rows have medicine_id BEFORE building payload
+      const rowsWithoutMedicineId = filledRows
+        .map((row, idx) => ({ row, idx: idx + 1 }))
+        .filter(({ row }) => !row.medicine_id);
+
+      if (rowsWithoutMedicineId.length > 0) {
+        const missingProducts = rowsWithoutMedicineId
+          .slice(0, 5) // Show max 5 examples
+          .map(({ row, idx }) => `Row ${idx}: "${row.name}" (Batch: ${row.batch || 'N/A'})`)
+          .join('\n');
+        
+        const moreCount = rowsWithoutMedicineId.length > 5 
+          ? `\n...and ${rowsWithoutMedicineId.length - 5} more` 
+          : '';
+
+        toast.error(
+          "Products Not in Master", 
+          `${rowsWithoutMedicineId.length} item(s) need to be added to product master first:\n${missingProducts}${moreCount}`
+        );
+        
+        console.error("❌ Rows missing medicine_id:", rowsWithoutMedicineId);
+        return null;
+      }
+
+      // ✅ NEW: Validate all medicine_ids are valid UUIDs
+      const invalidMedicineIds = filledRows
+        .map((row, idx) => ({ row, idx: idx + 1 }))
+        .filter(({ row }) => !uuidRegex.test(row.medicine_id));
+
+      if (invalidMedicineIds.length > 0) {
+        console.error("❌ Invalid medicine_id formats:", invalidMedicineIds);
+        toast.error(
+          "Invalid Product IDs", 
+          `${invalidMedicineIds.length} item(s) have invalid product IDs. Please re-select these products.`
+        );
         return null;
       }
 
@@ -521,38 +558,48 @@ const savePurchaseInvoice = useCallback(
       };
 
       // Build line items
-      const lineItems = filledRows.map((row, idx) => {
-        if (!row.medicine_id) {
-          throw new Error(`Row ${idx + 1}: Product "${row.name}" not found in master. Please add it first.`);
-        }
+      const lineItems = filledRows.map((row, idx) => ({
+        medicine_id: row.medicine_id,
+        batch_number: row.batch || `BATCH-${Date.now()}-${idx}`,
+        expiry_date: parseExpiryDate(row.exp),
+        manufacturing_date: null,
+        quantity: parseFloat(row.qty) || 0,
+        free_quantity: parseFloat(row.sch || row.pQty) || 0,
+        pack_size: row.pack || null,
+        unit_of_measure: "UNIT",
+        purchase_rate: parseFloat(row.price) || 0,
+        mrp: parseFloat(row.mrp) || 0,
+        scheme_discount: parseFloat(row.schemePercent) || 0,
+        trade_discount: parseFloat(row.discountPercent) || 0,
+        cgst_percent: parseFloat(row.cgstPercent || row.sgstPercent) || 0,
+        sgst_percent: parseFloat(row.sgstPercent) || 0,
+        igst_percent: 0,
+        selling_rate: parseFloat(row.sRate) || null,
+        margin_percent: null,
+        rack_no: row.rack || null,
+      }));
 
-        if (!uuidRegex.test(row.medicine_id)) {
-          throw new Error(`Row ${idx + 1}: Invalid medicine_id format for "${row.name}"`);
-        }
-
-        return {
-          medicine_id: row.medicine_id,
-          batch_number: row.batch || `BATCH-${Date.now()}-${idx}`,
-          expiry_date: parseExpiryDate(row.exp),
-          manufacturing_date: null,
-          quantity: parseFloat(row.qty) || 0,
-          free_quantity: parseFloat(row.sch || row.pQty) || 0,
-          pack_size: row.pack || null,
-          unit_of_measure: "UNIT",
-          purchase_rate: parseFloat(row.price) || 0,
-          mrp: parseFloat(row.mrp) || 0,
-          scheme_discount: parseFloat(row.schemePercent) || 0,
-          trade_discount: parseFloat(row.discountPercent) || 0,
-          cgst_percent: parseFloat(row.cgstPercent || row.sgstPercent) || 0,
-          sgst_percent: parseFloat(row.sgstPercent) || 0,
-          igst_percent: 0,
-          selling_rate: parseFloat(row.sRate) || null,
-          margin_percent: null,
-          rack_no: row.rack || null,
-        };
+      // ✅ NEW: Log medicine_ids for debugging
+      console.group("=== 📦 Purchase Invoice Payload ===");
+      console.log("Supplier ID:", supplier.supplier_id);
+      console.log("Branch ID:", invoiceData.branch_id);
+      console.log("Line Items:", lineItems.length);
+      console.log("Medicine IDs:", lineItems.map(li => li.medicine_id));
+      
+      // ✅ NEW: Check for duplicates (same medicine, different batches is OK)
+      const medicineIdCounts = {};
+      lineItems.forEach(li => {
+        medicineIdCounts[li.medicine_id] = (medicineIdCounts[li.medicine_id] || 0) + 1;
       });
+      const duplicateMedicines = Object.entries(medicineIdCounts)
+        .filter(([_, count]) => count > 1)
+        .map(([id, count]) => ({ id, count }));
+      
+      if (duplicateMedicines.length > 0) {
+        console.log("📋 Multiple batches for same medicine (this is OK):", duplicateMedicines);
+      }
+      console.groupEnd();
 
-      // ✅ FIXED: Add payment_mode and paid_amount
       const paidAmount = parseFloat(supplier.amountPaid) || 0;
       
       const payload = {
@@ -562,23 +609,13 @@ const savePurchaseInvoice = useCallback(
         invoice_date: toISODateTime(invoiceData.invoice_date) || new Date().toISOString(),
         due_date: toISODateTime(invoiceData.due_date),
         received_date: toISODateTime(invoiceData.received_date),
-        // ✅ FIXED: Include payment information
         payment_mode: paidAmount > 0 ? (supplier.paymentMode || "CASH") : null,
-        paid_amount: paidAmount, // ✅ ADD THIS
+        paid_amount: paidAmount,
         transport_charges: parseFloat(invoiceData.transport_charges) || null,
         other_charges: parseFloat(invoiceData.other_charges) || null,
         remarks: invoiceData.remarks || null,
         lineItems,
       };
-
-      // Debug logging
-      console.group("=== 📦 Purchase Invoice Payload ===");
-      console.log("Supplier ID:", payload.supplier_id);
-      console.log("Invoice Date:", payload.invoice_date);
-      console.log("Paid Amount:", payload.paid_amount); // ✅ ADD THIS
-      console.log("Payment Mode:", payload.payment_mode); // ✅ ADD THIS
-      console.log("Line Items:", payload.lineItems.length);
-      console.groupEnd();
 
       // Make API call
       let response;
@@ -612,7 +649,7 @@ const savePurchaseInvoice = useCallback(
     }
   },
   [toast, currentInvoice]
-);
+);;
 
   // ============================================
   // CONFIRM PURCHASE INVOICE (STOCK UPDATE)

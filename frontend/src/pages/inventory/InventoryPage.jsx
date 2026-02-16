@@ -106,7 +106,7 @@ const InventoryPage = () => {
   const isGlobalMode = branchContext.mode === "GLOBAL";
   const canAdjustStock = branchContext.mode === "BRANCH" && !!branchContext.branch_id;
 
-  // API integration
+  // ✅ IMPORTANT: Destructure ALL methods from useInventory including updateInventory and deleteInventory
   const {
     items,
     loading,
@@ -114,6 +114,8 @@ const InventoryPage = () => {
     summary,
     fetchInventory,
     createAdjustment,
+    updateInventory,    // ✅ ADD THIS
+    deleteInventory,    // ✅ ADD THIS
     refresh,
     currentBranchMode,
     currentBranchId,
@@ -143,11 +145,12 @@ const InventoryPage = () => {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [adjustmentModal, setAdjustmentModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [deleting, setDeleting] = useState(false);  // ✅ ADD: Delete loading state
 
-  // ✅ NEW: Add Medicine Modal State
+  // Add Medicine Modal State
   const [productModalOpen, setProductModalOpen] = useState(false);
 
-  // ✅ NEW: Handler to open Add Medicine modal
+  // Handler to open Add Medicine modal
   const handleAddMedicine = useCallback(() => {
     if (isGlobalMode) {
       toast.warning(
@@ -159,10 +162,9 @@ const InventoryPage = () => {
     setProductModalOpen(true);
   }, [isGlobalMode, toast]);
 
-  // ✅ NEW: Handler to save new medicine
+  // Handler to save new medicine
   const handleMedicineSave = useCallback(async (medicineData) => {
     try {
-      // ✅ Helper: safely convert to number or null
       const toNumberOrNull = (val) => {
         if (val === null || val === undefined || val === '') return null;
         const num = Number(val);
@@ -183,8 +185,6 @@ const InventoryPage = () => {
         cgst_percentage: toNumberOrNull(medicineData.cgstPercent) ?? 6,
         sgst_percentage: toNumberOrNull(medicineData.sgstPercent) ?? 6,
         rack_no: medicineData.rackNo || null,
-        
-        // ✅ FIXED: Include stock levels
         min_stock_level: toNumberOrNull(medicineData.min_stock_level),
         max_stock_level: toNumberOrNull(medicineData.max_stock_level),
         reorder_point: toNumberOrNull(medicineData.reorder_point),
@@ -424,7 +424,10 @@ const InventoryPage = () => {
     };
   }, [items]);
 
-  // Handlers
+  // =====================
+  // HANDLERS
+  // =====================
+  
   const handleRefresh = async () => {
     setRefreshing(true);
     await refresh(filters);
@@ -468,39 +471,80 @@ const InventoryPage = () => {
     setAdjustmentModal(true);
   };
 
-  // ✅ UPDATED: Handle save with medicine stock level update
+  // ✅ UPDATED: Handle save with complete inventory update
   const handleEditSave = async (editedItem) => {
     try {
-      console.log('📤 handleEditSave - Saving item:', {
-        medicine_id: editedItem.medicine_id,
-        inventory_id: editedItem.inventory_id,
+      console.log('📤 handleEditSave - Full data:', editedItem);
+
+      // Call the inventory update API
+      const result = await updateInventory(editedItem.inventory_id, {
+        // Product Information
+        name: editedItem.name,
+        manufacturer: editedItem.manufacturer,
+        category: editedItem.category,
+        hsn_code: editedItem.hsn_code,
+        
+        // Batch Info
+        batch_number: editedItem.batch_number,
+        expiry_date: editedItem.expiry_date || editedItem.expiry,
+        
+        // Pricing
+        mrp: editedItem.mrp,
+        selling_rate: editedItem.selling_rate,
+        last_purchase_rate: editedItem.purchase_rate || editedItem.last_purchase_rate,
+        
+        // Location
+        rack_no: editedItem.rack_no,
+        
+        // Stock thresholds
         min_stock_level: editedItem.min_stock_level,
         max_stock_level: editedItem.max_stock_level,
         reorder_point: editedItem.reorder_point,
+        minimum_stock: editedItem.minimum_stock,
       });
 
-      // ✅ Update medicine stock levels if they were changed
-      if (editedItem.medicine_id) {
-        await medicinesAPI.update(editedItem.medicine_id, {
-          min_stock_level: editedItem.min_stock_level,
-          max_stock_level: editedItem.max_stock_level,
-          reorder_point: editedItem.reorder_point,
-          rack_no: editedItem.rack || editedItem.rack_no,
-        });
-        
-        console.log('✅ Medicine stock levels updated');
+      if (result.success) {
+        console.log('✅ Inventory updated successfully');
+        toast.success('Item Updated', 'All changes have been saved successfully.');
+        setOpenModal(false);
+        setSelectedItem(null);
+      } else {
+        throw new Error(result.error || 'Update failed');
       }
-
-      // Refresh the inventory list
-      await refresh(filters);
-      
-      toast.success('Item Updated', 'Inventory item has been updated successfully.');
-      setOpenModal(false);
-      setSelectedItem(null);
     } catch (error) {
       console.error('Failed to save inventory item:', error);
       toast.error('Save Failed', error.message || 'Failed to update inventory item');
       throw error;
+    }
+  };
+
+  // ✅ NEW: Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    if (!confirmDelete) return;
+    
+    setDeleting(true);
+    try {
+      const result = await deleteInventory(confirmDelete.inventory_id);
+      
+      if (result.success) {
+        toast.success('Item Deleted', `${confirmDelete.name} has been removed from inventory.`);
+        setConfirmDelete(null);
+      } else {
+        // Check for specific error codes
+        if (result.error?.includes('stock') || result.error?.includes('STOCK_EXISTS')) {
+          toast.error(
+            'Cannot Delete', 
+            'Cannot delete inventory with existing stock. Use stock adjustment to reduce to zero first.'
+          );
+        } else {
+          toast.error('Delete Failed', result.error || 'Failed to delete inventory item');
+        }
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Delete Failed', error.message || 'An unexpected error occurred');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -684,17 +728,32 @@ const InventoryPage = () => {
         />
       )}
 
-      {/* CONFIRM DELETE */}
+      {/* ✅ UPDATED: CONFIRM DELETE with proper async handler */}
       <ConfirmDialog
         isOpen={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
-        onConfirm={() => {
-          toast.info("Delete Not Available", "Inventory items cannot be deleted. Use stock adjustment instead.");
-          setConfirmDelete(null);
-        }}
-        title="Delete Item"
-        message={`Delete ${confirmDelete?.name}? This action cannot be undone.`}
-        confirmText="Delete"
+        onConfirm={handleDeleteConfirm}
+        title="Delete Inventory Item"
+        message={
+          confirmDelete ? (
+            <div className="space-y-2">
+              <p>Are you sure you want to delete this inventory item?</p>
+              <div className="bg-slate-50 p-3 rounded-lg text-sm">
+                <p><strong>Item:</strong> {confirmDelete.name}</p>
+                <p><strong>Batch:</strong> {confirmDelete.batch || confirmDelete.batch_number || '-'}</p>
+                <p><strong>Current Stock:</strong> {confirmDelete.qty || confirmDelete.current_stock || 0} units</p>
+              </div>
+              {Number(confirmDelete.qty || confirmDelete.current_stock || 0) > 0 && (
+                <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs">
+                  <AlertTriangle size={14} />
+                  <span>Items with stock cannot be deleted. Reduce stock to zero first.</span>
+                </div>
+              )}
+            </div>
+          ) : "Are you sure you want to delete this item?"
+        }
+        confirmText={deleting ? "Deleting..." : "Delete"}
+        confirmDisabled={deleting || Number(confirmDelete?.qty || confirmDelete?.current_stock || 0) > 0}
         type="danger"
       />
 

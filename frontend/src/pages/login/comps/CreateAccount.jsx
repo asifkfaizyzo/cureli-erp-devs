@@ -97,50 +97,58 @@ const CreateAccount = ({ onLoginClick }) => {
     }
   };
 
-  const handleCreateAccount = async () => {
-    if (!validate()) return;
+ const handleCreateAccount = async () => {
+  if (!validate()) return;
 
-    // ✅ CHECK IF RECAPTCHA IS READY
-    if (!executeRecaptcha) {
-      alert("reCAPTCHA not ready. Please try again.");
-      return;
-    }
+  // ✅ CHECK IF RECAPTCHA IS READY
+  if (!executeRecaptcha) {
+    console.error("❌ executeRecaptcha is not available");
+    alert("reCAPTCHA not ready. Please try again.");
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      // ✅ Clear any existing session before new signup
-      clearPreviousSession();
+  try {
+    clearPreviousSession();
 
-      // ✅ GET RECAPTCHA TOKEN
-      const recaptchaToken = await executeRecaptcha("signup");
+    // ✅ GET RECAPTCHA TOKEN
+    const recaptchaToken = await executeRecaptcha("signup");
+    
+    // ✅ ADD LOGGING TO VERIFY TOKEN
+    console.log("✅ reCAPTCHA Token generated:", recaptchaToken);
 
-      const payload = {
+    const payload = {
+      first_name: form.first_name,
+      last_name: form.last_name,
+      email: form.email,
+      password: form.password,
+      recaptchaToken,
+    };
+
+    // ✅ LOG THE FULL PAYLOAD
+    console.log("📤 Sending payload:", payload);
+
+    const res = await signupUser(payload);
+    const pending_id = res.data.data.pending_id;
+
+    navigate("/onboarding", {
+      state: {
+        pending_id,
+        email: form.email,
         first_name: form.first_name,
         last_name: form.last_name,
-        email: form.email,
-        password: form.password,
-        recaptchaToken,
-      };
+      },
+    });
+  } catch (err) {
+    console.error("❌ Signup failed:", err);
+    console.error("📥 Response data:", err?.response?.data);
+    console.error("📊 Response status:", err?.response?.status);
+    alert(err?.response?.data?.message || "Signup failed");
+  }
 
-      const res = await signupUser(payload);
-      const pending_id = res.data.data.pending_id;
-
-      navigate("/onboarding", {
-        state: {
-          pending_id,
-          email: form.email,
-          first_name: form.first_name,
-          last_name: form.last_name,
-        },
-      });
-    } catch (err) {
-      console.error("Signup failed:", err);
-      alert(err?.response?.data?.message || "Signup failed");
-    }
-
-    setLoading(false);
-  };
+  setLoading(false);
+};
 
   return (
     <motion.div

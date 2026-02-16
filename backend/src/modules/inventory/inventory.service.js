@@ -52,7 +52,7 @@ class InventoryService {
     return null;
   }
 
-  _calculateStockStatus(currentStock, inventoryMinStock, medicineStockLevels, isExpired, expiryDate) {
+   _calculateStockStatus(currentStock, inventoryMinStock, medicineStockLevels, isExpired, expiryDate) {
     const stock = this._toNumber(currentStock) ?? 0;
     const minStockFromMedicine = this._toNumber(medicineStockLevels?.min_stock_level);
     const minStockFromInventory = this._toNumber(inventoryMinStock);
@@ -74,6 +74,8 @@ class InventoryService {
     if (effectiveMinStock !== null && stock < effectiveMinStock) return "Low Stock";
     return "In Stock";
   }
+
+ 
 
   async getOrCreateInventory(shopId, branchId, medicineId, batchNumber, expiryDate, mrp) {
     let inventory = await prisma.inventory.findFirst({
@@ -861,6 +863,395 @@ class InventoryService {
 
     return { sent: expiringItems.length };
   }
+
+ // ✅ Helper: Parse expiry date from various formats
+  _parseExpiryDate(dateInput) {
+    if (!dateInput) return null;
+    
+    // If already a Date
+    if (dateInput instanceof Date) {
+      return isNaN(dateInput.getTime()) ? null : dateInput;
+    }
+    
+    const str = String(dateInput).trim();
+    
+    // Handle MM/YYYY format
+    if (/^\d{1,2}\/\d{4}$/.test(str)) {
+      const [month, year] = str.split('/');
+      // Set to last day of month
+      const date = new Date(parseInt(year), parseInt(month), 0);
+      return isNaN(date.getTime()) ? null : date;
+    }
+    
+    // Handle MM/YY format
+    if (/^\d{1,2}\/\d{2}$/.test(str)) {
+      const [month, year] = str.split('/');
+      const fullYear = parseInt(year) + 2000;
+      const date = new Date(fullYear, parseInt(month), 0);
+      return isNaN(date.getTime()) ? null : date;
+    }
+    
+    // Handle ISO date string
+    const date = new Date(str);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  /* ============================================
+     ✅ NEW: UPDATE INVENTORY
+     - Updates Medicine Master (name, manufacturer, category, hsn, thresholds)
+     - Updates Inventory Record (batch, expiry, pricing, rack)
+     - Validates branch ownership
+     - Recalculates status
+  ============================================ */
+  async updateInventory(inventoryId, shopId, branchId, data, userId) {
+    console.log('=== INVENTORY UPDATE START ===');
+    console.log('📝 Input:', { inventoryId, shopId, branchId, data, userId });
+
+    return prisma.$transaction(async (tx) => {
+      // 1. Fetch inventory with medicine and branch
+      const inventory = await tx.inventory.findUnique({
+        where: { inventory_id: inventoryId },
+        include: {
+          medicine: true,
+          branch: {
+            select: { branch_id: true, branch_name: true },
+          },
+        },
+      });
+
+      if (!inventory) {
+        throw new ApiError("Inventory item not found", 404, "NOT_FOUND");
+      }
+
+      // 2. Validate ownership
+      if (inventory.shop_id !== shopId) {
+        throw new ApiError("Inventory item does not belong to your shop", 403, "FORBIDDEN");
+      }
+
+      if (inventory.branch_id !== branchId) {
+        throw new ApiError(
+          "This inventory item belongs to a different branch",
+          403,
+          "BRANCH_MISMATCH"
+        );
+      }
+
+      // =====================
+      // 3. UPDATE MEDICINE MASTER
+      // =====================
+      const medicineUpdateData = {};
+      
+      // Product information
+      if (data.name !== undefined && data.name && data.name.trim()) {
+        medicineUpdateData.name = data.name.trim();
+      }
+      if (data.manufacturer !== undefined && data.manufacturer && data.manufacturer.trim()) {
+        medicineUpdateData.manufacturer = data.manufacturer.trim();
+      }
+      if (data.category !== undefined) {
+        medicineUpdateData.category = data.category?.trim() || null;
+      }
+      if (data.hsn_code !== undefined) {
+        medicineUpdateData.hsn_code = data.hsn_code?.trim() || null;
+      }
+      
+      // Stock thresholds
+      if (data.min_stock_level !== undefined) {
+        medicineUpdateData.min_stock_level = this._toNumber(data.min_stock_level);
+      }
+      if (data.max_stock_level !== undefined) {
+        medicineUpdateData.max_stock_level = this._toNumber(data.max_stock_level);
+      }
+      if (data.reorder_point !== undefined) {
+        medicineUpdateData.reorder_point = this._toNumber(data.reorder_point);
+      }
+      
+      // Rack (medicine default)
+      if (data.rack_no !== undefined) {
+        medicineUpdateData.rack_no = data.rack_no?.trim() || null;
+      }
+
+      let updatedMedicine = inventory.medicine;
+      if (Object.keys(medicineUpdateData).length > 0) {
+        console.log('📦 Updating medicine master:', {
+          medicine_id: inventory.medicine_id,
+          updates: medicineUpdateData,
+        });
+
+        // Check for duplicate name+manufacturer if name or manufacturer changed
+        if (medicineUpdateData.name || medicineUpdateData.manufacturer) {
+          const newName = medicineUpdateData.name || inventory.medicine.name;
+          const newMfac = medicineUpdateData.manufacturer || inventory.medicine.manufacturer;
+          
+          const duplicate = await tx.medicine.findFirst({
+            where: {
+              shop_id: shopId,
+              branch_id: branchId,
+              name: newName,
+              manufacturer: newMfac,
+              medicine_id: { not: inventory.medicine_id },
+            },
+          });
+
+          if (duplicate) {
+            throw new ApiError(
+              `Medicine "${newName}" by ${newMfac} already exists`,
+              409,
+              "DUPLICATE_MEDICINE"
+            );
+          }
+        }
+
+        updatedMedicine = await tx.medicine.update({
+          where: { medicine_id: inventory.medicine_id },
+          data: medicineUpdateData,
+        });
+      }
+
+      // =====================
+      // 4. UPDATE INVENTORY RECORD
+      // =====================
+      const inventoryUpdateData = {};
+
+      // Batch number
+      if (data.batch_number !== undefined && data.batch_number && data.batch_number.trim()) {
+        // Check for duplicate batch in same medicine
+        const existingBatch = await tx.inventory.findFirst({
+          where: {
+            shop_id: shopId,
+            branch_id: branchId,
+            medicine_id: inventory.medicine_id,
+            batch_number: data.batch_number.trim(),
+            inventory_id: { not: inventoryId },
+          },
+        });
+
+        if (existingBatch) {
+          throw new ApiError(
+            `Batch "${data.batch_number}" already exists for this medicine`,
+            409,
+            "DUPLICATE_BATCH"
+          );
+        }
+        inventoryUpdateData.batch_number = data.batch_number.trim();
+      }
+
+      // Expiry date
+      if (data.expiry_date !== undefined) {
+        if (data.expiry_date) {
+          const parsedDate = this._parseExpiryDate(data.expiry_date);
+          if (parsedDate) {
+            inventoryUpdateData.expiry_date = parsedDate;
+            
+            // Check if expired
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            inventoryUpdateData.is_expired = parsedDate < today;
+          }
+        }
+      }
+
+      // Pricing
+      if (data.mrp !== undefined) {
+        inventoryUpdateData.mrp = this._toNumber(data.mrp) || 0;
+      }
+      if (data.selling_rate !== undefined) {
+        inventoryUpdateData.selling_rate = this._toNumber(data.selling_rate);
+      }
+      if (data.last_purchase_rate !== undefined) {
+        inventoryUpdateData.last_purchase_rate = this._toNumber(data.last_purchase_rate);
+      }
+
+      // Location (inventory-level override)
+      if (data.rack_no !== undefined) {
+        inventoryUpdateData.rack_no = data.rack_no?.trim() || null;
+      }
+
+      // Minimum stock (inventory-level override)
+      if (data.minimum_stock !== undefined) {
+        inventoryUpdateData.minimum_stock = this._toNumber(data.minimum_stock);
+      }
+
+      let updatedInventory = inventory;
+      if (Object.keys(inventoryUpdateData).length > 0) {
+        console.log('📦 Updating inventory record:', {
+          inventory_id: inventoryId,
+          updates: inventoryUpdateData,
+        });
+
+        updatedInventory = await tx.inventory.update({
+          where: { inventory_id: inventoryId },
+          data: inventoryUpdateData,
+        });
+      }
+
+      // =====================
+      // 5. FETCH COMPLETE UPDATED RECORD
+      // =====================
+      const finalInventory = await tx.inventory.findUnique({
+        where: { inventory_id: inventoryId },
+        include: {
+          medicine: {
+            select: {
+              medicine_id: true,
+              name: true,
+              manufacturer: true,
+              category: true,
+              hsn_code: true,
+              pack_size: true,
+              min_stock_level: true,
+              max_stock_level: true,
+              reorder_point: true,
+              rack_no: true,
+            },
+          },
+          branch: {
+            select: {
+              branch_id: true,
+              branch_name: true,
+            },
+          },
+        },
+      });
+
+      // =====================
+      // 6. CALCULATE STATUS
+      // =====================
+      const status = this._calculateStockStatus(
+        finalInventory.current_stock,
+        finalInventory.minimum_stock,
+        {
+          min_stock_level: finalInventory.medicine?.min_stock_level,
+          max_stock_level: finalInventory.medicine?.max_stock_level,
+          reorder_point: finalInventory.medicine?.reorder_point,
+        },
+        finalInventory.is_expired,
+        finalInventory.expiry_date
+      );
+
+      console.log('✅ Inventory updated successfully:', {
+        inventory_id: inventoryId,
+        medicine_name: finalInventory.medicine?.name,
+        new_status: status,
+      });
+
+      // Return flattened response for frontend
+      return {
+        inventory_id: finalInventory.inventory_id,
+        medicine_id: finalInventory.medicine_id,
+        shop_id: finalInventory.shop_id,
+        branch_id: finalInventory.branch_id,
+        
+        // Batch info
+        batch_number: finalInventory.batch_number,
+        expiry_date: finalInventory.expiry_date,
+        
+        // Stock
+        current_stock: finalInventory.current_stock,
+        available_stock: finalInventory.available_stock,
+        minimum_stock: finalInventory.minimum_stock,
+        
+        // Pricing
+        mrp: finalInventory.mrp,
+        selling_rate: finalInventory.selling_rate,
+        last_purchase_rate: finalInventory.last_purchase_rate,
+        
+        // Location
+        rack_no: finalInventory.rack_no,
+        
+        // Status
+        status,
+        is_expired: finalInventory.is_expired,
+        is_active: finalInventory.is_active,
+        
+        // Medicine data
+        medicine: finalInventory.medicine,
+        medicine_name: finalInventory.medicine?.name,
+        medicine_manufacturer: finalInventory.medicine?.manufacturer,
+        medicine_category: finalInventory.medicine?.category,
+        medicine_hsn_code: finalInventory.medicine?.hsn_code,
+        medicine_min_stock: finalInventory.medicine?.min_stock_level,
+        medicine_max_stock: finalInventory.medicine?.max_stock_level,
+        medicine_reorder_point: finalInventory.medicine?.reorder_point,
+        medicine_rack_no: finalInventory.medicine?.rack_no,
+        
+        // Branch
+        branch: finalInventory.branch,
+        branch_name: finalInventory.branch?.branch_name,
+        
+        // Timestamps
+        updated_at: finalInventory.updated_at,
+      };
+    });
+  }
+
+   /* ============================================
+     ✅ NEW: DELETE INVENTORY (SOFT DELETE)
+     - Only allows deletion if current_stock = 0
+     - Sets is_active = false instead of hard delete
+  ============================================ */
+  async deleteInventory(inventoryId, shopId, branchId, userId) {
+    console.log('=== INVENTORY DELETE START ===');
+    console.log('🗑️ Input:', { inventoryId, shopId, branchId, userId });
+
+    return prisma.$transaction(async (tx) => {
+      // 1. Fetch inventory
+      const inventory = await tx.inventory.findUnique({
+        where: { inventory_id: inventoryId },
+        include: {
+          medicine: {
+            select: { name: true },
+          },
+        },
+      });
+
+      if (!inventory) {
+        throw new ApiError("Inventory item not found", 404, "NOT_FOUND");
+      }
+
+      // 2. Validate ownership
+      if (inventory.shop_id !== shopId) {
+        throw new ApiError("Inventory item does not belong to your shop", 403, "FORBIDDEN");
+      }
+
+      if (inventory.branch_id !== branchId) {
+        throw new ApiError(
+          "This inventory item belongs to a different branch",
+          403,
+          "BRANCH_MISMATCH"
+        );
+      }
+
+      // 3. Prevent deletion if stock exists
+      if (Number(inventory.current_stock) > 0) {
+        throw new ApiError(
+          `Cannot delete inventory with existing stock (${inventory.current_stock} units). ` +
+          `Please use stock adjustment to reduce to zero first.`,
+          400,
+          "STOCK_EXISTS"
+        );
+      }
+
+      // 4. Soft delete
+      const deleted = await tx.inventory.update({
+        where: { inventory_id: inventoryId },
+        data: { is_active: false },
+      });
+
+      console.log('✅ Inventory soft-deleted:', {
+        inventory_id: inventoryId,
+        medicine_name: inventory.medicine?.name,
+      });
+
+      return {
+        inventory_id: inventoryId,
+        medicine_name: inventory.medicine?.name,
+        deleted_at: new Date(),
+      };
+    });
+  }
+
+
+
 }
 
 export default new InventoryService();

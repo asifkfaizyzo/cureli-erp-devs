@@ -30,20 +30,32 @@ import * as audit from "../audit/index.js";
 
 export async function startPendingSignup(req, res) {
   try {
-    const { first_name, last_name, email, password } = req.validated;
-    const { recaptchaToken } = req.body;
+    const { first_name, last_name, email, password, recaptchaToken } = req.validated;
+
+    // ✅ Log the token for debugging
+    console.log("📝 Received reCAPTCHA token:", recaptchaToken ? "✓" : "✗");
+
+    // ✅ Verify reCAPTCHA (returns {success, score, error})
     const recaptchaResult = await verifyRecaptcha(recaptchaToken);
+    
+    console.log("🔍 reCAPTCHA result:", recaptchaResult);
+
     if (!recaptchaResult.success) {
+      console.log("❌ reCAPTCHA verification failed:", recaptchaResult.error);
       return fail(res, "reCAPTCHA verification failed", 400);
     }
 
+    // ✅ Check if score meets threshold
     const threshold = Number(process.env.RECAPTCHA_THRESHOLD) || 0.3;
+    
     if (!isRecaptchaScoreValid(recaptchaResult.score, threshold)) {
-      console.log(`❌ Low reCAPTCHA score: ${recaptchaResult.score}`);
+      console.log(`❌ Low reCAPTCHA score: ${recaptchaResult.score} (threshold: ${threshold})`);
       return fail(res, "Suspicious activity detected. Please try again.", 400);
     }
 
     console.log(`✅ reCAPTCHA passed. Score: ${recaptchaResult.score}`);
+
+    // Continue with signup
     const pending = await createPendingUser({
       first_name,
       last_name,
@@ -54,13 +66,13 @@ export async function startPendingSignup(req, res) {
     // Send OTP automatically
     await sendEmailOtp(pending.pending_id);
 
-    return success(res, { pending_id: pending.pending_id }, "Signup started");
+    return success(res, { pending_id: pending.pending_id, email }, "Signup started");
   } catch (err) {
     if (err.code === "EMAIL_EXISTS") {
       return fail(res, err.message, 400);
     }
 
-    console.error(err);
+    console.error("❌ Signup error:", err);
     return fail(res, "Cannot start signup", 500);
   }
 }

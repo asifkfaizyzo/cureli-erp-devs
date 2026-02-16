@@ -1,5 +1,3 @@
-// backend/src/modules/inventory/inventory.controller.js
-
 import inventoryService from "./inventory.service.js";
 import { success, fail } from "../../utils/response.js";
 
@@ -43,7 +41,6 @@ class InventoryController {
         offset: parseInt(req.query.offset) || 0,
       };
 
-      // ✅ UPDATED: Pass branch context
       const result = await inventoryService.getInventory(
         shopId, 
         branchId, 
@@ -70,7 +67,6 @@ class InventoryController {
         includeExpired: req.query.includeExpired === "true",
       };
 
-      // ✅ UPDATED: Pass branch context
       const inventory = await inventoryService.getInventoryByMedicine(
         shopId, 
         medicineId, 
@@ -93,7 +89,6 @@ class InventoryController {
       const role = req.user.role;
       const { branchId, branchMode } = extractBranchContext(req);
 
-      // ✅ UPDATED: Pass branch context
       const items = await inventoryService.getLowStockItems(
         shopId, 
         branchId,
@@ -115,7 +110,6 @@ class InventoryController {
       const { branchId, branchMode } = extractBranchContext(req);
       const daysAhead = parseInt(req.query.daysAhead) || 90;
 
-      // ✅ UPDATED: Pass branch context
       const items = await inventoryService.getExpiringSoonItems(
         shopId, 
         daysAhead, 
@@ -147,7 +141,6 @@ class InventoryController {
         offset: parseInt(req.query.offset) || 0,
       };
 
-      // ✅ UPDATED: Pass branch context
       const result = await inventoryService.getStockLedger(
         shopId, 
         branchId,
@@ -169,7 +162,6 @@ class InventoryController {
       const userId = req.user.user_id;
       const { branchId } = extractBranchContext(req);
 
-      // ✅ Validate branch for write operation
       if (!branchId) {
         return fail(res, "Please select a specific branch to create adjustments", 400, {
           code: "BRANCH_REQUIRED"
@@ -194,7 +186,6 @@ class InventoryController {
       const role = req.user.role;
       const { branchId, branchMode } = extractBranchContext(req);
 
-      // ✅ UPDATED: Pass branch context
       const summary = await inventoryService.getStockSummary(
         shopId, 
         branchId,
@@ -205,6 +196,73 @@ class InventoryController {
       return success(res, summary, "Stock summary retrieved successfully");
     } catch (error) {
       console.error("getStockSummary error:", error);
+      return fail(res, error.message, error.statusCode || 500);
+    }
+  }
+
+  // ✅ NEW: Update inventory item
+  async updateInventory(req, res) {
+    try {
+      const shopId = req.user.shop_id;
+      const userId = req.user.user_id;
+      const { inventoryId } = req.params;
+      const { branchId } = extractBranchContext(req);
+
+      console.log("📝 updateInventory request:", { 
+        inventoryId, 
+        shopId, 
+        branchId,
+        data: req.validated 
+      });
+
+      // Validate branch for write operation
+      if (!branchId) {
+        return fail(res, "Please select a specific branch to update inventory", 400, {
+          code: "BRANCH_REQUIRED"
+        });
+      }
+
+      const updated = await inventoryService.updateInventory(
+        inventoryId,
+        shopId,
+        branchId,
+        req.validated,
+        userId
+      );
+
+      return success(res, updated, "Inventory updated successfully");
+    } catch (error) {
+      console.error("updateInventory error:", error);
+      return fail(res, error.message, error.statusCode || 500);
+    }
+  }
+
+  // ✅ NEW: Delete inventory item (soft delete)
+  async deleteInventory(req, res) {
+    try {
+      const shopId = req.user.shop_id;
+      const userId = req.user.user_id;
+      const { inventoryId } = req.params;
+      const { branchId } = extractBranchContext(req);
+
+      console.log("🗑️ deleteInventory request:", { inventoryId, shopId, branchId });
+
+      if (!branchId) {
+        return fail(res, "Please select a specific branch to delete inventory", 400, {
+          code: "BRANCH_REQUIRED"
+        });
+      }
+
+      const result = await inventoryService.deleteInventory(
+        inventoryId,
+        shopId,
+        branchId,
+        userId
+      );
+
+      return success(res, result, "Inventory item deleted successfully");
+    } catch (error) {
+      console.error("deleteInventory error:", error);
       return fail(res, error.message, error.statusCode || 500);
     }
   }

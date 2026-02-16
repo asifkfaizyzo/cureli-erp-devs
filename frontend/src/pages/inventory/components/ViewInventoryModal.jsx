@@ -1,5 +1,3 @@
-// src/pages/inventory/components/ViewInventoryModal.jsx
-
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -28,6 +26,7 @@ import {
   ShoppingCart,
   BarChart3,
   Settings,
+  Factory,
 } from "lucide-react";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 
@@ -110,6 +109,26 @@ const getStatusInfo = (status) => {
   );
 };
 
+/* ---------------- FORMAT EXPIRY FOR DISPLAY ---------------- */
+const formatExpiryForInput = (dateValue) => {
+  if (!dateValue) return "";
+  
+  // If already in MM/YYYY format
+  if (typeof dateValue === 'string' && /^\d{1,2}\/\d{4}$/.test(dateValue)) {
+    return dateValue;
+  }
+  
+  try {
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return "";
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${month}/${year}`;
+  } catch {
+    return "";
+  }
+};
+
 /* ---------------- MAIN COMPONENT ---------------- */
 const ViewInventoryModal = ({
   open,
@@ -126,13 +145,55 @@ const ViewInventoryModal = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
+  // ✅ Initialize editable item with ALL fields properly mapped
   const initialItem = useMemo(() => {
     if (!item) return null;
     return {
-      ...item,
-      min_stock_level: item.medicine_min_stock ?? item.minStock ?? item.minimum_stock ?? "",
-      max_stock_level: item.medicine_max_stock ?? "",
-      reorder_point: item.medicine_reorder_point ?? "",
+      // IDs
+      inventory_id: item.inventory_id || item.id,
+      medicine_id: item.medicine_id,
+      shop_id: item.shop_id,
+      branch_id: item.branch_id,
+      
+      // Product Information (from Medicine)
+      name: item.name || item.medicine?.name || "",
+      manufacturer: item.manufacturer || item.mfac || item.medicine?.manufacturer || "",
+      category: item.category || item.medicine?.category || "",
+      hsn_code: item.hsn || item.hsn_code || item.medicine?.hsn_code || "",
+      
+      // Batch Info (from Inventory)
+      batch_number: item.batch || item.batch_number || "",
+      expiry: formatExpiryForInput(item.expiry_date || item.expiry),
+      expiry_date: item.expiry_date,
+      
+      // Pricing (from Inventory)
+      mrp: item.mrp ?? "",
+      selling_rate: item.slr ?? item.selling_rate ?? "",
+      purchase_rate: item.purchaseRate ?? item.last_purchase_rate ?? "",
+      
+      // Location
+      rack_no: item.rack || item.rack_no || item.medicine?.rack_no || "",
+      
+      // Stock thresholds (from Medicine)
+      min_stock_level: item.medicine_min_stock ?? item.min_stock_level ?? item.medicine?.min_stock_level ?? "",
+      max_stock_level: item.medicine_max_stock ?? item.max_stock_level ?? item.medicine?.max_stock_level ?? "",
+      reorder_point: item.medicine_reorder_point ?? item.reorder_point ?? item.medicine?.reorder_point ?? "",
+      
+      // Inventory-level threshold override
+      minimum_stock: item.minimum_stock ?? item.minStock ?? "",
+      
+      // Supplier (read-only - from purchase)
+      supplier: item.supplier || item.supplier_name || "",
+      
+      // Stock info (read-only)
+      current_stock: item.qty ?? item.current_stock ?? 0,
+      status: item.status || "Unknown",
+      
+      // Branch
+      branch_name: item.branch || item.branch_name || "",
+      
+      // Timestamps
+      updated_at: item.updated_at,
     };
   }, [item]);
 
@@ -158,30 +219,71 @@ const ViewInventoryModal = ({
   };
 
   const handleSave = async () => {
-    if (!editableItem.name) {
+    // Validation
+    if (!editableItem.name?.trim()) {
       setSaveError("Item name is required");
       return;
     }
+    if (!editableItem.manufacturer?.trim()) {
+      setSaveError("Manufacturer is required");
+      return;
+    }
+    if (!editableItem.batch_number?.trim()) {
+      setSaveError("Batch number is required");
+      return;
+    }
+
     setIsSaving(true);
     setSaveError(null);
+
     try {
+      // ✅ Build the update payload
       const dataToSave = {
-        ...editableItem,
+        // IDs
+        inventory_id: editableItem.inventory_id,
+        medicine_id: editableItem.medicine_id,
+        
+        // Product Information
+        name: editableItem.name?.trim(),
+        manufacturer: editableItem.manufacturer?.trim(),
+        category: editableItem.category?.trim() || null,
+        hsn_code: editableItem.hsn_code?.trim() || null,
+        
+        // Batch Info
+        batch_number: editableItem.batch_number?.trim(),
+        expiry_date: editableItem.expiry?.trim() || null,
+        
+        // Pricing
+        mrp: editableItem.mrp !== "" ? Number(editableItem.mrp) : null,
+        selling_rate: editableItem.selling_rate !== "" ? Number(editableItem.selling_rate) : null,
+        last_purchase_rate: editableItem.purchase_rate !== "" ? Number(editableItem.purchase_rate) : null,
+        
+        // Location
+        rack_no: editableItem.rack_no?.trim() || null,
+        
+        // Stock thresholds (Medicine level)
         min_stock_level: editableItem.min_stock_level !== "" ? Number(editableItem.min_stock_level) : null,
         max_stock_level: editableItem.max_stock_level !== "" ? Number(editableItem.max_stock_level) : null,
         reorder_point: editableItem.reorder_point !== "" ? Number(editableItem.reorder_point) : null,
+        
+        // Inventory-level threshold
+        minimum_stock: editableItem.minimum_stock !== "" ? Number(editableItem.minimum_stock) : null,
       };
+
+      console.log("📤 Saving inventory data:", dataToSave);
+      
       await onSave?.(dataToSave);
       onClose();
     } catch (error) {
+      console.error("Save error:", error);
       setSaveError(error.message || "Failed to save changes");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const currentStock = Number(editableItem.qty || editableItem.current_stock || 0);
-  const minStock = Number(editableItem.min_stock_level || 0);
+  const currentStock = Number(editableItem.current_stock || 0);
+  const minStock = Number(editableItem.min_stock_level || editableItem.minimum_stock || 0);
   const maxStock = Number(editableItem.max_stock_level || 100);
   const stockPercent = maxStock > 0 ? Math.min((currentStock / maxStock) * 100, 100) : 0;
 
@@ -201,7 +303,7 @@ const ViewInventoryModal = ({
 
           {/* MODAL */}
           <motion.div
-            className="relative bg-white w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="relative bg-white w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
             variants={panelVariants}
             initial="hidden"
             animate="visible"
@@ -217,7 +319,7 @@ const ViewInventoryModal = ({
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    {editableItem.name}
+                    {isEdit ? "Edit Inventory Item" : editableItem.name}
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusInfo.badge}`}>
                       {editableItem.status}
                     </span>
@@ -230,14 +332,14 @@ const ViewInventoryModal = ({
                     <span>•</span>
                     <span className="flex items-center gap-1">
                       <Hash size={10} />
-                      {editableItem.batch || editableItem.batch_number || "N/A"}
+                      {editableItem.batch_number || "N/A"}
                     </span>
-                    {(editableItem.branch || editableItem.branch_name) && (
+                    {editableItem.branch_name && (
                       <>
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <Building2 size={10} />
-                          {editableItem.branch || editableItem.branch_name}
+                          {editableItem.branch_name}
                         </span>
                       </>
                     )}
@@ -281,10 +383,10 @@ const ViewInventoryModal = ({
               </div>
             )}
 
-            {/* TWO-SECTION BODY */}
-            <div className="flex flex-1">
+            {/* TWO-SECTION BODY - SCROLLABLE */}
+            <div className="flex flex-1 overflow-hidden">
               {/* LEFT SECTION - Product & Pricing Details */}
-              <div className="flex-1 p-6 bg-slate-50 border-r border-slate-200">
+              <div className="flex-1 p-6 bg-slate-50 border-r border-slate-200 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                   {/* Product Information */}
                   <div className="col-span-2 mb-2">
@@ -301,10 +403,11 @@ const ViewInventoryModal = ({
                   />
                   <Field
                     label="Manufacturer"
-                    value={editableItem.manufacturer || editableItem.mfac || ""}
+                    value={editableItem.manufacturer}
                     editable={isEdit}
                     onChange={(v) => updateField("manufacturer", v)}
-                    icon={Building2}
+                    icon={Factory}
+                    required
                   />
                   <Field
                     label="Category"
@@ -315,17 +418,24 @@ const ViewInventoryModal = ({
                   />
                   <Field
                     label="HSN Code"
-                    value={editableItem.hsn || ""}
+                    value={editableItem.hsn_code}
                     editable={isEdit}
-                    onChange={(v) => updateField("hsn", v)}
+                    onChange={(v) => updateField("hsn_code", v)}
                     icon={Hash}
                   />
+
+                  {/* Batch Information */}
+                  <div className="col-span-2 mt-4 mb-2">
+                    <SectionHeader icon={Box} title="Batch Information" />
+                  </div>
+
                   <Field
-                    label="Batch ID"
-                    value={editableItem.batch || editableItem.batch_number}
+                    label="Batch Number"
+                    value={editableItem.batch_number}
                     editable={isEdit}
-                    onChange={(v) => updateField("batch", v)}
+                    onChange={(v) => updateField("batch_number", v)}
                     icon={Box}
+                    required
                   />
                   <Field
                     label="Expiry Date"
@@ -336,23 +446,23 @@ const ViewInventoryModal = ({
                     placeholder="MM/YYYY"
                   />
 
-                  {/* Pricing */}
+                  {/* Pricing & Supplier */}
                   <div className="col-span-2 mt-4 mb-2">
                     <SectionHeader icon={DollarSign} title="Pricing & Supplier" />
                   </div>
 
                   <Field
                     label="Supplier"
-                    value={editableItem.supplier || editableItem.supplier_name}
-                    editable={isEdit}
-                    onChange={(v) => updateField("supplier", v)}
+                    value={editableItem.supplier}
+                    editable={false}  // ✅ Read-only - comes from purchase
                     icon={Truck}
+                    hint="From purchase invoice"
                   />
                   <Field
                     label="Rack Location"
-                    value={editableItem.rack || editableItem.rack_no}
+                    value={editableItem.rack_no}
                     editable={isEdit}
-                    onChange={(v) => updateField("rack", v)}
+                    onChange={(v) => updateField("rack_no", v)}
                     icon={MapPin}
                     placeholder="e.g., A1"
                   />
@@ -367,18 +477,18 @@ const ViewInventoryModal = ({
                   />
                   <Field
                     label="Purchase Rate"
-                    value={editableItem.purchaseRate || editableItem.last_purchase_rate || ""}
+                    value={editableItem.purchase_rate}
                     editable={isEdit}
-                    onChange={(v) => updateField("purchaseRate", v)}
+                    onChange={(v) => updateField("purchase_rate", v)}
                     icon={ShoppingCart}
                     type="number"
                     prefix="₹"
                   />
                   <Field
                     label="Selling Rate"
-                    value={editableItem.slr || editableItem.selling_rate || ""}
+                    value={editableItem.selling_rate}
                     editable={isEdit}
-                    onChange={(v) => updateField("slr", v)}
+                    onChange={(v) => updateField("selling_rate", v)}
                     icon={TrendingUp}
                     type="number"
                     prefix="₹"
@@ -387,10 +497,10 @@ const ViewInventoryModal = ({
               </div>
 
               {/* RIGHT SECTION - Stock & Status */}
-              <div className="w-[360px] p-6 bg-white flex flex-col">
+              <div className="w-[380px] p-6 bg-white flex flex-col overflow-y-auto">
                 {/* Stock Status Card (Read-Only) */}
                 <div className="mb-5">
-                  <SectionHeader icon={Layers} title="Stock Status" />
+                  <SectionHeader icon={Layers} title="Current Stock Status" />
                   <div className={`mt-3 p-4 rounded-xl border-2 ${statusInfo.border} ${statusInfo.bg}`}>
                     {/* Status Display */}
                     <div className="flex items-center justify-between mb-4">
@@ -423,6 +533,12 @@ const ViewInventoryModal = ({
                       <span>Max: {maxStock || "∞"}</span>
                     </div>
                   </div>
+                  
+                  {/* Note about stock adjustment */}
+                  <p className="mt-2 text-[10px] text-slate-400 italic flex items-center gap-1">
+                    <AlertCircle size={10} />
+                    Use "Adjust Stock" to modify quantity
+                  </p>
                 </div>
 
                 {/* Stock Thresholds (Editable) */}
@@ -446,7 +562,7 @@ const ViewInventoryModal = ({
                       compact
                     />
                     <Field
-                      label="Reorder Point"
+                      label="Reorder Pt"
                       value={editableItem.reorder_point}
                       editable={isEdit}
                       onChange={(v) => updateField("reorder_point", v)}
@@ -455,7 +571,7 @@ const ViewInventoryModal = ({
                     />
                   </div>
                   <p className="mt-2 text-[10px] text-slate-400 italic">
-                    * Status is automatically calculated based on stock levels
+                    * These thresholds apply to ALL batches of this medicine
                   </p>
                 </div>
 
@@ -464,9 +580,9 @@ const ViewInventoryModal = ({
                   <SectionHeader icon={BarChart3} title="Quick Info" />
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <QuickStat label="MRP" value={`₹${editableItem.mrp || 0}`} />
-                    <QuickStat label="Selling" value={`₹${editableItem.slr || editableItem.selling_rate || 0}`} />
-                    <QuickStat label="Rack" value={editableItem.rack || editableItem.rack_no || "-"} />
-                    <QuickStat label="Branch" value={editableItem.branch || editableItem.branch_name || "-"} />
+                    <QuickStat label="Selling" value={`₹${editableItem.selling_rate || 0}`} />
+                    <QuickStat label="Rack" value={editableItem.rack_no || "-"} />
+                    <QuickStat label="Branch" value={editableItem.branch_name || "-"} />
                   </div>
                 </div>
 
@@ -474,7 +590,7 @@ const ViewInventoryModal = ({
                 {!canAdjustStock && (
                   <div className="mt-4 flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
                     <AlertTriangle size={14} className="text-amber-600 shrink-0" />
-                    <span className="text-[11px] text-amber-700">Select a branch to adjust stock</span>
+                    <span className="text-[11px] text-amber-700">Select a branch to edit this item</span>
                   </div>
                 )}
               </div>
@@ -530,7 +646,7 @@ const ViewInventoryModal = ({
               onClose();
             }}
             title="Delete Inventory Item"
-            message={`Are you sure you want to delete "${editableItem.name}"? This action cannot be undone.`}
+            message={`Are you sure you want to delete "${editableItem.name}" (Batch: ${editableItem.batch_number})? This action cannot be undone.`}
             confirmText="Delete"
             cancelText="Cancel"
             type="danger"
@@ -569,6 +685,7 @@ const Field = ({
   prefix,
   placeholder,
   compact,
+  hint,
 }) => (
   <div className="flex flex-col gap-1">
     <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1">
@@ -586,7 +703,7 @@ const Field = ({
         )}
         <input
           type={type}
-          value={value || ""}
+          value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           className={`
@@ -605,6 +722,9 @@ const Field = ({
           {prefix}
           {value || "-"}
         </span>
+        {hint && (
+          <span className="ml-1 text-[9px] text-slate-400">({hint})</span>
+        )}
       </div>
     )}
   </div>

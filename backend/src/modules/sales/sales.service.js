@@ -260,42 +260,47 @@ class SalesService {
       });
 
       const lineItems = await Promise.all(
-        enrichedLineItems.map(async (item) => {
-          const itemCalc = calculateLineItem(item);
+  enrichedLineItems.map(async (item) => {
+    const itemCalc = calculateLineItem(item);
 
-          const inventory = await tx.inventory.findUnique({
-            where: { inventory_id: item.inventory_id },
-            select: {
-              batch_number: true,
-              expiry_date: true,
-              mrp: true,
-              last_purchase_rate: true,
-            },
-          });
+    const inventory = await tx.inventory.findUnique({
+      where: { inventory_id: item.inventory_id },
+      select: {
+        batch_number: true,
+        expiry_date: true,
+        mrp: true,
+        selling_rate: true,  // ✅ Get selling_rate from inventory
+        last_purchase_rate: true,
+      },
+    });
 
-          return tx.salesInvoiceItem.create({
-            data: {
-              invoice_id: invoice.invoice_id,
-              medicine_id: item.medicine_id,
-              inventory_id: item.inventory_id,
-              batch_number: inventory?.batch_number || item.batch_number,
-              expiry_date: inventory?.expiry_date || new Date(item.expiry_date),
-              quantity: item.quantity,
-              unit_of_measure: item.unit_of_measure || "UNIT",
-              mrp: item.mrp,
-              purchase_rate: inventory?.last_purchase_rate || item.purchase_rate || null,
-              discount_percent: item.discount_percent || 0,
-              discount_amount: itemCalc.discount_amount,
-              taxable_amount: itemCalc.taxable_amount,
-              cgst_percent: item.cgst_percent,
-              cgst_amount: itemCalc.cgst_amount,
-              sgst_percent: item.sgst_percent,
-              sgst_amount: itemCalc.sgst_amount,
-              line_total: itemCalc.line_total,
-            },
-          });
-        })
-      );
+    return tx.salesInvoiceItem.create({
+      data: {
+        invoice_id: invoice.invoice_id,
+        medicine_id: item.medicine_id,
+        inventory_id: item.inventory_id,
+        batch_number: inventory?.batch_number || item.batch_number,
+        expiry_date: inventory?.expiry_date || new Date(item.expiry_date),
+        quantity: item.quantity,
+        unit_of_measure: item.unit_of_measure || "UNIT",
+        
+        // ✅ NEW: Use selling_rate (with MRP fallback)
+        selling_rate: item.selling_rate || inventory?.selling_rate || item.mrp,
+        mrp: item.mrp,
+        
+        purchase_rate: inventory?.last_purchase_rate || item.purchase_rate || null,
+        discount_percent: item.discount_percent || 0,
+        discount_amount: itemCalc.discount_amount,
+        taxable_amount: itemCalc.taxable_amount,
+        cgst_percent: item.cgst_percent,
+        cgst_amount: itemCalc.cgst_amount,
+        sgst_percent: item.sgst_percent,
+        sgst_amount: itemCalc.sgst_amount,
+        line_total: itemCalc.line_total,
+      },
+    });
+  })
+);
 
       await reserveStock(tx, shopId, branchId, enrichedLineItems, invoice.invoice_id);
 

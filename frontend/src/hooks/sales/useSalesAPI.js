@@ -86,54 +86,67 @@ export function useSalesAPI() {
 
   // Save sales invoice (draft)
   const saveSalesInvoice = useCallback(async (invoiceData, lineItems, customer) => {
-    try {
-      setIsLoading(true);
-      
-      const payload = {
-        customer_id: customer.customer_id || null,
-        walkin_name: !customer.customer_id ? customer.patientName : null,
-        walkin_phone: !customer.customer_id ? customer.phone : null,
-        invoice_date: new Date(invoiceData.invoice_date).toISOString(),
-        prescription_number: invoiceData.prescription_number || null,
-        doctor_name: customer.doctorName || null,
-        bill_discount_percent: 0,
-        lineItems: lineItems.map(item => ({
-          medicine_id: item.medicine_id,
-          inventory_id: item.inventory_id,
-          batch_number: item.batch,
-          expiry_date: parseExpiryToDate(item.exp),
-          quantity: parseFloat(item.qty),
-          unit_of_measure: "UNIT",
-          mrp: parseFloat(item.mrp),
-          discount_percent: parseFloat(item.discountPercent) || 0,
-          cgst_percent: parseFloat(item.cgstPercent) || 6,
-          sgst_percent: parseFloat(item.sgstPercent) || 6,
-        })),
-        remarks: invoiceData.remarks || null,
-      };
+  try {
+    setIsLoading(true);
+    
+    const payload = {
+      customer_id: customer.customer_id || null,
+      walkin_name: !customer.customer_id ? customer.patientName : null,
+      walkin_phone: !customer.customer_id ? customer.phone : null,
+      invoice_date: new Date(invoiceData.invoice_date).toISOString(),
+      prescription_number: invoiceData.prescription_number || null,
+      doctor_name: customer.doctorName || null,
+      bill_discount_percent: 0,
+      lineItems: lineItems.map(item => ({
+        medicine_id: item.medicine_id,
+        inventory_id: item.inventory_id,
+        batch_number: item.batch,
+        expiry_date: parseExpiryToDate(item.exp),
+        quantity: parseFloat(item.qty),
+        unit_of_measure: "UNIT",
+        
+        // ✅ ADD THIS LINE - Send selling_rate (from rate field)
+        selling_rate: parseFloat(item.rate),
+        
+        // Keep MRP as well
+        mrp: parseFloat(item.mrp),
+        
+        discount_percent: parseFloat(item.discountPercent) || 0,
+        cgst_percent: parseFloat(item.cgstPercent) || 6,
+        sgst_percent: parseFloat(item.sgstPercent) || 6,
+      })),
+      remarks: invoiceData.remarks || null,
+    };
 
-      let response;
-      if (currentInvoice) {
-        // Update existing invoice - would need update endpoint
-        // For now, we'll just return success with existing invoice
-        response = { success: true, data: currentInvoice };
-      } else {
-        response = await salesAPI.createDraft(payload);
-      }
+    // ✅ ADD DEBUG LOG
+    console.log("📤 Sending sales invoice payload:", {
+      lineItems: payload.lineItems.map(li => ({
+        selling_rate: li.selling_rate,
+        mrp: li.mrp,
+        quantity: li.quantity,
+      }))
+    });
 
-      if (response.success) {
-        setCurrentInvoice(response.data);
-        return response.data;
-      }
-      
-      throw new Error(response.message || "Failed to save invoice");
-    } catch (error) {
-      toast.error("Save Failed", error.message);
-      return null;
-    } finally {
-      setIsLoading(false);
+    let response;
+    if (currentInvoice) {
+      response = { success: true, data: currentInvoice };
+    } else {
+      response = await salesAPI.createDraft(payload);
     }
-  }, [currentInvoice, toast]);
+
+    if (response.success) {
+      setCurrentInvoice(response.data);
+      return response.data;
+    }
+    
+    throw new Error(response.message || "Failed to save invoice");
+  } catch (error) {
+    toast.error("Save Failed", error.message);
+    return null;
+  } finally {
+    setIsLoading(false);
+  }
+}, [currentInvoice, toast]);
 
   // Confirm sales invoice
   const confirmSalesInvoice = useCallback(async (invoiceId, data = {}) => {

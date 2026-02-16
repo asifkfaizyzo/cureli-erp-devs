@@ -293,6 +293,7 @@ const SalesBillingPage = () => {
 
   // ============================================
   // POPULATE INVOICE DATA (EDIT MODE)
+  // ✅ UPDATED: Use selling_rate for rate field
   // ============================================
   const populateInvoiceData = useCallback((invoice) => {
     if (!invoice) return;
@@ -356,7 +357,10 @@ const SalesBillingPage = () => {
         exp: expiry,
         qty: item.quantity?.toString() || "",
         mrp: item.mrp?.toString() || "",
-        rate: item.mrp?.toString() || "",
+        
+        // ✅ FIXED: Use selling_rate from item, fallback to mrp
+        rate: item.selling_rate?.toString() || item.mrp?.toString() || "",
+        
         rack: item.inventory?.rack_no || "",
         discountPercent: item.discount_percent?.toString() || "0",
         cgstPercent: item.cgst_percent?.toString() || "6",
@@ -418,7 +422,10 @@ const SalesBillingPage = () => {
           batch: selectedBatch?.batch_number || "",
           exp: expiry,
           mrp: selectedBatch?.mrp?.toString() || "",
+          
+          // ✅ Default to selling_rate, fallback to MRP
           rate: selectedBatch?.selling_rate?.toString() || selectedBatch?.mrp?.toString() || "",
+          
           rack: selectedBatch?.rack_no || product.rack_no || "",
           stock: selectedBatch?.available_stock?.toString() || "",
           cgstPercent: product.cgst_percentage?.toString() || "6",
@@ -456,7 +463,10 @@ const SalesBillingPage = () => {
         batch: batch.batch_number,
         exp: expiry,
         mrp: batch.mrp?.toString() || "",
+        
+        // ✅ Default to selling_rate, fallback to MRP
         rate: batch.selling_rate?.toString() || batch.mrp?.toString() || "",
+        
         rack: batch.rack_no || "",
         stock: batch.available_stock?.toString() || "",
       };
@@ -545,7 +555,7 @@ const SalesBillingPage = () => {
           clearAllRows();
           clearCustomer();
           resetInvoice();
-          setPreviewInvoiceNumber(null); // ✅ NEW: Clear preview number
+          setPreviewInvoiceNumber(null);
           
           setInvoiceData({
             invoice_date: new Date().toISOString().split('T')[0],
@@ -567,7 +577,7 @@ const SalesBillingPage = () => {
       clearAllRows();
       clearCustomer();
       resetInvoice();
-      setPreviewInvoiceNumber(null); // ✅ NEW: Clear preview number
+      setPreviewInvoiceNumber(null);
       
       setInvoiceData({
         invoice_date: new Date().toISOString().split('T')[0],
@@ -596,7 +606,7 @@ const SalesBillingPage = () => {
   ]);
 
   // ============================================
-  // ✅ FIX 2: CUSTOMER VALIDATION HELPER
+  // CUSTOMER VALIDATION HELPER
   // ============================================
   const validateCustomerData = useCallback(() => {
     const errors = [];
@@ -622,7 +632,7 @@ const SalesBillingPage = () => {
   }, [customer]);
 
   // ============================================
-  // ✅ FIX 3: DUPLICATE BATCH VALIDATION
+  // DUPLICATE BATCH VALIDATION
   // ============================================
   const validateNoDuplicateBatches = useCallback(() => {
     const inventoryUsage = new Map();
@@ -666,14 +676,12 @@ const SalesBillingPage = () => {
       return false;
     }
 
-    // ✅ NEW: Validate customer data
     const customerErrors = validateCustomerData();
     if (customerErrors.length > 0) {
       toast.error("Customer Validation Failed", customerErrors.join(", "));
       return false;
     }
 
-    // ✅ NEW: Validate no duplicate batches
     const duplicateCheck = validateNoDuplicateBatches();
     if (!duplicateCheck.isValid) {
       toast.error("Duplicate Batch Detected", duplicateCheck.error);
@@ -709,10 +717,18 @@ const SalesBillingPage = () => {
   }, [getFilledRows, invoiceData, customer, saveSalesInvoice, toast, validateCustomerData, validateNoDuplicateBatches]);
 
   // ============================================
-  // ✅ FIX 4: CONFIRM & PRINT HANDLER (UPDATED)
+  // CONFIRM & PRINT HANDLER
   // ============================================
   const handleConfirmAndPrint = useCallback(async () => {
     const dataRows = getFilledRows();
+
+    console.log("🔍 Rows being saved:", dataRows.map(r => ({
+      name: r.name,
+      qty: r.qty,
+      mrp: r.mrp,
+      rate: r.rate,
+      amount: r.amount,
+    })));
     
     if (dataRows.length === 0) {
       toast.warning("Missing Items", "Please add at least one item.");
@@ -724,14 +740,12 @@ const SalesBillingPage = () => {
       return;
     }
 
-    // ✅ NEW: Validate customer data
     const customerErrors = validateCustomerData();
     if (customerErrors.length > 0) {
       toast.error("Customer Validation Failed", customerErrors.join(", "));
       return;
     }
 
-    // ✅ NEW: Validate no duplicate batches
     const duplicateCheck = validateNoDuplicateBatches();
     if (!duplicateCheck.isValid) {
       toast.error("Duplicate Batch Detected", duplicateCheck.error);
@@ -750,7 +764,6 @@ const SalesBillingPage = () => {
       }
     }
 
-    // ✅ FIX: Payment validation for non-CREDIT
     if (customer.paymentType !== "CREDIT") {
       const cashReceived = parseFloat(customer.cashReceived) || 0;
       if (cashReceived < summary.netAmount) {
@@ -803,11 +816,9 @@ const SalesBillingPage = () => {
       if (confirmedInvoice) {
         toast.success("Confirmed", `Bill ${confirmedInvoice.invoice_number} confirmed. Stock deducted.`);
         
-        // ✅ FIX: Trigger print FIRST, then clear state
         setTimeout(() => {
           handlePrint();
           
-          // ✅ Clear state AFTER print dialog opens
           setTimeout(() => {
             clearAllRows();
             clearCustomer();
@@ -859,158 +870,158 @@ const SalesBillingPage = () => {
   // RENDER
   // ============================================
   return (
-  <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
-    
-    {/* WARNING BANNER FOR EDITING CONFIRMED INVOICE */}
-    {isEditingConfirmed && (
-      <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-lg overflow-hidden shadow-sm">
-        <div className="px-4 py-3 flex items-start gap-4">
-          <div className="shrink-0 w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center shadow-sm">
-            <Shield size={20} className="text-white" />
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-amber-900">
-                Super Admin: Editing Confirmed Bill
-              </h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white uppercase">
-                Confirmed
-              </span>
-            </div>
-            <p className="text-sm text-amber-800 mt-1">
-              Bill <span className="font-mono font-semibold">{currentInvoice?.invoice_number}</span> • 
-              Changes will affect inventory and customer balance.
-            </p>
-            
-            <div className="flex flex-wrap gap-3 mt-2">
-              <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
-                <RefreshCw size={12} />
-                Stock will be adjusted
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
-                <AlertTriangle size={12} />
-                Audit logged
-              </span>
-            </div>
-          </div>
-          
-          <button
-            onClick={() => navigate('/sales/invoice')}
-            className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
-          >
-            <ArrowLeft size={16} />
-            Cancel Edit
-          </button>
-        </div>
-      </div>
-    )}
-
-    {/* HEADER */}
-    <div className={`
-      shrink-0 transition-all duration-300 ease-out
-      ${!loadingStates.header ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
-    `}>
-      <SalesHeader
-        onSave={handleSave}
-        onConfirmPrint={handleConfirmAndPrint}
-        onPrint={handlePrintOnly}
-        onClearTable={handleClearTable}
-        onNewBill={handleNewBill}
-        invoiceNumber={currentInvoice?.invoice_number || previewInvoiceNumber}
-        invoiceStatus={currentInvoice?.status || null}
-        isLoading={loadingStates.header}
-        isSaving={isSaving}
-        hasUnsavedData={hasData}
-        billedBy={billedByName}
-      />
-    </div>
-
-    {/* TABLE */}
-    <div className={`
-      flex-1 flex flex-col overflow-hidden bg-white rounded-lg border shadow-sm
-      transition-all duration-300 ease-out delay-75
-      ${isEditingConfirmed ? 'border-amber-300' : 'border-gray-200'}
-    `}>
-      <SalesTable
-        rows={rows}
-        setRows={setRows}
-        productMaster={medicines}
-        calculateRow={calculateSalesRow}
-        visibleRows={visibleRows}
-        rowHeight={rowHeight}
-        onProductSelect={handleProductSelect}
-        onBatchSelect={handleBatchSelect}
-        isLoading={loadingStates.table}
-        getAvailableBatches={getAvailableBatches}
-      />
-    </div>
-
-    {/* FOOTER: CUSTOMER DETAILS + SUMMARY */}
-    <div className="shrink-0 flex gap-2 h-[220px] 2xl:h-[240px]">
-      <div className={`
-        flex-1 transition-all duration-300 ease-out delay-100
-        ${!loadingStates.customer ? 'opacity-100 translate-y-0' : 'opacity-100'}
-      `}>
-        <CustomerDetailsCard
-          customer={customer}
-          setCustomer={setCustomer}
-          onSearchCustomer={() => setCustomerSearchOpen(true)}
-          netAmount={summary.netAmount}
-          isLoading={loadingStates.customer}
-          billNo={currentInvoice?.invoice_number || previewInvoiceNumber || 'DRAFT'}
-        />
-      </div>
+    <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
       
-      <div className={`
-        w-72 2xl:w-80 transition-all duration-300 ease-out delay-150
-        ${!loadingStates.summary ? 'opacity-100 translate-y-0' : 'opacity-100'}
-      `}>
-        <SalesSummaryCard 
-          summary={summary}
-          customer={customer}
-          isLoading={loadingStates.summary}
-        />
-      </div>
-    </div>
+      {/* WARNING BANNER FOR EDITING CONFIRMED INVOICE */}
+      {isEditingConfirmed && (
+        <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-lg overflow-hidden shadow-sm">
+          <div className="px-4 py-3 flex items-start gap-4">
+            <div className="shrink-0 w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center shadow-sm">
+              <Shield size={20} className="text-white" />
+            </div>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-amber-900">
+                  Super Admin: Editing Confirmed Bill
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white uppercase">
+                  Confirmed
+                </span>
+              </div>
+              <p className="text-sm text-amber-800 mt-1">
+                Bill <span className="font-mono font-semibold">{currentInvoice?.invoice_number}</span> • 
+                Changes will affect inventory and customer balance.
+              </p>
+              
+              <div className="flex flex-wrap gap-3 mt-2">
+                <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                  <RefreshCw size={12} />
+                  Stock will be adjusted
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                  <AlertTriangle size={12} />
+                  Audit logged
+                </span>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => navigate('/sales/invoice')}
+              className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Cancel Edit
+            </button>
+          </div>
+        </div>
+      )}
 
-    {/* PRINT COMPONENT (HIDDEN) */}
-    <div className="hidden">
-      <div ref={printRef}>
-        <SalesInvoicePrint
-          rows={rows}
-          customer={customer}
-          summary={summary}
-          companyDetails={COMPANY_DETAILS}
+      {/* HEADER */}
+      <div className={`
+        shrink-0 transition-all duration-300 ease-out
+        ${!loadingStates.header ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
+      `}>
+        <SalesHeader
+          onSave={handleSave}
+          onConfirmPrint={handleConfirmAndPrint}
+          onPrint={handlePrintOnly}
+          onClearTable={handleClearTable}
+          onNewBill={handleNewBill}
           invoiceNumber={currentInvoice?.invoice_number || previewInvoiceNumber}
-          invoiceDate={currentInvoice?.invoice_date || invoiceData.invoice_date}
+          invoiceStatus={currentInvoice?.status || null}
+          isLoading={loadingStates.header}
+          isSaving={isSaving}
+          hasUnsavedData={hasData}
           billedBy={billedByName}
         />
       </div>
+
+      {/* TABLE */}
+      <div className={`
+        flex-1 flex flex-col overflow-hidden bg-white rounded-lg border shadow-sm
+        transition-all duration-300 ease-out delay-75
+        ${isEditingConfirmed ? 'border-amber-300' : 'border-gray-200'}
+      `}>
+        <SalesTable
+          rows={rows}
+          setRows={setRows}
+          productMaster={medicines}
+          calculateRow={calculateSalesRow}
+          visibleRows={visibleRows}
+          rowHeight={rowHeight}
+          onProductSelect={handleProductSelect}
+          onBatchSelect={handleBatchSelect}
+          isLoading={loadingStates.table}
+          getAvailableBatches={getAvailableBatches}
+        />
+      </div>
+
+      {/* FOOTER: CUSTOMER DETAILS + SUMMARY */}
+      <div className="shrink-0 flex gap-2 h-[220px] 2xl:h-[240px]">
+        <div className={`
+          flex-1 transition-all duration-300 ease-out delay-100
+          ${!loadingStates.customer ? 'opacity-100 translate-y-0' : 'opacity-100'}
+        `}>
+          <CustomerDetailsCard
+            customer={customer}
+            setCustomer={setCustomer}
+            onSearchCustomer={() => setCustomerSearchOpen(true)}
+            netAmount={summary.netAmount}
+            isLoading={loadingStates.customer}
+            billNo={currentInvoice?.invoice_number || previewInvoiceNumber || 'DRAFT'}
+          />
+        </div>
+        
+        <div className={`
+          w-72 2xl:w-80 transition-all duration-300 ease-out delay-150
+          ${!loadingStates.summary ? 'opacity-100 translate-y-0' : 'opacity-100'}
+        `}>
+          <SalesSummaryCard 
+            summary={summary}
+            customer={customer}
+            isLoading={loadingStates.summary}
+          />
+        </div>
+      </div>
+
+      {/* PRINT COMPONENT (HIDDEN) */}
+      <div className="hidden">
+        <div ref={printRef}>
+          <SalesInvoicePrint
+            rows={rows}
+            customer={customer}
+            summary={summary}
+            companyDetails={COMPANY_DETAILS}
+            invoiceNumber={currentInvoice?.invoice_number || previewInvoiceNumber}
+            invoiceDate={currentInvoice?.invoice_date || invoiceData.invoice_date}
+            billedBy={billedByName}
+          />
+        </div>
+      </div>
+
+      {/* CUSTOMER SEARCH MODAL */}
+      <CustomerSearchModal
+        isOpen={customerSearchOpen}
+        onClose={() => setCustomerSearchOpen(false)}
+        onSelect={handleCustomerSelect}
+        searchCustomers={searchCustomers}
+        createCustomer={createCustomer}
+      />
+
+      {/* CONFIRM DIALOG */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={closeConfirmDialog}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={confirmDialog.confirmText}
+        cancelText="Cancel"
+        type={confirmDialog.type}
+      />
     </div>
-
-    {/* CUSTOMER SEARCH MODAL */}
-    <CustomerSearchModal
-      isOpen={customerSearchOpen}
-      onClose={() => setCustomerSearchOpen(false)}
-      onSelect={handleCustomerSelect}
-      searchCustomers={searchCustomers}
-      createCustomer={createCustomer}
-    />
-
-    {/* CONFIRM DIALOG */}
-    <ConfirmDialog
-      isOpen={confirmDialog.isOpen}
-      onClose={closeConfirmDialog}
-      onConfirm={confirmDialog.onConfirm}
-      title={confirmDialog.title}
-      message={confirmDialog.message}
-      confirmText={confirmDialog.confirmText}
-      cancelText="Cancel"
-      type={confirmDialog.type}
-    />
-  </div>
-);
+  );
 }
 
 export default SalesBillingPage;

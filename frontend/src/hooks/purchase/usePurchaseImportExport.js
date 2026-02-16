@@ -67,8 +67,7 @@ const mapHeaderToKey = (h) => {
     srate: "sRate", 
     sellingrate: "sRate", 
     selrate: "sRate", 
-    salerate: "sRate",        // ✅ This is the correct selling rate
-    // loclsale: "sRate",     // ❌ REMOVED - This is a flag (0/1), not a rate!
+    salerate: "sRate",
     
     // === Net Rate ===
     netrate: "netRate", net: "netRate", nrate: "netRate",
@@ -213,11 +212,15 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
   const [isLoading, setIsLoading] = useState(false);
 
   /**
-   * Enhanced product matching with medicine_id assignment
+   * ✅ FIXED: Enhanced product matching with medicine_id assignment
+   * Uses cache to ensure ALL rows with same product get the same medicine_id
    */
   const detectNewProducts = useCallback((parsedRows) => {
     const newProducts = [];
     const processedRows = [];
+    
+    // ✅ NEW: Create a cache for matched products to ensure consistency
+    const matchedProductCache = new Map();
     
     console.group("🔍 Product Detection & Matching");
     console.log("Product Master Count:", productMaster.length);
@@ -228,6 +231,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     parsedRows.slice(0, 3).forEach((row, idx) => {
       console.log(`  Row ${idx + 1}:`, {
         name: row.name || '(EMPTY)',
+        batch: row.batch || '(empty)',
         mfac: row.mfac || '(empty)',
         hsn: row.hsn || '(empty)',
         qty: row.qty || '(empty)',
@@ -236,6 +240,9 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     });
     
     let skippedNoName = 0;
+    let matchedCount = 0;
+    let cacheHits = 0;
+    let newCount = 0;
     
     parsedRows.forEach((row, idx) => {
       if (!row.name || !row.name.trim()) {
@@ -246,39 +253,82 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       const rowName = row.name.trim();
       const rowMfac = (row.mfac || '').trim();
       
+      // ✅ NEW: Create a cache key for this product (name + manufacturer)
+      // This ensures same product with different batches gets same medicine_id
+      const cacheKey = `${rowName.toLowerCase()}|${rowMfac.toLowerCase()}`;
+      
+      // ✅ NEW: Check cache first for previously matched products
+      if (matchedProductCache.has(cacheKey)) {
+        const cachedMatch = matchedProductCache.get(cacheKey);
+        console.log(`Row ${idx + 1}: ♻️ Cache HIT for "${rowName}" (Batch: ${row.batch || 'N/A'})`);
+        
+        processedRows.push({
+          ...row,
+          medicine_id: cachedMatch.medicine_id,
+          hsn: row.hsn || cachedMatch.hsn || '',
+          rack: row.rack || cachedMatch.rack || '',
+          pack: row.pack || cachedMatch.pack || '',
+          cgstPercent: row.cgstPercent || cachedMatch.cgstPercent || '6',
+          sgstPercent: row.sgstPercent || cachedMatch.sgstPercent || '6',
+        });
+        matchedCount++;
+        cacheHits++;
+        return;
+      }
+      
       // Try to find matching product in master
       const matchingProduct = productMaster.find(product => {
         const productName = (product.name || '').toLowerCase();
         const searchName = rowName.toLowerCase();
         
+        // Exact match
         if (productName === searchName) return true;
         
+        // Match with manufacturer
         if (rowMfac) {
           const productMfac = (product.manufacturer || product.mfac || '').toLowerCase();
           const searchMfac = rowMfac.toLowerCase();
+          // Exact match with both name and manufacturer
+          if (productName === searchName && productMfac === searchMfac) return true;
+          // Partial match with both
           if (productName.includes(searchName) && productMfac.includes(searchMfac)) return true;
         }
         
+        // Partial match (contains)
         if (productName.includes(searchName) || searchName.includes(productName)) return true;
         
         return false;
       });
 
       if (matchingProduct) {
-        console.log(`Row ${idx + 1}: ✅ Matched "${rowName}"`);
+        console.log(`Row ${idx + 1}: ✅ Matched "${rowName}" → ID: ${matchingProduct.medicine_id || matchingProduct.id} (Batch: ${row.batch || 'N/A'})`);
+        
+        const matchData = {
+          medicine_id: matchingProduct.medicine_id || matchingProduct.id,
+          hsn: matchingProduct.hsnCode || matchingProduct.hsn || '',
+          rack: matchingProduct.rackNo || matchingProduct.rack || '',
+          pack: matchingProduct.packSize || matchingProduct.pack || '',
+          cgstPercent: matchingProduct.cgstPercent || '6',
+          sgstPercent: matchingProduct.sgstPercent || '6',
+        };
+        
+        // ✅ NEW: Cache this match for future rows with same product
+        matchedProductCache.set(cacheKey, matchData);
         
         processedRows.push({
           ...row,
-          medicine_id: matchingProduct.medicine_id || matchingProduct.id,
-          hsn: row.hsn || matchingProduct.hsnCode || matchingProduct.hsn || '',
-          rack: row.rack || matchingProduct.rackNo || matchingProduct.rack || '',
-          pack: row.pack || matchingProduct.packSize || matchingProduct.pack || '',
-          cgstPercent: row.cgstPercent || matchingProduct.cgstPercent || '6',
-          sgstPercent: row.sgstPercent || matchingProduct.sgstPercent || '6',
+          medicine_id: matchData.medicine_id,
+          hsn: row.hsn || matchData.hsn,
+          rack: row.rack || matchData.rack,
+          pack: row.pack || matchData.pack,
+          cgstPercent: row.cgstPercent || matchData.cgstPercent,
+          sgstPercent: row.sgstPercent || matchData.sgstPercent,
         });
+        matchedCount++;
       } else {
-        console.log(`Row ${idx + 1}: ⚠️ NEW - "${rowName}" (${rowMfac || 'no manufacturer'})`);
+        console.log(`Row ${idx + 1}: ⚠️ NEW - "${rowName}" (${rowMfac || 'no manufacturer'}) (Batch: ${row.batch || 'N/A'})`);
         
+        // Check if already in newProducts list
         const alreadyDetected = newProducts.some(newProd => {
           const newProdName = (newProd.name || '').toLowerCase();
           const newProdMfac = (newProd.manufacturer || '').toLowerCase();
@@ -301,11 +351,12 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
             sgstPercent: row.sgstPercent || '6',
             genericName: '',
           });
+          newCount++;
         }
         
         processedRows.push({
           ...row,
-          medicine_id: null,
+          medicine_id: null, // Will be set after product is created
         });
       }
     });
@@ -313,12 +364,17 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     console.log(`\n📊 Detection Summary:`);
     console.log(`  Total Rows: ${parsedRows.length}`);
     console.log(`  Skipped (no name): ${skippedNoName}`);
-    console.log(`  Matched: ${processedRows.filter(r => r.medicine_id).length}`);
-    console.log(`  New Products: ${newProducts.length}`);
+    console.log(`  Matched (total): ${matchedCount}`);
+    console.log(`  Cache Hits: ${cacheHits} (same product, different batch)`);
+    console.log(`  New Products: ${newCount}`);
     
     if (skippedNoName > 0) {
       console.warn(`⚠️ ${skippedNoName} rows skipped because 'name' field is empty!`);
       console.warn(`   Check if 'itemname' column is being parsed correctly.`);
+    }
+    
+    if (cacheHits > 0) {
+      console.info(`✅ ${cacheHits} rows matched via cache (same medicine, different batches)`);
     }
     
     console.groupEnd();

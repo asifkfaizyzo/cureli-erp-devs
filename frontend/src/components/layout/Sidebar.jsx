@@ -52,7 +52,7 @@ const SUBMENU_VARIANTS = {
 
 // Define write routes that require BRANCH mode
 const WRITE_ROUTES = [
-  "/Salesbilling",
+  "/Sales-billing",
   "/purchase-billing",
 ];
 
