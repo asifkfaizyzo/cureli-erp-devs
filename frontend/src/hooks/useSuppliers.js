@@ -10,14 +10,13 @@ export const useSuppliers = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [mode, setMode] = useState(null); // 'BRANCH' or 'GLOBAL'
+  const [mode, setMode] = useState(null);
 
   const fetchSuppliers = useCallback(async (filters = {}) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Pass branch context to API
       const params = {
         ...filters,
         ...(branchContext.mode === "BRANCH" && branchContext.branch_id && {
@@ -44,7 +43,6 @@ export const useSuppliers = () => {
     }
   }, [branchContext.mode, branchContext.branch_id]);
 
-  // Refetch when branch context changes
   useEffect(() => {
     fetchSuppliers();
   }, [fetchSuppliers]);
@@ -52,21 +50,18 @@ export const useSuppliers = () => {
   const createSupplier = useCallback(async (data) => {
     try {
       if (branchContext.mode !== "BRANCH" || !branchContext.branch_id) {
-        return { 
-          success: false, 
-          error: "Please select a branch to create suppliers" 
-        };
+        return { success: false, error: "Please select a branch to create suppliers" };
       }
 
       const response = await suppliersAPI.create(data, branchContext.branch_id);
       
       if (response.success) {
-        await fetchSuppliers(); // Refresh list
+        await fetchSuppliers();
         return { success: true, data: response.data };
       }
       return { success: false, error: response.message };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     }
   }, [branchContext.branch_id, branchContext.mode, fetchSuppliers]);
 
@@ -79,11 +74,11 @@ export const useSuppliers = () => {
       }
       return { success: false, error: response.message };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     }
   }, [fetchSuppliers]);
 
-  // Super Admin only methods
+  // Super Admin methods
   const getSupplierBranches = useCallback(async (supplierId) => {
     if (!isSuperAdmin) return { success: false, error: "Not authorized" };
     
@@ -91,7 +86,7 @@ export const useSuppliers = () => {
       const response = await suppliersAPI.getSupplierBranches(supplierId);
       return { success: response.success, data: response.data };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     }
   }, [isSuperAdmin]);
 
@@ -105,7 +100,7 @@ export const useSuppliers = () => {
       }
       return { success: response.success, data: response.data, message: response.message };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     }
   }, [isSuperAdmin, fetchSuppliers]);
 
@@ -119,7 +114,7 @@ export const useSuppliers = () => {
       }
       return { success: response.success, message: response.message };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     }
   }, [isSuperAdmin, fetchSuppliers]);
 
@@ -133,7 +128,7 @@ export const useSuppliers = () => {
       }
       return { success: response.success, data: response.data };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     }
   }, [isSuperAdmin, fetchSuppliers]);
 
@@ -144,15 +139,60 @@ export const useSuppliers = () => {
       const response = await suppliersAPI.getAvailableForBranch(branchId, search);
       return { success: response.success, data: response.data };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     }
   }, [isSuperAdmin]);
+
+  // ✅ Deactivate supplier
+  const deactivateSupplier = useCallback(async (supplierId) => {
+    if (!isSuperAdmin) return { success: false, error: "Not authorized" };
+    
+    try {
+      const response = await suppliersAPI.deactivate(supplierId);
+      if (response.success) {
+        await fetchSuppliers();
+      }
+      return { success: response.success, data: response.data, message: response.message };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.message || err.message };
+    }
+  }, [isSuperAdmin, fetchSuppliers]);
+
+  // ✅ Reactivate supplier
+  const reactivateSupplier = useCallback(async (supplierId, branchId) => {
+    if (!isSuperAdmin) return { success: false, error: "Not authorized" };
+    
+    try {
+      const response = await suppliersAPI.reactivate(supplierId, branchId);
+      if (response.success) {
+        await fetchSuppliers();
+      }
+      return { success: response.success, data: response.data, message: response.message };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.message || err.message };
+    }
+  }, [isSuperAdmin, fetchSuppliers]);
+
+  // ✅ Remove from all branches
+  const removeFromAllBranches = useCallback(async (supplierId) => {
+    if (!isSuperAdmin) return { success: false, error: "Not authorized" };
+    
+    try {
+      const response = await suppliersAPI.removeFromAllBranches(supplierId);
+      if (response.success) {
+        await fetchSuppliers();
+      }
+      return { success: response.success, data: response.data, message: response.message };
+    } catch (err) {
+      return { success: false, error: err.response?.data?.message || err.message };
+    }
+  }, [isSuperAdmin, fetchSuppliers]);
 
   return {
     suppliers,
     loading,
     error,
-    mode, // 'BRANCH' or 'GLOBAL'
+    mode,
     isGlobalMode: mode === "GLOBAL",
     isBranchMode: mode === "BRANCH",
     currentBranchId: branchContext.branch_id,
@@ -161,11 +201,13 @@ export const useSuppliers = () => {
     refresh: fetchSuppliers,
     createSupplier,
     updateSupplier,
-    // Super Admin methods
     getSupplierBranches,
     addSupplierToBranch,
     removeSupplierFromBranch,
     updateSupplierBranches,
     getAvailableForBranch,
+    deactivateSupplier,
+    reactivateSupplier,
+    removeFromAllBranches,
   };
 };

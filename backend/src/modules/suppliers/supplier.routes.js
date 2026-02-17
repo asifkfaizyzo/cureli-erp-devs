@@ -13,6 +13,9 @@ import {
   removeSupplierFromBranchController,
   bulkUpdateSupplierBranchesController,
   getSuppliersNotInBranchController,
+  deactivateSupplierController,      // ✅ NEW
+  reactivateSupplierController,      // ✅ NEW
+  removeFromAllBranchesController,   // ✅ NEW
 } from "./supplier.controller.js";
 
 import {
@@ -33,6 +36,11 @@ router.post("/", validateBody(createSupplierSchema), createSupplierController);
 router.get("/", getSuppliersController);
 router.get("/:supplierId", getSupplierByIdController);
 router.put("/:supplierId", validateBody(updateSupplierSchema), updateSupplierController);
+
+// ✅ NEW: Supplier Status Management
+router.post("/:supplierId/deactivate", deactivateSupplierController);
+router.post("/:supplierId/reactivate", validateBody(branchActionSchema), reactivateSupplierController);
+router.delete("/:supplierId/all-branches", removeFromAllBranchesController);
 
 // ============================================
 // Branch Management (Super Admin Only)

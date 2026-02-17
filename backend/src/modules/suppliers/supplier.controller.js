@@ -339,4 +339,87 @@ export async function getSuppliersNotInBranchController(req, res) {
     console.error("❌ supplier.getNotInBranch ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
   }
+
+  
+
+
+}
+
+
+/* ============================================
+   DEACTIVATE SUPPLIER - Shop-wide
+============================================ */
+export async function deactivateSupplierController(req, res) {
+  try {
+    if (!req.user) {
+      return fail(res, "Authentication required", 401);
+    }
+
+    const shopId = req.user.shop_id;
+    const userId = req.user.user_id;
+    const { supplierId } = req.params;
+
+    if (req.user.role !== "super_admin") {
+      return fail(res, "Only super admin can deactivate suppliers", 403);
+    }
+
+    const result = await supplierService.deactivateSupplier(supplierId, shopId, userId);
+
+    return success(res, result, "Supplier deactivated successfully");
+  } catch (error) {
+    console.error("❌ supplier.deactivate ERROR:", error);
+    return fail(res, error.message, error.statusCode || 500, error.code);
+  }
+}
+
+/* ============================================
+   REACTIVATE SUPPLIER
+============================================ */
+export async function reactivateSupplierController(req, res) {
+  try {
+    if (!req.user) {
+      return fail(res, "Authentication required", 401);
+    }
+
+    const shopId = req.user.shop_id;
+    const userId = req.user.user_id;
+    const { supplierId } = req.params;
+    const { branch_id } = req.validated;
+
+    if (req.user.role !== "super_admin") {
+      return fail(res, "Only super admin can reactivate suppliers", 403);
+    }
+
+    const result = await supplierService.reactivateSupplier(supplierId, shopId, branch_id, userId);
+
+    return success(res, result, "Supplier reactivated successfully");
+  } catch (error) {
+    console.error("❌ supplier.reactivate ERROR:", error);
+    return fail(res, error.message, error.statusCode || 500, error.code);
+  }
+}
+
+/* ============================================
+   REMOVE FROM ALL BRANCHES
+============================================ */
+export async function removeFromAllBranchesController(req, res) {
+  try {
+    if (!req.user) {
+      return fail(res, "Authentication required", 401);
+    }
+
+    const shopId = req.user.shop_id;
+    const { supplierId } = req.params;
+
+    if (req.user.role !== "super_admin") {
+      return fail(res, "Only super admin can remove supplier from all branches", 403);
+    }
+
+    const result = await supplierService.removeFromAllBranches(supplierId, shopId);
+
+    return success(res, result, "Supplier removed from all branches");
+  } catch (error) {
+    console.error("❌ supplier.removeFromAllBranches ERROR:", error);
+    return fail(res, error.message, error.statusCode || 500, error.code);
+  }
 }

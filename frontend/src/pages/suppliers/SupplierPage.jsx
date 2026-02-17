@@ -28,21 +28,24 @@ const SupplierPage = () => {
 
   /* ---------------- API HOOK ---------------- */
   const {
-    suppliers,
-    loading,
-    error,
-    mode,
-    currentBranchId,
-    currentBranchName,
-    createSupplier,
-    updateSupplier,
-    refresh,
-    getSupplierBranches,
-    addSupplierToBranch,
-    removeSupplierFromBranch,
-    updateSupplierBranches,
-    getAvailableForBranch,
-  } = useSuppliers();
+  suppliers,
+  loading,
+  error,
+  mode,
+  currentBranchId,
+  currentBranchName,
+  createSupplier,
+  updateSupplier,
+  refresh,
+  getSupplierBranches,
+  addSupplierToBranch,
+  removeSupplierFromBranch,
+  updateSupplierBranches,
+  getAvailableForBranch,
+  deactivateSupplier,      // ✅ Add
+  reactivateSupplier,      // ✅ Add
+  removeFromAllBranches,   // ✅ Add
+} = useSuppliers();
 
   /* ---------------- MODAL STATE ---------------- */
   const [modalOpen, setModalOpen] = useState(false);
@@ -70,6 +73,37 @@ const SupplierPage = () => {
       toast.error("Error", error);
     }
   }, [error]);
+
+
+  const handleDeactivateSupplier = async (supplierId) => {
+  const result = await deactivateSupplier(supplierId);
+  if (result.success) {
+    toast.success("Supplier Deactivated", "Supplier has been deactivated from your shop.");
+  } else {
+    toast.error("Failed", result.error || "Could not deactivate supplier");
+  }
+  return result;
+  };
+
+  const handleReactivateSupplier = async (supplierId, branchId) => {
+  const result = await reactivateSupplier(supplierId, branchId);
+  if (result.success) {
+    toast.success("Supplier Reactivated", `Supplier is now active and linked to ${result.data.linked_branch}`);
+  } else {
+    toast.error("Failed", result.error || "Could not reactivate supplier");
+  }
+  return result;
+  };
+
+const handleRemoveFromAllBranches = async (supplierId) => {
+  const result = await removeFromAllBranches(supplierId);
+  if (result.success) {
+    toast.success("Removed", `Supplier removed from ${result.data.removed_from} branch(es)`);
+  } else {
+    toast.error("Failed", result.error || "Could not remove supplier");
+  }
+  return result;
+};
 
   /* ---------------- FILTER HANDLER ---------------- */
   const handleFilterChange = (field, value) => {
@@ -255,8 +289,8 @@ const SupplierPage = () => {
     if (!isGlobalMode) return null;
 
     return (
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-4">
-        <div className="flex items-start gap-3">
+      <div className="">
+        {/* <div className="flex items-start gap-3">
           <div className="shrink-0 w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
             <Layers size={20} className="text-blue-600" />
           </div>
@@ -277,7 +311,7 @@ const SupplierPage = () => {
               )}
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     );
   };
@@ -330,12 +364,15 @@ const SupplierPage = () => {
       {/* MANAGE BRANCHES MODAL (Super Admin Only) */}
       {isSuperAdmin && (
         <ManageSupplierBranchesModal
-          open={manageBranchesModal.open}
-          supplier={manageBranchesModal.supplier}
-          onClose={() => setManageBranchesModal({ open: false, supplier: null })}
-          onSave={handleBranchesUpdate}
-          getSupplierBranches={getSupplierBranches}
-        />
+  open={manageBranchesModal.open}
+  supplier={manageBranchesModal.supplier}
+  onClose={() => setManageBranchesModal({ open: false, supplier: null })}
+  onSave={handleBranchesUpdate}
+  onDeactivate={handleDeactivateSupplier}
+  onReactivate={handleReactivateSupplier}      // ✅ Add this
+  onRemoveFromAll={handleRemoveFromAllBranches}
+  getSupplierBranches={getSupplierBranches}
+/>
       )}
 
       {/* ADD EXISTING SUPPLIER MODAL (Super Admin Only, Branch Mode) */}
