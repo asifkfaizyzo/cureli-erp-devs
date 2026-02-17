@@ -40,31 +40,32 @@ class SupplierService {
      PRIVATE: Get Suppliers for Specific Branch
   ============================================ */
   async _getSuppliersForBranch(shopId, branchId, filters) {
-  const { search, isActive, limit, offset } = filters;
+  const { search, isActive, limit = 100, offset = 0 } = filters;
 
   try {
-    // ✅ FIX 1: Build supplier where clause separately
-    const supplierWhere = {
-      shop_id: shopId,
-      ...(isActive !== undefined && { is_active: isActive }),
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { gst_number: { contains: search, mode: "insensitive" } },
-          { contact_person: { contains: search, mode: "insensitive" } },
-          { office_phone: { contains: search, mode: "insensitive" } },
-        ],
-      }),
+    // ✅ Build where clause - filter by BOTH supplier.is_active AND supplierBranch.is_active
+    const where = {
+      branch_id: branchId,
+      is_active: true, // ✅ Only active links
+      supplier: {
+        shop_id: shopId,
+        is_active: true, // ✅ Only active suppliers
+        ...(search && {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { gst_number: { contains: search, mode: "insensitive" } },
+            { contact_person: { contains: search, mode: "insensitive" } },
+            { office_phone: { contains: search, mode: "insensitive" } },
+          ],
+        }),
+      },
     };
 
-    // ✅ FIX 2: Query supplierBranch with proper nesting
+    console.log("📦 Fetching suppliers for branch:", { branchId, where });
+
     const [supplierBranches, total] = await Promise.all([
       prisma.supplierBranch.findMany({
-        where: {
-          branch_id: branchId,
-          is_active: true,
-          supplier: supplierWhere, // ✅ Nested supplier filter
-        },
+        where,
         include: {
           supplier: true,
           branch: {
@@ -75,43 +76,28 @@ class SupplierService {
             },
           },
         },
-        orderBy: { 
-          supplier: { 
-            name: "asc" 
-          } 
-        },
+        orderBy: { supplier: { name: "asc" } },
         take: limit,
         skip: offset,
       }),
-      prisma.supplierBranch.count({ 
-        where: {
-          branch_id: branchId,
-          is_active: true,
-          supplier: supplierWhere,
-        }
-      }),
+      prisma.supplierBranch.count({ where }),
     ]);
 
-    // ✅ FIX 3: Safe mapping with null checks
-    const suppliers = supplierBranches.map(sb => {
-      if (!sb.supplier) {
-        console.warn(`SupplierBranch ${sb.id} has no supplier data`);
-        return null;
-      }
+    console.log(`✅ Found ${supplierBranches.length} active suppliers for branch`);
 
-      return {
-        // ✅ FIX 4: Handle both `id` and `supplier_id` fields
-        supplier_id: sb.supplier.supplier_id || sb.supplier.id,
+    // ✅ Double-check filter in mapping
+    const suppliers = supplierBranches
+      .filter(sb => sb.supplier && sb.supplier.is_active && sb.is_active)
+      .map(sb => ({
         ...sb.supplier,
         current_branch: sb.branch,
         supplier_branch_id: sb.id,
         linked_at: sb.created_at,
-      };
-    }).filter(Boolean); // ✅ Remove null entries
+      }));
 
     return { 
       suppliers, 
-      total, 
+      total: suppliers.length, 
       mode: "BRANCH", 
       branch_id: branchId 
     };

@@ -690,141 +690,6 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
       accountType: "Current",
       ifsc: "HDFC0001234"
     },
-    { 
-      id: 2, 
-      name: "XYZ Medicals", 
-      gst: "07AAFCX5678D1Z2", 
-      address: "Andheri East, Mumbai - 400059",
-      location: "Mumbai",
-      officePhone: "022-76543210",
-      personalPhone: "8765432109",
-      email: "sales@xyzmedicals.com",
-      bankName: "ICICI Bank",
-      branchName: "Andheri",
-      accountNo: "123456789012",
-      accountType: "Current",
-      ifsc: "ICIC0005678"
-    },
-    { 
-      id: 3, 
-      name: "PQR Distributors", 
-      gst: "29AAPCP5678R1Z3", 
-      address: "HSR Layout, Bangalore - 560102",
-      location: "Bangalore",
-      officePhone: "080-12345678",
-      personalPhone: "9876543201",
-      email: "info@pqrdist.com",
-      bankName: "State Bank of India",
-      branchName: "HSR Layout",
-      accountNo: "32145678901",
-      accountType: "Current",
-      ifsc: "SBIN0009876"
-    },
-    { 
-      id: 4, 
-      name: "LMN Healthcare", 
-      gst: "03AABCL1234M1Z4", 
-      address: "Sector 18, Chandigarh - 160018",
-      location: "Chandigarh",
-      officePhone: "0172-9876543",
-      personalPhone: "9988776655",
-      email: "contact@lmnhealthcare.com",
-      bankName: "Axis Bank",
-      branchName: "Sector 17",
-      accountNo: "917020012345678",
-      accountType: "Current",
-      ifsc: "UTIB0002345"
-    },
-    { 
-      id: 5, 
-      name: "Global Pharma Inc", 
-      gst: "24AABCG5678P1Z5", 
-      address: "SG Highway, Ahmedabad - 380015",
-      location: "Ahmedabad",
-      officePhone: "079-12345678",
-      personalPhone: "9123456780",
-      email: "info@globalpharma.com",
-      bankName: "Kotak Bank",
-      branchName: "SG Highway",
-      accountNo: "4567890123456",
-      accountType: "Current",
-      ifsc: "KKBK0001234"
-    },
-    { 
-      id: 6, 
-      name: "MediCorp Solutions", 
-      gst: "33AABCM5678M1Z6", 
-      address: "Anna Nagar, Chennai - 600040",
-      location: "Chennai",
-      officePhone: "044-98765432",
-      personalPhone: "9876501234",
-      email: "contact@medicorp.in",
-      bankName: "Indian Bank",
-      branchName: "Anna Nagar",
-      accountNo: "789012345678",
-      accountType: "Current",
-      ifsc: "IDIB0001234"
-    },
-    { 
-      id: 7, 
-      name: "Sunrise Medicines Pvt Ltd", 
-      gst: "19AABCS5678S1Z7", 
-      address: "Salt Lake, Kolkata - 700091",
-      location: "Kolkata",
-      officePhone: "033-23456789",
-      personalPhone: "9876512345",
-      email: "sales@sunrisemeds.com",
-      bankName: "Punjab National Bank",
-      branchName: "Salt Lake",
-      accountNo: "0987654321234",
-      accountType: "Current",
-      ifsc: "PUNB0123456"
-    },
-    { 
-      id: 8, 
-      name: "HealthFirst Distributors", 
-      gst: "06AABCH5678H1Z8", 
-      address: "Sector 62, Noida - 201301",
-      location: "Noida",
-      officePhone: "0120-4567890",
-      personalPhone: "9988001122",
-      email: "orders@healthfirst.in",
-      bankName: "Yes Bank",
-      branchName: "Sector 62",
-      accountNo: "1122334455667",
-      accountType: "Current",
-      ifsc: "YESB0000123"
-    },
-    { 
-      id: 9, 
-      name: "CureWell Pharma", 
-      gst: "32AABCC5678C1Z9", 
-      address: "MG Road, Kochi - 682016",
-      location: "Kochi",
-      officePhone: "0484-2345678",
-      personalPhone: "9876509876",
-      email: "info@curewellpharma.com",
-      bankName: "Federal Bank",
-      branchName: "MG Road",
-      accountNo: "9988776655443",
-      accountType: "Current",
-      ifsc: "FDRL0001234"
-    },
-    { 
-      id: 10, 
-      name: "MedSupply India", 
-      gst: "36AABCM5678I1Z0", 
-      address: "Banjara Hills, Hyderabad - 500034",
-      location: "Hyderabad",
-      officePhone: "040-87654321",
-      personalPhone: "9123409876",
-      email: "sales@medsupplyindia.com",
-      bankName: "Canara Bank",
-      branchName: "Banjara Hills",
-      accountNo: "5544332211098",
-      accountType: "Current",
-      ifsc: "CNRB0005678"
-    },
   ], []);
 
   // Filtered Suppliers
@@ -848,10 +713,66 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
     { id: "existing", label: "Select Supplier", icon: Users },
   ];
 
+  // const getFieldValue = useCallback((primaryKey, ...alternativeKeys) => {
+  //   // Check primary key first
+  //   if (formData[primaryKey] !== undefined && formData[primaryKey] !== null && formData[primaryKey] !== '') {
+  //     return formData[primaryKey];
+  //   }
+    
+  //   // Check alternative keys
+  //   for (const altKey of alternativeKeys) {
+  //     if (formData[altKey] !== undefined && formData[altKey] !== null && formData[altKey] !== '') {
+  //       return formData[altKey];
+  //     }
+  //   }
+    
+  //   return '';
+  // }, [formData]);
+
   // Reset form on supplier change
   useEffect(() => {
     if (supplier) {
-      setFormData({ ...supplier });
+      const mappedData = {
+        // IDs
+        supplierId: supplier.supplierId || supplier.supplier_id || "NEW",
+        supplier_id: supplier.supplier_id || supplier.supplierId,
+        
+        // Basic Info
+        name: supplier.name || "",
+        gst: supplier.gst || supplier.gst_number || supplier.gstNumber || "",
+        panNumber: supplier.panNumber || supplier.pan_number || "",
+        drugLicense: supplier.drugLicense || supplier.drug_license_no || supplier.drugLicenseNo || "",
+        website: supplier.website || "",
+        
+        // Address
+        address: supplier.address || supplier.address_line_1 || supplier.addressLine1 || "",
+        addressLine1: supplier.addressLine1 || supplier.address_line_1 || supplier.address || "",
+        addressLine2: supplier.addressLine2 || supplier.address_line_2 || "",
+        city: supplier.city || "",
+        state: supplier.state || "",
+        pincode: supplier.pincode || "",
+        
+        // Contact
+        officePhone: supplier.officePhone || supplier.office_phone || supplier.contact || "",
+        personalPhone: supplier.personalPhone || supplier.personal_phone || "",
+        email: supplier.email || "",
+        contactPerson: supplier.contactPerson || supplier.contact_person || "",
+        designation: supplier.designation || "",
+        
+        // Banking
+        bankName: supplier.bankName || supplier.bank_name || "",
+        branchName: supplier.branchName || "",
+        accountNo: supplier.accountNo || supplier.account_number || supplier.accountNumber || "",
+        accountType: supplier.accountType || supplier.account_type || "",
+        ifsc: supplier.ifsc || supplier.ifsc_code || supplier.ifscCode || "",
+        
+        // Payment
+        creditDays: supplier.creditDays || supplier.credit_days || "",
+        creditLimit: supplier.creditLimit || supplier.credit_limit || "",
+        paymentMode: supplier.paymentMode || supplier.payment_mode || "",
+      };
+      
+      setFormData(mappedData);
       setActiveTab("general");
       setSearchQuery("");
       setSelectedSupplierId(null);

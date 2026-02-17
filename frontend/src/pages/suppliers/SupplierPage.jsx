@@ -132,18 +132,65 @@ const handleRemoveFromAllBranches = async (supplierId) => {
 
   /* ---------------- TABLE ACTIONS ---------------- */
   const handleRowAction = (action, supplier) => {
-    if (action === "delete") {
-      setConfirmDelete(supplier);
-      return;
-    }
-    if (action === "manage-branches" && isSuperAdmin) {
-      setManageBranchesModal({ open: true, supplier });
-      return;
-    }
-    setSelectedSupplier(supplier);
-    setModalMode(action);
-    setModalOpen(true);
+  if (action === "delete") {
+    setConfirmDelete(supplier);
+    return;
+  }
+  if (action === "manage-branches" && isSuperAdmin) {
+    setManageBranchesModal({ open: true, supplier });
+    return;
+  }
+  
+  // ✅ Map API fields to form fields before opening modal
+  const mappedSupplier = {
+    // IDs
+    supplierId: supplier.supplier_id || supplier.id,
+    supplier_id: supplier.supplier_id || supplier.id,
+    
+    // Basic Info
+    name: supplier.name || "",
+    gst: supplier.gst_number || supplier.gstNumber || supplier.gst || "",
+    panNumber: supplier.pan_number || supplier.panNumber || "",
+    drugLicense: supplier.drug_license_no || supplier.drugLicenseNo || supplier.drugLicense || "",
+    website: supplier.website || "",
+    
+    // Address
+    address: supplier.address || supplier.address_line_1 || supplier.addressLine1 || "",
+    addressLine1: supplier.address_line_1 || supplier.addressLine1 || supplier.address || "",
+    addressLine2: supplier.address_line_2 || supplier.addressLine2 || "",
+    city: supplier.city || "",
+    state: supplier.state || "",
+    pincode: supplier.pincode || "",
+    
+    // Contact
+    officePhone: supplier.office_phone || supplier.officePhone || supplier.contact || "",
+    personalPhone: supplier.personal_phone || supplier.personalPhone || "",
+    email: supplier.email || "",
+    contactPerson: supplier.contact_person || supplier.contactPerson || "",
+    designation: supplier.designation || "",
+    
+    // Banking
+    bankName: supplier.bank_name || supplier.bankName || "",
+    branchName: supplier.branchName || "",
+    accountNo: supplier.account_number || supplier.accountNumber || supplier.accountNo || "",
+    accountType: supplier.account_type || supplier.accountType || "",
+    ifsc: supplier.ifsc_code || supplier.ifscCode || supplier.ifsc || "",
+    
+    // Payment
+    creditDays: supplier.credit_days || supplier.creditDays || "",
+    creditLimit: supplier.credit_limit || supplier.creditLimit || "",
+    paymentMode: supplier.payment_mode || supplier.paymentMode || "",
   };
+  
+  console.log("📝 Opening modal with mapped supplier:", {
+    original: supplier,
+    mapped: mappedSupplier,
+  });
+  
+  setSelectedSupplier(mappedSupplier);
+  setModalMode(action);
+  setModalOpen(true);
+};
 
   /* ---------------- SAVE HANDLER ---------------- */
   const handleSave = async (formData) => {

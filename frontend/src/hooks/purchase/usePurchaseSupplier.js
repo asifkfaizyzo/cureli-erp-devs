@@ -1,8 +1,9 @@
 // src/hooks/purchase/usePurchaseSupplier.js
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useAuthStore, selectBranchContext } from "../store/useAuthStore";
 
 const STORAGE_KEY = 'cureli_purchase_supplier';
-const STORAGE_VERSION = 2; // ✅ Incremented version for new fields
+const STORAGE_VERSION = 3; // ✅ Incremented for branch tracking
 
 const DEFAULT_SUPPLIERS = [
   { id: 1, name: "ABC Pharma Ltd", gst: "27AABCA1234C1Z5", phone: "+91 98765 43210", address: "Mumbai, MH" },
@@ -23,7 +24,7 @@ const getDefaultSupplier = () => ({
   supplierPhone: "",
   creditDays: "30",
   amountPaid: "",
-  paymentMode: "", // ✅ NEW: Payment mode field
+  paymentMode: "",
   balance: "0.00",
   address: "",
 });
@@ -38,7 +39,7 @@ const loadFromStorage = () => {
     
     const parsed = JSON.parse(stored);
     
-    // ✅ UPDATED: Check version compatibility
+    // ✅ Check version compatibility
     if (parsed.version !== STORAGE_VERSION) {
       console.log('📦 Storage version mismatch, clearing old data');
       localStorage.removeItem(STORAGE_KEY);
@@ -56,7 +57,7 @@ const loadFromStorage = () => {
       return null;
     }
     
-    // ✅ NEW: Ensure new fields exist with defaults
+    // ✅ Ensure all fields exist with defaults
     const supplier = {
       ...getDefaultSupplier(),
       ...parsed.supplier,
@@ -93,10 +94,37 @@ const saveToStorage = (supplier) => {
 };
 
 export const usePurchaseSupplier = (total = 0) => {
+  const branchContext = useAuthStore(selectBranchContext);
+  const previousBranchRef = useRef(branchContext.branch_id);
+  
   const [supplier, setSupplier] = useState(getDefaultSupplier);
   const [suppliersList, setSuppliersList] = useState(DEFAULT_SUPPLIERS);
   const [isInitialized, setIsInitialized] = useState(false);
   const saveTimeoutRef = useRef(null);
+
+  // ✅ NEW: Reset supplier when branch changes (except on initial mount)
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    const currentBranchId = branchContext.branch_id;
+    const previousBranchId = previousBranchRef.current;
+    
+    if (previousBranchId !== currentBranchId) {
+      console.log("🔄 Branch changed in usePurchaseSupplier:", {
+        from: previousBranchId,
+        to: currentBranchId,
+      });
+      
+      // Only reset if supplier was actually selected
+      if (supplier.supplier_id) {
+        console.log("📦 Clearing supplier due to branch change");
+        setSupplier(getDefaultSupplier());
+        localStorage.removeItem(STORAGE_KEY);
+      }
+      
+      previousBranchRef.current = currentBranchId;
+    }
+  }, [branchContext.branch_id, isInitialized, supplier.supplier_id]);
 
   // Initialize from localStorage
   useEffect(() => {
@@ -122,13 +150,13 @@ export const usePurchaseSupplier = (total = 0) => {
     });
   }, [total, supplier.amountPaid]);
 
-  // ✅ NEW: Auto-set payment mode to CASH if amount is paid but mode is not selected
+  // ✅ Auto-set payment mode to CASH if amount is paid but mode is not selected
   useEffect(() => {
     const paid = parseFloat(supplier.amountPaid) || 0;
     if (paid > 0 && !supplier.paymentMode) {
       setSupplier(prev => ({
         ...prev,
-        paymentMode: "CASH" // Default to CASH if not specified
+        paymentMode: "CASH"
       }));
     }
   }, [supplier.amountPaid, supplier.paymentMode]);
@@ -158,10 +186,10 @@ export const usePurchaseSupplier = (total = 0) => {
         ...prev,
         supplier_id: selected.supplier_id || selected.id,
         supplierName: selected.name,
-        supplierGST: selected.gst || selected.gstNumber || "",
-        supplierPhone: selected.phone || selected.officePhone || "",
+        supplierGST: selected.gst || selected.gstNumber || selected.gst_number || "",
+        supplierPhone: selected.phone || selected.officePhone || selected.office_phone || "",
         address: selected.address || "",
-        creditDays: selected.creditDays?.toString() || prev.creditDays,
+        creditDays: selected.creditDays?.toString() || selected.credit_days?.toString() || prev.creditDays,
       }));
     }
   }, []);
@@ -177,13 +205,13 @@ export const usePurchaseSupplier = (total = 0) => {
       errors.push("Please select a valid supplier from the list");
     }
 
-    // ✅ NEW: Validate payment mode if amount is paid
+    // Validate payment mode if amount is paid
     const paid = parseFloat(supplier.amountPaid) || 0;
     if (paid > 0 && !supplier.paymentMode) {
       errors.push("Payment mode is required when amount is paid");
     }
 
-    // ✅ NEW: Validate amount paid doesn't exceed total
+    // Validate amount paid doesn't exceed total
     if (paid > total) {
       errors.push(`Amount paid (₹${paid.toFixed(2)}) cannot exceed total amount (₹${total.toFixed(2)})`);
     }
@@ -210,7 +238,7 @@ export const usePurchaseSupplier = (total = 0) => {
   }, []);
 
   /**
-   * ✅ NEW: Update a single field
+   * ✅ Update a single field
    */
   const updateField = useCallback((field, value) => {
     setSupplier(prev => ({
@@ -220,7 +248,7 @@ export const usePurchaseSupplier = (total = 0) => {
   }, []);
 
   /**
-   * ✅ NEW: Get payment status summary
+   * ✅ Get payment status summary
    */
   const getPaymentStatus = useCallback(() => {
     const paid = parseFloat(supplier.amountPaid) || 0;
@@ -258,8 +286,8 @@ export const usePurchaseSupplier = (total = 0) => {
     validateSupplier,
     resetSupplier,
     clearStoredData,
-    updateField, // ✅ NEW
-    getPaymentStatus, // ✅ NEW
+    updateField,
+    getPaymentStatus,
     isInitialized,
   };
 };

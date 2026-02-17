@@ -484,7 +484,8 @@ const SupplierDetailsCard = ({
   onSupplierSelect,
   onAddNewSupplier,
   onFieldChange, // ✅ Prop for field changes
-  isLoading = false
+  isLoading = false,
+  isLocked = false,
 }) => {
   // ✅ UPDATED: Use onFieldChange if provided, otherwise update directly
   const updateField = (field, value) => {
@@ -571,11 +572,20 @@ const SupplierDetailsCard = ({
             <p className="text-[9px] text-gray-500">Invoice & Payment Information</p>
           </div>
           {suppliersList.length > 0 && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded text-[9px] text-green-700 font-medium">
-              <CheckCircle2 size={10} />
-              {suppliersList.length} suppliers
-            </div>
-          )}
+  <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded text-[9px] text-green-700 font-medium">
+      <CheckCircle2 size={10} />
+      {suppliersList.length} suppliers
+    </div>
+    {/* ✅ NEW: Show if filtered by branch */}
+    {!isLocked && (
+      <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[9px] text-blue-700 font-medium">
+        <Building2 size={10} />
+        Branch filtered
+      </div>
+    )}
+  </div>
+)}
           {suppliersList.length === 0 && (
             <div className="flex items-center gap-1 px-2 py-1 bg-red-100 border border-red-200 rounded text-[9px] text-red-700 font-medium">
               <AlertCircle size={10} />

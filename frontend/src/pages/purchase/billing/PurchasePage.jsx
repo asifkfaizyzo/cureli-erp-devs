@@ -245,6 +245,47 @@ const PurchasePage = () => {
     initData();
   }, [invoiceId, isEditingConfirmed]); // eslint-disable-line
 
+
+
+  // ============================================
+// ✅ NEW: RELOAD SUPPLIERS WHEN BRANCH CHANGES
+// ============================================
+  useEffect(() => {
+  // Skip on initial mount (initData handles that)
+  if (!supplierInitialized) return;
+  
+  // Skip if still loading initial data
+  if (loadingStates.supplier) return;
+
+  console.log("🔄 Branch changed, reloading suppliers:", {
+    mode: branchContext.mode,
+    branch_id: branchContext.branch_id,
+    branch_name: branchContext.branch_name,
+  });
+
+  const reloadSuppliers = async () => {
+    setLoadingStates(prev => ({ ...prev, supplier: true }));
+    try {
+      await loadSuppliers();
+      
+      // ✅ Clear selected supplier if it might not exist in new branch
+      // Only clear if we're switching TO a specific branch (not to global)
+      if (branchContext.mode === "BRANCH" && supplier.supplier_id) {
+        // Check if current supplier exists in new branch's supplier list
+        // This will be handled by the loadSuppliers response
+        console.log("📍 Checking if current supplier exists in new branch...");
+      }
+      
+    } catch (error) {
+      console.error("Failed to reload suppliers:", error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, supplier: false }));
+    }
+  };
+
+  reloadSuppliers();
+}, [branchContext.branch_id]); // Re-run when branch_id changes
+
   // ============================================
   // UPDATE SUPPLIERS LIST WHEN API LOADS
   // ============================================
