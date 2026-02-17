@@ -13,28 +13,269 @@ class ApiError extends Error {
 }
 
 /* =====================================================
-   SUPPLIER SERVICE
+   SUPPLIER SERVICE - BRANCH CONTEXT AWARE
 ===================================================== */
 class SupplierService {
+  
   /* ============================================
-     CREATE SUPPLIER
+     GET SUPPLIERS - Branch Context Aware
+     
+     BRANCH Mode: Returns suppliers linked to that branch
+     GLOBAL Mode: Returns all unique suppliers with branch info (no duplicates)
   ============================================ */
-  async createSupplier(data, shopId, userId) {
-    const existing = await prisma.supplier.findFirst({
+  async getSuppliers(shopId, branchContext, filters = {}) {
+    const { search, isActive, limit = 100, offset = 0 } = filters;
+    const { mode, branch_id } = branchContext;
+
+    // BRANCH MODE - Get suppliers for specific branch
+    if (mode === "BRANCH" && branch_id) {
+      return this._getSuppliersForBranch(shopId, branch_id, { search, isActive, limit, offset });
+    }
+
+    // GLOBAL MODE - Get all unique suppliers with branch info
+    return this._getAllSuppliersAggregated(shopId, { search, isActive, limit, offset });
+  }
+
+  /* ============================================
+     PRIVATE: Get Suppliers for Specific Branch
+  ============================================ */
+  async _getSuppliersForBranch(shopId, branchId, filters) {
+  const { search, isActive, limit, offset } = filters;
+
+  try {
+    // ✅ FIX 1: Build supplier where clause separately
+    const supplierWhere = {
+      shop_id: shopId,
+      ...(isActive !== undefined && { is_active: isActive }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { gst_number: { contains: search, mode: "insensitive" } },
+          { contact_person: { contains: search, mode: "insensitive" } },
+          { office_phone: { contains: search, mode: "insensitive" } },
+        ],
+      }),
+    };
+
+    // ✅ FIX 2: Query supplierBranch with proper nesting
+    const [supplierBranches, total] = await Promise.all([
+      prisma.supplierBranch.findMany({
+        where: {
+          branch_id: branchId,
+          is_active: true,
+          supplier: supplierWhere, // ✅ Nested supplier filter
+        },
+        include: {
+          supplier: true,
+          branch: {
+            select: {
+              branch_id: true,
+              branch_name: true,
+              branch_type: true,
+            },
+          },
+        },
+        orderBy: { 
+          supplier: { 
+            name: "asc" 
+          } 
+        },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.supplierBranch.count({ 
+        where: {
+          branch_id: branchId,
+          is_active: true,
+          supplier: supplierWhere,
+        }
+      }),
+    ]);
+
+    // ✅ FIX 3: Safe mapping with null checks
+    const suppliers = supplierBranches.map(sb => {
+      if (!sb.supplier) {
+        console.warn(`SupplierBranch ${sb.id} has no supplier data`);
+        return null;
+      }
+
+      return {
+        // ✅ FIX 4: Handle both `id` and `supplier_id` fields
+        supplier_id: sb.supplier.supplier_id || sb.supplier.id,
+        ...sb.supplier,
+        current_branch: sb.branch,
+        supplier_branch_id: sb.id,
+        linked_at: sb.created_at,
+      };
+    }).filter(Boolean); // ✅ Remove null entries
+
+    return { 
+      suppliers, 
+      total, 
+      mode: "BRANCH", 
+      branch_id: branchId 
+    };
+
+  } catch (error) {
+    console.error("_getSuppliersForBranch ERROR:", error);
+    throw new ApiError(
+      `Failed to fetch suppliers for branch: ${error.message}`,
+      500,
+      "QUERY_ERROR"
+    );
+  }
+}
+
+  /* ============================================
+     PRIVATE: Get All Suppliers Aggregated (No Duplicates)
+  ============================================ */
+  async _getAllSuppliersAggregated(shopId, filters) {
+  const { search, isActive, limit, offset } = filters;
+
+  try {
+    const where = {
+      shop_id: shopId,
+      ...(isActive !== undefined && { is_active: isActive }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { gst_number: { contains: search, mode: "insensitive" } },
+          { contact_person: { contains: search, mode: "insensitive" } },
+          { office_phone: { contains: search, mode: "insensitive" } },
+        ],
+      }),
+    };
+
+    const [suppliers, total] = await Promise.all([
+      prisma.supplier.findMany({
+        where,
+        include: {
+          branches: {
+            where: { is_active: true },
+            include: {
+              branch: {
+                select: {
+                  branch_id: true,
+                  branch_name: true,
+                  branch_type: true,
+                  is_active: true,
+                },
+              },
+            },
+            orderBy: { 
+              branch: { 
+                branch_type: "asc" 
+              } 
+            },
+          },
+          _count: {
+            select: {
+              purchaseInvoices: true,
+              payments: true,
+            },
+          },
+        },
+        orderBy: { name: "asc" },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.supplier.count({ where }),
+    ]);
+
+    // ✅ FIX: Safe mapping
+    const formattedSuppliers = suppliers.map(supplier => ({
+      // ✅ Handle both field names
+      supplier_id: supplier.supplier_id || supplier.id,
+      ...supplier,
+      linked_branches: (supplier.branches || []).map(sb => ({
+        branch_id: sb.branch?.branch_id,
+        branch_name: sb.branch?.branch_name,
+        branch_type: sb.branch?.branch_type,
+        is_active: sb.branch?.is_active,
+        linked_at: sb.created_at,
+        supplier_branch_id: sb.id,
+      })).filter(b => b.branch_id), // ✅ Remove invalid branches
+      branch_count: supplier.branches?.length || 0,
+    }));
+
+    return { 
+      suppliers: formattedSuppliers, 
+      total, 
+      mode: "GLOBAL" 
+    };
+
+  } catch (error) {
+    console.error("_getAllSuppliersAggregated ERROR:", error);
+    throw new ApiError(
+      `Failed to fetch all suppliers: ${error.message}`,
+      500,
+      "QUERY_ERROR"
+    );
+  }
+}
+
+  /* ============================================
+     CREATE SUPPLIER - Creates and links to branch
+  ============================================ */
+  async createSupplier(data, shopId, branchId, userId) {
+    // Validate branch belongs to shop
+    const branch = await prisma.branch.findFirst({
+      where: {
+        branch_id: branchId,
+        shop_id: shopId,
+        is_active: true,
+      },
+    });
+
+    if (!branch) {
+      throw new ApiError("Invalid branch", 400, "INVALID_BRANCH");
+    }
+
+    // Check for duplicate name in shop
+    const existingName = await prisma.supplier.findFirst({
       where: {
         shop_id: shopId,
         name: data.name,
       },
     });
 
-    if (existing) {
-      throw new ApiError(
-        `Supplier "${data.name}" already exists`,
-        409,
-        "DUPLICATE_SUPPLIER"
-      );
+    if (existingName) {
+      // Supplier exists - check if already linked to this branch
+      const existingLink = await prisma.supplierBranch.findUnique({
+        where: {
+          supplier_id_branch_id: {
+            supplier_id: existingName.supplier_id,
+            branch_id: branchId,
+          },
+        },
+      });
+
+      if (existingLink) {
+        throw new ApiError(
+          `Supplier "${data.name}" already exists in this branch`,
+          409,
+          "DUPLICATE_SUPPLIER_IN_BRANCH"
+        );
+      }
+
+      // Link existing supplier to this branch
+      await prisma.supplierBranch.create({
+        data: {
+          supplier_id: existingName.supplier_id,
+          branch_id: branchId,
+          created_by: userId,
+          is_active: true,
+        },
+      });
+
+      return {
+        ...existingName,
+        linked_to_existing: true,
+        message: `Supplier "${data.name}" already exists and has been linked to this branch`,
+      };
     }
 
+    // Check GST uniqueness if provided
     if (data.gst_number) {
       const gstExists = await prisma.supplier.findFirst({
         where: {
@@ -52,61 +293,54 @@ class SupplierService {
       }
     }
 
-    return prisma.supplier.create({
-      data: {
-        ...data,
-        shop_id: shopId,
-        created_by: userId,
-      },
+    // Create new supplier and link to branch
+    const supplier = await prisma.$transaction(async (tx) => {
+      const newSupplier = await tx.supplier.create({
+        data: {
+          ...data,
+          shop_id: shopId,
+          created_by: userId,
+        },
+      });
+
+      await tx.supplierBranch.create({
+        data: {
+          supplier_id: newSupplier.supplier_id,
+          branch_id: branchId,
+          created_by: userId,
+          is_active: true,
+        },
+      });
+
+      return newSupplier;
     });
+
+    return supplier;
   }
 
   /* ============================================
-     GET SUPPLIERS
-  ============================================ */
-  // backend/src/modules/suppliers/supplier.service.js
-async getSuppliers(shopId, filters = {}) {
-  const { search, isActive, limit = 100, offset = 0 } = filters;
-
-  const where = {
-    shop_id: shopId,
-    // ✅ FIX: Only filter by is_active if explicitly set
-    ...(isActive !== undefined && { is_active: isActive }),
-    ...(search && {
-      OR: [
-        { name: { contains: search, mode: "insensitive" } },
-        { gst_number: { contains: search, mode: "insensitive" } },
-        { contact_person: { contains: search, mode: "insensitive" } },
-      ],
-    }),
-  };
-
-  console.log("Prisma where clause:", where); // DEBUG
-
-  const [suppliers, total] = await Promise.all([
-    prisma.supplier.findMany({
-      where,
-      orderBy: { name: "asc" },
-      take: limit,
-      skip: offset,
-    }),
-    prisma.supplier.count({ where }),
-  ]);
-
-  console.log("Found suppliers:", suppliers.length); // DEBUG
-
-  return { suppliers, total };
-}
-  /* ============================================
      GET SUPPLIER BY ID
   ============================================ */
-  async getSupplierById(supplierId, shopId) {
+  async getSupplierById(supplierId, shopId, branchId = null) {
     const supplier = await prisma.supplier.findFirst({
       where: {
         supplier_id: supplierId,
         shop_id: shopId,
       },
       include: {
+        branches: {
+          where: { is_active: true },
+          include: {
+            branch: {
+              select: {
+                branch_id: true,
+                branch_name: true,
+                branch_type: true,
+                is_active: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             purchaseInvoices: true,
@@ -120,13 +354,165 @@ async getSuppliers(shopId, filters = {}) {
       throw new ApiError("Supplier not found", 404, "NOT_FOUND");
     }
 
-    return supplier;
+    // If branch context provided, verify supplier is linked to that branch
+    if (branchId) {
+      const isLinked = supplier.branches.some(sb => sb.branch_id === branchId);
+      if (!isLinked) {
+        throw new ApiError("Supplier not available in this branch", 403, "NOT_IN_BRANCH");
+      }
+    }
+
+    return {
+      ...supplier,
+      linked_branches: supplier.branches.map(sb => ({
+        branch_id: sb.branch.branch_id,
+        branch_name: sb.branch.branch_name,
+        branch_type: sb.branch.branch_type,
+        is_active: sb.branch.is_active,
+        linked_at: sb.created_at,
+        supplier_branch_id: sb.id,
+      })),
+      branch_count: supplier.branches.length,
+    };
   }
 
   /* ============================================
      UPDATE SUPPLIER
   ============================================ */
-  async updateSupplier(supplierId, shopId, data) {
+  async updateSupplier(supplierId, shopId, data, branchId = null) {
+    const supplier = await prisma.supplier.findFirst({
+      where: {
+        supplier_id: supplierId,
+        shop_id: shopId,
+      },
+      include: {
+        branches: branchId ? {
+          where: { branch_id: branchId },
+        } : undefined,
+      },
+    });
+
+    if (!supplier) {
+      throw new ApiError("Supplier not found", 404, "NOT_FOUND");
+    }
+
+    // If branch context, verify supplier is in that branch
+    if (branchId && supplier.branches?.length === 0) {
+      throw new ApiError("Supplier not available in this branch", 403, "NOT_IN_BRANCH");
+    }
+
+    // Check name uniqueness if changing
+    if (data.name && data.name !== supplier.name) {
+      const nameExists = await prisma.supplier.findFirst({
+        where: {
+          shop_id: shopId,
+          name: data.name,
+          supplier_id: { not: supplierId },
+        },
+      });
+
+      if (nameExists) {
+        throw new ApiError(`Supplier "${data.name}" already exists`, 409, "DUPLICATE_NAME");
+      }
+    }
+
+    return prisma.supplier.update({
+      where: { supplier_id: supplierId },
+      data,
+    });
+  }
+
+  /* ============================================
+     GET SUPPLIER BRANCHES - For "Manage Branches" Modal
+  ============================================ */
+  async getSupplierBranches(supplierId, shopId) {
+  console.log("📍 getSupplierBranches called:", { supplierId, shopId });
+
+  const supplier = await prisma.supplier.findFirst({
+    where: {
+      supplier_id: supplierId,
+      shop_id: shopId,
+    },
+    include: {
+      branches: {
+        // ✅ Don't filter by is_active here - we need to know what WAS linked
+        include: {
+          branch: {
+            select: {
+              branch_id: true,
+              branch_name: true,
+              branch_type: true,
+              is_active: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!supplier) {
+    throw new ApiError("Supplier not found", 404, "NOT_FOUND");
+  }
+
+  // Get all active branches for the shop
+  const allBranches = await prisma.branch.findMany({
+    where: {
+      shop_id: shopId,
+      is_active: true,
+    },
+    select: {
+      branch_id: true,
+      branch_name: true,
+      branch_type: true,
+    },
+    orderBy: [
+      { branch_type: "asc" }, // main first
+      { branch_name: "asc" },
+    ],
+  });
+
+  // ✅ FIX: Only consider ACTIVE links
+  const linkedBranchIds = new Map(
+    supplier.branches
+      .filter(sb => sb.is_active) // ✅ Only active links
+      .map(sb => [sb.branch_id, sb])
+  );
+
+  console.log("📦 Linked branches (active only):", Array.from(linkedBranchIds.keys()));
+
+  // Map branches with linked status
+  const branchesWithStatus = allBranches.map(branch => {
+    const link = linkedBranchIds.get(branch.branch_id);
+    return {
+      ...branch,
+      is_linked: !!link, // ✅ True only if active link exists
+      supplier_branch_id: link?.id || null,
+      linked_at: link?.created_at || null,
+    };
+  });
+
+  console.log("✅ Branches with status:", branchesWithStatus.map(b => ({
+    name: b.branch_name,
+    is_linked: b.is_linked,
+  })));
+
+  return {
+    supplier: {
+      supplier_id: supplier.supplier_id,
+      name: supplier.name,
+      gst_number: supplier.gst_number,
+    },
+    branches: branchesWithStatus,
+    linked_count: linkedBranchIds.size,
+    total_branches: allBranches.length,
+  };
+}
+
+  /* ============================================
+     ADD SUPPLIER TO BRANCH - Super Admin Only
+  ============================================ */
+  async addSupplierToBranch(supplierId, branchId, shopId, userId) {
+    // Verify supplier exists and belongs to shop
     const supplier = await prisma.supplier.findFirst({
       where: {
         supplier_id: supplierId,
@@ -138,10 +524,329 @@ async getSuppliers(shopId, filters = {}) {
       throw new ApiError("Supplier not found", 404, "NOT_FOUND");
     }
 
-    return prisma.supplier.update({
-      where: { supplier_id: supplierId },
-      data,
+    // Verify branch exists and belongs to shop
+    const branch = await prisma.branch.findFirst({
+      where: {
+        branch_id: branchId,
+        shop_id: shopId,
+        is_active: true,
+      },
     });
+
+    if (!branch) {
+      throw new ApiError("Branch not found", 404, "BRANCH_NOT_FOUND");
+    }
+
+    // Check if already linked
+    const existingLink = await prisma.supplierBranch.findUnique({
+      where: {
+        supplier_id_branch_id: {
+          supplier_id: supplierId,
+          branch_id: branchId,
+        },
+      },
+    });
+
+    if (existingLink) {
+      if (existingLink.is_active) {
+        throw new ApiError("Supplier already linked to this branch", 409, "ALREADY_LINKED");
+      }
+      
+      // Reactivate if was deactivated
+      return prisma.supplierBranch.update({
+        where: { id: existingLink.id },
+        data: { is_active: true },
+        include: {
+          branch: {
+            select: {
+              branch_id: true,
+              branch_name: true,
+              branch_type: true,
+            },
+          },
+        },
+      });
+    }
+
+    // Create new link
+    return prisma.supplierBranch.create({
+      data: {
+        supplier_id: supplierId,
+        branch_id: branchId,
+        created_by: userId,
+        is_active: true,
+      },
+      include: {
+        branch: {
+          select: {
+            branch_id: true,
+            branch_name: true,
+            branch_type: true,
+          },
+        },
+      },
+    });
+  }
+
+  /* ============================================
+     REMOVE SUPPLIER FROM BRANCH - Super Admin Only
+  ============================================ */
+  async removeSupplierFromBranch(supplierId, branchId, shopId) {
+    // Verify supplier belongs to shop
+    const supplier = await prisma.supplier.findFirst({
+      where: {
+        supplier_id: supplierId,
+        shop_id: shopId,
+      },
+      include: {
+        branches: {
+          where: { is_active: true },
+        },
+      },
+    });
+
+    if (!supplier) {
+      throw new ApiError("Supplier not found", 404, "NOT_FOUND");
+    }
+
+    // Prevent removing from last branch
+    if (supplier.branches.length <= 1) {
+      throw new ApiError(
+        "Cannot remove supplier from last branch. Delete the supplier instead.",
+        400,
+        "LAST_BRANCH"
+      );
+    }
+
+    // Check for pending invoices in this branch
+    const pendingInvoices = await prisma.purchaseInvoice.count({
+      where: {
+        supplier_id: supplierId,
+        branch_id: branchId,
+        status: { in: ["DRAFT", "PENDING"] },
+      },
+    });
+
+    if (pendingInvoices > 0) {
+      throw new ApiError(
+        `Cannot remove: ${pendingInvoices} pending invoice(s) in this branch`,
+        400,
+        "PENDING_INVOICES"
+      );
+    }
+
+    // Soft delete the link
+    const link = await prisma.supplierBranch.findUnique({
+      where: {
+        supplier_id_branch_id: {
+          supplier_id: supplierId,
+          branch_id: branchId,
+        },
+      },
+    });
+
+    if (!link) {
+      throw new ApiError("Supplier not linked to this branch", 404, "NOT_LINKED");
+    }
+
+    return prisma.supplierBranch.update({
+      where: { id: link.id },
+      data: { is_active: false },
+    });
+  }
+
+  /* ============================================
+     BULK ADD SUPPLIER TO BRANCHES - Super Admin Only
+  ============================================ */
+  async bulkUpdateSupplierBranches(supplierId, branchIds, shopId, userId) {
+  console.log("📍 bulkUpdateSupplierBranches called:", {
+    supplierId,
+    branchIds,
+    shopId,
+    userId,
+  });
+
+  const supplier = await prisma.supplier.findFirst({
+    where: {
+      supplier_id: supplierId,
+      shop_id: shopId,
+    },
+    include: {
+      branches: {
+        where: { is_active: true }, // ✅ Only get active links
+      },
+    },
+  });
+
+  if (!supplier) {
+    throw new ApiError("Supplier not found", 404, "NOT_FOUND");
+  }
+
+  // Verify all branches belong to shop
+  const validBranches = await prisma.branch.findMany({
+    where: {
+      branch_id: { in: branchIds },
+      shop_id: shopId,
+      is_active: true,
+    },
+  });
+
+  console.log("✅ Valid branches:", validBranches.map(b => b.branch_name));
+
+  if (validBranches.length !== branchIds.length) {
+    throw new ApiError("One or more invalid branches", 400, "INVALID_BRANCHES");
+  }
+
+  // ✅ FIX: Get current ACTIVE linked branch IDs
+  const currentLinks = supplier.branches.filter(sb => sb.is_active);
+  const currentBranchIds = currentLinks.map(sb => sb.branch_id);
+  
+  console.log("📦 Current linked branches:", currentBranchIds);
+  console.log("📦 New branch IDs:", branchIds);
+
+  // Calculate changes using array comparison
+  const currentSet = new Set(currentBranchIds);
+  const newSet = new Set(branchIds);
+
+  const toAdd = branchIds.filter(id => !currentSet.has(id));
+  const toRemove = currentBranchIds.filter(id => !newSet.has(id));
+
+  console.log("➕ To add:", toAdd);
+  console.log("➖ To remove:", toRemove);
+
+  // Must have at least one branch
+  if (branchIds.length === 0) {
+    throw new ApiError("Supplier must be linked to at least one branch", 400, "NO_BRANCHES");
+  }
+
+  // Check pending invoices for branches being removed
+  if (toRemove.length > 0) {
+    const pendingInvoices = await prisma.purchaseInvoice.count({
+      where: {
+        supplier_id: supplierId,
+        branch_id: { in: toRemove },
+        status: { in: ["DRAFT", "PENDING"] },
+      },
+    });
+
+    if (pendingInvoices > 0) {
+      throw new ApiError(
+        `Cannot remove branches with ${pendingInvoices} pending invoice(s)`,
+        400,
+        "PENDING_INVOICES"
+      );
+    }
+  }
+
+  // Execute changes in transaction
+  const result = await prisma.$transaction(async (tx) => {
+    let addedCount = 0;
+    let removedCount = 0;
+
+    // Add new links
+    for (const branchId of toAdd) {
+      console.log(`  ➕ Adding branch: ${branchId}`);
+      
+      await tx.supplierBranch.upsert({
+        where: {
+          supplier_id_branch_id: {
+            supplier_id: supplierId,
+            branch_id: branchId,
+          },
+        },
+        create: {
+          supplier_id: supplierId,
+          branch_id: branchId,
+          created_by: userId,
+          is_active: true,
+        },
+        update: {
+          is_active: true,
+        },
+      });
+      addedCount++;
+    }
+
+    // Remove old links (soft delete)
+    for (const branchId of toRemove) {
+      console.log(`  ➖ Removing branch: ${branchId}`);
+      
+      await tx.supplierBranch.updateMany({
+        where: {
+          supplier_id: supplierId,
+          branch_id: branchId,
+        },
+        data: { is_active: false },
+      });
+      removedCount++;
+    }
+
+    return { addedCount, removedCount };
+  });
+
+  console.log("✅ Update complete:", {
+    added: result.addedCount,
+    removed: result.removedCount,
+    total_branches: branchIds.length,
+  });
+
+  return {
+    added: result.addedCount,
+    removed: result.removedCount,
+    total_branches: branchIds.length,
+  };
+}
+
+
+  /* ============================================
+     GET SUPPLIERS NOT IN BRANCH - For "Add Existing" Modal
+  ============================================ */
+  async getSuppliersNotInBranch(shopId, branchId, search = "") {
+    // Get all supplier IDs already in this branch
+    const linkedSuppliers = await prisma.supplierBranch.findMany({
+      where: {
+        branch_id: branchId,
+        is_active: true,
+      },
+      select: { supplier_id: true },
+    });
+
+    const linkedIds = linkedSuppliers.map(ls => ls.supplier_id);
+
+    // Get suppliers not in this branch
+    const suppliers = await prisma.supplier.findMany({
+      where: {
+        shop_id: shopId,
+        is_active: true,
+        supplier_id: { notIn: linkedIds },
+        ...(search && {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { gst_number: { contains: search, mode: "insensitive" } },
+          ],
+        }),
+      },
+      include: {
+        branches: {
+          where: { is_active: true },
+          include: {
+            branch: {
+              select: {
+                branch_id: true,
+                branch_name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+      take: 50,
+    });
+
+    return suppliers.map(s => ({
+      ...s,
+      existing_branches: s.branches.map(sb => sb.branch.branch_name),
+    }));
   }
 }
 

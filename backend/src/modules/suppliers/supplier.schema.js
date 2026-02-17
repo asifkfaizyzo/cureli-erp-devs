@@ -1,3 +1,4 @@
+// backend/src/modules/suppliers/supplier.schema.js
 import { z } from "zod";
 
 export const createSupplierSchema = z.object({
@@ -20,6 +21,8 @@ export const createSupplierSchema = z.object({
   bank_name: z.string().max(100).optional().nullable(),
   account_number: z.string().max(50).optional().nullable(),
   ifsc_code: z.string().max(20).optional().nullable(),
+  // Branch ID can be passed in body for create
+  branch_id: z.string().uuid().optional(),
 });
 
 export const updateSupplierSchema = z.object({
@@ -37,4 +40,14 @@ export const updateSupplierSchema = z.object({
   credit_days: z.number().int().min(0).optional(),
   credit_limit: z.number().min(0).optional().nullable(),
   is_active: z.boolean().optional(),
+});
+
+// For adding/removing supplier from a single branch
+export const branchActionSchema = z.object({
+  branch_id: z.string().uuid(),
+});
+
+// For bulk updating supplier branches
+export const bulkBranchUpdateSchema = z.object({
+  branch_ids: z.array(z.string().uuid()).min(1, "At least one branch required"),
 });

@@ -1,14 +1,16 @@
-// src/pages/supplier/components/SupplierRowFixed.jsx
+// src/pages/suppliers/components/SupplierRow.jsx
 import { memo, forwardRef, useImperativeHandle, useRef } from "react";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2, Layers, Building2 } from "lucide-react";
 
-const SupplierRowFixed = memo(forwardRef(({
+const SupplierRow = memo(forwardRef(({
   item,
   rowNumber = 1,
   isEven = false,
   onRowClick,
   loading,
   rowHeight = 36,
+  isGlobalMode = false,
+  isSuperAdmin = false,
 }, ref) => {
   const rowRef = useRef(null);
 
@@ -23,6 +25,10 @@ const SupplierRowFixed = memo(forwardRef(({
   const shimmer = (width = "w-24") => (
     <div className={`h-3 ${width} bg-gray-200 rounded animate-pulse`} />
   );
+
+  // ✅ Handle linked branches display
+  const linkedBranches = item.linked_branches || [];
+  const branchCount = linkedBranches.length;
 
   return (
     <tr 
@@ -51,7 +57,7 @@ const SupplierRowFixed = memo(forwardRef(({
         <div className="px-1.5 py-1 h-full flex items-center">
           {loading ? shimmer("w-20") : (
             <span className="font-mono text-[9px] 2xl:text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-              {item.supplierId}
+              {item.supplier_id?.slice(-8) || item.supplierId}
             </span>
           )}
         </div>
@@ -68,12 +74,48 @@ const SupplierRowFixed = memo(forwardRef(({
         </div>
       </td>
 
+      {/* ✅ BRANCHES COLUMN (Global Mode Only) */}
+      {isGlobalMode && (
+        <td className={`${cellBase} bg-purple-50/20`}>
+          <div className="px-1 py-1 h-full flex items-center">
+            {loading ? shimmer("w-16") : (
+              <div className="flex flex-wrap gap-0.5 items-center">
+                {linkedBranches.slice(0, 2).map((branch) => (
+                  <span
+                    key={branch.branch_id}
+                    className={`
+                      inline-flex items-center px-1 py-0.5 rounded text-[8px] font-medium
+                      ${branch.branch_type === 'main'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-gray-100 text-gray-600'
+                      }
+                    `}
+                    title={branch.branch_name}
+                  >
+                    {branch.branch_type === 'main' && <Building2 size={8} className="mr-0.5" />}
+                    {branch.branch_name}
+                  </span>
+                ))}
+                {branchCount > 2 && (
+                  <span className="text-[8px] text-gray-500 font-medium px-1">
+                    +{branchCount - 2}
+                  </span>
+                )}
+                {branchCount === 0 && (
+                  <span className="text-[8px] text-gray-400 italic">No branches</span>
+                )}
+              </div>
+            )}
+          </div>
+        </td>
+      )}
+
       {/* CONTACT */}
       <td className={`${cellBase} bg-cyan-50/30`}>
         <div className="px-1 py-1 h-full flex items-center justify-center">
           {loading ? shimmer("w-20") : (
             <span className="text-[8px] 2xl:text-[9px] text-slate-700 font-mono">
-              {item.contact}
+              {item.office_phone || item.personal_phone || item.contact || '—'}
             </span>
           )}
         </div>
@@ -83,13 +125,17 @@ const SupplierRowFixed = memo(forwardRef(({
       <td className={`${cellBase}`}>
         <div className="px-1.5 py-1 h-full flex items-center">
           {loading ? shimmer("w-36") : (
-            <a
-              href={`mailto:${item.email}`}
-              onClick={(e) => e.stopPropagation()}
-              className="text-[9px] 2xl:text-[10px] text-blue-600 hover:text-blue-700 hover:underline truncate transition-colors"
-            >
-              {item.email}
-            </a>
+            item.email ? (
+              <a
+                href={`mailto:${item.email}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-[9px] 2xl:text-[10px] text-blue-600 hover:text-blue-700 hover:underline truncate transition-colors"
+              >
+                {item.email}
+              </a>
+            ) : (
+              <span className="text-[9px] text-gray-400">—</span>
+            )
           )}
         </div>
       </td>
@@ -99,7 +145,7 @@ const SupplierRowFixed = memo(forwardRef(({
         <div className="px-1 py-1 h-full flex items-center justify-center">
           {loading ? shimmer("w-24") : (
             <span className="text-[8px] 2xl:text-[9px] text-slate-700 font-mono">
-              {item.gst}
+              {item.gst_number || item.gst || '—'}
             </span>
           )}
         </div>
@@ -118,31 +164,50 @@ const SupplierRowFixed = memo(forwardRef(({
           >
             <Eye size={12} className="text-blue-600" />
           </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRowClick("edit", item);
-            }}
-            className="p-0.5 hover:bg-amber-100 rounded transition-colors"
-            title="Edit"
-          >
-            <Pencil size={12} className="text-amber-600" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRowClick("delete", item);
-            }}
-            className="p-0.5 hover:bg-red-100 rounded transition-colors"
-            title="Delete"
-          >
-            <Trash2 size={12} className="text-red-600" />
-          </button>
+          
+          {/* ✅ Show Manage Branches for Super Admin in Global Mode */}
+          {isSuperAdmin && isGlobalMode ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRowClick("manage-branches", item);
+              }}
+              className="p-0.5 hover:bg-purple-100 rounded transition-colors"
+              title="Manage Branches"
+            >
+              <Layers size={12} className="text-purple-600" />
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRowClick("edit", item);
+                }}
+                className="p-0.5 hover:bg-amber-100 rounded transition-colors"
+                title="Edit"
+                disabled={isGlobalMode}
+              >
+                <Pencil size={12} className={isGlobalMode ? "text-gray-300" : "text-amber-600"} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRowClick("delete", item);
+                }}
+                className="p-0.5 hover:bg-red-100 rounded transition-colors"
+                title={isGlobalMode ? "Cannot delete in all branches view" : "Delete"}
+                disabled={isGlobalMode}
+              >
+                <Trash2 size={12} className={isGlobalMode ? "text-gray-300" : "text-red-600"} />
+              </button>
+            </>
+          )}
         </div>
       </td>
     </tr>
   );
 }));
 
-SupplierRowFixed.displayName = 'SupplierRowFixed';
-export default SupplierRowFixed;
+SupplierRow.displayName = 'SupplierRow';
+export default SupplierRow;

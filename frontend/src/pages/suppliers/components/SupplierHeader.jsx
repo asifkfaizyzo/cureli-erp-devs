@@ -1,4 +1,4 @@
-// src/pages/supplier/components/SupplierHeader.jsx
+// src/pages/suppliers/components/SupplierHeader.jsx
 import React from "react";
 import { 
   User, 
@@ -6,7 +6,10 @@ import {
   Plus, 
   RotateCcw,
   Hash,
-  Users
+  Users,
+  Building2,
+  Layers,
+  AlertTriangle
 } from "lucide-react";
 
 const FilterField = ({ label, icon: Icon, children }) => (
@@ -19,7 +22,16 @@ const FilterField = ({ label, icon: Icon, children }) => (
   </div>
 );
 
-const SupplierHeader = ({ filters, onChange, onReset, onAdd }) => {
+const SupplierHeader = ({ 
+  filters, 
+  onChange, 
+  onReset, 
+  onAdd,
+  onAddExisting,
+  isGlobalMode = false,
+  currentBranchName = "",
+  isSuperAdmin = false,
+}) => {
   const inputBase = `
     h-8 px-3
     bg-white border border-slate-300 rounded-lg
@@ -39,12 +51,30 @@ const SupplierHeader = ({ filters, onChange, onReset, onAdd }) => {
       {/* Header Bar */}
       <div className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Users size={16} className="text-indigo-600" />
-          <h3 className="text-sm font-bold text-slate-800">Supplier Filters</h3>
+          {isGlobalMode ? (
+            <Layers size={16} className="text-blue-600" />
+          ) : (
+            <Users size={16} className="text-indigo-600" />
+          )}
+          <h3 className="text-sm font-bold text-slate-800">
+            Supplier Filters
+            {!isGlobalMode && currentBranchName && (
+              <span className="ml-2 text-xs font-normal text-slate-500">
+                • {currentBranchName}
+              </span>
+            )}
+          </h3>
           {hasActiveFilters && (
             <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
           )}
+          {isGlobalMode && (
+            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-[9px] font-semibold rounded-full flex items-center gap-1">
+              <Layers size={10} />
+              All Branches View
+            </span>
+          )}
         </div>
+        
         <div className="flex items-center gap-2">
           <button
             onClick={onReset}
@@ -53,15 +83,46 @@ const SupplierHeader = ({ filters, onChange, onReset, onAdd }) => {
             <RotateCcw size={12} />
             Reset
           </button>
+          
+          {/* ADD EXISTING - Super Admin only, not in global mode */}
+          {isSuperAdmin && onAddExisting && !isGlobalMode && (
+            <button
+              onClick={onAddExisting}
+              className="flex items-center gap-1.5 h-7 px-3 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-all"
+              title="Add supplier from another branch"
+            >
+              <Users size={12} />
+              Add Existing
+            </button>
+          )}
+          
           <button
             onClick={onAdd}
-            className="flex items-center gap-1.5 h-7 px-4 bg-[#000060] text-white text-xs font-semibold rounded-lg shadow-sm hover:bg-[#2626b0] transition-all"
+            disabled={isGlobalMode}
+            className={`
+              flex items-center gap-1.5 h-7 px-4 text-xs font-semibold rounded-lg shadow-sm transition-all
+              ${isGlobalMode
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-[#000060] text-white hover:bg-[#2626b0]'
+              }
+            `}
+            title={isGlobalMode ? "Select a branch to add suppliers" : "Add new supplier"}
           >
             <Plus size={12} />
             Add Supplier
           </button>
         </div>
       </div>
+
+      {/* Global Mode Warning */}
+      {isGlobalMode && (
+        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-start gap-2">
+          <AlertTriangle size={14} className="text-blue-600 mt-0.5 shrink-0" />
+          <p className="text-xs text-blue-700">
+            <span className="font-semibold">Read-only mode:</span> Select a specific branch from the header to add or edit suppliers.
+          </p>
+        </div>
+      )}
 
       {/* Filter Fields */}
       <div className="flex flex-wrap items-end gap-4 p-4">

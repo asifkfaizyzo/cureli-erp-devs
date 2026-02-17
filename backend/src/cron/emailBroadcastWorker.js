@@ -16,14 +16,14 @@ const STUCK_THRESHOLD_MINUTES = 10;
 const MAX_CAMPAIGNS_PER_CYCLE = 3; // Process max 3 campaigns per minute
 
 const CAMPAIGN_STATUS = {
-  DRAFT: 'draft',
-  SCHEDULED: 'scheduled',
-  SENDING: 'sending',
-  PAUSED: 'paused',
-  SENT: 'sent',
-  PARTIAL_FAILURE: 'partial_failure',
-  FAILED: 'failed',
-  CANCELLED: 'cancelled',
+  DRAFT: 'DRAFT',
+  SCHEDULED: 'SCHEDULED',
+  SENDING: 'SENDING',
+  PAUSED: 'PAUSED',
+  SENT: 'SENT',
+  PARTIAL_FAILURE: 'PARTIAL_FAILURE',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED',
 };
 
 // ============================================

@@ -86,7 +86,7 @@ export async function getAdminsService(query) {
     ];
   }
 
-  const sortField = sort === "name" ? "name" : sort === "username" ? "username" : sort === "role" ? "role" : sort === "last_login_at" ? "last_login_at" : "created_at";
+  const sortField = sort === "username" ? "username" : sort === "username" ? "username" : sort === "role" ? "role" : sort === "last_login_at" ? "last_login_at" : "created_at";
   const orderBy = { [sortField]: order };
 
   const [total, admins] = await Promise.all([

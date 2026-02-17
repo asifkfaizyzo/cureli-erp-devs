@@ -6,7 +6,7 @@ import {
   Phone, Mail, MapPin, Hash, FileText, Landmark, 
   CheckCircle2, AlertCircle, Sparkles,
   Building, Globe, Shield, Clock, Plus, ArrowUpDown,
-  ChevronUp, ChevronDown, Check, Loader2
+  ChevronUp, ChevronDown, Check, Loader2, Layers
 } from "lucide-react";
 import { toast } from 'react-toastify';
 import { useMenuStore } from "../../../store/useMenuStore";
@@ -685,8 +685,17 @@ const mapAPISupplierToModalFormat = (supplier) => ({
   ifsc: supplier.ifsc_code || "",
 });
 
-// Main Modal Component
-const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }) => {
+// ✅ MAIN MODAL COMPONENT WITH BRANCH CONTEXT
+const SupplierModal = ({ 
+  open, 
+  mode, 
+  supplier, 
+  onClose, 
+  onSave, 
+  saving = false,
+  currentBranchName = "", // ✅ Branch name to display
+  isGlobalMode = false,   // ✅ Whether in global/all branches view
+}) => {
   const isEdit = mode === "edit";
   const isNew = supplier?.supplierId === "NEW" || !supplier?.supplier_id;
   const [activeTab, setActiveTab] = useState("general");
@@ -705,7 +714,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
 
   // ✅ Fetch existing suppliers from API when "existing" tab is active
   useEffect(() => {
-    if (activeTab === "existing" && !suppliersLoaded) {
+    if (activeTab === "existing" && !suppliersLoaded && !isGlobalMode) {
       const fetchExistingSuppliers = async () => {
         setLoadingSuppliers(true);
         try {
@@ -730,7 +739,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
 
       fetchExistingSuppliers();
     }
-  }, [activeTab, suppliersLoaded]);
+  }, [activeTab, suppliersLoaded, isGlobalMode]);
 
   // ✅ Filtered Suppliers based on search
   const filteredSuppliers = useMemo(() => {
@@ -829,6 +838,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
       email: sup.email,
       contactPerson: sup.contactPerson || "",
       drugLicense: sup.drugLicense || "",
+      panNumber: sup.panNumber || "",
       creditDays: sup.creditDays || "",
       creditLimit: sup.creditLimit || "",
       bankName: sup.bankName || "",
@@ -884,7 +894,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
             role="dialog"
             aria-modal="true"
           >
-            {/* Header */}
+            {/* ✅ UPDATED HEADER WITH BRANCH CONTEXT */}
             <div className="shrink-0 bg-gradient-to-r from-[#05015A] to-indigo-700 px-4 sm:px-6 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -902,10 +912,20 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
                           NEW
                         </span>
                       )}
+                      {/* ✅ Branch Context Badge */}
+                      {currentBranchName && !isGlobalMode && (
+                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-200 text-[9px] sm:text-[10px] font-semibold rounded-full flex items-center gap-1 shrink-0">
+                          <Building2 size={10} />
+                          {currentBranchName}
+                        </span>
+                      )}
                     </div>
+                    {/* ✅ Updated subtitle with branch info */}
                     <p className="text-indigo-200 text-xs sm:text-sm mt-0.5 truncate">
                       {isNew 
-                        ? "Fill in the details to create a new supplier" 
+                        ? currentBranchName 
+                          ? `Adding to: ${currentBranchName}` 
+                          : "Fill in the details to create a new supplier"
                         : `ID: ${supplier.supplierId || supplier.supplier_id?.slice(-8) || 'N/A'}`
                       }
                     </p>
@@ -1316,7 +1336,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
                     <SectionHeader 
                       icon={Users} 
                       title="Select Existing Supplier" 
-                      subtitle="Choose from your supplier directory"
+                      subtitle={currentBranchName ? `From ${currentBranchName}` : "Choose from your supplier directory"}
                       badge={loadingSuppliers ? "Loading..." : `${filteredSuppliers.length} suppliers`}
                     />
 

@@ -8,25 +8,43 @@ import {
   getSuppliersController,
   getSupplierByIdController,
   updateSupplierController,
+  getSupplierBranchesController,
+  addSupplierToBranchController,
+  removeSupplierFromBranchController,
+  bulkUpdateSupplierBranchesController,
+  getSuppliersNotInBranchController,
 } from "./supplier.controller.js";
 
 import {
   createSupplierSchema,
   updateSupplierSchema,
+  branchActionSchema,
+  bulkBranchUpdateSchema,
 } from "./supplier.schema.js";
 
 const router = express.Router();
 
 router.use(requireAuth);
 
-// CRUD
+// ============================================
+// CRUD Operations
+// ============================================
 router.post("/", validateBody(createSupplierSchema), createSupplierController);
 router.get("/", getSuppliersController);
 router.get("/:supplierId", getSupplierByIdController);
-router.put(
-  "/:supplierId",
-  validateBody(updateSupplierSchema),
-  updateSupplierController
-);
+router.put("/:supplierId", validateBody(updateSupplierSchema), updateSupplierController);
+
+// ============================================
+// Branch Management (Super Admin Only)
+// ============================================
+router.get("/:supplierId/branches", getSupplierBranchesController);
+router.post("/:supplierId/branches", validateBody(branchActionSchema), addSupplierToBranchController);
+router.delete("/:supplierId/branches", validateBody(branchActionSchema), removeSupplierFromBranchController);
+router.put("/:supplierId/branches", validateBody(bulkBranchUpdateSchema), bulkUpdateSupplierBranchesController);
+
+// ============================================
+// Quick Add - Get suppliers not in specific branch
+// ============================================
+router.get("/available/:branchId", getSuppliersNotInBranchController);
 
 export default router;

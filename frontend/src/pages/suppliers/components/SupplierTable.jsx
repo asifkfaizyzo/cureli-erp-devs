@@ -1,14 +1,16 @@
-// src/pages/supplier/components/SupplierTable.jsx
+// src/pages/suppliers/components/SupplierTable.jsx
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import SupplierRow from "./SupplierRow";
 import SupplierPagination from "../../../components/common/Pagination";
-import { ChevronUp, ChevronDown, Users } from "lucide-react";
+import { ChevronUp, ChevronDown, Users, Layers, Building2 } from "lucide-react";
 import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 
 const SupplierTable = ({ 
   data = [],
   loading,
   onRowClick,
+  isGlobalMode = false,
+  isSuperAdmin = false,
 }) => {
   const tableContainerRef = useRef(null);
   const tableBodyRef = useRef(null);
@@ -25,7 +27,17 @@ const SupplierTable = ({
   const rowHeight = 36;
   const viewportHeight = visibleRows * rowHeight;
 
-  const columnWidths = {
+  // ✅ Adjust column widths based on mode
+  const columnWidths = isGlobalMode ? {
+    rowNum: '3%',
+    supplierId: '10%',
+    name: '18%',
+    branches: '15%', // NEW: Branches column
+    contact: '12%',
+    email: '18%',
+    gst: '14%',
+    actions: '10%',
+  } : {
     rowNum: '4%',
     supplierId: '12%',
     name: '20%',
@@ -95,10 +107,21 @@ const SupplierTable = ({
       <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <Users size={12} className="text-indigo-500" />
+            {isGlobalMode ? (
+              <Layers size={12} className="text-blue-500" />
+            ) : (
+              <Users size={12} className="text-indigo-500" />
+            )}
             <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">Total:</span>
             <span className="text-[10px] font-bold text-indigo-600">{totalItems}</span>
           </div>
+          
+          {isGlobalMode && (
+            <>
+              <div className="h-3 w-px bg-slate-300" />
+              <span className="text-[8px] text-blue-600 font-medium uppercase">All Branches</span>
+            </>
+          )}
           
           {totalPages > 1 && (
             <>
@@ -148,6 +171,7 @@ const SupplierTable = ({
               <col style={{ width: columnWidths.rowNum }} />
               <col style={{ width: columnWidths.supplierId }} />
               <col style={{ width: columnWidths.name }} />
+              {isGlobalMode && <col style={{ width: columnWidths.branches }} />}
               <col style={{ width: columnWidths.contact }} />
               <col style={{ width: columnWidths.email }} />
               <col style={{ width: columnWidths.gst }} />
@@ -158,6 +182,14 @@ const SupplierTable = ({
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">#</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left pl-1 border-r border-slate-600/30">Supplier ID</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">Name</th>
+                {isGlobalMode && (
+                  <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">
+                    <div className="flex items-center gap-1">
+                      <Building2 size={10} />
+                      Branches
+                    </div>
+                  </th>
+                )}
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Contact</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">Email</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">GST</th>
@@ -178,6 +210,7 @@ const SupplierTable = ({
               <col style={{ width: columnWidths.rowNum }} />
               <col style={{ width: columnWidths.supplierId }} />
               <col style={{ width: columnWidths.name }} />
+              {isGlobalMode && <col style={{ width: columnWidths.branches }} />}
               <col style={{ width: columnWidths.contact }} />
               <col style={{ width: columnWidths.email }} />
               <col style={{ width: columnWidths.gst }} />
@@ -186,7 +219,7 @@ const SupplierTable = ({
             <tbody>
               {paginatedItems.map((item, index) => (
                 <SupplierRow
-                  key={item.supplierId || index}
+                  key={item.supplier_id || item.supplierId || index}
                   ref={el => rowRefs.current[index] = el}
                   item={item}
                   rowNumber={startIndex + index + 1}
@@ -194,6 +227,8 @@ const SupplierTable = ({
                   onRowClick={onRowClick}
                   loading={loading}
                   rowHeight={rowHeight}
+                  isGlobalMode={isGlobalMode}
+                  isSuperAdmin={isSuperAdmin}
                 />
               ))}
             </tbody>
@@ -208,7 +243,12 @@ const SupplierTable = ({
                 <Users size={16} className="text-slate-400" />
               </div>
               <p className="text-xs font-medium">No suppliers found</p>
-              <p className="text-[9px]">Try adjusting your filters</p>
+              <p className="text-[9px]">
+                {isGlobalMode 
+                  ? "Select a branch to add suppliers" 
+                  : "Try adjusting your filters"
+                }
+              </p>
             </div>
           )}
         </div>

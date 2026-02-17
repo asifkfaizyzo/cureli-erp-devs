@@ -1,14 +1,23 @@
-// src/pages/supplier/SupplierPage.jsx
+// src/pages/suppliers/SupplierPage.jsx
 import { useState, useMemo, useEffect } from "react";
 import { useToast } from "../../components/common/Toast";
+import { useAuthStore, selectBranchContext, selectIsSuperAdmin, selectIsGlobalMode } from "../../store/useAuthStore";
 import SupplierHeader from "./components/SupplierHeader";
 import SupplierTable from "./components/SupplierTable";
 import SupplierModal from "./components/SupplierModal";
+import ManageSupplierBranchesModal from "./components/ManageSupplierBranchesModal";
+import AddExistingSupplierModal from "./components/AddExistingSupplierModal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useSuppliers } from "../../hooks/useSuppliers";
+import { Building2, AlertTriangle, Layers, Plus } from "lucide-react";
 
 const SupplierPage = () => {
   const toast = useToast();
+  
+  // Branch Context
+  const branchContext = useAuthStore(selectBranchContext);
+  const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
+  const isGlobalMode = useAuthStore(selectIsGlobalMode);
 
   /* ---------------- FILTER STATE ---------------- */
   const [filters, setFilters] = useState({
@@ -22,24 +31,32 @@ const SupplierPage = () => {
     suppliers,
     loading,
     error,
+    mode,
+    currentBranchId,
+    currentBranchName,
     createSupplier,
     updateSupplier,
     refresh,
+    getSupplierBranches,
+    addSupplierToBranch,
+    removeSupplierFromBranch,
+    updateSupplierBranches,
+    getAvailableForBranch,
   } = useSuppliers();
-
-  // ✅ DEBUG: Log suppliers data
-  useEffect(() => {
-    console.log("=== SUPPLIER PAGE DEBUG ===");
-    console.log("suppliers:", suppliers);
-    console.log("suppliers length:", suppliers?.length);
-    console.log("loading:", loading);
-    console.log("error:", error);
-  }, [suppliers, loading, error]);
 
   /* ---------------- MODAL STATE ---------------- */
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
+  
+  // Manage Branches Modal (Super Admin only)
+  const [manageBranchesModal, setManageBranchesModal] = useState({
+    open: false,
+    supplier: null,
+  });
+  
+  // Add Existing Supplier Modal (Super Admin only, when in branch mode)
+  const [addExistingModal, setAddExistingModal] = useState(false);
 
   /* ---------------- CONFIRMATION STATE ---------------- */
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -66,11 +83,10 @@ const SupplierPage = () => {
 
   /* ---------------- FILTER LOGIC (Client-side) ---------------- */
   const filteredSuppliers = useMemo(() => {
-    console.log("Filtering suppliers:", suppliers); // ✅ DEBUG
     return suppliers.filter((item) => {
       const itemName = item.name?.toLowerCase() || "";
-      const itemId = item.supplierId?.toLowerCase() || "";
-      const itemPhone = item.contact?.toString() || "";
+      const itemId = item.supplier_id?.toLowerCase() || "";
+      const itemPhone = item.office_phone?.toString() || item.personal_phone?.toString() || "";
 
       return (
         itemName.includes(filters.name.toLowerCase()) &&
@@ -80,16 +96,14 @@ const SupplierPage = () => {
     });
   }, [filters, suppliers]);
 
-  // ✅ DEBUG: Log filtered results
-  useEffect(() => {
-    console.log("Filtered suppliers:", filteredSuppliers);
-    console.log("Filtered count:", filteredSuppliers?.length);
-  }, [filteredSuppliers]);
-
   /* ---------------- TABLE ACTIONS ---------------- */
   const handleRowAction = (action, supplier) => {
     if (action === "delete") {
       setConfirmDelete(supplier);
+      return;
+    }
+    if (action === "manage-branches" && isSuperAdmin) {
+      setManageBranchesModal({ open: true, supplier });
       return;
     }
     setSelectedSupplier(supplier);
@@ -104,25 +118,48 @@ const SupplierPage = () => {
     try {
       const isNew = formData.supplierId === "NEW" || !formData.supplier_id;
 
+      // Map form data to API format
+      const apiData = {
+        name: formData.name,
+        office_phone: formData.officePhone || formData.contact,
+        personal_phone: formData.personalPhone,
+        email: formData.email,
+        gst_number: formData.gst,
+        address_line_1: formData.addressLine1 || formData.address,
+        address_line_2: formData.addressLine2,
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.pincode,
+        contact_person: formData.contactPerson,
+        drug_license_no: formData.drugLicense,
+        pan_number: formData.panNumber,
+        credit_days: parseInt(formData.creditDays) || 0,
+        credit_limit: parseFloat(formData.creditLimit) || null,
+        bank_name: formData.bankName,
+        account_number: formData.accountNo,
+        ifsc_code: formData.ifsc,
+      };
+
       let result;
       if (isNew) {
-        result = await createSupplier(formData);
+        result = await createSupplier(apiData);
       } else {
-        result = await updateSupplier(formData.supplier_id, formData);
+        result = await updateSupplier(formData.supplier_id, apiData);
       }
 
       if (result.success) {
-        toast.success(
-          isNew ? "Supplier Added" : "Supplier Updated",
-          `Supplier ${formData.name} ${isNew ? "added" : "updated"} successfully.`
-        );
+        const message = result.data?.linked_to_existing 
+          ? result.data.message 
+          : `Supplier ${formData.name} ${isNew ? "added" : "updated"} successfully.`;
+        
+        toast.success(isNew ? "Supplier Added" : "Supplier Updated", message);
         setModalOpen(false);
         setSelectedSupplier(null);
       } else {
         toast.error("Save Failed", result.error || "Failed to save supplier.");
       }
     } catch (err) {
-      toast.error("Save Failed", "An unexpected error occurred. Please try again.");
+      toast.error("Save Failed", "An unexpected error occurred.");
       console.error("Save error:", err);
     } finally {
       setSaving(false);
@@ -131,6 +168,14 @@ const SupplierPage = () => {
 
   /* ---------------- ADD NEW ---------------- */
   const handleAdd = () => {
+    if (isGlobalMode) {
+      toast.warning(
+        "Select a Branch",
+        "Please select a specific branch to add suppliers."
+      );
+      return;
+    }
+
     setSelectedSupplier({
       supplierId: "NEW",
       name: "",
@@ -157,26 +202,92 @@ const SupplierPage = () => {
     setModalOpen(true);
   };
 
+  /* ---------------- ADD EXISTING SUPPLIER TO BRANCH ---------------- */
+  const handleAddExisting = () => {
+    if (isGlobalMode) {
+      toast.warning("Select a Branch", "Please select a branch first.");
+      return;
+    }
+    setAddExistingModal(true);
+  };
+
+  const handleAddExistingSupplier = async (supplierId) => {
+    const result = await addSupplierToBranch(supplierId, currentBranchId);
+    if (result.success) {
+      toast.success("Supplier Added", `Supplier added to ${currentBranchName}`);
+      setAddExistingModal(false);
+    } else {
+      toast.error("Failed", result.error || "Could not add supplier to branch");
+    }
+  };
+
+  /* ---------------- MANAGE BRANCHES HANDLER ---------------- */
+  const handleBranchesUpdate = async (supplierId, branchIds) => {
+    const result = await updateSupplierBranches(supplierId, branchIds);
+    if (result.success) {
+      toast.success(
+        "Branches Updated",
+        `Added to ${result.data.added} branch(es), removed from ${result.data.removed} branch(es)`
+      );
+      setManageBranchesModal({ open: false, supplier: null });
+    } else {
+      toast.error("Update Failed", result.error);
+    }
+    return result;
+  };
+
   /* ---------------- DELETE HANDLER ---------------- */
   const confirmDeleteAction = async () => {
-    if (!confirmDelete) return;
-
-    try {
-      toast.success(
-        "Supplier Deleted",
-        `Supplier ${confirmDelete.name} has been removed.`
-      );
-      refresh();
-      setConfirmDelete(null);
-    } catch (err) {
-      toast.error("Delete Failed", "Failed to delete supplier. Please try again.");
-      console.error("Delete error:", err);
+    // For now, just remove from current branch if in branch mode
+    if (confirmDelete && !isGlobalMode && currentBranchId) {
+      const result = await removeSupplierFromBranch(confirmDelete.supplier_id, currentBranchId);
+      if (result.success) {
+        toast.success("Supplier Removed", `Supplier removed from ${currentBranchName}`);
+      } else {
+        toast.error("Remove Failed", result.error);
+      }
     }
+    setConfirmDelete(null);
+  };
+
+  /* ---------------- RENDER: Global Mode Banner ---------------- */
+  const renderGlobalModeBanner = () => {
+    if (!isGlobalMode) return null;
+
+    return (
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-4">
+        <div className="flex items-start gap-3">
+          <div className="shrink-0 w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+            <Layers size={20} className="text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-blue-900">All Branches View</h3>
+            <p className="text-sm text-blue-700 mt-1">
+              Viewing suppliers across all branches. Select a specific branch from the header to add or manage suppliers.
+            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                <Building2 size={12} />
+                {suppliers.length} total suppliers
+              </span>
+              {isSuperAdmin && (
+                <span className="text-xs text-blue-600">
+                  Click "Manage Branches" on any supplier to edit branch access
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   /* ---------------- UI ---------------- */
   return (
     <div className="flex flex-col h-full w-full font-poppins overflow-hidden">
+      {/* Global Mode Banner */}
+      {renderGlobalModeBanner()}
+
       {/* FILTERS */}
       <div className="p-3 border-b border-gray-100 flex-shrink-0">
         <SupplierHeader
@@ -184,6 +295,10 @@ const SupplierPage = () => {
           onChange={handleFilterChange}
           onReset={handleResetFilters}
           onAdd={handleAdd}
+          onAddExisting={isSuperAdmin && !isGlobalMode ? handleAddExisting : null}
+          isGlobalMode={isGlobalMode}
+          currentBranchName={currentBranchName}
+          isSuperAdmin={isSuperAdmin}
         />
       </div>
 
@@ -193,6 +308,8 @@ const SupplierPage = () => {
           data={filteredSuppliers}
           loading={loading}
           onRowClick={handleRowAction}
+          isGlobalMode={isGlobalMode}
+          isSuperAdmin={isSuperAdmin}
         />
       </div>
 
@@ -207,18 +324,62 @@ const SupplierPage = () => {
         }}
         onSave={handleSave}
         saving={saving}
+        currentBranchName={currentBranchName}
       />
+
+      {/* MANAGE BRANCHES MODAL (Super Admin Only) */}
+      {isSuperAdmin && (
+        <ManageSupplierBranchesModal
+          open={manageBranchesModal.open}
+          supplier={manageBranchesModal.supplier}
+          onClose={() => setManageBranchesModal({ open: false, supplier: null })}
+          onSave={handleBranchesUpdate}
+          getSupplierBranches={getSupplierBranches}
+        />
+      )}
+
+      {/* ADD EXISTING SUPPLIER MODAL (Super Admin Only, Branch Mode) */}
+      {isSuperAdmin && !isGlobalMode && (
+        <AddExistingSupplierModal
+          open={addExistingModal}
+          onClose={() => setAddExistingModal(false)}
+          onAdd={handleAddExistingSupplier}
+          branchId={currentBranchId}
+          branchName={currentBranchName}
+          getAvailableSuppliers={getAvailableForBranch}
+        />
+      )}
 
       {/* DELETE CONFIRMATION */}
       <ConfirmDialog
         isOpen={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}
         onConfirm={confirmDeleteAction}
-        title="Delete Supplier"
-        message={`Are you sure you want to delete ${confirmDelete?.name}? This action cannot be undone.`}
-        confirmText="Delete"
+        title={isGlobalMode ? "Cannot Remove" : "Remove Supplier from Branch"}
+        message={
+          isGlobalMode ? (
+            <div className="space-y-2">
+              <p>You cannot remove suppliers in "All Branches" view.</p>
+              <p className="text-sm text-gray-500">
+                Select a specific branch to manage supplier access.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p>
+                Remove <strong>{confirmDelete?.name}</strong> from{" "}
+                <strong>{currentBranchName}</strong>?
+              </p>
+              <p className="text-sm text-amber-600">
+                The supplier will still exist in other branches if linked.
+              </p>
+            </div>
+          )
+        }
+        confirmText={isGlobalMode ? "OK" : "Remove"}
         cancelText="Cancel"
-        type="danger"
+        type={isGlobalMode ? "warning" : "danger"}
+        hideConfirm={isGlobalMode}
       />
     </div>
   );
