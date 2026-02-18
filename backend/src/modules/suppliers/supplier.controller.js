@@ -112,15 +112,30 @@ export async function createSupplierController(req, res) {
 
     const branchContext = getBranchContext(req);
     
-    // Must be in BRANCH mode to create
-    if (branchContext.mode !== "BRANCH" || !branchContext.branch_id) {
+    // ✅ Get branch_id from context or request body
+    let branchId = branchContext.branch_id;
+    
+    // If branch_id was in the original request body (before schema transform removed it)
+    if (!branchId && req.body?.branch_id) {
+      branchId = req.body.branch_id;
+    }
+    
+    // Must have a branch to create
+    if (!branchId) {
       return fail(res, "Please select a branch to create suppliers", 400, "BRANCH_REQUIRED");
     }
+
+    console.log("📍 Creating supplier:", {
+      shopId,
+      branchId,
+      userId,
+      supplierName: req.validated?.name,
+    });
 
     const supplier = await supplierService.createSupplier(
       req.validated,
       shopId,
-      branchContext.branch_id,
+      branchId,
       userId
     );
 
@@ -131,10 +146,14 @@ export async function createSupplierController(req, res) {
     return success(res, supplier, message, 201);
   } catch (error) {
     console.error("❌ supplier.create ERROR:", error);
-    return fail(res, error.message, error.statusCode || 500);
+    
+    // ✅ Better error handling with specific codes
+    const statusCode = error.statusCode || 500;
+    const errorCode = error.code || "CREATE_FAILED";
+    
+    return fail(res, error.message, statusCode, errorCode);
   }
 }
-
 /* ============================================
    GET SUPPLIER BY ID
 ============================================ */

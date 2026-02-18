@@ -204,54 +204,51 @@ class SupplierService {
      CREATE SUPPLIER - Creates and links to branch
   ============================================ */
   async createSupplier(data, shopId, branchId, userId) {
-    // Validate branch belongs to shop
-    const branch = await prisma.branch.findFirst({
+  // Validate branch belongs to shop
+  const branch = await prisma.branch.findFirst({
+    where: {
+      branch_id: branchId,
+      shop_id: shopId,
+      is_active: true,
+    },
+  });
+
+  if (!branch) {
+    throw new ApiError("Invalid branch", 400, "INVALID_BRANCH");
+  }
+
+  // Check for duplicate name in shop
+  const existingName = await prisma.supplier.findFirst({
+    where: {
+      shop_id: shopId,
+      name: data.name,
+    },
+  });
+
+  if (existingName) {
+    // Supplier exists - check if already linked to this branch
+    const existingLink = await prisma.supplierBranch.findUnique({
       where: {
-        branch_id: branchId,
-        shop_id: shopId,
-        is_active: true,
-      },
-    });
-
-    if (!branch) {
-      throw new ApiError("Invalid branch", 400, "INVALID_BRANCH");
-    }
-
-    // Check for duplicate name in shop
-    const existingName = await prisma.supplier.findFirst({
-      where: {
-        shop_id: shopId,
-        name: data.name,
-      },
-    });
-
-    if (existingName) {
-      // Supplier exists - check if already linked to this branch
-      const existingLink = await prisma.supplierBranch.findUnique({
-        where: {
-          supplier_id_branch_id: {
-            supplier_id: existingName.supplier_id,
-            branch_id: branchId,
-          },
+        supplier_id_branch_id: {
+          supplier_id: existingName.supplier_id,
+          branch_id: branchId,
         },
-      });
+      },
+    });
 
-      if (existingLink) {
+    if (existingLink) {
+      if (existingLink.is_active) {
         throw new ApiError(
           `Supplier "${data.name}" already exists in this branch`,
           409,
           "DUPLICATE_SUPPLIER_IN_BRANCH"
         );
       }
-
-      // Link existing supplier to this branch
-      await prisma.supplierBranch.create({
-        data: {
-          supplier_id: existingName.supplier_id,
-          branch_id: branchId,
-          created_by: userId,
-          is_active: true,
-        },
+      
+      // Reactivate existing link
+      await prisma.supplierBranch.update({
+        where: { id: existingLink.id },
+        data: { is_active: true },
       });
 
       return {
@@ -261,48 +258,69 @@ class SupplierService {
       };
     }
 
-    // Check GST uniqueness if provided
-    if (data.gst_number) {
-      const gstExists = await prisma.supplier.findFirst({
-        where: {
-          shop_id: shopId,
-          gst_number: data.gst_number,
-        },
-      });
-
-      if (gstExists) {
-        throw new ApiError(
-          `Supplier with GST ${data.gst_number} already exists`,
-          409,
-          "DUPLICATE_GST"
-        );
-      }
-    }
-
-    // Create new supplier and link to branch
-    const supplier = await prisma.$transaction(async (tx) => {
-      const newSupplier = await tx.supplier.create({
-        data: {
-          ...data,
-          shop_id: shopId,
-          created_by: userId,
-        },
-      });
-
-      await tx.supplierBranch.create({
-        data: {
-          supplier_id: newSupplier.supplier_id,
-          branch_id: branchId,
-          created_by: userId,
-          is_active: true,
-        },
-      });
-
-      return newSupplier;
+    // Link existing supplier to this branch
+    await prisma.supplierBranch.create({
+      data: {
+        supplier_id: existingName.supplier_id,
+        branch_id: branchId,
+        created_by: userId,
+        is_active: true,
+      },
     });
 
-    return supplier;
+    return {
+      ...existingName,
+      linked_to_existing: true,
+      message: `Supplier "${data.name}" already exists and has been linked to this branch`,
+    };
   }
+
+  // Check GST uniqueness if provided
+  if (data.gst_number) {
+    const gstExists = await prisma.supplier.findFirst({
+      where: {
+        shop_id: shopId,
+        gst_number: data.gst_number,
+      },
+    });
+
+    if (gstExists) {
+      throw new ApiError(
+        `Supplier with GST ${data.gst_number} already exists`,
+        409,
+        "DUPLICATE_GST"
+      );
+    }
+  }
+
+  // ✅ FIX: Remove branch_id from data before creating supplier
+  // The schema transform should have already removed it, but double-check
+  const { branch_id: _branchId, ...supplierData } = data;
+
+  // Create new supplier and link to branch
+  const supplier = await prisma.$transaction(async (tx) => {
+    const newSupplier = await tx.supplier.create({
+      data: {
+        ...supplierData,
+        shop_id: shopId,
+        created_by: userId,
+      },
+    });
+
+    await tx.supplierBranch.create({
+      data: {
+        supplier_id: newSupplier.supplier_id,
+        branch_id: branchId,
+        created_by: userId,
+        is_active: true,
+      },
+    });
+
+    return newSupplier;
+  });
+
+  return supplier;
+}
 
   /* ============================================
      GET SUPPLIER BY ID

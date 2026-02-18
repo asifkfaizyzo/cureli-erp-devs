@@ -194,58 +194,95 @@ const handleRemoveFromAllBranches = async (supplierId) => {
 
   /* ---------------- SAVE HANDLER ---------------- */
   const handleSave = async (formData) => {
-    setSaving(true);
+  setSaving(true);
 
-    try {
-      const isNew = formData.supplierId === "NEW" || !formData.supplier_id;
+  try {
+    const isNew = formData.supplierId === "NEW" || !formData.supplier_id;
 
-      // Map form data to API format
-      const apiData = {
-        name: formData.name,
-        office_phone: formData.officePhone || formData.contact,
-        personal_phone: formData.personalPhone,
-        email: formData.email,
-        gst_number: formData.gst,
-        address_line_1: formData.addressLine1 || formData.address,
-        address_line_2: formData.addressLine2,
-        city: formData.city,
-        state: formData.state,
-        pincode: formData.pincode,
-        contact_person: formData.contactPerson,
-        drug_license_no: formData.drugLicense,
-        pan_number: formData.panNumber,
-        credit_days: parseInt(formData.creditDays) || 0,
-        credit_limit: parseFloat(formData.creditLimit) || null,
-        bank_name: formData.bankName,
-        account_number: formData.accountNo,
-        ifsc_code: formData.ifsc,
-      };
+    // Map form data to API format
+    const apiData = {
+      name: formData.name?.trim(),
+      office_phone: (formData.officePhone || formData.contact)?.replace(/\D/g, ""),
+      personal_phone: formData.personalPhone?.replace(/\D/g, "") || null,
+      email: formData.email?.toLowerCase().trim() || null,
+      gst_number: formData.gst?.toUpperCase().trim() || null,
+      pan_number: formData.panNumber?.toUpperCase().trim() || null,
+      drug_license_no: formData.drugLicense?.toUpperCase().trim() || null,
+      address_line_1: formData.addressLine1?.trim() || formData.address?.trim() || null,
+      address_line_2: formData.addressLine2?.trim() || null,
+      city: formData.city?.trim() || null,
+      state: formData.state?.trim() || null,
+      pincode: formData.pincode?.replace(/\D/g, "") || null,
+      contact_person: formData.contactPerson?.trim() || null,
+      credit_days: parseInt(formData.creditDays) || 0,
+      credit_limit: parseFloat(formData.creditLimit) || null,
+      bank_name: formData.bankName?.trim() || null,
+      account_number: formData.accountNo?.replace(/\D/g, "") || null,
+      ifsc_code: formData.ifsc?.toUpperCase().trim() || null,
+    };
 
-      let result;
-      if (isNew) {
-        result = await createSupplier(apiData);
-      } else {
-        result = await updateSupplier(formData.supplier_id, apiData);
-      }
-
-      if (result.success) {
-        const message = result.data?.linked_to_existing 
-          ? result.data.message 
-          : `Supplier ${formData.name} ${isNew ? "added" : "updated"} successfully.`;
-        
-        toast.success(isNew ? "Supplier Added" : "Supplier Updated", message);
-        setModalOpen(false);
-        setSelectedSupplier(null);
-      } else {
-        toast.error("Save Failed", result.error || "Failed to save supplier.");
-      }
-    } catch (err) {
-      toast.error("Save Failed", "An unexpected error occurred.");
-      console.error("Save error:", err);
-    } finally {
-      setSaving(false);
+    let result;
+    if (isNew) {
+      result = await createSupplier(apiData);
+    } else {
+      result = await updateSupplier(formData.supplier_id, apiData);
     }
-  };
+
+    if (result.success) {
+      const message = result.data?.linked_to_existing 
+        ? result.data.message 
+        : `Supplier ${formData.name} ${isNew ? "added" : "updated"} successfully.`;
+      
+      toast.success(isNew ? "Supplier Added" : "Supplier Updated", message);
+      setModalOpen(false);
+      setSelectedSupplier(null);
+    } else {
+      // ✅ IMPROVED ERROR HANDLING
+      const errorMessage = result.error || "Failed to save supplier.";
+      
+      // Parse specific error codes
+      if (errorMessage.includes("GST")) {
+        toast.error("Invalid GST", errorMessage);
+      } else if (errorMessage.includes("PAN")) {
+        toast.error("Invalid PAN", errorMessage);
+      } else if (errorMessage.includes("phone") || errorMessage.includes("Phone")) {
+        toast.error("Invalid Phone", errorMessage);
+      } else if (errorMessage.includes("email") || errorMessage.includes("Email")) {
+        toast.error("Invalid Email", errorMessage);
+      } else if (errorMessage.includes("Drug License")) {
+        toast.error("Invalid Drug License", errorMessage);
+      } else if (errorMessage.includes("IFSC")) {
+        toast.error("Invalid IFSC", errorMessage);
+      } else if (errorMessage.includes("duplicate") || errorMessage.includes("already exists")) {
+        toast.error("Duplicate Entry", errorMessage);
+      } else {
+        toast.error("Save Failed", errorMessage);
+      }
+    }
+  } catch (err) {
+    console.error("Save error:", err);
+    
+    // ✅ Parse API error response
+    const errorResponse = err.response?.data;
+    let errorMessage = "An unexpected error occurred.";
+    
+    if (errorResponse?.message) {
+      errorMessage = errorResponse.message;
+    } else if (err.message) {
+      errorMessage = err.message;
+    }
+    
+    // Check for validation errors array
+    if (errorResponse?.errors && Array.isArray(errorResponse.errors)) {
+      const validationErrors = errorResponse.errors.map(e => e.message).join(", ");
+      toast.error("Validation Failed", validationErrors);
+    } else {
+      toast.error("Save Failed", errorMessage);
+    }
+  } finally {
+    setSaving(false);
+  }
+};
 
   /* ---------------- ADD NEW ---------------- */
   const handleAdd = () => {

@@ -1,4 +1,4 @@
-// src/pages/suppliers/components/SupplierModal.jsx - PROFESSIONAL ERP WITH API INTEGRATION
+// src/pages/suppliers/components/SupplierModal.jsx - UPDATED WITH PROPER VALIDATION
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { 
@@ -6,11 +6,120 @@ import {
   Phone, Mail, MapPin, Hash, FileText, Landmark, 
   CheckCircle2, AlertCircle, Sparkles,
   Building, Globe, Shield, Clock, Plus, ArrowUpDown,
-  ChevronUp, ChevronDown, Check, Loader2, Layers
+  ChevronUp, ChevronDown, Check, Loader2, Layers, AlertTriangle
 } from "lucide-react";
 import { toast } from 'react-toastify';
 import { useMenuStore } from "../../../store/useMenuStore";
 import suppliersAPI from "../../../api/suppliers";
+
+// ============================================
+// VALIDATION HELPERS
+// ============================================
+const VALIDATION_PATTERNS = {
+  // GST: 2 digits + 5 letters + 4 digits + 1 letter + 1 alphanumeric + Z + 1 alphanumeric
+  GST: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+  
+  // PAN: 5 letters + 4 digits + 1 letter
+  PAN: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
+  
+  // Phone: exactly 10 digits
+  PHONE: /^[0-9]{10}$/,
+  
+  // Pincode: exactly 6 digits
+  PINCODE: /^[0-9]{6}$/,
+  
+  // Drug License: alphanumeric with hyphens/slashes
+  DRUG_LICENSE: /^[A-Z0-9\-\/]{8,25}$/,
+  
+  // Email
+  EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  
+  // IFSC: 4 letters + 0 + 6 alphanumeric
+  IFSC: /^[A-Z]{4}0[A-Z0-9]{6}$/,
+  
+  // Account Number: 9-18 digits
+  ACCOUNT_NUMBER: /^[0-9]{9,18}$/,
+};
+
+const VALIDATION_MESSAGES = {
+  GST: "GST must be 15 characters: 2 digits + 5 letters + 4 digits + 1 letter + 1 alphanumeric + Z + 1 alphanumeric (e.g., 27AABCU9603R1ZM)",
+  PAN: "PAN must be 10 characters: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)",
+  PHONE: "Phone must be exactly 10 digits",
+  PINCODE: "Pincode must be exactly 6 digits",
+  DRUG_LICENSE: "Invalid format. Use: 20B/12345/2024 or DL-MH-12-123456",
+  EMAIL: "Please enter a valid email (e.g., example@domain.com)",
+  IFSC: "IFSC must be 11 characters: 4 letters + 0 + 6 alphanumeric (e.g., HDFC0001234)",
+  ACCOUNT_NUMBER: "Account number must be 9-18 digits",
+};
+
+const validateField = (field, value) => {
+  if (!value || value.trim() === "") return { isValid: true, error: null };
+  
+  const trimmedValue = value.trim().toUpperCase();
+  
+  switch (field) {
+    case "gst":
+      return {
+        isValid: VALIDATION_PATTERNS.GST.test(trimmedValue),
+        error: VALIDATION_PATTERNS.GST.test(trimmedValue) ? null : VALIDATION_MESSAGES.GST,
+      };
+    
+    case "panNumber":
+      return {
+        isValid: VALIDATION_PATTERNS.PAN.test(trimmedValue),
+        error: VALIDATION_PATTERNS.PAN.test(trimmedValue) ? null : VALIDATION_MESSAGES.PAN,
+      };
+    
+    case "officePhone":
+    case "personalPhone":
+      const digitsOnly = value.replace(/\D/g, "");
+      return {
+        isValid: digitsOnly.length === 0 || VALIDATION_PATTERNS.PHONE.test(digitsOnly),
+        error: digitsOnly.length === 0 || VALIDATION_PATTERNS.PHONE.test(digitsOnly) 
+          ? null 
+          : VALIDATION_MESSAGES.PHONE,
+      };
+    
+    case "pincode":
+      const pincodeDigits = value.replace(/\D/g, "");
+      return {
+        isValid: pincodeDigits.length === 0 || VALIDATION_PATTERNS.PINCODE.test(pincodeDigits),
+        error: pincodeDigits.length === 0 || VALIDATION_PATTERNS.PINCODE.test(pincodeDigits) 
+          ? null 
+          : VALIDATION_MESSAGES.PINCODE,
+      };
+    
+    case "drugLicense":
+      return {
+        isValid: VALIDATION_PATTERNS.DRUG_LICENSE.test(trimmedValue),
+        error: VALIDATION_PATTERNS.DRUG_LICENSE.test(trimmedValue) ? null : VALIDATION_MESSAGES.DRUG_LICENSE,
+      };
+    
+    case "email":
+      return {
+        isValid: VALIDATION_PATTERNS.EMAIL.test(value.toLowerCase()),
+        error: VALIDATION_PATTERNS.EMAIL.test(value.toLowerCase()) ? null : VALIDATION_MESSAGES.EMAIL,
+      };
+    
+    case "ifsc":
+      return {
+        isValid: VALIDATION_PATTERNS.IFSC.test(trimmedValue),
+        error: VALIDATION_PATTERNS.IFSC.test(trimmedValue) ? null : VALIDATION_MESSAGES.IFSC,
+      };
+    
+    case "accountNo":
+      const accountDigits = value.replace(/\D/g, "");
+      return {
+        isValid: accountDigits.length === 0 || VALIDATION_PATTERNS.ACCOUNT_NUMBER.test(accountDigits),
+        error: accountDigits.length === 0 || VALIDATION_PATTERNS.ACCOUNT_NUMBER.test(accountDigits) 
+          ? null 
+          : VALIDATION_MESSAGES.ACCOUNT_NUMBER,
+      };
+    
+    default:
+      return { isValid: true, error: null };
+  }
+};
 
 // Animation Variants
 const backdropVariants = {
@@ -81,7 +190,7 @@ const useResponsiveTableRows = () => {
   return config;
 };
 
-// Professional Field Component
+// ✅ ENHANCED Professional Field Component with Validation
 const FormField = ({ 
   label, 
   value, 
@@ -91,28 +200,82 @@ const FormField = ({
   type = "text",
   icon: Icon,
   placeholder,
-  error,
+  error: externalError,
   success,
   hint,
   className = "",
   inputClassName = "",
   multiline = false,
   rows = 3,
+  validationType, // NEW: 'gst', 'pan', 'phone', 'email', 'pincode', 'drugLicense', 'ifsc', 'accountNo'
+  maxLength,
+  numbersOnly = false,
+  uppercase = false,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [internalError, setInternalError] = useState(null);
+  
   const hasValue = value && value.toString().trim().length > 0;
-  const showError = required && !hasValue && !isFocused;
+  const showRequiredError = required && !hasValue && touched && !isFocused;
+  const showValidationError = internalError && touched;
+  const showError = showRequiredError || showValidationError || externalError;
+  const errorMessage = externalError || internalError || (showRequiredError ? `${label} is required` : null);
+
+  // Validate on value change
+  useEffect(() => {
+    if (validationType && value) {
+      const validation = validateField(validationType, value);
+      setInternalError(validation.error);
+    } else {
+      setInternalError(null);
+    }
+  }, [value, validationType]);
+
+  const handleChange = (inputValue) => {
+    let processedValue = inputValue;
+    
+    // Numbers only filter
+    if (numbersOnly) {
+      processedValue = inputValue.replace(/\D/g, "");
+    }
+    
+    // Uppercase transform
+    if (uppercase) {
+      processedValue = processedValue.toUpperCase();
+    }
+    
+    // Max length check
+    if (maxLength && processedValue.length > maxLength) {
+      processedValue = processedValue.slice(0, maxLength);
+    }
+    
+    onChange?.(processedValue);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    setTouched(true);
+  };
+
+  // Determine validation status
+  const isValidated = validationType && hasValue && !internalError;
 
   return (
     <div className={`relative ${className}`}>
       <label className={`
         flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold mb-1.5
-        ${isFocused ? 'text-indigo-600' : showError ? 'text-red-500' : success ? 'text-emerald-600' : 'text-slate-500'}
+        ${isFocused ? 'text-indigo-600' : showError ? 'text-red-500' : isValidated ? 'text-emerald-600' : 'text-slate-500'}
         transition-colors duration-200
       `}>
         {Icon && <Icon size={12} strokeWidth={2} />}
         <span>{label}</span>
         {required && <span className="text-red-400">*</span>}
+        {maxLength && (
+          <span className="ml-auto text-[9px] text-slate-400 font-normal">
+            {value?.length || 0}/{maxLength}
+          </span>
+        )}
       </label>
 
       <div className="relative">
@@ -120,9 +283,9 @@ const FormField = ({
           multiline ? (
             <textarea
               value={value || ""}
-              onChange={(e) => onChange?.(e.target.value)}
+              onChange={(e) => handleChange(e.target.value)}
               onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              onBlur={handleBlur}
               rows={rows}
               placeholder={placeholder}
               className={`
@@ -133,7 +296,7 @@ const FormField = ({
                   ? 'border-indigo-400 ring-2 ring-indigo-100 shadow-sm' 
                   : showError 
                     ? 'border-red-300 bg-red-50/50' 
-                    : success 
+                    : isValidated 
                       ? 'border-emerald-300 bg-emerald-50/30' 
                       : 'border-slate-200 hover:border-slate-300'
                 }
@@ -144,22 +307,24 @@ const FormField = ({
             <input
               type={type}
               value={value || ""}
-              onChange={(e) => onChange?.(e.target.value)}
+              onChange={(e) => handleChange(e.target.value)}
               onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              onBlur={handleBlur}
               placeholder={placeholder}
+              maxLength={maxLength}
               className={`
                 w-full h-10 text-sm font-medium text-slate-800 bg-white 
-                border rounded-lg px-3
+                border rounded-lg px-3 pr-10
                 transition-all duration-200 outline-none
                 ${isFocused 
                   ? 'border-indigo-400 ring-2 ring-indigo-100 shadow-sm' 
                   : showError 
                     ? 'border-red-300 bg-red-50/50' 
-                    : success 
+                    : isValidated 
                       ? 'border-emerald-300 bg-emerald-50/30' 
                       : 'border-slate-200 hover:border-slate-300'
                 }
+                ${uppercase ? 'uppercase' : ''}
                 ${inputClassName}
               `}
             />
@@ -176,7 +341,7 @@ const FormField = ({
 
         {editable && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            {success && hasValue && (
+            {isValidated && (
               <CheckCircle2 size={16} className="text-emerald-500" />
             )}
             {showError && (
@@ -186,11 +351,15 @@ const FormField = ({
         )}
       </div>
 
-      {(hint || (showError && error)) && (
-        <p className={`mt-1 text-[10px] ${showError ? 'text-red-500' : 'text-slate-400'}`}>
-          {showError ? error : hint}
-        </p>
-      )}
+      {/* Error/Hint Message */}
+      {showError ? (
+        <div className="mt-1.5 flex items-start gap-1.5 text-red-500">
+          <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+          <p className="text-[10px] leading-tight">{errorMessage}</p>
+        </div>
+      ) : hint ? (
+        <p className="mt-1 text-[10px] text-slate-400">{hint}</p>
+      ) : null}
     </div>
   );
 };
@@ -218,7 +387,7 @@ const SectionHeader = ({ icon: Icon, title, subtitle, badge, action }) => (
   </div>
 );
 
-// ✅ RESPONSIVE SUPPLIER TABLE WITH FIXED ROWS
+// ✅ RESPONSIVE SUPPLIER TABLE WITH FIXED ROWS (keeping your existing implementation)
 const SupplierTableComponent = ({ 
   suppliers, 
   selectedId, 
@@ -685,7 +854,7 @@ const mapAPISupplierToModalFormat = (supplier) => ({
   ifsc: supplier.ifsc_code || "",
 });
 
-// ✅ MAIN MODAL COMPONENT WITH BRANCH CONTEXT
+// ✅ MAIN MODAL COMPONENT WITH VALIDATION
 const SupplierModal = ({ 
   open, 
   mode, 
@@ -693,13 +862,14 @@ const SupplierModal = ({
   onClose, 
   onSave, 
   saving = false,
-  currentBranchName = "", // ✅ Branch name to display
-  isGlobalMode = false,   // ✅ Whether in global/all branches view
+  currentBranchName = "",
+  isGlobalMode = false,
 }) => {
   const isEdit = mode === "edit";
   const isNew = supplier?.supplierId === "NEW" || !supplier?.supplier_id;
   const [activeTab, setActiveTab] = useState("general");
   const [formData, setFormData] = useState({});
+  const [formErrors, setFormErrors] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [selectedSupplierId, setSelectedSupplierId] = useState(null);
@@ -767,10 +937,10 @@ const SupplierModal = ({
   useEffect(() => {
     if (supplier) {
       setFormData({ ...supplier });
+      setFormErrors({});
       setActiveTab("general");
       setSearchQuery("");
       setSelectedSupplierId(null);
-      // Reset suppliers loaded state when modal opens fresh
       if (!open) {
         setSuppliersLoaded(false);
       }
@@ -782,38 +952,123 @@ const SupplierModal = ({
     setIsSaving(saving);
   }, [saving]);
 
-  // Validation
+  // ✅ COMPREHENSIVE VALIDATION
   const validateForm = () => {
     const errors = [];
+    
+    // Required: Supplier Name
     if (!formData.name?.trim()) {
       errors.push({ field: 'name', message: 'Supplier name is required', tab: 'general' });
     }
-    if (!formData.officePhone?.trim() && !formData.contact?.trim()) {
+    
+    // Required: Office Phone (10 digits)
+    const officePhone = formData.officePhone?.replace(/\D/g, "") || formData.contact?.replace(/\D/g, "") || "";
+    if (!officePhone) {
       errors.push({ field: 'officePhone', message: 'Office phone is required', tab: 'contact' });
+    } else if (!VALIDATION_PATTERNS.PHONE.test(officePhone)) {
+      errors.push({ field: 'officePhone', message: 'Office phone must be exactly 10 digits', tab: 'contact' });
     }
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.push({ field: 'email', message: 'Invalid email format', tab: 'contact' });
+    
+    // Optional: Personal Phone (10 digits if provided)
+    const personalPhone = formData.personalPhone?.replace(/\D/g, "") || "";
+    if (personalPhone && !VALIDATION_PATTERNS.PHONE.test(personalPhone)) {
+      errors.push({ field: 'personalPhone', message: 'Personal phone must be exactly 10 digits', tab: 'contact' });
     }
-    if (formData.gst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gst)) {
-      errors.push({ field: 'gst', message: 'Invalid GST format', tab: 'general' });
+    
+    // Optional: Email format
+    if (formData.email && !VALIDATION_PATTERNS.EMAIL.test(formData.email)) {
+      errors.push({ field: 'email', message: 'Please enter a valid email address', tab: 'contact' });
     }
+    
+    // Optional: GST format (15 characters)
+    if (formData.gst && !VALIDATION_PATTERNS.GST.test(formData.gst.toUpperCase())) {
+      errors.push({ 
+        field: 'gst', 
+        message: 'Invalid GST format. Must be 15 characters (e.g., 27AABCU9603R1ZM)', 
+        tab: 'general' 
+      });
+    }
+    
+    // Optional: PAN format (10 characters)
+    if (formData.panNumber && !VALIDATION_PATTERNS.PAN.test(formData.panNumber.toUpperCase())) {
+      errors.push({ 
+        field: 'panNumber', 
+        message: 'Invalid PAN format. Must be 10 characters (e.g., ABCDE1234F)', 
+        tab: 'general' 
+      });
+    }
+    
+    // Optional: Drug License format
+    if (formData.drugLicense && !VALIDATION_PATTERNS.DRUG_LICENSE.test(formData.drugLicense.toUpperCase())) {
+      errors.push({ 
+        field: 'drugLicense', 
+        message: 'Invalid Drug License format. Use: 20B/12345/2024 or DL-MH-12-123456', 
+        tab: 'general' 
+      });
+    }
+    
+    // Optional: Pincode (6 digits)
+    const pincode = formData.pincode?.replace(/\D/g, "") || "";
+    if (pincode && !VALIDATION_PATTERNS.PINCODE.test(pincode)) {
+      errors.push({ field: 'pincode', message: 'Pincode must be exactly 6 digits', tab: 'general' });
+    }
+    
+    // Optional: IFSC format
+    if (formData.ifsc && !VALIDATION_PATTERNS.IFSC.test(formData.ifsc.toUpperCase())) {
+      errors.push({ 
+        field: 'ifsc', 
+        message: 'Invalid IFSC format. Must be 11 characters (e.g., HDFC0001234)', 
+        tab: 'banking' 
+      });
+    }
+    
+    // Optional: Account Number (9-18 digits)
+    const accountNo = formData.accountNo?.replace(/\D/g, "") || "";
+    if (accountNo && !VALIDATION_PATTERNS.ACCOUNT_NUMBER.test(accountNo)) {
+      errors.push({ field: 'accountNo', message: 'Account number must be 9-18 digits', tab: 'banking' });
+    }
+    
     return errors;
   };
 
   // Handle Save
   const handleSave = async () => {
     const errors = validateForm();
+    
     if (errors.length > 0) {
+      // Show first error and switch to that tab
       const firstError = errors[0];
       setActiveTab(firstError.tab);
-      toast.warn(firstError.message, { 
-        autoClose: 3000,
-        icon: <AlertCircle size={18} />
+      
+      // Set all errors in state
+      const errorMap = {};
+      errors.forEach(e => {
+        errorMap[e.field] = e.message;
       });
+      setFormErrors(errorMap);
+      
+      // Show toast with all errors
+      const errorCount = errors.length;
+      toast.error(
+        <div>
+          <p className="font-semibold">{errorCount} Validation Error{errorCount > 1 ? 's' : ''}</p>
+          <ul className="text-sm mt-1 list-disc list-inside">
+            {errors.slice(0, 3).map((e, i) => (
+              <li key={i}>{e.message}</li>
+            ))}
+            {errorCount > 3 && <li>...and {errorCount - 3} more</li>}
+          </ul>
+        </div>,
+        { 
+          autoClose: 5000,
+          icon: <AlertTriangle size={20} className="text-red-500" />
+        }
+      );
       return;
     }
 
-    // Call parent onSave with form data
+    // Clear errors and save
+    setFormErrors({});
     onSave(formData);
   };
 
@@ -847,6 +1102,7 @@ const SupplierModal = ({
       accountType: sup.accountType || "",
       ifsc: sup.ifsc || ""
     });
+    setFormErrors({});
     
     toast.success(`"${sup.name}" selected`, { 
       autoClose: 2000,
@@ -861,6 +1117,14 @@ const SupplierModal = ({
   // Update form field
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error for this field when user types
+    if (formErrors[field]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
   };
 
   if (!open || !supplier) return null;
@@ -869,6 +1133,14 @@ const SupplierModal = ({
   const requiredFields = ['name', 'officePhone'];
   const completedFields = requiredFields.filter(f => formData[f]?.trim() || (f === 'officePhone' && formData.contact?.trim()));
   const completionPercent = Math.round((completedFields.length / requiredFields.length) * 100);
+
+  // Count errors per tab
+  const tabErrorCounts = {
+    general: Object.keys(formErrors).filter(f => ['name', 'gst', 'panNumber', 'drugLicense', 'pincode'].includes(f)).length,
+    contact: Object.keys(formErrors).filter(f => ['officePhone', 'personalPhone', 'email'].includes(f)).length,
+    banking: Object.keys(formErrors).filter(f => ['ifsc', 'accountNo'].includes(f)).length,
+    existing: 0,
+  };
 
   return (
     <AnimatePresence>
@@ -894,7 +1166,7 @@ const SupplierModal = ({
             role="dialog"
             aria-modal="true"
           >
-            {/* ✅ UPDATED HEADER WITH BRANCH CONTEXT */}
+            {/* ✅ HEADER */}
             <div className="shrink-0 bg-gradient-to-r from-[#05015A] to-indigo-700 px-4 sm:px-6 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -912,7 +1184,6 @@ const SupplierModal = ({
                           NEW
                         </span>
                       )}
-                      {/* ✅ Branch Context Badge */}
                       {currentBranchName && !isGlobalMode && (
                         <span className="px-2 py-0.5 bg-blue-500/20 text-blue-200 text-[9px] sm:text-[10px] font-semibold rounded-full flex items-center gap-1 shrink-0">
                           <Building2 size={10} />
@@ -920,7 +1191,6 @@ const SupplierModal = ({
                         </span>
                       )}
                     </div>
-                    {/* ✅ Updated subtitle with branch info */}
                     <p className="text-indigo-200 text-xs sm:text-sm mt-0.5 truncate">
                       {isNew 
                         ? currentBranchName 
@@ -984,12 +1254,13 @@ const SupplierModal = ({
               </div>
             </div>
 
-            {/* Tabs */}
+            {/* Tabs with Error Indicators */}
             <div className="shrink-0 bg-slate-50 border-b border-slate-200 overflow-x-auto scrollbar-hide">
               <div className="flex px-2 sm:px-4 min-w-max">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
+                  const errorCount = tabErrorCounts[tab.id];
                   
                   return (
                     <button
@@ -1000,11 +1271,13 @@ const SupplierModal = ({
                         transition-all duration-200 whitespace-nowrap border-b-2
                         ${isActive 
                           ? 'text-indigo-700 border-indigo-600 bg-white' 
-                          : 'text-slate-500 border-transparent hover:text-slate-700 hover:bg-white/50'
+                          : errorCount > 0
+                            ? 'text-red-500 border-transparent hover:text-red-600 hover:bg-red-50/50'
+                            : 'text-slate-500 border-transparent hover:text-slate-700 hover:bg-white/50'
                         }
                       `}
                     >
-                      <Icon size={14} className={isActive ? 'text-indigo-600' : ''} />
+                      <Icon size={14} className={isActive ? 'text-indigo-600' : errorCount > 0 ? 'text-red-500' : ''} />
                       <span>{tab.label}</span>
                       {tab.id === 'existing' && (
                         <span className={`
@@ -1012,6 +1285,11 @@ const SupplierModal = ({
                           ${isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'}
                         `}>
                           {loadingSuppliers ? '...' : existingSuppliers.length}
+                        </span>
+                      )}
+                      {errorCount > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-red-100 text-red-600">
+                          {errorCount}
                         </span>
                       )}
                     </button>
@@ -1049,17 +1327,20 @@ const SupplierModal = ({
                           onChange={(v) => updateField('name', v)}
                           required
                           placeholder="Enter supplier company name"
-                          error="Supplier name is required"
+                          error={formErrors.name}
                         />
                         <FormField
                           label="GST Number"
                           icon={Hash}
                           value={formData.gst}
                           editable={isEdit}
-                          onChange={(v) => updateField('gst', v.toUpperCase())}
-                          placeholder="e.g., 27AABCA1234C1Z5"
+                          onChange={(v) => updateField('gst', v)}
+                          placeholder="e.g., 27AABCU9603R1ZM"
                           hint="15-character GST Identification Number"
-                          success={formData.gst?.length === 15}
+                          error={formErrors.gst}
+                          validationType="gst"
+                          maxLength={15}
+                          uppercase
                         />
                       </div>
                       
@@ -1097,7 +1378,11 @@ const SupplierModal = ({
                           value={formData.pincode}
                           editable={isEdit}
                           onChange={(v) => updateField('pincode', v)}
-                          placeholder="Pincode"
+                          placeholder="6 digits"
+                          error={formErrors.pincode}
+                          validationType="pincode"
+                          maxLength={6}
+                          numbersOnly
                         />
                       </div>
 
@@ -1108,15 +1393,23 @@ const SupplierModal = ({
                           value={formData.drugLicense}
                           editable={isEdit}
                           onChange={(v) => updateField('drugLicense', v)}
-                          placeholder="DL-XXX-XX-XXXXXX"
+                          placeholder="e.g., 20B/12345/2024"
+                          error={formErrors.drugLicense}
+                          validationType="drugLicense"
+                          maxLength={25}
+                          uppercase
                         />
                         <FormField
                           label="PAN Number"
                           icon={Hash}
                           value={formData.panNumber}
                           editable={isEdit}
-                          onChange={(v) => updateField('panNumber', v.toUpperCase())}
-                          placeholder="ABCDE1234F"
+                          onChange={(v) => updateField('panNumber', v)}
+                          placeholder="e.g., ABCDE1234F"
+                          error={formErrors.panNumber}
+                          validationType="panNumber"
+                          maxLength={10}
+                          uppercase
                         />
                       </div>
                     </div>
@@ -1152,8 +1445,11 @@ const SupplierModal = ({
                           }}
                           required
                           type="tel"
-                          placeholder="e.g., 011-23456789"
-                          error="Office phone is required"
+                          placeholder="10 digit phone number"
+                          error={formErrors.officePhone}
+                          validationType="officePhone"
+                          maxLength={10}
+                          numbersOnly
                         />
                         <FormField
                           label="Mobile / Personal"
@@ -1162,7 +1458,11 @@ const SupplierModal = ({
                           editable={isEdit}
                           onChange={(v) => updateField('personalPhone', v)}
                           type="tel"
-                          placeholder="e.g., 9876543210"
+                          placeholder="10 digit phone number"
+                                                    error={formErrors.personalPhone}
+                          validationType="personalPhone"
+                          maxLength={10}
+                          numbersOnly
                         />
                       </div>
                       
@@ -1175,7 +1475,8 @@ const SupplierModal = ({
                           onChange={(v) => updateField('email', v.toLowerCase())}
                           type="email"
                           placeholder="accounts@company.com"
-                          success={formData.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)}
+                          error={formErrors.email}
+                          validationType="email"
                         />
                       </div>
                     </div>
@@ -1254,7 +1555,11 @@ const SupplierModal = ({
                           value={formData.accountNo}
                           editable={isEdit}
                           onChange={(v) => updateField('accountNo', v)}
-                          placeholder="Bank account number"
+                          placeholder="9-18 digit account number"
+                          error={formErrors.accountNo}
+                          validationType="accountNo"
+                          maxLength={18}
+                          numbersOnly
                           inputClassName="font-mono tracking-wider"
                         />
                         <FormField
@@ -1269,12 +1574,16 @@ const SupplierModal = ({
                       
                       <div className="mt-4 sm:mt-5">
                         <FormField
-                          label="IFSC / SWIFT Code"
+                          label="IFSC Code"
                           icon={Hash}
                           value={formData.ifsc}
                           editable={isEdit}
-                          onChange={(v) => updateField('ifsc', v.toUpperCase())}
+                          onChange={(v) => updateField('ifsc', v)}
                           placeholder="e.g., HDFC0001234"
+                          error={formErrors.ifsc}
+                          validationType="ifsc"
+                          maxLength={11}
+                          uppercase
                           inputClassName="font-mono tracking-wider"
                           hint="11-character bank branch code"
                         />
@@ -1297,7 +1606,9 @@ const SupplierModal = ({
                           onChange={(v) => updateField('creditDays', v)}
                           type="number"
                           placeholder="30"
-                          hint="Default credit period"
+                          hint="Default credit period (0-365)"
+                          numbersOnly
+                          maxLength={3}
                         />
                         <FormField
                           label="Credit Limit"
@@ -1307,7 +1618,7 @@ const SupplierModal = ({
                           onChange={(v) => updateField('creditLimit', v)}
                           type="number"
                           placeholder="100000"
-                          hint="Maximum credit amount"
+                          hint="Maximum credit amount (₹)"
                         />
                         <FormField
                           label="Payment Mode"
@@ -1323,7 +1634,7 @@ const SupplierModal = ({
                   </motion.div>
                 )}
 
-                {/* ✅ EXISTING SUPPLIERS TAB - WITH API INTEGRATION */}
+                {/* ✅ EXISTING SUPPLIERS TAB */}
                 {activeTab === "existing" && (
                   <motion.div
                     key="existing"
@@ -1364,7 +1675,7 @@ const SupplierModal = ({
                       )}
                     </div>
 
-                    {/* ✅ RESPONSIVE SUPPLIER TABLE WITH API DATA */}
+                    {/* RESPONSIVE SUPPLIER TABLE */}
                     <SupplierTableComponent
                       suppliers={filteredSuppliers}
                       selectedId={selectedSupplierId}
@@ -1406,6 +1717,16 @@ const SupplierModal = ({
                   </span>
                 )}
               </div>
+              
+              {/* Error Summary in Footer */}
+              {Object.keys(formErrors).length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg">
+                  <AlertTriangle size={14} className="text-red-500" />
+                  <span className="text-xs text-red-600 font-medium">
+                    {Object.keys(formErrors).length} validation error{Object.keys(formErrors).length > 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
               
               <div className="flex items-center gap-2 ml-auto">
                 <button

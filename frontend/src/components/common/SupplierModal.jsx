@@ -1,4 +1,4 @@
-// src/components/Supplier/SupplierModal.jsx - PROFESSIONAL ERP WITH RESPONSIVE TABLE
+// src/pages/suppliers/components/SupplierModal.jsx
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { 
@@ -6,10 +6,338 @@ import {
   Phone, Mail, MapPin, Hash, FileText, Landmark, 
   CheckCircle2, AlertCircle, Sparkles,
   Building, Globe, Shield, Clock, Plus, ArrowUpDown,
-  ChevronUp, ChevronDown, Check
+  ChevronUp, ChevronDown, Check, AlertTriangle, Info
 } from "lucide-react";
-import { toast } from 'react-toastify';
-import { useMenuStore } from "../../store/useMenuStore";
+import { useToast } from "../../../components/common/Toast";
+import { useMenuStore } from "../../../store/useMenuStore";
+
+// ============================================
+// VALIDATION UTILITIES WITH SPECIFIC MESSAGES
+// ============================================
+
+/**
+ * GST Number Validation
+ * Format: 22AAAAA0000A1Z5
+ */
+const validateGSTNumber = (gst) => {
+  if (!gst || gst.trim() === '') {
+    return { isValid: false, error: 'GST Number is required' };
+  }
+  
+  const cleanGST = gst.toUpperCase().trim();
+  
+  if (cleanGST.length < 15) {
+    return { isValid: false, error: `GST Number must be 15 characters (currently ${cleanGST.length})` };
+  }
+  
+  if (cleanGST.length > 15) {
+    return { isValid: false, error: 'GST Number cannot exceed 15 characters' };
+  }
+  
+  // Check first 2 characters are digits (state code)
+  if (!/^[0-9]{2}/.test(cleanGST)) {
+    return { isValid: false, error: 'GST must start with 2-digit state code (01-37)' };
+  }
+  
+  // Validate state code range
+  const stateCode = parseInt(cleanGST.substring(0, 2));
+  if (stateCode < 1 || stateCode > 37) {
+    return { isValid: false, error: `Invalid state code "${stateCode}". Must be between 01-37` };
+  }
+  
+  // Check next 5 characters are letters (PAN first part)
+  if (!/^[0-9]{2}[A-Z]{5}/.test(cleanGST)) {
+    return { isValid: false, error: 'Characters 3-7 must be letters (PAN code)' };
+  }
+  
+  // Check next 4 characters are digits
+  if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}/.test(cleanGST)) {
+    return { isValid: false, error: 'Characters 8-11 must be digits' };
+  }
+  
+  // Check 12th character is a letter
+  if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]/.test(cleanGST)) {
+    return { isValid: false, error: 'Character 12 must be a letter' };
+  }
+  
+  // Check 13th character is alphanumeric
+  if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]/.test(cleanGST)) {
+    return { isValid: false, error: 'Character 13 must be alphanumeric (1-9 or A-Z)' };
+  }
+  
+  // Check 14th character is Z
+  if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z/.test(cleanGST)) {
+    return { isValid: false, error: 'Character 14 must be "Z"' };
+  }
+  
+  // Full pattern validation
+  const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+  if (!gstRegex.test(cleanGST)) {
+    return { isValid: false, error: 'Invalid GST format. Example: 27AABCA1234C1Z5' };
+  }
+  
+  return { isValid: true, error: null };
+};
+
+/**
+ * Drug License Number Validation
+ */
+const validateDrugLicense = (license) => {
+  if (!license || license.trim() === '') {
+    return { isValid: false, error: 'Drug License Number is required' };
+  }
+  
+  const cleanLicense = license.toUpperCase().trim();
+  
+  if (cleanLicense.length < 5) {
+    return { isValid: false, error: `Drug License too short (min 5 characters, currently ${cleanLicense.length})` };
+  }
+  
+  if (cleanLicense.length > 25) {
+    return { isValid: false, error: 'Drug License too long (max 25 characters)' };
+  }
+  
+  // Check for at least some alphanumeric pattern
+  if (!/[A-Z]/.test(cleanLicense) && !/[0-9]/.test(cleanLicense)) {
+    return { isValid: false, error: 'Drug License must contain letters or numbers' };
+  }
+  
+  // Must contain at least one letter and one number
+  if (!/[A-Z]/.test(cleanLicense)) {
+    return { isValid: false, error: 'Drug License must contain at least one letter' };
+  }
+  
+  if (!/[0-9]/.test(cleanLicense)) {
+    return { isValid: false, error: 'Drug License must contain at least one number' };
+  }
+  
+  // Check for valid patterns
+  const validPatterns = [
+    /^DL[-/]?[A-Z0-9]{2,4}[-/]?[A-Z0-9]{2,4}[-/]?[A-Z0-9]{4,10}$/i,
+    /^(20|21)[AB][-/]?[A-Z0-9]{4,15}$/i,
+    /^[A-Z]{2,3}[-/]?[0-9]{2,4}[-/]?[A-Z0-9]{4,15}$/i,
+    /^[A-Z0-9]{5,20}$/i,
+  ];
+  
+  const isValidFormat = validPatterns.some(pattern => pattern.test(cleanLicense));
+  
+  if (!isValidFormat) {
+    return { 
+      isValid: false, 
+      error: 'Invalid format. Examples: DL-DEL-20B-123456, 21B123456, MH20B123456' 
+    };
+  }
+  
+  return { isValid: true, error: null };
+};
+
+/**
+ * Phone Number Validation (Indian format)
+ */
+const validatePhoneNumber = (phone) => {
+  if (!phone || phone.trim() === '') {
+    return { isValid: false, error: 'Office Phone is required' };
+  }
+  
+  // Remove all non-digit characters for validation
+  const digitsOnly = phone.replace(/\D/g, '');
+  
+  if (digitsOnly.length === 0) {
+    return { isValid: false, error: 'Phone number must contain digits' };
+  }
+  
+  if (digitsOnly.length < 8) {
+    return { isValid: false, error: `Phone number too short (min 8 digits, currently ${digitsOnly.length})` };
+  }
+  
+  if (digitsOnly.length > 12) {
+    return { isValid: false, error: `Phone number too long (max 12 digits, currently ${digitsOnly.length})` };
+  }
+  
+  // Remove +91 or 91 prefix for validation
+  let normalizedPhone = digitsOnly;
+  if (normalizedPhone.startsWith('91') && normalizedPhone.length > 10) {
+    normalizedPhone = normalizedPhone.substring(2);
+  }
+  
+  // Mobile number: 10 digits starting with 6-9
+  if (normalizedPhone.length === 10) {
+    if (!/^[6-9]/.test(normalizedPhone)) {
+      return { isValid: false, error: 'Mobile number must start with 6, 7, 8, or 9' };
+    }
+    return { isValid: true, error: null };
+  }
+  
+  // Landline with STD code: 8-11 digits
+  if (normalizedPhone.length >= 8 && normalizedPhone.length <= 11) {
+    return { isValid: true, error: null };
+  }
+  
+  return { 
+    isValid: false, 
+    error: 'Enter 10-digit mobile or landline with STD code' 
+  };
+};
+
+/**
+ * Email Validation
+ */
+const validateEmail = (email) => {
+  if (!email || email.trim() === '') {
+    return { isValid: true, error: null }; // Optional field
+  }
+  
+  const trimmedEmail = email.trim().toLowerCase();
+  
+  if (trimmedEmail.length < 5) {
+    return { isValid: false, error: 'Email is too short' };
+  }
+  
+  if (!trimmedEmail.includes('@')) {
+    return { isValid: false, error: 'Email must contain @ symbol' };
+  }
+  
+  if (!trimmedEmail.includes('.')) {
+    return { isValid: false, error: 'Email must contain a domain (e.g., .com)' };
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmedEmail)) {
+    return { isValid: false, error: 'Invalid email format. Example: name@company.com' };
+  }
+  
+  return { isValid: true, error: null };
+};
+
+/**
+ * IFSC Code Validation
+ */
+const validateIFSC = (ifsc) => {
+  if (!ifsc || ifsc.trim() === '') {
+    return { isValid: true, error: null }; // Optional field
+  }
+  
+  const cleanIFSC = ifsc.toUpperCase().trim();
+  
+  if (cleanIFSC.length !== 11) {
+    return { isValid: false, error: `IFSC must be 11 characters (currently ${cleanIFSC.length})` };
+  }
+  
+  // First 4 characters must be letters (bank code)
+  if (!/^[A-Z]{4}/.test(cleanIFSC)) {
+    return { isValid: false, error: 'First 4 characters must be letters (bank code)' };
+  }
+  
+  // 5th character must be 0
+  if (cleanIFSC[4] !== '0') {
+    return { isValid: false, error: '5th character must be "0"' };
+  }
+  
+  // Last 6 characters must be alphanumeric (branch code)
+  if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(cleanIFSC)) {
+    return { isValid: false, error: 'Last 6 characters must be alphanumeric (branch code)' };
+  }
+  
+  return { isValid: true, error: null };
+};
+
+/**
+ * PAN Number Validation
+ */
+const validatePAN = (pan) => {
+  if (!pan || pan.trim() === '') {
+    return { isValid: true, error: null }; // Optional field
+  }
+  
+  const cleanPAN = pan.toUpperCase().trim();
+  
+  if (cleanPAN.length !== 10) {
+    return { isValid: false, error: `PAN must be 10 characters (currently ${cleanPAN.length})` };
+  }
+  
+  // First 5 characters must be letters
+  if (!/^[A-Z]{5}/.test(cleanPAN)) {
+    return { isValid: false, error: 'First 5 characters must be letters' };
+  }
+  
+  // Next 4 characters must be digits
+  if (!/^[A-Z]{5}[0-9]{4}/.test(cleanPAN)) {
+    return { isValid: false, error: 'Characters 6-9 must be digits' };
+  }
+  
+  // Last character must be a letter
+  if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(cleanPAN)) {
+    return { isValid: false, error: 'Last character must be a letter' };
+  }
+  
+  return { isValid: true, error: null };
+};
+
+/**
+ * Pincode Validation
+ */
+const validatePincode = (pincode) => {
+  if (!pincode || pincode.trim() === '') {
+    return { isValid: true, error: null }; // Optional field
+  }
+  
+  const cleanPincode = pincode.replace(/\D/g, '');
+  
+  if (cleanPincode.length !== 6) {
+    return { isValid: false, error: `Pincode must be 6 digits (currently ${cleanPincode.length})` };
+  }
+  
+  // First digit cannot be 0
+  if (cleanPincode[0] === '0') {
+    return { isValid: false, error: 'Pincode cannot start with 0' };
+  }
+  
+  return { isValid: true, error: null };
+};
+
+// ============================================
+// INPUT SANITIZERS
+// ============================================
+
+const sanitizePhone = (value) => {
+  // Allow only digits, +, -, space, and parentheses
+  return value.replace(/[^\d\+\-\s\(\)]/g, '').slice(0, 15);
+};
+
+const sanitizeGST = (value) => {
+  // Allow only alphanumeric, convert to uppercase
+  return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 15);
+};
+
+const sanitizeDrugLicense = (value) => {
+  // Allow alphanumeric, dash, and forward slash
+  return value.replace(/[^A-Za-z0-9\-\/]/g, '').toUpperCase().slice(0, 25);
+};
+
+const sanitizePAN = (value) => {
+  // Allow only alphanumeric, convert to uppercase
+  return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10);
+};
+
+const sanitizeIFSC = (value) => {
+  // Allow only alphanumeric, convert to uppercase
+  return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 11);
+};
+
+const sanitizePincode = (value) => {
+  // Allow only digits
+  return value.replace(/\D/g, '').slice(0, 6);
+};
+
+const sanitizeAccountNumber = (value) => {
+  // Allow only digits
+  return value.replace(/\D/g, '').slice(0, 18);
+};
+
+const sanitizeNumber = (value) => {
+  // Allow only digits
+  return value.replace(/\D/g, '');
+};
 
 // Animation Variants
 const backdropVariants = {
@@ -49,28 +377,22 @@ const useResponsiveTableRows = () => {
       let isMobile = false;
 
       if (width < 768) {
-        // Mobile - card view
-        visibleRows = Math.floor((height * 0.4) / 100); // ~100px per card
+        visibleRows = Math.floor((height * 0.4) / 100);
         rowHeight = 100;
         isMobile = true;
       } else if (width >= 2560) {
-        // 4K
         visibleRows = 8;
         rowHeight = 60;
       } else if (width >= 1920) {
-        // Full HD
         visibleRows = 6;
         rowHeight = 58;
       } else if (width >= 1440) {
-        // Laptop HD
         visibleRows = 5;
         rowHeight = 56;
       } else if (width >= 1280) {
-        // Standard laptop
         visibleRows = 4;
         rowHeight = 54;
       } else {
-        // Small screens
         visibleRows = 3;
         rowHeight = 52;
       }
@@ -86,7 +408,9 @@ const useResponsiveTableRows = () => {
   return config;
 };
 
-// Professional Field Component
+// ============================================
+// ENHANCED FORM FIELD COMPONENT
+// ============================================
 const FormField = ({ 
   label, 
   value, 
@@ -97,22 +421,76 @@ const FormField = ({
   icon: Icon,
   placeholder,
   error,
+  fieldError,
   success,
   hint,
   className = "",
   inputClassName = "",
   multiline = false,
   rows = 3,
+  validationFn,
+  sanitizeFn,
+  showValidation = true,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [localError, setLocalError] = useState(null);
+  
   const hasValue = value && value.toString().trim().length > 0;
-  const showError = required && !hasValue && !isFocused;
+  
+  // Determine error state
+  const displayError = fieldError || localError;
+  const showError = (touched || fieldError) && displayError && !isFocused;
+  const isValid = hasValue && !displayError && showValidation;
+
+  // Handle input change with sanitization
+  const handleChange = (e) => {
+    let newValue = e.target.value;
+    
+    // Apply sanitization if provided
+    if (sanitizeFn) {
+      newValue = sanitizeFn(newValue);
+    }
+    
+    onChange?.(newValue);
+    
+    // Clear error when user types
+    if (localError) {
+      setLocalError(null);
+    }
+  };
+
+  // Validate on blur
+  const handleBlur = () => {
+    setIsFocused(false);
+    setTouched(true);
+    
+    if (validationFn && (hasValue || required)) {
+      const result = validationFn(value);
+      setLocalError(result.error);
+    } else if (required && !hasValue) {
+      setLocalError(`${label} is required`);
+    } else {
+      setLocalError(null);
+    }
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+  };
+
+  // Reset touched state when value is cleared externally
+  useEffect(() => {
+    if (!value && !hasValue) {
+      setLocalError(null);
+    }
+  }, [value, hasValue]);
 
   return (
     <div className={`relative ${className}`}>
       <label className={`
         flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold mb-1.5
-        ${isFocused ? 'text-indigo-600' : showError ? 'text-red-500' : success ? 'text-emerald-600' : 'text-slate-500'}
+        ${isFocused ? 'text-indigo-600' : showError ? 'text-red-500' : isValid && touched ? 'text-emerald-600' : 'text-slate-500'}
         transition-colors duration-200
       `}>
         {Icon && <Icon size={12} strokeWidth={2} />}
@@ -125,9 +503,9 @@ const FormField = ({
           multiline ? (
             <textarea
               value={value || ""}
-              onChange={(e) => onChange?.(e.target.value)}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              onChange={handleChange}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
               rows={rows}
               placeholder={placeholder}
               className={`
@@ -138,7 +516,7 @@ const FormField = ({
                   ? 'border-indigo-400 ring-2 ring-indigo-100 shadow-sm' 
                   : showError 
                     ? 'border-red-300 bg-red-50/50' 
-                    : success 
+                    : isValid && touched
                       ? 'border-emerald-300 bg-emerald-50/30' 
                       : 'border-slate-200 hover:border-slate-300'
                 }
@@ -149,19 +527,19 @@ const FormField = ({
             <input
               type={type}
               value={value || ""}
-              onChange={(e) => onChange?.(e.target.value)}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              onChange={handleChange}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
               placeholder={placeholder}
               className={`
                 w-full h-10 text-sm font-medium text-slate-800 bg-white 
-                border rounded-lg px-3
+                border rounded-lg px-3 pr-10
                 transition-all duration-200 outline-none
                 ${isFocused 
                   ? 'border-indigo-400 ring-2 ring-indigo-100 shadow-sm' 
                   : showError 
                     ? 'border-red-300 bg-red-50/50' 
-                    : success 
+                    : isValid && touched
                       ? 'border-emerald-300 bg-emerald-50/30' 
                       : 'border-slate-200 hover:border-slate-300'
                 }
@@ -179,9 +557,9 @@ const FormField = ({
           </div>
         )}
 
-        {editable && (
+        {editable && !multiline && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            {success && hasValue && (
+            {isValid && touched && !isFocused && (
               <CheckCircle2 size={16} className="text-emerald-500" />
             )}
             {showError && (
@@ -191,11 +569,20 @@ const FormField = ({
         )}
       </div>
 
-      {(hint || (showError && error)) && (
-        <p className={`mt-1 text-[10px] ${showError ? 'text-red-500' : 'text-slate-400'}`}>
-          {showError ? error : hint}
-        </p>
-      )}
+      {/* Error / Hint Message */}
+      <div className="min-h-[18px] mt-1">
+        {showError ? (
+          <p className="text-[10px] text-red-500 flex items-start gap-1">
+            <AlertTriangle size={10} className="mt-0.5 shrink-0" />
+            <span>{displayError}</span>
+          </p>
+        ) : hint && isFocused ? (
+          <p className="text-[10px] text-slate-400 flex items-center gap-1">
+            <Info size={10} />
+            {hint}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 };
@@ -214,7 +601,9 @@ const SectionHeader = ({ icon: Icon, title, subtitle, badge, action }) => (
     </div>
     <div className="flex items-center gap-2">
       {badge && (
-        <span className="px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-semibold rounded-full">
+        <span className={`px-2 py-1 text-[10px] font-semibold rounded-full ${
+          badge.includes('error') ? 'bg-red-100 text-red-600' : 'bg-indigo-50 text-indigo-700'
+        }`}>
           {badge}
         </span>
       )}
@@ -223,7 +612,9 @@ const SectionHeader = ({ icon: Icon, title, subtitle, badge, action }) => (
   </div>
 );
 
-// ✅ RESPONSIVE SUPPLIER TABLE WITH FIXED ROWS
+// ============================================
+// SUPPLIER TABLE COMPONENT
+// ============================================
 const SupplierTable = ({ 
   suppliers, 
   selectedId, 
@@ -238,13 +629,10 @@ const SupplierTable = ({
   const [scrollInfo, setScrollInfo] = useState({
     canScrollUp: false,
     canScrollDown: false,
-    scrollPercentage: 0,
   });
 
-  // Calculate viewport height
   const viewportHeight = visibleRows * rowHeight;
 
-  // Sort suppliers
   const sortedSuppliers = useMemo(() => {
     const sorted = [...suppliers];
     sorted.sort((a, b) => {
@@ -257,22 +645,17 @@ const SupplierTable = ({
     return sorted;
   }, [suppliers, sortConfig]);
 
-  // Update scroll info
   const updateScrollInfo = useCallback(() => {
     const container = tableBodyRef.current;
     if (!container) return;
 
     const { scrollTop, scrollHeight, clientHeight } = container;
-    const canScrollUp = scrollTop > 5;
-    const canScrollDown = scrollTop + clientHeight < scrollHeight - 5;
-    const scrollPercentage = scrollHeight > clientHeight 
-      ? (scrollTop / (scrollHeight - clientHeight)) * 100 
-      : 0;
-
-    setScrollInfo({ canScrollUp, canScrollDown, scrollPercentage });
+    setScrollInfo({
+      canScrollUp: scrollTop > 5,
+      canScrollDown: scrollTop + clientHeight < scrollHeight - 5,
+    });
   }, []);
 
-  // Handle scroll events
   useEffect(() => {
     const container = tableBodyRef.current;
     if (!container) return;
@@ -290,26 +673,8 @@ const SupplierTable = ({
     }));
   };
 
-  const scrollUp = () => {
-    tableBodyRef.current?.scrollBy({ top: -rowHeight * 2, behavior: 'smooth' });
-  };
-
-  const scrollDown = () => {
-    tableBodyRef.current?.scrollBy({ top: rowHeight * 2, behavior: 'smooth' });
-  };
-
-  const SortIcon = ({ columnKey }) => {
-    if (sortConfig.key !== columnKey) {
-      return <ArrowUpDown size={11} className="text-slate-300" />;
-    }
-    return sortConfig.direction === 'asc' 
-      ? <ChevronUp size={11} className="text-indigo-600" />
-      : <ChevronDown size={11} className="text-indigo-600" />;
-  };
-
   const hasOverflow = suppliers.length > visibleRows;
 
-  // Empty State
   if (suppliers.length === 0) {
     return (
       <div 
@@ -322,61 +687,33 @@ const SupplierTable = ({
         <p className="text-sm font-medium text-slate-600">
           {searchQuery ? "No matching suppliers found" : "No suppliers available"}
         </p>
-        <p className="text-xs text-slate-400 mt-1">
-          {searchQuery ? "Try a different search term" : "Add your first supplier"}
-        </p>
       </div>
     );
   }
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-      {/* Table Header Stats */}
       <div className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <Users size={14} className="text-slate-500" />
-            <span className="text-[11px] font-semibold text-slate-700">
-              {suppliers.length} Suppliers
-            </span>
-          </div>
-          
-          {hasOverflow && (
-            <>
-              <div className="h-3 w-px bg-slate-300" />
-              <span className="text-[10px] text-slate-500">
-                Showing {visibleRows} at a time
-              </span>
-            </>
-          )}
+        <div className="flex items-center gap-1.5">
+          <Users size={14} className="text-slate-500" />
+          <span className="text-[11px] font-semibold text-slate-700">
+            {suppliers.length} Suppliers
+          </span>
         </div>
 
-        {/* Scroll Controls */}
         {hasOverflow && (
           <div className="flex items-center gap-1">
             <button
-              onClick={scrollUp}
+              onClick={() => tableBodyRef.current?.scrollBy({ top: -rowHeight * 2, behavior: 'smooth' })}
               disabled={!scrollInfo.canScrollUp}
-              className={`
-                p-1 rounded transition-all duration-150
-                ${scrollInfo.canScrollUp 
-                  ? 'hover:bg-indigo-100 text-slate-500 hover:text-indigo-600' 
-                  : 'text-slate-300 cursor-not-allowed'
-                }
-              `}
+              className={`p-1 rounded ${scrollInfo.canScrollUp ? 'hover:bg-indigo-100 text-slate-500' : 'text-slate-300 cursor-not-allowed'}`}
             >
               <ChevronUp size={14} />
             </button>
             <button
-              onClick={scrollDown}
+              onClick={() => tableBodyRef.current?.scrollBy({ top: rowHeight * 2, behavior: 'smooth' })}
               disabled={!scrollInfo.canScrollDown}
-              className={`
-                p-1 rounded transition-all duration-150
-                ${scrollInfo.canScrollDown 
-                  ? 'hover:bg-indigo-100 text-slate-500 hover:text-indigo-600' 
-                  : 'text-slate-300 cursor-not-allowed'
-                }
-              `}
+              className={`p-1 rounded ${scrollInfo.canScrollDown ? 'hover:bg-indigo-100 text-slate-500' : 'text-slate-300 cursor-not-allowed'}`}
             >
               <ChevronDown size={14} />
             </button>
@@ -384,328 +721,87 @@ const SupplierTable = ({
         )}
       </div>
 
-      {/* Desktop Table View */}
-      {!isMobile && (
-        <div className="hidden md:block">
-          {/* Fixed Header */}
-          <div className="overflow-hidden">
-            <table className="w-full table-fixed">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="w-[5%] px-2 py-2.5 text-center">
-                    <span className="sr-only">Select</span>
-                  </th>
-                  <th 
-                    className="w-[30%] px-3 py-2.5 text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                    onClick={() => handleSort('name')}
-                  >
-                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wider font-bold text-slate-600">
-                      <Building2 size={11} />
-                      <span>Supplier Name</span>
-                      <SortIcon columnKey="name" />
-                    </div>
-                  </th>
-                  <th 
-                    className="w-[22%] px-3 py-2.5 text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                    onClick={() => handleSort('gst')}
-                  >
-                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wider font-bold text-slate-600">
-                      <Hash size={11} />
-                      <span>GST Number</span>
-                      <SortIcon columnKey="gst" />
-                    </div>
-                  </th>
-                  <th 
-                    className="w-[18%] px-3 py-2.5 text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                    onClick={() => handleSort('officePhone')}
-                  >
-                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wider font-bold text-slate-600">
-                      <Phone size={11} />
-                      <span>Contact</span>
-                      <SortIcon columnKey="officePhone" />
-                    </div>
-                  </th>
-                  <th 
-                    className="w-[17%] px-3 py-2.5 text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                    onClick={() => handleSort('location')}
-                  >
-                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wider font-bold text-slate-600">
-                      <MapPin size={11} />
-                      <span>Location</span>
-                      <SortIcon columnKey="location" />
-                    </div>
-                  </th>
-                  <th className="w-[8%] px-2 py-2.5 text-center">
-                    <span className="sr-only">Action</span>
-                  </th>
-                </tr>
-              </thead>
-            </table>
-          </div>
-
-          {/* Scrollable Body */}
-          <div 
-            ref={tableBodyRef}
-            className="overflow-y-auto overflow-x-hidden"
-            style={{ 
-              height: `${viewportHeight}px`,
-              maxHeight: `${viewportHeight}px`,
-            }}
-          >
-            <table className="w-full table-fixed">
-              <tbody className="divide-y divide-slate-100">
-                {sortedSuppliers.map((supplier, idx) => {
-                  const isSelected = selectedId === supplier.id;
-                  return (
-                    <motion.tr
-                      key={supplier.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: idx * 0.02 }}
-                      onClick={() => onSelect(supplier)}
-                      style={{ height: `${rowHeight}px` }}
-                      className={`
-                        cursor-pointer transition-all duration-150 group
-                        ${isSelected 
-                          ? 'bg-indigo-50 hover:bg-indigo-100' 
-                          : 'bg-white hover:bg-slate-50'
-                        }
-                      `}
-                    >
-                      {/* Selection Indicator - 5% */}
-                      <td className="w-[5%] px-2 text-center">
-                        <div className={`
-                          w-4 h-4 rounded-full border-2 flex items-center justify-center mx-auto
-                          transition-all duration-200
-                          ${isSelected 
-                            ? 'bg-indigo-600 border-indigo-600 shadow-sm' 
-                            : 'border-slate-300 group-hover:border-indigo-400'
-                          }
-                        `}>
-                          {isSelected && <Check size={10} className="text-white" strokeWidth={3} />}
-                        </div>
-                      </td>
-
-                      {/* Supplier Name - 30% */}
-                      <td className="w-[30%] px-3">
-                        <div className="flex items-center gap-2">
-                          <div className={`
-                            w-7 h-7 rounded-lg flex items-center justify-center shrink-0
-                            ${isSelected 
-                              ? 'bg-indigo-200 text-indigo-700' 
-                              : 'bg-slate-100 text-slate-500'
-                            }
-                          `}>
-                            <Building2 size={12} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className={`text-xs font-semibold truncate ${isSelected ? 'text-indigo-700' : 'text-slate-800'}`}>
-                              {supplier.name}
-                            </p>
-                            {supplier.email && (
-                              <p className="text-[9px] text-slate-400 truncate">{supplier.email}</p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* GST Number - 22% */}
-                      <td className="w-[22%] px-3">
-                        <span className={`
-                          inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono truncate max-w-full
-                          ${isSelected 
-                            ? 'bg-indigo-100 text-indigo-700' 
-                            : 'bg-slate-100 text-slate-600'
-                          }
-                        `}>
-                          {supplier.gst || '—'}
-                        </span>
-                      </td>
-
-                      {/* Contact - 18% */}
-                      <td className="w-[18%] px-3">
-                        <div className="flex items-center gap-1 text-[11px] text-slate-700">
-                          <Phone size={10} className="text-slate-400 shrink-0" />
-                          <span className="truncate">{supplier.officePhone || '—'}</span>
-                        </div>
-                      </td>
-
-                      {/* Location - 17% */}
-                      <td className="w-[17%] px-3">
-                        <p className="text-[11px] text-slate-600 truncate" title={supplier.location || supplier.address}>
-                          {supplier.location || supplier.address?.split(',').slice(-1)[0]?.trim() || '—'}
-                        </p>
-                      </td>
-
-                      {/* Action - 8% */}
-                      <td className="w-[8%] px-2 text-center">
-                        <div className={`
-                          w-5 h-5 rounded-full flex items-center justify-center mx-auto
-                          transition-all duration-200
-                          ${isSelected 
-                            ? 'bg-indigo-600 text-white' 
-                            : 'bg-slate-100 text-slate-400 group-hover:bg-indigo-100 group-hover:text-indigo-600'
-                          }
-                        `}>
-                          {isSelected ? <Check size={10} strokeWidth={3} /> : <ChevronUp size={10} className="rotate-90" />}
-                        </div>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Card View */}
-      {isMobile && (
-        <div 
-          ref={tableBodyRef}
-          className="md:hidden divide-y divide-slate-100 overflow-y-auto"
-          style={{ 
-            height: `${viewportHeight}px`,
-            maxHeight: `${viewportHeight}px`,
-          }}
-        >
-          {sortedSuppliers.map((supplier, idx) => {
-            const isSelected = selectedId === supplier.id;
-            return (
-              <motion.div
-                key={supplier.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: idx * 0.02 }}
-                onClick={() => onSelect(supplier)}
-                className={`
-                  p-3 cursor-pointer transition-all duration-150
-                  ${isSelected ? 'bg-indigo-50' : 'bg-white hover:bg-slate-50'}
-                `}
-              >
-                <div className="flex items-start gap-2.5">
-                  {/* Selection Indicator */}
-                  <div className={`
-                    w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5
-                    ${isSelected 
-                      ? 'bg-indigo-600 border-indigo-600' 
-                      : 'border-slate-300'
-                    }
-                  `}>
-                    {isSelected && <Check size={10} className="text-white" strokeWidth={3} />}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className={`font-semibold text-sm truncate ${isSelected ? 'text-indigo-700' : 'text-slate-800'}`}>
-                        {supplier.name}
-                      </h4>
-                      <span className={`
-                        shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold
-                        ${isSelected 
-                          ? 'bg-indigo-600 text-white' 
-                          : 'bg-slate-100 text-slate-500'
-                        }
-                      `}>
-                        {isSelected ? '✓' : 'Select'}
-                      </span>
-                    </div>
-
-                    {/* Details Grid */}
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-1.5">
-                      <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                        <Hash size={9} className="shrink-0" />
-                        <span className="truncate font-mono">{supplier.gst || '—'}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                        <Phone size={9} className="shrink-0" />
-                        <span className="truncate">{supplier.officePhone || '—'}</span>
-                      </div>
-                      <div className="col-span-2 flex items-center gap-1 text-[10px] text-slate-500">
-                        <MapPin size={9} className="shrink-0" />
-                        <span className="truncate">
-                          {supplier.location || supplier.address?.split(',').slice(-1)[0]?.trim() || '—'}
-                        </span>
-                      </div>
-                    </div>
+      <div 
+        ref={tableBodyRef}
+        className="overflow-y-auto"
+        style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}
+      >
+        {sortedSuppliers.map((supplier) => {
+          const isSelected = selectedId === supplier.id;
+          return (
+            <div
+              key={supplier.id}
+              onClick={() => onSelect(supplier)}
+              className={`p-3 cursor-pointer border-b border-slate-100 transition-colors ${
+                isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                  isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'
+                }`}>
+                  {isSelected && <Check size={10} className="text-white" strokeWidth={3} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold truncate ${isSelected ? 'text-indigo-700' : 'text-slate-800'}`}>
+                    {supplier.name}
+                  </p>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <span className="text-[10px] text-slate-500 font-mono">{supplier.gst || '—'}</span>
+                    <span className="text-[10px] text-slate-500">{supplier.officePhone || '—'}</span>
                   </div>
                 </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
-
-     
-      {hasOverflow && (
-        <div className="h-1 bg-slate-100 relative">
-        </div>
-      )}
-
-      {/* Table Footer */}
-      <div className="bg-gradient-to-r from-slate-50 to-slate-100 border-t border-slate-200 px-3 py-2 flex items-center justify-between">
-        <p className="text-[10px] text-slate-500">
-          <span className="font-semibold text-slate-700">{suppliers.length}</span> total
-          {hasOverflow && (
-            <span className="text-slate-400"> • Scroll for more</span>
-          )}
-        </p>
-        <p className="text-[9px] text-slate-400 hidden sm:block">
-          Click row to select • Click headers to sort
-        </p>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 };
 
-// Main Modal Component
-const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
+// ============================================
+// MAIN MODAL COMPONENT
+// ============================================
+const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }) => {
+  const toast = useToast();
   const isEdit = mode === "edit";
+  const isView = mode === "view";
   const isNew = supplier?.supplierId === "NEW";
+  
   const [activeTab, setActiveTab] = useState("general");
   const [formData, setFormData] = useState({});
+  const [formErrors, setFormErrors] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [selectedSupplierId, setSelectedSupplierId] = useState(null);
-  const sidebarExpanded = useMenuStore?.((s) => s.sidebarExpanded) || false;
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  // ✅ Get responsive table config
+  const sidebarExpanded = useMenuStore?.((s) => s.sidebarExpanded) || false;
   const { visibleRows, rowHeight, isMobile } = useResponsiveTableRows();
 
-  // Existing Suppliers Data
+  // Sample existing suppliers
   const existingSuppliers = useMemo(() => [
     { 
       id: 1, 
       name: "ABC Pharma Ltd", 
       gst: "27AABCA1234C1Z5", 
       address: "Industrial Area, Phase-II, New Delhi - 110020",
-      location: "New Delhi",
       officePhone: "011-23456789",
-      personalPhone: "9876543210",
+      drugLicense: "DL-DEL-20B-123456",
       email: "accounts@abcpharma.com",
-      bankName: "HDFC Bank",
-      branchName: "Connaught Place",
-      accountNo: "50100123456789",
-      accountType: "Current",
-      ifsc: "HDFC0001234"
     },
   ], []);
 
-  // Filtered Suppliers
   const filteredSuppliers = useMemo(() => {
     if (!searchQuery.trim()) return existingSuppliers;
     const query = searchQuery.toLowerCase();
     return existingSuppliers.filter(s => 
       s.name.toLowerCase().includes(query) ||
-      s.gst.toLowerCase().includes(query) ||
-      s.location?.toLowerCase().includes(query) ||
-      s.officePhone?.includes(query) ||
-      s.email?.toLowerCase().includes(query)
+      s.gst?.toLowerCase().includes(query)
     );
   }, [existingSuppliers, searchQuery]);
 
-  // Tabs Configuration
   const tabs = [
     { id: "general", label: "General Info", icon: Building2 },
     { id: "contact", label: "Contact", icon: Phone },
@@ -713,169 +809,242 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
     { id: "existing", label: "Select Supplier", icon: Users },
   ];
 
-  // const getFieldValue = useCallback((primaryKey, ...alternativeKeys) => {
-  //   // Check primary key first
-  //   if (formData[primaryKey] !== undefined && formData[primaryKey] !== null && formData[primaryKey] !== '') {
-  //     return formData[primaryKey];
-  //   }
-    
-  //   // Check alternative keys
-  //   for (const altKey of alternativeKeys) {
-  //     if (formData[altKey] !== undefined && formData[altKey] !== null && formData[altKey] !== '') {
-  //       return formData[altKey];
-  //     }
-  //   }
-    
-  //   return '';
-  // }, [formData]);
-
-  // Reset form on supplier change
+  // Initialize form data
   useEffect(() => {
     if (supplier) {
       const mappedData = {
-        // IDs
         supplierId: supplier.supplierId || supplier.supplier_id || "NEW",
         supplier_id: supplier.supplier_id || supplier.supplierId,
-        
-        // Basic Info
         name: supplier.name || "",
         gst: supplier.gst || supplier.gst_number || supplier.gstNumber || "",
         panNumber: supplier.panNumber || supplier.pan_number || "",
         drugLicense: supplier.drugLicense || supplier.drug_license_no || supplier.drugLicenseNo || "",
         website: supplier.website || "",
-        
-        // Address
         address: supplier.address || supplier.address_line_1 || supplier.addressLine1 || "",
-        addressLine1: supplier.addressLine1 || supplier.address_line_1 || supplier.address || "",
-        addressLine2: supplier.addressLine2 || supplier.address_line_2 || "",
         city: supplier.city || "",
         state: supplier.state || "",
         pincode: supplier.pincode || "",
-        
-        // Contact
         officePhone: supplier.officePhone || supplier.office_phone || supplier.contact || "",
         personalPhone: supplier.personalPhone || supplier.personal_phone || "",
         email: supplier.email || "",
         contactPerson: supplier.contactPerson || supplier.contact_person || "",
         designation: supplier.designation || "",
-        
-        // Banking
         bankName: supplier.bankName || supplier.bank_name || "",
         branchName: supplier.branchName || "",
         accountNo: supplier.accountNo || supplier.account_number || supplier.accountNumber || "",
         accountType: supplier.accountType || supplier.account_type || "",
         ifsc: supplier.ifsc || supplier.ifsc_code || supplier.ifscCode || "",
-        
-        // Payment
         creditDays: supplier.creditDays || supplier.credit_days || "",
         creditLimit: supplier.creditLimit || supplier.credit_limit || "",
         paymentMode: supplier.paymentMode || supplier.payment_mode || "",
       };
       
       setFormData(mappedData);
+      setFormErrors({});
       setActiveTab("general");
       setSearchQuery("");
       setSelectedSupplierId(null);
+      setAttemptedSubmit(false);
     }
   }, [supplier]);
 
-  // Validation
-  const validateForm = () => {
-    const errors = [];
+  // ============================================
+  // COMPREHENSIVE VALIDATION
+  // ============================================
+  const validateForm = useCallback(() => {
+    const errors = {};
+    const errorDetails = [];
+
+    // Required: Supplier Name
     if (!formData.name?.trim()) {
-      errors.push({ field: 'name', message: 'Supplier name is required', tab: 'general' });
+      errors.name = 'Supplier name is required';
+      errorDetails.push({ field: 'Supplier Name', message: 'Required', tab: 'general' });
     }
+
+    // Required: GST Number
+    const gstValidation = validateGSTNumber(formData.gst);
+    if (!gstValidation.isValid) {
+      errors.gst = gstValidation.error;
+      errorDetails.push({ field: 'GST Number', message: gstValidation.error, tab: 'general' });
+    }
+
+    // Required: Drug License
+    const drugLicenseValidation = validateDrugLicense(formData.drugLicense);
+    if (!drugLicenseValidation.isValid) {
+      errors.drugLicense = drugLicenseValidation.error;
+      errorDetails.push({ field: 'Drug License', message: drugLicenseValidation.error, tab: 'general' });
+    }
+
+    // Required: Address
     if (!formData.address?.trim()) {
-      errors.push({ field: 'address', message: 'Address is required', tab: 'general' });
+      errors.address = 'Business address is required';
+      errorDetails.push({ field: 'Address', message: 'Required', tab: 'general' });
     }
-    if (!formData.officePhone?.trim()) {
-      errors.push({ field: 'officePhone', message: 'Office phone is required', tab: 'contact' });
+
+    // Required: Office Phone
+    const phoneValidation = validatePhoneNumber(formData.officePhone);
+    if (!phoneValidation.isValid) {
+      errors.officePhone = phoneValidation.error;
+      errorDetails.push({ field: 'Office Phone', message: phoneValidation.error, tab: 'contact' });
     }
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.push({ field: 'email', message: 'Invalid email format', tab: 'contact' });
+
+    // Optional validations (only if value provided)
+    if (formData.email?.trim()) {
+      const emailValidation = validateEmail(formData.email);
+      if (!emailValidation.isValid) {
+        errors.email = emailValidation.error;
+        errorDetails.push({ field: 'Email', message: emailValidation.error, tab: 'contact' });
+      }
     }
-    if (formData.gst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gst)) {
-      errors.push({ field: 'gst', message: 'Invalid GST format', tab: 'general' });
+
+    if (formData.panNumber?.trim()) {
+      const panValidation = validatePAN(formData.panNumber);
+      if (!panValidation.isValid) {
+        errors.panNumber = panValidation.error;
+        errorDetails.push({ field: 'PAN', message: panValidation.error, tab: 'general' });
+      }
     }
-    return errors;
-  };
+
+    if (formData.ifsc?.trim()) {
+      const ifscValidation = validateIFSC(formData.ifsc);
+      if (!ifscValidation.isValid) {
+        errors.ifsc = ifscValidation.error;
+        errorDetails.push({ field: 'IFSC', message: ifscValidation.error, tab: 'banking' });
+      }
+    }
+
+    if (formData.pincode?.trim()) {
+      const pincodeValidation = validatePincode(formData.pincode);
+      if (!pincodeValidation.isValid) {
+        errors.pincode = pincodeValidation.error;
+        errorDetails.push({ field: 'Pincode', message: pincodeValidation.error, tab: 'general' });
+      }
+    }
+
+    // Determine first error tab
+    const firstErrorTab = errorDetails.length > 0 ? errorDetails[0].tab : null;
+
+    return { 
+      errors, 
+      isValid: Object.keys(errors).length === 0, 
+      firstErrorTab,
+      errorDetails 
+    };
+  }, [formData]);
 
   // Handle Save
   const handleSave = async () => {
-    const errors = validateForm();
-    if (errors.length > 0) {
-      const firstError = errors[0];
-      setActiveTab(firstError.tab);
-      toast.warn(firstError.message, { 
-        autoClose: 3000,
-        icon: <AlertCircle size={18} />
-      });
+    setAttemptedSubmit(true);
+    const { errors, isValid, firstErrorTab, errorDetails } = validateForm();
+    
+    setFormErrors(errors);
+
+    if (!isValid) {
+      // Switch to the tab with the first error
+      if (firstErrorTab) {
+        setActiveTab(firstErrorTab);
+      }
+
+      // Show specific error messages
+      if (errorDetails.length === 1) {
+        toast.error(
+          `${errorDetails[0].field} Error`,
+          errorDetails[0].message
+        );
+      } else if (errorDetails.length <= 3) {
+        const errorList = errorDetails.map(e => `• ${e.field}: ${e.message}`).join('\n');
+        toast.error(
+          `Please fix ${errorDetails.length} errors`,
+          errorList
+        );
+      } else {
+        const firstThree = errorDetails.slice(0, 3).map(e => `• ${e.field}: ${e.message}`).join('\n');
+        toast.error(
+          `Please fix ${errorDetails.length} errors`,
+          `${firstThree}\n...and ${errorDetails.length - 3} more`
+        );
+      }
       return;
     }
 
     setIsSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      onSave(formData);
+      await onSave(formData);
       toast.success(
-        isNew ? "Supplier created successfully!" : "Supplier updated successfully!",
-        { icon: <CheckCircle2 size={18} /> }
+        isNew ? "Supplier Created" : "Supplier Updated",
+        `${formData.name} has been saved successfully`
       );
     } catch (error) {
-      toast.error("Failed to save supplier. Please try again.");
       console.error("Save error:", error);
+      toast.error(
+        "Save Failed",
+        error.message || "Failed to save supplier. Please try again."
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Handle Supplier Selection from Table
+  // Handle Supplier Selection
   const handleSelectSupplier = (sup) => {
     setSelectedSupplierId(sup.id);
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       name: sup.name,
       gst: sup.gst,
       address: sup.address,
-      location: sup.location,
       officePhone: sup.officePhone,
-      personalPhone: sup.personalPhone,
-      email: sup.email,
-      bankName: sup.bankName || "",
-      branchName: sup.branchName || "",
-      accountNo: sup.accountNo || "",
-      accountType: sup.accountType || "",
-      ifsc: sup.ifsc || ""
-    });
+      drugLicense: sup.drugLicense || "",
+      email: sup.email || "",
+    }));
     
-    toast.success(`"${sup.name}" selected`, { 
-      autoClose: 2000,
-      icon: <CheckCircle2 size={18} />
-    });
+    setFormErrors({});
+    toast.success("Supplier Selected", `"${sup.name}" details loaded`);
 
-    // Auto switch to general tab after short delay
-    setTimeout(() => {
-      setActiveTab("general");
-    }, 800);
+    setTimeout(() => setActiveTab("general"), 500);
   };
 
-  // Update form field
-  const updateField = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  // Update form field with sanitization
+  const updateField = useCallback((field, value, sanitizeFn = null) => {
+    const sanitizedValue = sanitizeFn ? sanitizeFn(value) : value;
+    setFormData(prev => ({ ...prev, [field]: sanitizedValue }));
+    
+    if (formErrors[field]) {
+      setFormErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  }, [formErrors]);
 
   if (!open || !supplier) return null;
 
   // Calculate form completion
-  const requiredFields = ['name', 'address', 'officePhone'];
-  const completedFields = requiredFields.filter(f => formData[f]?.trim());
+  const requiredFields = ['name', 'gst', 'drugLicense', 'address', 'officePhone'];
+  const completedFields = requiredFields.filter(f => {
+    const value = formData[f];
+    if (!value?.trim()) return false;
+    
+    // Check validation
+    switch (f) {
+      case 'gst': return validateGSTNumber(value).isValid;
+      case 'drugLicense': return validateDrugLicense(value).isValid;
+      case 'officePhone': return validatePhoneNumber(value).isValid;
+      default: return true;
+    }
+  });
   const completionPercent = Math.round((completedFields.length / requiredFields.length) * 100);
+
+  // Count errors per tab
+  const errorCountByTab = {
+    general: ['name', 'gst', 'drugLicense', 'address', 'panNumber', 'pincode'].filter(f => formErrors[f]).length,
+    contact: ['officePhone', 'email'].filter(f => formErrors[f]).length,
+    banking: ['ifsc'].filter(f => formErrors[f]).length,
+  };
+
+  const isFormSaving = isSaving || saving;
 
   return (
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 font-sans">
-          {/* Backdrop */}
           <motion.div
             className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"
             initial="hidden"
@@ -885,7 +1054,6 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
             onClick={onClose}
           />
 
-          {/* Modal Panel */}
           <motion.div
             className="relative bg-white w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden"
             variants={panelVariants}
@@ -905,7 +1073,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h1 className="text-base sm:text-lg font-bold text-white truncate">
-                        {isNew ? "Add New Supplier" : formData.name || "Edit Supplier"}
+                        {isNew ? "Add New Supplier" : isView ? formData.name || "View Supplier" : formData.name || "Edit Supplier"}
                       </h1>
                       {isNew && (
                         <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[9px] sm:text-[10px] font-semibold rounded-full flex items-center gap-1 shrink-0">
@@ -915,10 +1083,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       )}
                     </div>
                     <p className="text-indigo-200 text-xs sm:text-sm mt-0.5 truncate">
-                      {isNew 
-                        ? "Fill in the details to create a new supplier" 
-                        : `ID: ${supplier.supplierId}`
-                      }
+                      {isNew ? "Fill in the required details (*) to create" : `ID: ${supplier.supplierId || supplier.supplier_id || "N/A"}`}
                     </p>
                   </div>
                 </div>
@@ -929,7 +1094,9 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                     <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg">
                       <div className="w-16 h-1.5 bg-white/20 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-emerald-400 rounded-full transition-all duration-500"
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            completionPercent === 100 ? 'bg-emerald-400' : 'bg-amber-400'
+                          }`}
                           style={{ width: `${completionPercent}%` }}
                         />
                       </div>
@@ -943,17 +1110,14 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                   {isEdit && (
                     <button
                       onClick={handleSave}
-                      disabled={isSaving}
-                      className={`
-                        hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
-                        transition-all duration-200 shadow-sm
-                        ${isSaving 
+                      disabled={isFormSaving}
+                      className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm ${
+                        isFormSaving 
                           ? 'bg-white/20 text-white/50 cursor-not-allowed' 
                           : 'bg-white text-indigo-700 hover:bg-indigo-50 hover:shadow-md'
-                        }
-                      `}
+                      }`}
                     >
-                      {isSaving ? (
+                      {isFormSaving ? (
                         <>
                           <div className="w-4 h-4 border-2 border-indigo-300 border-t-transparent rounded-full animate-spin" />
                           <span>Saving...</span>
@@ -983,27 +1147,31 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
+                  const errorCount = errorCountByTab[tab.id] || 0;
                   
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`
-                        relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium 
-                        transition-all duration-200 whitespace-nowrap border-b-2
-                        ${isActive 
+                      className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap border-b-2 ${
+                        isActive 
                           ? 'text-indigo-700 border-indigo-600 bg-white' 
                           : 'text-slate-500 border-transparent hover:text-slate-700 hover:bg-white/50'
-                        }
-                      `}
+                      }`}
                     >
                       <Icon size={14} className={isActive ? 'text-indigo-600' : ''} />
                       <span>{tab.label}</span>
+                      
+                      {attemptedSubmit && errorCount > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-red-100 text-red-600">
+                          {errorCount}
+                        </span>
+                      )}
+                      
                       {tab.id === 'existing' && existingSuppliers.length > 0 && (
-                        <span className={`
-                          ml-1 px-1.5 py-0.5 text-[9px] font-bold rounded-full
-                          ${isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'}
-                        `}>
+                        <span className={`ml-1 px-1.5 py-0.5 text-[9px] font-bold rounded-full ${
+                          isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'
+                        }`}>
                           {existingSuppliers.length}
                         </span>
                       )}
@@ -1030,6 +1198,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       icon={Building2} 
                       title="Basic Information" 
                       subtitle="Primary supplier details"
+                      badge={attemptedSubmit && errorCountByTab.general > 0 ? `${errorCountByTab.general} error(s)` : undefined}
                     />
 
                     <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm">
@@ -1042,17 +1211,51 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                           onChange={(v) => updateField('name', v)}
                           required
                           placeholder="Enter supplier company name"
-                          error="Supplier name is required"
+                          fieldError={formErrors.name}
                         />
                         <FormField
                           label="GST Number"
                           icon={Hash}
                           value={formData.gst}
                           editable={isEdit}
-                          onChange={(v) => updateField('gst', v.toUpperCase())}
+                          onChange={(v) => updateField('gst', v, sanitizeGST)}
+                          required
                           placeholder="e.g., 27AABCA1234C1Z5"
-                          hint="15-character GST Identification Number"
-                          success={formData.gst?.length === 15}
+                          fieldError={formErrors.gst}
+                          hint="15-character GST (State Code + PAN + Entity + Z + Check)"
+                          validationFn={validateGSTNumber}
+                          sanitizeFn={sanitizeGST}
+                          inputClassName="font-mono tracking-wide uppercase"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 mt-4 sm:mt-5">
+                        <FormField
+                          label="Drug License No."
+                          icon={FileText}
+                          value={formData.drugLicense}
+                          editable={isEdit}
+                          onChange={(v) => updateField('drugLicense', v, sanitizeDrugLicense)}
+                          required
+                          placeholder="e.g., DL-DEL-20B-123456"
+                          fieldError={formErrors.drugLicense}
+                          hint="Format: DL-XXX-XXX-XXXXXX or 21B123456"
+                          validationFn={validateDrugLicense}
+                          sanitizeFn={sanitizeDrugLicense}
+                          inputClassName="font-mono tracking-wide uppercase"
+                        />
+                        <FormField
+                          label="PAN Number"
+                          icon={Hash}
+                          value={formData.panNumber}
+                          editable={isEdit}
+                          onChange={(v) => updateField('panNumber', v, sanitizePAN)}
+                          placeholder="e.g., ABCDE1234F"
+                          fieldError={formErrors.panNumber}
+                          hint="10-character PAN (5 letters + 4 digits + 1 letter)"
+                          validationFn={validatePAN}
+                          sanitizeFn={sanitizePAN}
+                          inputClassName="font-mono tracking-wide uppercase"
                         />
                       </div>
                       
@@ -1067,19 +1270,40 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                           multiline
                           rows={2}
                           placeholder="Enter complete business address"
-                          error="Address is required"
+                          fieldError={formErrors.address}
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 mt-4 sm:mt-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 mt-4 sm:mt-5">
                         <FormField
-                          label="Drug License No."
-                          icon={FileText}
-                          value={formData.drugLicense}
+                          label="City"
+                          icon={MapPin}
+                          value={formData.city}
                           editable={isEdit}
-                          onChange={(v) => updateField('drugLicense', v)}
-                          placeholder="DL-XXX-XX-XXXXXX"
+                          onChange={(v) => updateField('city', v)}
+                          placeholder="e.g., Mumbai"
                         />
+                        <FormField
+                          label="State"
+                          value={formData.state}
+                          editable={isEdit}
+                          onChange={(v) => updateField('state', v)}
+                          placeholder="e.g., Maharashtra"
+                        />
+                        <FormField
+                          label="Pincode"
+                          value={formData.pincode}
+                          editable={isEdit}
+                          onChange={(v) => updateField('pincode', v, sanitizePincode)}
+                          placeholder="e.g., 400001"
+                          fieldError={formErrors.pincode}
+                          validationFn={validatePincode}
+                          sanitizeFn={sanitizePincode}
+                          inputClassName="font-mono"
+                        />
+                      </div>
+
+                      <div className="mt-4 sm:mt-5">
                         <FormField
                           label="Website"
                           icon={Globe}
@@ -1108,6 +1332,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       icon={Phone} 
                       title="Contact Information" 
                       subtitle="Phone numbers and email"
+                      badge={attemptedSubmit && errorCountByTab.contact > 0 ? `${errorCountByTab.contact} error(s)` : undefined}
                     />
 
                     <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm">
@@ -1117,20 +1342,24 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                           icon={Phone}
                           value={formData.officePhone}
                           editable={isEdit}
-                          onChange={(v) => updateField('officePhone', v)}
+                          onChange={(v) => updateField('officePhone', v, sanitizePhone)}
                           required
                           type="tel"
-                          placeholder="e.g., 011-23456789"
-                          error="Office phone is required"
+                          placeholder="e.g., 9876543210 or 011-23456789"
+                          fieldError={formErrors.officePhone}
+                          hint="10-digit mobile or landline with STD code"
+                          validationFn={validatePhoneNumber}
+                          sanitizeFn={sanitizePhone}
                         />
                         <FormField
                           label="Mobile / Personal"
                           icon={Phone}
                           value={formData.personalPhone}
                           editable={isEdit}
-                          onChange={(v) => updateField('personalPhone', v)}
+                          onChange={(v) => updateField('personalPhone', v, sanitizePhone)}
                           type="tel"
                           placeholder="e.g., 9876543210"
+                          sanitizeFn={sanitizePhone}
                         />
                       </div>
                       
@@ -1143,7 +1372,8 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                           onChange={(v) => updateField('email', v.toLowerCase())}
                           type="email"
                           placeholder="accounts@company.com"
-                          success={formData.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)}
+                          fieldError={formErrors.email}
+                          validationFn={validateEmail}
                         />
                       </div>
                     </div>
@@ -1191,6 +1421,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       icon={Landmark} 
                       title="Banking Details" 
                       subtitle="Payment and account information"
+                      badge={attemptedSubmit && errorCountByTab.banking > 0 ? `${errorCountByTab.banking} error(s)` : undefined}
                     />
 
                     <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 p-4 sm:p-5 shadow-sm">
@@ -1221,8 +1452,9 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                           icon={CreditCard}
                           value={formData.accountNo}
                           editable={isEdit}
-                          onChange={(v) => updateField('accountNo', v)}
+                          onChange={(v) => updateField('accountNo', v, sanitizeAccountNumber)}
                           placeholder="Bank account number"
+                          sanitizeFn={sanitizeAccountNumber}
                           inputClassName="font-mono tracking-wider"
                         />
                         <FormField
@@ -1237,14 +1469,17 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       
                       <div className="mt-4 sm:mt-5">
                         <FormField
-                          label="IFSC / SWIFT Code"
+                          label="IFSC Code"
                           icon={Hash}
                           value={formData.ifsc}
                           editable={isEdit}
-                          onChange={(v) => updateField('ifsc', v.toUpperCase())}
+                          onChange={(v) => updateField('ifsc', v, sanitizeIFSC)}
                           placeholder="e.g., HDFC0001234"
-                          inputClassName="font-mono tracking-wider"
-                          hint="11-character bank branch code"
+                          fieldError={formErrors.ifsc}
+                          hint="11-character code (4 letters + 0 + 6 alphanumeric)"
+                          validationFn={validateIFSC}
+                          sanitizeFn={sanitizeIFSC}
+                          inputClassName="font-mono tracking-wider uppercase"
                         />
                       </div>
                     </div>
@@ -1256,26 +1491,28 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                     />
 
                     <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-sm">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
                         <FormField
                           label="Credit Days"
                           icon={Clock}
                           value={formData.creditDays}
                           editable={isEdit}
-                          onChange={(v) => updateField('creditDays', v)}
-                          type="number"
+                          onChange={(v) => updateField('creditDays', v, sanitizeNumber)}
+                          type="text"
                           placeholder="30"
                           hint="Default credit period"
+                          sanitizeFn={sanitizeNumber}
                         />
                         <FormField
-                          label="Credit Limit"
+                          label="Credit Limit (₹)"
                           icon={CreditCard}
                           value={formData.creditLimit}
                           editable={isEdit}
-                          onChange={(v) => updateField('creditLimit', v)}
-                          type="number"
+                          onChange={(v) => updateField('creditLimit', v, sanitizeNumber)}
+                          type="text"
                           placeholder="100000"
                           hint="Maximum credit amount"
+                          sanitizeFn={sanitizeNumber}
                         />
                         <FormField
                           label="Payment Mode"
@@ -1284,14 +1521,13 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                           editable={isEdit}
                           onChange={(v) => updateField('paymentMode', v)}
                           placeholder="NEFT / RTGS / Cheque"
-                          className="sm:col-span-2 lg:col-span-1"
                         />
                       </div>
                     </div>
                   </motion.div>
                 )}
 
-                {/* ✅ EXISTING SUPPLIERS TAB - WITH RESPONSIVE TABLE */}
+                {/* Existing Suppliers Tab */}
                 {activeTab === "existing" && (
                   <motion.div
                     key="existing"
@@ -1308,7 +1544,6 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       badge={`${filteredSuppliers.length} suppliers`}
                     />
 
-                    {/* Search Bar */}
                     <div className="relative">
                       <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                         <Search size={16} />
@@ -1317,22 +1552,19 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search by name, GST, phone, location..."
-                        className="w-full h-10 pl-10 pr-10 bg-white border border-slate-200 rounded-xl text-sm
-                          focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400
-                          transition-all duration-200 shadow-sm placeholder:text-slate-400"
+                        placeholder="Search by name or GST..."
+                        className="w-full h-10 pl-10 pr-10 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all duration-200 shadow-sm"
                       />
                       {searchQuery && (
                         <button
                           onClick={() => setSearchQuery("")}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"
                         >
                           <X size={14} className="text-slate-400" />
                         </button>
                       )}
                     </div>
 
-                    {/* ✅ RESPONSIVE SUPPLIER TABLE */}
                     <SupplierTable
                       suppliers={filteredSuppliers}
                       selectedId={selectedSupplierId}
@@ -1343,15 +1575,11 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
                       isMobile={isMobile}
                     />
 
-                    {/* Quick Add Option */}
                     {isEdit && (
                       <div className="pt-2">
                         <button
                           onClick={() => setActiveTab("general")}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 
-                            border-2 border-dashed border-slate-300 rounded-xl
-                            text-slate-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/50
-                            transition-all duration-200 text-sm font-medium"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all duration-200 text-sm font-medium"
                         >
                           <Plus size={16} />
                           <span>Or add new supplier details manually</span>
@@ -1365,36 +1593,30 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
 
             {/* Footer */}
             <div className="shrink-0 bg-slate-50 border-t border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-              <div className="text-xs text-slate-500 hidden sm:block">
-                {isEdit && (
-                  <span className="flex items-center gap-1.5">
-                    <AlertCircle size={12} />
-                    Fields marked with <span className="text-red-500 font-medium">*</span> are required
-                  </span>
-                )}
+              <div className="text-xs text-slate-500 hidden sm:flex items-center gap-1.5">
+                <AlertCircle size={12} />
+                Fields marked with <span className="text-red-500 font-medium">*</span> are required
               </div>
               
               <div className="flex items-center gap-2 ml-auto">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                  disabled={isFormSaving}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  Cancel
+                  {isView ? 'Close' : 'Cancel'}
                 </button>
                 {isEdit && (
                   <button
                     onClick={handleSave}
-                    disabled={isSaving}
-                    className={`
-                      flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold
-                      transition-all duration-200 shadow-sm
-                      ${isSaving 
+                    disabled={isFormSaving}
+                    className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm ${
+                      isFormSaving 
                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
                         : 'bg-[#05015A] text-white hover:bg-indigo-700 hover:shadow-md'
-                      }
-                    `}
+                    }`}
                   >
-                    {isSaving ? (
+                    {isFormSaving ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         <span>Saving...</span>
@@ -1417,4 +1639,3 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave }) => {
 };
 
 export default SupplierModal;
-

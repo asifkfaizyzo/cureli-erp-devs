@@ -7,6 +7,7 @@ import {
   Search,
   X,
   ChevronUp,
+  ChevronDown,
   Clock,
   Wallet,
   Receipt,
@@ -16,7 +17,7 @@ import {
   Plus,
   Phone,
   AlertCircle,
-  CreditCard  // ✅ ADDED
+  CreditCard
 } from "lucide-react";
 
 // ============================================
@@ -36,7 +37,7 @@ const SkeletonInput = ({ delay = 0 }) => (
 );
 
 // ============================================
-// ANIMATED INPUT COMPONENT
+// ANIMATED INPUT COMPONENT (FIXED)
 // ============================================
 const AnimatedInput = ({ 
   label, 
@@ -62,10 +63,10 @@ const AnimatedInput = ({
     <div className={`relative ${className}`}>
       <label 
         className={`
-          absolute left-3 transition-all duration-200 pointer-events-none z-10
+          absolute transition-all duration-200 pointer-events-none z-10
           ${isFocused || hasValue 
-            ? '-top-2 text-[9px] bg-white px-1 font-semibold' 
-            : 'top-1/2 -translate-y-1/2 text-[10px]'
+            ? '-top-2 text-[9px] bg-white px-1 font-semibold left-2' 
+            : `top-1/2 -translate-y-1/2 text-[10px] ${Icon && prefix ? 'left-12' : Icon ? 'left-8' : prefix ? 'left-7' : 'left-3'}`
           }
           ${isFocused 
             ? 'text-indigo-600' 
@@ -77,7 +78,6 @@ const AnimatedInput = ({
                   ? 'text-indigo-600'
                   : 'text-gray-500'
           }
-          ${Icon ? 'left-8' : 'left-3'}
         `}
       >
         {label}
@@ -93,7 +93,11 @@ const AnimatedInput = ({
       )}
       
       {prefix && (
-        <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-[11px] ${Icon ? 'left-8' : 'left-3'} ${highlight ? 'text-indigo-500 font-medium' : 'text-gray-400'}`}>
+        <span className={`
+          absolute top-1/2 -translate-y-1/2 text-[11px] font-medium
+          ${Icon ? 'left-8' : 'left-3'} 
+          ${highlight ? 'text-indigo-500' : 'text-gray-400'}
+        `}>
           {prefix}
         </span>
       )}
@@ -108,9 +112,8 @@ const AnimatedInput = ({
         onBlur={() => setIsFocused(false)}
         className={`
           w-full h-9 text-[11px] rounded-lg border transition-all duration-200 outline-none
-          ${Icon ? 'pl-8' : 'pl-3'} 
-          ${suffix ? 'pr-8' : 'pr-3'}
-          ${prefix && Icon ? 'pl-12' : prefix ? 'pl-7' : ''}
+          ${Icon && prefix ? 'pl-12' : Icon ? 'pl-8' : prefix ? 'pl-7' : 'pl-3'}
+          ${suffix ? 'pr-12' : success ? 'pr-8' : 'pr-3'}
           ${readOnly 
             ? 'bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed' 
             : isFocused
@@ -135,9 +138,82 @@ const AnimatedInput = ({
         </span>
       )}
       
-      {success && (
+      {success && !suffix && (
         <CheckCircle2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
       )}
+    </div>
+  );
+};
+
+// ============================================
+// ANIMATED SELECT COMPONENT (FIXED - Always has label up when value exists)
+// ============================================
+const AnimatedSelect = ({ 
+  label, 
+  value, 
+  onChange, 
+  options = [],
+  icon: Icon,
+  className = "",
+  placeholder = "Select..."
+}) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const hasValue = value && value.length > 0;
+  
+  return (
+    <div className={`relative ${className}`}>
+      {/* Label - Always up when has value */}
+      <label 
+        className={`
+          absolute transition-all duration-200 pointer-events-none z-10
+          ${isFocused || hasValue 
+            ? '-top-2 text-[9px] bg-white px-1 font-semibold left-2' 
+            : 'top-1/2 -translate-y-1/2 text-[10px] left-8'
+          }
+          ${isFocused ? 'text-indigo-600' : hasValue ? 'text-gray-600' : 'text-gray-500'}
+        `}
+      >
+        {label}
+      </label>
+      
+      {Icon && (
+        <div className={`
+          absolute left-2.5 top-1/2 -translate-y-1/2 transition-colors duration-200 z-10
+          ${isFocused ? 'text-indigo-500' : 'text-gray-400'}
+        `}>
+          <Icon size={14} strokeWidth={1.5} />
+        </div>
+      )}
+      
+      <select
+        value={value || ""}
+        onChange={onChange}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        className={`
+          w-full h-9 pl-8 pr-8 text-[11px] rounded-lg border transition-all duration-200 outline-none
+          appearance-none cursor-pointer bg-white
+          ${isFocused
+            ? 'border-indigo-400 ring-2 ring-indigo-100'
+            : hasValue
+              ? 'border-gray-300'
+              : 'border-gray-200 hover:border-gray-300'
+          }
+          ${hasValue ? 'font-medium text-gray-800' : 'text-gray-400'}
+        `}
+      >
+        <option value="" disabled>{placeholder}</option>
+        {options.map(opt => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      
+      <ChevronDown 
+        size={14} 
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+      />
     </div>
   );
 };
@@ -229,13 +305,12 @@ const SearchableSelect = ({
     <div ref={containerRef} className={`relative ${className}`}>
       <label 
         className={`
-          absolute left-3 transition-all duration-200 pointer-events-none z-20
+          absolute transition-all duration-200 pointer-events-none z-20
           ${isFocused || hasValue || isOpen
-            ? '-top-2 text-[9px] bg-white px-1 font-semibold' 
-            : 'top-1/2 -translate-y-1/2 text-[10px]'
+            ? '-top-2 text-[9px] bg-white px-1 font-semibold left-2' 
+            : 'top-1/2 -translate-y-1/2 text-[10px] left-8'
           }
           ${isFocused || isOpen ? 'text-indigo-600' : 'text-gray-500'}
-          ${Icon ? 'left-8' : 'left-3'}
         `}
       >
         {label}
@@ -438,10 +513,10 @@ const DateInput = ({ label, value, onChange, className = "" }) => {
     <div className={`relative ${className}`}>
       <label 
         className={`
-          absolute left-8 transition-all duration-200 pointer-events-none z-10
+          absolute transition-all duration-200 pointer-events-none z-10
           ${isFocused || hasValue 
-            ? '-top-2 text-[9px] bg-white px-1 font-semibold' 
-            : 'top-1/2 -translate-y-1/2 text-[10px]'
+            ? '-top-2 text-[9px] bg-white px-1 font-semibold left-2' 
+            : 'top-1/2 -translate-y-1/2 text-[10px] left-8'
           }
           ${isFocused ? 'text-indigo-600' : 'text-gray-500'}
         `}
@@ -475,6 +550,23 @@ const DateInput = ({ label, value, onChange, className = "" }) => {
 };
 
 // ============================================
+// PAYMENT MODE OPTIONS (NO EMOJIS)
+// ============================================
+const PAYMENT_MODE_OPTIONS = [
+  { value: "CASH", label: "Cash" },
+  { value: "CARD", label: "Card" },
+  { value: "UPI", label: "UPI" },
+  { value: "CHEQUE", label: "Cheque" },
+  { value: "BANK_TRANSFER", label: "Bank Transfer" },
+  { value: "CREDIT", label: "Credit" }
+];
+
+// ============================================
+// DEFAULT PAYMENT MODE
+// ============================================
+const DEFAULT_PAYMENT_MODE = "CASH";
+
+// ============================================
 // MAIN COMPONENT
 // ============================================
 const SupplierDetailsCard = ({ 
@@ -483,11 +575,18 @@ const SupplierDetailsCard = ({
   suppliersList = [], 
   onSupplierSelect,
   onAddNewSupplier,
-  onFieldChange, // ✅ Prop for field changes
+  onFieldChange,
   isLoading = false,
   isLocked = false,
 }) => {
-  // ✅ UPDATED: Use onFieldChange if provided, otherwise update directly
+  
+  // ✅ Set default payment mode on mount if not already set
+  useEffect(() => {
+    if (!supplier.paymentMode) {
+      updateField("paymentMode", DEFAULT_PAYMENT_MODE);
+    }
+  }, []); // Run only once on mount
+
   const updateField = (field, value) => {
     if (onFieldChange) {
       onFieldChange(field, value);
@@ -512,7 +611,6 @@ const SupplierDetailsCard = ({
         address: selectedSupplier.address || "",
       };
 
-      // Update all fields at once
       setSupplier(prev => ({ ...prev, ...updates }));
       onSupplierSelect?.(selectedSupplier);
     }
@@ -524,7 +622,6 @@ const SupplierDetailsCard = ({
   if (isLoading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full h-full flex flex-col overflow-hidden">
-        {/* Header Skeleton */}
         <div className="bg-gradient-to-r from-gray-100 to-gray-50 px-4 py-2.5 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-slate-200 animate-pulse" />
@@ -535,16 +632,13 @@ const SupplierDetailsCard = ({
           </div>
         </div>
 
-        {/* Body Skeleton */}
         <div className="p-4 flex flex-col gap-4 flex-1">
-          {/* Row 1 */}
           <div className="grid grid-cols-5 gap-3">
             {[0, 1, 2, 3, 4].map((i) => (
               <SkeletonInput key={`row1-${i}`} delay={i * 50} />
             ))}
           </div>
 
-          {/* Row 2 - 6 columns */}
           <div className="grid grid-cols-6 gap-3">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <SkeletonInput key={`row2-${i}`} delay={(i + 5) * 50} />
@@ -554,6 +648,9 @@ const SupplierDetailsCard = ({
       </div>
     );
   }
+
+  // ✅ Use the supplier's paymentMode or default to CASH
+  const currentPaymentMode = supplier.paymentMode || DEFAULT_PAYMENT_MODE;
 
   // ============================================
   // NORMAL RENDER
@@ -572,20 +669,19 @@ const SupplierDetailsCard = ({
             <p className="text-[9px] text-gray-500">Invoice & Payment Information</p>
           </div>
           {suppliersList.length > 0 && (
-  <div className="flex items-center gap-1.5">
-    <div className="flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded text-[9px] text-green-700 font-medium">
-      <CheckCircle2 size={10} />
-      {suppliersList.length} suppliers
-    </div>
-    {/* ✅ NEW: Show if filtered by branch */}
-    {!isLocked && (
-      <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[9px] text-blue-700 font-medium">
-        <Building2 size={10} />
-        Branch filtered
-      </div>
-    )}
-  </div>
-)}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded text-[9px] text-green-700 font-medium">
+                <CheckCircle2 size={10} />
+                {suppliersList.length} suppliers
+              </div>
+              {!isLocked && (
+                <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-[9px] text-blue-700 font-medium">
+                  <Building2 size={10} />
+                  Branch filtered
+                </div>
+              )}
+            </div>
+          )}
           {suppliersList.length === 0 && (
             <div className="flex items-center gap-1 px-2 py-1 bg-red-100 border border-red-200 rounded text-[9px] text-red-700 font-medium">
               <AlertCircle size={10} />
@@ -650,7 +746,7 @@ const SupplierDetailsCard = ({
           />
         </div>
 
-        {/* Row 2 - ✅ UPDATED to 6 columns */}
+        {/* Row 2 - 6 columns */}
         <div className="grid grid-cols-6 gap-3">
           <AnimatedInput
             label="Supplier GST"
@@ -680,49 +776,17 @@ const SupplierDetailsCard = ({
             suffix="days"
           />
 
-          {/* ✅ NEW: Payment Mode Select */}
-          <div className="relative">
-            <label 
-              className={`
-                absolute left-3 transition-all duration-200 pointer-events-none z-10
-                ${supplier.paymentMode 
-                  ? '-top-2 text-[9px] bg-white px-1 font-semibold text-indigo-600' 
-                  : 'top-1/2 -translate-y-1/2 text-[10px] text-gray-500'
-                }
-                left-8
-              `}
-            >
-              Payment Mode
-            </label>
-            
-            <div className={`
-              absolute left-2.5 top-1/2 -translate-y-1/2 transition-colors duration-200
-              ${supplier.paymentMode ? 'text-indigo-500' : 'text-gray-400'}
-            `}>
-              <CreditCard size={14} strokeWidth={1.5} />
-            </div>
-            
-            <select
-              value={supplier.paymentMode || ""}
-              onChange={(e) => updateField("paymentMode", e.target.value)}
-              className={`
-                w-full h-9 pl-8 pr-3 text-[11px] rounded-lg border transition-all duration-200 outline-none
-                ${supplier.paymentMode
-                  ? 'border-indigo-400 ring-2 ring-indigo-100 bg-white font-medium'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
-                }
-              `}
-            >
-              <option value="">Select...</option>
-              <option value="CASH">💵 Cash</option>
-              <option value="CARD">💳 Card</option>
-              <option value="UPI">📱 UPI</option>
-              <option value="CHEQUE">📝 Cheque</option>
-              <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
-              <option value="CREDIT">📋 Credit</option>
-            </select>
-          </div>
+          {/* ✅ Payment Mode - With Default Value */}
+          <AnimatedSelect
+            label="Payment Mode"
+            value={currentPaymentMode}
+            onChange={(e) => updateField("paymentMode", e.target.value)}
+            options={PAYMENT_MODE_OPTIONS}
+            icon={CreditCard}
+            placeholder="Select mode..."
+          />
           
+          {/* Amount Paid */}
           <AnimatedInput
             label="Amount Paid"
             value={supplier.amountPaid}
