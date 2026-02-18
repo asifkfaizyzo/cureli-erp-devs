@@ -1,6 +1,6 @@
-// frontend/src/pages/purchase/returns/PurchaseReturnsPage.jsx
+// frontend/src/pages/sales/returns/SalesReturnsPage.jsx
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef,useCallback } from "react";
 import {
   Package,
   Search,
@@ -17,10 +17,12 @@ import {
   FileText,
   Ban,
   X,
+  Layers,
+  Info,
 } from "lucide-react";
 import { useToast } from "../../../components/common/Toast";
 import purchaseAPI from "../../../api/purchase";
-import { useAuthStore } from "../../../store/useAuthStore";
+import { useAuthStore, selectBranchContext, selectIsSuperAdmin } from "../../../store/useAuthStore";
 import ViewReturnModal from "./components/ViewReturnModal";
 import ReturnsTable from "./components/ReturnsTable";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
@@ -79,6 +81,44 @@ const formatDate = (dateString) => {
     month: "short",
     year: "numeric",
   });
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// ✅ NEW: BRANCH CONTEXT BANNER
+// ════════════════════════════════════════════════════════════════════════════
+
+const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
+  if (isGlobalMode) {
+    return (
+      <div className="px-4 py-2 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+        <div className="flex items-center gap-2 text-sm text-blue-700">
+          <Layers size={16} className="text-blue-500" />
+          <span>Viewing returns from <strong>All Branches</strong></span>
+          <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">
+            Combined View
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-blue-600">
+          <Info size={12} />
+          <span>Select a specific branch to create or approve returns</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 py-2 flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+      <div className="flex items-center gap-2 text-sm text-green-700">
+        <Building2 size={16} className="text-green-500" />
+        <span>Viewing returns for <strong>{branchName || "Selected Branch"}</strong></span>
+        {itemCount > 0 && (
+          <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">
+            {itemCount} returns
+          </span>
+        )}
+      </div>
+    </div>
+  );
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -383,10 +423,23 @@ const StatsCards = ({ stats }) => {
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
-const PurchaseReturnsPage = () => {
+const SalesReturnsPage = () => {
   const toast = useToast();
-  const { user } = useAuthStore();
-  const isSuperAdmin = user?.role === "super_admin";
+  
+  // ✅ NEW: Branch context from store
+  const branchContext = useAuthStore(selectBranchContext);
+  const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
+  const user = useAuthStore(state => state.user);
+  
+  const isGlobalMode = branchContext.mode === "GLOBAL";
+  const currentBranchId = branchContext.branch_id;
+  const currentBranchName = branchContext.branch_name;
+
+  // ✅ NEW: Track branch changes
+  const prevBranchRef = useRef({
+    mode: branchContext.mode,
+    branch_id: branchContext.branch_id
+  });
 
   // State
   const [returns, setReturns] = useState([]);
@@ -394,6 +447,9 @@ const PurchaseReturnsPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  
+  // ✅ NEW: Branch switching loading state
+  const [isBranchSwitching, setIsBranchSwitching] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -450,13 +506,16 @@ const PurchaseReturnsPage = () => {
   }, [returns, total]);
 
   // ══════════════════════════════════════════════════════════════════════
-  // LOAD RETURNS
+  // ✅ UPDATED: LOAD RETURNS - with branch switching support
   // ══════════════════════════════════════════════════════════════════════
 
-  const loadReturns = async (showLoader = true) => {
+  const loadReturns = useCallback(async (showBranchSwitchingState = false) => {
     try {
-      if (showLoader) setLoading(true);
-      else setRefreshing(true);
+      if (showBranchSwitchingState) {
+        setIsBranchSwitching(true);
+      } else {
+        setLoading(true);
+      }
 
       const params = { ...filters };
 
@@ -467,6 +526,13 @@ const PurchaseReturnsPage = () => {
         }
       });
 
+      console.log("📦 Loading returns with branch context:", {
+        mode: branchContext.mode,
+        branch_id: branchContext.branch_id,
+        branch_name: branchContext.branch_name,
+        filters: params
+      });
+
       const response = await purchaseAPI.getAllReturns(params);
       setReturns(response.data?.returns || []);
       setTotal(response.data?.total || 0);
@@ -475,11 +541,47 @@ const PurchaseReturnsPage = () => {
       toast.error("Failed to Load Returns", error.response?.data?.message || error.message);
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      setIsBranchSwitching(false);
     }
-  };
+  }, [filters, branchContext.mode, branchContext.branch_id, toast]);
 
-  // Effects
+  // ✅ NEW: Watch for branch changes
+  useEffect(() => {
+    const prevBranch = prevBranchRef.current;
+    const branchChanged = 
+      prevBranch.mode !== branchContext.mode || 
+      prevBranch.branch_id !== branchContext.branch_id;
+    
+    if (branchChanged) {
+      console.log("🔄 Branch changed detected in Returns page:", {
+        from: prevBranch,
+        to: {
+          mode: branchContext.mode,
+          branch_id: branchContext.branch_id
+        }
+      });
+
+      prevBranchRef.current = {
+        mode: branchContext.mode,
+        branch_id: branchContext.branch_id
+      };
+      
+      // Clear current data
+      setReturns([]);
+      
+      // Show appropriate toast
+      if (branchContext.mode === "GLOBAL") {
+        toast.info("Switched to All Branches", "Loading combined returns data...");
+      } else if (branchContext.branch_name) {
+        toast.info("Branch Changed", `Loading returns for ${branchContext.branch_name}...`);
+      }
+      
+      // Reload with branch switching indicator
+      loadReturns(true);
+    }
+  }, [branchContext.mode, branchContext.branch_id, branchContext.branch_name, toast, loadReturns]);
+
+  // Initial load and filter changes
   useEffect(() => {
     loadReturns();
   }, [filters.startDate, filters.endDate, filters.approvalStatus]);
@@ -678,19 +780,36 @@ const PurchaseReturnsPage = () => {
 
   return (
     <div className="h-full flex flex-col p-4 max-w-[1800px] mx-auto">
+      {/* ✅ NEW: Branch Context Banner */}
+      {isSuperAdmin && (
+        <BranchContextBanner 
+          isGlobalMode={isGlobalMode}
+          branchName={currentBranchName}
+          itemCount={total}
+        />
+      )}
+
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between mb-4">
+      <div className="shrink-0 flex items-center justify-between mb-4 mt-4">
         <div>
           <h1 className="text-2xl font-bold text-[#000060]">Purchase Returns</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Manage product returns and approval workflow</p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Manage product returns and approval workflow
+            {isSuperAdmin && (
+              <span className="ml-2 text-amber-600 font-medium">• Super Admin Mode</span>
+            )}
+            {isGlobalMode && (
+              <span className="ml-2 text-blue-600 font-medium">• Viewing All Branches</span>
+            )}
+          </p>
         </div>
 
         <button
           onClick={handleRefresh}
-          disabled={refreshing || actionLoading}
+          disabled={refreshing || actionLoading || isBranchSwitching}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#000060] text-white text-sm font-medium hover:bg-[#000060]/90 transition-colors disabled:opacity-50 shadow-lg shadow-[#000060]/20"
         >
-          <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+          <RefreshCw size={16} className={refreshing || isBranchSwitching ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
@@ -717,7 +836,22 @@ const PurchaseReturnsPage = () => {
       </div>
 
       {/* Table - Takes remaining space */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 relative">
+        {/* ✅ Branch switching overlay */}
+        {isBranchSwitching && (
+          <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center rounded-lg">
+            <div className="flex flex-col items-center gap-3 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
+              <div className="w-10 h-10 border-4 border-[#000060] border-t-transparent rounded-full animate-spin" />
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-700">Switching Branch</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Loading returns for {isGlobalMode ? "all branches" : currentBranchName}...
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <ReturnsTable
           data={filteredReturns}
           loading={loading}
@@ -763,4 +897,4 @@ const PurchaseReturnsPage = () => {
   );
 };
 
-export default PurchaseReturnsPage;
+export default SalesReturnsPage;
