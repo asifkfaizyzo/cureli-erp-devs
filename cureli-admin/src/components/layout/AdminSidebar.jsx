@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   UserStar,
   MessageSquare,
+  ClipboardList, // ✅ NEW: For Orders icon
 } from "lucide-react";
 
 import { useMenuStore } from "../../store/useMenuStore";
@@ -20,7 +21,6 @@ import { useMenuStore } from "../../store/useMenuStore";
 /* ───────────────── Sidebar Width Config ───────────────── */
 const COLLAPSED_WIDTH = 72;
 
-// Responsive expanded widths based on screen width
 const EXPANDED_WIDTH_CONFIG = {
   "2xl": 280,
   xl: 220,
@@ -71,6 +71,14 @@ const MENU_ITEMS = [
     icon: HousePlus,
     path: "/shops",
     breadcrumbs: ["Shops"],
+  },
+  // ✅ NEW: Orders Menu Item
+  {
+    id: "orders",
+    label: "Orders",
+    icon: ClipboardList,
+    path: "/orders",
+    breadcrumbs: ["Orders"],
   },
   {
     id: "verification",
@@ -138,14 +146,28 @@ const CHILD_ROUTES = {
     parentId: "subscriptions",
     breadcrumbs: ["Subscriptions", "Plans"],
   },
+  // ✅ NEW: Orders child routes
+  "/orders/sessions": {
+    parentId: "orders",
+    breadcrumbs: ["Orders", "Sessions"],
+  },
+  "/orders/pending": {
+    parentId: "orders",
+    breadcrumbs: ["Orders", "Pending"],
+  },
+  "/orders/completed": {
+    parentId: "orders",
+    breadcrumbs: ["Orders", "Completed"],
+  },
+  "/orders/details": {
+    parentId: "orders",
+    breadcrumbs: ["Orders", "Details"],
+  },
 };
 
 /* ───────────────── NON-SIDEBAR ROUTES ───────────────── */
-// Routes that are valid but don't appear in sidebar
-// These won't trigger a redirect to dashboard
 const NON_SIDEBAR_ROUTES = [
   "/notifications",
-  // Add more non-sidebar routes here as needed
 ];
 
 /* ───────────────── Menu Item Component ───────────────── */
@@ -235,12 +257,10 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
   useEffect(() => {
     const currentPath = location.pathname;
 
-    // Skip sync for non-sidebar routes (handled by AppLayout)
     if (NON_SIDEBAR_ROUTES.includes(currentPath)) {
       return;
     }
 
-    // Check child routes first
     const childRoute = CHILD_ROUTES[currentPath];
     if (childRoute) {
       setActiveMenu(childRoute.parentId);
@@ -248,7 +268,6 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       return;
     }
 
-    // Check main menu items
     for (const item of MENU_ITEMS) {
       if (item.path === currentPath) {
         setActiveMenu(item.id);
@@ -262,33 +281,24 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
   useEffect(() => {
     const currentPath = location.pathname;
 
-    // Check if it's a valid main menu route
     const isValidMain = MENU_ITEMS.some((m) => m.path === currentPath);
-    
-    // Check if it's a valid child route
     const isValidChild = Object.keys(CHILD_ROUTES).includes(currentPath);
-    
-    // Check if it's a valid non-sidebar route
     const isNonSidebarRoute = NON_SIDEBAR_ROUTES.includes(currentPath);
 
-    // If any of these are true, route is valid
     if (isValidMain || isValidChild || isNonSidebarRoute) {
       return;
     }
 
-    // Build list of all valid path prefixes
     const allValidPaths = [
       ...MENU_ITEMS.map((m) => m.path),
       ...Object.keys(CHILD_ROUTES),
       ...NON_SIDEBAR_ROUTES,
     ];
 
-    // Check if current path starts with any valid path (for nested routes)
     const isPartialMatch = allValidPaths.some((p) =>
       currentPath.startsWith(p)
     );
 
-    // Only redirect if completely invalid
     if (!isPartialMatch) {
       setActiveMenu("dashboard");
       setBreadcrumbs(["Dashboard"]);

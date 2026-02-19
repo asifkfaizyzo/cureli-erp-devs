@@ -23,7 +23,13 @@ import {
   UserCircle,
   CreditCard,
   AlertTriangle,
-  RotateCcw, // ✅ NEW: For Returns icon
+  RotateCcw,
+  ShoppingBag,
+  ClipboardList, // ✅ NEW: For Orders icon
+  Clock, // ✅ NEW: For Sessions icon
+  ListOrdered, // ✅ NEW: For All Orders
+  CheckCircle2, // ✅ NEW: For Completed Orders
+  Loader2, // ✅ NEW: For Pending Orders
 } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 import { useMenuPermissions } from "../../hooks/usePermission";
@@ -116,8 +122,6 @@ const MenuItem = ({
   const needsRenewal = useSubscriptionStore(selectNeedsRenewal);
 
   // Determine when to show the badge on parent item
-  // Show on icon: when collapsed OR when not selected (another menu is active)
-  // Show on text: when expanded AND not selected
   const showBadgeOnIcon = showRenewalBadge && !isExpanded && !isSelected;
   const showBadgeOnText = showRenewalBadge && isExpanded && !isSelected;
 
@@ -143,14 +147,12 @@ const MenuItem = ({
           <div className="relative">
             <Icon size={20} />
             
-            {/* Badge on icon: when collapsed OR another option is selected */}
             {showBadgeOnIcon && (
               <span className="absolute -top-1.5 -right-1.5">
                 <RenewalBadge size="xs" />
               </span>
             )}
             
-            {/* Warning icon for disabled write routes */}
             {isDisabled && !isParent && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full ring-2 ring-white flex items-center justify-center">
                 <AlertTriangle size={8} className="text-white" />
@@ -169,7 +171,6 @@ const MenuItem = ({
         >
           {item.label}
           
-          {/* Badge next to text: when expanded AND another option is selected */}
           {showBadgeOnText && (
             <RenewalBadge size="sm" />
           )}
@@ -187,7 +188,6 @@ const MenuItem = ({
           </motion.div>
         )}
 
-        {/* Disabled indicator for write routes */}
         {isDisabled && isExpanded && !isParent && (
           <motion.span
             initial={{ opacity: 0, scale: 0.8 }}
@@ -208,65 +208,64 @@ const MenuItem = ({
             exit="hidden"
             className="ml-4 mt-1 pl-4 border-l border-gray-200 flex flex-col gap-1"
           >
-           {item.submenu.map((sub) => {
-  const SubIcon = sub.icon;
-  const isSubActive = activeMenu === sub.id;
-  
-  const subShowBadge = isSuperAdmin && needsRenewal && sub.id === "settings-profile";
-  const hasBadge = sub.badge !== null && sub.badge !== undefined; // ✅ NEW
-  
-  const isSubWriteRoute = WRITE_ROUTES.includes(sub.path);
-  const isSubDisabled = isSubWriteRoute && isSuperAdmin && isGlobalMode;
+            {item.submenu.map((sub) => {
+              const SubIcon = sub.icon;
+              const isSubActive = activeMenu === sub.id;
+              
+              const subShowBadge = isSuperAdmin && needsRenewal && sub.id === "settings-profile";
+              const hasBadge = sub.badge !== null && sub.badge !== undefined;
+              
+              const isSubWriteRoute = WRITE_ROUTES.includes(sub.path);
+              const isSubDisabled = isSubWriteRoute && isSuperAdmin && isGlobalMode;
 
-  return (
-    <motion.button
-      key={sub.id}
-      onClick={(e) => {
-        e.stopPropagation();
-        onNavigate(sub, isSubDisabled, "Select a branch to create transactions");
-      }}
-      disabled={isSubDisabled}
-      className={`
-        flex items-center h-9 px-3 rounded-lg text-sm relative
-        ${isSubDisabled
-          ? "opacity-50 cursor-not-allowed bg-gray-50/50"
-          : isSubActive
-            ? "bg-blue-50 text-[#05015A]"
-            : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-        }
-      `}
-      whileHover={isSubDisabled ? {} : { x: 4 }}
-    >
-      <div className="relative mr-2">
-        <SubIcon size={16} className="opacity-70" />
-        {isSubDisabled && (
-          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full flex items-center justify-center">
-            <AlertTriangle size={6} className="text-white" />
-          </span>
-        )}
-      </div>
-      
-      <span className="flex items-center gap-2 flex-1">
-        {sub.label}
-        
-        {subShowBadge && <RenewalBadge size="sm" />}
-        
-        {/* ✅ NEW: Badge for pending returns */}
-        {hasBadge && (
-          <span className="ml-auto px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] text-center animate-pulse">
-            {sub.badge}
-          </span>
-        )}
-      </span>
-      
-      {isSubDisabled && (
-        <span className="ml-auto px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-bold rounded">
-          BRANCH
-        </span>
-      )}
-    </motion.button>
-  );
-})}
+              return (
+                <motion.button
+                  key={sub.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigate(sub, isSubDisabled, "Select a branch to create transactions");
+                  }}
+                  disabled={isSubDisabled}
+                  className={`
+                    flex items-center h-9 px-3 rounded-lg text-sm relative
+                    ${isSubDisabled
+                      ? "opacity-50 cursor-not-allowed bg-gray-50/50"
+                      : isSubActive
+                        ? "bg-blue-50 text-[#05015A]"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                    }
+                  `}
+                  whileHover={isSubDisabled ? {} : { x: 4 }}
+                >
+                  <div className="relative mr-2">
+                    <SubIcon size={16} className="opacity-70" />
+                    {isSubDisabled && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full flex items-center justify-center">
+                        <AlertTriangle size={6} className="text-white" />
+                      </span>
+                    )}
+                  </div>
+                  
+                  <span className="flex items-center gap-2 flex-1">
+                    {sub.label}
+                    
+                    {subShowBadge && <RenewalBadge size="sm" />}
+                    
+                    {hasBadge && (
+                      <span className="ml-auto px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] text-center animate-pulse">
+                        {sub.badge}
+                      </span>
+                    )}
+                  </span>
+                  
+                  {isSubDisabled && (
+                    <span className="ml-auto px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-bold rounded">
+                      BRANCH
+                    </span>
+                  )}
+                </motion.button>
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>
@@ -278,7 +277,8 @@ const MenuItem = ({
 const Sidebar = () => {
   const [hovered, setHovered] = useState(false);
   const [openMenuId, setOpenMenuId] = useState("");
-  const [pendingReturnsCount, setPendingReturnsCount] = useState(0); // ✅ NEW
+  const [pendingReturnsCount, setPendingReturnsCount] = useState(0);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0); // ✅ NEW: For pending orders
 
   const isManualToggle = useRef(false);
 
@@ -299,7 +299,7 @@ const Sidebar = () => {
 
   const isExpanded = hovered;
 
-  // ✅ NEW: Load pending returns count
+  // Load pending returns count
   useEffect(() => {
     const loadPendingReturnsCount = async () => {
       try {
@@ -317,10 +317,36 @@ const Sidebar = () => {
 
     loadPendingReturnsCount();
 
-    // Refresh every 30 seconds if super admin
     let interval;
     if (isSuperAdmin) {
       interval = setInterval(loadPendingReturnsCount, 30000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isSuperAdmin]);
+
+  // ✅ NEW: Load pending orders count
+  useEffect(() => {
+    const loadPendingOrdersCount = async () => {
+      try {
+        // Replace with your actual API call
+        // const response = await ordersAPI.getPendingOrders({ limit: 1000 });
+        // const count = response.data?.total || 0;
+        // setPendingOrdersCount(count);
+        setPendingOrdersCount(0); // Placeholder - replace with actual API
+      } catch (error) {
+        console.error("Failed to load pending orders count:", error);
+        setPendingOrdersCount(0);
+      }
+    };
+
+    loadPendingOrdersCount();
+
+    let interval;
+    if (isSuperAdmin) {
+      interval = setInterval(loadPendingOrdersCount, 30000);
     }
 
     return () => {
@@ -334,9 +360,8 @@ const Sidebar = () => {
     }
   }, [isSuperAdmin, loadSubscriptionStatus]);
 
-
   /* ───────────── menu data with permission keys ───────────── */
-   const allMenuItems = useMemo(() => [
+  const allMenuItems = useMemo(() => [
     {
       id: "dashboard",
       label: "Dashboard",
@@ -368,13 +393,12 @@ const Sidebar = () => {
           breadcrumbs: ["Sales", "Invoices"],
           permissionKey: "salesInvoices",
         },
-        // ✅ NEW: Returns menu item
         {
           id: "sales-returns",
           label: "Returns",
           icon: RotateCcw,
           path: "/sales-returns",
-          breadcrumbs: ["sales", "Returns"],
+          breadcrumbs: ["Sales", "Returns"],
           permissionKey: "salesReturns",
           badge: pendingReturnsCount > 0 ? pendingReturnsCount : null,
         },
@@ -403,7 +427,6 @@ const Sidebar = () => {
           breadcrumbs: ["Purchase", "Invoices"],
           permissionKey: "purchaseInvoices",
         },
-        // ✅ NEW: Returns menu item
         {
           id: "purchase-returns",
           label: "Returns",
@@ -469,6 +492,58 @@ const Sidebar = () => {
           breadcrumbs: ["Reports", "Finance Report"],
           permissionKey: "financeReport",
         },
+        // ✅ NEW: Orders Report
+        {
+          id: "orders-report",
+          label: "Orders Report",
+          icon: ShoppingBag,
+          path: "/reports-orders",
+          breadcrumbs: ["Reports", "Orders Report"],
+          permissionKey: "ordersReport",
+        },
+      ],
+    },
+    
+    // ✅ NEW: Orders Section
+    {
+      id: "orders",
+      label: "Orders",
+      icon: ShoppingBag,
+      permissionKey: "orders",
+      submenu: [
+        {
+          id: "orders-all",
+          label: "All Orders",
+          icon: ListOrdered,
+          path: "/orders",
+          breadcrumbs: ["Orders", "All Orders"],
+          permissionKey: "ordersAll",
+        },
+        // {
+        //   id: "orders-sessions",
+        //   label: "Sessions",
+        //   icon: Clock,
+        //   path: "/orders-sessions",
+        //   breadcrumbs: ["Orders", "Sessions"],
+        //   permissionKey: "ordersSessions",
+        // },
+        // {
+        //   id: "orders-pending",
+        //   label: "Pending",
+        //   icon: Loader2,
+        //   path: "/orders-pending",
+        //   breadcrumbs: ["Orders", "Pending"],
+        //   permissionKey: "ordersPending",
+        //   badge: pendingOrdersCount > 0 ? pendingOrdersCount : null,
+        // },
+        // {
+        //   id: "orders-completed",
+        //   label: "Completed",
+        //   icon: CheckCircle2,
+        //   path: "/orders-completed",
+        //   breadcrumbs: ["Orders", "Completed"],
+        //   permissionKey: "ordersCompleted",
+        // },
       ],
     },
     {
@@ -512,7 +587,7 @@ const Sidebar = () => {
         },
       ],
     },
-  ], [pendingReturnsCount]); 
+  ], [pendingReturnsCount, pendingOrdersCount]);
 
   const visibleMenuItems = useMemo(() => {
     return allMenuItems
@@ -676,10 +751,8 @@ const Sidebar = () => {
     >
       <nav className="pt-6 px-2 flex flex-col gap-2">
         {visibleMenuItems.map((item) => {
-          // Show renewal badge on Settings when user is super admin and needs renewal
           const showRenewalBadge = isSuperAdmin && needsRenewal && item.id === "settings";
           
-          // Check if this is a write route that should be disabled
           const isWriteRoute = WRITE_ROUTES.includes(item.path);
           const isDisabled = isWriteRoute && isSuperAdmin && isGlobalMode;
 

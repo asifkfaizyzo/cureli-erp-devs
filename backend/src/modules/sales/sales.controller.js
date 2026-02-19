@@ -378,6 +378,9 @@ export async function createSalesReturnController(req, res) {
       });
     }
 
+    // ✅ Log the validated data to see what's coming through
+    console.log("📥 Validated return data:", JSON.stringify(req.validated, null, 2));
+
     const result = await salesReturnService.createSalesReturn(
       userId,
       shopId,
@@ -603,6 +606,68 @@ export async function applyCustomerCreditController(req, res) {
     return success(res, result, "Customer credit applied successfully");
   } catch (error) {
     console.error("applyCustomerCredit ERROR:", error);
+    return fail(res, error.message, error.statusCode || 500);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// UPDATE INVOICE (DRAFT/PARKED only)
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function updateSalesInvoiceController(req, res) {
+  try {
+    const userId = req.user.user_id;
+    const shopId = req.user.shop_id;
+    const { branchId } = extractBranchContext(req);
+    const { invoiceId } = req.params;
+    const auditContext = audit.extractRequestContext(req);
+
+    if (!branchId) {
+      return fail(res, "Please select a branch", 400, {
+        code: "BRANCH_REQUIRED",
+      });
+    }
+
+    const invoice = await salesService.updateSalesInvoice(
+      userId,
+      shopId,
+      branchId,
+      invoiceId,
+      req.validated,
+      auditContext
+    );
+
+    return success(res, invoice, "Invoice updated successfully");
+  } catch (error) {
+    console.error("updateSalesInvoice ERROR:", error);
+    return fail(res, error.message, error.statusCode || 500);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// UPDATE PAYMENT STATUS (Super Admin only)
+// ═══════════════════════════════════════════════════════════════════════
+
+export async function updatePaymentStatusController(req, res) {
+  try {
+    const userId = req.user.user_id;
+    const shopId = req.user.shop_id;
+    const { branchId } = extractBranchContext(req);
+    const { invoiceId } = req.params;
+    const auditContext = audit.extractRequestContext(req);
+
+    const result = await salesService.updatePaymentStatus(
+      userId,
+      shopId,
+      branchId,
+      invoiceId,
+      req.validated,
+      auditContext
+    );
+
+    return success(res, result, "Payment status updated successfully");
+  } catch (error) {
+    console.error("updatePaymentStatus ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
   }
 }

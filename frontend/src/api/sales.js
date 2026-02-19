@@ -302,16 +302,27 @@ const salesAPI = {
 
   // Get return details by ID
   getReturnById: async (returnId) => {
-    try {
-      const response = await API.get(`/sales/returns/${returnId}`, {
-        headers: getBranchHeaders(),
-      });
-      return response.data;
-    } catch (error) {
-      console.error("❌ Get return details failed:", error.response?.data);
-      throw error;
+  try {
+    // ✅ Validate UUID format before sending
+    if (!returnId || typeof returnId !== 'string') {
+      throw new Error('Invalid return ID');
     }
-  },
+    
+    // Check if it's a valid UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(returnId)) {
+      throw new Error(`Invalid UUID format: ${returnId}`);
+    }
+    
+    const response = await API.get(`/sales/returns/${returnId}`, {
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  } catch (error) {
+    console.error("❌ Get return details failed:", error.response?.data);
+    throw error;
+  }
+},
 
   // Approve a pending return (Super Admin / Branch Admin)
   approveReturn: async (returnId, data = {}) => {

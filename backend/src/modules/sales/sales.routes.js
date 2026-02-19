@@ -15,6 +15,8 @@ import {
   cancelSalesReturnSchema,
   revertSalesReturnSchema,
   applyCustomerCreditSchema,
+  updateSalesInvoiceSchema,
+  updatePaymentStatusSchema,
 } from "./sales.schema.js";
 import {
   // Invoice controllers
@@ -39,9 +41,11 @@ import {
   approveOrRejectReturnController,
   cancelSalesReturnController,
   revertSalesReturnController,
+  updateSalesInvoiceController,
   // Customer credit controllers
   getCustomerCreditsController,
   applyCustomerCreditController,
+  updatePaymentStatusController,
 } from "./sales.controller.js";
 
 const router = express.Router();
@@ -152,5 +156,27 @@ router.post("/:invoiceId/cancel", validateBody(cancelInvoiceSchema), cancelInvoi
 
 // Record payment
 router.post("/:invoiceId/payments", validateBody(recordPaymentSchema), recordPaymentController);
+
+// ✅ ADD THIS: Update invoice (DRAFT/PARKED only)
+router.put(
+  "/:invoiceId",
+  validateBody(updateSalesInvoiceSchema),
+  updateSalesInvoiceController
+);
+
+// ✅ ADD THIS: Update payment status (Super Admin only)
+router.patch(
+  "/:invoiceId/payment-status",
+  validateBody(updatePaymentStatusSchema),
+  updatePaymentStatusController
+);
+
+// Update invoice (DRAFT/PARKED/CONFIRMED for Super Admin)
+router.put(
+  "/:invoiceId",
+  validateBody(updateSalesInvoiceSchema),
+  updateSalesInvoiceController
+);
+
 
 export default router;

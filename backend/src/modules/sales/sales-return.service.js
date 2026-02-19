@@ -726,38 +726,45 @@ class SalesReturnService {
       // Create line items
       const createdItems = [];
       for (const item of validatedItems) {
-        const itemCalc = calculateLineItem({
-          quantity: item.returnQty,
-          mrp: item.originalItem.mrp,
-          discount_percent: item.originalItem.discount_percent,
-          cgst_percent: item.originalItem.cgst_percent,
-          sgst_percent: item.originalItem.sgst_percent,
-        });
+  // ✅ Use selling_rate from original item for calculations
+  const effectiveSellingRate = item.originalItem.selling_rate || item.originalItem.mrp;
+  
+  const itemCalc = calculateLineItem({
+    quantity: item.returnQty,
+    mrp: effectiveSellingRate, // ← Use selling_rate
+    discount_percent: item.originalItem.discount_percent,
+    cgst_percent: item.originalItem.cgst_percent,
+    sgst_percent: item.originalItem.sgst_percent,
+  });
 
-        const returnItem = await tx.salesInvoiceItem.create({
-          data: {
-            invoice_id: returnInvoice.invoice_id,
-            medicine_id: item.originalItem.medicine_id,
-            inventory_id: item.originalItem.inventory_id,
-            batch_number: item.inventory.batch_number,
-            expiry_date: item.inventory.expiry_date,
-            quantity: item.returnQty,
-            unit_of_measure: item.originalItem.unit_of_measure,
-            mrp: item.originalItem.mrp,
-            purchase_rate: item.originalItem.purchase_rate,
-            discount_percent: item.originalItem.discount_percent,
-            discount_amount: itemCalc.discount_amount,
-            taxable_amount: itemCalc.taxable_amount,
-            cgst_percent: item.originalItem.cgst_percent,
-            cgst_amount: itemCalc.cgst_amount,
-            sgst_percent: item.originalItem.sgst_percent,
-            sgst_amount: itemCalc.sgst_amount,
-            line_total: itemCalc.line_total,
-          },
-        });
+  const returnItem = await tx.salesInvoiceItem.create({
+    data: {
+      invoice_id: returnInvoice.invoice_id,
+      medicine_id: item.originalItem.medicine_id,
+      inventory_id: item.originalItem.inventory_id,
+      batch_number: item.inventory.batch_number,
+      expiry_date: item.inventory.expiry_date,
+      quantity: item.returnQty,
+      unit_of_measure: item.originalItem.unit_of_measure,
+      
+      // ✅ Store both selling_rate and MRP
+      selling_rate: effectiveSellingRate,
+      mrp: item.originalItem.mrp,
+      
+      purchase_rate: item.originalItem.purchase_rate,
+      discount_percent: item.originalItem.discount_percent,
+      discount_amount: itemCalc.discount_amount,
+      taxable_amount: itemCalc.taxable_amount,
+      cgst_percent: item.originalItem.cgst_percent,
+      cgst_amount: itemCalc.cgst_amount,
+      sgst_percent: item.originalItem.sgst_percent,
+      sgst_amount: itemCalc.sgst_amount,
+      line_total: itemCalc.line_total,
+    },
+  });
 
-        createdItems.push(returnItem);
-      }
+  createdItems.push(returnItem);
+}
 
       // If auto-approved, process the return immediately
       if (shouldAutoApprove) {
@@ -1422,30 +1429,34 @@ class SalesReturnService {
     }
 
     const returnableItems = invoice.lineItems.map((item) => {
-      const key = `${item.medicine_id}_${item.inventory_id}`;
-      const originalQty = parseFloat(item.quantity);
-      const returnedQty = returnedQuantityMap.get(key) || 0;
-      const returnableQty = originalQty - returnedQty;
+  const key = `${item.medicine_id}_${item.inventory_id}`;
+  const originalQty = parseFloat(item.quantity);
+  const returnedQty = returnedQuantityMap.get(key) || 0;
+  const returnableQty = originalQty - returnedQty;
 
-      return {
-        item_id: item.item_id,
-        medicine_id: item.medicine_id,
-        inventory_id: item.inventory_id,
-        medicine_name: item.medicine.name,
-        manufacturer: item.medicine.manufacturer,
-        pack_size: item.medicine.pack_size,
-        batch_number: item.inventory.batch_number,
-        expiry_date: item.inventory.expiry_date,
-        mrp: item.mrp,
-        original_quantity: originalQty,
-        returned_quantity: returnedQty,
-        returnable_quantity: returnableQty,
-        discount_percent: item.discount_percent,
-        cgst_percent: item.cgst_percent,
-        sgst_percent: item.sgst_percent,
-        can_return: returnableQty > 0,
-      };
-    });
+  return {
+    item_id: item.item_id,
+    medicine_id: item.medicine_id,
+    inventory_id: item.inventory_id,
+    medicine_name: item.medicine.name,
+    manufacturer: item.medicine.manufacturer,
+    pack_size: item.medicine.pack_size,
+    batch_number: item.inventory?.batch_number || item.batch_number,
+    expiry_date: item.inventory?.expiry_date || item.expiry_date,
+    
+    // ✅ Return both selling_rate and MRP
+    selling_rate: item.selling_rate, // ← Add this
+    mrp: item.mrp,
+    
+    original_quantity: originalQty,
+    returned_quantity: returnedQty,
+    returnable_quantity: returnableQty,
+    discount_percent: item.discount_percent,
+    cgst_percent: item.cgst_percent,
+    sgst_percent: item.sgst_percent,
+    can_return: returnableQty > 0,
+  };
+});
 
     return {
       invoice_id: invoice.invoice_id,

@@ -4,15 +4,19 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { useNavigate } from "react-router-dom";
 
 import SalesTable from "./components/SalesTable";
-import InvoicePagination from "./components/InvoicePagination";
-import InvoiceFilters from "./components/InvoiceFilters";
+import SalesInvoicePagination from "../../../components/common/Pagination";
+import SalesInvoiceFilters from "./components/SalesInvoiceFilters";
 import ViewSalesInvoiceModal from "./components/ViewSalesInvoiceModal";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import { useToast } from "../../../components/common/Toast";
 
 import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 import salesAPI from "../../../api/sales";
-import { useAuthStore, selectBranchContext, selectIsSuperAdmin } from "../../../store/useAuthStore";
+import {
+  useAuthStore,
+  selectBranchContext,
+  selectIsSuperAdmin,
+} from "../../../store/useAuthStore";
 
 import {
   FileText,
@@ -21,7 +25,6 @@ import {
   Layers,
   Building2,
   Info,
-  ShoppingCart,
 } from "lucide-react";
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -34,14 +37,16 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
       <div className="px-4 py-2 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
         <div className="flex items-center gap-2 text-sm text-blue-700">
           <Layers size={16} className="text-blue-500" />
-          <span>Viewing invoices from <strong>All Branches</strong></span>
+          <span>
+            Viewing invoices from <strong>All Branches</strong>
+          </span>
           <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">
             Combined View
           </span>
         </div>
         <div className="flex items-center gap-2 text-xs text-blue-600">
           <Info size={12} />
-          <span>Creating new sales requires selecting a specific branch</span>
+          <span>Creating new invoices requires selecting a specific branch</span>
         </div>
       </div>
     );
@@ -51,7 +56,9 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
     <div className="px-4 py-2 flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
       <div className="flex items-center gap-2 text-sm text-green-700">
         <Building2 size={16} className="text-green-500" />
-        <span>Viewing invoices for <strong>{branchName || "Selected Branch"}</strong></span>
+        <span>
+          Viewing invoices for <strong>{branchName || "Selected Branch"}</strong>
+        </span>
         {itemCount > 0 && (
           <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">
             {itemCount} invoices
@@ -69,22 +76,19 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
 const SalesInvoicePage = () => {
   const toast = useToast();
   const navigate = useNavigate();
-  
-  // Branch context from store
+
   const branchContext = useAuthStore(selectBranchContext);
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
-  
+
   const isGlobalMode = branchContext.mode === "GLOBAL";
   const currentBranchName = branchContext.branch_name;
 
-  // Track initial load
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const hasLoadedOnce = useRef(false);
-  
-  // Track branch change
+
   const prevBranchRef = useRef({
     mode: branchContext.mode,
-    branch_id: branchContext.branch_id
+    branch_id: branchContext.branch_id,
   });
 
   /* ---------------- FILTER STATE ---------------- */
@@ -96,6 +100,8 @@ const SalesInvoicePage = () => {
     toDate: "",
     status: "",
     paymentStatus: "",
+    paymentMode: "",
+    branch: "",
     branchId: "",
   });
 
@@ -106,21 +112,22 @@ const SalesInvoicePage = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [stats, setStats] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+
   const [isBranchSwitching, setIsBranchSwitching] = useState(false);
 
   /* ---------------- MODAL STATE ---------------- */
   const [openModal, setOpenModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const [modalInitialMode, setModalInitialMode] = useState('view');
+  const [modalInitialMode, setModalInitialMode] = useState("view");
 
   /* ---------------- CONFIRMATION STATE ---------------- */
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
-    type: 'danger',
-    title: '',
-    message: '',
-    confirmText: '',
+    type: "danger",
+    title: "",
+    message: "",
+    confirmText: "",
     onConfirm: () => {},
   });
 
@@ -128,51 +135,54 @@ const SalesInvoicePage = () => {
   const rowsPerPage = useDynamicRowCount();
 
   /* ---------------- LOAD INVOICES ---------------- */
-  const loadInvoices = useCallback(async (showBranchSwitchingState = false) => {
-    try {
-      if (showBranchSwitchingState) {
-        setIsBranchSwitching(true);
-      } else {
-        setIsLoading(true);
+  const loadInvoices = useCallback(
+    async (showBranchSwitchingState = false) => {
+      try {
+        if (showBranchSwitchingState) {
+          setIsBranchSwitching(true);
+        } else {
+          setIsLoading(true);
+        }
+
+        const params = {
+          limit: rowsPerPage,
+          offset: (currentPage - 1) * rowsPerPage,
+          ...(filters.customerName && { customerName: filters.customerName }),
+          ...(filters.invoiceNumber && { invoiceNumber: filters.invoiceNumber }),
+          ...(filters.status && { status: filters.status }),
+          ...(filters.paymentStatus && { paymentStatus: filters.paymentStatus }),
+          ...(filters.paymentMode && { paymentMode: filters.paymentMode }),
+          ...(filters.fromDate && { startDate: filters.fromDate }),
+          ...(filters.toDate && { endDate: filters.toDate }),
+          ...(filters.branchId && { branchId: filters.branchId }),
+        };
+
+        const [invoicesResponse, statsResponse] = await Promise.all([
+          salesAPI.getAll(params),
+          salesAPI.getStats({
+            startDate: filters.fromDate,
+            endDate: filters.toDate,
+          }),
+        ]);
+
+        setInvoices(invoicesResponse.data?.invoices || []);
+        setTotalItems(invoicesResponse.data?.total || 0);
+        setStats(statsResponse.data || null);
+
+        if (!hasLoadedOnce.current) {
+          hasLoadedOnce.current = true;
+          setIsInitialLoad(false);
+        }
+      } catch (error) {
+        console.error("Load invoices error:", error);
+        toast.error("Failed to load invoices", error.response?.data?.message || error.message);
+      } finally {
+        setIsLoading(false);
+        setIsBranchSwitching(false);
       }
-
-      const params = {
-        limit: rowsPerPage,
-        offset: (currentPage - 1) * rowsPerPage,
-        ...(filters.customerName && { customerName: filters.customerName }),
-        ...(filters.invoiceNumber && { invoiceNumber: filters.invoiceNumber }),
-        ...(filters.phone && { phone: filters.phone }),
-        ...(filters.status && { status: filters.status }),
-        ...(filters.paymentStatus && { paymentStatus: filters.paymentStatus }),
-        ...(filters.fromDate && { startDate: filters.fromDate }),
-        ...(filters.toDate && { endDate: filters.toDate }),
-        ...(filters.branchId && { branchId: filters.branchId }),
-      };
-
-      const [invoicesResponse, statsResponse] = await Promise.all([
-        salesAPI.getAll(params),
-        salesAPI.getStats({
-          startDate: filters.fromDate,
-          endDate: filters.toDate,
-        }),
-      ]);
-      
-      setInvoices(invoicesResponse.data?.invoices || []);
-      setTotalItems(invoicesResponse.data?.total || 0);
-      setStats(statsResponse.data || null);
-
-      if (!hasLoadedOnce.current) {
-        hasLoadedOnce.current = true;
-        setIsInitialLoad(false);
-      }
-    } catch (error) {
-      console.error("Load invoices error:", error);
-      toast.error("Failed to load invoices", error.response?.data?.message || error.message);
-    } finally {
-      setIsLoading(false);
-      setIsBranchSwitching(false);
-    }
-  }, [currentPage, rowsPerPage, filters, toast, branchContext.mode, branchContext.branch_id]);
+    },
+    [currentPage, rowsPerPage, filters, toast, branchContext.mode, branchContext.branch_id]
+  );
 
   /* ---------------- EFFECTS ---------------- */
   useEffect(() => {
@@ -181,25 +191,25 @@ const SalesInvoicePage = () => {
 
   useEffect(() => {
     const prevBranch = prevBranchRef.current;
-    const branchChanged = 
-      prevBranch.mode !== branchContext.mode || 
+    const branchChanged =
+      prevBranch.mode !== branchContext.mode ||
       prevBranch.branch_id !== branchContext.branch_id;
-    
+
     if (branchChanged) {
       prevBranchRef.current = {
         mode: branchContext.mode,
-        branch_id: branchContext.branch_id
+        branch_id: branchContext.branch_id,
       };
-      
+
       if (currentPage !== 1) {
         setCurrentPage(1);
       }
-      
+
       setInvoices([]);
       setStats(null);
-      
+
       if (branchContext.mode === "GLOBAL") {
-        toast.info("Switched to All Branches", "Loading combined sales data...");
+        toast.info("Switched to All Branches", "Loading combined invoice data...");
       } else if (branchContext.branch_name) {
         toast.info("Branch Changed", `Loading invoices for ${branchContext.branch_name}...`);
       }
@@ -221,6 +231,8 @@ const SalesInvoicePage = () => {
       toDate: "",
       status: "",
       paymentStatus: "",
+      paymentMode: "",
+      branch: "",
       branchId: "",
     });
     setCurrentPage(1);
@@ -231,197 +243,223 @@ const SalesInvoicePage = () => {
     setRefreshing(true);
     await loadInvoices();
     setRefreshing(false);
-    toast.success("Refreshed", "Sales data updated");
+    toast.success("Refreshed", "Invoice data updated");
   }, [loadInvoices, toast]);
 
-  /* ---------------- COMPUTED VALUES ---------------- */
+  // ════════════════════════════════════════════════════════════════════════
+  // COMPUTED VALUES
+  // ════════════════════════════════════════════════════════════════════════
+
   const uniqueBranches = useMemo(() => {
     const branches = invoices
-      .map(inv => inv.branch?.branch_name)
+      .map((inv) => inv.branch?.branch_name)
       .filter(Boolean)
-      .filter(b => b !== "-" && b.trim() !== "");
+      .filter((b) => b !== "-" && b.trim() !== "");
     return [...new Set(branches)].sort();
   }, [invoices]);
 
-  /* ---------------- MODAL HANDLERS ---------------- */
-  const fetchInvoiceDetails = useCallback(async (invoiceId) => {
-  try {
-    setIsLoadingDetails(true);
-    const response = await salesAPI.getById(invoiceId);
-    
-    // ✅ ADD THIS DEBUG LOG
-    console.log("📋 Invoice Details Response:", {
-      invoice: response.data,
-      lineItems: response.data?.lineItems,
-      firstItem: response.data?.lineItems?.[0],
-    });
-    
-    if (response.success && response.data) return response.data;
-    throw new Error(response.message || "Failed to fetch invoice details");
-  } catch (error) {
-    console.error("Failed to fetch invoice details:", error);
-    toast.error("Failed to load invoice details", error.response?.data?.message || error.message);
-    return null;
-  } finally {
-    setIsLoadingDetails(false);
-  }
-}, [toast]);
-  const handleRowClick = useCallback(async (invoice) => {
-    const fullInvoice = await fetchInvoiceDetails(invoice.invoice_id);
-    if (fullInvoice) {
-      setSelectedInvoice(fullInvoice);
-      setModalInitialMode('view');
-      setOpenModal(true);
-    }
-  }, [fetchInvoiceDetails]);
+  // ════════════════════════════════════════════════════════════════════════
+  // MODAL HANDLERS
+  // ════════════════════════════════════════════════════════════════════════
 
-  const handleView = useCallback(async (invoice, event) => {
-    event?.stopPropagation();
-    const fullInvoice = await fetchInvoiceDetails(invoice.invoice_id);
-    if (fullInvoice) {
-      setSelectedInvoice(fullInvoice);
-      setModalInitialMode('view');
-      setOpenModal(true);
-    }
-  }, [fetchInvoiceDetails]);
+  const fetchInvoiceDetails = useCallback(
+    async (invoiceId) => {
+      try {
+        setIsLoadingDetails(true);
+        const response = await salesAPI.getById(invoiceId);
+        if (response.success && response.data) return response.data;
+        throw new Error(response.message || "Failed to fetch invoice details");
+      } catch (error) {
+        console.error("Failed to fetch invoice details:", error);
+        toast.error("Failed to load invoice details", error.response?.data?.message || error.message);
+        return null;
+      } finally {
+        setIsLoadingDetails(false);
+      }
+    },
+    [toast]
+  );
 
-  const handleEdit = useCallback(async (invoice, event) => {
-    if (event?.stopPropagation) event.stopPropagation();
-    
-    const invoiceId = invoice?.invoice_id || invoice?.id;
-    const invoiceStatus = invoice?.status?.toUpperCase();
-    const invoiceNumber = invoice?.invoice_number;
-    
-    if (!invoiceId) {
-      toast.error("Error", "Invalid invoice data");
-      return;
-    }
-
-    if (invoiceStatus === "CANCELLED") {
-      toast.warning("Cannot Edit", "Cancelled invoices cannot be edited.");
-      return;
-    }
-
-    if (invoiceStatus === "DRAFT" || invoiceStatus === "PARKED") {
-      const fullInvoice = await fetchInvoiceDetails(invoiceId);
+  const handleRowClick = useCallback(
+    async (invoice) => {
+      const fullInvoice = await fetchInvoiceDetails(invoice.invoice_id);
       if (fullInvoice) {
         setSelectedInvoice(fullInvoice);
-        setModalInitialMode('edit');
+        setModalInitialMode("view");
         setOpenModal(true);
       }
-      return;
-    }
+    },
+    [fetchInvoiceDetails]
+  );
 
-    if (invoiceStatus === "CONFIRMED") {
-      if (!isSuperAdmin) {
-        toast.warning("Permission Denied", "Only Super Admin can edit confirmed invoices.");
+  const handleView = useCallback(
+    async (invoice, event) => {
+      event?.stopPropagation();
+      const fullInvoice = await fetchInvoiceDetails(invoice.invoice_id);
+      if (fullInvoice) {
+        setSelectedInvoice(fullInvoice);
+        setModalInitialMode("view");
+        setOpenModal(true);
+      }
+    },
+    [fetchInvoiceDetails]
+  );
+
+  const handleEdit = useCallback(
+    async (invoice, event) => {
+      if (event?.stopPropagation) event.stopPropagation();
+
+      const invoiceId = invoice?.invoice_id || invoice?.id;
+      const invoiceStatus = invoice?.status?.toUpperCase();
+      const invoiceNumber = invoice?.invoice_number;
+
+      if (!invoiceId) {
+        toast.error("Error", "Invalid invoice data");
         return;
       }
 
+      if (invoiceStatus === "CANCELLED") {
+        toast.warning("Cannot Edit", "Cancelled invoices cannot be edited.");
+        return;
+      }
+
+      if (invoiceStatus === "DRAFT" || invoiceStatus === "PARKED") {
+        const fullInvoice = await fetchInvoiceDetails(invoiceId);
+        if (fullInvoice) {
+          setSelectedInvoice(fullInvoice);
+          setModalInitialMode("edit");
+          setOpenModal(true);
+        }
+        return;
+      }
+
+      if (invoiceStatus === "CONFIRMED") {
+        if (!isSuperAdmin) {
+          toast.warning("Permission Denied", "Only Super Admin can edit confirmed invoices.");
+          return;
+        }
+
+        setConfirmDialog({
+          isOpen: true,
+          type: "warning",
+          title: "Edit Confirmed Invoice",
+          message: (
+            <div className="space-y-3">
+              <p className="font-medium text-amber-800">
+                You are about to edit a <strong>CONFIRMED</strong> invoice as Super Admin.
+              </p>
+              <div className="bg-amber-50 p-3 rounded border border-amber-200 text-sm">
+                <p className="font-semibold text-gray-900">Invoice: {invoiceNumber}</p>
+                <p className="text-gray-600">Customer: {invoice.customer?.name || "Walk-in"}</p>
+                <p className="text-gray-600">
+                  Amount: ₹{parseFloat(invoice.net_amount || 0).toLocaleString("en-IN")}
+                </p>
+              </div>
+              <div className="bg-red-50 p-3 rounded border border-red-200">
+                <p className="text-sm text-red-800 font-medium">⚠️ Important Warning:</p>
+                <ul className="text-xs text-red-700 mt-1 list-disc list-inside space-y-1">
+                  <li>
+                    Current stock will be <strong>restored</strong> automatically
+                  </li>
+                  <li>New stock will be deducted after saving changes</li>
+                  <li>All changes are logged in audit trail</li>
+                </ul>
+              </div>
+            </div>
+          ),
+          confirmText: "Proceed to Edit",
+          onConfirm: async () => {
+            setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+
+            const fullInvoice = await fetchInvoiceDetails(invoiceId);
+            if (fullInvoice) {
+              setSelectedInvoice(fullInvoice);
+              setModalInitialMode("edit");
+              setOpenModal(true);
+            }
+          },
+        });
+        return;
+      }
+
+      toast.warning(
+        "Cannot Edit",
+        `Invoice ${invoiceNumber} has status "${invoiceStatus}" and cannot be edited.`
+      );
+    },
+    [toast, isSuperAdmin, fetchInvoiceDetails]
+  );
+
+  const handleDelete = useCallback(
+    (invoice, event) => {
+      if (event?.stopPropagation) event.stopPropagation();
+
+      const invoiceId = invoice?.invoice_id || invoice?.id;
+      const invoiceStatus = invoice?.status?.toUpperCase();
+      const invoiceNumber = invoice?.invoice_number;
+
+      if (!invoiceId) {
+        toast.error("Error", "Invalid invoice data");
+        return;
+      }
+
+      if (invoiceStatus === "CONFIRMED") {
+        toast.warning("Cannot Delete", "Confirmed invoices cannot be deleted.");
+        return;
+      }
+
+      setOpenModal(false);
+      setSelectedInvoice(null);
+
       setConfirmDialog({
         isOpen: true,
-        type: 'warning',
-        title: 'Edit Confirmed Invoice',
+        type: "danger",
+        title: "Delete Sales Invoice",
         message: (
-          <div className="space-y-3">
-            <p className="font-medium text-amber-800">
-              You are about to edit a <strong>CONFIRMED</strong> invoice as Super Admin.
-            </p>
-            <div className="bg-amber-50 p-3 rounded border border-amber-200 text-sm">
+          <div className="space-y-2">
+            <p>Are you sure you want to delete this invoice?</p>
+            <div className="bg-gray-50 p-3 rounded border border-gray-200 text-sm">
               <p className="font-semibold text-gray-900">Invoice: {invoiceNumber}</p>
-              <p className="text-gray-600">Customer: {invoice.customer?.name || 'Walk-in'}</p>
-              <p className="text-gray-600">Amount: ₹{parseFloat(invoice.net_amount || 0).toLocaleString('en-IN')}</p>
+              <p className="text-gray-600">Customer: {invoice.customer?.name || "Walk-in"}</p>
+              <p className="text-gray-600">
+                Amount: ₹{parseFloat(invoice.net_amount || 0).toLocaleString("en-IN")}
+              </p>
             </div>
-            <div className="bg-red-50 p-3 rounded border border-red-200">
-              <p className="text-sm text-red-800 font-medium">⚠️ Important Warning:</p>
-              <ul className="text-xs text-red-700 mt-1 list-disc list-inside space-y-1">
-                <li>Current stock deductions will be <strong>restored</strong></li>
-                <li>New stock will be deducted after saving changes</li>
-                <li>All changes are logged in audit trail</li>
-              </ul>
-            </div>
+            <p className="text-sm text-red-600 font-medium">This action cannot be undone.</p>
           </div>
         ),
-        confirmText: 'Proceed to Edit',
+        confirmText: "Delete Invoice",
         onConfirm: async () => {
-          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-          
-          const fullInvoice = await fetchInvoiceDetails(invoiceId);
-          if (fullInvoice) {
-            setSelectedInvoice(fullInvoice);
-            setModalInitialMode('edit');
-            setOpenModal(true);
+          try {
+            await salesAPI.cancel(invoiceId, "Deleted by user");
+            toast.success("Invoice Deleted", `Invoice ${invoiceNumber} has been deleted.`);
+            loadInvoices();
+          } catch (error) {
+            toast.error("Delete Failed", error.response?.data?.message || error.message);
           }
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
         },
       });
-      return;
-    }
+    },
+    [toast, loadInvoices]
+  );
 
-    toast.warning("Cannot Edit", `Invoice has status "${invoiceStatus}" and cannot be edited.`);
-  }, [toast, isSuperAdmin, fetchInvoiceDetails]);
-
-  const handleDelete = useCallback((invoice, event) => {
-    if (event?.stopPropagation) event.stopPropagation();
-    
-    const invoiceId = invoice?.invoice_id || invoice?.id;
-    const invoiceStatus = invoice?.status?.toUpperCase();
-    const invoiceNumber = invoice?.invoice_number;
-    
-    if (!invoiceId) {
-      toast.error("Error", "Invalid invoice data");
-      return;
-    }
-    
-    if (invoiceStatus === "CONFIRMED") {
-      toast.warning("Cannot Delete", "Confirmed invoices cannot be deleted.");
-      return;
-    }
-
-    setOpenModal(false);
-    setSelectedInvoice(null);
-
-    setConfirmDialog({
-      isOpen: true,
-      type: 'danger',
-      title: 'Delete Sales Invoice',
-      message: (
-        <div className="space-y-2">
-          <p>Are you sure you want to delete this invoice?</p>
-          <div className="bg-gray-50 p-3 rounded border border-gray-200 text-sm">
-            <p className="font-semibold text-gray-900">Invoice: {invoiceNumber}</p>
-            <p className="text-gray-600">Customer: {invoice.customer?.name || 'Walk-in'}</p>
-            <p className="text-gray-600">Amount: ₹{parseFloat(invoice.net_amount || 0).toLocaleString('en-IN')}</p>
-          </div>
-          <p className="text-sm text-red-600 font-medium">This action cannot be undone.</p>
-        </div>
-      ),
-      confirmText: 'Delete Invoice',
-      onConfirm: async () => {
-        try {
-          await salesAPI.cancel(invoiceId, "Deleted by user");
-          toast.success("Invoice Deleted", `Invoice ${invoiceNumber} has been deleted.`);
-          loadInvoices();
-        } catch (error) {
-          toast.error("Delete Failed", error.response?.data?.message || error.message);
-        }
-        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-      },
-    });
-  }, [toast, loadInvoices]);
-
-  const handlePrint = useCallback(async (invoice) => {
-    window.print();
-    toast.info("Print Dialog", "Print dialog opened.");
-  }, [toast]);
+  const handlePrint = useCallback(
+    async (invoice) => {
+      window.print();
+      toast.info("Print Dialog", "Print dialog opened.");
+    },
+    [toast]
+  );
 
   const closeConfirmDialog = useCallback(() => {
-    setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+    setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
   }, []);
 
   const handleCloseModal = useCallback(() => {
     setOpenModal(false);
     setSelectedInvoice(null);
-    setModalInitialMode('view');
+    setModalInitialMode("view");
   }, []);
 
   const isTableLoading = (isInitialLoad && isLoading) || isBranchSwitching;
@@ -431,13 +469,11 @@ const SalesInvoicePage = () => {
   /* ════════════════════════════════════════════════════════════════════════ */
   return (
     <div className="h-full w-full flex flex-col overflow-hidden font-sans bg-gray-50 p-2">
-      
       {/* FIXED HEADER SECTION */}
       <div className="shrink-0 flex flex-col gap-2">
-        
         {/* BRANCH CONTEXT BANNER */}
         {isSuperAdmin && (
-          <BranchContextBanner 
+          <BranchContextBanner
             isGlobalMode={isGlobalMode}
             branchName={currentBranchName}
             itemCount={totalItems}
@@ -465,29 +501,35 @@ const SalesInvoicePage = () => {
                 disabled={refreshing || isLoading || isBranchSwitching}
                 className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors text-sm font-medium disabled:opacity-50"
               >
-                <RefreshCw size={14} className={refreshing || isLoading || isBranchSwitching ? "animate-spin" : ""} />
+                <RefreshCw
+                  size={14}
+                  className={refreshing || isLoading || isBranchSwitching ? "animate-spin" : ""}
+                />
                 Refresh
               </button>
               <button
-                onClick={() => navigate('/sales-billing')}
+                onClick={() => navigate("/sales-billing")}
                 disabled={isGlobalMode}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors shadow-sm ${
                   isGlobalMode
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-[#000060] text-white hover:bg-[#000060]/90'
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-[#000060] text-white hover:bg-[#000060]/90"
                 }`}
-                title={isGlobalMode ? "Select a specific branch to create new sale" : "Create new sale"}
+                title={
+                  isGlobalMode
+                    ? "Select a specific branch to create new sale"
+                    : "Create new sale"
+                }
               >
-                <ShoppingCart size={14} className="inline mr-2" />
-                New Sale
+                + New Sale
               </button>
             </div>
           </div>
         </div>
 
         {/* FILTERS */}
-        <InvoiceFilters 
-          filters={filters} 
+        <SalesInvoiceFilters
+          filters={filters}
           onChange={handleFilterChange}
           onSearch={loadInvoices}
           onReset={handleResetFilters}
@@ -499,7 +541,6 @@ const SalesInvoicePage = () => {
 
       {/* SCROLLABLE TABLE SECTION */}
       <div className="flex-1 min-h-0 mt-2 relative">
-        
         {/* Loading overlay for detail fetch */}
         {isLoadingDetails && (
           <div className="absolute inset-0 bg-white/70 z-20 flex items-center justify-center rounded-lg">
@@ -509,7 +550,7 @@ const SalesInvoicePage = () => {
             </div>
           </div>
         )}
-        
+
         {/* Branch switching overlay */}
         {isBranchSwitching && (
           <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center rounded-lg">
@@ -524,7 +565,7 @@ const SalesInvoicePage = () => {
             </div>
           </div>
         )}
-        
+
         {/* TABLE */}
         <SalesTable
           invoices={invoices}
@@ -539,7 +580,7 @@ const SalesInvoicePage = () => {
           isSuperAdmin={isSuperAdmin}
           showBranchColumn={isGlobalMode}
         >
-          <InvoicePagination
+          <SalesInvoicePagination
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
             totalItems={totalItems}

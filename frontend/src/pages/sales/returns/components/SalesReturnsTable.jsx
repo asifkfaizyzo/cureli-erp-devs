@@ -1,9 +1,8 @@
-// frontend/src/pages/purchase/returns/components/ReturnsTable.jsx
+// frontend/src/pages/sales/returns/components/SalesReturnsTable.jsx
 
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import {
   Package,
-  Building2,
   Eye,
   ChevronUp,
   ChevronDown,
@@ -20,16 +19,39 @@ import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
 // ════════════════════════════════════════════════════════════════════════════
 
 const RETURN_REASON_LABELS = {
-  DAMAGED_GOODS: "Damaged Goods",
-  EXPIRED_GOODS: "Expired Goods",
-  WRONG_ITEM_RECEIVED: "Wrong Item",
+  EXPIRED_PRODUCT: "Expired",
+  DAMAGED_PRODUCT: "Damaged",
+  WRONG_PRODUCT: "Wrong Item",
+  CUSTOMER_REQUEST: "Customer Request",
   QUALITY_ISSUE: "Quality Issue",
-  EXCESS_STOCK: "Excess Stock",
-  PRICE_DIFFERENCE: "Price Difference",
+  PRICE_DISPUTE: "Price Dispute",
   OTHER: "Other",
+  // Legacy mappings
+  CUSTOMER_CHANGED_MIND: "Changed Mind",
+  WRONG_ITEM_SOLD: "Wrong Item",
+  ALLERGIC_REACTION: "Allergic",
+  DOCTOR_ADVISED: "Doctor Advised",
 };
 
-const ADJUSTMENT_TYPE_CONFIG = {
+// ✅ FIX: Map ALL possible refund_mode values from schema
+const REFUND_MODE_CONFIG = {
+  // Schema values (what backend sends)
+  CASH: {
+    label: "Cash Refund",
+    color: "emerald",
+    icon: "₹",
+  },
+  CREDIT: {
+    label: "Credit Note",
+    color: "blue",
+    icon: "📄",
+  },
+  ADJUST_NEXT: {
+    label: "Adjust Next",
+    color: "purple",
+    icon: "🔄",
+  },
+  // Legacy/alternate values (for backwards compatibility)
   CASH_REFUND: {
     label: "Cash Refund",
     color: "emerald",
@@ -40,8 +62,8 @@ const ADJUSTMENT_TYPE_CONFIG = {
     color: "blue",
     icon: "📄",
   },
-  OFFSET_NEXT_PURCHASE: {
-    label: "Offset",
+  EXCHANGE: {
+    label: "Exchange",
     color: "purple",
     icon: "🔄",
   },
@@ -79,7 +101,7 @@ const STATUS_CONFIG = {
 };
 
 const formatCurrency = (value) => {
-  const num = parseFloat(value) || 0;
+  const num = Math.abs(parseFloat(value) || 0);
   return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
@@ -114,7 +136,7 @@ const StatusBadge = ({ status }) => {
 // TABLE ROW COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
-const ReturnsTableRow = React.forwardRef(({ 
+const SalesReturnsTableRow = React.forwardRef(({ 
   item, 
   rowNumber, 
   isEven, 
@@ -122,7 +144,30 @@ const ReturnsTableRow = React.forwardRef(({
   actionLoading,
   rowHeight,
 }, ref) => {
-  const adjustmentConfig = ADJUSTMENT_TYPE_CONFIG[item.adjustment_type];
+  // ✅ FIX: Use invoice_id and invoice_number (returns ARE invoices)
+  const returnNumber = item.invoice_number || "N/A";
+  
+  // ✅ FIX: Parent invoice is accessed via parentInvoice relation
+  const originalInvoiceNumber = item.parentInvoice?.invoice_number || "N/A";
+  
+  // ✅ FIX: Get refund_mode - check multiple possible fields
+  const refundMode = item.refund_mode || item.adjustment_type;
+  const refundConfig = REFUND_MODE_CONFIG[refundMode];
+
+  // ✅ FIX: Get customer info correctly
+  const customerName = item.customer?.name || item.walkin_name || "Walk-in Customer";
+  const customerPhone = item.customer?.phone || item.walkin_phone || "";
+
+  // ✅ FIX: Get item count correctly
+  const itemCount = item._count?.lineItems ?? item.lineItems?.length ?? 0;
+
+  // Debug log
+  console.log(`Row ${rowNumber}:`, {
+    refund_mode: item.refund_mode,
+    adjustment_type: item.adjustment_type,
+    refundMode,
+    refundConfig,
+  });
 
   return (
     <tr
@@ -140,25 +185,25 @@ const ReturnsTableRow = React.forwardRef(({
       {/* Return Number */}
       <td className="px-2 py-1 border-r border-slate-100">
         <p className="font-mono font-bold text-[11px] text-[#000060] truncate">
-          {item.invoice_number}
+          {returnNumber}
         </p>
       </td>
 
       {/* Original Invoice */}
       <td className="px-2 py-1 border-r border-slate-100">
         <p className="font-mono text-[10px] text-slate-600 truncate">
-          {item.parentInvoice?.invoice_number || "N/A"}
+          {originalInvoiceNumber}
         </p>
       </td>
 
-      {/* Supplier */}
+      {/* Customer */}
       <td className="px-2 py-1 border-r border-slate-100">
         <p className="font-medium text-[11px] text-slate-900 truncate">
-          {item.supplier?.name}
+          {customerName}
         </p>
-        {item.supplier?.supplier_code && (
-          <p className="text-[9px] text-slate-500 font-mono truncate">
-            {item.supplier.supplier_code}
+        {customerPhone && (
+          <p className="text-[9px] text-slate-500 truncate">
+            {customerPhone}
           </p>
         )}
       </td>
@@ -166,30 +211,35 @@ const ReturnsTableRow = React.forwardRef(({
       {/* Items Count */}
       <td className="px-2 py-1 text-center border-r border-slate-100">
         <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">
-          {item._count?.lineItems || item.lineItems?.length || 0}
+          {itemCount}
         </span>
       </td>
 
       {/* Return Reason */}
       <td className="px-2 py-1 border-r border-slate-100">
         <span className="inline-block text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded truncate max-w-full">
-          {RETURN_REASON_LABELS[item.return_reason] || item.return_reason}
+          {RETURN_REASON_LABELS[item.return_reason] || item.return_reason || "N/A"}
         </span>
       </td>
 
-      {/* Adjustment Type */}
+      {/* Adjustment Type / Refund Mode */}
       <td className="px-2 py-1 border-r border-slate-100">
-        {adjustmentConfig && (
+        {refundConfig ? (
           <span
-            className={`inline-block text-[9px] px-1.5 py-0.5 rounded truncate ${
-              adjustmentConfig.color === "emerald"
+            className={`inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded truncate ${
+              refundConfig.color === "emerald"
                 ? "bg-emerald-100 text-emerald-700"
-                : adjustmentConfig.color === "blue"
+                : refundConfig.color === "blue"
                 ? "bg-blue-100 text-blue-700"
                 : "bg-purple-100 text-purple-700"
             }`}
           >
-            {adjustmentConfig.icon} {adjustmentConfig.label}
+            <span>{refundConfig.icon}</span>
+            <span>{refundConfig.label}</span>
+          </span>
+        ) : (
+          <span className="text-[9px] text-slate-400">
+            {refundMode || "-"}
           </span>
         )}
       </td>
@@ -209,7 +259,7 @@ const ReturnsTableRow = React.forwardRef(({
       {/* Date */}
       <td className="px-2 py-1 text-center border-r border-slate-100">
         <span className="text-[10px] text-slate-600">
-          {formatDate(item.created_at)}
+          {formatDate(item.invoice_date || item.created_at)}
         </span>
       </td>
 
@@ -228,13 +278,13 @@ const ReturnsTableRow = React.forwardRef(({
   );
 });
 
-ReturnsTableRow.displayName = "ReturnsTableRow";
+SalesReturnsTableRow.displayName = "SalesReturnsTableRow";
 
 // ════════════════════════════════════════════════════════════════════════════
 // MAIN TABLE COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
-const ReturnsTable = ({
+const SalesReturnsTable = ({
   data = [],
   loading = false,
   actionLoading = false,
@@ -256,12 +306,11 @@ const ReturnsTable = ({
   const rowHeight = 42;
   const viewportHeight = visibleRows * rowHeight;
 
-  // Column widths
   const columnWidths = {
     rowNum: "4%",
     returnNum: "11%",
     originalInvoice: "10%",
-    supplier: "14%",
+    customer: "14%",
     items: "5%",
     reason: "11%",
     adjustment: "11%",
@@ -274,18 +323,15 @@ const ReturnsTable = ({
   const totalItems = data.length;
   const totalPages = Math.ceil(totalItems / visibleRows);
 
-  // Reset to valid page if current page exceeds total
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(totalPages);
     }
   }, [totalItems, currentPage, totalPages]);
 
-  // Paginated data
   const startIndex = (currentPage - 1) * visibleRows;
   const paginatedItems = data.slice(startIndex, startIndex + visibleRows);
 
-  // Manage row refs
   useEffect(() => {
     rowRefs.current = rowRefs.current.slice(0, paginatedItems.length);
     while (rowRefs.current.length < paginatedItems.length) {
@@ -293,7 +339,6 @@ const ReturnsTable = ({
     }
   }, [paginatedItems.length]);
 
-  // Calculate scrollbar width
   useEffect(() => {
     const container = tableBodyRef.current;
     if (!container) return;
@@ -301,7 +346,6 @@ const ReturnsTable = ({
     setScrollbarWidth(width);
   }, [paginatedItems.length, visibleRows]);
 
-  // Update scroll info
   const updateScrollInfo = useCallback(() => {
     const container = tableBodyRef.current;
     if (!container) return;
@@ -320,7 +364,6 @@ const ReturnsTable = ({
     return () => container.removeEventListener("scroll", updateScrollInfo);
   }, [updateScrollInfo]);
 
-  // Scroll handlers
   const scrollToTop = useCallback(() => {
     tableBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
@@ -334,7 +377,6 @@ const ReturnsTable = ({
 
   const hasOverflow = paginatedItems.length > visibleRows;
 
-  // Loading skeleton
   if (loading) {
     return (
       <div className="h-full w-full flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -375,7 +417,6 @@ const ReturnsTable = ({
           )}
         </div>
 
-        {/* Scroll Controls */}
         <div className="flex items-center gap-1">
           {hasOverflow && (
             <div className="flex items-center gap-1 bg-white rounded-lg border border-slate-200 p-0.5">
@@ -413,7 +454,7 @@ const ReturnsTable = ({
               <col style={{ width: columnWidths.rowNum }} />
               <col style={{ width: columnWidths.returnNum }} />
               <col style={{ width: columnWidths.originalInvoice }} />
-              <col style={{ width: columnWidths.supplier }} />
+              <col style={{ width: columnWidths.customer }} />
               <col style={{ width: columnWidths.items }} />
               <col style={{ width: columnWidths.reason }} />
               <col style={{ width: columnWidths.adjustment }} />
@@ -424,39 +465,17 @@ const ReturnsTable = ({
             </colgroup>
             <thead>
               <tr className="bg-gradient-to-r from-[#000060] to-[#000080] text-white h-9">
-                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">
-                  #
-                </th>
-                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">
-                  Return #
-                </th>
-                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">
-                  Original Inv.
-                </th>
-                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">
-                  Supplier
-                </th>
-                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">
-                  Items
-                </th>
-                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">
-                  Reason
-                </th>
-                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">
-                  Adjustment
-                </th>
-                <th className="px-2 py-2 text-[10px] font-bold text-right border-r border-white/10">
-                  Amount
-                </th>
-                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">
-                  Status
-                </th>
-                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">
-                  Date
-                </th>
-                <th className="px-2 py-2 text-[10px] font-bold text-center">
-                  Actions
-                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">#</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">Return #</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">Original Inv.</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">Customer</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">Items</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">Reason</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">Refund Mode</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-right border-r border-white/10">Amount</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">Status</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">Date</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center">Actions</th>
               </tr>
             </thead>
           </table>
@@ -473,7 +492,7 @@ const ReturnsTable = ({
               <col style={{ width: columnWidths.rowNum }} />
               <col style={{ width: columnWidths.returnNum }} />
               <col style={{ width: columnWidths.originalInvoice }} />
-              <col style={{ width: columnWidths.supplier }} />
+              <col style={{ width: columnWidths.customer }} />
               <col style={{ width: columnWidths.items }} />
               <col style={{ width: columnWidths.reason }} />
               <col style={{ width: columnWidths.adjustment }} />
@@ -484,7 +503,7 @@ const ReturnsTable = ({
             </colgroup>
             <tbody>
               {paginatedItems.map((item, index) => (
-                <ReturnsTableRow
+                <SalesReturnsTableRow
                   key={item.invoice_id || index}
                   ref={(el) => (rowRefs.current[index] = el)}
                   item={item}
@@ -529,4 +548,4 @@ const ReturnsTable = ({
   );
 };
 
-export default ReturnsTable;
+export default SalesReturnsTable;

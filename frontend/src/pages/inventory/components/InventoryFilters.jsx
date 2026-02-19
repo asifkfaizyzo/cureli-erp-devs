@@ -1,7 +1,6 @@
 // src/pages/inventory/components/InventoryFilters.jsx
 
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import ReactDOM from "react-dom";
 import { 
   Search, 
   Filter, 
@@ -23,7 +22,7 @@ import {
 import StyledSelect from "../../../components/common/StyledSelect";
 
 // ════════════════════════════════════════════════════════════════════════════
-// SEARCHABLE DROPDOWN COMPONENT (PORTAL VERSION - FIXES CLIPPING)
+// SEARCHABLE DROPDOWN COMPONENT (CSS FIX VERSION - NO PORTAL)
 // ════════════════════════════════════════════════════════════════════════════
 
 const SearchableDropdown = ({
@@ -39,16 +38,9 @@ const SearchableDropdown = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [dropdownPosition, setDropdownPosition] = useState({ 
-    top: 0, 
-    left: 0, 
-    width: 0,
-    showAbove: false 
-  });
   const containerRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
-  const dropdownRef = useRef(null);
 
   // Filter options based on search
   const filteredOptions = useMemo(() => {
@@ -65,102 +57,36 @@ const SearchableDropdown = ({
     return options.find(opt => opt.value === value);
   }, [options, value]);
 
-  // Calculate dropdown position when opening
-  const updateDropdownPosition = useCallback(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const spaceBelow = viewportHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      const dropdownHeight = 320; // Approximate max height of dropdown
-
-      // Determine if dropdown should appear above or below
-      const showAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
-
-      setDropdownPosition({
-        top: showAbove ? rect.top - 6 : rect.bottom + 6,
-        left: rect.left,
-        width: rect.width,
-        showAbove,
-      });
-    }
-  }, []);
-
-  // Update position when dropdown opens
-  useEffect(() => {
-    if (isOpen) {
-      updateDropdownPosition();
-      
-      // Also update on scroll/resize
-      const handlePositionUpdate = () => {
-        requestAnimationFrame(updateDropdownPosition);
-      };
-      
-      window.addEventListener('scroll', handlePositionUpdate, true);
-      window.addEventListener('resize', handlePositionUpdate);
-      
-      return () => {
-        window.removeEventListener('scroll', handlePositionUpdate, true);
-        window.removeEventListener('resize', handlePositionUpdate);
-      };
-    }
-  }, [isOpen, updateDropdownPosition]);
-
   // Click outside handler
   useEffect(() => {
     const handleClickOutside = (e) => {
-      const isInsideContainer = containerRef.current?.contains(e.target);
-      const isInsideDropdown = dropdownRef.current?.contains(e.target);
-      
-      if (!isInsideContainer && !isInsideDropdown) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
         setIsOpen(false);
         setSearch("");
       }
     };
-    
-    if (isOpen) {
-      // Use setTimeout to avoid immediate trigger on the same click that opened
-      setTimeout(() => {
-        document.addEventListener("mousedown", handleClickOutside);
-      }, 0);
-      
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isOpen]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Focus input when opening
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [isOpen]);
 
   // Scroll selected into view
   useEffect(() => {
     if (isOpen && listRef.current && value) {
-      setTimeout(() => {
-        const selectedEl = listRef.current?.querySelector(`[data-value="${value}"]`);
-        if (selectedEl) {
-          selectedEl.scrollIntoView({ block: 'nearest' });
-        }
-      }, 50);
+      const selectedEl = listRef.current.querySelector(`[data-value="${value}"]`);
+      if (selectedEl) {
+        selectedEl.scrollIntoView({ block: 'nearest' });
+      }
     }
   }, [isOpen, value]);
 
-  // Close on escape key
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        setIsOpen(false);
-        setSearch("");
-      }
-    };
-    
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen]);
-
-  // Keyboard navigation in search input
+  // Keyboard navigation
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') {
       setIsOpen(false);
@@ -187,142 +113,14 @@ const SearchableDropdown = ({
     setSearch("");
   };
 
-  const handleToggle = () => {
-    if (!disabled) {
-      setIsOpen(!isOpen);
-      if (!isOpen) {
-        setSearch("");
-      }
-    }
-  };
-
   const hasValue = value && value !== "";
 
-  // Dropdown content to be rendered via portal
-  const dropdownContent = isOpen ? (
-    <div 
-      ref={dropdownRef}
-      className="fixed bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150"
-      style={{
-        top: dropdownPosition.showAbove ? 'auto' : dropdownPosition.top,
-        bottom: dropdownPosition.showAbove ? `calc(100vh - ${dropdownPosition.top}px)` : 'auto',
-        left: dropdownPosition.left,
-        width: dropdownPosition.width,
-        minWidth: '200px',
-        maxWidth: '400px',
-        zIndex: 99999,
-        boxShadow: '0 10px 40px -5px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.1)'
-      }}
-    >
-      {/* Search Input */}
-      <div className="p-2 border-b border-slate-100 bg-slate-50/50">
-        <div className="relative">
-          <Search 
-            size={14} 
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" 
-          />
-          <input
-            ref={inputRef}
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={searchPlaceholder}
-            className="w-full h-8 pl-8 pr-8 text-sm bg-white border border-slate-200 rounded-lg
-              focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400
-              placeholder:text-slate-400 transition-all"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck="false"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-200 rounded-full transition-colors"
-            >
-              <X size={12} className="text-slate-400" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Search Stats */}
-      {search && (
-        <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100">
-          <div className="flex items-center justify-between text-[10px] text-slate-500">
-            <span>Searching for "{search}"</span>
-            <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full font-semibold">
-              {filteredOptions.length} found
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Options List */}
-      <div 
-        ref={listRef}
-        className="max-h-56 overflow-y-auto py-1 overscroll-contain"
-      >
-        {filteredOptions.length > 0 ? (
-          filteredOptions.map((option, idx) => {
-            const isSelected = option.value === value;
-            const isAllOption = option.value === "";
-
-            return (
-              <button
-                key={option.value || `option-${idx}`}
-                type="button"
-                data-value={option.value}
-                onClick={() => handleSelect(option)}
-                className={`
-                  w-full px-3 py-2.5 flex items-center gap-3 text-left text-sm
-                  transition-all duration-100
-                  ${isSelected 
-                    ? 'bg-indigo-50 text-indigo-700 border-l-2 border-indigo-500' 
-                    : 'hover:bg-slate-50 border-l-2 border-transparent'
-                  }
-                  ${isAllOption && !isSelected ? 'text-slate-500 italic' : ''}
-                `}
-              >
-                <span className={`flex-1 truncate ${isSelected ? 'font-medium' : ''}`}>
-                  {option.label}
-                </span>
-                {isSelected && (
-                  <Check size={14} className="text-indigo-500 shrink-0" />
-                )}
-              </button>
-            );
-          })
-        ) : (
-          <div className="px-4 py-8 text-center">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center">
-              <Search size={20} className="text-slate-400" />
-            </div>
-            <p className="text-sm font-medium text-slate-600">{emptyMessage}</p>
-            <p className="text-xs text-slate-400 mt-1">Try a different search term</p>
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      {options.length > 5 && (
-        <div className="px-3 py-2 bg-slate-50 border-t border-slate-100">
-          <p className="text-[10px] text-slate-500 text-center">
-            {options.length} total options • Type to search
-          </p>
-        </div>
-      )}
-    </div>
-  ) : null;
-
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <div ref={containerRef} className={`relative ${className}`} style={{ zIndex: isOpen ? 100 : 1 }}>
       {/* Trigger Button */}
       <button
         type="button"
-        onClick={handleToggle}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`
           w-full h-10 flex items-center justify-between gap-2 px-3 rounded-lg border text-sm
@@ -366,8 +164,113 @@ const SearchableDropdown = ({
         </div>
       </button>
 
-      {/* PORTAL: Render dropdown outside of overflow:hidden containers */}
-      {ReactDOM.createPortal(dropdownContent, document.body)}
+      {/* Dropdown Panel - Absolute positioned */}
+      {isOpen && (
+        <div 
+          className="absolute z-[9999] top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl"
+          style={{
+            boxShadow: '0 10px 40px -5px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.1)',
+            minWidth: '100%',
+          }}
+        >
+          {/* Search Input */}
+          <div className="p-2 border-b border-slate-100 bg-slate-50/50">
+            <div className="relative">
+              <Search 
+                size={14} 
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" 
+              />
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={searchPlaceholder}
+                className="w-full h-8 pl-8 pr-8 text-sm bg-white border border-slate-200 rounded-lg
+                  focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400
+                  placeholder:text-slate-400 transition-all"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-200 rounded-full transition-colors"
+                >
+                  <X size={12} className="text-slate-400" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Search Stats */}
+          {search && (
+            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100">
+              <div className="flex items-center justify-between text-[10px] text-slate-500">
+                <span>Searching for "{search}"</span>
+                <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded-full font-semibold">
+                  {filteredOptions.length} found
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Options List */}
+          <div 
+            ref={listRef}
+            className="max-h-56 overflow-y-auto py-1 overscroll-contain"
+          >
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option, idx) => {
+                const isSelected = option.value === value;
+                const isAllOption = option.value === "";
+
+                return (
+                  <button
+                    key={option.value || `option-${idx}`}
+                    type="button"
+                    data-value={option.value}
+                    onClick={() => handleSelect(option)}
+                    className={`
+                      w-full px-3 py-2.5 flex items-center gap-3 text-left text-sm
+                      transition-all duration-100
+                      ${isSelected 
+                        ? 'bg-indigo-50 text-indigo-700 border-l-2 border-indigo-500' 
+                        : 'hover:bg-slate-50 border-l-2 border-transparent'
+                      }
+                      ${isAllOption && !isSelected ? 'text-slate-500 italic' : ''}
+                    `}
+                  >
+                    <span className={`flex-1 truncate ${isSelected ? 'font-medium' : ''}`}>
+                      {option.label}
+                    </span>
+                    {isSelected && (
+                      <Check size={14} className="text-indigo-500 shrink-0" />
+                    )}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-4 py-8 text-center">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center">
+                  <Search size={20} className="text-slate-400" />
+                </div>
+                <p className="text-sm font-medium text-slate-600">{emptyMessage}</p>
+                <p className="text-xs text-slate-400 mt-1">Try a different search term</p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          {options.length > 5 && (
+            <div className="px-3 py-2 bg-slate-50 border-t border-slate-100">
+              <p className="text-[10px] text-slate-500 text-center">
+                {options.length} total options • Type to search
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -469,6 +372,7 @@ const InventoryFilters = ({
   };
 
   return (
+    // ✅ KEY FIX: Changed overflow-hidden to overflow-visible
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-visible">
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* PRIMARY HEADER BAR */}
@@ -575,17 +479,20 @@ const InventoryFilters = ({
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* EXPANDABLE FILTERS SECTION */}
+      {/* EXPANDABLE FILTERS SECTION - overflow-visible when open */}
       {/* ════════════════════════════════════════════════════════════════════ */}
       <div
         className={`
           transition-all duration-300 ease-in-out
-          ${showFilters ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}
+          ${showFilters ? 'opacity-100 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden'}
         `}
+        style={{
+          maxHeight: showFilters ? '500px' : '0px',
+        }}
       >
-        <div className="px-3 sm:px-4 py-4 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white">
-          {/* Filter Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3">
+        <div className="px-3 sm:px-4 py-4 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white overflow-visible">
+          {/* Filter Grid - overflow-visible */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 overflow-visible">
             {/* Stock Status */}
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
@@ -616,7 +523,7 @@ const InventoryFilters = ({
 
             {/* SEARCHABLE Supplier Filter */}
             {suppliers.length > 0 && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 overflow-visible">
                 <label className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
                   <Truck size={11} />
                   Supplier
@@ -635,7 +542,7 @@ const InventoryFilters = ({
 
             {/* SEARCHABLE Category Filter */}
             {categories.length > 0 && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 overflow-visible">
                 <label className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
                   <Tag size={11} />
                   Category
@@ -654,7 +561,7 @@ const InventoryFilters = ({
 
             {/* Branch Filter */}
             {showBranchFilter && branches.length > 0 && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 overflow-visible">
                 <label className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
                   <Building2 size={11} />
                   Branch

@@ -1,6 +1,6 @@
 // frontend/src/pages/sales/returns/SalesReturnsPage.jsx
 
-import React, { useState, useEffect, useMemo, useRef,useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Package,
   Search,
@@ -19,12 +19,15 @@ import {
   X,
   Layers,
   Info,
+  Plus,
+  Users,
 } from "lucide-react";
 import { useToast } from "../../../components/common/Toast";
-import purchaseAPI from "../../../api/purchase";
+import salesAPI from "../../../api/sales";
 import { useAuthStore, selectBranchContext, selectIsSuperAdmin } from "../../../store/useAuthStore";
-import ViewReturnModal from "./components/ViewReturnModal";
-import ReturnsTable from "./components/ReturnsTable";
+import ViewSalesReturnModal from "./components/ViewSalesReturnModal";
+import SalesReturnsTable from "./components/SalesReturnsTable";
+import CreateSalesReturnModal from "./components/CreateSalesReturnModal";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import StyledSelect from "../../../components/common/StyledSelect";
 import StyledDateFilter from "../../../components/common/StyledDateFilter";
@@ -34,28 +37,50 @@ import StyledDateFilter from "../../../components/common/StyledDateFilter";
 // ════════════════════════════════════════════════════════════════════════════
 
 const RETURN_REASON_LABELS = {
-  DAMAGED_GOODS: "Damaged Goods",
-  EXPIRED_GOODS: "Expired Goods",
-  WRONG_ITEM_RECEIVED: "Wrong Item",
+  EXPIRED_PRODUCT: "Expired Product",
+  DAMAGED_PRODUCT: "Damaged Product",
+  WRONG_PRODUCT: "Wrong Product",
+  CUSTOMER_REQUEST: "Customer Request",
   QUALITY_ISSUE: "Quality Issue",
-  EXCESS_STOCK: "Excess Stock",
-  PRICE_DIFFERENCE: "Price Difference",
+  PRICE_DISPUTE: "Price Dispute",
   OTHER: "Other",
+  // Legacy support
+  CUSTOMER_CHANGED_MIND: "Customer Changed Mind",
+  WRONG_ITEM_SOLD: "Wrong Item Sold",
+  ALLERGIC_REACTION: "Allergic Reaction",
+  DOCTOR_ADVISED: "Doctor Advised Return",
 };
 
-const ADJUSTMENT_TYPE_CONFIG = {
+// ✅ Match schema enum values (CASH, CREDIT, ADJUST_NEXT)
+const REFUND_MODE_CONFIG = {
+  CASH: {
+    label: "Cash Refund",
+    color: "emerald",
+    icon: "₹",
+  },
+  CREDIT: {
+    label: "Customer Credit",
+    color: "blue",
+    icon: "📄",
+  },
+  ADJUST_NEXT: {
+    label: "Adjust Next",
+    color: "purple",
+    icon: "🔄",
+  },
+  // Legacy support
   CASH_REFUND: {
     label: "Cash Refund",
     color: "emerald",
     icon: "₹",
   },
   CREDIT_NOTE: {
-    label: "Credit Note",
+    label: "Customer Credit",
     color: "blue",
     icon: "📄",
   },
-  OFFSET_NEXT_PURCHASE: {
-    label: "Offset",
+  EXCHANGE: {
+    label: "Exchange",
     color: "purple",
     icon: "🔄",
   },
@@ -70,7 +95,7 @@ const APPROVAL_STATUS_OPTIONS = [
 ];
 
 const formatCurrency = (value) => {
-  const num = parseFloat(value) || 0;
+  const num = Math.abs(parseFloat(value) || 0);
   return `₹${num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
@@ -84,7 +109,7 @@ const formatDate = (dateString) => {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// ✅ NEW: BRANCH CONTEXT BANNER
+// BRANCH CONTEXT BANNER
 // ════════════════════════════════════════════════════════════════════════════
 
 const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
@@ -127,7 +152,7 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
 
 const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
   const totalPendingAmount = useMemo(() => {
-    return pendingReturns.reduce((sum, ret) => sum + (parseFloat(ret.net_amount) || 0), 0);
+    return pendingReturns.reduce((sum, ret) => sum + Math.abs(parseFloat(ret.net_amount) || 0), 0);
   }, [pendingReturns]);
 
   if (pendingReturns.length === 0) return null;
@@ -162,19 +187,21 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="font-mono font-bold text-sm text-[#000060]">{returnInvoice.invoice_number}</p>
+                  <p className="font-mono font-bold text-sm text-[#000060]">
+                    {returnInvoice.invoice_number}
+                  </p>
                   <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">
                     {RETURN_REASON_LABELS[returnInvoice.return_reason] || returnInvoice.return_reason}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-600">
                   <span className="flex items-center gap-1 truncate">
-                    <Building2 size={12} />
-                    {returnInvoice.supplier?.name}
+                    <Users size={12} />
+                    {returnInvoice.customer?.name || returnInvoice.walkin_name || "Walk-in Customer"}
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar size={12} />
-                    {formatDate(returnInvoice.created_at)}
+                    {formatDate(returnInvoice.invoice_date || returnInvoice.created_at)}
                   </span>
                   <span className="flex items-center gap-1">
                     <FileText size={12} />
@@ -185,7 +212,9 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
               <div className="flex items-center gap-3 ml-3">
                 <div className="text-right">
                   <p className="text-[10px] text-gray-500">Amount</p>
-                  <p className="text-sm font-bold text-[#000060]">{formatCurrency(returnInvoice.net_amount)}</p>
+                  <p className="text-sm font-bold text-[#000060]">
+                    {formatCurrency(returnInvoice.net_amount)}
+                  </p>
                 </div>
                 <button className="p-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors">
                   <Eye size={14} />
@@ -205,7 +234,7 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// FILTERS COMPONENT - UPDATED WITH STYLED COMPONENTS
+// FILTERS COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
 const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
@@ -213,7 +242,6 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
 
   const hasActiveFilters = filters.startDate || filters.endDate || filters.approvalStatus || filters.search;
 
-  // Count active filters
   const activeFilterCount = [
     filters.startDate,
     filters.endDate,
@@ -223,7 +251,6 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      {/* Filter Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <button
           onClick={() => setShowFilters(!showFilters)}
@@ -253,11 +280,9 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
         )}
       </div>
 
-      {/* Filter Content */}
       {showFilters && (
         <div className="px-4 pb-4 pt-2 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white">
           <div className="flex items-end gap-4 flex-wrap">
-            {/* From Date */}
             <div className="flex-shrink-0">
               <StyledDateFilter
                 label="From Date"
@@ -266,7 +291,6 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
               />
             </div>
 
-            {/* To Date */}
             <div className="flex-shrink-0">
               <StyledDateFilter
                 label="To Date"
@@ -275,7 +299,6 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
               />
             </div>
 
-            {/* Approval Status */}
             <div className="w-48 flex-shrink-0">
               <StyledSelect
                 label="Approval Status"
@@ -286,7 +309,6 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
               />
             </div>
 
-            {/* Search Input */}
             <div className="flex-1 min-w-[200px]">
               <label className="text-xs text-gray-500 font-medium mb-1.5 block">Search</label>
               <div className="relative">
@@ -298,7 +320,7 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
                 />
                 <input
                   type="text"
-                  placeholder="Return number, supplier..."
+                  placeholder="Return number, customer..."
                   value={filters.search || ""}
                   onChange={(e) => onFilterChange("search", e.target.value)}
                   className={`w-full h-10 pl-10 pr-10 text-sm border rounded-lg shadow-sm
@@ -321,7 +343,6 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
             </div>
           </div>
 
-          {/* Active Filters Summary */}
           {hasActiveFilters && (
             <div className="mt-4 pt-3 border-t border-slate-100">
               <div className="flex items-center gap-2 flex-wrap">
@@ -363,7 +384,6 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
   );
 };
 
-// Filter Tag Component
 const FilterTag = ({ label, onRemove }) => (
   <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#000060]/10 text-[#000060] rounded-lg text-xs font-medium">
     {label}
@@ -426,7 +446,6 @@ const StatsCards = ({ stats }) => {
 const SalesReturnsPage = () => {
   const toast = useToast();
   
-  // ✅ NEW: Branch context from store
   const branchContext = useAuthStore(selectBranchContext);
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
   const user = useAuthStore(state => state.user);
@@ -435,7 +454,6 @@ const SalesReturnsPage = () => {
   const currentBranchId = branchContext.branch_id;
   const currentBranchName = branchContext.branch_name;
 
-  // ✅ NEW: Track branch changes
   const prevBranchRef = useRef({
     mode: branchContext.mode,
     branch_id: branchContext.branch_id
@@ -447,8 +465,6 @@ const SalesReturnsPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  
-  // ✅ NEW: Branch switching loading state
   const [isBranchSwitching, setIsBranchSwitching] = useState(false);
 
   // Filters
@@ -462,7 +478,11 @@ const SalesReturnsPage = () => {
   // Modals
   const [viewReturnModal, setViewReturnModal] = useState({
     open: false,
-    returnInvoice: null,
+    returnData: null,
+  });
+
+  const [createReturnModal, setCreateReturnModal] = useState({
+    open: false,
   });
 
   const [confirmDialog, setConfirmDialog] = useState({
@@ -486,8 +506,12 @@ const SalesReturnsPage = () => {
       const query = filters.search.toLowerCase();
       result = result.filter(
         (r) =>
+          // ✅ FIX: Search by invoice_number instead of return_number
           r.invoice_number?.toLowerCase().includes(query) ||
-          r.supplier?.name?.toLowerCase().includes(query)
+          r.customer?.name?.toLowerCase().includes(query) ||
+          r.customer?.phone?.includes(query) ||
+          r.walkin_name?.toLowerCase().includes(query) ||
+          r.walkin_phone?.includes(query)
       );
     }
 
@@ -506,7 +530,7 @@ const SalesReturnsPage = () => {
   }, [returns, total]);
 
   // ══════════════════════════════════════════════════════════════════════
-  // ✅ UPDATED: LOAD RETURNS - with branch switching support
+  // LOAD RETURNS
   // ══════════════════════════════════════════════════════════════════════
 
   const loadReturns = useCallback(async (showBranchSwitchingState = false) => {
@@ -519,21 +543,20 @@ const SalesReturnsPage = () => {
 
       const params = { ...filters };
 
-      // Remove empty filters
       Object.keys(params).forEach((key) => {
         if (params[key] === "" || params[key] === null || params[key] === undefined) {
           delete params[key];
         }
       });
 
-      console.log("📦 Loading returns with branch context:", {
+      console.log("📦 Loading sales returns with branch context:", {
         mode: branchContext.mode,
         branch_id: branchContext.branch_id,
         branch_name: branchContext.branch_name,
         filters: params
       });
 
-      const response = await purchaseAPI.getAllReturns(params);
+      const response = await salesAPI.getAllReturns(params);
       setReturns(response.data?.returns || []);
       setTotal(response.data?.total || 0);
     } catch (error) {
@@ -545,7 +568,7 @@ const SalesReturnsPage = () => {
     }
   }, [filters, branchContext.mode, branchContext.branch_id, toast]);
 
-  // ✅ NEW: Watch for branch changes
+  // Watch for branch changes
   useEffect(() => {
     const prevBranch = prevBranchRef.current;
     const branchChanged = 
@@ -553,7 +576,7 @@ const SalesReturnsPage = () => {
       prevBranch.branch_id !== branchContext.branch_id;
     
     if (branchChanged) {
-      console.log("🔄 Branch changed detected in Returns page:", {
+      console.log("🔄 Branch changed detected in Sales Returns page:", {
         from: prevBranch,
         to: {
           mode: branchContext.mode,
@@ -566,17 +589,14 @@ const SalesReturnsPage = () => {
         branch_id: branchContext.branch_id
       };
       
-      // Clear current data
       setReturns([]);
       
-      // Show appropriate toast
       if (branchContext.mode === "GLOBAL") {
         toast.info("Switched to All Branches", "Loading combined returns data...");
       } else if (branchContext.branch_name) {
         toast.info("Branch Changed", `Loading returns for ${branchContext.branch_name}...`);
       }
       
-      // Reload with branch switching indicator
       loadReturns(true);
     }
   }, [branchContext.mode, branchContext.branch_id, branchContext.branch_name, toast, loadReturns]);
@@ -608,44 +628,63 @@ const SalesReturnsPage = () => {
   };
 
   // ══════════════════════════════════════════════════════════════════════
+  // CLOSE VIEW MODAL
+  // ══════════════════════════════════════════════════════════════════════
+
+  const closeViewModal = () => {
+    setViewReturnModal({ open: false, returnData: null });
+  };
+
+  // ══════════════════════════════════════════════════════════════════════
   // VIEW RETURN
   // ══════════════════════════════════════════════════════════════════════
 
-  const handleViewReturn = async (returnInvoice) => {
+  const handleViewReturn = async (returnData) => {
     try {
-      const response = await purchaseAPI.getReturnById(returnInvoice.invoice_id);
-      setViewReturnModal({ open: true, returnInvoice: response.data });
+      const returnId = returnData.invoice_id;
+      
+      if (!returnId) {
+        toast.error("Invalid return", "Return ID is missing");
+        return;
+      }
+
+      const response = await salesAPI.getReturnById(returnId);
+      setViewReturnModal({ open: true, returnData: response.data });
     } catch (error) {
       console.error("Failed to get return details:", error);
       toast.error("Failed to load return details", error.response?.data?.message || error.message);
     }
   };
 
-  const closeViewModal = () => {
-    setViewReturnModal({ open: false, returnInvoice: null });
-  };
-
   // ══════════════════════════════════════════════════════════════════════
   // APPROVE RETURN
   // ══════════════════════════════════════════════════════════════════════
 
-  const handleApproveReturn = (returnInvoice) => {
+  const handleApproveReturn = (returnData) => {
+    // ✅ Get refund_mode with fallback to adjustment_type
+    const refundMode = returnData.refund_mode || returnData.adjustment_type;
+    const refundConfig = REFUND_MODE_CONFIG[refundMode];
+
     setConfirmDialog({
       isOpen: true,
       type: "success",
-      title: "Approve Return",
+      title: "Approve Sales Return",
       message: (
         <div className="space-y-3">
-          <p>You are about to approve this purchase return.</p>
+          <p>You are about to approve this sales return.</p>
           <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-            <p className="font-semibold text-gray-900">Return: {returnInvoice.invoice_number}</p>
-            <p className="text-sm text-gray-600 mt-1">Amount: {formatCurrency(returnInvoice.net_amount)}</p>
+            <p className="font-semibold text-gray-900">
+              Return: {returnData.invoice_number}
+            </p>
+            <p className="text-sm text-gray-600 mt-1">
+              Amount: {formatCurrency(returnData.net_amount)}
+            </p>
           </div>
           <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
             <p className="text-sm text-blue-800 font-medium mb-2">This will:</p>
             <ul className="text-xs text-blue-700 list-disc list-inside space-y-1">
-              <li>Deduct stock from inventory</li>
-              <li>Process payment adjustment ({ADJUSTMENT_TYPE_CONFIG[returnInvoice.adjustment_type]?.label})</li>
+              <li>Add stock back to inventory</li>
+              <li>Process refund/credit ({refundConfig?.label || refundMode || "N/A"})</li>
               <li>Mark return as approved</li>
             </ul>
           </div>
@@ -654,17 +693,18 @@ const SalesReturnsPage = () => {
       confirmText: "Approve Return",
       onConfirm: async () => {
         setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
-        await performApproval(returnInvoice.invoice_id);
+        await performApproval(returnData);
       },
     });
   };
 
-  const performApproval = async (returnId) => {
+  const performApproval = async (returnData) => {
     try {
       setActionLoading(true);
-      await purchaseAPI.approveReturn(returnId, { action: "APPROVE" });
+      const returnId = returnData.invoice_id;
+      await salesAPI.approveReturn(returnId, { action: "APPROVE" });
 
-      toast.success("Return Approved", "Stock deducted and payment adjustment processed.");
+      toast.success("Return Approved", "Stock restored and refund/credit processed.");
       closeViewModal();
       loadReturns(false);
     } catch (error) {
@@ -679,25 +719,30 @@ const SalesReturnsPage = () => {
   // REJECT RETURN
   // ══════════════════════════════════════════════════════════════════════
 
-  const handleRejectReturn = (returnInvoice) => {
+  const handleRejectReturn = (returnData) => {
     setConfirmDialog({
       isOpen: true,
       type: "danger",
-      title: "Reject Return",
+      title: "Reject Sales Return",
       message: (
         <div className="space-y-3">
-          <p>You are about to reject this purchase return.</p>
+          <p>You are about to reject this sales return.</p>
           <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-            <p className="font-semibold text-gray-900">Return: {returnInvoice.invoice_number}</p>
-            <p className="text-sm text-gray-600 mt-1">Amount: {formatCurrency(returnInvoice.net_amount)}</p>
+            <p className="font-semibold text-gray-900">
+              Return: {returnData.invoice_number}
+            </p>
+            <p className="text-sm text-gray-600 mt-1">
+              Amount: {formatCurrency(returnData.net_amount)}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Rejection Reason <span className="text-red-500">*</span>
+              <span className="text-xs font-normal text-gray-500 ml-2">(minimum 10 characters)</span>
             </label>
             <textarea
               id="rejection-reason"
-              placeholder="Enter reason for rejection..."
+              placeholder="Enter reason for rejection (at least 10 characters)..."
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
             />
@@ -708,20 +753,21 @@ const SalesReturnsPage = () => {
       confirmText: "Reject Return",
       onConfirm: async () => {
         const reason = document.getElementById("rejection-reason")?.value.trim();
-        if (!reason) {
-          toast.warning("Reason Required", "Please provide a rejection reason.");
+        if (!reason || reason.length < 10) {
+          toast.warning("Reason Required", "Please provide a rejection reason (minimum 10 characters).");
           return;
         }
         setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
-        await performRejection(returnInvoice.invoice_id, reason);
+        await performRejection(returnData, reason);
       },
     });
   };
 
-  const performRejection = async (returnId, reason) => {
+  const performRejection = async (returnData, reason) => {
     try {
       setActionLoading(true);
-      await purchaseAPI.rejectReturn(returnId, reason);
+      const returnId = returnData.invoice_id;
+      await salesAPI.rejectReturn(returnId, reason);
 
       toast.success("Return Rejected", "Return has been rejected.");
       closeViewModal();
@@ -738,12 +784,16 @@ const SalesReturnsPage = () => {
   // CANCEL APPROVED RETURN
   // ══════════════════════════════════════════════════════════════════════
 
-  const handleCancelReturn = async (returnInvoice, data) => {
+  const handleCancelReturn = async (returnData, data) => {
     try {
       setActionLoading(true);
-      await purchaseAPI.cancelApprovedReturn(returnInvoice.invoice_id, data);
+      const returnId = returnData.invoice_id;
+      
+      console.log("📤 Cancelling return:", { returnId, data });
+      
+      await salesAPI.cancelApprovedReturn(returnId, data);
 
-      toast.success("Return Cancelled", "Stock has been restored and credit notes have been cancelled.");
+      toast.success("Return Cancelled", "Stock has been deducted and customer credits have been cancelled.");
       closeViewModal();
       loadReturns(false);
     } catch (error) {
@@ -758,10 +808,14 @@ const SalesReturnsPage = () => {
   // REVERT TO PENDING
   // ══════════════════════════════════════════════════════════════════════
 
-  const handleRevertReturn = async (returnInvoice, reason) => {
+  const handleRevertReturn = async (returnData, reason) => {
     try {
       setActionLoading(true);
-      await purchaseAPI.revertReturnToPending(returnInvoice.invoice_id, { revert_reason: reason });
+      const returnId = returnData.invoice_id;
+      
+      console.log("📤 Reverting return:", { returnId, reason });
+      
+      await salesAPI.revertReturnToPending(returnId, { revert_reason: reason });
 
       toast.success("Return Reverted", "Return has been reverted to pending approval.");
       closeViewModal();
@@ -775,12 +829,21 @@ const SalesReturnsPage = () => {
   };
 
   // ══════════════════════════════════════════════════════════════════════
+  // CREATE RETURN SUCCESS
+  // ══════════════════════════════════════════════════════════════════════
+
+  const handleCreateReturnSuccess = () => {
+    setCreateReturnModal({ open: false });
+    loadReturns(false);
+  };
+
+  // ══════════════════════════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════════════════════════
 
   return (
     <div className="h-full flex flex-col p-4 max-w-[1800px] mx-auto">
-      {/* ✅ NEW: Branch Context Banner */}
+      {/* Branch Context Banner */}
       {isSuperAdmin && (
         <BranchContextBanner 
           isGlobalMode={isGlobalMode}
@@ -792,9 +855,9 @@ const SalesReturnsPage = () => {
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between mb-4 mt-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#000060]">Purchase Returns</h1>
+          <h1 className="text-2xl font-bold text-[#000060]">Sales Returns</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Manage product returns and approval workflow
+            Manage customer returns and refund workflow
             {isSuperAdmin && (
               <span className="ml-2 text-amber-600 font-medium">• Super Admin Mode</span>
             )}
@@ -804,14 +867,26 @@ const SalesReturnsPage = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing || actionLoading || isBranchSwitching}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#000060] text-white text-sm font-medium hover:bg-[#000060]/90 transition-colors disabled:opacity-50 shadow-lg shadow-[#000060]/20"
-        >
-          <RefreshCw size={16} className={refreshing || isBranchSwitching ? "animate-spin" : ""} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {!isGlobalMode && (
+            <button
+              onClick={() => setCreateReturnModal({ open: true })}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20"
+            >
+              <Plus size={16} />
+              New Return
+            </button>
+          )}
+          
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing || actionLoading || isBranchSwitching}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#000060] text-white text-sm font-medium hover:bg-[#000060]/90 transition-colors disabled:opacity-50 shadow-lg shadow-[#000060]/20"
+          >
+            <RefreshCw size={16} className={refreshing || isBranchSwitching ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -835,9 +910,8 @@ const SalesReturnsPage = () => {
         />
       </div>
 
-      {/* Table - Takes remaining space */}
+      {/* Table */}
       <div className="flex-1 min-h-0 relative">
-        {/* ✅ Branch switching overlay */}
         {isBranchSwitching && (
           <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center rounded-lg">
             <div className="flex flex-col items-center gap-3 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
@@ -852,7 +926,7 @@ const SalesReturnsPage = () => {
           </div>
         )}
 
-        <ReturnsTable
+        <SalesReturnsTable
           data={filteredReturns}
           loading={loading}
           actionLoading={actionLoading}
@@ -861,14 +935,22 @@ const SalesReturnsPage = () => {
       </div>
 
       {/* View Return Modal */}
-      <ViewReturnModal
+      <ViewSalesReturnModal
         open={viewReturnModal.open}
         onClose={closeViewModal}
-        returnInvoice={viewReturnModal.returnInvoice}
+        returnData={viewReturnModal.returnData}
         onApprove={handleApproveReturn}
         onReject={handleRejectReturn}
         onCancel={handleCancelReturn}
         onRevert={handleRevertReturn}
+        isSuperAdmin={isSuperAdmin}
+      />
+
+      {/* Create Return Modal */}
+      <CreateSalesReturnModal
+        open={createReturnModal.open}
+        onClose={() => setCreateReturnModal({ open: false })}
+        onSuccess={handleCreateReturnSuccess}
         isSuperAdmin={isSuperAdmin}
       />
 

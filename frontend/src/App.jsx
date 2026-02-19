@@ -61,6 +61,15 @@ import ProfilePage from "./pages/settings/profile/ProfilePage.jsx";
 import UpgradePlanPage from "./pages/settings/plans/UpgradePlanPage.jsx";
 
 // ============================================
+// oeder PAGES
+// ============================================
+
+import OrdersPage from "./pages/orders/OrdersPage";
+import OrderSessionsPage from "./pages/orders/OrderSessionsPage";
+import PendingOrdersPage from "./pages/orders/PendingOrdersPage";
+import CompletedOrdersPage from "./pages/orders/CompletedOrdersPage";
+
+// ============================================
 // SUPPORT PAGES
 // ============================================
 import TicketsPage from "./pages/tickets/TicketsPage.jsx";
@@ -419,6 +428,54 @@ const App = () => {
                               permission={PERMISSIONS.REPORTS_SALES}
                             >
                               <ReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+
+                         {/* ============================================ */}
+                        {/* orders ROUTES */}
+                        {/* ============================================ */}
+
+                        <Route
+                          path="/orders"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_VIEW}
+                            >
+                              <OrdersPage />
+                            </PermissionGuard>
+                          }
+                        />
+
+                        <Route
+                          path="/orders-sessions"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_VIEW}
+                            >
+                              <OrderSessionsPage />
+                            </PermissionGuard>
+                          }
+                        />
+
+                        <Route
+                          path="/orders-pending"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_VIEW}
+                            >
+                              <PendingOrdersPage />
+                            </PermissionGuard>
+                          }
+                        />
+
+                        <Route
+                          path="/orders-completed"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_VIEW}
+                            >
+                              <CompletedOrdersPage />
                             </PermissionGuard>
                           }
                         />

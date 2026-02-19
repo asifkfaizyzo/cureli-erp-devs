@@ -55,7 +55,20 @@ export const updateSalesInvoiceSchema = z.object({
   bill_discount_percent: z.number().min(0).max(100).optional(),
   prescription_number: z.string().max(50).optional().nullable(),
   doctor_name: z.string().max(200).optional().nullable(),
-  lineItems: z.array(salesLineItemSchema).optional(),
+  
+  // ✅ Line items with optional selling_rate (backend gets from inventory)
+  lineItems: z.array(z.object({
+    medicine_id: z.string().uuid(),
+    inventory_id: z.string().uuid(),
+    quantity: z.number().positive(),
+    unit_of_measure: z.enum(["UNIT", "STRIP", "BOX", "BOTTLE"]).default("UNIT"),
+    selling_rate: z.number().positive().optional().nullable(),
+    mrp: z.number().positive().optional().nullable(),
+    discount_percent: z.number().min(0).max(100).default(0),
+    cgst_percent: z.number().min(0).max(100).optional(),
+    sgst_percent: z.number().min(0).max(100).optional(),
+  })).optional(),
+  
   remarks: z.string().max(500).optional().nullable(),
 });
 
@@ -125,13 +138,13 @@ export const createSalesReturnSchema = z.object({
   ]),
   return_notes: z.string().max(500).optional().nullable(),
 
-  // Items being returned
+  // ✅ It's expecting "lineItems", not "return_items"
   lineItems: z.array(z.object({
     item_id: z.string().uuid(),
     quantity: z.number().positive(),
   })).min(1),
 
-  // Refund method
+  // ✅ refund_mode is required
   refund_mode: z.enum(["CASH", "CREDIT", "ADJUST_NEXT"]).default("CREDIT"),
 
   refund_notes: z.string().max(500).optional().nullable(),
@@ -172,4 +185,15 @@ export const checkStockSchema = z.object({
     inventory_id: z.string().uuid(),
     quantity: z.number().positive(),
   })).min(1),
+});
+
+// ============================================
+// UPDATE PAYMENT STATUS (Super Admin only)
+// ============================================
+
+export const updatePaymentStatusSchema = z.object({
+  payment_status: z.enum(["PAID", "PARTIALLY_PAID", "UNPAID"]),
+  paid_amount: z.number().min(0).optional(),
+  payment_mode: z.enum(["CASH", "CARD", "UPI", "CREDIT"]).optional(),
+  remarks: z.string().max(500).optional(),
 });

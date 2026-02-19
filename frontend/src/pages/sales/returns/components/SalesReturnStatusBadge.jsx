@@ -1,4 +1,4 @@
-// frontend/src/pages/purchase/returns/components/ReturnStatusBadge.jsx
+// frontend/src/pages/sales/returns/components/SalesReturnStatusBadge.jsx
 
 import React from "react";
 import { CheckCircle2, Clock, XCircle, Ban } from "lucide-react";
@@ -42,7 +42,7 @@ const STATUS_CONFIG = {
   },
 };
 
-const ReturnStatusBadge = ({ status, size = "md", showIcon = true, showLabel = true }) => {
+const SalesReturnStatusBadge = ({ status, size = "md", showIcon = true, showLabel = true }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING_APPROVAL;
   const Icon = config.icon;
 
@@ -74,4 +74,4 @@ const ReturnStatusBadge = ({ status, size = "md", showIcon = true, showLabel = t
   );
 };
 
-export default ReturnStatusBadge;
+export default SalesReturnStatusBadge;

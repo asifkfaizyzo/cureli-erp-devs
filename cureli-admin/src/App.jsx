@@ -17,6 +17,8 @@ import CAdminResetPassword from "./pages/Cadmin-Login/CAdminResetPassword";
 import VerificationPage from "./pages/User-Shop-Verifications/VerificationPage";
 import ShopsPage from "./pages/shops-management/ShopsPage";
 import AdminsPage from "./pages/Cadmin-management/AdminsPage";
+import OrdersPage from "./pages/orders/OrdersPage";
+
 
 // Subscription Management
 import RiskMonitorPage from "./pages/Subscription-management/RiskMonitorPage";
@@ -113,6 +115,7 @@ function App() {
 
           <Route path="/settings" element={<div>Settings Page</div>} />
           <Route path="/admins" element={<AdminsPage />} />
+          <Route path="/orders" element={<OrdersPage />} />
 
           {/* ✅ ADD THIS: Notifications Route */}
           <Route path="/notifications" element={<NotificationsPage />} />
