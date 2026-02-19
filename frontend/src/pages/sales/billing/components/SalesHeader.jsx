@@ -2,7 +2,7 @@
 
 import { 
   Save, Printer, CheckCircle, Clock, AlertCircle, Loader2,
-  Trash2, FilePlus, User, Calendar
+  Trash2, FilePlus, User
 } from "lucide-react";
 
 const SalesHeader = ({ 
@@ -11,13 +11,13 @@ const SalesHeader = ({
   onPrint,
   onClearTable,
   onNewBill,
-  invoiceNumber,
   invoiceStatus,
   isLoading = false,
   isSaving = false,
   hasUnsavedData = false,
   billedBy = "Staff",
 }) => {
+
   const getStatusConfig = (status) => {
     switch(status) {
       case 'CONFIRMED':
@@ -85,7 +85,8 @@ const SalesHeader = ({
 
   return (
     <div className="flex items-center justify-between px-4 py-2.5 bg-white rounded-lg shadow-sm border border-slate-200">
-      {/* Left: Title & Invoice Info */}
+      
+      {/* Left: Title & Info */}
       <div className="flex items-center gap-3">
         <div className="p-2 bg-gradient-to-br from-[#05015A] to-[#0a0280] rounded-lg shadow-sm">
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,17 +97,8 @@ const SalesHeader = ({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-[#05015A] font-bold text-lg">Sales Billing</h1>
-            
-            {invoiceNumber && (
-              <>
-                <div className="h-4 w-px bg-slate-300" />
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-200 rounded-lg">
-                  <span className="text-[10px] text-indigo-600 font-medium">Bill No:</span>
-                  <span className="text-[11px] font-bold text-indigo-700 font-mono">{invoiceNumber}</span>
-                </div>
-              </>
-            )}
 
+            {/* Status */}
             {invoiceStatus && statusConfig && (
               <div className={`flex items-center gap-1 px-2 py-1 ${statusConfig.bg} border ${statusConfig.border} rounded-lg`}>
                 <StatusIcon size={12} className={statusConfig.text} />
@@ -116,7 +108,8 @@ const SalesHeader = ({
               </div>
             )}
 
-            {hasUnsavedData && !invoiceNumber && (
+            {/* Unsaved */}
+            {hasUnsavedData && (
               <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
                 <span className="text-[10px] text-amber-700 font-medium">Unsaved</span>
@@ -133,13 +126,14 @@ const SalesHeader = ({
           </div>
           
           <p className="text-slate-500 text-xs mt-0.5">
-            {invoiceNumber ? 'Update sales invoice' : 'Create new sales invoice'}
+            Create sales invoice
           </p>
         </div>
       </div>
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
+        
         <button
           onClick={onNewBill}
           disabled={isSaving}
@@ -177,7 +171,7 @@ const SalesHeader = ({
           ) : (
             <Save size={14} />
           )}
-          {isSaving ? 'Saving...' : invoiceNumber ? 'Update' : 'Save Draft'}
+          {isSaving ? 'Saving...' : 'Save Draft'}
         </button>
 
         {/* Print Only (for confirmed) */}

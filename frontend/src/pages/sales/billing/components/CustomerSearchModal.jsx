@@ -5,11 +5,11 @@ import { createPortal } from "react-dom";
 import { 
   X, Search, User, Phone, MapPin, Plus, 
   CheckCircle2, Loader2, UserPlus, Users,
-  CreditCard, Percent, Building2, AlertCircle
+  CreditCard, Percent, Building2, AlertCircle, Mail
 } from "lucide-react";
 
 // ============================================
-// ANIMATED INPUT COMPONENT
+// ANIMATED INPUT COMPONENT - FIXED
 // ============================================
 const AnimatedInput = ({ 
   label, 
@@ -21,15 +21,19 @@ const AnimatedInput = ({
   required = false,
   error = null,
   className = "",
+  maxLength,
+  inputMode,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
-  const hasValue = value && value.toString().length > 0;
+  
+  // ✅ FIX: Handle numeric values (0) properly
+  const hasValue = value !== undefined && value !== null && String(value).length > 0 && value !== '';
   
   return (
     <div className={`relative ${className}`}>
       <label 
         className={`
-          absolute left-3 transition-all duration-200 pointer-events-none z-10
+          absolute transition-all duration-200 pointer-events-none z-10
           ${isFocused || hasValue 
             ? '-top-2 text-[9px] bg-white px-1 font-semibold' 
             : 'top-1/2 -translate-y-1/2 text-[10px]'
@@ -57,6 +61,8 @@ const AnimatedInput = ({
         placeholder={isFocused ? placeholder : ""}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
+        maxLength={maxLength}
+        inputMode={inputMode}
         className={`
           w-full h-10 text-sm rounded-lg border transition-all duration-200 outline-none
           ${Icon ? 'pl-10' : 'pl-3'} pr-3
@@ -154,7 +160,7 @@ const CustomerSearchModal = ({
   searchCustomers,
   createCustomer 
 }) => {
-  const [mode, setMode] = useState('search'); // 'search' | 'create'
+  const [mode, setMode] = useState('search');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -162,6 +168,7 @@ const CustomerSearchModal = ({
   const [isCreating, setIsCreating] = useState(false);
   const [errors, setErrors] = useState({});
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  
   // New customer form state
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -172,9 +179,9 @@ const CustomerSearchModal = ({
     state: '',
     pincode: '',
     gst_number: '',
-    credit_limit: 0,
-    credit_days: 0,
-    discount_percent: 0,
+    credit_limit: '',
+    credit_days: '',
+    discount_percent: '',
   });
 
   const searchInputRef = useRef(null);
@@ -195,6 +202,7 @@ const CustomerSearchModal = ({
       setSearchResults([]);
       setSelectedCustomer(null);
       setErrors({});
+      setHighlightedIndex(0);
       setNewCustomer({
         name: '',
         phone: '',
@@ -204,9 +212,9 @@ const CustomerSearchModal = ({
         state: '',
         pincode: '',
         gst_number: '',
-        credit_limit: 0,
-        credit_days: 0,
-        discount_percent: 0,
+        credit_limit: '',
+        credit_days: '',
+        discount_percent: '',
       });
     }
   }, [isOpen]);
@@ -255,6 +263,18 @@ const CustomerSearchModal = ({
     }
   }, [selectedCustomer, onSelect, onClose]);
 
+  // ✅ Email validation helper
+  const isValidEmail = useCallback((email) => {
+    if (!email || !email.trim()) return true; // Empty is valid (optional)
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }, []);
+
+  // ✅ GSTIN validation helper
+  const isValidGSTIN = useCallback((gst) => {
+    if (!gst || !gst.trim()) return true; // Empty is valid (optional)
+    return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gst);
+  }, []);
+
   // Validate new customer form
   const validateForm = useCallback(() => {
     const newErrors = {};
@@ -263,23 +283,31 @@ const CustomerSearchModal = ({
       newErrors.name = 'Name is required';
     }
     
+    // ✅ Phone validation - must be exactly 10 digits
     if (!newCustomer.phone.trim()) {
       newErrors.phone = 'Phone is required';
-    } else if (!/^\d{10}$/.test(newCustomer.phone.replace(/\D/g, ''))) {
-      newErrors.phone = 'Enter valid 10-digit phone';
+    } else if (newCustomer.phone.length !== 10) {
+      newErrors.phone = 'Enter exactly 10 digits';
     }
     
-    if (newCustomer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCustomer.email)) {
-      newErrors.email = 'Enter valid email';
+    // ✅ Email validation
+    if (newCustomer.email && !isValidEmail(newCustomer.email)) {
+      newErrors.email = 'Enter a valid email address';
     }
     
-    if (newCustomer.gst_number && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(newCustomer.gst_number)) {
-      newErrors.gst_number = 'Enter valid GSTIN';
+    // ✅ GSTIN validation
+    if (newCustomer.gst_number && !isValidGSTIN(newCustomer.gst_number)) {
+      newErrors.gst_number = 'Enter valid 15-character GSTIN';
+    }
+
+    // ✅ Pincode validation
+    if (newCustomer.pincode && !/^\d{6}$/.test(newCustomer.pincode)) {
+      newErrors.pincode = 'Enter valid 6-digit pincode';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [newCustomer]);
+  }, [newCustomer, isValidEmail, isValidGSTIN]);
 
   // Handle create customer
   const handleCreateCustomer = useCallback(async () => {
@@ -312,7 +340,7 @@ const CustomerSearchModal = ({
     }
   }, [newCustomer, validateForm, createCustomer, onSelect, onClose]);
 
-  // Update form field
+  // Update form field with validation clearing
   const updateField = useCallback((field, value) => {
     setNewCustomer(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -320,18 +348,47 @@ const CustomerSearchModal = ({
     }
   }, [errors]);
 
+  // ✅ Phone input handler - numbers only, max 10
+  const handlePhoneChange = useCallback((e) => {
+    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 10);
+    updateField('phone', numericValue);
+  }, [updateField]);
+
+  // ✅ Pincode input handler - numbers only, max 6
+  const handlePincodeChange = useCallback((e) => {
+    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 6);
+    updateField('pincode', numericValue);
+  }, [updateField]);
+
+  // ✅ Numeric field handler for credit fields
+  const handleNumericChange = useCallback((field, maxValue = Infinity) => (e) => {
+    const value = e.target.value.replace(/[^\d.]/g, '');
+    // Handle decimal points
+    const parts = value.split('.');
+    let sanitized = parts.length > 2 
+      ? parts[0] + '.' + parts.slice(1).join('') 
+      : value;
+    
+    // Check max value for percentage
+    if (field === 'discount_percent' && parseFloat(sanitized) > 100) {
+      sanitized = '100';
+    }
+    
+    updateField(field, sanitized);
+  }, [updateField]);
+
   // Switch to create mode with search term as name
   const handleSwitchToCreate = useCallback(() => {
-  setMode('create');
-  if (searchTerm.trim()) {
-    setNewCustomer(prev => ({ ...prev, name: searchTerm.trim() }));
-  }
-  // ✅ Clear search state
-  setSearchTerm('');
-  setSearchResults([]);
-  setSelectedCustomer(null);
-  setHighlightedIndex(0); // ✅ Now defined
-}, [searchTerm]);
+    setMode('create');
+    if (searchTerm.trim()) {
+      setNewCustomer(prev => ({ ...prev, name: searchTerm.trim() }));
+    }
+    setSearchTerm('');
+    setSearchResults([]);
+    setSelectedCustomer(null);
+    setHighlightedIndex(0);
+  }, [searchTerm]);
+
   if (!isOpen) return null;
 
   return createPortal(
@@ -488,24 +545,28 @@ const CustomerSearchModal = ({
                   required
                   error={errors.name}
                 />
+                {/* ✅ Phone - numbers only, max 10 */}
                 <AnimatedInput
                   label="Phone Number"
                   value={newCustomer.phone}
-                  onChange={(e) => updateField('phone', e.target.value)}
+                  onChange={handlePhoneChange}
                   placeholder="10-digit mobile"
                   icon={Phone}
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   required
                   error={errors.phone}
                 />
               </div>
 
+              {/* ✅ Email with validation */}
               <AnimatedInput
                 label="Email Address"
                 value={newCustomer.email}
                 onChange={(e) => updateField('email', e.target.value)}
                 placeholder="email@example.com"
-                icon={Building2}
+                icon={Mail}
                 type="email"
                 error={errors.email}
               />
@@ -532,11 +593,15 @@ const CustomerSearchModal = ({
                   onChange={(e) => updateField('state', e.target.value)}
                   placeholder="State"
                 />
+                {/* ✅ Pincode - numbers only, max 6 */}
                 <AnimatedInput
                   label="Pincode"
                   value={newCustomer.pincode}
-                  onChange={(e) => updateField('pincode', e.target.value)}
+                  onChange={handlePincodeChange}
                   placeholder="6-digit"
+                  inputMode="numeric"
+                  maxLength={6}
+                  error={errors.pincode}
                 />
               </div>
 
@@ -553,32 +618,39 @@ const CustomerSearchModal = ({
                     value={newCustomer.gst_number}
                     onChange={(e) => updateField('gst_number', e.target.value.toUpperCase())}
                     placeholder="29ABCDE1234F1Z5"
+                    maxLength={15}
                     error={errors.gst_number}
                   />
+                  {/* ✅ Discount % - numbers only, max 100 */}
                   <AnimatedInput
                     label="Discount %"
                     value={newCustomer.discount_percent}
-                    onChange={(e) => updateField('discount_percent', e.target.value)}
+                    onChange={handleNumericChange('discount_percent')}
                     placeholder="0"
-                    type="number"
+                    inputMode="decimal"
                     icon={Percent}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mt-4">
+                  {/* ✅ Credit Limit - numbers only */}
                   <AnimatedInput
                     label="Credit Limit (₹)"
                     value={newCustomer.credit_limit}
-                    onChange={(e) => updateField('credit_limit', e.target.value)}
+                    onChange={handleNumericChange('credit_limit')}
                     placeholder="0"
-                    type="number"
+                    inputMode="decimal"
                   />
+                  {/* ✅ Credit Days - numbers only */}
                   <AnimatedInput
                     label="Credit Days"
                     value={newCustomer.credit_days}
-                    onChange={(e) => updateField('credit_days', e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '');
+                      updateField('credit_days', value);
+                    }}
                     placeholder="0"
-                    type="number"
+                    inputMode="numeric"
                   />
                 </div>
               </div>
@@ -599,7 +671,7 @@ const CustomerSearchModal = ({
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
-                  onSelect(null); // Clear selection / walk-in
+                  onSelect(null);
                   onClose();
                 }}
                 className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors"

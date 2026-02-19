@@ -12,8 +12,9 @@ const PurchaseInvoicePrint = ({
     gstin: "29ABCDE1234F1Z5",
     drugLicense: "KA-BNG-123456",
   },
-  invoiceNumber, // ✅ NEW: From API
-  invoiceDate    // ✅ NEW: From API
+  invoiceNumber,
+  invoiceDate,
+  billedBy = "Staff" // ✅ NEW: Billed By prop
 }) => {
   
   const dataRows = rows.filter(row => row.name && row.name.trim() !== "");
@@ -22,6 +23,15 @@ const PurchaseInvoicePrint = ({
   const formatDate = (dateStr) => {
     if (!dateStr) return new Date().toLocaleDateString('en-IN');
     return new Date(dateStr).toLocaleDateString('en-IN');
+  };
+
+  // Format time
+  const formatTime = () => {
+    return new Date().toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   // Number to words converter
@@ -59,7 +69,6 @@ const PurchaseInvoicePrint = ({
     return result;
   };
 
-  // ✅ Use API invoice number or fallback
   const displayInvoiceNumber = invoiceNumber || supplier.purchaseId || 'DRAFT';
   const displayInvoiceDate = formatDate(invoiceDate || supplier.invoiceDate || supplier.receivedOn);
 
@@ -123,6 +132,15 @@ const PurchaseInvoicePrint = ({
                   <tr>
                     <td className="label">Date:</td>
                     <td className="value">{displayInvoiceDate}</td>
+                  </tr>
+                  <tr>
+                    <td className="label">Time:</td>
+                    <td className="value">{formatTime()}</td>
+                  </tr>
+                  {/* ✅ NEW: Billed By */}
+                  <tr>
+                    <td className="label">Created By:</td>
+                    <td className="value"><strong>{billedBy}</strong></td>
                   </tr>
                 </tbody>
               </table>
@@ -333,6 +351,15 @@ const PurchaseInvoicePrint = ({
               </ol>
             </div>
             <div className="signature-box">
+              {/* ✅ NEW: Added Billed By in footer */}
+              <p className="billed-by-footer" style={{ 
+                fontSize: '9pt', 
+                color: '#666', 
+                marginBottom: '8px',
+                fontStyle: 'italic'
+              }}>
+                Created By: <strong>{billedBy}</strong>
+              </p>
               <div className="signature-line"></div>
               <p>Authorized Signatory</p>
               <p className="company-stamp">{companyDetails.name}</p>

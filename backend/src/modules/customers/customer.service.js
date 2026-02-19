@@ -111,29 +111,36 @@ class CustomerService {
   // ============================================
 
   async searchCustomers(shopId, branchId, searchTerm, limit = 10) {
-    return prisma.customer.findMany({
-      where: {
-        shop_id: shopId,
-        is_active: true,
-        OR: [
-          { name: { contains: searchTerm, mode: "insensitive" } },
-          { phone: { contains: searchTerm, mode: "insensitive" } },
-        ],
-      },
-      select: {
-        customer_id: true,
-        name: true,
-        phone: true,
-        email: true,
-        discount_percent: true,
-        credit_limit: true,
-        outstanding_balance: true,
-        gst_number: true,
-      },
-      orderBy: { name: "asc" },
-      take: limit,
-    });
-  }
+  return prisma.customer.findMany({
+    where: {
+      shop_id: shopId,
+      is_active: true,
+      OR: [
+        { name: { contains: searchTerm, mode: "insensitive" } },
+        { phone: { contains: searchTerm, mode: "insensitive" } },
+      ],
+    },
+    select: {
+      customer_id: true,
+      name: true,
+      phone: true,
+      email: true,
+      discount_percent: true,
+      credit_limit: true,
+      outstanding_balance: true,
+      gst_number: true,
+      // ✅ ADD these address fields
+      address_line_1: true,
+      address_line_2: true,
+      city: true,
+      state: true,
+      pincode: true,
+    },
+    orderBy: { name: "asc" },
+    take: limit,
+  });
+}
+
 
   // ============================================
   // GET CUSTOMER BY ID

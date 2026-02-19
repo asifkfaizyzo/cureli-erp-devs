@@ -1,4 +1,4 @@
- // src/pages/sales/billing/components/SalesInvoicePrint.jsx
+// src/pages/sales/billing/components/SalesInvoicePrint.jsx
 
 import { useMemo } from "react";
 
@@ -15,7 +15,8 @@ const SalesInvoicePrint = ({
     drugLicense: "KA-BNG-123456",
   },
   invoiceNumber,
-  invoiceDate
+  invoiceDate,
+  billedBy = "Staff" // ✅ NEW: Billed By prop
 }) => {
   
   const dataRows = rows.filter(row => row.name && row.name.trim() !== "" && row.qty);
@@ -259,6 +260,11 @@ const SalesInvoicePrint = ({
                   <td style={{ padding: '2px 0', color: '#666' }}>Time:</td>
                   <td style={{ padding: '2px 0' }}>{formatTime()}</td>
                 </tr>
+                {/* ✅ NEW: Billed By */}
+                <tr>
+                  <td style={{ padding: '2px 0', color: '#666' }}>Billed By:</td>
+                  <td style={{ padding: '2px 0', fontWeight: '600', color: '#7c3aed' }}>{billedBy}</td>
+                </tr>
                 <tr>
                   <td style={{ padding: '2px 0', color: '#666' }}>Payment:</td>
                   <td style={{ padding: '2px 0' }}>
@@ -358,7 +364,7 @@ const SalesInvoicePrint = ({
                 </tr>
               )}
 
-              {/* Empty rows to maintain minimum height */}
+              {/* Empty rows */}
               {dataRows.length > 0 && dataRows.length < 5 && 
                 [...Array(5 - dataRows.length)].map((_, i) => (
                   <tr key={`empty-${i}`} style={{ height: '24px', borderBottom: '1px solid #eee' }}>
@@ -583,9 +589,18 @@ const SalesInvoicePrint = ({
               textAlign: 'center',
               minWidth: '150px' 
             }}>
+              {/* ✅ NEW: Billed By in footer */}
+              <p style={{ 
+                fontSize: '8pt', 
+                color: '#666', 
+                marginBottom: '6px',
+                fontStyle: 'italic'
+              }}>
+                Prepared By: <strong style={{ color: '#7c3aed' }}>{billedBy}</strong>
+              </p>
               <div style={{ 
                 borderBottom: '1px solid #000', 
-                height: '40px', 
+                height: '35px', 
                 marginBottom: '4px' 
               }}></div>
               <p style={{ margin: '0', fontWeight: '600', color: '#374151' }}>Authorized Signatory</p>
