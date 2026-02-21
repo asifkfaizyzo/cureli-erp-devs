@@ -1,56 +1,166 @@
-// src/hooks/usePurchaseCalculation.js
-import { useMemo, useCallback } from "react";
+// src/hooks/purchase/usePurchaseCalculation.js
 
-export const calculateRow = (row) => {
-  const qty = Number(row.qty) || 0;
-  const price = Number(row.price) || 0;
-  const gross = qty * price;
-  
-  const schPct = Number(row.schemePercent) || 0;
-  const schemeAmount = +(gross * schPct / 100).toFixed(2);
-  const afterScheme = gross - schemeAmount;
-  
-  const discPct = Number(row.discountPercent) || 0;
-  const discountAmount = +(afterScheme * discPct / 100).toFixed(2);
-  const taxableValue = +(afterScheme - discountAmount).toFixed(2);
-  
-  const cgstPct = Number(row.cgstPercent) || 0;
-  const sgstPct = Number(row.sgstPercent) || 0;
-  const cgstAmount = +(taxableValue * cgstPct / 100).toFixed(2);
-  const sgstAmount = +(taxableValue * sgstPct / 100).toFixed(2);
-  const amount = +(taxableValue + cgstAmount + sgstAmount).toFixed(2);
+import { useMemo } from "react";
 
-  return { ...row, schemeAmount, discountAmount, taxableValue, cgstAmount, sgstAmount, amount };
-};
-
+/**
+ * ✅ Create empty purchase row with all fields
+ */
 export const makeEmptyPurchaseRow = () => ({
-  mfac: "", rack: "", name: "", hsn: "", pack: "", batch: "", exp: "",
-  qty: "", sch: "", mrp: "", price: "", schemePercent: "", schemeAmount: "",
-  discountPercent: "", discountAmount: "", taxableValue: "", cgstPercent: "9",
-  cgstAmount: "", sgstPercent: "9", sgstAmount: "", amount: "",
+  rowId: null,
+  medicine_id: null,
+  name: "",
+  mfac: "",
+  batch: "",
+  hsn: "",
+  exp: "",
+  pack: "",
+  pQty: "",
+  qty: "",
+  price: "",
+  schemePercent: "",
+  discountPercent: "",
+  netRate: "",
+  amount: "",
+  cgstPercent: "6",
+  sgstPercent: "6",
+  mrp: "",
+  rack: "",
+  sRate: "",
+  sch: "",
+  isFreeItem: false,
+  parentRowId: null,
 });
 
+/**
+ * Calculate single row values
+ */
+export const calculateRow = (row) => {
+  // ✅ FREE ITEM HANDLING - Return zero amounts
+  if (row.isFreeItem) {
+    return {
+      ...row,
+      amount: "0",
+      netRate: "0",
+      cgstAmount: "0",
+      sgstAmount: "0",
+      taxableValue: "0",
+      discountAmount: "0",
+      schemeAmount: "0",
+    };
+  }
+
+  const qty = parseFloat(row.qty) || 0;
+  const price = parseFloat(row.price) || 0;
+  const schemePercent = parseFloat(row.schemePercent) || 0;
+  const discountPercent = parseFloat(row.discountPercent) || 0;
+  const cgstPercent = parseFloat(row.cgstPercent) || 0;
+  const sgstPercent = parseFloat(row.sgstPercent) || 0;
+
+  const gross = qty * price;
+  const schemeAmount = (gross * schemePercent) / 100;
+  const afterScheme = gross - schemeAmount;
+  const discountAmount = (afterScheme * discountPercent) / 100;
+  const taxableValue = afterScheme - discountAmount;
+
+  const cgstAmount = (taxableValue * cgstPercent) / 100;
+  const sgstAmount = (taxableValue * sgstPercent) / 100;
+
+  const netRate = qty > 0 ? taxableValue / qty : 0;
+  const amount = taxableValue + cgstAmount + sgstAmount;
+
+  return {
+    ...row,
+    schemeAmount: schemeAmount.toFixed(2),
+    discountAmount: discountAmount.toFixed(2),
+    taxableValue: taxableValue.toFixed(2),
+    cgstAmount: cgstAmount.toFixed(2),
+    sgstAmount: sgstAmount.toFixed(2),
+    netRate: netRate.toFixed(2),
+    amount: amount.toFixed(2),
+  };
+};
+
+/**
+ * ✅ Hook to calculate purchase invoice summary - Excludes free items
+ */
 export const usePurchaseCalculation = (rows) => {
   const summary = useMemo(() => {
-    const taxable = rows.reduce((s, r) => s + (Number(r.taxableValue) || 0), 0);
-    const cgst = rows.reduce((s, r) => s + (Number(r.cgstAmount) || 0), 0);
-    const sgst = rows.reduce((s, r) => s + (Number(r.sgstAmount) || 0), 0);
-    const totalItems = rows.filter(r => r.name).length;
-    const totalQty = rows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
-    
+    const billableRows = rows.filter(row => !row.isFreeItem);
+    const freeRows = rows.filter(row => row.isFreeItem);
+
+    let subtotal = 0;
+    let totalSchemeDiscount = 0;
+    let totalTradeDiscount = 0;
+    let taxableAmount = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let itemCount = 0;
+    let freeItemCount = 0;
+    let totalFreeQty = 0;
+
+    billableRows.forEach((row) => {
+      if (!row.name || !row.qty) return;
+
+      const qty = parseFloat(row.qty) || 0;
+      const price = parseFloat(row.price) || 0;
+      const schemePercent = parseFloat(row.schemePercent) || 0;
+      const discountPercent = parseFloat(row.discountPercent) || 0;
+      const cgstPercent = parseFloat(row.cgstPercent) || 0;
+      const sgstPercent = parseFloat(row.sgstPercent) || 0;
+
+      if (qty <= 0 || price <= 0) return;
+
+      const gross = qty * price;
+      const schemeAmt = (gross * schemePercent) / 100;
+      const afterScheme = gross - schemeAmt;
+      const tradeAmt = (afterScheme * discountPercent) / 100;
+      const taxable = afterScheme - tradeAmt;
+      const cgstAmt = (taxable * cgstPercent) / 100;
+      const sgstAmt = (taxable * sgstPercent) / 100;
+
+      subtotal += gross;
+      totalSchemeDiscount += schemeAmt;
+      totalTradeDiscount += tradeAmt;
+      taxableAmount += taxable;
+      totalCgst += cgstAmt;
+      totalSgst += sgstAmt;
+      itemCount += 1;
+    });
+
+    freeRows.forEach((row) => {
+      if (!row.name || !row.qty) return;
+      const qty = parseFloat(row.qty) || 0;
+      if (qty > 0) {
+        freeItemCount += 1;
+        totalFreeQty += qty;
+      }
+    });
+
+    const totalDiscount = totalSchemeDiscount + totalTradeDiscount;
+    const totalTax = totalCgst + totalSgst;
+    const grossTotal = taxableAmount + totalTax;
+    const roundOff = Math.round(grossTotal) - grossTotal;
+    const netAmount = Math.round(grossTotal);
+
     return {
-      subTotal: +taxable.toFixed(2),
-      cgst: +cgst.toFixed(2),
-      sgst: +sgst.toFixed(2),
-      total: +(taxable + cgst + sgst).toFixed(2),
-      totalItems,
-      totalQty,
+      subtotal: subtotal.toFixed(2),
+      schemeDiscount: totalSchemeDiscount.toFixed(2),
+      tradeDiscount: totalTradeDiscount.toFixed(2),
+      totalDiscount: totalDiscount.toFixed(2),
+      taxableAmount: taxableAmount.toFixed(2),
+      cgst: totalCgst.toFixed(2),
+      sgst: totalSgst.toFixed(2),
+      totalTax: totalTax.toFixed(2),
+      roundOff: roundOff.toFixed(2),
+      total: netAmount.toFixed(2),
+      itemCount,
+      freeItemCount,
+      totalFreeQty,
+      totalRowCount: billableRows.length + freeRows.length,
     };
   }, [rows]);
 
-  const recalculateRow = useCallback((row) => calculateRow(row), []);
-
-  return { summary, recalculateRow, calculateRow };
+  return { summary };
 };
 
 export default usePurchaseCalculation;

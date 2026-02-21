@@ -540,153 +540,170 @@ export const usePurchaseAPI = () => {
   // SAVE PURCHASE INVOICE
   // ============================================
   const savePurchaseInvoice = useCallback(
-    async (invoiceData, rows, supplier) => {
-      try {
-        setIsLoading(true);
+  async (invoiceData, rows, supplier) => {
+    try {
+      setIsLoading(true);
 
-        const filledRows = rows.filter((r) => r.name && r.qty && parseFloat(r.qty) > 0);
+      const filledRows = rows.filter((r) => r.name && r.qty && parseFloat(r.qty) > 0);
 
-        if (filledRows.length === 0) {
-          toast.warning("No Items", "Please add at least one item to save.");
-          return null;
-        }
-
-        // Validate supplier_id
-        if (!supplier.supplier_id) {
-          toast.error("Missing Supplier", "Please select a valid supplier");
-          return null;
-        }
-
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(supplier.supplier_id)) {
-          toast.error("Invalid Supplier", `Supplier ID must be a UUID.`);
-          return null;
-        }
-
-        // Validate all rows have medicine_id
-        const rowsWithoutMedicineId = filledRows
-          .map((row, idx) => ({ row, idx: idx + 1 }))
-          .filter(({ row }) => !row.medicine_id);
-
-        if (rowsWithoutMedicineId.length > 0) {
-          const missingProducts = rowsWithoutMedicineId
-            .slice(0, 5)
-            .map(({ row, idx }) => `Row ${idx}: "${row.name}" (Batch: ${row.batch || 'N/A'})`)
-            .join('\n');
-          
-          const moreCount = rowsWithoutMedicineId.length > 5 
-            ? `\n...and ${rowsWithoutMedicineId.length - 5} more` 
-            : '';
-
-          toast.error(
-            "Products Not in Master", 
-            `${rowsWithoutMedicineId.length} item(s) need to be added to product master first:\n${missingProducts}${moreCount}`
-          );
-          
-          return null;
-        }
-
-        // Validate all medicine_ids are valid UUIDs
-        const invalidMedicineIds = filledRows
-          .map((row, idx) => ({ row, idx: idx + 1 }))
-          .filter(({ row }) => !uuidRegex.test(row.medicine_id));
-
-        if (invalidMedicineIds.length > 0) {
-          toast.error(
-            "Invalid Product IDs", 
-            `${invalidMedicineIds.length} item(s) have invalid product IDs. Please re-select these products.`
-          );
-          return null;
-        }
-
-        // Parse expiry date helper
-        const parseExpiryDate = (expString) => {
-          if (!expString || !/^\d{2}\/\d{2}$/.test(expString)) {
-            const defaultDate = new Date();
-            defaultDate.setFullYear(defaultDate.getFullYear() + 1);
-            return defaultDate.toISOString();
-          }
-
-          const [month, year] = expString.split("/");
-          const fullYear = parseInt(year) > 50 ? `19${year}` : `20${year}`;
-          const date = new Date(`${fullYear}-${month}-01`);
-          date.setMonth(date.getMonth() + 1);
-          date.setDate(0);
-          return date.toISOString();
-        };
-
-        // Build line items
-        const lineItems = filledRows.map((row, idx) => ({
-          medicine_id: row.medicine_id,
-          batch_number: row.batch || `BATCH-${Date.now()}-${idx}`,
-          expiry_date: parseExpiryDate(row.exp),
-          manufacturing_date: null,
-          quantity: parseFloat(row.qty) || 0,
-          free_quantity: parseFloat(row.sch || row.pQty) || 0,
-          pack_size: row.pack || null,
-          unit_of_measure: "UNIT",
-          purchase_rate: parseFloat(row.price) || 0,
-          mrp: parseFloat(row.mrp) || 0,
-          scheme_discount: parseFloat(row.schemePercent) || 0,
-          trade_discount: parseFloat(row.discountPercent) || 0,
-          cgst_percent: parseFloat(row.cgstPercent || row.sgstPercent) || 0,
-          sgst_percent: parseFloat(row.sgstPercent) || 0,
-          igst_percent: 0,
-          selling_rate: parseFloat(row.sRate) || null,
-          margin_percent: null,
-          rack_no: row.rack || null,
-        }));
-
-        const paidAmount = parseFloat(supplier.amountPaid) || 0;
-        
-        const payload = {
-          supplier_id: supplier.supplier_id,
-          branch_id: invoiceData.branch_id || null,
-          supplier_invoice_no: supplier.invoiceNo || null,
-          invoice_date: toISODateTime(invoiceData.invoice_date) || new Date().toISOString(),
-          due_date: toISODateTime(invoiceData.due_date),
-          received_date: toISODateTime(invoiceData.received_date),
-          payment_mode: paidAmount > 0 ? (supplier.paymentMode || "CASH") : null,
-          paid_amount: paidAmount,
-          transport_charges: parseFloat(invoiceData.transport_charges) || null,
-          other_charges: parseFloat(invoiceData.other_charges) || null,
-          remarks: invoiceData.remarks || null,
-          lineItems,
-        };
-
-        // Make API call
-        let response;
-        if (currentInvoice?.invoice_id) {
-          response = await purchaseAPI.update(currentInvoice.invoice_id, payload);
-          toast.success("Invoice Updated", "Purchase invoice updated successfully.");
-        } else {
-          response = await purchaseAPI.create(payload);
-          toast.success("Invoice Saved", `Invoice #${response.data.invoice_number} saved as draft.`);
-        }
-
-        setCurrentInvoice(response.data);
-        return response.data;
-      } catch (error) {
-        console.error("Save purchase invoice error:", error);
-        
-        let errorMessage = "Failed to save invoice";
-        
-        if (error.response?.data?.errors) {
-          errorMessage = error.response.data.errors.map(e => `${e.field}: ${e.message}`).join(", ");
-        } else if (error.response?.data?.message) {
-          errorMessage = error.response.data.message;
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-
-        toast.error("Save Failed", errorMessage);
-        throw error;
-      } finally {
-        setIsLoading(false);
+      if (filledRows.length === 0) {
+        toast.warning("No Items", "Please add at least one item to save.");
+        return null;
       }
-    },
-    [toast, currentInvoice]
-  );
+
+      // Validate supplier_id
+      if (!supplier.supplier_id) {
+        toast.error("Missing Supplier", "Please select a valid supplier");
+        return null;
+      }
+
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(supplier.supplier_id)) {
+        toast.error("Invalid Supplier", `Supplier ID must be a UUID.`);
+        return null;
+      }
+
+      // ✅ FIXED: Only validate medicine_id for BILLABLE items (non-free items)
+      const billableRows = filledRows.filter(row => !row.isFreeItem);
+      const freeRows = filledRows.filter(row => row.isFreeItem === true);
+
+      console.log(`📦 Saving invoice: ${billableRows.length} billable, ${freeRows.length} free items`);
+
+      // Validate billable rows have medicine_id
+      const rowsWithoutMedicineId = billableRows
+        .map((row, idx) => ({ row, idx: idx + 1 }))
+        .filter(({ row }) => !row.medicine_id);
+
+      if (rowsWithoutMedicineId.length > 0) {
+        const missingProducts = rowsWithoutMedicineId
+          .slice(0, 5)
+          .map(({ row, idx }) => `Row ${idx}: "${row.name}" (Batch: ${row.batch || 'N/A'})`)
+          .join('\n');
+        
+        const moreCount = rowsWithoutMedicineId.length > 5 
+          ? `\n...and ${rowsWithoutMedicineId.length - 5} more` 
+          : '';
+
+        toast.error(
+          "Products Not in Master", 
+          `${rowsWithoutMedicineId.length} item(s) need to be added to product master first:\n${missingProducts}${moreCount}`
+        );
+        
+        return null;
+      }
+
+      // Validate all medicine_ids are valid UUIDs (billable only)
+      const invalidMedicineIds = billableRows
+        .map((row, idx) => ({ row, idx: idx + 1 }))
+        .filter(({ row }) => !uuidRegex.test(row.medicine_id));
+
+      if (invalidMedicineIds.length > 0) {
+        toast.error(
+          "Invalid Product IDs", 
+          `${invalidMedicineIds.length} item(s) have invalid product IDs. Please re-select these products.`
+        );
+        return null;
+      }
+
+      // Parse expiry date helper
+      const parseExpiryDate = (expString) => {
+        if (!expString || !/^\d{2}\/\d{2}$/.test(expString)) {
+          const defaultDate = new Date();
+          defaultDate.setFullYear(defaultDate.getFullYear() + 1);
+          return defaultDate.toISOString();
+        }
+
+        const [month, year] = expString.split("/");
+        const fullYear = parseInt(year) > 50 ? `19${year}` : `20${year}`;
+        const date = new Date(`${fullYear}-${month}-01`);
+        date.setMonth(date.getMonth() + 1);
+        date.setDate(0);
+        return date.toISOString();
+      };
+
+      // ✅ FIXED: Build line items with is_free_item flag
+      const lineItems = filledRows.map((row, idx) => ({
+        medicine_id: row.medicine_id,
+        batch_number: row.batch || `BATCH-${Date.now()}-${idx}`,
+        expiry_date: parseExpiryDate(row.exp),
+        manufacturing_date: null,
+        quantity: parseFloat(row.qty) || 0,
+        // For free items, don't add free_quantity (it's the qty itself)
+        // For billable items, sch/pQty is the free quantity
+        free_quantity: row.isFreeItem ? 0 : (parseFloat(row.sch || row.pQty) || 0),
+        pack_size: row.pack || null,
+        unit_of_measure: "UNIT",
+        purchase_rate: parseFloat(row.price) || 0,
+        mrp: parseFloat(row.mrp) || 0,
+        scheme_discount: parseFloat(row.schemePercent) || 0,
+        trade_discount: parseFloat(row.discountPercent) || 0,
+        cgst_percent: parseFloat(row.cgstPercent || row.sgstPercent) || 0,
+        sgst_percent: parseFloat(row.sgstPercent) || 0,
+        igst_percent: 0,
+        selling_rate: parseFloat(row.sRate) || null,
+        margin_percent: null,
+        rack_no: row.rack || null,
+        // ✅ CRITICAL: Send is_free_item flag to backend
+        is_free_item: row.isFreeItem === true,
+      }));
+
+      const paidAmount = parseFloat(supplier.amountPaid) || 0;
+      
+      const payload = {
+        supplier_id: supplier.supplier_id,
+        branch_id: invoiceData.branch_id || null,
+        supplier_invoice_no: supplier.invoiceNo || null,
+        invoice_date: toISODateTime(invoiceData.invoice_date) || new Date().toISOString(),
+        due_date: toISODateTime(invoiceData.due_date),
+        received_date: toISODateTime(invoiceData.received_date),
+        payment_mode: paidAmount > 0 ? (supplier.paymentMode || "CASH") : null,
+        paid_amount: paidAmount,
+        transport_charges: parseFloat(invoiceData.transport_charges) || null,
+        other_charges: parseFloat(invoiceData.other_charges) || null,
+        remarks: invoiceData.remarks || null,
+        lineItems,
+      };
+
+      console.log("📤 Payload lineItems:", lineItems.map(item => ({
+        name: item.medicine_id?.slice(0, 8),
+        batch: item.batch_number,
+        qty: item.quantity,
+        is_free_item: item.is_free_item,
+      })));
+
+      // Make API call
+      let response;
+      if (currentInvoice?.invoice_id) {
+        response = await purchaseAPI.update(currentInvoice.invoice_id, payload);
+        toast.success("Invoice Updated", "Purchase invoice updated successfully.");
+      } else {
+        response = await purchaseAPI.create(payload);
+        toast.success("Invoice Saved", `Invoice #${response.data.invoice_number} saved as draft.`);
+      }
+
+      setCurrentInvoice(response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Save purchase invoice error:", error);
+      
+      let errorMessage = "Failed to save invoice";
+      
+      if (error.response?.data?.errors) {
+        errorMessage = error.response.data.errors.map(e => `${e.field}: ${e.message}`).join(", ");
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast.error("Save Failed", errorMessage);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  },
+  [toast, currentInvoice]
+);
 
   // ============================================
   // CONFIRM PURCHASE INVOICE

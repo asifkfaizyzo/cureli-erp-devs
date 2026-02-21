@@ -1,195 +1,343 @@
 // src/hooks/purchase/usePurchaseRows.js
-import { useState, useEffect, useCallback, useRef } from "react";
-import { makeEmptyPurchaseRow, calculateRow } from "./usePurchaseCalculation";
 
-const STORAGE_KEY = 'cureli_purchase_rows';
-const STORAGE_VERSION = 1;
+import { useState, useCallback, useEffect, useRef } from "react";
 
-/**
- * Load rows from localStorage
- */
-const loadFromStorage = () => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
-    
-    const parsed = JSON.parse(stored);
-    
-    // Version check for future migrations
-    if (parsed.version !== STORAGE_VERSION) {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    
-    // Check if data is not too old (24 hours)
-    const savedAt = new Date(parsed.savedAt);
-    const now = new Date();
-    const hoursDiff = (now - savedAt) / (1000 * 60 * 60);
-    
-    if (hoursDiff > 24) {
-      console.log('🗑️ Stored purchase data expired (>24 hours), clearing...');
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    
-    return parsed.rows;
-  } catch (error) {
-    console.error('Failed to load purchase rows from storage:', error);
-    localStorage.removeItem(STORAGE_KEY);
-    return null;
-  }
-};
+const LOCAL_STORAGE_KEY = "purchase_rows_draft";
 
-/**
- * Save rows to localStorage
- */
-const saveToStorage = (rows) => {
-  try {
-    // Only save if there are filled rows
-    const filledRows = rows.filter(r => r.name || r.qty || r.price);
-    if (filledRows.length === 0) {
-      localStorage.removeItem(STORAGE_KEY);
-      return;
-    }
-    
-    const data = {
-      version: STORAGE_VERSION,
-      savedAt: new Date().toISOString(),
-      rows: rows,
-    };
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (error) {
-    console.error('Failed to save purchase rows to storage:', error);
-  }
-};
+// ✅ Generate unique ID for row tracking
+const generateRowId = () => `row_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-export const usePurchaseRows = (targetRowCount) => {
+const createEmptyRow = () => ({
+  rowId: generateRowId(), // ✅ Unique identifier
+  medicine_id: null,
+  name: "",
+  mfac: "",
+  batch: "",
+  hsn: "",
+  exp: "",
+  pack: "",
+  pQty: "",
+  qty: "",
+  price: "",
+  schemePercent: "",
+  discountPercent: "",
+  netRate: "",
+  amount: "",
+  cgstPercent: "6",
+  sgstPercent: "6",
+  mrp: "",
+  rack: "",
+  sRate: "",
+  sch: "",
+  // ✅ Free item tracking
+  isFreeItem: false,
+  parentRowId: null, // ✅ Use rowId instead of index
+});
+
+export const usePurchaseRows = (initialRowCount = 10) => {
   const [rows, setRows] = useState([]);
   const [importVersion, setImportVersion] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
-  const saveTimeoutRef = useRef(null);
+  const initializedRef = useRef(false);
+  const processingFreeRowRef = useRef(false); // ✅ Prevent recursive calls
 
-  // Initialize from localStorage or create empty rows
+  // Load from localStorage on mount
   useEffect(() => {
-    if (isInitialized) return;
-    
-    const storedRows = loadFromStorage();
-    
-    if (storedRows && storedRows.length > 0) {
-      console.log('📦 Loaded', storedRows.length, 'rows from storage');
-      setRows(storedRows);
-    } else {
-      setRows(Array.from({ length: targetRowCount }).map(makeEmptyPurchaseRow));
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    try {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Ensure all rows have rowId
+          const rowsWithIds = parsed.map(row => ({
+            ...row,
+            rowId: row.rowId || generateRowId(),
+          }));
+          setRows(rowsWithIds);
+          setIsInitialized(true);
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to load rows from localStorage:", error);
     }
-    
+
+    // Initialize with empty rows
+    const emptyRows = Array.from({ length: initialRowCount }, () => createEmptyRow());
+    setRows(emptyRows);
     setIsInitialized(true);
-  }, [targetRowCount, isInitialized]);
+  }, [initialRowCount]);
 
-  // Ensure minimum row count
+  // Save to localStorage when rows change
   useEffect(() => {
     if (!isInitialized) return;
-    
-    setRows((prev) => {
-      if (prev.length < targetRowCount) {
-        const needed = targetRowCount - prev.length;
-        return [...prev, ...Array.from({ length: needed }).map(makeEmptyPurchaseRow)];
-      }
-      return prev;
-    });
-  }, [targetRowCount, isInitialized]);
-
-  // Debounced save to localStorage
-  useEffect(() => {
-    if (!isInitialized) return;
-    
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(rows));
+    } catch (error) {
+      console.warn("Failed to save rows to localStorage:", error);
     }
-    
-    // Save after 500ms of no changes
-    saveTimeoutRef.current = setTimeout(() => {
-      saveToStorage(rows);
-    }, 500);
-    
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
   }, [rows, isInitialized]);
 
-  const updateRow = useCallback((index, updates) => {
+  // ═══════════════════════════════════════════════════════════════════════
+  // ✅ FIXED: CREATE FREE ROW - Prevents duplicates and infinite loops
+  // ═══════════════════════════════════════════════════════════════════════
+  const createFreeRow = useCallback((sourceRowIndex) => {
+    // Prevent recursive/concurrent calls
+    if (processingFreeRowRef.current) {
+      console.log("⏳ Skipping createFreeRow - already processing");
+      return;
+    }
+
     setRows(prev => {
+      const sourceRow = prev[sourceRowIndex];
+      
+      // Validation checks
+      if (!sourceRow) {
+        console.log("❌ Source row not found at index:", sourceRowIndex);
+        return prev;
+      }
+      
+      if (sourceRow.isFreeItem) {
+        console.log("❌ Cannot create free row from a free row");
+        return prev;
+      }
+
+      if (!sourceRow.name || !sourceRow.name.trim()) {
+        console.log("❌ Cannot create free row without product name");
+        return prev;
+      }
+
+      const schValue = sourceRow.sch;
+      if (!schValue || schValue.toString().trim() === '') {
+        console.log("❌ Sch value is empty");
+        return prev;
+      }
+
+      const sourceRowId = sourceRow.rowId;
+
+      // ✅ Find existing free row by parentRowId (not by index)
+      const existingFreeRowIndex = prev.findIndex(
+        row => row.isFreeItem && row.parentRowId === sourceRowId
+      );
+
+      if (existingFreeRowIndex !== -1) {
+        // ✅ Update existing free row's quantity
+        const freeQty = parseFreeQuantity(schValue);
+        console.log(`📝 Updating existing free row quantity to ${freeQty}`);
+        
+        const newRows = [...prev];
+        newRows[existingFreeRowIndex] = {
+          ...newRows[existingFreeRowIndex],
+          qty: String(freeQty),
+        };
+        return newRows;
+      }
+
+      // Parse free quantity
+      const freeQty = parseFreeQuantity(schValue);
+      if (freeQty <= 0) {
+        console.log("❌ Free quantity is 0 or negative");
+        return prev;
+      }
+
+      processingFreeRowRef.current = true;
+
+      // ✅ Create new free row
+      const freeRow = {
+        rowId: generateRowId(),
+        medicine_id: sourceRow.medicine_id,
+        name: sourceRow.name,
+        mfac: sourceRow.mfac,
+        batch: sourceRow.batch,
+        hsn: sourceRow.hsn,
+        exp: sourceRow.exp,
+        pack: sourceRow.pack,
+        pQty: sourceRow.pQty,
+        qty: String(freeQty),
+        price: sourceRow.price,
+        schemePercent: sourceRow.schemePercent,
+        discountPercent: sourceRow.discountPercent,
+        netRate: "0",
+        amount: "0",
+        cgstPercent: sourceRow.cgstPercent,
+        sgstPercent: sourceRow.sgstPercent,
+        mrp: sourceRow.mrp,
+        rack: sourceRow.rack,
+        sRate: sourceRow.sRate,
+        sch: "", // ✅ Clear sch on free row
+        isFreeItem: true,
+        parentRowId: sourceRowId, // ✅ Link to parent by rowId
+      };
+
+      // Insert free row after source row
       const newRows = [...prev];
-      newRows[index] = calculateRow({ ...newRows[index], ...updates });
+      newRows.splice(sourceRowIndex + 1, 0, freeRow);
+
+      console.log(`✅ Created free row for "${sourceRow.name}" with qty ${freeQty}`);
+      
+      // Reset processing flag after state update
+      setTimeout(() => {
+        processingFreeRowRef.current = false;
+      }, 100);
+
       return newRows;
     });
   }, []);
 
-  const addRow = useCallback(() => {
-    setRows(prev => [...prev, makeEmptyPurchaseRow()]);
-  }, []);
-
-  const removeRow = useCallback((index) => {
+  // ═══════════════════════════════════════════════════════════════════════
+  // ✅ FIXED: REMOVE FREE ROW - Uses rowId instead of index
+  // ═══════════════════════════════════════════════════════════════════════
+  const removeFreeRow = useCallback((sourceRowIndex) => {
     setRows(prev => {
-      if (prev.length <= 1) return prev;
-      return prev.filter((_, i) => i !== index);
+      const sourceRow = prev[sourceRowIndex];
+      if (!sourceRow) return prev;
+
+      const sourceRowId = sourceRow.rowId;
+
+      // Find and remove free row linked to this parent
+      const freeRowIndex = prev.findIndex(
+        row => row.isFreeItem && row.parentRowId === sourceRowId
+      );
+
+      if (freeRowIndex !== -1) {
+        const newRows = [...prev];
+        newRows.splice(freeRowIndex, 1);
+        console.log(`🗑️ Removed free row for "${sourceRow.name}"`);
+        return newRows;
+      }
+
+      return prev;
     });
   }, []);
 
-  /**
-   * Clear all rows - resets to empty state
-   */
-  const clearAllRows = useCallback(() => {
-    setRows(Array.from({ length: targetRowCount }).map(makeEmptyPurchaseRow));
-    localStorage.removeItem(STORAGE_KEY);
-  }, [targetRowCount]);
+  // ═══════════════════════════════════════════════════════════════════════
+  // ✅ UPDATE FREE ROW QUANTITY - When sch value changes
+  // ═══════════════════════════════════════════════════════════════════════
+  const updateFreeRowQuantity = useCallback((sourceRowIndex, schValue) => {
+    setRows(prev => {
+      const sourceRow = prev[sourceRowIndex];
+      if (!sourceRow || sourceRow.isFreeItem) return prev;
 
-  /**
-   * Import rows from file - merges with existing or replaces
-   */
-  const importRows = useCallback((parsedRows) => {
-    setRows(prevRows => {
-      const merged = [...prevRows];
-      parsedRows.forEach((importedRow, idx) => {
-        if (idx < merged.length) {
-          merged[idx] = calculateRow({ ...merged[idx], ...importedRow });
-        } else {
-          merged.push(calculateRow(importedRow));
-        }
-      });
-      while (merged.length < targetRowCount) merged.push(makeEmptyPurchaseRow());
-      return merged;
+      const sourceRowId = sourceRow.rowId;
+      const freeRowIndex = prev.findIndex(
+        row => row.isFreeItem && row.parentRowId === sourceRowId
+      );
+
+      if (freeRowIndex === -1) return prev;
+
+      const freeQty = parseFreeQuantity(schValue);
+      if (freeQty <= 0) {
+        // Remove free row if qty is 0
+        const newRows = [...prev];
+        newRows.splice(freeRowIndex, 1);
+        return newRows;
+      }
+
+      const newRows = [...prev];
+      newRows[freeRowIndex] = {
+        ...newRows[freeRowIndex],
+        qty: String(freeQty),
+      };
+      return newRows;
     });
-    setImportVersion(v => v + 1);
-  }, [targetRowCount]);
+  }, []);
 
+  // Import rows from file
+  const importRows = useCallback((importedRows) => {
+    // Process imported rows - ensure rowIds and free item flags
+    const processedRows = importedRows.map(row => ({
+      ...createEmptyRow(),
+      ...row,
+      rowId: row.rowId || generateRowId(),
+      isFreeItem: row.isFreeItem || false,
+    }));
+
+    setRows(processedRows);
+    setImportVersion(v => v + 1);
+  }, []);
+
+  // Get only filled rows (with data)
   const getFilledRows = useCallback(() => {
-    return rows.filter(r => r.name);
+    return rows.filter(row => row.name && row.name.trim() !== '');
   }, [rows]);
 
-  /**
-   * Check if there are any unsaved rows
-   */
+  // Get billable rows (exclude free items)
+  const getBillableRows = useCallback(() => {
+    return rows.filter(row => row.name && row.name.trim() !== '' && !row.isFreeItem);
+  }, [rows]);
+
+  // Get free rows only
+  const getFreeRows = useCallback(() => {
+    return rows.filter(row => row.name && row.name.trim() !== '' && row.isFreeItem);
+  }, [rows]);
+
+  // Check if there's unsaved data
   const hasUnsavedData = useCallback(() => {
-    return rows.some(r => r.name || r.qty || r.price);
+    return rows.some(row => row.name && row.name.trim() !== '');
+  }, [rows]);
+
+  // Clear all rows
+  const clearAllRows = useCallback(() => {
+    const emptyRows = Array.from({ length: initialRowCount }, () => createEmptyRow());
+    setRows(emptyRows);
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+  }, [initialRowCount]);
+
+  // ✅ Check if a row has a free row attached
+  const hasFreeRow = useCallback((rowIndex) => {
+    const row = rows[rowIndex];
+    if (!row) return false;
+    return rows.some(r => r.isFreeItem && r.parentRowId === row.rowId);
   }, [rows]);
 
   return {
     rows,
     setRows,
-    updateRow,
-    addRow,
-    removeRow,
-    clearAllRows,
     importRows,
     getFilledRows,
+    getBillableRows,
+    getFreeRows,
     importVersion,
-    isInitialized,
+    clearAllRows,
     hasUnsavedData,
+    isInitialized,
+    createFreeRow,
+    removeFreeRow,
+    updateFreeRowQuantity,
+    hasFreeRow,
   };
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// ✅ HELPER: Parse free quantity from various inputs
+// ═══════════════════════════════════════════════════════════════════════
+function parseFreeQuantity(value) {
+  if (!value) return 0;
+
+  const str = String(value).trim().toUpperCase();
+
+  // If it's "F", "FREE", or similar text, default to 1
+  if (str === 'F' || str === 'FR' || str === 'FREE' || str === 'FREEBIE') {
+    return 1;
+  }
+
+  // If it's a plain number
+  const num = parseFloat(str);
+  if (!isNaN(num) && num > 0) {
+    return Math.floor(num); // Ensure whole number
+  }
+
+  // If it matches pattern like "2+1" (buy 2 get 1 free)
+  const plusPattern = str.match(/(\d+)\s*\+\s*(\d+)/);
+  if (plusPattern) {
+    return parseInt(plusPattern[2]) || 1;
+  }
+
+  // Default: any non-empty value means 1 free
+  return 1;
+}
 
 export default usePurchaseRows;

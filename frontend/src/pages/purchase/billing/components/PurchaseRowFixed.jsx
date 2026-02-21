@@ -1,11 +1,149 @@
-// src/pages/purchase/billing/components/PurchaseRowFixed.jsx
+// frontend/src/pages/purchase/billing/components/PurchaseRowFixed.jsx
+
 import { memo, useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
-import { X, Plus, AlertCircle, CheckCircle2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { X, Plus, AlertCircle, CheckCircle2, Gift } from "lucide-react";
 
 const FIELD_ORDER = [
   "name", "mfac", "batch", "hsn", "exp", "pack", "pQty", "qty", 
   "price", "discountPercent", "netRate", "sgstPercent", "mrp", "rack", "sRate", "sch"
 ];
+
+// ✅ NEW: Dropdown component that renders via Portal
+const ProductDropdown = ({ 
+  isOpen, 
+  anchorRef, 
+  products, 
+  highlightedIndex, 
+  onSelect, 
+  onAddNew, 
+  searchTerm,
+  onClose 
+}) => {
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 320 });
+
+  useEffect(() => {
+    if (isOpen && anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const dropdownHeight = 280; // max height
+      
+      // Determine if dropdown should appear above or below
+      const spaceBelow = viewportHeight - rect.bottom;
+      const showAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+      
+      setPosition({
+        top: showAbove ? rect.top - dropdownHeight - 4 : rect.bottom + 2,
+        left: rect.left,
+        width: Math.max(320, rect.width),
+      });
+    }
+  }, [isOpen, anchorRef]);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleClickOutside = (e) => {
+      if (anchorRef.current && !anchorRef.current.contains(e.target)) {
+        onClose();
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, anchorRef, onClose]);
+
+  // Close on scroll
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleScroll = () => {
+      onClose();
+    };
+    
+    // Find scrollable parent
+    let scrollParent = anchorRef.current?.parentElement;
+    while (scrollParent) {
+      if (scrollParent.scrollHeight > scrollParent.clientHeight) {
+        scrollParent.addEventListener('scroll', handleScroll);
+        break;
+      }
+      scrollParent = scrollParent.parentElement;
+    }
+    
+    window.addEventListener('scroll', handleScroll, true);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      if (scrollParent) {
+        scrollParent.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [isOpen, anchorRef, onClose]);
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div 
+      className="fixed bg-white border border-slate-300 rounded-lg shadow-2xl max-h-72 overflow-auto"
+      style={{
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+        width: `${position.width}px`,
+        zIndex: 9999,
+      }}
+    >
+      {products.length > 0 ? (
+        <>
+          <div className="sticky top-0 bg-gradient-to-r from-indigo-50 to-purple-50 px-3 py-1.5 border-b border-slate-200 text-[9px] text-slate-600 font-medium">
+            {products.length} product{products.length > 1 ? 's' : ''} found
+          </div>
+          {products.map((product, idx) => (
+            <div
+              key={product.id || product.medicine_id || idx}
+              onClick={() => onSelect(product)}
+              className={`
+                px-3 py-2.5 cursor-pointer text-[10px] border-b border-slate-100 last:border-b-0 
+                transition-all duration-150
+                ${idx === highlightedIndex 
+                  ? 'bg-indigo-50 border-l-2 border-l-indigo-500' 
+                  : 'hover:bg-slate-50 border-l-2 border-l-transparent'
+                }
+              `}
+            >
+              <div className="font-semibold text-slate-800 truncate">{product.name}</div>
+              {product.genericName && (
+                <div className="text-[9px] text-slate-500 mt-0.5 italic">{product.genericName}</div>
+              )}
+              <div className="text-[8px] text-slate-400 flex gap-2 mt-1">
+                <span>HSN: {product.hsnCode || product.hsn || '-'}</span>
+                <span>•</span>
+                <span>{product.manufacturer || product.mfac || '-'}</span>
+              </div>
+            </div>
+          ))}
+        </>
+      ) : searchTerm.trim().length >= 2 ? (
+        <div
+          onClick={onAddNew}
+          className="px-4 py-4 cursor-pointer text-[10px] hover:bg-blue-50 border-l-2 border-l-blue-500 bg-blue-25"
+        >
+          <div className="font-semibold text-blue-600 flex items-center gap-1.5 mb-1">
+            <Plus size={12} />
+            Add "{searchTerm}" as new product
+          </div>
+          <div className="text-[8px] text-blue-500">This product will be added to the master list</div>
+        </div>
+      ) : (
+        <div className="px-4 py-4 text-[9px] text-slate-400 text-center">
+          Type at least 2 characters to search products...
+        </div>
+      )}
+    </div>,
+    document.body
+  );
+};
 
 const PurchaseRowFixed = memo(forwardRef(({
   index,
@@ -22,16 +160,22 @@ const PurchaseRowFixed = memo(forwardRef(({
   onNavigateToPrevRow,
   onCreateNewRow,
   rowHeight = 36,
-  onAddNewProduct, // Handler for adding new products
+  onAddNewProduct,
+  onCreateFreeRow,
+  onRemoveFreeRow,
 }, ref) => {
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const dropdownRef = useRef(null);
   const rowRef = useRef(null);
   const fieldRefs = useRef({});
+  const nameInputRef = useRef(null); // ✅ NEW: Ref for dropdown anchor
+  
+  const schBlurTimeoutRef = useRef(null);
 
-  // ✅ Enhanced filtering - search by name, HSN, manufacturer, generic name
+  const isFreeItem = item.isFreeItem === true;
+
+  // ✅ Enhanced filtering
   const filteredProducts = productMaster.filter(p => {
     const searchLower = productSearch.toLowerCase();
     return (
@@ -42,7 +186,7 @@ const PurchaseRowFixed = memo(forwardRef(({
       p.manufacturer?.toLowerCase().includes(searchLower) ||
       p.mfac?.toLowerCase().includes(searchLower)
     );
-  }).slice(0, 10); // Show top 10 matches
+  }).slice(0, 10);
 
   useImperativeHandle(ref, () => ({
     focusFirstField: () => {
@@ -74,17 +218,19 @@ const PurchaseRowFixed = memo(forwardRef(({
   const registerFieldRef = useCallback((fieldKey, inputRef) => {
     if (inputRef) {
       fieldRefs.current[fieldKey] = inputRef;
+      // ✅ Also store name input ref for dropdown positioning
+      if (fieldKey === 'name') {
+        nameInputRef.current = inputRef;
+      }
     }
   }, []);
 
-  // ✅ Check if product exists in master (exact or partial match)
   const checkProductExists = useCallback((productName) => {
     if (!productName || productName.trim().length < 2) return true;
     
     const searchLower = productName.toLowerCase().trim();
     const exists = productMaster.some(product => {
       const nameLower = product.name?.toLowerCase() || '';
-      // Exact match or very close match
       return nameLower === searchLower || 
              nameLower.includes(searchLower) || 
              searchLower.includes(nameLower);
@@ -93,31 +239,60 @@ const PurchaseRowFixed = memo(forwardRef(({
     return exists;
   }, [productMaster]);
 
-  // ✅ Handle new product detection
-const handleProductNameBlur = useCallback((productName) => {
-  if (!productName || productName.trim().length < 2) return;
-  
-  const exists = checkProductExists(productName);
-  
-  if (!exists && onAddNewProduct) {
-    // Pass all available data from the current row
-    onAddNewProduct({
-      rowIndex: index,
-      productName: productName.trim(),
-      name: productName.trim(),
-      manufacturer: item.mfac || '',
-      mfac: item.mfac || '',
-      hsn: item.hsn || '',
-      hsnCode: item.hsn || '',
-      rack: item.rack || '',
-      rackNo: item.rack || '',
-      pack: item.pack || '',
-      packSize: item.pack || '',
-      cgstPercent: item.cgstPercent || '6',
-      sgstPercent: item.sgstPercent || '6',
-    });
-  }
-}, [checkProductExists, onAddNewProduct, index, item]);
+  const handleProductNameBlur = useCallback((productName) => {
+    if (!productName || productName.trim().length < 2) return;
+    
+    const exists = checkProductExists(productName);
+    
+    if (!exists && onAddNewProduct) {
+      onAddNewProduct({
+        rowIndex: index,
+        productName: productName.trim(),
+        name: productName.trim(),
+        manufacturer: item.mfac || '',
+        mfac: item.mfac || '',
+        hsn: item.hsn || '',
+        hsnCode: item.hsn || '',
+        rack: item.rack || '',
+        rackNo: item.rack || '',
+        pack: item.pack || '',
+        packSize: item.pack || '',
+        cgstPercent: item.cgstPercent || '6',
+        sgstPercent: item.sgstPercent || '6',
+      });
+    }
+  }, [checkProductExists, onAddNewProduct, index, item]);
+
+  const handleSchChange = useCallback((value) => {
+    if (isFreeItem) return;
+    onChange(index, "sch", value);
+  }, [index, onChange, isFreeItem]);
+
+  const handleSchBlur = useCallback((value) => {
+    if (isFreeItem) return;
+
+    if (schBlurTimeoutRef.current) {
+      clearTimeout(schBlurTimeoutRef.current);
+    }
+
+    schBlurTimeoutRef.current = setTimeout(() => {
+      const trimmedValue = value?.toString().trim();
+      
+      if (trimmedValue && trimmedValue !== '' && trimmedValue !== '0') {
+        onCreateFreeRow?.(index);
+      } else {
+        onRemoveFreeRow?.(index);
+      }
+    }, 150);
+  }, [index, isFreeItem, onCreateFreeRow, onRemoveFreeRow]);
+
+  useEffect(() => {
+    return () => {
+      if (schBlurTimeoutRef.current) {
+        clearTimeout(schBlurTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const getCurrentFieldIndex = useCallback(() => {
     const activeElement = document.activeElement;
@@ -171,7 +346,7 @@ const handleProductNameBlur = useCallback((productName) => {
       return;
     }
 
-    // ✅ Dropdown navigation
+    // Dropdown navigation
     if (showProductDropdown && filteredProducts.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -193,7 +368,7 @@ const handleProductNameBlur = useCallback((productName) => {
           onProductSelect(index, filteredProducts[highlightedIndex]);
           setShowProductDropdown(false);
           setTimeout(() => {
-            const nextField = fieldRefs.current["batch"]; // Jump to batch after selection
+            const nextField = fieldRefs.current["batch"];
             if (nextField) {
               nextField.focus();
               nextField.select?.();
@@ -207,7 +382,6 @@ const handleProductNameBlur = useCallback((productName) => {
     if (e.key === "Enter") {
       e.preventDefault();
       
-      // ✅ Check for new product if on name field and dropdown is closed
       if (fieldKey === "name" && item.name && !showProductDropdown) {
         handleProductNameBlur(item.name);
       }
@@ -246,7 +420,9 @@ const handleProductNameBlur = useCallback((productName) => {
 
     if (e.ctrlKey && e.key === "Backspace" && onRemoveRow) {
       e.preventDefault();
-      onRemoveRow(index);
+      if (!isFreeItem) {
+        onRemoveRow(index);
+      }
       return;
     }
 
@@ -268,18 +444,9 @@ const handleProductNameBlur = useCallback((productName) => {
   }, [
     showProductDropdown, filteredProducts, highlightedIndex, index, isLast, 
     focusNextFieldInRow, focusPrevFieldInRow, onNavigateToNextRow, onNavigateToPrevRow, 
-    onCreateNewRow, onRemoveRow, onProductSelect, handleProductNameBlur, item.name
+    onCreateNewRow, onRemoveRow, onProductSelect, handleProductNameBlur, item.name,
+    isFreeItem
   ]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setShowProductDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   useEffect(() => {
     setHighlightedIndex(0);
@@ -290,8 +457,28 @@ const handleProductNameBlur = useCallback((productName) => {
   };
 
   const handleChange = useCallback((key, value) => {
+    if (isFreeItem) return;
     onChange(index, key, value);
-  }, [index, onChange]);
+  }, [index, onChange, isFreeItem]);
+
+  // ✅ Handle product selection from dropdown
+  const handleDropdownProductSelect = useCallback((product) => {
+    onProductSelect(index, product);
+    setShowProductDropdown(false);
+    setTimeout(() => {
+      const nextField = fieldRefs.current["batch"];
+      if (nextField) {
+        nextField.focus();
+        nextField.select?.();
+      }
+    }, 50);
+  }, [index, onProductSelect]);
+
+  // ✅ Handle add new product from dropdown
+  const handleDropdownAddNew = useCallback(() => {
+    setShowProductDropdown(false);
+    handleProductNameBlur(productSearch);
+  }, [productSearch, handleProductNameBlur]);
 
   const inputBase = `
     w-full h-full bg-transparent border-0 outline-none
@@ -300,6 +487,7 @@ const handleProductNameBlur = useCallback((productName) => {
     transition-all duration-100
     placeholder:text-slate-300
     truncate
+    ${isFreeItem ? 'cursor-not-allowed opacity-75' : ''}
   `;
   
   const cellBase = "border-b border-r border-slate-200 last:border-r-0 p-0 overflow-hidden";
@@ -307,35 +495,47 @@ const handleProductNameBlur = useCallback((productName) => {
   const isNewProduct = item.name && item.name.trim().length >= 2 && !checkProductExists(item.name);
   const productExists = item.name && checkProductExists(item.name);
 
+  const rowClassName = `
+    group transition-all duration-100
+    ${isFreeItem 
+      ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-l-green-500' 
+      : isEven 
+        ? 'bg-white' 
+        : 'bg-slate-50/50'
+    }
+    ${!isFreeItem && 'hover:bg-indigo-50/40 focus-within:bg-indigo-50/60'}
+    ${hasData && !isFreeItem ? 'border-l-2 border-l-indigo-400' : !isFreeItem ? 'border-l-2 border-l-transparent' : ''}
+    ${isNewProduct && !isFreeItem ? 'bg-yellow-50/30' : ''}
+  `;
+
   return (
     <tr 
       ref={rowRef}
       style={{ height: `${rowHeight}px` }}
-      className={`
-        group transition-all duration-100
-        ${isEven ? 'bg-white' : 'bg-slate-50/50'}
-        hover:bg-indigo-50/40 
-        focus-within:bg-indigo-50/60
-        ${hasData ? 'border-l-2 border-l-indigo-400' : 'border-l-2 border-l-transparent'}
-        ${isNewProduct ? 'bg-yellow-50/30' : ''}
-      `}
+      className={rowClassName}
     >
       {/* 1. ROW NUMBER */}
-      <td className={`${cellBase} text-center bg-slate-50`}>
+      <td className={`${cellBase} text-center ${isFreeItem ? 'bg-green-100' : 'bg-slate-50'}`}>
         <div className="flex items-center justify-center h-full relative">
-          <span className={`
-            inline-flex items-center justify-center w-4 h-4 rounded text-[8px] font-bold
-            ${hasData ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-500'}
-          `}>
-            {rowNumber}
-          </span>
-          {/* ✅ Product status indicators */}
-          {isNewProduct && (
+          {isFreeItem ? (
+            <div className="flex items-center gap-0.5">
+              <Gift size={10} className="text-green-600" />
+              <span className="text-[7px] font-bold text-green-700">FREE</span>
+            </div>
+          ) : (
+            <span className={`
+              inline-flex items-center justify-center w-4 h-4 rounded text-[8px] font-bold
+              ${hasData ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-500'}
+            `}>
+              {rowNumber}
+            </span>
+          )}
+          {isNewProduct && !isFreeItem && (
             <div className="absolute -top-0.5 -right-0.5" title="New product - will be added to master">
               <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
             </div>
           )}
-          {productExists && item.name && (
+          {productExists && item.name && !isFreeItem && (
             <div className="absolute -bottom-0.5 -right-0.5" title="Product found in master">
               <CheckCircle2 size={8} className="text-green-500" />
             </div>
@@ -343,55 +543,76 @@ const handleProductNameBlur = useCallback((productName) => {
         </div>
       </td>
 
-      {/* 2. ITEM DESCRIPTION - ✅ ENHANCED */}
-      <td className={`${cellBase} relative ${isNewProduct ? 'bg-yellow-50/50' : productExists ? 'bg-green-50/30' : 'bg-blue-50/30'}`} ref={dropdownRef}>
+      {/* 2. ITEM DESCRIPTION - ✅ FIXED: Using Portal for dropdown */}
+      <td className={`${cellBase} relative ${
+        isFreeItem 
+          ? 'bg-green-50' 
+          : isNewProduct 
+            ? 'bg-yellow-50/50' 
+            : productExists 
+              ? 'bg-green-50/30' 
+              : 'bg-blue-50/30'
+      }`}>
         <div className="relative h-full">
           <input
             ref={el => registerFieldRef("name", el)}
             type="text"
             value={showProductDropdown ? productSearch : (item.name || "")}
             onChange={(e) => {
+              if (isFreeItem) return;
               const value = e.target.value;
               setProductSearch(value);
               setShowProductDropdown(value.length > 0);
               handleChange("name", value);
             }}
             onFocus={() => {
+              if (isFreeItem) return;
               setProductSearch(item.name || "");
               if (productMaster.length > 0 && (item.name || "").length > 0) {
                 setShowProductDropdown(true);
               }
             }}
             onBlur={(e) => {
+              // Delay closing to allow click on dropdown
               setTimeout(() => {
-                setShowProductDropdown(false);
-                // ✅ Check for new product on blur
-                if (e.target.value && e.target.value.trim().length >= 2) {
+                if (e.target.value && e.target.value.trim().length >= 2 && !isFreeItem) {
                   handleProductNameBlur(e.target.value);
                 }
-              }, 200); // Increased delay for better UX
+              }, 200);
             }}
             onKeyDown={(e) => handleKeyDown(e, "name")}
+            readOnly={isFreeItem}
+            tabIndex={isFreeItem ? -1 : 0}
             className={`${inputBase} px-1.5 py-1 font-medium text-left ${
-              isNewProduct ? 'bg-yellow-50 text-yellow-900 font-semibold' : 
-              productExists ? 'text-green-900' : ''
+              isFreeItem 
+                ? 'bg-green-50 text-green-800' 
+                : isNewProduct 
+                  ? 'bg-yellow-50 text-yellow-900 font-semibold' 
+                  : productExists 
+                    ? 'text-green-900' 
+                    : ''
             }`}
-            placeholder="Search item..."
+            placeholder={isFreeItem ? "" : "Search item..."}
           />
           
-          {/* ✅ Enhanced indicators */}
+          {/* Indicators */}
           <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-            {isNewProduct && (
+            {isFreeItem && (
+              <span className="text-[7px] font-bold text-green-600 bg-green-100 px-1 rounded">
+                FREE ITEM
+              </span>
+            )}
+            {!isFreeItem && isNewProduct && (
               <div className="flex items-center" title="New product - press Enter to add">
                 <AlertCircle size={10} className="text-yellow-600" />
               </div>
             )}
-            {productExists && (
+            {!isFreeItem && productExists && (
               <div className="flex items-center" title="Product found">
                 <CheckCircle2 size={10} className="text-green-600" />
               </div>
             )}
-            {item.name && (
+            {!isFreeItem && item.name && (
               <button
                 onClick={() => {
                   handleChange("name", "");
@@ -405,163 +626,105 @@ const handleProductNameBlur = useCallback((productName) => {
             )}
           </div>
 
-          {/* ✅ ENHANCED: Product dropdown */}
-          {showProductDropdown && (
-            <div className="absolute top-full left-0 z-50 bg-white border border-slate-300 rounded-lg shadow-2xl max-h-64 overflow-auto w-80 mt-0.5">
-              {filteredProducts.length > 0 ? (
-                <>
-                  <div className="sticky top-0 bg-gradient-to-r from-indigo-50 to-purple-50 px-3 py-1.5 border-b border-slate-200 text-[9px] text-slate-600 font-medium">
-                    {filteredProducts.length} product{filteredProducts.length > 1 ? 's' : ''} found
-                  </div>
-                  {filteredProducts.map((product, idx) => (
-                    <div
-                      key={product.id || product.medicine_id || idx}
-                      onClick={() => {
-                        onProductSelect(index, product);
-                        setShowProductDropdown(false);
-                      }}
-                      className={`
-                        px-3 py-2.5 cursor-pointer text-[9px] border-b border-slate-100 last:border-b-0 
-                        transition-all duration-150
-                        ${idx === highlightedIndex 
-                          ? 'bg-indigo-50 border-l-2 border-l-indigo-500' 
-                          : 'hover:bg-slate-50 border-l-2 border-l-transparent'
-                        }
-                      `}
-                    >
-                      <div className="font-semibold text-slate-800 truncate">{product.name}</div>
-                      {product.genericName && (
-                        <div className="text-[8px] text-slate-500 mt-0.5 italic">{product.genericName}</div>
-                      )}
-                      <div className="text-[8px] text-slate-400 flex gap-2 mt-1">
-                        <span>HSN: {product.hsnCode || product.hsn || '-'}</span>
-                        <span>•</span>
-                        <span>{product.manufacturer || product.mfac || '-'}</span>
-                        {(product.rackNo || product.rack) && (
-                          <>
-                            <span>•</span>
-                            <span>Rack: {product.rackNo || product.rack}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {/* ✅ Add new product option if search doesn't match exactly */}
-                  {productSearch.trim().length >= 2 && !checkProductExists(productSearch) && (
-                    <div
-                      onClick={() => {
-                        setShowProductDropdown(false);
-                        handleProductNameBlur(productSearch);
-                      }}
-                      className="px-3 py-2.5 cursor-pointer text-[9px] hover:bg-yellow-50 border-l-2 border-l-yellow-500 bg-yellow-25 border-t-2 border-yellow-200"
-                    >
-                      <div className="font-semibold text-yellow-700 flex items-center gap-1.5">
-                        <Plus size={10} />
-                        Add "{productSearch}" as new product
-                      </div>
-                      <div className="text-[8px] text-yellow-600 mt-0.5">Click or press Enter to add to master</div>
-                    </div>
-                  )}
-                </>
-              ) : productSearch.trim().length >= 2 ? (
-                <div
-                  onClick={() => {
-                    setShowProductDropdown(false);
-                    handleProductNameBlur(productSearch);
-                  }}
-                  className="px-4 py-4 cursor-pointer text-[9px] hover:bg-blue-50 border-l-2 border-l-blue-500 bg-blue-25"
-                >
-                  <div className="font-semibold text-blue-600 flex items-center gap-1.5 mb-1">
-                    <Plus size={12} />
-                    Add "{productSearch}" as new product
-                  </div>
-                  <div className="text-[8px] text-blue-500">This product will be added to the master list</div>
-                </div>
-              ) : (
-                <div className="px-4 py-4 text-[8px] text-slate-400 text-center">
-                  Type at least 2 characters to search products...
-                </div>
-              )}
-            </div>
-          )}
+          {/* ✅ FIXED: Product dropdown using Portal */}
+          <ProductDropdown
+            isOpen={showProductDropdown && !isFreeItem}
+            anchorRef={nameInputRef}
+            products={filteredProducts}
+            highlightedIndex={highlightedIndex}
+            onSelect={handleDropdownProductSelect}
+            onAddNew={handleDropdownAddNew}
+            searchTerm={productSearch}
+            onClose={() => setShowProductDropdown(false)}
+          />
         </div>
       </td>
 
-      {/* REST OF THE FIELDS - NO CHANGES */}
-      
       {/* 3. MFAC */}
-      <td className={`${cellBase} bg-violet-50/20`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-violet-50/20'}`}>
         <input 
           ref={el => registerFieldRef("mfac", el)} 
           type="text" 
           value={item.mfac || ""} 
-          onChange={(e) => handleChange("mfac", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("mfac", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "mfac")}
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
           className={`${inputBase} px-1 py-1 text-left`} 
-          placeholder="Mfac"
+          placeholder={isFreeItem ? "" : "Mfac"}
         />
       </td>
 
       {/* 4. BATCH */}
-      <td className={`${cellBase} bg-violet-50/20`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-violet-50/20'}`}>
         <input 
           ref={el => registerFieldRef("batch", el)} 
           type="text" 
           value={item.batch || ""} 
-          onChange={(e) => handleChange("batch", e.target.value.toUpperCase())}
+          onChange={(e) => !isFreeItem && handleChange("batch", e.target.value.toUpperCase())}
           onKeyDown={(e) => handleKeyDown(e, "batch")}
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
           className={`${inputBase} px-1 py-1 text-center font-mono text-[8px]`} 
-          placeholder="Batch"
+          placeholder={isFreeItem ? "" : "Batch"}
         />
       </td>
 
       {/* 5. HSN */}
-      <td className={`${cellBase} bg-cyan-50/30`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-cyan-50/30'}`}>
         <input 
           ref={el => registerFieldRef("hsn", el)} 
           type="text" 
           value={item.hsn || ""} 
-          onChange={(e) => handleChange("hsn", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("hsn", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "hsn")}
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
           className={`${inputBase} px-1 py-1 text-center font-mono text-[8px]`} 
-          placeholder="HSN"
+          placeholder={isFreeItem ? "" : "HSN"}
         />
       </td>
 
       {/* 6. EXPIRY */}
-      <td className={`${cellBase} bg-cyan-50/30`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-cyan-50/30'}`}>
         <input 
           ref={el => registerFieldRef("exp", el)} 
           type="text" 
           value={item.exp || ""} 
-          onChange={(e) => handleChange("exp", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("exp", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "exp")}
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
           className={`${inputBase} px-1 py-1 text-center font-mono text-[8px]`} 
-          placeholder="MM/YY"
+          placeholder={isFreeItem ? "" : "MM/YY"}
         />
       </td>
 
       {/* 7. PACK */}
-      <td className={`${cellBase}`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : ''}`}>
         <input 
           ref={el => registerFieldRef("pack", el)} 
           type="text" 
           value={item.pack || ""} 
-          onChange={(e) => handleChange("pack", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("pack", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "pack")}
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
           className={`${inputBase} px-1 py-1 text-center`} 
-          placeholder="Pk"
+          placeholder={isFreeItem ? "" : "Pk"}
         />
       </td>
 
       {/* 8. P.QTY */}
-      <td className={`${cellBase} bg-slate-100/50`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-slate-100/50'}`}>
         <input 
           ref={el => registerFieldRef("pQty", el)} 
           type="number" 
           value={item.pQty || ""} 
-          onChange={(e) => handleChange("pQty", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("pQty", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "pQty")}
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
           className={`${inputBase} px-1 py-1 text-center text-slate-500`} 
           placeholder="0" 
           min="0"
@@ -569,28 +732,36 @@ const handleProductNameBlur = useCallback((productName) => {
       </td>
 
       {/* 9. QTY */}
-      <td className={`${cellBase} bg-amber-50/60`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-100' : 'bg-amber-50/60'}`}>
         <input 
           ref={el => registerFieldRef("qty", el)} 
           type="number" 
           value={item.qty || ""} 
-          onChange={(e) => handleChange("qty", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("qty", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "qty")}
-          className={`${inputBase} px-1 py-1 text-center font-bold text-amber-700`} 
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
+          className={`${inputBase} px-1 py-1 text-center font-bold ${
+            isFreeItem ? 'text-green-700' : 'text-amber-700'
+          }`} 
           placeholder="0" 
           min="0"
         />
       </td>
 
       {/* 10. RATE */}
-      <td className={`${cellBase} bg-blue-50/50`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-blue-50/50'}`}>
         <input 
           ref={el => registerFieldRef("price", el)} 
           type="number" 
           value={item.price || ""} 
-          onChange={(e) => handleChange("price", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("price", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "price")}
-          className={`${inputBase} px-1 py-1 text-right font-semibold text-blue-700`} 
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
+          className={`${inputBase} px-1 py-1 text-right font-semibold ${
+            isFreeItem ? 'text-green-600' : 'text-blue-700'
+          }`} 
           placeholder="0.00" 
           min="0" 
           step="0.01"
@@ -598,14 +769,18 @@ const handleProductNameBlur = useCallback((productName) => {
       </td>
 
       {/* 11. DIS% */}
-      <td className={`${cellBase} bg-rose-50/40`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-rose-50/40'}`}>
         <input 
           ref={el => registerFieldRef("discountPercent", el)} 
           type="number" 
           value={item.discountPercent || ""} 
-          onChange={(e) => handleChange("discountPercent", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("discountPercent", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "discountPercent")}
-          className={`${inputBase} px-1 py-1 text-center text-rose-600 font-semibold`} 
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
+          className={`${inputBase} px-1 py-1 text-center ${
+            isFreeItem ? 'text-green-600' : 'text-rose-600'
+          } font-semibold`} 
           placeholder="0" 
           min="0" 
           max="100"
@@ -613,14 +788,18 @@ const handleProductNameBlur = useCallback((productName) => {
       </td>
 
       {/* 12. NET RATE */}
-      <td className={`${cellBase} bg-teal-50/50`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-teal-50/50'}`}>
         <input 
           ref={el => registerFieldRef("netRate", el)} 
           type="number" 
-          value={item.netRate || ""} 
-          onChange={(e) => handleChange("netRate", e.target.value)}
+          value={isFreeItem ? "0" : (item.netRate || "")} 
+          onChange={(e) => !isFreeItem && handleChange("netRate", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "netRate")}
-          className={`${inputBase} px-1 py-1 text-right font-semibold text-teal-700`} 
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
+          className={`${inputBase} px-1 py-1 text-right font-semibold ${
+            isFreeItem ? 'text-green-600' : 'text-teal-700'
+          }`} 
           placeholder="0.00" 
           min="0" 
           step="0.01"
@@ -628,23 +807,33 @@ const handleProductNameBlur = useCallback((productName) => {
       </td>
 
       {/* 13. AMOUNT */}
-      <td className={`${cellBase} bg-emerald-50/60`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-100' : 'bg-emerald-50/60'}`}>
         <div className="px-1 py-1 text-right h-full flex items-center justify-end">
-          <span className={`font-bold text-[10px] ${Number(item.amount) > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
-            {Number(item.amount) > 0 ? formatNumber(item.amount) : '0.00'}
-          </span>
+          {isFreeItem ? (
+            <span className="text-[9px] font-bold text-green-700 bg-green-200 px-2 py-0.5 rounded">
+              FREE
+            </span>
+          ) : (
+            <span className={`font-bold text-[10px] ${Number(item.amount) > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
+              {Number(item.amount) > 0 ? formatNumber(item.amount) : '0.00'}
+            </span>
+          )}
         </div>
       </td>
 
       {/* 14. SGST% */}
-      <td className={`${cellBase} bg-orange-50/40`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-orange-50/40'}`}>
         <input 
           ref={el => registerFieldRef("sgstPercent", el)} 
           type="number" 
           value={item.sgstPercent || ""} 
-          onChange={(e) => handleChange("sgstPercent", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("sgstPercent", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "sgstPercent")}
-          className={`${inputBase} px-1 py-1 text-center text-orange-600 font-medium`} 
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
+          className={`${inputBase} px-1 py-1 text-center ${
+            isFreeItem ? 'text-green-600' : 'text-orange-600'
+          } font-medium`} 
           placeholder="0" 
           min="0" 
           max="100"
@@ -652,13 +841,15 @@ const handleProductNameBlur = useCallback((productName) => {
       </td>
 
       {/* 15. MRP */}
-      <td className={`${cellBase}`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : ''}`}>
         <input 
           ref={el => registerFieldRef("mrp", el)} 
           type="number" 
           value={item.mrp || ""} 
-          onChange={(e) => handleChange("mrp", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("mrp", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "mrp")}
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
           className={`${inputBase} px-1 py-1 text-right text-slate-600`} 
           placeholder="0" 
           min="0"
@@ -666,43 +857,68 @@ const handleProductNameBlur = useCallback((productName) => {
       </td>
 
       {/* 16. RACK */}
-      <td className={`${cellBase} bg-slate-50`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-slate-50'}`}>
         <input 
           ref={el => registerFieldRef("rack", el)} 
           type="text" 
           value={item.rack || ""} 
-          onChange={(e) => handleChange("rack", e.target.value.toUpperCase())}
+          onChange={(e) => !isFreeItem && handleChange("rack", e.target.value.toUpperCase())}
           onKeyDown={(e) => handleKeyDown(e, "rack")}
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
           className={`${inputBase} px-1 py-1 text-center font-mono`} 
-          placeholder="Rk"
+          placeholder={isFreeItem ? "" : "Rk"}
         />
       </td>
 
       {/* 17. S-RATE */}
-      <td className={`${cellBase} bg-purple-50/50`}>
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-purple-50/50'}`}>
         <input 
           ref={el => registerFieldRef("sRate", el)} 
           type="number" 
           value={item.sRate || ""} 
-          onChange={(e) => handleChange("sRate", e.target.value)}
+          onChange={(e) => !isFreeItem && handleChange("sRate", e.target.value)}
           onKeyDown={(e) => handleKeyDown(e, "sRate")}
-          className={`${inputBase} px-1 py-1 text-right font-bold text-purple-700`} 
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
+          className={`${inputBase} px-1 py-1 text-right font-bold ${
+            isFreeItem ? 'text-green-600' : 'text-purple-700'
+          }`} 
           placeholder="0.00" 
           min="0" 
           step="0.01"
         />
       </td>
 
-      {/* 18. FREE */}
-      <td className={`${cellBase} bg-green-50/50`}>
+      {/* 18. FREE/SCH */}
+      <td className={`${cellBase} ${isFreeItem ? 'bg-green-100' : 'bg-green-50/50'}`}>
         <input 
           ref={el => registerFieldRef("sch", el)} 
           type="text" 
           value={item.sch || ""} 
-          onChange={(e) => handleChange("sch", e.target.value)}
+          onChange={(e) => {
+            if (!isFreeItem) {
+              handleSchChange(e.target.value);
+            }
+          }}
+          onBlur={(e) => {
+            if (!isFreeItem) {
+              handleSchBlur(e.target.value);
+            }
+          }}
           onKeyDown={(e) => handleKeyDown(e, "sch")}
-          className={`${inputBase} px-1 py-1 text-center font-bold text-green-600`} 
-          placeholder="0"
+          disabled={isFreeItem}
+          readOnly={isFreeItem}
+          tabIndex={isFreeItem ? -1 : 0}
+          className={`${inputBase} px-1 py-1 text-center font-bold ${
+            isFreeItem 
+              ? 'text-green-500 cursor-not-allowed bg-green-100' 
+              : item.sch 
+                ? 'text-green-700 bg-green-100' 
+                : 'text-green-600'
+          }`} 
+          placeholder={isFreeItem ? "-" : "F"}
+          title={isFreeItem ? "This is a free item row" : "Enter F or quantity for free goods"}
         />
       </td>
     </tr>

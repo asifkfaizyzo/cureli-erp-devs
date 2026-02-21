@@ -16,6 +16,7 @@ import {
   Layers,
   User,
   PauseCircle,
+  UserCheck,
 } from "lucide-react";
 import {
   PAYMENT_BALANCE_THRESHOLD,
@@ -130,17 +131,43 @@ const BranchBadge = ({ branchName }) => {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// ROLE BADGE HELPER
+// ════════════════════════════════════════════════════════════════════════════
+
+const getRoleBadgeConfig = (role) => {
+  const roleConfigs = {
+    super_admin: { bg: "bg-purple-100", text: "text-purple-700", label: "Super Admin" },
+    branch_admin: { bg: "bg-blue-100", text: "text-blue-700", label: "Admin" },
+    pharmacist: { bg: "bg-green-100", text: "text-green-700", label: "Pharmacist" },
+    staff: { bg: "bg-gray-100", text: "text-gray-700", label: "Staff" },
+    owner: { bg: "bg-amber-100", text: "text-amber-700", label: "Owner" },
+    cashier: { bg: "bg-teal-100", text: "text-teal-700", label: "Cashier" },
+  };
+
+  return (
+    roleConfigs[role] || {
+      bg: "bg-gray-100",
+      text: "text-gray-600",
+      label: role?.replace("_", " ") || "User",
+    }
+  );
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // SKELETON ROW
 // ════════════════════════════════════════════════════════════════════════════
 
 const SkeletonRow = ({ showBranchColumn, index }) => (
   <tr className={index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+    {/* Serial # */}
     <td className="py-3 px-4 border-b border-gray-100">
       <div
         className="w-6 h-4 bg-gray-200 rounded animate-pulse"
         style={{ animationDelay: `${index * 50}ms` }}
       />
     </td>
+
+    {/* Invoice Number */}
     <td className="py-3 px-4 border-b border-gray-100">
       <div className="space-y-1">
         <div
@@ -153,63 +180,105 @@ const SkeletonRow = ({ showBranchColumn, index }) => (
         />
       </div>
     </td>
+
+    {/* Customer */}
     <td className="py-3 px-4 border-b border-gray-100">
-      <div
-        className="w-28 h-4 bg-gray-200 rounded animate-pulse"
-        style={{ animationDelay: `${index * 50 + 60}ms` }}
-      />
+      <div className="space-y-1">
+        <div
+          className="w-28 h-4 bg-gray-200 rounded animate-pulse"
+          style={{ animationDelay: `${index * 50 + 60}ms` }}
+        />
+        <div
+          className="w-20 h-3 bg-gray-100 rounded animate-pulse"
+          style={{ animationDelay: `${index * 50 + 70}ms` }}
+        />
+      </div>
     </td>
+
+    {/* Invoice Date */}
     <td className="py-3 px-4 border-b border-gray-100">
       <div
         className="w-20 h-4 bg-gray-200 rounded animate-pulse"
         style={{ animationDelay: `${index * 50 + 80}ms` }}
       />
     </td>
+
+    {/* Billed By */}
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div className="space-y-1">
+        <div
+          className="w-24 h-4 bg-gray-200 rounded animate-pulse"
+          style={{ animationDelay: `${index * 50 + 100}ms` }}
+        />
+        <div
+          className="w-16 h-3 bg-gray-100 rounded animate-pulse"
+          style={{ animationDelay: `${index * 50 + 120}ms` }}
+        />
+      </div>
+    </td>
+
+    {/* Branch (conditional) */}
     {showBranchColumn && (
       <td className="py-3 px-4 border-b border-gray-100">
         <div
           className="w-20 h-5 bg-gray-200 rounded-full animate-pulse"
-          style={{ animationDelay: `${index * 50 + 90}ms` }}
+          style={{ animationDelay: `${index * 50 + 140}ms` }}
         />
       </td>
     )}
+
+    {/* Items */}
     <td className="py-3 px-4 border-b border-gray-100 text-center">
       <div
         className="w-6 h-6 bg-gray-200 rounded-full animate-pulse mx-auto"
-        style={{ animationDelay: `${index * 50 + 100}ms` }}
-      />
-    </td>
-    <td className="py-3 px-4 border-b border-gray-100 text-right">
-      <div
-        className="w-16 h-4 bg-gray-200 rounded animate-pulse ml-auto"
-        style={{ animationDelay: `${index * 50 + 120}ms` }}
-      />
-    </td>
-    <td className="py-3 px-4 border-b border-gray-100">
-      <div
-        className="w-16 h-5 bg-gray-200 rounded-full animate-pulse"
-        style={{ animationDelay: `${index * 50 + 140}ms` }}
-      />
-    </td>
-    <td className="py-3 px-4 border-b border-gray-100">
-      <div
-        className="w-20 h-5 bg-gray-200 rounded-full animate-pulse"
         style={{ animationDelay: `${index * 50 + 160}ms` }}
       />
     </td>
+
+    {/* Net Amount */}
+    <td className="py-3 px-4 border-b border-gray-100 text-right">
+      <div className="space-y-1">
+        <div
+          className="w-16 h-4 bg-gray-200 rounded animate-pulse ml-auto"
+          style={{ animationDelay: `${index * 50 + 180}ms` }}
+        />
+        <div
+          className="w-12 h-3 bg-gray-100 rounded animate-pulse ml-auto"
+          style={{ animationDelay: `${index * 50 + 190}ms` }}
+        />
+      </div>
+    </td>
+
+    {/* Payment Status */}
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div
+        className="w-16 h-5 bg-gray-200 rounded-full animate-pulse"
+        style={{ animationDelay: `${index * 50 + 200}ms` }}
+      />
+    </td>
+
+    {/* Status */}
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div
+        className="w-20 h-5 bg-gray-200 rounded-full animate-pulse"
+        style={{ animationDelay: `${index * 50 + 220}ms` }}
+      />
+    </td>
+
+    {/* Actions */}
     <td className="py-3 px-4 border-b border-gray-100">
       <div className="flex justify-center gap-1">
         <div
           className="w-6 h-6 bg-gray-200 rounded animate-pulse"
-          style={{ animationDelay: `${index * 50 + 180}ms` }}
+          style={{ animationDelay: `${index * 50 + 240}ms` }}
         />
         <div
           className="w-6 h-6 bg-gray-200 rounded animate-pulse"
-          style={{ animationDelay: `${index * 50 + 200}ms` }}
+          style={{ animationDelay: `${index * 50 + 260}ms` }}
         />
         <div
           className="w-6 h-6 bg-gray-200 rounded animate-pulse"
-          style={{ animationDelay: `${index * 50 + 220}ms` }}
+          style={{ animationDelay: `${index * 50 + 280}ms` }}
         />
       </div>
     </td>
@@ -237,7 +306,8 @@ const SalesTable = ({
   const safeInvoices = Array.isArray(invoices) ? invoices : [];
   const startIndex = (currentPage - 1) * rowsPerPage;
 
-  const columnCount = showBranchColumn ? 10 : 9;
+  // Column count: base 10 + branch column if shown
+  const columnCount = showBranchColumn ? 11 : 10;
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-IN", {
@@ -368,6 +438,13 @@ const SalesTable = ({
               <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                 Invoice Date
               </th>
+              {/* ✅ NEW: Billed By Column Header */}
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+                <div className="flex items-center gap-1.5">
+                  <UserCheck size={12} />
+                  Billed By
+                </div>
+              </th>
               {showBranchColumn && (
                 <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
@@ -376,10 +453,10 @@ const SalesTable = ({
                   </div>
                 </th>
               )}
-              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+              <th className="px-4 py-3 text-center text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                 Items
               </th>
-              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+              <th className="px-4 py-3 text-right text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                 Net Amount
               </th>
               <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
@@ -413,6 +490,10 @@ const SalesTable = ({
                 const EditIcon = editConfig.icon;
                 const paymentDisplay = getPaymentDisplayInfo(invoice);
 
+                // Get role badge config for creator
+                const creatorRole = invoice.creator?.role;
+                const roleBadgeConfig = getRoleBadgeConfig(creatorRole);
+
                 return (
                   <tr
                     key={invoice.invoice_id}
@@ -422,10 +503,12 @@ const SalesTable = ({
                       ${i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
                     `}
                   >
+                    {/* Serial Number */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs text-gray-400 font-medium">
                       {String(serialNumber).padStart(2, "0")}
                     </td>
 
+                    {/* Invoice Number */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-[#000060] font-semibold">
@@ -440,35 +523,69 @@ const SalesTable = ({
                       </div>
                     </td>
 
+                    {/* Customer */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs">
                       <div className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                          {invoice.customer?.name || invoice.customer_name || "Walk-in Customer"}
+                        <span
+                          className="font-semibold text-gray-700 truncate max-w-[140px]"
+                          title={invoice.customer?.name || invoice.walkin_name || "Walk-in Customer"}
+                        >
+                          {invoice.customer?.name || invoice.walkin_name || "Walk-in Customer"}
                         </span>
-                        {invoice.customer?.phone && (
+                        {(invoice.customer?.phone || invoice.walkin_phone) && (
                           <span className="text-[10px] text-gray-500">
-                            {invoice.customer.phone}
+                            {invoice.customer?.phone || invoice.walkin_phone}
                           </span>
                         )}
                       </div>
                     </td>
 
+                    {/* Invoice Date */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs text-gray-600">
                       {formatDate(invoice.invoice_date)}
                     </td>
 
+                    {/* ✅ NEW: Billed By Column */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs">
+                      {invoice.creator ? (
+                        <div className="flex flex-col">
+                          <span
+                            className="font-medium text-gray-700 truncate max-w-[120px]"
+                            title={invoice.creator.full_name}
+                          >
+                            {invoice.creator.full_name || "-"}
+                          </span>
+                          {creatorRole && (
+                            <span
+                              className={`
+                                text-[9px] px-1.5 py-0.5 rounded mt-0.5 w-fit font-medium
+                                ${roleBadgeConfig.bg} ${roleBadgeConfig.text}
+                              `}
+                            >
+                              {roleBadgeConfig.label}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+
+                    {/* Branch Column */}
                     {showBranchColumn && (
                       <td className="py-3 px-4 border-b border-gray-100 text-xs">
                         <BranchBadge branchName={invoice.branch?.branch_name} />
                       </td>
                     )}
 
+                    {/* Items Count */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs text-center">
                       <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#000060]/10 text-[#000060] text-[10px] font-bold">
                         {invoice._count?.lineItems || invoice.lineItems?.length || 0}
                       </span>
                     </td>
 
+                    {/* Net Amount */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs text-right">
                       <span className="font-bold text-gray-900">
                         {formatCurrency(invoice.net_amount)}
@@ -478,6 +595,7 @@ const SalesTable = ({
                       </div>
                     </td>
 
+                    {/* Payment Status */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs">
                       <PaymentStatusBadge invoice={invoice} />
                       {paymentDisplay.showBalance && paymentDisplay.balance > 0 && (
@@ -487,6 +605,7 @@ const SalesTable = ({
                       )}
                     </td>
 
+                    {/* Status */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs">
                       <StatusBadge status={invoice.status} />
                       {invoice.confirmed_at && (
@@ -496,8 +615,10 @@ const SalesTable = ({
                       )}
                     </td>
 
+                    {/* Actions */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs text-center">
                       <div className="flex justify-center gap-1">
+                        {/* VIEW */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -509,6 +630,7 @@ const SalesTable = ({
                           <Eye size={14} />
                         </button>
 
+                        {/* EDIT */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -521,6 +643,7 @@ const SalesTable = ({
                           <EditIcon size={14} />
                         </button>
 
+                        {/* DELETE */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -546,6 +669,7 @@ const SalesTable = ({
                 );
               })
             ) : (
+              // Empty State
               <tr>
                 <td colSpan={columnCount} className="py-16 text-center">
                   <div className="flex flex-col items-center gap-3">

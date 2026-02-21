@@ -1,4 +1,5 @@
 // src/pages/purchase/billing/PurchasePage.jsx
+
 import { useRef, useCallback, useState, useEffect } from "react";
 import { useReactToPrint } from "react-to-print";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -47,7 +48,6 @@ const PurchasePage = () => {
   const navigate = useNavigate();
   const { invoiceId } = useParams();
   
-  // Get search params to detect edit-confirmed mode
   const [searchParams] = useSearchParams();
   const editMode = searchParams.get('mode');
   const isEditingConfirmed = editMode === 'edit-confirmed';
@@ -75,24 +75,7 @@ const PurchasePage = () => {
   const user = useAuthStore(state => state.user);
   const isSuperAdmin = user?.role === "super_admin";
 
-  // ✅ GET BILLED BY NAME - Check multiple possible properties
-  useEffect(() => {
-    console.log("🔍 DEBUG Purchase - Full user object:", user);
-    console.log("🔍 DEBUG Purchase - User properties:", {
-      name: user?.name,
-      full_name: user?.full_name,
-      first_name: user?.first_name,
-      username: user?.username,
-      user_id: user?.user_id,
-      role: user?.role,
-    });
-  }, [user]);
-
   const billedByName = user?.name || user?.full_name || user?.first_name || user?.username || "Staff";
-  
-  useEffect(() => {
-    console.log("🔍 DEBUG Purchase - Resolved billedByName:", billedByName);
-  }, [billedByName]);
 
   // ============================================
   // API INTEGRATION
@@ -136,10 +119,8 @@ const PurchasePage = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  // Track original invoice data for comparison
   const [originalInvoiceData, setOriginalInvoiceData] = useState(null);
 
-  // Initialize with branch context
   const [invoiceData, setInvoiceData] = useState({
     invoice_date: new Date().toISOString().split('T')[0],
     branch_id: branchContext.branch_id || null,
@@ -150,19 +131,24 @@ const PurchasePage = () => {
     remarks: null,
   });
 
-  // Get responsive config
   const { visibleRows, rowHeight } = useResponsiveRowCount();
 
-  // Custom Hooks
+  // ============================================
+  // CUSTOM HOOKS - ✅ Updated with free row handlers
+  // ============================================
   const { 
     rows, 
     setRows, 
     importRows, 
-    getFilledRows, 
+    getFilledRows,
+    getBillableRows,
+    getFreeRows,
     importVersion, 
     clearAllRows,
     hasUnsavedData,
     isInitialized: rowsInitialized,
+    createFreeRow,
+    removeFreeRow,
   } = usePurchaseRows(visibleRows);
   
   const { summary } = usePurchaseCalculation(rows);
@@ -202,7 +188,6 @@ const PurchasePage = () => {
     }
   }, [isEditingConfirmed, isSuperAdmin, navigate, toast]);
 
-  // Update branch_id when context changes
   useEffect(() => {
     if (branchContext.branch_id) {
       setInvoiceData(prev => ({
@@ -213,7 +198,7 @@ const PurchasePage = () => {
   }, [branchContext.branch_id]);
 
   // ============================================
-  // LOAD INITIAL DATA - PROGRESSIVE LOADING
+  // LOAD INITIAL DATA
   // ============================================
   useEffect(() => {
     const initData = async () => {
@@ -273,21 +258,10 @@ const PurchasePage = () => {
     if (!supplierInitialized) return;
     if (loadingStates.supplier) return;
 
-    console.log("🔄 Branch changed, reloading suppliers:", {
-      mode: branchContext.mode,
-      branch_id: branchContext.branch_id,
-      branch_name: branchContext.branch_name,
-    });
-
     const reloadSuppliers = async () => {
       setLoadingStates(prev => ({ ...prev, supplier: true }));
       try {
         await loadSuppliers();
-        
-        if (branchContext.mode === "BRANCH" && supplier.supplier_id) {
-          console.log("📍 Checking if current supplier exists in new branch...");
-        }
-        
       } catch (error) {
         console.error("Failed to reload suppliers:", error);
       } finally {
@@ -298,9 +272,6 @@ const PurchasePage = () => {
     reloadSuppliers();
   }, [branchContext.branch_id]); // eslint-disable-line
 
-  // ============================================
-  // UPDATE SUPPLIERS LIST WHEN API LOADS
-  // ============================================
   useEffect(() => {
     if (suppliers.length > 0) {
       setSuppliersList(suppliers);
@@ -374,6 +345,8 @@ const PurchasePage = () => {
           ? (parseFloat(item.taxable_amount) / parseFloat(item.quantity)).toFixed(2) 
           : "",
         amount: item.line_total?.toString() || "",
+        isFreeItem: item.is_free_item || false,
+        parentRowIndex: null,
       };
     });
 
@@ -565,12 +538,16 @@ const PurchasePage = () => {
   }, [hasUnsavedData, navigate, closeConfirmDialog]);
 
   // ============================================
-  // SAVE HANDLER (DRAFT)
+  // SAVE HANDLER (DRAFT) - ✅ Updated for free items
   // ============================================
   const handleSave = useCallback(async () => {
-    const dataRows = getFilledRows();
-    if (dataRows.length === 0) {
-      toast.warning("Missing Items", "Please add at least one item.");
+    // ✅ Get billable rows only (exclude free items for validation)
+    const billableRows = getBillableRows();
+    const freeRows = getFreeRows();
+    const allFilledRows = getFilledRows();
+    
+    if (billableRows.length === 0) {
+      toast.warning("Missing Items", "Please add at least one billable item.");
       return false;
     }
 
@@ -618,29 +595,30 @@ const PurchasePage = () => {
 
               <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded border">
                 <p className="font-medium text-gray-900">Invoice: {currentInvoice?.invoice_number}</p>
-                <p>Original Items: {originalInvoiceData?.lineItems?.length || 0}</p>
-                <p>Updated Items: {dataRows.length}</p>
+                <p>Billable Items: {billableRows.length}</p>
+                <p>Free Items: {freeRows.length}</p>
               </div>
             </div>
           ),
           confirmText: 'Save Changes',
           onConfirm: async () => {
             closeConfirmDialog();
-            await performSave(dataRows);
+            await performSave(allFilledRows);
             resolve(true);
           },
         });
       });
     }
 
-    return await performSave(dataRows);
+    return await performSave(allFilledRows);
   }, [
-    getFilledRows, 
+    getBillableRows, 
+    getFreeRows,
+    getFilledRows,
     validateSupplier, 
     invoiceData.branch_id, 
     isEditingConfirmed, 
     currentInvoice, 
-    originalInvoiceData, 
     toast,
     closeConfirmDialog
   ]);
@@ -676,7 +654,7 @@ const PurchasePage = () => {
   }, [savePurchaseInvoice, invoiceData, supplier, setSupplier, isEditingConfirmed, toast, navigate]);
 
   // ============================================
-  // SAVE & PRINT HANDLER (CONFIRM + STOCK UPDATE)
+  // SAVE & PRINT HANDLER
   // ============================================
   const handleSavePrint = useCallback(async () => {
     if (isEditingConfirmed) {
@@ -687,9 +665,9 @@ const PurchasePage = () => {
       return;
     }
 
-    const dataRows = getFilledRows();
-    if (dataRows.length === 0) {
-      toast.warning("Please add at least one item to print");
+    const billableRows = getBillableRows();
+    if (billableRows.length === 0) {
+      toast.warning("Please add at least one billable item to print");
       return;
     }
 
@@ -701,9 +679,10 @@ const PurchasePage = () => {
     setIsSaving(true);
     try {
       let invoiceToConfirm = currentInvoice;
+      const allFilledRows = getFilledRows();
       
       if (!currentInvoice) {
-        const savedInvoice = await savePurchaseInvoice(invoiceData, dataRows, supplier);
+        const savedInvoice = await savePurchaseInvoice(invoiceData, allFilledRows, supplier);
         if (!savedInvoice) return;
         invoiceToConfirm = savedInvoice;
       }
@@ -727,6 +706,7 @@ const PurchasePage = () => {
     }
   }, [
     isEditingConfirmed,
+    getBillableRows,
     getFilledRows, 
     currentInvoice, 
     savePurchaseInvoice, 
@@ -802,8 +782,6 @@ const PurchasePage = () => {
   const handleProductSave = useCallback(
     async (newProductData) => {
       try {
-        console.log('📤 handleProductSave - Input data:', newProductData);
-        
         const createdMedicine = await createMedicine({
           name: newProductData.name,
           manufacturer: newProductData.manufacturer,
@@ -821,8 +799,6 @@ const PurchasePage = () => {
           max_stock_level: newProductData.max_stock_level,
           reorder_point: newProductData.reorder_point,
         });
-
-        console.log('✅ handleProductSave - Created medicine:', createdMedicine);
 
         if (createdMedicine && pendingProductData) {
           const { rowIndex } = pendingProductData;
@@ -891,6 +867,7 @@ const PurchasePage = () => {
                 const matchingRowIndex = newRows.findIndex(row => 
                   row.name && 
                   !row.medicine_id && 
+                  !row.isFreeItem &&
                   row.name.toLowerCase() === createdMed.name.toLowerCase()
                 );
                 
@@ -1072,7 +1049,7 @@ const PurchasePage = () => {
         />
       </div>
 
-      {/* TABLE */}
+      {/* TABLE - ✅ Pass free row handlers */}
       <div className={`
         flex-1 flex flex-col overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm
         transition-all duration-300 ease-out delay-75
@@ -1090,6 +1067,8 @@ const PurchasePage = () => {
           onAddNewProduct={handleAddNewProduct}
           onProductSelect={handleProductSelect}
           isLoading={loadingStates.table}
+          onCreateFreeRow={createFreeRow}
+          onRemoveFreeRow={removeFreeRow}
         />
       </div>
 

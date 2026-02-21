@@ -14,6 +14,7 @@ import {
   Building2,
   Loader2,
   Layers,
+  User,
 } from "lucide-react";
 import { 
   PAYMENT_BALANCE_THRESHOLD,
@@ -47,11 +48,8 @@ const StatusBadge = ({ status }) => {
 /**
  * PaymentStatusBadge - Uses threshold logic to display effective payment status
  * If balance <= PAYMENT_BALANCE_THRESHOLD (₹10), shows as PAID
- * 
- * @param {Object} invoice - Invoice object with payment_status, paid_amount, net_amount
  */
 const PaymentStatusBadge = ({ invoice }) => {
-  // Use the helper to get effective payment display with threshold logic
   const { effectiveStatus, thresholdApplied } = getEffectivePaymentDisplay(invoice);
   
   const badges = {
@@ -100,48 +98,101 @@ const BranchBadge = ({ branchName }) => {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// ROLE BADGE HELPER
+// ════════════════════════════════════════════════════════════════════════════
+
+const getRoleBadgeConfig = (role) => {
+  const roleConfigs = {
+    super_admin: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Super Admin' },
+    branch_admin: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Admin' },
+    pharmacist: { bg: 'bg-green-100', text: 'text-green-700', label: 'Pharmacist' },
+    staff: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Staff' },
+    owner: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Owner' },
+  };
+
+  return roleConfigs[role] || { 
+    bg: 'bg-gray-100', 
+    text: 'text-gray-600', 
+    label: role?.replace('_', ' ') || 'User' 
+  };
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // SKELETON ROW
 // ════════════════════════════════════════════════════════════════════════════
 
 const SkeletonRow = ({ showBranchColumn, index }) => (
   <tr className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+    {/* Serial # */}
     <td className="py-3 px-4 border-b border-gray-100">
       <div className="w-6 h-4 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50}ms` }} />
     </td>
+    
+    {/* Invoice Number */}
     <td className="py-3 px-4 border-b border-gray-100">
       <div className="space-y-1">
         <div className="w-24 h-4 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 20}ms` }} />
         <div className="w-16 h-3 bg-gray-100 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 40}ms` }} />
       </div>
     </td>
+    
+    {/* Supplier */}
     <td className="py-3 px-4 border-b border-gray-100">
-      <div className="w-28 h-4 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 60}ms` }} />
+      <div className="space-y-1">
+        <div className="w-28 h-4 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 60}ms` }} />
+        <div className="w-20 h-3 bg-gray-100 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 70}ms` }} />
+      </div>
     </td>
+    
+    {/* Invoice Date */}
     <td className="py-3 px-4 border-b border-gray-100">
       <div className="w-20 h-4 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 80}ms` }} />
     </td>
+    
+    {/* Billed By */}
+    <td className="py-3 px-4 border-b border-gray-100">
+      <div className="space-y-1">
+        <div className="w-24 h-4 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 100}ms` }} />
+        <div className="w-16 h-3 bg-gray-100 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 120}ms` }} />
+      </div>
+    </td>
+    
+    {/* Branch (conditional) */}
     {showBranchColumn && (
       <td className="py-3 px-4 border-b border-gray-100">
-        <div className="w-20 h-5 bg-gray-200 rounded-full animate-pulse" style={{ animationDelay: `${index * 50 + 90}ms` }} />
+        <div className="w-20 h-5 bg-gray-200 rounded-full animate-pulse" style={{ animationDelay: `${index * 50 + 140}ms` }} />
       </td>
     )}
+    
+    {/* Items */}
     <td className="py-3 px-4 border-b border-gray-100 text-center">
-      <div className="w-6 h-6 bg-gray-200 rounded-full animate-pulse mx-auto" style={{ animationDelay: `${index * 50 + 100}ms` }} />
+      <div className="w-6 h-6 bg-gray-200 rounded-full animate-pulse mx-auto" style={{ animationDelay: `${index * 50 + 160}ms` }} />
     </td>
+    
+    {/* Net Amount */}
     <td className="py-3 px-4 border-b border-gray-100 text-right">
-      <div className="w-16 h-4 bg-gray-200 rounded animate-pulse ml-auto" style={{ animationDelay: `${index * 50 + 120}ms` }} />
+      <div className="space-y-1">
+        <div className="w-16 h-4 bg-gray-200 rounded animate-pulse ml-auto" style={{ animationDelay: `${index * 50 + 180}ms` }} />
+        <div className="w-12 h-3 bg-gray-100 rounded animate-pulse ml-auto" style={{ animationDelay: `${index * 50 + 190}ms` }} />
+      </div>
     </td>
+    
+    {/* Payment Status */}
     <td className="py-3 px-4 border-b border-gray-100">
-      <div className="w-16 h-5 bg-gray-200 rounded-full animate-pulse" style={{ animationDelay: `${index * 50 + 140}ms` }} />
+      <div className="w-16 h-5 bg-gray-200 rounded-full animate-pulse" style={{ animationDelay: `${index * 50 + 200}ms` }} />
     </td>
+    
+    {/* Status */}
     <td className="py-3 px-4 border-b border-gray-100">
-      <div className="w-20 h-5 bg-gray-200 rounded-full animate-pulse" style={{ animationDelay: `${index * 50 + 160}ms` }} />
+      <div className="w-20 h-5 bg-gray-200 rounded-full animate-pulse" style={{ animationDelay: `${index * 50 + 220}ms` }} />
     </td>
+    
+    {/* Actions */}
     <td className="py-3 px-4 border-b border-gray-100">
       <div className="flex justify-center gap-1">
-        <div className="w-6 h-6 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 180}ms` }} />
-        <div className="w-6 h-6 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 200}ms` }} />
-        <div className="w-6 h-6 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 220}ms` }} />
+        <div className="w-6 h-6 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 240}ms` }} />
+        <div className="w-6 h-6 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 260}ms` }} />
+        <div className="w-6 h-6 bg-gray-200 rounded animate-pulse" style={{ animationDelay: `${index * 50 + 280}ms` }} />
       </div>
     </td>
   </tr>
@@ -168,7 +219,8 @@ const PurchaseTable = ({
   const safeInvoices = Array.isArray(invoices) ? invoices : [];
   const startIndex = (currentPage - 1) * rowsPerPage;
 
-  const columnCount = showBranchColumn ? 10 : 9;
+  // Column count: base 10 + branch column if shown
+  const columnCount = showBranchColumn ? 11 : 10;
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -227,10 +279,6 @@ const PurchaseTable = ({
     };
   };
 
-  /**
-   * Get effective payment display for an invoice using threshold logic
-   * Returns showBalance: true only if balance > PAYMENT_BALANCE_THRESHOLD
-   */
   const getPaymentDisplayInfo = (invoice) => {
     return getEffectivePaymentDisplay(invoice);
   };
@@ -301,6 +349,13 @@ const PurchaseTable = ({
               <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                 Invoice Date
               </th>
+              {/* ✅ NEW: Billed By Column Header */}
+              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+                <div className="flex items-center gap-1.5">
+                  <User size={12} />
+                  Billed By
+                </div>
+              </th>
               {showBranchColumn && (
                 <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">
@@ -309,10 +364,10 @@ const PurchaseTable = ({
                   </div>
                 </th>
               )}
-              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+              <th className="px-4 py-3 text-center text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                 Items
               </th>
-              <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
+              <th className="px-4 py-3 text-right text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                 Net Amount
               </th>
               <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
@@ -346,9 +401,11 @@ const PurchaseTable = ({
                 const status = invoice?.status?.toUpperCase();
                 const editConfig = getEditButtonConfig(invoice);
                 const EditIcon = editConfig.icon;
-
-                // Get effective payment display with threshold logic
                 const paymentDisplay = getPaymentDisplayInfo(invoice);
+                
+                // Get role badge config for creator
+                const creatorRole = invoice.creator?.role;
+                const roleBadgeConfig = getRoleBadgeConfig(creatorRole);
 
                 return (
                   <tr 
@@ -387,7 +444,7 @@ const PurchaseTable = ({
                     {/* Supplier */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs">
                       <div className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
+                        <span className="font-semibold text-gray-700 truncate max-w-[140px]" title={invoice.supplier?.name}>
                           {invoice.supplier?.name || '-'}
                         </span>
                         {invoice.supplier?.gst_number && (
@@ -401,6 +458,30 @@ const PurchaseTable = ({
                     {/* Invoice Date */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs text-gray-600">
                       {formatDate(invoice.invoice_date)}
+                    </td>
+
+                    {/* ✅ NEW: Billed By Column */}
+                    <td className="py-3 px-4 border-b border-gray-100 text-xs">
+                      {invoice.creator ? (
+                        <div className="flex flex-col">
+                          <span 
+                            className="font-medium text-gray-700 truncate max-w-[120px]" 
+                            title={invoice.creator.full_name}
+                          >
+                            {invoice.creator.full_name || '-'}
+                          </span>
+                          {creatorRole && (
+                            <span className={`
+                              text-[9px] px-1.5 py-0.5 rounded mt-0.5 w-fit font-medium
+                              ${roleBadgeConfig.bg} ${roleBadgeConfig.text}
+                            `}>
+                              {roleBadgeConfig.label}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
 
                     {/* Branch Column */}
@@ -427,10 +508,9 @@ const PurchaseTable = ({
                       </div>
                     </td>
 
-                    {/* Payment Status - Using threshold logic */}
+                    {/* Payment Status */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs">
                       <PaymentStatusBadge invoice={invoice} />
-                      {/* Only show "Due" if balance > threshold (₹10) */}
                       {paymentDisplay.showBalance && paymentDisplay.balance > 0 && (
                         <div className="text-[10px] text-gray-500 mt-0.5">
                           Due: {formatCurrency(paymentDisplay.balance)}

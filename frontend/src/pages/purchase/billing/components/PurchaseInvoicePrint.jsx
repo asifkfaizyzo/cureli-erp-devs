@@ -14,15 +14,38 @@ const PurchaseInvoicePrint = ({
   },
   invoiceNumber,
   invoiceDate,
-  billedBy = "Staff" // ✅ NEW: Billed By prop
+  billedBy = "Staff"
 }) => {
   
-  const dataRows = rows.filter(row => row.name && row.name.trim() !== "");
+  // ✅ Filter out FREE items and rows with no name
+  const dataRows = rows.filter(row => 
+    row.name && 
+    row.name.trim() !== "" && 
+    !row.isFreeItem
+  );
+  
+  // ✅ Safe number formatting with fallback to 0
+  const safeNumber = (value) => {
+    const num = Number(value) || 0;
+    return isFinite(num) ? num : 0;
+  };
+  
+  // ✅ Safe summary values with proper defaults
+  const safeSummary = {
+    subTotal: safeNumber(summary?.subTotal),
+    cgst: safeNumber(summary?.cgst),
+    sgst: safeNumber(summary?.sgst),
+    total: safeNumber(summary?.total),
+  };
   
   // Format date
   const formatDate = (dateStr) => {
     if (!dateStr) return new Date().toLocaleDateString('en-IN');
-    return new Date(dateStr).toLocaleDateString('en-IN');
+    try {
+      return new Date(dateStr).toLocaleDateString('en-IN');
+    } catch {
+      return new Date().toLocaleDateString('en-IN');
+    }
   };
 
   // Format time
@@ -47,14 +70,15 @@ const PurchaseInvoicePrint = ({
       return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + convertLessThanThousand(n % 100) : '');
     };
 
-    if (num === 0) return 'Zero Rupees Only';
+    const safeNum = safeNumber(num);
+    if (safeNum === 0) return 'Zero Rupees Only';
     
-    const intPart = Math.floor(num);
+    const intPart = Math.floor(safeNum);
     const crore = Math.floor(intPart / 10000000);
     const lakh = Math.floor((intPart % 10000000) / 100000);
     const thousand = Math.floor((intPart % 100000) / 1000);
     const hundred = Math.floor(intPart % 1000);
-    const paise = Math.round((num % 1) * 100);
+    const paise = Math.round((safeNum % 1) * 100);
 
     let result = '';
     if (crore > 0) result += convertLessThanThousand(crore) + ' Crore ';
@@ -69,8 +93,8 @@ const PurchaseInvoicePrint = ({
     return result;
   };
 
-  const displayInvoiceNumber = invoiceNumber || supplier.purchaseId || 'DRAFT';
-  const displayInvoiceDate = formatDate(invoiceDate || supplier.invoiceDate || supplier.receivedOn);
+  const displayInvoiceNumber = invoiceNumber || supplier?.purchaseId || 'DRAFT';
+  const displayInvoiceDate = formatDate(invoiceDate || supplier?.invoiceDate || supplier?.receivedOn);
 
   return (
     <div className="print-container">
@@ -103,15 +127,15 @@ const PurchaseInvoicePrint = ({
                 <tbody>
                   <tr>
                     <td className="label">Supplier Name:</td>
-                    <td className="value">{supplier.supplierName || '-'}</td>
+                    <td className="value">{supplier?.supplierName || '-'}</td>
                   </tr>
                   <tr>
                     <td className="label">Supplier GSTIN:</td>
-                    <td className="value">{supplier.supplierGST || '-'}</td>
+                    <td className="value">{supplier?.supplierGST || '-'}</td>
                   </tr>
                   <tr>
                     <td className="label">Address:</td>
-                    <td className="value">{supplier.address || '-'}</td>
+                    <td className="value">{supplier?.address || '-'}</td>
                   </tr>
                 </tbody>
               </table>
@@ -127,7 +151,7 @@ const PurchaseInvoicePrint = ({
                   </tr>
                   <tr>
                     <td className="label">Supplier Inv:</td>
-                    <td className="value">{supplier.invoiceNo || '-'}</td>
+                    <td className="value">{supplier?.invoiceNo || '-'}</td>
                   </tr>
                   <tr>
                     <td className="label">Date:</td>
@@ -137,7 +161,6 @@ const PurchaseInvoicePrint = ({
                     <td className="label">Time:</td>
                     <td className="value">{formatTime()}</td>
                   </tr>
-                  {/* ✅ NEW: Billed By */}
                   <tr>
                     <td className="label">Created By:</td>
                     <td className="value"><strong>{billedBy}</strong></td>
@@ -170,30 +193,44 @@ const PurchaseInvoicePrint = ({
             </thead>
             <tbody>
               {dataRows.length > 0 ? (
-                dataRows.map((row, index) => (
-                  <tr key={index}>
-                    <td className="col-sno">{index + 1}</td>
-                    <td className="col-desc">
-                      <div className="product-name">{row.name}</div>
-                      <div className="product-pack">Pack: {row.pack || '-'}</div>
-                    </td>
-                    <td className="col-hsn">{row.hsn || '-'}</td>
-                    <td className="col-batch">{row.batch || '-'}</td>
-                    <td className="col-exp">{row.exp || '-'}</td>
-                    <td className="col-qty">{row.qty || 0}</td>
-                    <td className="col-mrp">{Number(row.mrp || 0).toFixed(2)}</td>
-                    <td className="col-rate">{Number(row.price || 0).toFixed(2)}</td>
-                    <td className="col-disc">{Number(row.discountPercent || 0).toFixed(2)}</td>
-                    <td className="col-taxable">{Number(row.taxableValue || 0).toFixed(2)}</td>
-                    <td className="col-gst">
-                      {(Number(row.cgstPercent || 0) + Number(row.sgstPercent || 0)).toFixed(0)}%
-                    </td>
-                    <td className="col-gstamt">
-                      {(Number(row.cgstAmount || 0) + Number(row.sgstAmount || 0)).toFixed(2)}
-                    </td>
-                    <td className="col-amount">{Number(row.amount || 0).toFixed(2)}</td>
-                  </tr>
-                ))
+                dataRows.map((row, index) => {
+                  // ✅ Safe number extraction for each row
+                  const rowMrp = safeNumber(row.mrp);
+                  const rowPrice = safeNumber(row.price);
+                  const rowDiscount = safeNumber(row.discountPercent);
+                  const rowTaxable = safeNumber(row.taxableValue);
+                  const rowCgst = safeNumber(row.cgstPercent);
+                  const rowSgst = safeNumber(row.sgstPercent);
+                  const rowCgstAmount = safeNumber(row.cgstAmount);
+                  const rowSgstAmount = safeNumber(row.sgstAmount);
+                  const rowAmount = safeNumber(row.amount);
+                  const rowQty = safeNumber(row.qty);
+                  
+                  return (
+                    <tr key={index}>
+                      <td className="col-sno">{index + 1}</td>
+                      <td className="col-desc">
+                        <div className="product-name">{row.name || '-'}</div>
+                        <div className="product-pack">Pack: {row.pack || '-'}</div>
+                      </td>
+                      <td className="col-hsn">{row.hsn || '-'}</td>
+                      <td className="col-batch">{row.batch || '-'}</td>
+                      <td className="col-exp">{row.exp || '-'}</td>
+                      <td className="col-qty">{rowQty || 0}</td>
+                      <td className="col-mrp">{rowMrp.toFixed(2)}</td>
+                      <td className="col-rate">{rowPrice.toFixed(2)}</td>
+                      <td className="col-disc">{rowDiscount.toFixed(2)}</td>
+                      <td className="col-taxable">{rowTaxable.toFixed(2)}</td>
+                      <td className="col-gst">
+                        {(rowCgst + rowSgst).toFixed(0)}%
+                      </td>
+                      <td className="col-gstamt">
+                        {(rowCgstAmount + rowSgstAmount).toFixed(2)}
+                      </td>
+                      <td className="col-amount">{rowAmount.toFixed(2)}</td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="13" style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
@@ -202,23 +239,25 @@ const PurchaseInvoicePrint = ({
                 </tr>
               )}
               
-              {dataRows.length > 0 && dataRows.length < 5 && [...Array(5 - dataRows.length)].map((_, i) => (
-                <tr key={`empty-${i}`} className="empty-row">
-                  <td>&nbsp;</td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                </tr>
-              ))}
+              {dataRows.length > 0 && dataRows.length < 5 && 
+                [...Array(5 - dataRows.length)].map((_, i) => (
+                  <tr key={`empty-${i}`} className="empty-row">
+                    <td>&nbsp;</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                ))
+              }
             </tbody>
           </table>
         </section>
@@ -228,7 +267,7 @@ const PurchaseInvoicePrint = ({
           <div className="summary-grid">
             <div className="amount-words">
               <h4>Amount in Words:</h4>
-              <p>{numberToWords(summary.total)}</p>
+              <p>{numberToWords(safeSummary.total)}</p>
             </div>
 
             <div className="totals-box">
@@ -236,19 +275,19 @@ const PurchaseInvoicePrint = ({
                 <tbody>
                   <tr>
                     <td className="label">Taxable Amount:</td>
-                    <td className="value">₹ {summary.subTotal.toFixed(2)}</td>
+                    <td className="value">₹ {safeSummary.subTotal.toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td className="label">CGST:</td>
-                    <td className="value">₹ {summary.cgst.toFixed(2)}</td>
+                    <td className="value">₹ {safeSummary.cgst.toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td className="label">SGST:</td>
-                    <td className="value">₹ {summary.sgst.toFixed(2)}</td>
+                    <td className="value">₹ {safeSummary.sgst.toFixed(2)}</td>
                   </tr>
                   <tr className="total-row">
                     <td className="label">Grand Total:</td>
-                    <td className="value">₹ {summary.total.toFixed(2)}</td>
+                    <td className="value">₹ {safeSummary.total.toFixed(2)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -273,13 +312,16 @@ const PurchaseInvoicePrint = ({
               {(() => {
                 const gstGroups = {};
                 dataRows.forEach(row => {
-                  const rate = (Number(row.cgstPercent || 0) + Number(row.sgstPercent || 0));
+                  const cgstRate = safeNumber(row.cgstPercent);
+                  const sgstRate = safeNumber(row.sgstPercent);
+                  const rate = (cgstRate + sgstRate);
+                  
                   if (!gstGroups[rate]) {
                     gstGroups[rate] = { taxable: 0, cgst: 0, sgst: 0 };
                   }
-                  gstGroups[rate].taxable += Number(row.taxableValue || 0);
-                  gstGroups[rate].cgst += Number(row.cgstAmount || 0);
-                  gstGroups[rate].sgst += Number(row.sgstAmount || 0);
+                  gstGroups[rate].taxable += safeNumber(row.taxableValue);
+                  gstGroups[rate].cgst += safeNumber(row.cgstAmount);
+                  gstGroups[rate].sgst += safeNumber(row.sgstAmount);
                 });
 
                 const entries = Object.entries(gstGroups);
@@ -303,10 +345,10 @@ const PurchaseInvoicePrint = ({
               })()}
               <tr className="total-row">
                 <td><strong>Total</strong></td>
-                <td><strong>₹ {summary.subTotal.toFixed(2)}</strong></td>
-                <td><strong>₹ {summary.cgst.toFixed(2)}</strong></td>
-                <td><strong>₹ {summary.sgst.toFixed(2)}</strong></td>
-                <td><strong>₹ {(summary.cgst + summary.sgst).toFixed(2)}</strong></td>
+                <td><strong>₹ {safeSummary.subTotal.toFixed(2)}</strong></td>
+                <td><strong>₹ {safeSummary.cgst.toFixed(2)}</strong></td>
+                <td><strong>₹ {safeSummary.sgst.toFixed(2)}</strong></td>
+                <td><strong>₹ {(safeSummary.cgst + safeSummary.sgst).toFixed(2)}</strong></td>
               </tr>
             </tbody>
           </table>
@@ -321,11 +363,11 @@ const PurchaseInvoicePrint = ({
                 <tbody>
                   <tr>
                     <td>Amount Paid:</td>
-                    <td>₹ {Number(supplier.amountPaid || 0).toFixed(2)}</td>
+                    <td>₹ {safeNumber(supplier?.amountPaid || 0).toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td>Balance:</td>
-                    <td>₹ {Number(supplier.balance || summary.total).toFixed(2)}</td>
+                    <td>₹ {safeNumber(supplier?.balance || safeSummary.total).toFixed(2)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -351,7 +393,6 @@ const PurchaseInvoicePrint = ({
               </ol>
             </div>
             <div className="signature-box">
-              {/* ✅ NEW: Added Billed By in footer */}
               <p className="billed-by-footer" style={{ 
                 fontSize: '9pt', 
                 color: '#666', 

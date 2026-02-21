@@ -20,6 +20,7 @@ const lineItemSchema = z.object({
   selling_rate: z.number().positive().optional().nullable(),
   margin_percent: z.number().min(0).max(100).optional().nullable(),
   rack_no: z.string().max(20).optional().nullable(),
+  is_free_item: z.boolean().optional().default(false),
 });
 
 export const createPurchaseInvoiceSchema = z.object({

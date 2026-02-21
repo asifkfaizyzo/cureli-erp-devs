@@ -1,15 +1,15 @@
 // src/pages/purchase/billing/components/PurchaseTable.jsx
+
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import PurchaseRowFixed from "./PurchaseRowFixed";
-import { Plus, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, ChevronUp, ChevronDown, Gift } from "lucide-react";
 
-// Skeleton Row Component (inline)
+// Skeleton Row Component
 const SkeletonRow = ({ rowHeight, isEven, index }) => (
   <tr 
     style={{ height: `${rowHeight}px` }}
     className={`${isEven ? 'bg-white' : 'bg-slate-50/50'}`}
   >
-    {/* Row number */}
     <td className="border-b border-r border-slate-200 p-1">
       <div className="flex justify-center">
         <div 
@@ -18,14 +18,12 @@ const SkeletonRow = ({ rowHeight, isEven, index }) => (
         />
       </div>
     </td>
-    {/* Item description - wider */}
     <td className="border-b border-r border-slate-200 p-1">
       <div 
         className="h-4 bg-slate-200 rounded animate-pulse w-[85%]"
         style={{ animationDelay: `${index * 30 + 50}ms` }}
       />
     </td>
-    {/* Remaining columns */}
     {Array.from({ length: 16 }).map((_, idx) => (
       <td key={idx} className="border-b border-r border-slate-200 last:border-r-0 p-1">
         <div 
@@ -65,6 +63,9 @@ const PurchaseTable = ({
   onAddNewProduct,
   onProductSelect,
   isLoading = false,
+  // ✅ NEW: Free row handlers
+  onCreateFreeRow,
+  onRemoveFreeRow,
 }) => {
 
   const tableContainerRef = useRef(null);
@@ -229,11 +230,14 @@ const PurchaseTable = ({
 
   const handleCreateNewRow = useCallback(() => {
     const newRow = {
+      medicine_id: null,
       mfac: "", rack: "", name: "", hsn: "", pack: "", batch: "", exp: "",
       qty: "", sch: "", mrp: "", price: "", schemePercent: "", schemeAmount: "",
-      discountPercent: "", discountAmount: "", taxableValue: "", cgstPercent: "9",
-      cgstAmount: "", sgstPercent: "9", sgstAmount: "", amount: "", sRate: "",
+      discountPercent: "", discountAmount: "", taxableValue: "", cgstPercent: "6",
+      cgstAmount: "", sgstPercent: "6", sgstAmount: "", amount: "", sRate: "",
       pQty: "", netRate: "",
+      isFreeItem: false,
+      parentRowIndex: null,
     };
     
     setRows(prev => [...prev, newRow]);
@@ -241,6 +245,37 @@ const PurchaseTable = ({
   }, [rows.length, setRows]);
 
   const handleRemoveRow = useCallback((index) => {
+    const row = rows[index];
+    
+    // If removing a parent row, also remove its free row
+    if (!row.isFreeItem) {
+      const nextRow = rows[index + 1];
+      if (nextRow && nextRow.isFreeItem && nextRow.parentRowIndex === index) {
+        setRows(prev => {
+          const newRows = [...prev];
+          newRows.splice(index, 2); // Remove both parent and free row
+          return newRows;
+        });
+        return;
+      }
+    }
+    
+    // If removing a free row, clear the parent's sch field
+    if (row.isFreeItem && row.parentRowIndex !== null) {
+      setRows(prev => {
+        const newRows = [...prev];
+        if (newRows[row.parentRowIndex]) {
+          newRows[row.parentRowIndex] = {
+            ...newRows[row.parentRowIndex],
+            sch: "",
+          };
+        }
+        newRows.splice(index, 1);
+        return newRows;
+      });
+      return;
+    }
+    
     if (rows.length <= 1) return;
     
     setRows(prev => {
@@ -256,13 +291,18 @@ const PurchaseTable = ({
         targetRow.focusFirstField();
       }
     }, 50);
-  }, [rows.length, setRows]);
+  }, [rows, setRows]);
 
   const handleRowChange = useCallback((idx, key, value) => {
     setRows(prev => {
       const newRows = [...prev];
       newRows[idx] = { ...newRows[idx], [key]: value };
-      newRows[idx] = calculateRow(newRows[idx]);
+      
+      // Don't recalculate free items
+      if (!newRows[idx].isFreeItem) {
+        newRows[idx] = calculateRow(newRows[idx]);
+      }
+      
       return newRows;
     });
   }, [setRows, calculateRow]);
@@ -275,6 +315,7 @@ const PurchaseTable = ({
         const newRows = [...prev];
         newRows[idx] = {
           ...newRows[idx],
+          medicine_id: product.medicine_id,
           name: product.name,
           hsn: product.hsnCode || product.hsn || newRows[idx].hsn,
           pack: product.pack || newRows[idx].pack,
@@ -295,22 +336,29 @@ const PurchaseTable = ({
 
   const handleAddMultipleRows = useCallback((count = 5) => {
     const newRows = Array.from({ length: count }).map(() => ({
+      medicine_id: null,
       mfac: "", rack: "", name: "", hsn: "", pack: "", batch: "", exp: "",
       qty: "", sch: "", mrp: "", price: "", schemePercent: "", schemeAmount: "",
-      discountPercent: "", discountAmount: "", taxableValue: "", cgstPercent: "9",
-      cgstAmount: "", sgstPercent: "9", sgstAmount: "", amount: "", sRate: "",
+      discountPercent: "", discountAmount: "", taxableValue: "", cgstPercent: "6",
+      cgstAmount: "", sgstPercent: "6", sgstAmount: "", amount: "", sRate: "",
       pQty: "", netRate: "",
+      isFreeItem: false,
+      parentRowIndex: null,
     }));
     
     setRows(prev => [...prev, ...newRows]);
     setFocusQueue({ rowIndex: rows.length, fieldKey: null });
   }, [rows.length, setRows]);
 
+  // ✅ Calculate stats with free items separation
   const filledRows = rows.filter(r => r.name).length;
+  const freeRows = rows.filter(r => r.name && r.isFreeItem).length;
+  const billableRows = filledRows - freeRows;
   const totalRows = rows.length;
   const hasOverflow = totalRows > visibleRows;
+  
   const newProductsCount = rows.filter(row => {
-    if (!row.name || !row.name.trim()) return false;
+    if (!row.name || !row.name.trim() || row.isFreeItem) return false;
     return !productMaster.some(product => 
       product.name.toLowerCase() === row.name.toLowerCase() ||
       product.name.toLowerCase().includes(row.name.toLowerCase()) ||
@@ -328,9 +376,20 @@ const PurchaseTable = ({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">Items:</span>
-              <span className="text-[10px] font-bold text-indigo-600">{filledRows}</span>
+              <span className="text-[10px] font-bold text-indigo-600">{billableRows}</span>
               <span className="text-[8px] text-slate-400">/ {totalRows}</span>
             </div>
+
+            {/* ✅ NEW: Free items indicator */}
+            {freeRows > 0 && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-green-100 rounded border border-green-300 text-[8px]">
+                  <Gift size={10} className="text-green-600" />
+                  <span className="text-green-700 font-medium">{freeRows} free</span>
+                </div>
+              </>
+            )}
 
             {newProductsCount > 0 && (
               <>
@@ -442,7 +501,7 @@ const PurchaseTable = ({
                 <th colSpan="4" className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-emerald-900/30">Pricing</th>
                 <th colSpan="2" className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-orange-900/30">Tax</th>
                 <th colSpan="2" className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-purple-900/30">Output</th>
-                <th className="px-0.5 py-0.5 text-[7px] font-bold text-center bg-green-900/30"></th>
+                <th className="px-0.5 py-0.5 text-[7px] font-bold text-center bg-green-900/30">Free</th>
               </tr>
               
               {/* Individual Column Headers */}
@@ -464,7 +523,7 @@ const PurchaseTable = ({
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-right pr-1 border-r border-slate-600/30">MRP</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Rack</th>
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-right pr-1 border-r border-slate-600/30">SRate</th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center">Free</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center">Sch</th>
               </tr>
             </thead>
           </table>
@@ -499,7 +558,6 @@ const PurchaseTable = ({
             </colgroup>
             <tbody>
               {isLoading ? (
-                // Skeleton loading rows with staggered animation
                 Array.from({ length: visibleRows }).map((_, index) => (
                   <SkeletonRow 
                     key={`skeleton-${index}`} 
@@ -511,7 +569,7 @@ const PurchaseTable = ({
               ) : (
                 rows.map((item, index) => (
                   <PurchaseRowFixed
-                    key={`row-${index}-${importVersion}`}
+                    key={`row-${index}-${importVersion}-${item.isFreeItem ? 'free' : 'normal'}`}
                     ref={el => rowRefs.current[index] = el}
                     index={index}
                     item={item}
@@ -528,6 +586,8 @@ const PurchaseTable = ({
                     onCreateNewRow={handleCreateNewRow}
                     rowHeight={rowHeight}
                     onAddNewProduct={onAddNewProduct}
+                    onCreateFreeRow={onCreateFreeRow}
+                    onRemoveFreeRow={onRemoveFreeRow}
                   />
                 ))
               )}
@@ -564,10 +624,16 @@ const PurchaseTable = ({
           <>
             <div className="flex items-center gap-2">
               <span>{totalRows} rows</span>
-              {filledRows > 0 && (
+              {billableRows > 0 && (
                 <>
                   <span className="text-slate-300">•</span>
-                  <span className="text-indigo-600 font-medium">{filledRows} items</span>
+                  <span className="text-indigo-600 font-medium">{billableRows} billable</span>
+                </>
+              )}
+              {freeRows > 0 && (
+                <>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-green-600 font-medium">{freeRows} free items</span>
                 </>
               )}
               {newProductsCount > 0 && (

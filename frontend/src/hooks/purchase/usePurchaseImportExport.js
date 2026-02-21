@@ -1,17 +1,19 @@
 // src/hooks/purchase/usePurchaseImportExport.js
+
 import { useState, useCallback } from "react";
 import ExcelJS from "exceljs";
 import * as XLSX from "xlsx";
 import { makeEmptyPurchaseRow, calculateRow } from "./usePurchaseCalculation";
 
+// ✅ Generate unique row ID
+const generateRowId = () => `row_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
 /**
  * Enhanced header mapping for pharmacy invoice formats
- * Supports multiple common naming conventions
  */
 const mapHeaderToKey = (h) => {
   if (!h) return null;
   
-  // Clean the header: remove special chars, normalize
   const key = String(h)
     .replace(/[\n\r\t]/g, ' ')
     .replace(/\s+/g, '')
@@ -26,7 +28,7 @@ const mapHeaderToKey = (h) => {
     // === Rack/Location ===
     rack: "rack", location: "rack", shelf: "rack", rackno: "rack",
     
-    // === Product Name - CRITICAL ===
+    // === Product Name ===
     description: "name", product: "name", name: "name", 
     itemname: "name", itemdescription: "name", 
     itemname2: "name2",
@@ -56,18 +58,18 @@ const mapHeaderToKey = (h) => {
     // === Scheme/Free ===
     sch: "sch", scheme: "sch", free: "sch", bonus: "sch",
     invscqty: "sch", scqty: "sch", freeqty: "sch", schqty: "sch",
+    freescheme: "sch",
     invscdis: "schemePercent", schper: "schemePercent",
+    
+    // ✅ Free Item Flag
+    isfreeitem: "isFreeItem", freeitem: "isFreeItem", isfree: "isFreeItem",
     
     // === Pricing ===
     mrp: "mrp", itemmrp: "mrp", maximumretailprice: "mrp", vatmrp: "mrp",
     price: "price", rate: "price", purchaserate: "price", 
     ptr: "price", purrate: "price",
     
-    // ✅ FIXED: sRate mapping - REMOVED loclsale (it's a flag, not a rate)
-    srate: "sRate", 
-    sellingrate: "sRate", 
-    selrate: "sRate", 
-    salerate: "sRate",
+    srate: "sRate", sellingrate: "sRate", selrate: "sRate", salerate: "sRate",
     
     // === Net Rate ===
     netrate: "netRate", net: "netRate", nrate: "netRate",
@@ -78,19 +80,13 @@ const mapHeaderToKey = (h) => {
     discountpercent: "discountPercent", discount: "discountPercent",
     invdisc: "discountPercent", tradedisc: "discountPercent",
     
-    // === Tax - CGST ===
+    // === Tax ===
     "cgst%": "cgstPercent", cgstpercent: "cgstPercent", cgst: "cgstPercent",
     cgstper: "cgstPercent", cgstrate: "cgstPercent",
-    
-    // === Tax - SGST ===
     "sgst%": "sgstPercent", sgstpercent: "sgstPercent", sgst: "sgstPercent",
     sgstper: "sgstPercent", sgstrate: "sgstPercent",
-    
-    // === Tax - IGST ===
     "igst%": "igstPercent", igstpercent: "igstPercent", igst: "igstPercent",
     igstper: "igstPercent",
-    
-    // === Tax - VAT (legacy) ===
     vatper: "cgstPercent", vat: "cgstPercent",
     
     // === Amount/Total ===
@@ -103,8 +99,8 @@ const mapHeaderToKey = (h) => {
     // === Conversion Factor ===
     convfact: "conversionFactor", cf: "conversionFactor",
     
-    // === Local Sale Flag (NOT a rate!) ===
-    loclsale: "localSaleFlag",  // ✅ Map to separate field, it's a 0/1 flag
+    // === Local Sale Flag ===
+    loclsale: "localSaleFlag",
   };
   
   return map[key] || null;
@@ -114,7 +110,6 @@ const mapHeaderToKey = (h) => {
  * Parse expiry date from various formats
  */
 const parseExpiryFromData = (row, headers, values) => {
-  // Check for separate day/month/year columns
   const getColValue = (colName) => {
     const idx = headers.findIndex(h => {
       const cleaned = String(h || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -133,10 +128,8 @@ const parseExpiryFromData = (row, headers, values) => {
     return `${month}/${year}`;
   }
   
-  // Check for combined expiry field
   if (row.exp) {
     const exp = String(row.exp).trim();
-    // DD/MM/YY format
     if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(exp)) {
       const parts = exp.split('/');
       const month = parts[1].padStart(2, '0');
@@ -144,7 +137,6 @@ const parseExpiryFromData = (row, headers, values) => {
       if (year.length === 4) year = year.slice(-2);
       return `${month}/${year}`;
     }
-    // MM/YY format
     if (/^\d{2}\/\d{2}$/.test(exp)) {
       return exp;
     }
@@ -154,10 +146,40 @@ const parseExpiryFromData = (row, headers, values) => {
 };
 
 /**
+ * ✅ Check if row is marked as free item
+ */
+const checkIsFreeItem = (row, values) => {
+  // Check explicit isFreeItem field
+  if (row.isFreeItem === true || row.isFreeItem === 'true' || row.isFreeItem === '1') {
+    return true;
+  }
+  
+  // Check if amount is 0 or "FREE"
+  const amount = String(row.amount || '').toUpperCase().trim();
+  if (amount === 'FREE' || amount === '0' || amount === '0.00') {
+    // Also check if qty > 0 (to distinguish from empty rows)
+    const qty = parseFloat(row.qty) || 0;
+    if (qty > 0) {
+      return true;
+    }
+  }
+  
+  // Check if sch column has "FREE" marker
+  const sch = String(row.sch || '').toUpperCase().trim();
+  if (sch === 'FREE' || sch === 'FREEITEM' || sch === 'FREE ITEM') {
+    return true;
+  }
+  
+  return false;
+};
+
+/**
  * Parse a single row of data
  */
 const parseRowData = (headers, values, debugMode = false) => {
   const row = makeEmptyPurchaseRow();
+  row.rowId = generateRowId(); // ✅ Add unique ID
+  
   const mappedFields = {};
   
   headers.forEach((h, i) => {
@@ -168,10 +190,12 @@ const parseRowData = (headers, values, debugMode = false) => {
       // Clean numeric values
       if (['qty', 'pQty', 'sch', 'mrp', 'price', 'sRate', 'netRate', 'amount',
            'schemePercent', 'discountPercent', 'cgstPercent', 'sgstPercent', 'igstPercent'].includes(key)) {
-        value = value.replace(/[^\d.-]/g, '');
+        // Don't clean if it's "FREE"
+        if (value.toUpperCase() !== 'FREE') {
+          value = value.replace(/[^\d.-]/g, '');
+        }
       }
       
-      // Only set if value is not empty
       if (value) {
         row[key] = value;
         mappedFields[h] = { key, value };
@@ -179,7 +203,7 @@ const parseRowData = (headers, values, debugMode = false) => {
     }
   });
   
-  // Handle itemname2 as fallback for name
+  // Handle itemname2 as fallback
   if (!row.name && row.name2) {
     row.name = row.name2;
   }
@@ -188,9 +212,21 @@ const parseRowData = (headers, values, debugMode = false) => {
   // Parse expiry date
   row.exp = parseExpiryFromData(row, headers, values);
   
-  // Default tax values if not provided
-  if (!row.sch) row.sch = "0";
-  if (!row.pQty) row.pQty = "0";
+  // ✅ Check if this is a free item
+  row.isFreeItem = checkIsFreeItem(row, values);
+  
+  // If it's a free item, set amount to 0
+  if (row.isFreeItem) {
+    row.amount = "0";
+    row.netRate = "0";
+    row.taxableValue = "0";
+    // Clear sch on free items (it's already marked as free)
+    row.sch = "";
+  }
+  
+  // Default tax values
+  if (!row.sch) row.sch = "";
+  if (!row.pQty) row.pQty = "";
   if (!row.cgstPercent && !row.sgstPercent) {
     row.cgstPercent = "6";
     row.sgstPercent = "6";
@@ -202,7 +238,18 @@ const parseRowData = (headers, values, debugMode = false) => {
   
   if (debugMode) {
     console.log('Mapped fields:', mappedFields);
-    console.log('Parsed row:', { name: row.name, mfac: row.mfac, hsn: row.hsn, qty: row.qty });
+    console.log('Parsed row:', { 
+      name: row.name, 
+      mfac: row.mfac, 
+      hsn: row.hsn, 
+      qty: row.qty,
+      isFreeItem: row.isFreeItem 
+    });
+  }
+  
+  // ✅ Don't calculate for free items
+  if (row.isFreeItem) {
+    return row;
   }
   
   return calculateRow(row);
@@ -212,37 +259,22 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
   const [isLoading, setIsLoading] = useState(false);
 
   /**
-   * ✅ FIXED: Enhanced product matching with medicine_id assignment
-   * Uses cache to ensure ALL rows with same product get the same medicine_id
+   * ✅ Enhanced product matching
    */
   const detectNewProducts = useCallback((parsedRows) => {
     const newProducts = [];
     const processedRows = [];
-    
-    // ✅ NEW: Create a cache for matched products to ensure consistency
     const matchedProductCache = new Map();
     
     console.group("🔍 Product Detection & Matching");
     console.log("Product Master Count:", productMaster.length);
     console.log("Parsed Rows Count:", parsedRows.length);
     
-    // Debug: Show first 3 rows
-    console.log("📋 First 3 parsed rows:");
-    parsedRows.slice(0, 3).forEach((row, idx) => {
-      console.log(`  Row ${idx + 1}:`, {
-        name: row.name || '(EMPTY)',
-        batch: row.batch || '(empty)',
-        mfac: row.mfac || '(empty)',
-        hsn: row.hsn || '(empty)',
-        qty: row.qty || '(empty)',
-        pack: row.pack || '(empty)',
-      });
-    });
-    
     let skippedNoName = 0;
     let matchedCount = 0;
     let cacheHits = 0;
     let newCount = 0;
+    let freeItemCount = 0;
     
     parsedRows.forEach((row, idx) => {
       if (!row.name || !row.name.trim()) {
@@ -250,17 +282,18 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         return;
       }
 
+      // ✅ Track free items
+      if (row.isFreeItem) {
+        freeItemCount++;
+      }
+
       const rowName = row.name.trim();
       const rowMfac = (row.mfac || '').trim();
-      
-      // ✅ NEW: Create a cache key for this product (name + manufacturer)
-      // This ensures same product with different batches gets same medicine_id
       const cacheKey = `${rowName.toLowerCase()}|${rowMfac.toLowerCase()}`;
       
-      // ✅ NEW: Check cache first for previously matched products
+      // Check cache first
       if (matchedProductCache.has(cacheKey)) {
         const cachedMatch = matchedProductCache.get(cacheKey);
-        console.log(`Row ${idx + 1}: ♻️ Cache HIT for "${rowName}" (Batch: ${row.batch || 'N/A'})`);
         
         processedRows.push({
           ...row,
@@ -276,33 +309,26 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         return;
       }
       
-      // Try to find matching product in master
+      // Find matching product
       const matchingProduct = productMaster.find(product => {
         const productName = (product.name || '').toLowerCase();
         const searchName = rowName.toLowerCase();
         
-        // Exact match
         if (productName === searchName) return true;
         
-        // Match with manufacturer
         if (rowMfac) {
           const productMfac = (product.manufacturer || product.mfac || '').toLowerCase();
           const searchMfac = rowMfac.toLowerCase();
-          // Exact match with both name and manufacturer
           if (productName === searchName && productMfac === searchMfac) return true;
-          // Partial match with both
           if (productName.includes(searchName) && productMfac.includes(searchMfac)) return true;
         }
         
-        // Partial match (contains)
         if (productName.includes(searchName) || searchName.includes(productName)) return true;
         
         return false;
       });
 
       if (matchingProduct) {
-        console.log(`Row ${idx + 1}: ✅ Matched "${rowName}" → ID: ${matchingProduct.medicine_id || matchingProduct.id} (Batch: ${row.batch || 'N/A'})`);
-        
         const matchData = {
           medicine_id: matchingProduct.medicine_id || matchingProduct.id,
           hsn: matchingProduct.hsnCode || matchingProduct.hsn || '',
@@ -312,7 +338,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           sgstPercent: matchingProduct.sgstPercent || '6',
         };
         
-        // ✅ NEW: Cache this match for future rows with same product
         matchedProductCache.set(cacheKey, matchData);
         
         processedRows.push({
@@ -326,9 +351,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         });
         matchedCount++;
       } else {
-        console.log(`Row ${idx + 1}: ⚠️ NEW - "${rowName}" (${rowMfac || 'no manufacturer'}) (Batch: ${row.batch || 'N/A'})`);
-        
-        // Check if already in newProducts list
+        // Check if already in newProducts
         const alreadyDetected = newProducts.some(newProd => {
           const newProdName = (newProd.name || '').toLowerCase();
           const newProdMfac = (newProd.manufacturer || '').toLowerCase();
@@ -356,7 +379,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         
         processedRows.push({
           ...row,
-          medicine_id: null, // Will be set after product is created
+          medicine_id: null,
         });
       }
     });
@@ -365,18 +388,9 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     console.log(`  Total Rows: ${parsedRows.length}`);
     console.log(`  Skipped (no name): ${skippedNoName}`);
     console.log(`  Matched (total): ${matchedCount}`);
-    console.log(`  Cache Hits: ${cacheHits} (same product, different batch)`);
+    console.log(`  Cache Hits: ${cacheHits}`);
     console.log(`  New Products: ${newCount}`);
-    
-    if (skippedNoName > 0) {
-      console.warn(`⚠️ ${skippedNoName} rows skipped because 'name' field is empty!`);
-      console.warn(`   Check if 'itemname' column is being parsed correctly.`);
-    }
-    
-    if (cacheHits > 0) {
-      console.info(`✅ ${cacheHits} rows matched via cache (same medicine, different batches)`);
-    }
-    
+    console.log(`  Free Items: ${freeItemCount}`);
     console.groupEnd();
     
     return { existingRows: processedRows, newProducts };
@@ -388,11 +402,8 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     reader.onload = (e) => {
       try {
         const content = e.target.result;
-        
-        // Detect delimiter (tab or comma)
         const firstLine = content.split('\n')[0];
         const delimiter = firstLine.includes('\t') ? '\t' : ',';
-        console.log(`📄 CSV Delimiter detected: "${delimiter === '\t' ? 'TAB' : 'COMMA'}"`);
         
         const lines = content.split("\n").map(l => l.trim()).filter(Boolean);
         if (lines.length < 2) {
@@ -401,28 +412,10 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           return;
         }
         
-        // Parse headers
         const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^\"|\"$/g, ''));
         
         console.group("📋 CSV Header Analysis");
-        console.log("Total columns:", headers.length);
         console.log("Headers:", headers);
-        
-        // Show which headers map to which keys
-        const mappedHeaders = headers.map((h, i) => ({
-          index: i,
-          original: h,
-          mapped: mapHeaderToKey(h)
-        })).filter(m => m.mapped);
-        
-        console.log("Mapped headers:", mappedHeaders);
-        
-        // Check for name column specifically
-        const nameColIndex = headers.findIndex(h => {
-          const key = mapHeaderToKey(h);
-          return key === 'name';
-        });
-        console.log(`'name' column index: ${nameColIndex} (header: "${headers[nameColIndex] || 'NOT FOUND'}")`);
         console.groupEnd();
         
         const parsed = [];
@@ -430,24 +423,16 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         for (let i = 1; i < lines.length; i++) {
           const values = lines[i].split(delimiter).map(v => v.trim().replace(/^\"|\"$/g, ''));
           if (values.some(v => v)) {
-            // Debug first row
-            if (i === 1) {
-              console.log("📝 First data row values:", values);
-              if (nameColIndex !== -1) {
-                console.log(`   Name value: "${values[nameColIndex]}"`);
-              }
-            }
             parsed.push(parseRowData(headers, values, i <= 2));
           }
         }
-        
-        console.log('✅ CSV parsed rows:', parsed.length);
         
         const { existingRows, newProducts } = detectNewProducts(parsed);
         onImport(existingRows, newProducts);
         
         const matchedCount = existingRows.filter(r => r.medicine_id).length;
-        toast.success("CSV Imported", `${matchedCount} matched, ${newProducts.length} new products detected`);
+        const freeCount = existingRows.filter(r => r.isFreeItem).length;
+        toast.success("CSV Imported", `${matchedCount} matched, ${newProducts.length} new, ${freeCount} free items`);
       } catch (error) {
         console.error('❌ CSV import error:', error);
         toast.error("Failed to import CSV", error.message);
@@ -467,15 +452,13 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       const worksheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "", blankrows: false });
       
-      console.log('📊 Raw Excel data rows:', data.length);
-      
       if (data.length < 2) {
-        toast.error("Excel file is empty or has no data rows");
+        toast.error("Excel file is empty");
         setIsLoading(false);
         return;
       }
 
-      // Find the header row (row with most non-empty cells)
+      // Find header row
       let headerRowIndex = 0;
       let maxNonEmptyCells = 0;
       
@@ -495,25 +478,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       const headers = data[headerRowIndex].map(h => String(h || '').trim());
       
       console.group("📋 Excel Header Analysis");
-      console.log(`Header row index: ${headerRowIndex}`);
-      console.log("Total columns:", headers.length);
       console.log("Headers:", headers);
-      
-      // Show which headers map to which keys
-      const mappedHeaders = headers.map((h, i) => ({
-        index: i,
-        original: h,
-        mapped: mapHeaderToKey(h)
-      })).filter(m => m.mapped);
-      
-      console.log("Mapped headers:", mappedHeaders);
-      
-      // Check for name column specifically
-      const nameColIndex = headers.findIndex(h => {
-        const key = mapHeaderToKey(h);
-        return key === 'name';
-      });
-      console.log(`'name' column index: ${nameColIndex} (header: "${headers[nameColIndex] || 'NOT FOUND'}")`);
       console.groupEnd();
       
       const parsed = [];
@@ -525,15 +490,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         )) continue;
         
         const values = rowData.map(cell => String(cell || '').trim());
-        
-        // Debug first row
-        if (parsed.length === 0) {
-          console.log("📝 First data row values:", values);
-          if (nameColIndex !== -1) {
-            console.log(`   Name value: "${values[nameColIndex]}"`);
-          }
-        }
-        
         const parsedRow = parseRowData(headers, values, parsed.length < 2);
         
         if (parsedRow.name || parsedRow.mfac || parsedRow.hsn || parsedRow.qty || parsedRow.price) {
@@ -541,13 +497,12 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         }
       }
 
-      console.log('✅ Excel parsed rows:', parsed.length);
-
       const { existingRows, newProducts } = detectNewProducts(parsed);
       onImport(existingRows, newProducts);
       
       const matchedCount = existingRows.filter(r => r.medicine_id).length;
-      toast.success("Excel Imported", `${matchedCount} matched, ${newProducts.length} new products detected`);
+      const freeCount = existingRows.filter(r => r.isFreeItem).length;
+      toast.success("Excel Imported", `${matchedCount} matched, ${newProducts.length} new, ${freeCount} free items`);
       
     } catch (error) {
       console.error('❌ Excel import error:', error);
@@ -557,6 +512,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     }
   }, [onImport, toast, detectNewProducts]);
 
+  // ✅ UPDATED: Export with free item handling
   const handleExportExcel = useCallback(async (rows) => {
     setIsLoading(true);
     try {
@@ -583,11 +539,14 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         { header: 'Rack', key: 'rack', width: 8 },
         { header: 'Sale Rate', key: 'sRate', width: 12 },
         { header: 'Free/Scheme', key: 'sch', width: 10 },
+        { header: 'Is Free Item', key: 'isFreeItem', width: 10 }, // ✅ Add free item column
       ];
 
       const dataRows = rows.filter(row => row.name || row.qty || row.price);
       
       dataRows.forEach((row, index) => {
+        const isFree = row.isFreeItem === true;
+        
         const rowData = {
           serial: index + 1,
           name: row.name || '',
@@ -600,19 +559,28 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           qty: row.qty ? Number(row.qty) : 0,
           price: row.price ? Number(row.price) : 0,
           discountPercent: row.discountPercent ? Number(row.discountPercent) : 0,
-          netRate: row.netRate ? Number(row.netRate) : 0,
-          amount: row.amount ? Number(row.amount) : 0,
+          netRate: isFree ? 0 : (row.netRate ? Number(row.netRate) : 0),
+          amount: isFree ? 'FREE' : (row.amount ? Number(row.amount) : 0), // ✅ Mark free items
           cgstPercent: row.cgstPercent ? Number(row.cgstPercent) : 0,
           sgstPercent: row.sgstPercent ? Number(row.sgstPercent) : 0,
           mrp: row.mrp ? Number(row.mrp) : 0,
           rack: row.rack || '',
           sRate: row.sRate ? Number(row.sRate) : 0,
-          sch: row.sch || '',
+          sch: isFree ? 'FREE' : (row.sch || ''), // ✅ Mark in sch column too
+          isFreeItem: isFree ? 'Yes' : 'No',
         };
         
         const excelRow = worksheet.addRow(rowData);
         
-        if (index % 2 === 0) {
+        // ✅ Highlight free items with green
+        if (isFree) {
+          excelRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE8F5E9' } // Light green
+          };
+          excelRow.font = { color: { argb: 'FF2E7D32' } }; // Dark green text
+        } else if (index % 2 === 0) {
           excelRow.fill = {
             type: 'pattern',
             pattern: 'solid',
@@ -621,6 +589,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         }
       });
 
+      // Header styling
       const headerRow = worksheet.getRow(1);
       headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
       headerRow.fill = {
@@ -631,6 +600,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       headerRow.height = 25;
       headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
+      // Borders
       worksheet.eachRow((row) => {
         row.eachCell((cell) => {
           cell.border = {
@@ -642,7 +612,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         });
       });
 
-      worksheet.autoFilter = 'A1:S1';
+      worksheet.autoFilter = 'A1:T1';
       worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
       const buffer = await workbook.xlsx.writeBuffer();
@@ -663,7 +633,9 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      toast.success('Excel Export Complete', `${dataRows.length} items exported successfully.`);
+      const freeCount = dataRows.filter(r => r.isFreeItem).length;
+      const billableCount = dataRows.length - freeCount;
+      toast.success('Excel Export Complete', `${billableCount} billable + ${freeCount} free items exported.`);
       
     } catch (error) {
       console.error('❌ Export error:', error);
@@ -682,8 +654,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     const extension = file.name.split('.').pop()?.toLowerCase();
     const maxSize = 10 * 1024 * 1024;
     
-    console.log(`📁 Importing file: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
-    
     if (file.size > maxSize) {
       toast.error('File too large', 'Please select a file smaller than 10MB.');
       return;
@@ -694,7 +664,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     } else if (['xlsx', 'xls'].includes(extension)) {
       handleImportExcel(file);
     } else {
-      toast.error('Unsupported Format', 'Please use CSV, Excel (.xlsx), or Excel 97-2003 (.xls) files.');
+      toast.error('Unsupported Format', 'Please use CSV or Excel files.');
     }
   }, [handleImportCSV, handleImportExcel, toast]);
 

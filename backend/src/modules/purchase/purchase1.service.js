@@ -564,36 +564,47 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
 
     if (lineItems && lineItems.length > 0) {
       if (isConfirmed) {
-        console.log("🔄 Super Admin editing CONFIRMED invoice - reversing stock...");
-        console.log(`📋 Original invoice had ${invoice.lineItems.length} items`);
-        
-        // ✅ OPTION 3: Reverse stock using SAME transaction
-        for (const oldItem of invoice.lineItems) {
-          if (oldItem.inventory_id) {
-            const oldTotalQty = Number(oldItem.quantity) + Number(oldItem.free_quantity || 0);
-            
-            console.log(`  ↩️ Reversing ${oldTotalQty} units of ${oldItem.batch_number}`);
-            
-            // ✅ PASS TRANSACTION TO updateStock
-            await inventoryService.updateStock(
-              {
-                inventoryId: oldItem.inventory_id,
-                shopId: shopId,
-                branchId: invoice.branch_id,
-                medicineId: oldItem.medicine_id,
-                batchNumber: oldItem.batch_number,
-                movementType: "PURCHASE_RETURN",
-                quantityIn: 0,
-                quantityOut: oldTotalQty,
-                rate: oldItem.purchase_rate,
-                referenceType: "PURCHASE_INVOICE_EDIT",
-                referenceId: invoice.invoice_id,
-                referenceNumber: `${invoice.invoice_number}-REV`,
-                transactionDate: new Date(),
-                remarks: `Stock reversal for edit (Super Admin) - Original qty: ${oldTotalQty}`,
-              },
-              userId,
-              tx  // ✅ CRITICAL: Pass transaction
+  console.log("🔄 Super Admin editing CONFIRMED invoice - reversing stock...");
+  console.log(`📋 Original invoice had ${invoice.lineItems.length} items`);
+  
+  // ✅ FIXED: Reverse stock using SAME transaction, skip free item rows
+  for (const oldItem of invoice.lineItems) {
+    // ✅ Skip free item rows - they weren't added to stock in the first place
+    const isFreeItemRow = parseFloat(oldItem.line_total) === 0 && parseFloat(oldItem.quantity) > 0;
+    
+    if (isFreeItemRow) {
+      console.log(`⏭️ Skipping reversal for free item row: ${oldItem.batch_number}`);
+      continue;
+    }
+
+    if (oldItem.inventory_id) {
+      // ✅ Reverse the total quantity that was originally added
+      const purchasedQty = Number(oldItem.quantity) || 0;
+      const freeQty = Number(oldItem.free_quantity) || 0;
+      const oldTotalQty = purchasedQty + freeQty;
+      
+      console.log(`  ↩️ Reversing ${oldTotalQty} units of ${oldItem.batch_number} (${purchasedQty} purchased + ${freeQty} free)`);
+      
+      // ✅ PASS TRANSACTION TO updateStock
+      await inventoryService.updateStock(
+        {
+          inventoryId: oldItem.inventory_id,
+          shopId: shopId,
+          branchId: invoice.branch_id,
+          medicineId: oldItem.medicine_id,
+          batchNumber: oldItem.batch_number,
+          movementType: "PURCHASE_RETURN",
+          quantityIn: 0,
+          quantityOut: oldTotalQty,
+          rate: oldItem.purchase_rate,
+          referenceType: "PURCHASE_INVOICE_EDIT",
+          referenceId: invoice.invoice_id,
+          referenceNumber: `${invoice.invoice_number}-REV`,
+          transactionDate: new Date(),
+          remarks: `Stock reversal for edit (Super Admin) - Original: ${purchasedQty} + ${freeQty} free = ${oldTotalQty}`,
+        },
+        userId,
+        tx  // ✅ CRITICAL: Pass transaction
             );
           }
         }
@@ -657,64 +668,92 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
       });
 
       if (isConfirmed) {
-        console.log("🔄 Adding new stock for edited CONFIRMED invoice...");
-        console.log(`📋 New invoice has ${newItems.length} items`);
-        
-        // ✅ OPTION 3: Add stock using SAME transaction
-        for (const item of newItems) {
-          const inventory = await inventoryService.getOrCreateInventory(
-            shopId,
-            invoice.branch_id,
-            item.medicine_id,
-            item.batch_number,
-            item.expiry_date,
-            item.mrp
-          );
-
-          const totalQuantity = Number(item.quantity) + Number(item.free_quantity || 0);
-
-          console.log(`  ✅ Adding ${totalQuantity} units of ${item.batch_number}`);
-
-          // ✅ PASS TRANSACTION TO updateStock
-          await inventoryService.updateStock(
-            {
-              inventoryId: inventory.inventory_id,
-              shopId: shopId,
-              branchId: invoice.branch_id,
-              medicineId: item.medicine_id,
-              batchNumber: item.batch_number,
-              movementType: "PURCHASE",
-              quantityIn: totalQuantity,
-              quantityOut: 0,
-              rate: item.purchase_rate,
-              referenceType: "PURCHASE_INVOICE",
-              referenceId: invoice.invoice_id,
-              referenceNumber: invoice.invoice_number,
-              transactionDate: invoice.invoice_date,
-              remarks: `Purchase (edited by super admin) - New qty: ${totalQuantity}`,
-            },
-            userId,
-            tx  // ✅ CRITICAL: Pass transaction
-          );
-
-          await tx.inventory.update({
-            where: { inventory_id: inventory.inventory_id },
-            data: {
-              last_purchase_rate: item.purchase_rate,
-              last_purchase_date: invoice.invoice_date,
-              selling_rate: item.selling_rate,
-              rack_no: item.rack_no || inventory.rack_no,
-            },
-          });
-
-          await tx.purchaseInvoiceItem.update({
-            where: { item_id: item.item_id },
-            data: { inventory_id: inventory.inventory_id },
-          });
-        }
-
-        console.log("✅ Stock reversal and re-addition completed successfully");
+  console.log("🔄 Adding new stock for edited CONFIRMED invoice...");
+  console.log(`📋 New invoice has ${newItems.length} items`);
+  
+  // ✅ FIXED: Add stock using SAME transaction, skip free item rows
+  for (const item of newItems) {
+    // ✅ Skip free item rows
+    const isFreeItemRow = parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0;
+    
+    if (isFreeItemRow) {
+      console.log(`⏭️ Skipping stock add for free item row: ${item.batch_number}`);
+      
+      // Still link to inventory for record
+      const existingInventory = await tx.inventory.findFirst({
+        where: {
+          shop_id: shopId,
+          branch_id: invoice.branch_id,
+          medicine_id: item.medicine_id,
+          batch_number: item.batch_number,
+        },
+      });
+      
+      if (existingInventory) {
+        await tx.purchaseInvoiceItem.update({
+          where: { item_id: item.item_id },
+          data: { inventory_id: existingInventory.inventory_id },
+        });
       }
+      continue;
+    }
+
+    const inventory = await inventoryService.getOrCreateInventory(
+      shopId,
+      invoice.branch_id,
+      item.medicine_id,
+      item.batch_number,
+      item.expiry_date,
+      item.mrp
+    );
+
+    // ✅ Calculate total quantity correctly
+    const purchasedQty = Number(item.quantity) || 0;
+    const freeQty = Number(item.free_quantity) || 0;
+    const totalQuantity = purchasedQty + freeQty;
+
+    console.log(`  ✅ Adding ${totalQuantity} units of ${item.batch_number} (${purchasedQty} + ${freeQty} free)`);
+
+    // ✅ PASS TRANSACTION TO updateStock
+    await inventoryService.updateStock(
+      {
+        inventoryId: inventory.inventory_id,
+        shopId: shopId,
+        branchId: invoice.branch_id,
+        medicineId: item.medicine_id,
+        batchNumber: item.batch_number,
+        movementType: "PURCHASE",
+        quantityIn: totalQuantity,
+        quantityOut: 0,
+        rate: item.purchase_rate,
+        referenceType: "PURCHASE_INVOICE",
+        referenceId: invoice.invoice_id,
+        referenceNumber: invoice.invoice_number,
+        transactionDate: invoice.invoice_date,
+        remarks: `Purchase (edited by super admin): ${purchasedQty} + ${freeQty} free = ${totalQuantity}`,
+      },
+      userId,
+      tx  // ✅ CRITICAL: Pass transaction
+    );
+
+    await tx.inventory.update({
+      where: { inventory_id: inventory.inventory_id },
+      data: {
+        last_purchase_rate: item.purchase_rate,
+        last_purchase_date: invoice.invoice_date,
+        selling_rate: item.selling_rate,
+        rack_no: item.rack_no || inventory.rack_no,
+      },
+    });
+
+    await tx.purchaseInvoiceItem.update({
+      where: { item_id: item.item_id },
+      data: { inventory_id: inventory.inventory_id },
+    });
+  }
+
+  console.log("✅ Stock reversal and re-addition completed successfully");
+}
 
       return { ...updatedInvoice, lineItems: newItems };
     }
