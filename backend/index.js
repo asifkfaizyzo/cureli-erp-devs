@@ -44,7 +44,7 @@ import purchaseRoutes from "./src/modules/purchase/purchase.routes.js";
 import inventoryRoutes from "./src/modules/inventory/inventory.routes.js";
 import salesRoutes from "./src/modules/sales/sales.routes.js";
 import customerRoutes from "./src/modules/customers/customer.routes.js";
-
+import excelRoutes from "./src/modules/excel/excel.routes.js";
 // ═══════════════════════════════════════════════════════════
 // ROUTE IMPORTS - CAdmin
 // ═══════════════════════════════════════════════════════════
@@ -251,7 +251,7 @@ app.use("/api/purchase", purchaseRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/customers", customerRoutes);
-
+app.use("/api/excel", excelRoutes);
 // ============================================
 // API Routes - CAdmin (Always accessible)
 // ============================================

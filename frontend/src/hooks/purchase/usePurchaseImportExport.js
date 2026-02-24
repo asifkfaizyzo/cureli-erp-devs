@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import ExcelJS from "exceljs";
 // ✅ REMOVED: import * as XLSX from "xlsx";
 import { makeEmptyPurchaseRow, calculateRow } from "./usePurchaseCalculation";
+import { useAuthStore } from "../../store/useAuthStore";  
 
 // ✅ Generate unique row ID
 const generateRowId = () => `row_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -460,93 +461,214 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
 
   // ✅ MIGRATED: Now uses ExcelJS instead of xlsx
   const handleImportExcel = useCallback(async (file) => {
-    setIsLoading(true);
-    try {
-      const arrayBuffer = await file.arrayBuffer();
+  setIsLoading(true);
+  
+  try {
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    let arrayBuffer;
 
-      // ✅ ExcelJS instead of XLSX.read()
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(arrayBuffer);
-      const worksheet = workbook.worksheets[0];
+    // ✅ Handle .xls files via backend conversion
+    if (extension === 'xls') {
+      console.log('📤 Uploading .xls file for server conversion...');
+      
+      toast.info('Converting File', 'Converting legacy Excel format, please wait...');
 
-      if (!worksheet || worksheet.rowCount < 2) {
-        toast.error("Excel file is empty");
-        setIsLoading(false);
-        return;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // ✅ FIX: Get token correctly
+      const token = localStorage.getItem('access_token');
+      
+      console.log('🔑 Token found:', token ? 'Yes' : 'No');
+      
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
       }
 
-      // ✅ Convert ExcelJS worksheet to array-of-arrays (same format XLSX gave us)
-      const data = [];
-      const colCount = worksheet.columnCount;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      
+      console.log('🌐 API URL:', `${apiUrl}/api/excel/convert`);
 
-      worksheet.eachRow({ includeEmpty: false }, (row) => {
-        const rowValues = [];
-        for (let col = 1; col <= colCount; col++) {
-          const cell = row.getCell(col);
-          rowValues.push(extractCellValue(cell));
-        }
-        data.push(rowValues);
+      const response = await fetch(`${apiUrl}/api/excel/convert`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
       });
 
-      if (data.length < 2) {
-        toast.error("Excel file is empty");
-        setIsLoading(false);
-        return;
-      }
-
-      // Find header row (same logic as before — unchanged)
-      let headerRowIndex = 0;
-      let maxNonEmptyCells = 0;
-      
-      for (let i = 0; i < Math.min(data.length, 10); i++) {
-        const row = data[i];
-        if (!row) continue;
-        const nonEmptyCells = row.filter(cell => 
-          cell !== null && cell !== undefined && String(cell).trim() !== ''
-        ).length;
+      if (!response.ok) {
+        let errorMessage = `Server error: ${response.status}`;
         
-        if (nonEmptyCells > maxNonEmptyCells && nonEmptyCells >= 3) {
-          maxNonEmptyCells = nonEmptyCells;
-          headerRowIndex = i;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          // Response wasn't JSON
         }
+        
+        throw new Error(errorMessage);
       }
 
-      const headers = data[headerRowIndex].map(h => String(h || '').trim());
+      arrayBuffer = await response.arrayBuffer();
       
-      console.group("📋 Excel Header Analysis");
-      console.log("Headers:", headers);
-      console.groupEnd();
+      // Log conversion stats
+      const conversionTime = response.headers.get('X-Conversion-Time');
+      const originalSize = response.headers.get('X-Original-Size');
+      const convertedSize = response.headers.get('X-Converted-Size');
       
-      const parsed = [];
-      
-      for (let i = headerRowIndex + 1; i < data.length; i++) {
-        const rowData = data[i];
-        if (!rowData || rowData.every(cell => 
-          cell === null || cell === undefined || String(cell).trim() === ''
-        )) continue;
-        
-        const values = rowData.map(cell => String(cell || '').trim());
-        const parsedRow = parseRowData(headers, values, parsed.length < 2);
-        
-        if (parsedRow.name || parsedRow.mfac || parsedRow.hsn || parsedRow.qty || parsedRow.price) {
-          parsed.push(parsedRow);
-        }
+      console.log('✅ Server conversion successful');
+      if (conversionTime) {
+        console.log(`   Conversion time: ${conversionTime}`);
+        console.log(`   Size: ${(originalSize / 1024).toFixed(2)}KB → ${(convertedSize / 1024).toFixed(2)}KB`);
       }
-
-      const { existingRows, newProducts } = detectNewProducts(parsed);
-      onImport(existingRows, newProducts);
       
-      const matchedCount = existingRows.filter(r => r.medicine_id).length;
-      const freeCount = existingRows.filter(r => r.isFreeItem).length;
-      toast.success("Excel Imported", `${matchedCount} matched, ${newProducts.length} new, ${freeCount} free items`);
-      
-    } catch (error) {
-      console.error('❌ Excel import error:', error);
-      toast.error("Failed to import Excel", error.message);
-    } finally {
-      setIsLoading(false);
+    } else if (extension === 'xlsx') {
+      // Direct processing for .xlsx files
+      arrayBuffer = await file.arrayBuffer();
+      console.log('📊 Processing .xlsx file directly');
+    } else {
+      throw new Error('Unsupported file format. Please use .xls or .xlsx files.');
     }
-  }, [onImport, toast, detectNewProducts]);
+
+    // ✅ Process with ExcelJS (works for both formats now)
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(arrayBuffer);
+    const worksheet = workbook.worksheets[0];
+
+    if (!worksheet || worksheet.rowCount < 2) {
+      toast.error("Excel file is empty");
+      setIsLoading(false);
+      return;
+    }
+
+    // Extract data to array
+    const data = [];
+    const colCount = worksheet.columnCount;
+
+    worksheet.eachRow({ includeEmpty: false }, (row) => {
+      const rowValues = [];
+      for (let col = 1; col <= colCount; col++) {
+        const cell = row.getCell(col);
+        rowValues.push(extractCellValue(cell));
+      }
+      data.push(rowValues);
+    });
+
+    if (data.length < 2) {
+      toast.error("No data found in Excel file");
+      setIsLoading(false);
+      return;
+    }
+
+    // Find header row
+    let headerRowIndex = 0;
+    let maxNonEmptyCells = 0;
+    
+    for (let i = 0; i < Math.min(data.length, 10); i++) {
+      const row = data[i];
+      if (!row) continue;
+      
+      const nonEmptyCells = row.filter(cell => 
+        cell !== null && cell !== undefined && String(cell).trim() !== ''
+      ).length;
+      
+      if (nonEmptyCells > maxNonEmptyCells && nonEmptyCells >= 3) {
+        maxNonEmptyCells = nonEmptyCells;
+        headerRowIndex = i;
+      }
+    }
+
+    const headers = data[headerRowIndex].map(h => String(h || '').trim());
+    
+    console.group("📋 Excel Import Analysis");
+    console.log("File Format:", extension.toUpperCase());
+    console.log("Processing:", extension === 'xls' ? 'Server Conversion → ExcelJS' : 'Direct ExcelJS');
+    console.log("Headers:", headers);
+    console.log("Data Rows:", data.length - headerRowIndex - 1);
+    console.groupEnd();
+    
+    // Parse rows
+    const parsed = [];
+    
+    for (let i = headerRowIndex + 1; i < data.length; i++) {
+      const rowData = data[i];
+      
+      // Skip completely empty rows
+      if (!rowData || rowData.every(cell => 
+        cell === null || cell === undefined || String(cell).trim() === ''
+      )) continue;
+      
+      const values = rowData.map(cell => String(cell || '').trim());
+      const parsedRow = parseRowData(headers, values, parsed.length < 2);
+      
+      // Only add rows with meaningful data
+      if (parsedRow.name || parsedRow.mfac || parsedRow.hsn || parsedRow.qty || parsedRow.price) {
+        parsed.push(parsedRow);
+      }
+    }
+
+    if (parsed.length === 0) {
+      toast.warning("No Valid Data", "No valid product data found in the Excel file.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Detect new products and match existing ones
+    const { existingRows, newProducts } = detectNewProducts(parsed);
+    onImport(existingRows, newProducts);
+    
+    // Success message
+    const matchedCount = existingRows.filter(r => r.medicine_id).length;
+    const freeCount = existingRows.filter(r => r.isFreeItem).length;
+    
+    const successDetails = extension === 'xls' 
+      ? `Converted from .xls • ${matchedCount} matched, ${newProducts.length} new, ${freeCount} free items`
+      : `${matchedCount} matched, ${newProducts.length} new, ${freeCount} free items`;
+    
+    toast.success("Import Successful", successDetails);
+    
+  } catch (error) {
+    console.error('❌ Excel import error:', error);
+    
+    // User-friendly error messages
+    if (error.message?.includes('LibreOffice') || error.message?.includes('Conversion service unavailable')) {
+      toast.error(
+        "Conversion Service Error", 
+        "The server conversion service is not available. Please contact your administrator or try converting the file to .xlsx manually."
+      );
+    } else if (error.message?.includes('Authentication') || error.message?.includes('401')) {
+      toast.error(
+        "Session Expired", 
+        "Your session has expired. Please log in again."
+      );
+    } else if (error.message?.includes('timeout') || error.message?.includes('408')) {
+      toast.error(
+        "Conversion Timeout", 
+        "File conversion took too long. The file may be too large or complex. Try saving it as .xlsx in Excel first."
+      );
+    } else if (error.message?.includes('Server error') || error.message?.includes('500')) {
+      toast.error(
+        "Server Error", 
+        "Failed to convert file on server. Please try again or convert manually to .xlsx format."
+      );
+    } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      toast.error(
+        "Connection Error", 
+        "Cannot connect to server. Please check your internet connection."
+      );
+    } else if (error.message?.includes('zip')) {
+      toast.error(
+        "Corrupted File", 
+        "This Excel file appears to be corrupted. Try opening and re-saving it."
+      );
+    } else {
+      toast.error("Import Failed", error.message);
+    }
+  } finally {
+    setIsLoading(false);
+  }
+}, [onImport, toast, detectNewProducts]);
 
   const handleExportExcel = useCallback(async (rows) => {
     setIsLoading(true);
