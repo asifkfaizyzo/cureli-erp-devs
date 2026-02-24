@@ -35,6 +35,7 @@ import ticketRoutes from "./src/modules/tickets/tickets.routes.js";
 import enquiriesRoutes from "./src/modules/enquiries/enquiries.routes.js";
 import maintenanceRoutes from "./src/modules/maintenance/maintenance.routes.js";
 import userNotificationRoutes from "./src/modules/notifications/user/userNotifications.routes.js";
+import filesRoutes from './src/modules/files/files.routes.js';
 // ═══════════════════════════════════════════════════════════
 // ROUTE IMPORTS - Pharmacy ERP (NEW)
 // ═══════════════════════════════════════════════════════════
@@ -149,6 +150,8 @@ app.use(
     },
   })
 );
+
+app.use('/api/files', filesRoutes);
 
 // ============================================
 // PDF Proxy Endpoint

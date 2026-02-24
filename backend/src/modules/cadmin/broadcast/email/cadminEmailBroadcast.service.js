@@ -3,6 +3,7 @@
 import prisma from '../../../../config/prisma.js';
 import { sendMail, mailer } from '../../../../utils/email.js';
 import { convertPlainTextToHtml } from './emailBroadcast.converter.js';
+import * as fileStorage from '../../../../services/fileStorage.service.js';  
 import { buildEmailHtml, formatAttachmentsForNodemailer } from './emailBroadcast.template.js';
 import { 
   getRemainingCapacity, 
@@ -500,6 +501,10 @@ export async function cancelCampaign(campaignId, context) {
       throw error;
     }
 
+    // ✅ DELETE FILES USING NEW SERVICE
+    const deleteResult = await deleteEmailCampaignFiles(campaignId);
+    console.log(`[Email Broadcast] Deleted ${deleteResult.deleted} files for cancelled campaign ${campaignId}`);
+
     // Update status
     const updated = await prisma.emailBroadcastCampaign.update({
       where: { campaign_id: campaignId },
@@ -509,15 +514,13 @@ export async function cancelCampaign(campaignId, context) {
       },
     });
 
-    // Delete attachments
-    await cleanupCampaignFiles(existing);
-
     console.log(`[Email Broadcast] Campaign ${campaignId} cancelled`);
 
     return {
       campaign_id: updated.campaign_id,
       status: updated.status,
       action: 'cancelled',
+      files_deleted: deleteResult.deleted,
     };
   } catch (error) {
     console.error('[Email Broadcast] Cancel failed:', error);
@@ -550,19 +553,21 @@ export async function deleteDraft(campaignId, context) {
       throw error;
     }
 
-    // Delete campaign
+    // ✅ DELETE FILES USING NEW SERVICE
+    const deleteResult = await deleteEmailCampaignFiles(campaignId);
+    console.log(`[Email Broadcast] Deleted ${deleteResult.deleted} files for campaign ${campaignId}`);
+
+    // Delete campaign (cascade will delete attachment records)
     await prisma.emailBroadcastCampaign.delete({
       where: { campaign_id: campaignId },
     });
-
-    // Delete attachments
-    await cleanupCampaignFiles(existing);
 
     console.log(`[Email Broadcast] Draft ${campaignId} deleted`);
 
     return {
       campaign_id: campaignId,
       action: 'deleted',
+      files_deleted: deleteResult.deleted,
     };
   } catch (error) {
     console.error('[Email Broadcast] Delete draft failed:', error);
@@ -971,35 +976,26 @@ async function sendBatch(campaign, recipients) {
 // HELPERS
 // ============================================
 
+
+
 /**
- * Clean up campaign files (inline image + attachments)
+ * Delete email campaign attachments
  */
-async function cleanupCampaignFiles(campaign) {
-  try {
-    const filenames = [];
+async function deleteEmailCampaignFiles(campaignId) {
+  const attachments = await prisma.emailBroadcastAttachment.findMany({
+    where: { campaign_id: campaignId },
+  });
 
-    // Inline image
-    if (campaign.inline_image?.filename) {
-      filenames.push(campaign.inline_image.filename);
-    }
+  if (attachments.length === 0) return { deleted: 0 };
 
-    // Attachments
-    if (campaign.attachments && Array.isArray(campaign.attachments)) {
-      campaign.attachments.forEach((att) => {
-        if (att.filename) {
-          filenames.push(att.filename);
-        }
-      });
-    }
+  const filesToDelete = attachments.map(att => ({
+    folder: 'email_attachments',
+    filename: att.storage_key,
+  }));
 
-    if (filenames.length > 0) {
-      const deleted = deleteEmailAttachments(filenames);
-      console.log(`[Email Broadcast] Cleaned up ${deleted} file(s) for campaign ${campaign.campaign_id}`);
-    }
-  } catch (error) {
-    console.error('[Email Broadcast] File cleanup failed:', error);
-  }
+  return await fileStorage.deleteFiles(filesToDelete);
 }
+
 
 /**
  * Get human-readable time until scheduled

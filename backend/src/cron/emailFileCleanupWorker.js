@@ -2,6 +2,7 @@
 
 import cron from 'node-cron';
 import prisma from '../config/prisma.js';
+import * as fileStorage from '../services/fileStorage.service.js';  // ✅ ADD THIS
 import fs from 'fs';
 import path from 'path';
 
@@ -10,7 +11,7 @@ import path from 'path';
 // ============================================
 
 const EMAIL_ATTACHMENTS_DIR = path.resolve(process.cwd(), 'uploads/email_attachments');
-const ORPHAN_FILE_AGE_HOURS = 24; // Files older than 24 hours without campaign association
+const ORPHAN_FILE_AGE_HOURS = 24;
 
 // ============================================
 // FILE CLEANUP FUNCTIONS
@@ -33,34 +34,12 @@ async function cleanupOrphanedFiles() {
       return { cleaned: 0, message: 'No files to clean' };
     }
 
-    // Get all campaigns (to find referenced files)
-    const campaigns = await prisma.emailBroadcastCampaign.findMany({
-      select: {
-        campaign_id: true,
-        inline_image: true,
-        attachments: true,
-        status: true,
-      },
+    // ✅ Get all referenced filenames from NEW TABLE
+    const referencedAttachments = await prisma.emailBroadcastAttachment.findMany({
+      select: { storage_key: true },
     });
 
-    // Build set of all referenced filenames
-    const referencedFiles = new Set();
-    
-    for (const campaign of campaigns) {
-      // Inline image
-      if (campaign.inline_image?.filename) {
-        referencedFiles.add(campaign.inline_image.filename);
-      }
-      
-      // Attachments
-      if (campaign.attachments && Array.isArray(campaign.attachments)) {
-        campaign.attachments.forEach((att) => {
-          if (att.filename) {
-            referencedFiles.add(att.filename);
-          }
-        });
-      }
-    }
+    const referencedFiles = new Set(referencedAttachments.map(att => att.storage_key));
 
     // Find orphaned files (not referenced and older than threshold)
     const orphanThreshold = Date.now() - (ORPHAN_FILE_AGE_HOURS * 60 * 60 * 1000);
@@ -79,9 +58,16 @@ async function cleanupOrphanedFiles() {
         
         // Only delete if file is older than threshold
         if (stats.mtimeMs < orphanThreshold) {
-          fs.unlinkSync(filePath);
-          cleaned++;
-          console.log(`[File Cleanup] Deleted orphaned file: ${filename}`);
+          // ✅ USE NEW SERVICE
+          const deleted = await fileStorage.deleteFile({
+            folder: 'email_attachments',
+            filename,
+          });
+          
+          if (deleted) {
+            cleaned++;
+            console.log(`[File Cleanup] Deleted orphaned file: ${filename}`);
+          }
         }
       } catch (err) {
         console.error(`[File Cleanup] Failed to process file ${filename}:`, err.message);
@@ -100,68 +86,38 @@ async function cleanupOrphanedFiles() {
 }
 
 /**
- * Clean up files for cancelled campaigns
- * (Called after campaign cancellation, but also runs periodically as safety net)
+ * ✅ UPDATED: Clean up files for cancelled campaigns
  */
 async function cleanupCancelledCampaignFiles() {
   try {
-    // Find cancelled campaigns that might have files
+    // Find cancelled campaigns with attachments
     const cancelledCampaigns = await prisma.emailBroadcastCampaign.findMany({
       where: {
-        status: 'cancelled',
-        OR: [
-          { inline_image: { not: null } },
-          { attachments: { not: null } },
-        ],
+        status: 'CANCELLED',  // ✅ Use enum value
       },
-      select: {
-        campaign_id: true,
-        inline_image: true,
-        attachments: true,
+      include: {
+        attachmentFiles: true,  // ✅ Use new relation
       },
     });
 
     let cleaned = 0;
 
     for (const campaign of cancelledCampaigns) {
-      const filesToDelete = [];
+      if (campaign.attachmentFiles.length === 0) continue;
 
-      // Inline image
-      if (campaign.inline_image?.filename) {
-        filesToDelete.push(campaign.inline_image.filename);
-      }
+      const filesToDelete = campaign.attachmentFiles.map(att => ({
+        folder: 'email_attachments',
+        filename: att.storage_key,
+      }));
 
-      // Attachments
-      if (campaign.attachments && Array.isArray(campaign.attachments)) {
-        campaign.attachments.forEach((att) => {
-          if (att.filename) {
-            filesToDelete.push(att.filename);
-          }
-        });
-      }
+      // Delete files using new service
+      const result = await fileStorage.deleteFiles(filesToDelete);
+      cleaned += result.deleted;
 
-      // Delete files
-      for (const filename of filesToDelete) {
-        const filePath = path.join(EMAIL_ATTACHMENTS_DIR, filename);
-        
-        if (fs.existsSync(filePath)) {
-          try {
-            fs.unlinkSync(filePath);
-            cleaned++;
-          } catch (err) {
-            console.error(`[File Cleanup] Failed to delete ${filename}:`, err.message);
-          }
-        }
-      }
-
-      // Clear file references from campaign
-      if (filesToDelete.length > 0) {
-        await prisma.emailBroadcastCampaign.update({
+      // Delete attachment records
+      if (result.deleted > 0) {
+        await prisma.emailBroadcastAttachment.deleteMany({
           where: { campaign_id: campaign.campaign_id },
-          data: {
-            inline_image: null,
-            attachments: [],
-          },
         });
       }
     }
@@ -179,77 +135,32 @@ async function cleanupCancelledCampaignFiles() {
 
 /**
  * Clean up files for deleted draft campaigns
- * Note: This is a safety net - files should be deleted when draft is deleted
  */
 async function cleanupDeletedDraftFiles() {
-  // This is handled by the delete draft function
-  // This function serves as a safety net to catch any missed files
   return cleanupOrphanedFiles();
 }
 
 /**
- * Get storage statistics
+ * ✅ UPDATED: Get storage statistics
  */
 async function getStorageStats() {
   try {
-    if (!fs.existsSync(EMAIL_ATTACHMENTS_DIR)) {
-      return {
-        total_files: 0,
-        total_size: 0,
-        total_size_formatted: '0 Bytes',
-      };
-    }
-
-    const files = fs.readdirSync(EMAIL_ATTACHMENTS_DIR);
-    let totalSize = 0;
-
-    for (const filename of files) {
-      const filePath = path.join(EMAIL_ATTACHMENTS_DIR, filename);
-      try {
-        const stats = fs.statSync(filePath);
-        totalSize += stats.size;
-      } catch (err) {
-        // Ignore errors for individual files
-      }
-    }
-
-    return {
-      total_files: files.length,
-      total_size: totalSize,
-      total_size_formatted: formatFileSize(totalSize),
-    };
+    return await fileStorage.getFolderStats('email_attachments');
   } catch (err) {
     console.error('[File Cleanup] Get storage stats failed:', err);
     return { error: err.message };
   }
 }
 
-/**
- * Format file size for display
- */
-function formatFileSize(bytes) {
-  if (!bytes || bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
 // ============================================
 // MAIN CLEANUP FUNCTION
 // ============================================
 
-/**
- * Run all cleanup tasks
- */
 async function runFileCleanup() {
   console.log('[File Cleanup] Starting email attachment cleanup...');
   
   try {
-    // Clean cancelled campaign files
     const cancelledResult = await cleanupCancelledCampaignFiles();
-    
-    // Clean orphaned files
     const orphanedResult = await cleanupOrphanedFiles();
     
     const totalCleaned = (cancelledResult.cleaned || 0) + (orphanedResult.cleaned || 0);
@@ -273,15 +184,8 @@ async function runFileCleanup() {
 // INITIALIZE CRON JOB
 // ============================================
 
-/**
- * Initialize the file cleanup cron job
- * Runs daily at 4:00 AM IST
- */
 export function initializeFileCleanupWorker() {
-  // Run at 4:00 AM IST (22:30 UTC previous day due to IST being UTC+5:30)
-  // For simplicity, we'll use 4:00 AM server time
   cron.schedule('0 4 * * *', runFileCleanup);
-  
   console.log('[File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)');
 }
 

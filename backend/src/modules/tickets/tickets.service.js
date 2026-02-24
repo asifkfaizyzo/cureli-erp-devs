@@ -1,10 +1,10 @@
 // backend/src/modules/tickets/tickets.service.js
 
 import prisma from "../../config/prisma.js";
-import fs from "fs";
 import { notifyAsync } from "../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 import * as audit from "../audit/index.js";
+import * as fileStorage from "../../services/fileStorage.service.js";
 
 // ============================================
 // CONSTANTS
@@ -13,7 +13,7 @@ const REOPEN_LIMIT = 6;
 const MAX_RETRY_ATTEMPTS = 3;
 
 // ============================================
-// STATUS TRANSITION MATRIX
+// STATUS TRANSITION createTicket
 // ============================================
 const STATUS_TRANSITIONS = {
   PENDING: ["IN_PROGRESS", "CANCELLED"],
@@ -190,7 +190,7 @@ async function checkDuplicateTicket(shop_id, user_id, subject) {
 
   if (recentTicket) {
     const err = new Error(
-      "Please wait before creating another ticket. You can only create one ticket per minute."
+      "Please wait before creating another ticket. You can only create one ticket per minute.",
     );
     err.code = "RATE_LIMIT_EXCEEDED";
     throw err;
@@ -209,7 +209,7 @@ async function checkDuplicateTicket(shop_id, user_id, subject) {
 
   if (duplicateSubject) {
     const err = new Error(
-      "A ticket with the same subject was recently created. Please check your existing tickets."
+      "A ticket with the same subject was recently created. Please check your existing tickets.",
     );
     err.code = "DUPLICATE_TICKET";
     throw err;
@@ -224,7 +224,7 @@ async function validateBranchOwnership(
   branch_id,
   user_id,
   user_branch_id,
-  role
+  role,
 ) {
   if (role === "super_admin") {
     if (branch_id) {
@@ -289,7 +289,7 @@ export async function createTicket({
       user_id,
       category,
       files_count: files.length,
-    })
+    }),
   );
 
   // 1. Duplicate check
@@ -301,7 +301,7 @@ export async function createTicket({
     branch_id,
     user_id,
     user_branch_id,
-    user_role
+    user_role,
   );
 
   try {
@@ -331,14 +331,28 @@ export async function createTicket({
       console.log("Created ticket:", newTicket.ticket_id);
 
       // 5. Create attachments
+      // 5. Upload and create attachments
       if (files.length > 0) {
-        const attachmentData = files.map((file) => ({
-          ticket_id: newTicket.ticket_id,
-          storage_key: `tickets/${file.filename}`,
-          original_name: file.originalname,
-          mime_type: file.mimetype,
-          file_size: file.size,
-        }));
+        const attachmentData = [];
+
+        for (const file of files) {
+          // ✅ Upload file using fileStorage service
+          const uploadResult = await fileStorage.uploadFile({
+            buffer: file.buffer, // ✅ From memoryStorage
+            folder: "tickets",
+            originalName: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+          });
+
+          attachmentData.push({
+            ticket_id: newTicket.ticket_id,
+            storage_key: uploadResult.storage_key, // ✅ Just filename
+            original_name: file.originalname,
+            mime_type: file.mimetype,
+            file_size: file.size,
+          });
+        }
 
         await tx.ticketAttachment.createMany({ data: attachmentData });
         console.log("Created attachments:", attachmentData.length);
@@ -346,31 +360,36 @@ export async function createTicket({
 
       // ✅ AUDIT LOG: Ticket created (within transaction)
       // Note: We don't await - let it log async, but pass tx for atomicity
-      audit.log(
-        {
-          action: audit.AuditAction.TICKET_CREATED, // ⚠️ You need to add this action
-          entity_type: audit.EntityType.TICKET,
-          entity_id: newTicket.ticket_id,
-          actor_type: audit.ActorType.ERP_USER,
-          actor_id: user_id,
-          actor_role: user_role,
-          shop_id,
-          branch_id: branch_id || null,
-          ...auditContext,
-          reason_code: audit.AuditReasonCode.USER_REQUEST,
-          metadata: {
-            ticket_number,
-            category,
-            subject: subject.trim(),
-            has_attachments: files.length > 0,
-            attachment_count: files.length,
+      audit
+        .log(
+          {
+            action: audit.AuditAction.TICKET_CREATED, // ⚠️ You need to add this action
+            entity_type: audit.EntityType.TICKET,
+            entity_id: newTicket.ticket_id,
+            actor_type: audit.ActorType.ERP_USER,
+            actor_id: user_id,
+            actor_role: user_role,
+            shop_id,
+            branch_id: branch_id || null,
+            ...auditContext,
+            reason_code: audit.AuditReasonCode.USER_REQUEST,
+            metadata: {
+              ticket_number,
+              category,
+              subject: subject.trim(),
+              has_attachments: files.length > 0,
+              attachment_count: files.length,
+            },
           },
-        },
-        { tx } // ✅ Pass transaction
-      ).catch((err) => {
-        console.error("⚠️ Audit log failed for ticket creation:", err.message);
-        // Non-critical: don't fail transaction
-      });
+          { tx }, // ✅ Pass transaction
+        )
+        .catch((err) => {
+          console.error(
+            "⚠️ Audit log failed for ticket creation:",
+            err.message,
+          );
+          // Non-critical: don't fail transaction
+        });
 
       return newTicket;
     });
@@ -396,7 +415,7 @@ export async function createTicket({
       });
     } else {
       console.warn(
-        `⚠️ No email for ticket ${completeTicket.ticket_number} creator`
+        `⚠️ No email for ticket ${completeTicket.ticket_number} creator`,
       );
     }
 
@@ -406,25 +425,13 @@ export async function createTicket({
     console.error("Error code:", error.code);
     console.error("Error message:", error.message);
 
-    // Cleanup files
-    if (files.length > 0) {
-      files.forEach((file) => {
-        if (file.path && fs.existsSync(file.path)) {
-          try {
-            fs.unlinkSync(file.path);
-          } catch (unlinkError) {
-            console.error("Failed to cleanup file:", file.path);
-          }
-        }
-      });
-    }
 
     if (
       error.code === "P2002" &&
       error.meta?.target?.includes("ticket_number")
     ) {
       const err = new Error(
-        "Failed to generate unique ticket number. Please try again."
+        "Failed to generate unique ticket number. Please try again.",
       );
       err.code = "TICKET_NUMBER_CONFLICT";
       throw err;
@@ -461,7 +468,7 @@ export async function getTickets({
   // ============================================
   // ROLE-BASED BRANCH FILTERING
   // ============================================
-  
+
   if (requester_role === "super_admin") {
     // Super admin sees ALL tickets from their shop (all branches + shop-level)
     // Optional: Allow filtering by specific branch via query param
@@ -486,7 +493,7 @@ export async function getTickets({
   // ============================================
   // OTHER FILTERS (unchanged)
   // ============================================
-  
+
   if (status) {
     andConditions.push({ status });
   }
@@ -577,7 +584,7 @@ export async function cancelTicket(
   shop_id,
   user_id,
   reason,
-  auditContext = {} // ✅ Accept audit context
+  auditContext = {}, // ✅ Accept audit context
 ) {
   const ticket = await prisma.ticket.findFirst({
     where: { ticket_id, shop_id },
@@ -610,7 +617,7 @@ export async function cancelTicket(
       throw err;
     }
     const err = new Error(
-      `Cannot cancel a ${ticket.status.toLowerCase()} ticket`
+      `Cannot cancel a ${ticket.status.toLowerCase()} ticket`,
     );
     err.code = "INVALID_STATUS_TRANSITION";
     throw err;
@@ -650,7 +657,7 @@ export async function cancelTicket(
           cancelled_by_user_id: user_id,
         },
       },
-      { tx }
+      { tx },
     );
 
     return updated;
@@ -667,7 +674,7 @@ export async function reopenTicket(
   shop_id,
   user_id,
   reason,
-  auditContext = {} // ✅ Accept audit context
+  auditContext = {}, // ✅ Accept audit context
 ) {
   const ticket = await prisma.ticket.findFirst({
     where: { ticket_id, shop_id },
@@ -697,7 +704,7 @@ export async function reopenTicket(
   // Check reopen limit
   if (ticket.reopen_count >= REOPEN_LIMIT) {
     const err = new Error(
-      `This ticket has been reopened ${REOPEN_LIMIT} times. Please create a new ticket or contact support via email.`
+      `This ticket has been reopened ${REOPEN_LIMIT} times. Please create a new ticket or contact support via email.`,
     );
     err.code = "REOPEN_LIMIT_EXCEEDED";
     throw err;
@@ -751,14 +758,14 @@ export async function reopenTicket(
           reopened_by_user_id: user_id,
         },
       },
-      { tx }
+      { tx },
     );
 
     return updated;
   });
 
   console.log(
-    `Ticket ${ticket.ticket_number} reopened. Count: ${newReopenCount}/${REOPEN_LIMIT}`
+    `Ticket ${ticket.ticket_number} reopened. Count: ${newReopenCount}/${REOPEN_LIMIT}`,
   );
 
   return transformTicket(updatedTicket);
@@ -770,14 +777,14 @@ export async function reopenTicket(
 export async function getTicketStats(
   shop_id,
   requester_role,
-  requester_branch_id
+  requester_branch_id,
 ) {
   const andConditions = [{ shop_id }];
 
   // ============================================
   // ROLE-BASED FILTERING
   // ============================================
-  
+
   if (requester_role === "super_admin") {
     // Super admin: sees all tickets (no additional filter)
   } else if (requester_role === "branch_admin") {
@@ -864,7 +871,7 @@ export async function canAccessTicket(
   ticket_id,
   shop_id,
   requester_role,
-  requester_branch_id
+  requester_branch_id,
 ) {
   try {
     const ticket = await prisma.ticket.findFirst({

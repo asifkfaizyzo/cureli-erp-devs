@@ -975,6 +975,7 @@ model BroadcastCampaign {
   sent_at           DateTime? @db.Timestamptz(6)
   delivered_count   Int?
   read_count        Int?
+  attachmentFiles   BroadcastAttachment[] @relation("CampaignAttachments")
   created_by_cadmin String    @db.Uuid
   cadmin_name       String    @db.VarChar(100)
   created_at        DateTime  @default(now()) @db.Timestamptz(6)
@@ -991,6 +992,74 @@ model BroadcastCampaign {
   @@index([created_by_cadmin])
   @@index([created_at(sort: Desc)])
   @@map("broadcast_campaigns")
+}
+
+// ============================================
+// EMAIL BROADCAST ATTACHMENTS (NEW)
+// ============================================
+
+model EmailBroadcastAttachment {
+  attachment_id String   @id @default(uuid()) @db.Uuid
+  campaign_id   String   @db.Uuid
+  
+  // File info
+  file_type     EmailAttachmentType  // "INLINE" or "ATTACHMENT"
+  storage_key   String               // Just filename (e.g., "email-123.jpg")
+  original_name String   @db.VarChar(255)
+  mime_type     String   @db.VarChar(100)
+  file_size     Int
+  
+  // Optional metadata
+  content_id    String?  @db.VarChar(100)  // For inline images (cid:xxx)
+  
+  uploaded_at   DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  campaign      EmailBroadcastCampaign @relation("CampaignAttachments", fields: [campaign_id], references: [campaign_id], onDelete: Cascade)
+  
+  @@index([campaign_id])
+  @@index([file_type])
+  @@map("email_broadcast_attachments")
+}
+
+enum EmailAttachmentType {
+  INLINE
+  ATTACHMENT
+}
+
+// ============================================
+// IN-APP BROADCAST ATTACHMENTS (NEW)
+// ============================================
+
+model BroadcastAttachment {
+  attachment_id String   @id @default(uuid()) @db.Uuid
+  campaign_id   String   @db.Uuid
+  
+  // File info
+  attachment_type BroadcastAttachmentType  // "IMAGE", "VIDEO", "LINK"
+  storage_key     String?              // Filename (null for links)
+  original_name   String?  @db.VarChar(255)
+  mime_type       String?  @db.VarChar(100)
+  file_size       Int?
+  
+  // Link metadata (for type=LINK)
+  link_url        String?  @db.VarChar(500)
+  link_label      String?  @db.VarChar(100)
+  
+  uploaded_at     DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  campaign        BroadcastCampaign @relation("CampaignAttachments", fields: [campaign_id], references: [campaign_id], onDelete: Cascade)
+  
+  @@index([campaign_id])
+  @@index([attachment_type])
+  @@map("broadcast_attachments")
+}
+
+enum BroadcastAttachmentType {
+  IMAGE
+  VIDEO
+  LINK
 }
 
 model BroadcastSegment {
@@ -1288,6 +1357,8 @@ model EmailBroadcastCampaign {
   // Content
   inline_image        Json?     // { filename, path, contentType, size }
   attachments         Json?     // [{ filename, path, contentType, size }]
+
+  attachmentFiles     EmailBroadcastAttachment[] @relation("CampaignAttachments")
   
   // Scheduling & Status
   status              EmailCampaignStatus @default(DRAFT)

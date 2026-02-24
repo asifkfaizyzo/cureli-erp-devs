@@ -2,11 +2,10 @@
 
 import express from "express";
 import multer from "multer";
-import fs from "fs";
-import path from "path";
 import { requireAuth } from "../../middleware/auth.js";
 import { requireRole } from "../../middleware/rbac.js";
 import { validateQuery } from "../../middleware/validate.js";
+
 import {
   createTicketController,
   getTicketsController,
@@ -19,54 +18,33 @@ import { getTicketsQuerySchema } from "./tickets.schema.js";
 
 const router = express.Router();
 
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join("uploads", "tickets");
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    const sanitizedName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, "_");
-    cb(null, `${uniqueSuffix}-${sanitizedName}${ext}`);
-  },
-});
-
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "application/pdf",
-  ];
-
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Invalid file type. Only images and PDFs are allowed."));
-  }
-};
-
+// ✅ USE MEMORY STORAGE
 const upload = multer({
-  storage,
-  fileFilter,
+  storage: multer.memoryStorage(), // ✅ CHANGED: Store in memory, not disk
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only images and PDFs are allowed."));
+    }
+  },
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB per file
     files: 3, // Max 3 files
   },
 });
 
-
 router.use(requireAuth);
 router.use(requireRole("super_admin", "branch_admin"));
-
-
 
 // GET /api/tickets/stats - Must be before /:ticket_id
 router.get("/stats", getTicketStatsController);

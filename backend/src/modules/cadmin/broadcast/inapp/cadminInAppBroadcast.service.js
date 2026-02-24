@@ -1,7 +1,7 @@
 import prisma from '../../../../config/prisma.js';
 import { notify, NOTIFICATION_EVENTS } from '../../../notifications/index.js';
 import { resolveAudience } from '../../../notifications/notification.rules.js';
-
+import * as fileStorage from '../../../../services/fileStorage.service.js';
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
@@ -24,15 +24,52 @@ function validateAttachments(attachments) {
   const maxAttachments = 5;
   
   return attachments
-    .filter(att => validTypes.includes(att.type) && att.url)
+    .filter(att => validTypes.includes(att.type) && (att.url || att.storage_key))
     .slice(0, maxAttachments)
-    .map(att => ({
-      type: att.type,
-      url: att.url.trim(),
-      label: att.label?.trim() || null,
-    }));
+    .map(att => {
+      if (att.type === 'link') {
+        return {
+          type: 'LINK',
+          link_url: att.url.trim(),
+          link_label: att.label?.trim() || null,
+        };
+      } else {
+        // For image/video, extract filename from URL or use storage_key
+        const filename = att.storage_key || (att.url ? att.url.split('/').pop() : null);
+        return {
+          type: att.type.toUpperCase(),
+          storage_key: filename,
+          original_name: filename,
+          mime_type: att.mime_type || (att.type === 'image' ? 'image/jpeg' : 'video/mp4'),
+          file_size: att.file_size || 0,
+        };
+      }
+    });
 }
+function formatAttachmentsForAPI(attachments) {
+  if (!attachments || attachments.length === 0) return [];
 
+  return attachments.map(att => {
+    if (att.attachment_type === 'LINK') {
+      return {
+        type: 'link',
+        url: att.link_url,
+        label: att.link_label,
+      };
+    } else {
+      return {
+        type: att.attachment_type.toLowerCase(),
+        url: fileStorage.getPublicUrl({
+          folder: 'broadcast_attachments',
+          filename: att.storage_key,
+        }),
+        storage_key: att.storage_key,
+        mime_type: att.mime_type,
+        file_size: att.file_size,
+      };
+    }
+  });
+}
 function validateFilters(filters) {
   if (!filters || typeof filters !== 'object') {
     throw createError('target_filters must be an object');
@@ -150,7 +187,7 @@ export async function sendImmediate(data, auditContext) {
     message, 
     priority, 
     target_filters,
-    attachments,
+    attachments,  // ✅ Now handled differently
     action_url,
     action_label,
     expires_in_hours,
@@ -172,7 +209,7 @@ export async function sendImmediate(data, auditContext) {
 
     validateFilters(target_filters);
     const validPriority = validatePriority(priority);
-    const validAttachments = validateAttachments(attachments);
+    const validatedAttachments = validateAttachments(attachments);  // ✅ NEW
 
     // Calculate expiry
     const expiresAt = expires_in_hours 
@@ -192,28 +229,56 @@ export async function sendImmediate(data, auditContext) {
 
     console.log(`[Broadcast Service] Sending to ${recipients.length} recipients`);
 
-    // ✅ NEW: CREATE CAMPAIGN RECORD FIRST (THIS WAS MISSING!)
-    const campaign = await prisma.broadcastCampaign.create({
-      data: {
-        title: title.trim(),
-        message: message.trim(),
-        priority: validPriority,
-        target_filters,
-        attachments: validAttachments.length > 0 ? validAttachments : null,
-        action_url: action_url?.trim() || null,
-        action_label: action_label?.trim() || null,
-        recipient_count: recipients.length,
-        target_users,
-        target_cadmins,
-        expires_at: expiresAt,
-        status: 'sent',  // ✅ Set to 'sent' immediately
-        sent_at: new Date(),  // ✅ Set sent timestamp
-        created_by_cadmin: auditContext.actor_id,
-        cadmin_name: auditContext.actor_name || 'CAdmin',
-      },
+    // ✅ UPDATED: Create campaign with attachments in transaction
+    const campaign = await prisma.$transaction(async (tx) => {
+      // 1. Create campaign
+      const newCampaign = await tx.broadcastCampaign.create({
+        data: {
+          title: title.trim(),
+          message: message.trim(),
+          priority: validPriority,
+          target_filters,
+          action_url: action_url?.trim() || null,
+          action_label: action_label?.trim() || null,
+          recipient_count: recipients.length,
+          target_users,
+          target_cadmins,
+          expires_at: expiresAt,
+          status: 'sent',
+          sent_at: new Date(),
+          created_by_cadmin: auditContext.actor_id,
+          cadmin_name: auditContext.actor_name || 'CAdmin',
+        },
+      });
+
+      // 2. Create attachments (if any)
+      if (validatedAttachments.length > 0) {
+        await tx.broadcastAttachment.createMany({
+          data: validatedAttachments.map(att => ({
+            campaign_id: newCampaign.campaign_id,
+            attachment_type: att.type,
+            storage_key: att.storage_key || null,
+            original_name: att.original_name || null,
+            mime_type: att.mime_type || null,
+            file_size: att.file_size || null,
+            link_url: att.link_url || null,
+            link_label: att.link_label || null,
+          })),
+        });
+      }
+
+      return newCampaign;
     });
 
-    console.log(`[Broadcast Service] Campaign ${campaign.campaign_id} created with status 'sent'`);
+    console.log(`[Broadcast Service] Campaign ${campaign.campaign_id} created with ${validatedAttachments.length} attachments`);
+
+    // ✅ Build notification context with attachment URLs
+    const attachmentUrls = validatedAttachments
+      .filter(att => att.type !== 'LINK')
+      .map(att => fileStorage.getPublicUrl({
+        folder: 'broadcast_attachments',
+        filename: att.storage_key,
+      }));
 
     // Send via notification service
     const result = await notify({
@@ -221,7 +286,7 @@ export async function sendImmediate(data, auditContext) {
       context: {
         title: title.trim(),
         message: message.trim(),
-        attachments: validAttachments,
+        attachments: formatAttachmentsForAPI(validatedAttachments),  // ✅ Format for notification
         action_url,
         action_label,
         expires_at: expiresAt,
@@ -231,7 +296,7 @@ export async function sendImmediate(data, auditContext) {
       audienceFilters: target_filters,
     });
 
-    // ✅ NEW: UPDATE CAMPAIGN WITH DELIVERY STATS
+    // Update campaign with delivery stats
     await prisma.broadcastCampaign.update({
       where: { campaign_id: campaign.campaign_id },
       data: {
@@ -239,11 +304,9 @@ export async function sendImmediate(data, auditContext) {
       },
     });
 
-    console.log(`[Broadcast Service] Campaign ${campaign.campaign_id} delivered to ${result.channels.inapp?.sent || 0} recipients`);
-
     return {
       success: result.success,
-      campaign_id: campaign.campaign_id,  // ✅ Now returns campaign ID
+      campaign_id: campaign.campaign_id,
       sent_to: recipients.length,
       delivered: result.channels.inapp?.sent || 0,
       failed: result.channels.inapp?.failed || 0,
@@ -269,7 +332,7 @@ export async function createDraft(data, auditContext) {
     message, 
     priority, 
     target_filters,
-    attachments,
+    attachments,  // ✅ Now handled differently
     action_url,
     action_label,
     expires_in_hours,
@@ -291,7 +354,7 @@ export async function createDraft(data, auditContext) {
 
     validateFilters(target_filters);
     const validPriority = validatePriority(priority);
-    const validAttachments = validateAttachments(attachments);
+    const validatedAttachments = validateAttachments(attachments);  // ✅ NEW
 
     // Preview recipient count
     const preview = await previewRecipientCount(target_filters);
@@ -301,36 +364,63 @@ export async function createDraft(data, auditContext) {
       ? new Date(Date.now() + expires_in_hours * 60 * 60 * 1000)
       : null;
 
-    // Create campaign
-    const campaign = await prisma.broadcastCampaign.create({
-      data: {
-        title: title.trim(),
-        message: message.trim(),
-        priority: validPriority,
-        target_filters: target_filters,
-        attachments: validAttachments.length > 0 ? validAttachments : null,
-        action_url: action_url?.trim() || null,
-        action_label: action_label?.trim() || null,
-        recipient_count: preview.total,
-        target_users,
-        target_cadmins,
-        expires_at: expiresAt,
-        status: 'draft',
-        created_by_cadmin: auditContext.actor_id,
-        cadmin_name: auditContext.actor_name || 'CAdmin',
+    // ✅ Create campaign with attachments
+    const campaign = await prisma.$transaction(async (tx) => {
+      const newCampaign = await tx.broadcastCampaign.create({
+        data: {
+          title: title.trim(),
+          message: message.trim(),
+          priority: validPriority,
+          target_filters: target_filters,
+          action_url: action_url?.trim() || null,
+          action_label: action_label?.trim() || null,
+          recipient_count: preview.total,
+          target_users,
+          target_cadmins,
+          expires_at: expiresAt,
+          status: 'draft',
+          created_by_cadmin: auditContext.actor_id,
+          cadmin_name: auditContext.actor_name || 'CAdmin',
+        },
+      });
+
+      // Create attachments
+      if (validatedAttachments.length > 0) {
+        await tx.broadcastAttachment.createMany({
+          data: validatedAttachments.map(att => ({
+            campaign_id: newCampaign.campaign_id,
+            attachment_type: att.type,
+            storage_key: att.storage_key || null,
+            original_name: att.original_name || null,
+            mime_type: att.mime_type || null,
+            file_size: att.file_size || null,
+            link_url: att.link_url || null,
+            link_label: att.link_label || null,
+          })),
+        });
+      }
+
+      return newCampaign;
+    });
+
+    // ✅ Fetch campaign with attachments
+    const campaignWithAttachments = await prisma.broadcastCampaign.findUnique({
+      where: { campaign_id: campaign.campaign_id },
+      include: {
+        attachmentFiles: true,
       },
     });
 
     return {
-      campaign_id: campaign.campaign_id,
-      title: campaign.title,
-      message: campaign.message,
-      priority: campaign.priority,
-      target_filters: campaign.target_filters,
-      attachments: campaign.attachments,
-      recipient_count: campaign.recipient_count,
-      status: campaign.status,
-      created_at: campaign.created_at,
+      campaign_id: campaignWithAttachments.campaign_id,
+      title: campaignWithAttachments.title,
+      message: campaignWithAttachments.message,
+      priority: campaignWithAttachments.priority,
+      target_filters: campaignWithAttachments.target_filters,
+      attachments: formatAttachmentsForAPI(campaignWithAttachments.attachmentFiles),  // ✅ Format
+      recipient_count: campaignWithAttachments.recipient_count,
+      status: campaignWithAttachments.status,
+      created_at: campaignWithAttachments.created_at,
     };
   } catch (error) {
     console.error('[Broadcast Service] Create draft failed:', error);
@@ -729,6 +819,13 @@ export async function cancelOrDeleteCampaign(campaignId, auditContext) {
   try {
     const campaign = await prisma.broadcastCampaign.findUnique({
       where: { campaign_id: campaignId },
+      include: {
+        attachmentFiles: {
+          where: {
+            attachment_type: { in: ['IMAGE', 'VIDEO'] },  // Only file attachments
+          },
+        },
+      },
     });
 
     if (!campaign) {
@@ -740,12 +837,10 @@ export async function cancelOrDeleteCampaign(campaignId, auditContext) {
     }
 
     if (campaign.status === 'scheduled') {
-      // Cancel scheduled campaign
+      // Cancel scheduled campaign (keep attachments)
       const updated = await prisma.broadcastCampaign.update({
         where: { campaign_id: campaignId },
-        data: {
-          status: 'cancelled',
-        },
+        data: { status: 'cancelled' },
       });
 
       return {
@@ -756,6 +851,18 @@ export async function cancelOrDeleteCampaign(campaignId, auditContext) {
     }
 
     // Delete draft or cancelled campaigns
+    // ✅ Delete associated files first
+    if (campaign.attachmentFiles.length > 0) {
+      const filesToDelete = campaign.attachmentFiles.map(att => ({
+        folder: 'broadcast_attachments',
+        filename: att.storage_key,
+      }));
+
+      const deleteResult = await fileStorage.deleteFiles(filesToDelete);
+      console.log(`[Broadcast] Deleted ${deleteResult.deleted} attachment files for campaign ${campaignId}`);
+    }
+
+    // Delete campaign (cascade will delete attachment records)
     await prisma.broadcastCampaign.delete({
       where: { campaign_id: campaignId },
     });
@@ -784,24 +891,12 @@ export async function getDrafts(cadminId, pagination = {}) {
           created_by_cadmin: cadminId,
           status: 'draft',
         },
+        include: {
+          attachmentFiles: true,  // ✅ Include attachments
+        },
         orderBy: { updated_at: 'desc' },
         skip,
         take: limit,
-        select: {
-          campaign_id: true,
-          title: true,
-          message: true,
-          priority: true,
-          recipient_count: true,
-          target_filters: true,
-          attachments: true,
-          action_url: true,
-          action_label: true,
-          target_users: true,
-          target_cadmins: true,
-          created_at: true,
-          updated_at: true,
-        },
       }),
       prisma.broadcastCampaign.count({
         where: {
@@ -811,8 +906,25 @@ export async function getDrafts(cadminId, pagination = {}) {
       }),
     ]);
 
+    // ✅ Format attachments for API
+    const formattedDrafts = drafts.map(draft => ({
+      campaign_id: draft.campaign_id,
+      title: draft.title,
+      message: draft.message,
+      priority: draft.priority,
+      recipient_count: draft.recipient_count,
+      target_filters: draft.target_filters,
+      attachments: formatAttachmentsForAPI(draft.attachmentFiles),  // ✅ Format
+      action_url: draft.action_url,
+      action_label: draft.action_label,
+      target_users: draft.target_users,
+      target_cadmins: draft.target_cadmins,
+      created_at: draft.created_at,
+      updated_at: draft.updated_at,
+    }));
+
     return {
-      drafts,
+      drafts: formattedDrafts,
       pagination: {
         page,
         limit,
@@ -960,13 +1072,19 @@ export async function getCampaignById(campaignId) {
   try {
     const campaign = await prisma.broadcastCampaign.findUnique({
       where: { campaign_id: campaignId },
+      include: {
+        attachmentFiles: true,  // ✅ Include attachments
+      },
     });
 
     if (!campaign) {
       throw createError('Campaign not found', 404);
     }
 
-    return campaign;
+    return {
+      ...campaign,
+      attachments: formatAttachmentsForAPI(campaign.attachmentFiles),  // ✅ Format
+    };
   } catch (error) {
     console.error('[Broadcast Service] Get campaign by ID failed:', error);
     throw error;
