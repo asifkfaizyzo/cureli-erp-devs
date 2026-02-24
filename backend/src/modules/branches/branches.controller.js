@@ -2,6 +2,7 @@
 
 import { success, fail } from "../../utils/response.js";
 import * as audit from "../audit/index.js";
+
 import {
   getBranchesByShop,
   getBranchById,
@@ -14,11 +15,57 @@ import {
   getBranchActiveUsers,
   reactivateBranch,
   getBranchesForReassignment,
+  getCurrentBranchWithShop,  // ✅ ADD THIS IMPORT
 } from "./branches.service.js";
+
+// ✅ REMOVE the old `branchService` import - it doesn't exist
+
+/**
+ * GET /api/branches/current
+ * Get current branch with shop details (for print headers, etc.)
+ */
+/**
+ * GET /api/branches/current
+ * Get current branch with shop details (for print headers, etc.)
+ */
+export async function getCurrentBranchController(req, res) {
+  try {
+    const { shop_id, branch_id, role } = req.user;
+    
+    // Check header for branch context (SA branch switching)
+    let effectiveBranchId = branch_id;
+    const headerBranchId = req.headers['x-branch-id'] || req.headers['x-current-branch'];
+    if (!effectiveBranchId && headerBranchId) {
+      effectiveBranchId = headerBranchId;
+    }
+    
+    console.log('getCurrentBranchController:', { shop_id, branch_id, effectiveBranchId, role });
+
+    // ✅ Call the SERVICE function
+    const data = await getCurrentBranchWithShop(shop_id, effectiveBranchId);
+
+    if (!data.branch && !data.shop) {
+      return success(res, {
+        branch: null,
+        shop: null,
+        message: "No branch or shop found",
+      });
+    }
+
+    return success(res, data);
+  } catch (error) {
+    console.error("Get current branch error:", error);
+    return fail(res, "Failed to fetch current branch", 500);
+  }
+}
+
+// ✅ REMOVE the duplicate getCurrentBranch function you added earlier
+// Keep only getCurrentBranchController
 
 /**
  * ============================================
- * READ-ONLY CONTROLLERS (NO CHANGES NEEDED)
+ * REST OF YOUR EXISTING CONTROLLERS BELOW
+ * (No changes needed to other controllers)
  * ============================================
  */
 
@@ -147,26 +194,6 @@ export async function switchBranchController(req, res) {
   }
 }
 
-export async function getCurrentBranchController(req, res) {
-  try {
-    const { shop_id, branch_id } = req.user;
-
-    if (!branch_id) {
-      return success(res, {
-        branch: null,
-        message: "No branch selected",
-      });
-    }
-
-    const branch = await getBranchById(branch_id, shop_id);
-
-    return success(res, { branch });
-  } catch (error) {
-    console.error("Get current branch error:", error);
-    return fail(res, "Failed to fetch current branch", 500);
-  }
-}
-
 export async function getBranchLimitsController(req, res) {
   try {
     const { shop_id } = req.user;
@@ -238,11 +265,10 @@ export async function getReassignmentOptionsController(req, res) {
 
 /**
  * ============================================
- * AUDITABLE CONTROLLERS (UPDATED)
+ * AUDITABLE CONTROLLERS
  * ============================================
  */
 
-// ✅ UPDATED: Extract audit context
 export async function createBranchController(req, res) {
   try {
     const { shop_id, role } = req.user;
@@ -252,14 +278,11 @@ export async function createBranchController(req, res) {
       return fail(res, "Shop not found", 400);
     }
 
-    // Only super admin can create branches
     if (role !== "super_admin") {
       return fail(res, "Only Super Admin can create branches", 403);
     }
 
-    // Extract audit context
     const auditContext = audit.extractRequestContext(req);
-
     const branch = await createBranch(shop_id, data, auditContext);
 
     return success(res, { branch }, "Branch created successfully", 201);
@@ -277,7 +300,6 @@ export async function createBranchController(req, res) {
   }
 }
 
-// ✅ UPDATED: Extract audit context
 export async function updateBranchController(req, res) {
   try {
     const { branch_id } = req.params;
@@ -288,14 +310,11 @@ export async function updateBranchController(req, res) {
       return fail(res, "Shop not found", 400);
     }
 
-    // Branch admin can only edit their own branch
     if (role === "branch_admin" && branch_id !== userBranchId) {
       return fail(res, "You can only edit your own branch", 403);
     }
 
-    // Extract audit context
     const auditContext = audit.extractRequestContext(req);
-
     const branch = await updateBranch(branch_id, shop_id, data, auditContext);
 
     return success(res, { branch }, "Branch updated successfully");
@@ -313,7 +332,6 @@ export async function updateBranchController(req, res) {
   }
 }
 
-// ✅ UPDATED: Extract audit context
 export async function deleteBranchController(req, res) {
   try {
     const { branch_id } = req.params;
@@ -323,14 +341,11 @@ export async function deleteBranchController(req, res) {
       return fail(res, "Shop not found", 400);
     }
 
-    // Only super admin can delete branches
     if (role !== "super_admin") {
       return fail(res, "Only Super Admin can delete branches", 403);
     }
 
-    // Extract audit context
     const auditContext = audit.extractRequestContext(req);
-
     await deleteBranch(branch_id, shop_id, auditContext);
 
     return success(res, null, "Branch deactivated successfully");
@@ -354,7 +369,6 @@ export async function deleteBranchController(req, res) {
   }
 }
 
-// ✅ UPDATED: Extract audit context
 export async function reactivateBranchController(req, res) {
   try {
     const { branch_id } = req.params;
@@ -368,9 +382,7 @@ export async function reactivateBranchController(req, res) {
       return fail(res, "Only Super Admin can reactivate branches", 403);
     }
 
-    // Extract audit context
     const auditContext = audit.extractRequestContext(req);
-
     const branch = await reactivateBranch(branch_id, shop_id, auditContext);
 
     return success(res, { branch }, "Branch reactivated successfully");

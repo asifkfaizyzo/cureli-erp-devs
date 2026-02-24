@@ -609,3 +609,259 @@ export async function reactivateBranch(branch_id, shop_id, auditContext, options
 
   return updatedBranch;
 }
+
+export async function getCurrentBranchController(req, res) {
+  try {
+    const { user_id, shop_id, branch_id, role } = req.user;
+    
+    // ✅ For Super Admin, also check for branch context in headers or session
+    // Some systems store the "switched" branch differently
+    let effectiveBranchId = branch_id;
+    
+    // Check if branch context is passed in header (common pattern for SA branch switching)
+    const headerBranchId = req.headers['x-branch-id'] || req.headers['x-current-branch'];
+    if (!effectiveBranchId && headerBranchId) {
+      effectiveBranchId = headerBranchId;
+    }
+    
+    console.log('getCurrentBranchController:', {
+      user_id,
+      shop_id,
+      branch_id,
+      effectiveBranchId,
+      role,
+    });
+
+    // If still no branch, try to get the main branch for the shop
+    if (!effectiveBranchId && shop_id) {
+      console.log('No branch_id, fetching main branch for shop:', shop_id);
+      
+      const mainBranch = await prisma.branch.findFirst({
+        where: {
+          shop_id,
+          branch_type: 'main',
+          is_active: true,
+        },
+        select: {
+          branch_id: true,
+        },
+      });
+      
+      if (mainBranch) {
+        effectiveBranchId = mainBranch.branch_id;
+        console.log('Found main branch:', effectiveBranchId);
+      }
+    }
+
+    // If still no branch, try to get ANY active branch for the shop
+    if (!effectiveBranchId && shop_id) {
+      console.log('No main branch, fetching any branch for shop:', shop_id);
+      
+      const anyBranch = await prisma.branch.findFirst({
+        where: {
+          shop_id,
+          is_active: true,
+        },
+        select: {
+          branch_id: true,
+        },
+      });
+      
+      if (anyBranch) {
+        effectiveBranchId = anyBranch.branch_id;
+        console.log('Found branch:', effectiveBranchId);
+      }
+    }
+
+    if (!effectiveBranchId) {
+      // Still no branch - return shop data at least
+      if (shop_id) {
+        const shop = await prisma.shop.findUnique({
+          where: { shop_id },
+          select: {
+            shop_id: true,
+            business_name: true,
+            legal_name: true,
+            address_line_1: true,
+            address_line_2: true,
+            city: true,
+            state: true,
+            pincode: true,
+          },
+        });
+        
+        return success(res, {
+          branch: null,
+          shop: shop,
+          message: "No branch selected, returning shop info",
+        });
+      }
+      
+      return success(res, {
+        branch: null,
+        shop: null,
+        message: "No branch selected",
+      });
+    }
+
+    // ✅ Fetch branch and shop data
+    const branch = await prisma.branch.findUnique({
+      where: { branch_id: effectiveBranchId },
+      select: {
+        branch_id: true,
+        branch_name: true,
+        branch_type: true,
+        address_line_1: true,
+        address_line_2: true,
+        city: true,
+        state: true,
+        pincode: true,
+        contact_number: true,
+        alternate_number: true,
+        is_active: true,
+        shop_id: true,
+      },
+    });
+
+    if (!branch) {
+      return fail(res, "Branch not found", 404);
+    }
+
+    // Fetch shop data
+    const shop = await prisma.shop.findUnique({
+      where: { shop_id: branch.shop_id },
+      select: {
+        shop_id: true,
+        business_name: true,
+        legal_name: true,
+        address_line_1: true,
+        address_line_2: true,
+        city: true,
+        state: true,
+        pincode: true,
+      },
+    });
+
+    return success(res, {
+      branch: {
+        ...branch,
+        is_main: branch.branch_type === "main",
+      },
+      shop: shop,
+    });
+  } catch (error) {
+    console.error("Get current branch error:", error);
+    return fail(res, "Failed to fetch current branch", 500);
+  }
+}
+/**
+ * Get current branch with shop details for printing/display
+ * @param {string} shop_id - Shop ID
+ * @param {string} branch_id - Branch ID (optional)
+ * @returns {Object} - { branch, shop }
+ */
+export async function getCurrentBranchWithShop(shop_id, branch_id = null) {
+  try {
+    let effectiveBranchId = branch_id;
+
+    // If no branch_id provided, try to get main branch for shop
+    if (!effectiveBranchId && shop_id) {
+      const mainBranch = await prisma.branch.findFirst({
+        where: {
+          shop_id,
+          branch_type: 'main',
+          is_active: true,
+        },
+        select: { branch_id: true },
+      });
+      
+      if (mainBranch) {
+        effectiveBranchId = mainBranch.branch_id;
+      }
+    }
+
+    // If still no branch, try any active branch
+    if (!effectiveBranchId && shop_id) {
+      const anyBranch = await prisma.branch.findFirst({
+        where: { shop_id, is_active: true },
+        select: { branch_id: true },
+      });
+      
+      if (anyBranch) {
+        effectiveBranchId = anyBranch.branch_id;
+      }
+    }
+
+    // If still no branch, return shop data only
+    if (!effectiveBranchId) {
+      if (shop_id) {
+        const shop = await prisma.shop.findUnique({
+          where: { shop_id },
+          select: {
+            shop_id: true,
+            business_name: true,
+            legal_name: true,
+            address_line_1: true,
+            address_line_2: true,
+            city: true,
+            state: true,
+            pincode: true,
+          },
+        });
+        
+        return { branch: null, shop };
+      }
+      
+      return { branch: null, shop: null };
+    }
+
+    // Fetch branch data
+    const branch = await prisma.branch.findUnique({
+      where: { branch_id: effectiveBranchId },
+      select: {
+        branch_id: true,
+        branch_name: true,
+        branch_type: true,
+        address_line_1: true,
+        address_line_2: true,
+        city: true,
+        state: true,
+        pincode: true,
+        contact_number: true,
+        alternate_number: true,
+        is_active: true,
+        shop_id: true,
+      },
+    });
+
+    if (!branch) {
+      return { branch: null, shop: null };
+    }
+
+    // Fetch shop data
+    const shop = await prisma.shop.findUnique({
+      where: { shop_id: branch.shop_id },
+      select: {
+        shop_id: true,
+        business_name: true,
+        legal_name: true,
+        address_line_1: true,
+        address_line_2: true,
+        city: true,
+        state: true,
+        pincode: true,
+      },
+    });
+
+    return {
+      branch: {
+        ...branch,
+        is_main: branch.branch_type === "main",
+      },
+      shop,
+    };
+  } catch (error) {
+    console.error("getCurrentBranchWithShop error:", error);
+    throw error;
+  }
+}

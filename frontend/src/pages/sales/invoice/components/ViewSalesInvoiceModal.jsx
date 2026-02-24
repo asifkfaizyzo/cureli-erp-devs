@@ -46,6 +46,7 @@ import CreateSalesReturnModal from "./CreateSalesReturnModal";
 import ViewSalesReturnModal from "./ViewSalesReturnModal";
 import ViewModeContent from "./ViewModeContent";
 import EditModeContent from "./EditModeContent";
+import PrintSalesInvoiceModal from "./PrintSalesInvoiceModal";
 import {
   calculateEditRow,
   makeEmptyRow,
@@ -434,7 +435,6 @@ const PaymentStatusDropdownPortal = ({
               <div className="py-2">
                 {options.map((option, index) => {
                   const isCurrentStatus = option.value === paymentDisplay.effectiveStatus;
-                  const optConfig = PAYMENT_STATUS_CONFIG[option.value] || {};
 
                   return (
                     <button
@@ -568,6 +568,9 @@ const ViewSalesInvoiceModal = ({
   const [linkedReturns, setLinkedReturns] = useState([]);
   const [loadingReturns, setLoadingReturns] = useState(false);
 
+  // ✅ Print Modal State
+  const [showPrintModal, setShowPrintModal] = useState(false);
+
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     type: "warning",
@@ -597,6 +600,7 @@ const ViewSalesInvoiceModal = ({
     if (open && invoice) {
       setShowStatusMenu(false);
       setShowPaymentStatusMenu(false);
+      setShowPrintModal(false);
 
       if (initialMode === "edit") {
         const rows = transformInvoiceToRows(invoice);
@@ -663,7 +667,9 @@ const ViewSalesInvoiceModal = ({
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === "Escape" && open) {
-        if (showStatusMenu) {
+        if (showPrintModal) {
+          setShowPrintModal(false);
+        } else if (showStatusMenu) {
           setShowStatusMenu(false);
         } else if (showPaymentStatusMenu) {
           setShowPaymentStatusMenu(false);
@@ -684,7 +690,7 @@ const ViewSalesInvoiceModal = ({
       document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = "unset";
     };
-  }, [open, onClose, mode, showStatusMenu, showPaymentStatusMenu]);
+  }, [open, onClose, mode, showStatusMenu, showPaymentStatusMenu, showPrintModal]);
 
   useEffect(() => {
     if (mode === "edit" && medicines.length === 0) loadMedicines();
@@ -928,12 +934,9 @@ const ViewSalesInvoiceModal = ({
       if (!invoice || !isSuperAdmin || mode !== "edit") return;
 
       const netAmount = parseFloat(invoice.net_amount) || 0;
-      const currentPaid = parseFloat(invoice.paid_amount) || 0;
-      const rawBalance = netAmount - currentPaid;
 
       setShowPaymentStatusMenu(false);
 
-      // Similar confirmation logic as purchase...
       setConfirmDialog({
         isOpen: true,
         type: newStatus === "UNPAID" ? "danger" : "warning",
@@ -1107,33 +1110,34 @@ const ViewSalesInvoiceModal = ({
     });
   }, []);
 
- const handleBatchSelect = useCallback((index, batch) => {
-  setEditRows((prev) => {
-    const newRows = [...prev];
-    
-    let expStr = "";
-    if (batch.expiry_date) {
-      const d = new Date(batch.expiry_date);
-      if (!isNaN(d.getTime())) {
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const yy = String(d.getFullYear()).slice(-2);
-        expStr = `${mm}/${yy}`;
-      }
-    }
+  const handleBatchSelect = useCallback((index, batch) => {
+    setEditRows((prev) => {
+      const newRows = [...prev];
 
-    newRows[index] = {
-      ...newRows[index],
-      batch_id: batch.inventory_id, // ✅ inventory_id is the batch reference
-      batch: batch.batch_number,
-      exp: expStr,
-      mrp: String(batch.mrp || 0),
-      price: String(batch.selling_rate || batch.mrp || 0),
-      availableQty: batch.available_stock || 0,
-    };
-    newRows[index] = calculateEditRow(newRows[index]);
-    return newRows;
-  });
-}, []);
+      let expStr = "";
+      if (batch.expiry_date) {
+        const d = new Date(batch.expiry_date);
+        if (!isNaN(d.getTime())) {
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const yy = String(d.getFullYear()).slice(-2);
+          expStr = `${mm}/${yy}`;
+        }
+      }
+
+      newRows[index] = {
+        ...newRows[index],
+        batch_id: batch.inventory_id,
+        batch: batch.batch_number,
+        exp: expStr,
+        mrp: String(batch.mrp || 0),
+        price: String(batch.selling_rate || batch.mrp || 0),
+        availableQty: batch.available_stock || 0,
+      };
+      newRows[index] = calculateEditRow(newRows[index]);
+      return newRows;
+    });
+  }, []);
+
   const handleAddRow = useCallback(() => {
     setEditRows((prev) => [...prev, makeEmptyRow()]);
   }, []);
@@ -1151,134 +1155,131 @@ const ViewSalesInvoiceModal = ({
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handleSave = useCallback(async () => {
-  const filledRows = editRows.filter((r) => r.name && r.qty && parseFloat(r.qty) > 0);
+    const filledRows = editRows.filter((r) => r.name && r.qty && parseFloat(r.qty) > 0);
 
-  if (filledRows.length === 0) {
-    toast.warning("Missing Items", "Please add at least one item.");
-    return;
-  }
+    if (filledRows.length === 0) {
+      toast.warning("Missing Items", "Please add at least one item.");
+      return;
+    }
 
-  // ✅ Check for batch_id (which is inventory_id)
-  const missingBatches = filledRows.filter((r) => !r.batch_id);
-  if (missingBatches.length > 0) {
-    toast.warning(
-      "Missing Batches",
-      `${missingBatches.length} item(s) need batch selection.`
+    const missingBatches = filledRows.filter((r) => !r.batch_id);
+    if (missingBatches.length > 0) {
+      toast.warning(
+        "Missing Batches",
+        `${missingBatches.length} item(s) need batch selection.`
+      );
+      return;
+    }
+
+    const overStock = filledRows.filter(
+      (r) => r.availableQty > 0 && parseFloat(r.qty) > r.availableQty
     );
-    return;
-  }
+    if (overStock.length > 0) {
+      toast.warning(
+        "Insufficient Stock",
+        `${overStock.length} item(s) exceed available stock.`
+      );
+      return;
+    }
 
-  // Check stock limits
-  const overStock = filledRows.filter(
-    (r) => r.availableQty > 0 && parseFloat(r.qty) > r.availableQty
-  );
-  if (overStock.length > 0) {
-    toast.warning(
-      "Insufficient Stock",
-      `${overStock.length} item(s) exceed available stock.`
-    );
-    return;
-  }
+    const isConfirmed = invoice.status === "CONFIRMED";
 
-  const isConfirmed = invoice.status === "CONFIRMED";
-
-  if (isConfirmed) {
-    setConfirmDialog({
-      isOpen: true,
-      type: "warning",
-      title: "Update Confirmed Invoice",
-      message: (
-        <div className="space-y-3">
-          <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-            <Shield className="text-amber-600 shrink-0 mt-0.5" size={20} />
-            <div>
-              <p className="font-semibold text-amber-800">Super Admin Action</p>
-              <p className="text-sm text-amber-700 mt-1">
-                You are updating a confirmed invoice.
+    if (isConfirmed) {
+      setConfirmDialog({
+        isOpen: true,
+        type: "warning",
+        title: "Update Confirmed Invoice",
+        message: (
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <Shield className="text-amber-600 shrink-0 mt-0.5" size={20} />
+              <div>
+                <p className="font-semibold text-amber-800">Super Admin Action</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  You are updating a confirmed invoice.
+                </p>
+              </div>
+            </div>
+            <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+              <p className="text-sm text-red-800 font-medium flex items-center gap-2">
+                <AlertTriangle size={16} />
+                Stock Adjustment Warning
               </p>
+              <ul className="text-xs text-red-700 mt-2 list-disc list-inside space-y-1">
+                <li>Current deducted stock will be <strong>restored</strong></li>
+                <li>New stock based on updated quantities will be <strong>deducted</strong></li>
+                <li>Action is <strong>logged in audit trail</strong></li>
+              </ul>
             </div>
           </div>
-          <div className="bg-red-50 p-3 rounded-lg border border-red-200">
-            <p className="text-sm text-red-800 font-medium flex items-center gap-2">
-              <AlertTriangle size={16} />
-              Stock Adjustment Warning
-            </p>
-            <ul className="text-xs text-red-700 mt-2 list-disc list-inside space-y-1">
-              <li>Current deducted stock will be <strong>restored</strong></li>
-              <li>New stock based on updated quantities will be <strong>deducted</strong></li>
-              <li>Action is <strong>logged in audit trail</strong></li>
-            </ul>
-          </div>
-        </div>
-      ),
-      confirmText: "Update Invoice",
-      onConfirm: () => {
-        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
-        performSave(filledRows);
-      },
-    });
-  } else {
-    await performSave(filledRows);
-  }
-}, [editRows, invoice, toast]);
-
-const performSave = useCallback(
-  async (filledRows) => {
-    setIsSaving(true);
-
-    try {
-      const payload = {
-        payment_mode: invoice.payment_mode || null,
-        paid_amount: parseFloat(invoice.paid_amount) || null,
-        remarks: invoice.remarks || null,
-        lineItems: filledRows.map((row) => ({
-          medicine_id: row.medicine_id,
-          inventory_id: row.batch_id,  // ✅ CRITICAL FIX: Use inventory_id
-          quantity: parseFloat(row.qty) || 1,
-          unit_of_measure: row.unit_of_measure || "UNIT",  // ✅ Add this
-          selling_rate: parseFloat(row.price) || 0,
-          mrp: parseFloat(row.mrp) || 0,
-          discount_percent: parseFloat(row.discountPercent) || 0,
-          cgst_percent: parseFloat(row.cgstPercent) || 0,
-          sgst_percent: parseFloat(row.sgstPercent) || 0,
-        })),
-      };
-
-      console.log("📤 Sending update payload:", JSON.stringify(payload, null, 2));
-
-      await salesAPI.update(invoice.invoice_id, payload);
-
-      toast.success(
-        "Invoice Updated",
-        invoice.status === "CONFIRMED"
-          ? `Confirmed invoice ${invoice.invoice_number} updated. Stock levels adjusted.`
-          : `Invoice ${invoice.invoice_number} updated successfully.`
-      );
-
-      setMode("view");
-      setEditRows([]);
-      setOriginalData(null);
-      onRefresh?.();
-      onClose();
-    } catch (error) {
-      console.error("Save error:", error);
-
-      // Check for approved returns error
-      if (error.response?.data?.code === "APPROVED_RETURNS_EXIST") {
-        toast.error(
-          "Cannot Edit",
-          "This invoice has approved returns. Cancel the returns first."
-        );
-        return;
-      }
-
-      toast.error("Update Failed", error.response?.data?.message || "Failed to update invoice");
-    } finally {
-      setIsSaving(false);
+        ),
+        confirmText: "Update Invoice",
+        onConfirm: () => {
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+          performSave(filledRows);
+        },
+      });
+    } else {
+      await performSave(filledRows);
     }
-  },
-  [invoice, toast, onRefresh, onClose]
-);
+  }, [editRows, invoice, toast]);
+
+  const performSave = useCallback(
+    async (filledRows) => {
+      setIsSaving(true);
+
+      try {
+        const payload = {
+          payment_mode: invoice.payment_mode || null,
+          paid_amount: parseFloat(invoice.paid_amount) || null,
+          remarks: invoice.remarks || null,
+          lineItems: filledRows.map((row) => ({
+            medicine_id: row.medicine_id,
+            inventory_id: row.batch_id,
+            quantity: parseFloat(row.qty) || 1,
+            unit_of_measure: row.unit_of_measure || "UNIT",
+            selling_rate: parseFloat(row.price) || 0,
+            mrp: parseFloat(row.mrp) || 0,
+            discount_percent: parseFloat(row.discountPercent) || 0,
+            cgst_percent: parseFloat(row.cgstPercent) || 0,
+            sgst_percent: parseFloat(row.sgstPercent) || 0,
+          })),
+        };
+
+        console.log("📤 Sending update payload:", JSON.stringify(payload, null, 2));
+
+        await salesAPI.update(invoice.invoice_id, payload);
+
+        toast.success(
+          "Invoice Updated",
+          invoice.status === "CONFIRMED"
+            ? `Confirmed invoice ${invoice.invoice_number} updated. Stock levels adjusted.`
+            : `Invoice ${invoice.invoice_number} updated successfully.`
+        );
+
+        setMode("view");
+        setEditRows([]);
+        setOriginalData(null);
+        onRefresh?.();
+        onClose();
+      } catch (error) {
+        console.error("Save error:", error);
+
+        if (error.response?.data?.code === "APPROVED_RETURNS_EXIST") {
+          toast.error(
+            "Cannot Edit",
+            "This invoice has approved returns. Cancel the returns first."
+          );
+          return;
+        }
+
+        toast.error("Update Failed", error.response?.data?.message || "Failed to update invoice");
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [invoice, toast, onRefresh, onClose]
+  );
 
   // ═══════════════════════════════════════════════════════════════════════════
   // COMPUTED VALUES
@@ -1344,7 +1345,6 @@ const performSave = useCallback(
 
   const isConfirmed = invoice.status === "CONFIRMED";
   const isCancelled = invoice.status === "CANCELLED";
-  const isParked = invoice.status === "PARKED";
   const canEdit = isSuperAdmin && !isCancelled;
   const canDelete = !isConfirmed && !isCancelled;
 
@@ -1355,7 +1355,6 @@ const performSave = useCallback(
 
   const currentStatus = STATUS_CONFIG[invoice.status] || STATUS_CONFIG.DRAFT;
   const currentPayment = effectivePaymentDisplay.config;
-  const effectivePaymentStatus = effectivePaymentDisplay.effectiveStatus;
 
   const StatusIcon = currentStatus.icon;
   const PaymentIcon = currentPayment.icon;
@@ -1380,7 +1379,9 @@ const performSave = useCallback(
             exit="hidden"
             variants={ANIMATION_VARIANTS.backdrop}
             onClick={
-              mode === "view" && !showStatusMenu && !showPaymentStatusMenu ? onClose : undefined
+              mode === "view" && !showStatusMenu && !showPaymentStatusMenu && !showPrintModal
+                ? onClose
+                : undefined
             }
           />
 
@@ -1603,7 +1604,7 @@ const performSave = useCallback(
                     {mode === "view" ? (
                       <>
                         <button
-                          onClick={onPrint}
+                          onClick={() => setShowPrintModal(true)}
                           className="p-2.5 rounded-xl bg-[#000060]/5 hover:bg-[#000060]/10 text-[#000060] transition-all border border-[#000060]/10"
                           title="Print"
                         >
@@ -1816,6 +1817,13 @@ const performSave = useCallback(
             confirmText={confirmDialog.confirmText}
             cancelText={confirmDialog.cancelText || "Cancel"}
             type={confirmDialog.type}
+          />
+
+          {/* ✅ Print Modal */}
+          <PrintSalesInvoiceModal
+            open={showPrintModal}
+            onClose={() => setShowPrintModal(false)}
+            invoice={invoice}
           />
         </div>
       )}

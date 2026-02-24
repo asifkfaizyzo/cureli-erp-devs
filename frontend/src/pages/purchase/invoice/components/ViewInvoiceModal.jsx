@@ -2,6 +2,7 @@
 // Main Modal Container - Orchestrates View and Edit modes with Payment Status Dropdown
 // Updated with Payment Status Threshold Logic (Balance > ₹10 for Partially Paid)
 // Status/Payment dropdowns only available in Edit mode
+// ✅ UPDATED: Integrated PrintInvoiceModal
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -47,6 +48,7 @@ import CreateReturnModal from "../../returns/components/CreateReturnModal";
 import ViewModeContent from "./ViewModeContent";
 import EditModeContent from "./EditModeContent";
 import ViewReturnModal from "../../returns/components/ViewReturnModal";
+import PrintInvoiceModal from "./PrintInvoiceModal"; // ✅ NEW IMPORT
 import { 
   calculateEditRow, 
   makeEmptyRow, 
@@ -248,7 +250,6 @@ const StatusDropdownPortal = ({
 
 // ════════════════════════════════════════════════════════════════════════════
 // PAYMENT STATUS DROPDOWN PORTAL COMPONENT
-// Updated with threshold-based payment status display
 // ════════════════════════════════════════════════════════════════════════════
 
 const PaymentStatusDropdownPortal = ({ 
@@ -266,7 +267,7 @@ const PaymentStatusDropdownPortal = ({
   useEffect(() => {
     if (isOpen && anchorRef.current) {
       const rect = anchorRef.current.getBoundingClientRect();
-      const dropdownHeight = 400; // Increased for threshold info
+      const dropdownHeight = 400;
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
       const showAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
@@ -308,7 +309,6 @@ const PaymentStatusDropdownPortal = ({
 
   if (!isOpen) return null;
 
-  // Use threshold-aware payment display helper
   const paymentDisplay = getEffectivePaymentDisplay(invoice);
   const netAmount = parseFloat(invoice?.net_amount) || 0;
   const paidAmount = parseFloat(invoice?.paid_amount) || 0;
@@ -352,7 +352,7 @@ const PaymentStatusDropdownPortal = ({
                 </div>
               </div>
 
-              {/* Current Status & Balance - Using effective status */}
+              {/* Current Status & Balance */}
               <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[10px] text-gray-500 uppercase tracking-wider">Effective Status</p>
@@ -367,7 +367,6 @@ const PaymentStatusDropdownPortal = ({
                   </span>
                 </div>
 
-                {/* Show threshold applied indicator */}
                 {paymentDisplay.thresholdApplied && (
                   <div className="flex items-center gap-1.5 mb-2 px-2 py-1 bg-blue-50 rounded border border-blue-200">
                     <Info size={12} className="text-blue-600" />
@@ -395,7 +394,6 @@ const PaymentStatusDropdownPortal = ({
                   </div>
                 </div>
 
-                {/* Raw vs DB status if different */}
                 {paymentDisplay.effectiveStatus !== currentStatus && (
                   <div className="mt-2 text-[10px] text-gray-500 flex items-center gap-1">
                     <span>DB Status:</span>
@@ -410,7 +408,6 @@ const PaymentStatusDropdownPortal = ({
               {/* Options */}
               <div className="py-2">
                 {options.map((option, index) => {
-                  // Check against effective status for "current" marking
                   const isCurrentStatus = option.value === paymentDisplay.effectiveStatus;
                   const optConfig = PAYMENT_STATUS_CONFIG[option.value] || {};
                   
@@ -466,7 +463,7 @@ const PaymentStatusDropdownPortal = ({
                 })}
               </div>
 
-              {/* Footer with threshold info */}
+              {/* Footer */}
               <div className="px-4 py-3 bg-blue-50 border-t border-blue-100">
                 <div className="flex items-start gap-2">
                   <Info size={14} className="text-blue-600 shrink-0 mt-0.5" />
@@ -489,8 +486,6 @@ const PaymentStatusDropdownPortal = ({
   );
 };
 
-
-
 // ════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
@@ -499,12 +494,13 @@ const ViewInvoiceModal = ({
   open,
   onClose,
   invoice,
-  onPrint,
+  onPrint, // This will now open the print modal
   onEdit,
   onDelete,
   onRefresh,
   isSuperAdmin = false,
   initialMode = 'view',
+  companyInfo, // ✅ NEW: Company info for print modal
 }) => {
   const toast = useToast();
   
@@ -526,12 +522,15 @@ const ViewInvoiceModal = ({
   const [isChangingPaymentStatus, setIsChangingPaymentStatus] = useState(false);
   const [createReturnModal, setCreateReturnModal] = useState(false);
   
-  // ✅ NEW: Return viewing state
+  // ✅ NEW: Print modal state
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  
+  // Return viewing state
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   
-  // ✅ NEW: Linked returns state
+  // Linked returns state
   const [linkedReturns, setLinkedReturns] = useState([]);
   const [loadingReturns, setLoadingReturns] = useState(false);
   
@@ -564,6 +563,7 @@ const ViewInvoiceModal = ({
     if (open && invoice) {
       setShowStatusMenu(false);
       setShowPaymentStatusMenu(false);
+      setShowPrintModal(false); // ✅ Reset print modal state
       
       if (initialMode === 'edit') {
         const rows = transformInvoiceToRows(invoice);
@@ -581,70 +581,60 @@ const ViewInvoiceModal = ({
     }
   }, [open, invoice?.invoice_id, initialMode]);
 
-  // ✅ NEW: Fetch linked returns
-// Around line 920 in ViewInvoiceModal.jsx
-useEffect(() => {
-  const fetchLinkedReturns = async () => {
-    if (!invoice || !invoice.invoice_id) {
-      setLinkedReturns([]);
-      return;
-    }
-
-    // Don't fetch returns if this invoice itself is a return
-    if (invoice.is_return) {
-      setLinkedReturns([]);
-      return;
-    }
-
-    try {
-      setLoadingReturns(true);
-      console.log(`Fetching returns for invoice ${invoice.invoice_number} (ID: ${invoice.invoice_id})...`);
-      
-      // ✅ This should filter returns by parent_invoice_id
-      const response = await purchaseAPI.getAllReturns({
-        parent_invoice_id: invoice.invoice_id,  // ✅ This is the key filter
-        limit: 100,
-      });
-      
-      console.log("Returns API response:", response);
-      
-      if (response.success && response.data?.returns) {
-        // Additional filter to ensure only returns for THIS invoice
-        const filteredReturns = response.data.returns.filter(ret => 
-          ret.parent_invoice_id === invoice.invoice_id
-        );
-        
-        // Filter only approved returns
-        const approvedReturns = filteredReturns.filter(
-          ret => ret.status === 'CONFIRMED' || ret.return_approval_status === 'APPROVED'
-        );
-        
-        setLinkedReturns(approvedReturns);
-        
-        console.log(`Found ${approvedReturns.length} approved returns for invoice ${invoice.invoice_number}`);
-        console.log("Filtered returns:", approvedReturns);
-      } else {
+  // Fetch linked returns
+  useEffect(() => {
+    const fetchLinkedReturns = async () => {
+      if (!invoice || !invoice.invoice_id) {
         setLinkedReturns([]);
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching linked returns:', error);
-      setLinkedReturns([]);
-    } finally {
-      setLoadingReturns(false);
-    }
-  };
 
-  if (open && invoice) {
-    fetchLinkedReturns();
-  } else {
-    setLinkedReturns([]);
-  }
-}, [open, invoice?.invoice_id, invoice?.invoice_number]); // Added invoice_number to deps
+      if (invoice.is_return) {
+        setLinkedReturns([]);
+        return;
+      }
+
+      try {
+        setLoadingReturns(true);
+        const response = await purchaseAPI.getAllReturns({
+          parent_invoice_id: invoice.invoice_id,
+          limit: 100,
+        });
+        
+        if (response.success && response.data?.returns) {
+          const filteredReturns = response.data.returns.filter(ret => 
+            ret.parent_invoice_id === invoice.invoice_id
+          );
+          
+          const approvedReturns = filteredReturns.filter(
+            ret => ret.status === 'CONFIRMED' || ret.return_approval_status === 'APPROVED'
+          );
+          
+          setLinkedReturns(approvedReturns);
+        } else {
+          setLinkedReturns([]);
+        }
+      } catch (error) {
+        console.error('Error fetching linked returns:', error);
+        setLinkedReturns([]);
+      } finally {
+        setLoadingReturns(false);
+      }
+    };
+
+    if (open && invoice) {
+      fetchLinkedReturns();
+    } else {
+      setLinkedReturns([]);
+    }
+  }, [open, invoice?.invoice_id, invoice?.invoice_number]);
 
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === "Escape" && open) {
-        if (showStatusMenu) {
+        if (showPrintModal) {
+          setShowPrintModal(false);
+        } else if (showStatusMenu) {
           setShowStatusMenu(false);
         } else if (showPaymentStatusMenu) {
           setShowPaymentStatusMenu(false);
@@ -665,7 +655,7 @@ useEffect(() => {
       document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = "unset";
     };
-  }, [open, onClose, mode, showStatusMenu, showPaymentStatusMenu]);
+  }, [open, onClose, mode, showStatusMenu, showPaymentStatusMenu, showPrintModal]);
 
   useEffect(() => {
     if (mode === 'edit' && medicines.length === 0) loadMedicines();
@@ -705,6 +695,18 @@ useEffect(() => {
       setMedicinesLoading(false);
     }
   };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ✅ NEW: PRINT HANDLER
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const handlePrint = useCallback(() => {
+    setShowPrintModal(true);
+  }, []);
+
+  const handleClosePrintModal = useCallback(() => {
+    setShowPrintModal(false);
+  }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // STATUS CHANGE HANDLERS
@@ -853,7 +855,7 @@ useEffect(() => {
   }, [invoice, toast, onRefresh, onClose]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // PAYMENT STATUS CHANGE HANDLERS (Updated with threshold awareness)
+  // PAYMENT STATUS CHANGE HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
 
   const getPaymentStatusMenuOptions = useCallback(() => {
@@ -956,7 +958,6 @@ useEffect(() => {
         </div>
       );
     } else if (newStatus === 'PARTIALLY_PAID') {
-      // Check if current balance is within threshold - warn about auto-upgrade
       if (rawBalance <= PAYMENT_BALANCE_THRESHOLD && currentPaid > 0) {
         confirmTitle = 'Cannot Set Partially Paid';
         confirmButtonText = 'Understood';
@@ -985,7 +986,6 @@ useEffect(() => {
           </div>
         );
         
-        // Show info dialog only, don't actually change status
         setConfirmDialog({
           isOpen: true,
           type: confirmType,
@@ -994,7 +994,6 @@ useEffect(() => {
           confirmText: confirmButtonText,
           onConfirm: () => {
             setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-            // Don't perform any status change
           },
         });
         return;
@@ -1055,19 +1054,14 @@ useEffect(() => {
         payment_mode: 'CASH',
       };
 
-      // For PAID, set paid_amount to net_amount
       if (newStatus === 'PAID') {
         payload.paid_amount = netAmount;
-      } 
-      // For UNPAID, reset to 0
-      else if (newStatus === 'UNPAID') {
+      } else if (newStatus === 'UNPAID') {
         payload.paid_amount = 0;
       }
-      // For PARTIALLY_PAID, keep current amount (backend will validate threshold)
 
       await purchaseAPI.updatePaymentStatus(invoice.invoice_id, payload);
 
-      // Check if threshold was applied by backend
       const newBalance = newStatus === 'PAID' ? 0 : 
                         newStatus === 'UNPAID' ? netAmount :
                         (netAmount - currentPaid);
@@ -1084,7 +1078,6 @@ useEffect(() => {
 
       let toastMessage = `Invoice ${invoice.invoice_number} has been ${statusLabels[effectiveStatus]}.`;
       
-      // Add threshold note if auto-upgraded
       if (newStatus === 'PARTIALLY_PAID' && effectiveStatus === 'PAID') {
         toastMessage += ` (Balance was ≤₹${PAYMENT_BALANCE_THRESHOLD}, auto-upgraded to PAID)`;
       }
@@ -1106,12 +1099,11 @@ useEffect(() => {
   }, [invoice, toast, onRefresh, onClose]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ✅ NEW: RETURN VIEW HANDLERS
+  // RETURN VIEW HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handleViewReturn = useCallback(async (returnInvoice) => {
     try {
-      // If the return invoice doesn't have full details, fetch them
       if (!returnInvoice.lineItems) {
         setIsLoadingDetails(true);
         const response = await purchaseAPI.getReturnById(returnInvoice.invoice_id);
@@ -1138,13 +1130,12 @@ useEffect(() => {
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ✅ UPDATED: APPROVED RETURNS ERROR HANDLER
+  // APPROVED RETURNS ERROR HANDLER
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handleApprovedReturnsError = useCallback((errorData) => {
     const errorMessage = errorData.message || "";
     
-    // Use fetched returns if available, otherwise parse from error
     let returnNumbers = [];
     let returnReasons = [];
 
@@ -1152,7 +1143,6 @@ useEffect(() => {
       returnNumbers = linkedReturns.map(ret => ret.invoice_number);
       returnReasons = linkedReturns.map(ret => ret.return_reason || 'APPROVED');
     } else {
-      // Fallback: Parse from error message
       const returnNumberMatch = errorMessage.match(/return\(s\):\s*([A-Z0-9-,\s]+)\./);
       returnNumbers = returnNumberMatch 
         ? returnNumberMatch[1].split(',').map(s => s.trim())
@@ -1170,7 +1160,6 @@ useEffect(() => {
       title: 'Cannot Edit Invoice with Approved Returns',
       message: (
         <div className="space-y-4">
-          {/* Main Alert */}
           <div className="flex items-start gap-3 p-4 bg-red-50 rounded-lg border-2 border-red-200">
             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
               <XCircle size={24} className="text-red-600" />
@@ -1183,7 +1172,6 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Invoice Details */}
           <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
             <div className="flex items-center gap-2 mb-2">
               <FileText size={16} className="text-gray-600" />
@@ -1205,7 +1193,6 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Linked Returns */}
           {returnNumbers.length > 0 && (
             <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
               <div className="flex items-center gap-2 mb-3">
@@ -1230,7 +1217,6 @@ useEffect(() => {
             </div>
           )}
 
-          {/* Why This Happens */}
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
             <div className="flex items-start gap-2">
               <Info size={16} className="text-blue-600 shrink-0 mt-0.5" />
@@ -1244,7 +1230,6 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Solution Steps */}
           <div className="bg-green-50 p-4 rounded-lg border border-green-200">
             <div className="flex items-start gap-2 mb-2">
               <CheckCircle2 size={16} className="text-green-600 shrink-0 mt-0.5" />
@@ -1272,12 +1257,10 @@ useEffect(() => {
             </ol>
           </div>
 
-          {/* Action Buttons Row */}
           <div className="flex items-center gap-3 pt-2">
             <button
               onClick={() => {
                 setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-                // Navigate to returns page
                 window.location.href = '/purchase-returns';
               }}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all shadow-lg"
@@ -1288,7 +1271,6 @@ useEffect(() => {
             <button
               onClick={() => {
                 setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-                // Navigate to create new purchase
                 window.location.href = '/purchase-billing';
               }}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold transition-all shadow-lg"
@@ -1300,7 +1282,7 @@ useEffect(() => {
         </div>
       ),
       confirmText: 'Close',
-      cancelText: '', // Hide cancel button
+      cancelText: '',
       onConfirm: () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
@@ -1533,7 +1515,6 @@ useEffect(() => {
     } catch (error) {
       console.error("Save error:", error);
       
-      // ✅ Check for approved returns error
       if (error.response?.data?.code === 'APPROVED_RETURNS_EXIST') {
         handleApprovedReturnsError(error.response.data);
         return;
@@ -1596,16 +1577,13 @@ useEffect(() => {
   const canEdit = isSuperAdmin && !isCancelled;
   const canDelete = !isConfirmed && !isCancelled;
   
-  // Status/Payment dropdowns only available in EDIT mode
   const canChangeStatus = isSuperAdmin && !isCancelled && mode === 'edit';
   const canChangePaymentStatus = isSuperAdmin && !isCancelled && mode === 'edit';
 
-  // ✅ Use linkedReturns for UI decisions
   const showCreateReturnButton = isConfirmed && linkedReturns.length === 0;
 
   const currentStatus = STATUS_CONFIG[invoice.status] || STATUS_CONFIG.DRAFT;
   
-  // Use effective payment display for the badge (with threshold logic)
   const currentPayment = effectivePaymentDisplay.config;
   const effectivePaymentStatus = effectivePaymentDisplay.effectiveStatus;
   
@@ -1631,7 +1609,7 @@ useEffect(() => {
             animate="visible"
             exit="hidden"
             variants={ANIMATION_VARIANTS.backdrop}
-            onClick={mode === 'view' && !showStatusMenu && !showPaymentStatusMenu ? onClose : undefined}
+            onClick={mode === 'view' && !showStatusMenu && !showPaymentStatusMenu && !showPrintModal ? onClose : undefined}
           />
 
           {/* Main Panel */}
@@ -1695,7 +1673,7 @@ useEffect(() => {
 
                   {/* Status Badges */}
                   <div className="flex items-center gap-2">
-                    {/* Invoice Status Badge - Clickable only in edit mode */}
+                    {/* Invoice Status Badge */}
                     <button
                       ref={statusButtonRef}
                       onClick={() => canChangeStatus && setShowStatusMenu(!showStatusMenu)}
@@ -1712,7 +1690,7 @@ useEffect(() => {
                       {canChangeStatus && <ChevronDown size={12} className={`transition-transform duration-200 ${showStatusMenu ? 'rotate-180' : ''}`} />}
                     </button>
 
-                                        <StatusDropdownPortal
+                    <StatusDropdownPortal
                       isOpen={showStatusMenu}
                       anchorRef={statusButtonRef}
                       options={getStatusMenuOptions()}
@@ -1721,7 +1699,7 @@ useEffect(() => {
                       currentStatus={invoice.status}
                     />
 
-                    {/* Payment Status Badge - Clickable only in edit mode */}
+                    {/* Payment Status Badge */}
                     <button
                       ref={paymentStatusButtonRef}
                       onClick={() => canChangePaymentStatus && setShowPaymentStatusMenu(!showPaymentStatusMenu)}
@@ -1735,13 +1713,11 @@ useEffect(() => {
                     >
                       <PaymentIcon size={12} />
                       {currentPayment.label}
-                      {/* Only show balance if > threshold */}
                       {effectivePaymentDisplay.showBalance && (
                         <span className="text-[10px] opacity-75 ml-0.5">
                           ({formatCurrency(effectivePaymentDisplay.balance)})
                         </span>
                       )}
-                      {/* Show indicator if threshold was applied */}
                       {effectivePaymentDisplay.thresholdApplied && (
                         <span className="text-[10px] opacity-60 ml-0.5" title={`Balance ₹${effectivePaymentDisplay.rawBalance.toFixed(2)} ≤ ₹${PAYMENT_BALANCE_THRESHOLD} threshold`}>
                           ≈
@@ -1760,7 +1736,7 @@ useEffect(() => {
                       invoice={invoice}
                     />
 
-                    {/* ✅ NEW: Loading Returns Badge */}
+                    {/* Loading Returns Badge */}
                     {loadingReturns && (
                       <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
                         <Loader2 size={10} className="animate-spin" />
@@ -1768,7 +1744,7 @@ useEffect(() => {
                       </span>
                     )}
 
-                    {/* ✅ NEW: Linked Returns Badge */}
+                    {/* Linked Returns Badge */}
                     {!loadingReturns && linkedReturns.length > 0 && (
                       <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200 animate-pulse">
                         <Package size={10} />
@@ -1807,7 +1783,12 @@ useEffect(() => {
                   <div className="flex items-center gap-2">
                     {mode === 'view' ? (
                       <>
-                        <button onClick={onPrint} className="p-2.5 rounded-xl bg-[#000060]/5 hover:bg-[#000060]/10 text-[#000060] transition-all border border-[#000060]/10" title="Print">
+                        {/* ✅ UPDATED: Print button now opens print modal */}
+                        <button 
+                          onClick={handlePrint} 
+                          className="p-2.5 rounded-xl bg-[#000060]/5 hover:bg-[#000060]/10 text-[#000060] transition-all border border-[#000060]/10" 
+                          title="Print Invoice"
+                        >
                           <Printer size={18} />
                         </button>
                         <button className="p-2.5 rounded-xl bg-[#000060]/5 hover:bg-[#000060]/10 text-[#000060] transition-all border border-[#000060]/10" title="Download">
@@ -1831,7 +1812,7 @@ useEffect(() => {
                             <Trash2 size={18} />
                           </button>
                         )}
-                        <button onClick={onClose} className="p-2.5 rounded-xl bg-[#000060] text-white hover:bg-[#000060]/90 transition-all ml-2" title="Close">
+                                               <button onClick={onClose} className="p-2.5 rounded-xl bg-[#000060] text-white hover:bg-[#000060]/90 transition-all ml-2" title="Close">
                           <X size={18} />
                         </button>
                       </>
@@ -1873,7 +1854,7 @@ useEffect(() => {
               <ViewModeContent
                 invoice={{
                   ...invoice,
-                  returnInvoices: linkedReturns, // ✅ Pass fetched returns
+                  returnInvoices: linkedReturns,
                 }}
                 formatCurrency={formatCurrency}
                 formatDate={formatDate}
@@ -1891,7 +1872,7 @@ useEffect(() => {
               <EditModeContent
                 invoice={{
                   ...invoice,
-                  returnInvoices: linkedReturns, // ✅ Pass fetched returns
+                  returnInvoices: linkedReturns,
                 }}
                 editRows={editRows}
                 editSummary={editSummary}
@@ -1911,7 +1892,15 @@ useEffect(() => {
             )}
           </motion.div>
 
-          {/* ✅ NEW: View Return Modal */}
+          {/* ✅ NEW: Print Invoice Modal */}
+          <PrintInvoiceModal
+            open={showPrintModal}
+            onClose={handleClosePrintModal}
+            invoice={invoice}
+            companyInfo={companyInfo}
+          />
+
+          {/* View Return Modal */}
           {showReturnModal && selectedReturn && (
             <ViewReturnModal
               open={showReturnModal}

@@ -1174,4 +1174,4 @@ const PurchasePage = () => {
   );
 };
 
-export default PurchasePage;
+export default PurchasePage;4

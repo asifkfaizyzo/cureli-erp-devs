@@ -3,11 +3,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  TrendingUp,
-  TrendingDown,
   Package,
   ShoppingCart,
-  Users,
   DollarSign,
   AlertTriangle,
   RefreshCw,
@@ -19,45 +16,36 @@ import {
   Layers,
   FileText,
   Activity,
-  Shield,
   ChevronRight,
-  Filter,
-  Download,
   Bell,
   CreditCard,
   Truck,
   RotateCcw,
   AlertCircle,
   CheckCircle2,
-  XCircle,
-  Info,
   ExternalLink,
   Pill,
   BarChart3,
   PieChart as PieChartIcon,
-  TrendingDown as TrendingDownIcon,
+  Sparkles,
+  CircleDot,
+  Boxes,
 } from "lucide-react";
 import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell,
-  AreaChart,
   Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ComposedChart,
+  Bar,
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Store imports
 import {
   useAuthStore,
   selectBranchContext,
@@ -65,17 +53,15 @@ import {
 } from "../../store/useAuthStore";
 import { useToast } from "../../components/common/Toast";
 
-// API imports
 import salesAPI from "../../api/sales";
 import purchaseAPI from "../../api/purchase";
 import inventoryAPI from "../../api/inventory";
-import customersAPI from "../../api/customers";
-import { fetchUnreadCount, fetchRecentNotifications } from "../../api/notifications";
+import { fetchUnreadCount } from "../../api/notifications";
 import { getMySubscription } from "../../api/subscription";
 
-// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════
 // CONSTANTS & HELPERS
-// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════
 
 const COLORS = {
   primary: "#000060",
@@ -90,28 +76,11 @@ const COLORS = {
   orange: "#F97316",
 };
 
-const CHART_COLORS = [
-  "#000060",
-  "#4F46E5",
-  "#10B981",
-  "#F59E0B",
-  "#EF4444",
-  "#8B5CF6",
-  "#EC4899",
-  "#14B8A6",
-];
-
 const formatCurrency = (value) => {
   const num = parseFloat(value) || 0;
-  if (num >= 10000000) {
-    return `₹${(num / 10000000).toFixed(2)}Cr`;
-  }
-  if (num >= 100000) {
-    return `₹${(num / 100000).toFixed(2)}L`;
-  }
-  if (num >= 1000) {
-    return `₹${(num / 1000).toFixed(1)}K`;
-  }
+  if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
+  if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
+  if (num >= 1000) return `₹${(num / 1000).toFixed(1)}K`;
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
@@ -120,40 +89,29 @@ const formatCurrency = (value) => {
   }).format(num);
 };
 
-const formatFullCurrency = (value) => {
-  return new Intl.NumberFormat("en-IN", {
+const formatFullCurrency = (value) =>
+  new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(parseFloat(value) || 0);
-};
 
-const formatNumber = (value) => {
-  return new Intl.NumberFormat("en-IN").format(value || 0);
-};
+const formatNumber = (value) =>
+  new Intl.NumberFormat("en-IN").format(value || 0);
 
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-  });
-};
-
-const formatDateTime = (date) => {
-  return new Date(date).toLocaleString("en-IN", {
+const formatDateTime = (date) =>
+  new Date(date).toLocaleString("en-IN", {
     day: "numeric",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
   });
-};
 
 const getDateRange = (range) => {
   const endDate = new Date();
   endDate.setHours(23, 59, 59, 999);
   let startDate = new Date();
-
   switch (range) {
     case "today":
       startDate.setHours(0, 0, 0, 0);
@@ -174,254 +132,305 @@ const getDateRange = (range) => {
       startDate.setDate(endDate.getDate() - 7);
       startDate.setHours(0, 0, 0, 0);
   }
-
   return {
     startDate: startDate.toISOString().split("T")[0],
     endDate: endDate.toISOString().split("T")[0],
   };
 };
 
-const calculatePercentageChange = (current, previous) => {
-  if (!previous || previous === 0) return current > 0 ? 100 : 0;
-  return ((current - previous) / previous * 100).toFixed(1);
+// ════════════════════════════════════════════
+// HELPER: Safely extract data from API response
+// ════════════════════════════════════════════
+
+const extractData = (result, fallback = null) => {
+  if (result.status !== "fulfilled") return fallback;
+  
+  const value = result.value;
+  
+  // Handle { success: true, data: {...} } structure
+  if (value?.success && value?.data !== undefined) {
+    return value.data;
+  }
+  
+  // Handle direct data structure
+  if (value?.data !== undefined) {
+    return value.data;
+  }
+  
+  // Handle plain object response
+  return value || fallback;
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// SKELETON COMPONENTS
-// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════
+// BACKGROUND PATTERN
+// ════════════════════════════════════════════
+
+const GridPattern = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.03]">
+    <svg width="100%" height="100%">
+      <defs>
+        <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+          <circle cx="16" cy="16" r="1" fill="currentColor" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid)" />
+    </svg>
+  </div>
+);
+
+// ════════════════════════════════════════════
+// PULSE DOT
+// ════════════════════════════════════════════
+
+const PulseDot = ({ color = "emerald" }) => (
+  <span className="relative flex h-2 w-2">
+    <span
+      className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-${color}-400 opacity-75`}
+    />
+    <span
+      className={`relative inline-flex rounded-full h-2 w-2 bg-${color}-500`}
+    />
+  </span>
+);
+
+// ════════════════════════════════════════════
+// SKELETONS
+// ════════════════════════════════════════════
 
 const StatCardSkeleton = () => (
-  <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm animate-pulse">
-    <div className="flex items-start justify-between mb-3">
-      <div className="w-10 h-10 bg-gray-200 rounded-lg" />
-      <div className="w-16 h-5 bg-gray-200 rounded-full" />
-    </div>
-    <div className="h-3 bg-gray-200 rounded w-20 mb-2" />
-    <div className="h-7 bg-gray-200 rounded w-28" />
-  </div>
-);
-
-const ChartSkeleton = ({ height = 300 }) => (
-  <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 animate-pulse">
-    <div className="h-5 bg-gray-200 rounded w-40 mb-2" />
-    <div className="h-3 bg-gray-200 rounded w-60 mb-4" />
-    <div className={`bg-gray-100 rounded-lg`} style={{ height }} />
-  </div>
-);
-
-const ListSkeleton = ({ rows = 5 }) => (
-  <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 animate-pulse">
-    <div className="h-5 bg-gray-200 rounded w-40 mb-4" />
-    <div className="space-y-3">
-      {[...Array(rows)].map((_, i) => (
-        <div key={i} className="flex items-center gap-3 p-3">
-          <div className="w-10 h-10 bg-gray-200 rounded-lg" />
-          <div className="flex-1">
-            <div className="h-4 bg-gray-200 rounded w-32 mb-1" />
-            <div className="h-3 bg-gray-200 rounded w-24" />
-          </div>
-          <div className="h-4 bg-gray-200 rounded w-20" />
-        </div>
-      ))}
+  <div className="bg-white/70 backdrop-blur rounded-2xl p-3.5 border border-gray-100/80 animate-pulse">
+    <div className="flex items-center gap-3">
+      <div className="w-9 h-9 bg-gray-200 rounded-xl" />
+      <div className="flex-1">
+        <div className="h-2.5 bg-gray-200 rounded w-16 mb-1.5" />
+        <div className="h-5 bg-gray-200 rounded w-24" />
+      </div>
+      <div className="w-12 h-5 bg-gray-200 rounded-full" />
     </div>
   </div>
 );
 
-// ════════════════════════════════════════════════════════════════════════════
-// STAT CARD COMPONENT
-// ════════════════════════════════════════════════════════════════════════════
+const ChartSkeleton = ({ h = 240 }) => (
+  <div className="bg-white/70 backdrop-blur rounded-2xl p-4 border border-gray-100/80 animate-pulse">
+    <div className="h-4 bg-gray-200 rounded w-32 mb-3" />
+    <div className="bg-gray-100 rounded-xl" style={{ height: h }} />
+  </div>
+);
+
+// ════════════════════════════════════════════
+// STAT CARD
+// ════════════════════════════════════════════
 
 const StatCard = ({
   title,
   value,
-  subValue,
+  sub,
   change,
-  icon: Icon,
-  color,
   trend,
+  icon: Icon,
+  gradient,
   onClick,
   loading,
-  suffix,
-  prefix,
+  delay = 0,
 }) => {
-  const isPositive = trend === "up";
-  const TrendIcon = isPositive ? ArrowUpRight : ArrowDownRight;
+  if (loading) return <StatCardSkeleton />;
 
-  const colorClasses = {
-    blue: "bg-blue-50 text-blue-600 border-blue-100",
-    green: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    purple: "bg-purple-50 text-purple-600 border-purple-100",
-    amber: "bg-amber-50 text-amber-600 border-amber-100",
-    red: "bg-red-50 text-red-600 border-red-100",
-    indigo: "bg-indigo-50 text-indigo-600 border-indigo-100",
-    teal: "bg-teal-50 text-teal-600 border-teal-100",
-    pink: "bg-pink-50 text-pink-600 border-pink-100",
+  const isUp = trend === "up";
+  const hasChange = change !== undefined && change !== null && !isNaN(change);
+  
+  const gradients = {
+    green: "from-emerald-500 to-teal-600",
+    blue: "from-blue-500 to-indigo-600",
+    purple: "from-purple-500 to-violet-600",
+    amber: "from-amber-500 to-orange-600",
+    red: "from-red-500 to-rose-600",
+    pink: "from-pink-500 to-rose-600",
+    teal: "from-teal-500 to-cyan-600",
+    indigo: "from-indigo-500 to-blue-600",
+    cyan: "from-cyan-500 to-blue-600",
   };
-
-  if (loading) {
-    return <StatCardSkeleton />;
-  }
 
   return (
     <motion.div
-      whileHover={{ scale: 1.02, y: -2 }}
-      whileTap={{ scale: 0.98 }}
-      className={`bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all ${
-        onClick ? "cursor-pointer hover:border-indigo-200" : ""
-      }`}
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{
+        delay: delay * 0.05,
+        type: "spring",
+        stiffness: 300,
+        damping: 25,
+      }}
+      whileHover={{ y: -3, scale: 1.02 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onClick}
+      className={`relative overflow-hidden bg-white/80 backdrop-blur-sm rounded-2xl p-3.5 
+        border border-gray-100/80 shadow-sm hover:shadow-lg hover:border-indigo-200/60
+        transition-all duration-300 group ${onClick ? "cursor-pointer" : ""}`}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className={`p-2.5 rounded-lg border ${colorClasses[color]}`}>
-          <Icon size={18} strokeWidth={2} />
+      <div
+        className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${
+          gradients[gradient] || gradients.blue
+        } 
+        opacity-0 group-hover:opacity-100 transition-opacity`}
+      />
+
+      <div className="flex items-center gap-3">
+        <div
+          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${
+            gradients[gradient] || gradients.blue
+          } 
+          flex items-center justify-center shadow-sm group-hover:shadow-md 
+          group-hover:scale-110 transition-all duration-300`}
+        >
+          <Icon size={16} className="text-white" strokeWidth={2.5} />
         </div>
-        {change !== undefined && change !== null && (
+
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider truncate">
+            {title}
+          </p>
+          <p className="text-lg font-extrabold text-gray-900 leading-tight tracking-tight">
+            {value}
+          </p>
+        </div>
+
+        {hasChange && (
           <div
-            className={`flex items-center gap-0.5 text-xs font-semibold px-2 py-1 rounded-full ${
-              isPositive
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-red-50 text-red-700"
+            className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full
+            ${
+              isUp
+                ? "bg-emerald-50 text-emerald-600"
+                : "bg-red-50 text-red-600"
             }`}
           >
-            <TrendIcon size={12} />
-            <span>{Math.abs(change)}%</span>
+            {isUp ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+            {Math.abs(change).toFixed(1)}%
           </div>
         )}
       </div>
-      <p className="text-gray-500 text-xs font-medium mb-1 uppercase tracking-wide">
-        {title}
-      </p>
-      <p className="text-2xl font-bold text-gray-900">
-        {prefix}
-        {value}
-        {suffix && <span className="text-sm font-normal text-gray-500 ml-1">{suffix}</span>}
-      </p>
-      {subValue && (
-        <p className="text-xs text-gray-500 mt-1">{subValue}</p>
+
+      {sub && (
+        <p className="text-[10px] text-gray-400 mt-1.5 pl-12 truncate">
+          {sub}
+        </p>
       )}
+
       {onClick && (
-        <div className="flex items-center gap-1 mt-2 text-xs text-indigo-600 font-medium">
-          <span>View details</span>
-          <ChevronRight size={12} />
-        </div>
+        <ChevronRight
+          size={14}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 
+            group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all"
+        />
       )}
     </motion.div>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// QUICK ACTION CARD
-// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════
+// QUICK ACTION PILL
+// ════════════════════════════════════════════
 
-const QuickActionCard = ({ title, description, icon: Icon, color, onClick, badge }) => {
-  const colorClasses = {
-    blue: "from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-blue-500/25",
-    green: "from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 shadow-emerald-500/25",
-    purple: "from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 shadow-purple-500/25",
-    amber: "from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-amber-500/25",
-    indigo: "from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-indigo-500/25",
-    teal: "from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 shadow-teal-500/25",
+const QuickAction = ({
+  title,
+  icon: Icon,
+  gradient,
+  onClick,
+  badge,
+  delay = 0,
+}) => {
+  const gradients = {
+    green:
+      "from-emerald-500 to-teal-600 shadow-emerald-500/20 hover:shadow-emerald-500/30",
+    blue: "from-blue-500 to-indigo-600 shadow-blue-500/20 hover:shadow-blue-500/30",
+    purple:
+      "from-purple-500 to-violet-600 shadow-purple-500/20 hover:shadow-purple-500/30",
+    amber:
+      "from-amber-500 to-orange-600 shadow-amber-500/20 hover:shadow-amber-500/30",
+    indigo:
+      "from-indigo-500 to-blue-600 shadow-indigo-500/20 hover:shadow-indigo-500/30",
+    teal: "from-teal-500 to-cyan-600 shadow-teal-500/20 hover:shadow-teal-500/30",
   };
 
   return (
     <motion.button
-      whileHover={{ scale: 1.03, y: -2 }}
-      whileTap={{ scale: 0.97 }}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: delay * 0.08, type: "spring", stiffness: 400 }}
+      whileHover={{ scale: 1.05, y: -2 }}
+      whileTap={{ scale: 0.93 }}
       onClick={onClick}
-      className={`relative overflow-hidden rounded-xl p-4 bg-gradient-to-br ${colorClasses[color]} 
-                  text-white shadow-lg hover:shadow-xl transition-all group w-full text-left`}
+      className={`relative flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-gradient-to-r 
+        ${gradients[gradient]} text-white font-semibold text-xs shadow-lg hover:shadow-xl 
+        transition-all duration-300 group overflow-hidden flex-shrink-0`}
     >
+      <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors" />
+      <Icon
+        size={16}
+        className="relative z-10 group-hover:rotate-12 transition-transform"
+        strokeWidth={2.5}
+      />
+      <span className="relative z-10 whitespace-nowrap">{title}</span>
       {badge && (
-        <span className="absolute top-2 right-2 bg-white/20 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+        <span className="relative z-10 bg-white/25 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
           {badge}
         </span>
       )}
-      <div className="relative z-10">
-        <Icon size={24} className="mb-2 group-hover:scale-110 transition-transform" />
-        <h4 className="font-semibold text-sm">{title}</h4>
-        <p className="text-xs opacity-90 mt-1">{description}</p>
-      </div>
-      <div className="absolute -bottom-4 -right-4 opacity-10 group-hover:opacity-20 transition-opacity">
-        <Icon size={80} />
-      </div>
     </motion.button>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// BRANCH CONTEXT BANNER
-// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════
+// BRANCH BADGE
+// ════════════════════════════════════════════
 
-const BranchContextBanner = ({ isGlobalMode, branchName, lastUpdated }) => {
-  if (isGlobalMode) {
-    return (
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-3 sm:p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-100 rounded-lg">
-              <Layers size={16} className="text-blue-600" />
-            </div>
-            <div>
-              <span className="text-sm font-medium text-blue-900">
-                All Branches Overview
-              </span>
-              <span className="ml-2 text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">
-                Combined
-              </span>
-            </div>
-          </div>
-          {lastUpdated && (
-            <span className="text-xs text-blue-600 flex items-center gap-1">
-              <Clock size={12} />
-              Updated {formatDateTime(lastUpdated)}
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  }
+const BranchBadge = ({ isGlobalMode, branchName, lastUpdated }) => (
+  <motion.div
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border
+      ${
+        isGlobalMode
+          ? "bg-blue-50/80 border-blue-200/60 text-blue-700"
+          : "bg-emerald-50/80 border-emerald-200/60 text-emerald-700"
+      } backdrop-blur-sm`}
+  >
+    {isGlobalMode ? (
+      <Layers size={12} className="text-blue-500" />
+    ) : (
+      <Building2 size={12} className="text-emerald-500" />
+    )}
+    <span>{isGlobalMode ? "All Branches" : branchName || "Branch"}</span>
+    <PulseDot color={isGlobalMode ? "blue" : "emerald"} />
+    {lastUpdated && (
+      <span className="text-[10px] opacity-60 ml-1">
+        {formatDateTime(lastUpdated)}
+      </span>
+    )}
+  </motion.div>
+);
 
+// ════════════════════════════════════════════
+// CHART TOOLTIP
+// ════════════════════════════════════════════
+
+const ChartTooltip = ({ active, payload, label, isCurrency = false }) => {
+  if (!active || !payload?.length) return null;
   return (
-    <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3 sm:p-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-green-100 rounded-lg">
-            <Building2 size={16} className="text-green-600" />
-          </div>
-          <span className="text-sm font-medium text-green-900">
-            {branchName || "Selected Branch"}
-          </span>
-        </div>
-        {lastUpdated && (
-          <span className="text-xs text-green-600 flex items-center gap-1">
-            <Clock size={12} />
-            Updated {formatDateTime(lastUpdated)}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ════════════════════════════════════════════════════════════════════════════
-// CUSTOM CHART TOOLTIP
-// ════════════════════════════════════════════════════════════════════════════
-
-const CustomTooltip = ({ active, payload, label, isCurrency = false }) => {
-  if (!active || !payload || !payload.length) return null;
-
-  return (
-    <div className="bg-white p-3 rounded-xl shadow-xl border border-gray-200">
-      <p className="text-xs font-semibold text-gray-800 mb-2 border-b pb-1">{label}</p>
-      {payload.map((entry, index) => (
-        <div key={index} className="flex items-center gap-2 py-0.5">
+    <div className="bg-gray-900/95 backdrop-blur-lg p-3 rounded-xl shadow-2xl border border-gray-700/50">
+      <p className="text-[10px] font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">
+        {label}
+      </p>
+      {payload.map((entry, i) => (
+        <div key={i} className="flex items-center gap-2 py-0.5">
           <div
-            className="w-2.5 h-2.5 rounded-full"
+            className="w-2 h-2 rounded-full"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-xs text-gray-600">{entry.name}:</span>
-          <span className="text-xs font-bold text-gray-900 ml-auto">
-            {isCurrency ? formatFullCurrency(entry.value) : formatNumber(entry.value)}
+          <span className="text-[11px] text-gray-400">{entry.name}:</span>
+          <span className="text-[11px] font-bold text-white ml-auto pl-3">
+            {isCurrency
+              ? formatFullCurrency(entry.value)
+              : formatNumber(entry.value)}
           </span>
         </div>
       ))}
@@ -429,167 +438,173 @@ const CustomTooltip = ({ active, payload, label, isCurrency = false }) => {
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// ALERT CARD COMPONENT
-// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════
+// ALERT PILL
+// ════════════════════════════════════════════
 
-const AlertCard = ({ type, title, message, count, onClick, icon: Icon }) => {
+const AlertPill = ({ type, title, count, icon: Icon, onClick }) => {
   const styles = {
-    warning: {
-      bg: "bg-gradient-to-r from-amber-50 to-orange-50",
-      border: "border-amber-200",
-      iconBg: "bg-amber-100",
-      iconColor: "text-amber-600",
-      textColor: "text-amber-900",
-      subTextColor: "text-amber-700",
-    },
-    danger: {
-      bg: "bg-gradient-to-r from-red-50 to-pink-50",
-      border: "border-red-200",
-      iconBg: "bg-red-100",
-      iconColor: "text-red-600",
-      textColor: "text-red-900",
-      subTextColor: "text-red-700",
-    },
-    info: {
-      bg: "bg-gradient-to-r from-blue-50 to-indigo-50",
-      border: "border-blue-200",
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-      textColor: "text-blue-900",
-      subTextColor: "text-blue-700",
-    },
-    success: {
-      bg: "bg-gradient-to-r from-green-50 to-emerald-50",
-      border: "border-green-200",
-      iconBg: "bg-green-100",
-      iconColor: "text-green-600",
-      textColor: "text-green-900",
-      subTextColor: "text-green-700",
-    },
+    warning:
+      "bg-amber-50/80 border-amber-200/60 text-amber-700 hover:bg-amber-100/80",
+    danger:
+      "bg-red-50/80 border-red-200/60 text-red-700 hover:bg-red-100/80",
+    info: "bg-blue-50/80 border-blue-200/60 text-blue-700 hover:bg-blue-100/80",
+    success:
+      "bg-emerald-50/80 border-emerald-200/60 text-emerald-700 hover:bg-emerald-100/80",
+  };
+  const iconStyles = {
+    warning: "text-amber-500",
+    danger: "text-red-500",
+    info: "text-blue-500",
+    success: "text-emerald-500",
   };
 
-  const style = styles[type] || styles.info;
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.02 }}
-      className={`${style.bg} border ${style.border} rounded-xl p-4 cursor-pointer`}
+    <motion.button
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onClick}
+      className={`flex items-center gap-2 px-3 py-2 rounded-xl border backdrop-blur-sm 
+        transition-all text-xs font-medium group flex-shrink-0 ${styles[type]}`}
     >
-      <div className="flex items-start gap-3">
-        <div className={`p-2 rounded-lg ${style.iconBg}`}>
-          <Icon className={style.iconColor} size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
-            <h4 className={`font-semibold text-sm ${style.textColor}`}>{title}</h4>
-            {count !== undefined && (
-              <span className={`text-lg font-bold ${style.textColor}`}>{count}</span>
-            )}
-          </div>
-          <p className={`text-xs ${style.subTextColor} mt-1`}>{message}</p>
-          <span className={`inline-flex items-center gap-1 text-xs font-medium ${style.textColor} mt-2`}>
-            View details <ChevronRight size={12} />
-          </span>
-        </div>
-      </div>
-    </motion.div>
+      <Icon size={14} className={iconStyles[type]} />
+      <span className="truncate whitespace-nowrap">{title}</span>
+      {count > 0 && (
+        <span className="bg-white/60 font-bold text-[10px] px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+          {count}
+        </span>
+      )}
+    </motion.button>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// TRANSACTION ITEM COMPONENT
-// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════
+// METRIC CHIP (compact secondary stat)
+// ════════════════════════════════════════════
 
-const TransactionItem = ({ transaction, onClick }) => {
-  const typeConfig = {
+const MetricChip = ({
+  icon: Icon,
+  label,
+  value,
+  badge,
+  color = "gray",
+  onClick,
+  loading,
+}) => {
+  const colors = {
+    amber: "text-amber-500",
+    red: "text-red-500",
+    pink: "text-pink-500",
+    teal: "text-teal-500",
+    blue: "text-blue-500",
+    green: "text-green-500",
+    gray: "text-gray-500",
+    indigo: "text-indigo-500",
+    cyan: "text-cyan-500",
+  };
+
+  if (loading)
+    return (
+      <div className="flex items-center gap-2 px-2 py-1 animate-pulse">
+        <div className="w-3 h-3 bg-gray-200 rounded" />
+        <div className="w-10 h-2.5 bg-gray-200 rounded" />
+        <div className="w-8 h-3 bg-gray-200 rounded" />
+      </div>
+    );
+
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-gray-100/80 
+        transition-all group cursor-pointer whitespace-nowrap active:scale-95"
+    >
+      <Icon
+        size={12}
+        className={`${
+          colors[color] || colors.gray
+        } group-hover:scale-110 transition-transform`}
+      />
+      <span className="text-[10px] text-gray-400 font-medium">{label}</span>
+      <span className="text-[11px] font-bold text-gray-800">{value}</span>
+      {badge && (
+        <span className="text-[9px] text-gray-400">({badge})</span>
+      )}
+    </button>
+  );
+};
+
+// ════════════════════════════════════════════
+// TRANSACTION ROW
+// ════════════════════════════════════════════
+
+const TransactionRow = ({ tx, onClick }) => {
+  const cfg = {
     SALE: {
       icon: ShoppingCart,
-      bg: "bg-green-100",
-      color: "text-green-600",
-      label: "Sale",
+      bg: "bg-emerald-100",
+      color: "text-emerald-600",
     },
-    PURCHASE: {
-      icon: Truck,
-      bg: "bg-blue-100",
-      color: "text-blue-600",
-      label: "Purchase",
-    },
-    RETURN: {
-      icon: RotateCcw,
-      bg: "bg-red-100",
-      color: "text-red-600",
-      label: "Return",
-    },
-    PAYMENT: {
-      icon: CreditCard,
-      bg: "bg-purple-100",
-      color: "text-purple-600",
-      label: "Payment",
-    },
+    PURCHASE: { icon: Truck, bg: "bg-blue-100", color: "text-blue-600" },
+    RETURN: { icon: RotateCcw, bg: "bg-red-100", color: "text-red-600" },
   };
-
-  const config = typeConfig[transaction.type] || typeConfig.SALE;
-  const Icon = config.icon;
-
-  const statusColors = {
-    CONFIRMED: "bg-green-100 text-green-700",
-    DRAFT: "bg-gray-100 text-gray-700",
-    PENDING: "bg-yellow-100 text-yellow-700",
-    CANCELLED: "bg-red-100 text-red-700",
-    PAID: "bg-emerald-100 text-emerald-700",
-    UNPAID: "bg-amber-100 text-amber-700",
+  const c = cfg[tx.type] || cfg.SALE;
+  const TxIcon = c.icon;
+  const statusClr = {
+    CONFIRMED: "text-emerald-600 bg-emerald-50",
+    DRAFT: "text-gray-500 bg-gray-50",
+    PENDING: "text-amber-600 bg-amber-50",
+    CANCELLED: "text-red-600 bg-red-50",
   };
 
   return (
     <motion.div
-      whileHover={{ x: 4 }}
-      className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer group"
+      whileHover={{ x: 3, backgroundColor: "rgba(99,102,241,0.03)" }}
       onClick={onClick}
+      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors group"
     >
-      <div className="flex items-center gap-3 min-w-0">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.bg}`}>
-          <Icon size={18} className={config.color} />
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-gray-900 truncate">
-              {transaction.invoice_number}
-            </p>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-              statusColors[transaction.status] || statusColors.DRAFT
-            }`}>
-              {transaction.status}
-            </span>
-          </div>
-          <p className="text-xs text-gray-500 truncate">
-            {transaction.party_name || "Walk-in"} • {formatDateTime(transaction.date)}
+      <div
+        className={`w-8 h-8 rounded-lg flex items-center justify-center ${c.bg} flex-shrink-0`}
+      >
+        <TxIcon size={14} className={c.color} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-gray-900 truncate">
+            {tx.invoice_number}
           </p>
+          <span
+            className={`text-[9px] px-1 py-px rounded font-medium ${
+              statusClr[tx.status] || statusClr.DRAFT
+            }`}
+          >
+            {tx.status}
+          </span>
         </div>
-      </div>
-      <div className="text-right flex-shrink-0 ml-2">
-        <p className={`text-sm font-bold ${
-          transaction.type === "RETURN" ? "text-red-600" : "text-gray-900"
-        }`}>
-          {transaction.type === "RETURN" ? "-" : ""}{formatCurrency(transaction.amount)}
+        <p className="text-[10px] text-gray-400 truncate">
+          {tx.party_name || "Walk-in"} · {formatDateTime(tx.date)}
         </p>
-        <ChevronRight size={14} className="text-gray-400 group-hover:text-indigo-600 transition-colors ml-auto" />
       </div>
+      <p
+        className={`text-xs font-bold flex-shrink-0 ${
+          tx.type === "RETURN" ? "text-red-500" : "text-gray-900"
+        }`}
+      >
+        {tx.type === "RETURN" ? "-" : ""}
+        {formatCurrency(tx.amount)}
+      </p>
     </motion.div>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// TOP PRODUCT ITEM
-// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════
+// TOP PRODUCT BAR
+// ════════════════════════════════════════════
 
-const TopProductItem = ({ product, index, maxSales }) => {
-  const percentage = maxSales > 0 ? (product.total_quantity / maxSales) * 100 : 0;
-
-  const rankColors = [
+const ProductBar = ({ product, index, maxQty }) => {
+  const pct = maxQty > 0 ? (product.total_quantity / maxQty) * 100 : 0;
+  const barColors = [
     "from-amber-400 to-amber-500",
     "from-gray-400 to-gray-500",
     "from-orange-400 to-orange-500",
@@ -598,78 +613,149 @@ const TopProductItem = ({ product, index, maxSales }) => {
   ];
 
   return (
-    <div className="p-3 rounded-lg hover:bg-gray-50 transition-colors">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs bg-gradient-to-br ${rankColors[index] || rankColors[4]}`}>
-            {index + 1}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{product.medicine_name}</p>
-            <p className="text-xs text-gray-500">{product.manufacturer || "N/A"}</p>
-          </div>
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.06 }}
+      className="flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-gray-50/80 transition-colors"
+    >
+      <div
+        className={`w-6 h-6 rounded-md flex items-center justify-center text-white font-bold 
+        text-[10px] bg-gradient-to-br ${
+          barColors[index] || barColors[4]
+        } flex-shrink-0`}
+      >
+        {index + 1}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-0.5">
+          <p className="text-xs font-medium text-gray-800 truncate pr-2">
+            {product.medicine_name}
+          </p>
+          <p className="text-[10px] font-bold text-gray-900 flex-shrink-0">
+            {formatCurrency(product.total_revenue)}
+          </p>
         </div>
-        <div className="text-right flex-shrink-0">
-          <p className="text-sm font-bold text-gray-900">{formatCurrency(product.total_revenue)}</p>
-          <p className="text-xs text-gray-500">{formatNumber(product.total_quantity)} units</p>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 bg-gray-100 rounded-full h-1">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${pct}%` }}
+              transition={{ duration: 0.8, delay: index * 0.1 }}
+              className="bg-gradient-to-r from-indigo-500 to-purple-500 h-1 rounded-full"
+            />
+          </div>
+          <span className="text-[10px] text-gray-400 flex-shrink-0">
+            {formatNumber(product.total_quantity)}u
+          </span>
         </div>
       </div>
-      <div className="w-full bg-gray-100 rounded-full h-1.5">
-        <div
-          className="bg-gradient-to-r from-indigo-500 to-purple-500 h-1.5 rounded-full transition-all duration-500"
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-    </div>
+    </motion.div>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// MAIN DASHBOARD COMPONENT
-// ════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════
+// MINI METRIC
+// ════════════════════════════════════════════
+
+const MiniMetric = ({ label, value, color }) => (
+  <div className="text-center px-3 py-2 rounded-xl bg-gray-50/80 border border-gray-100/80">
+    <p className="text-[10px] text-gray-400 font-medium">{label}</p>
+    <p className={`text-sm font-extrabold ${color}`}>{value}</p>
+  </div>
+);
+
+// ════════════════════════════════════════════
+// SECTION HEADER
+// ════════════════════════════════════════════
+
+const SectionHeader = ({
+  title,
+  subtitle,
+  action,
+  actionLabel,
+  icon: Icon,
+}) => (
+  <div className="flex items-center justify-between mb-3">
+    <div className="flex items-center gap-2">
+      {Icon && <Icon size={14} className="text-indigo-500" />}
+      <div>
+        <h3 className="text-sm font-bold text-gray-900">{title}</h3>
+        {subtitle && (
+          <p className="text-[10px] text-gray-400">{subtitle}</p>
+        )}
+      </div>
+    </div>
+    {action && (
+      <button
+        onClick={action}
+        className="text-[11px] text-indigo-600 hover:text-indigo-700 font-semibold 
+          flex items-center gap-1 hover:gap-1.5 transition-all"
+      >
+        {actionLabel || "View All"} <ExternalLink size={10} />
+      </button>
+    )}
+  </div>
+);
+
+// ════════════════════════════════════════════
+// GLASS CARD
+// ════════════════════════════════════════════
+
+const GlassCard = ({ children, className = "" }) => (
+  <div
+    className={`relative bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-100/80 
+    shadow-sm hover:shadow-md transition-shadow p-4 ${className}`}
+  >
+    {children}
+  </div>
+);
+
+// ════════════════════════════════════════════
+// MAIN DASHBOARD
+// ════════════════════════════════════════════
 
 const DashboardPage = () => {
   const navigate = useNavigate();
   const toast = useToast();
 
-  // Auth & Branch Context
   const branchContext = useAuthStore(selectBranchContext);
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
-  const user = useAuthStore((state) => state.user);
+  const user = useAuthStore((s) => s.user);
   const isGlobalMode = branchContext.mode === "GLOBAL";
   const currentBranchName = branchContext.branch_name;
 
-  // Ref to track branch changes
   const prevBranchRef = useRef({
     mode: branchContext.mode,
     branch_id: branchContext.branch_id,
   });
 
-  // State
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState("week");
   const [lastUpdated, setLastUpdated] = useState(null);
   const [error, setError] = useState(null);
 
-  // Dashboard Data
   const [salesStats, setSalesStats] = useState(null);
   const [purchaseStats, setPurchaseStats] = useState(null);
   const [inventorySummary, setInventorySummary] = useState(null);
   const [lowStockItems, setLowStockItems] = useState([]);
   const [expiringItems, setExpiringItems] = useState([]);
-  const [notifications, setNotifications] = useState({ total: 0, critical: 0, high: 0 });
+  const [notifications, setNotifications] = useState({
+    total: 0,
+    critical: 0,
+    high: 0,
+  });
   const [subscription, setSubscription] = useState(null);
   const [recentSales, setRecentSales] = useState([]);
   const [recentPurchases, setRecentPurchases] = useState([]);
   const [salesReturns, setSalesReturns] = useState([]);
   const [purchaseReturns, setPurchaseReturns] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
-  const [customerStats, setCustomerStats] = useState(null);
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // DATA FETCHING
-  // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════
+  // DATA FETCHING - FIXED VERSION
+  // ════════════════════════════════════════════
 
   const fetchDashboardData = useCallback(
     async (showLoadingState = true) => {
@@ -682,157 +768,104 @@ const DashboardPage = () => {
         const { startDate, endDate } = getDateRange(dateRange);
         const dateParams = { startDate, endDate };
 
-        console.log("📊 Fetching dashboard data:", {
-          dateRange,
-          startDate,
-          endDate,
-          branchMode: branchContext.mode,
-          branchId: branchContext.branch_id,
-        });
-
-        // Parallel API calls for better performance
         const results = await Promise.allSettled([
-          // Sales stats
-          salesAPI.getStats(dateParams),
-          // Purchase stats
-          purchaseAPI.getStats(dateParams),
-          // Inventory summary
-          inventoryAPI.getSummary(),
-          // Low stock items
-          inventoryAPI.getLowStock({ limit: 10 }),
-          // Expiring items
-          inventoryAPI.getExpiringSoon(30),
-          // Notifications
-          fetchUnreadCount(),
-          // Recent sales invoices
-          salesAPI.getAll({ limit: 10, ...dateParams }),
-          // Recent purchase invoices
-          purchaseAPI.getAll({ limit: 10, ...dateParams }),
-          // Sales returns
-          salesAPI.getAllReturns({ limit: 5, ...dateParams }),
-          // Purchase returns
-          purchaseAPI.getAllReturns({ limit: 5, ...dateParams }),
-          // Subscription (Super Admin only)
-          isSuperAdmin ? getMySubscription() : Promise.resolve(null),
+          salesAPI.getStats(dateParams),           // 0
+          purchaseAPI.getStats(dateParams),        // 1
+          inventoryAPI.getSummary(),               // 2
+          inventoryAPI.getLowStock({ limit: 10 }), // 3
+          inventoryAPI.getExpiringSoon(30),        // 4
+          fetchUnreadCount(),                      // 5
+          salesAPI.getAll({ limit: 10, ...dateParams }),      // 6
+          purchaseAPI.getAll({ limit: 10, ...dateParams }),   // 7
+          salesAPI.getAllReturns({ limit: 5, ...dateParams }),     // 8
+          purchaseAPI.getAllReturns({ limit: 5, ...dateParams }), // 9
+          isSuperAdmin ? getMySubscription() : Promise.resolve(null), // 10
         ]);
 
-        // Process results
-        const [
-          salesStatsResult,
-          purchaseStatsResult,
-          inventoryResult,
-          lowStockResult,
-          expiringResult,
-          notificationsResult,
-          recentSalesResult,
-          recentPurchasesResult,
-          salesReturnsResult,
-          purchaseReturnsResult,
-          subscriptionResult,
-        ] = results;
-
-        // Sales Stats
-        if (salesStatsResult.status === "fulfilled") {
-          setSalesStats(salesStatsResult.value.data || {});
-        }
-
-        // Purchase Stats
-        if (purchaseStatsResult.status === "fulfilled") {
-          setPurchaseStats(purchaseStatsResult.value.data || {});
-        }
-
-        // Inventory Summary
-        if (inventoryResult.status === "fulfilled") {
-          setInventorySummary(inventoryResult.value.data || {});
-        }
-
-        // Low Stock Items
-        if (lowStockResult.status === "fulfilled") {
-          setLowStockItems(lowStockResult.value.data?.items || []);
-        }
-
-        // Expiring Items
-        if (expiringResult.status === "fulfilled") {
-          setExpiringItems(expiringResult.value.data?.items || []);
-        }
-
-        // Notifications
-        if (notificationsResult.status === "fulfilled") {
-          setNotifications({
-            total: notificationsResult.value.data?.total || 0,
-            critical: notificationsResult.value.data?.by_priority?.critical || 0,
-            high: notificationsResult.value.data?.by_priority?.high || 0,
-          });
-        }
-
+        // ✅ FIXED: Properly extract data from each result
+        
+        // Sales Stats - Backend returns: { totalInvoices, totalSalesAmount, totalReceivedAmount, totalOutstandingAmount, todaySalesAmount, todayInvoiceCount }
+        const salesData = extractData(results[0], {});
+        setSalesStats(salesData);
+        console.log("📊 Sales Stats:", salesData);
+        
+        // Purchase Stats - Backend returns: { totalInvoices, totalAmount, unpaidAmount }
+        const purchaseData = extractData(results[1], {});
+        setPurchaseStats(purchaseData);
+        console.log("📊 Purchase Stats:", purchaseData);
+        
+        // Inventory Summary - Backend returns: { totalItems, totalStockQuantity, lowStockCount, outOfStockCount, expiringSoonCount, expiredCount }
+        const inventoryData = extractData(results[2], {});
+        setInventorySummary(inventoryData);
+        console.log("📊 Inventory Summary:", inventoryData);
+        
+        // ✅ FIXED: Low Stock Items - Backend returns array directly, not { items: [...] }
+        const lowStockData = extractData(results[3], []);
+        setLowStockItems(Array.isArray(lowStockData) ? lowStockData : (lowStockData?.items || []));
+        console.log("📊 Low Stock Items:", lowStockData);
+        
+        // ✅ FIXED: Expiring Items - Backend returns array directly
+        const expiringData = extractData(results[4], []);
+        setExpiringItems(Array.isArray(expiringData) ? expiringData : (expiringData?.items || []));
+        console.log("📊 Expiring Items:", expiringData);
+        
+        // Notifications - Backend returns: { total, by_priority: { critical, high, normal, low }, has_critical, has_high }
+        const notifData = extractData(results[5], {});
+        setNotifications({
+          total: notifData?.total || 0,
+          critical: notifData?.by_priority?.critical || 0,
+          high: notifData?.by_priority?.high || 0,
+        });
+        
         // Recent Sales
-        if (recentSalesResult.status === "fulfilled") {
-          const salesData = recentSalesResult.value.data?.invoices || [];
-          setRecentSales(
-            salesData.map((inv) => ({
-              ...inv,
-              type: "SALE",
-              party_name: inv.customer?.name || inv.walkin_name,
-              amount: inv.net_amount,
-              date: inv.invoice_date || inv.created_at,
-            }))
-          );
-
-          // Extract top products from sales
-          const productMap = new Map();
-          salesData.forEach((inv) => {
-            (inv.lineItems || []).forEach((item) => {
-              const existing = productMap.get(item.medicine_id) || {
-                medicine_id: item.medicine_id,
-                medicine_name: item.medicine?.name || "Unknown",
-                manufacturer: item.medicine?.manufacturer,
-                total_quantity: 0,
-                total_revenue: 0,
-              };
-              existing.total_quantity += parseFloat(item.quantity) || 0;
-              existing.total_revenue += parseFloat(item.line_total) || 0;
-              productMap.set(item.medicine_id, existing);
-            });
-          });
-          const sorted = Array.from(productMap.values())
-            .sort((a, b) => b.total_revenue - a.total_revenue)
-            .slice(0, 5);
-          setTopProducts(sorted);
-        }
-
+        const recentSalesData = extractData(results[6], { invoices: [] });
+        const salesInvoices = recentSalesData?.invoices || [];
+        setRecentSales(
+          salesInvoices.map((inv) => ({
+            ...inv,
+            type: "SALE",
+            party_name: inv.customer?.name || inv.walkin_name,
+            amount: inv.net_amount,
+            date: inv.invoice_date || inv.created_at,
+          }))
+        );
+        
+        // ✅ FIXED: Top products calculation - getAll doesn't include lineItems
+        // Instead, calculate from sales stats or show placeholder
+        // For now, we'll leave it empty as the API doesn't provide this data
+        // A proper fix would require a dedicated API endpoint
+        setTopProducts([]);
+        
         // Recent Purchases
-        if (recentPurchasesResult.status === "fulfilled") {
-          const purchaseData = recentPurchasesResult.value.data?.invoices || [];
-          setRecentPurchases(
-            purchaseData.map((inv) => ({
-              ...inv,
-              type: "PURCHASE",
-              party_name: inv.supplier?.name,
-              amount: inv.net_amount,
-              date: inv.invoice_date || inv.created_at,
-            }))
-          );
-        }
-
+        const recentPurchasesData = extractData(results[7], { invoices: [] });
+        setRecentPurchases(
+          (recentPurchasesData?.invoices || []).map((inv) => ({
+            ...inv,
+            type: "PURCHASE",
+            party_name: inv.supplier?.name,
+            amount: inv.net_amount,
+            date: inv.invoice_date || inv.created_at,
+          }))
+        );
+        
         // Sales Returns
-        if (salesReturnsResult.status === "fulfilled") {
-          setSalesReturns(salesReturnsResult.value.data?.returns || []);
-        }
-
+        const salesReturnsData = extractData(results[8], { returns: [] });
+        setSalesReturns(salesReturnsData?.returns || []);
+        
         // Purchase Returns
-        if (purchaseReturnsResult.status === "fulfilled") {
-          setPurchaseReturns(purchaseReturnsResult.value.data?.returns || []);
-        }
-
+        const purchaseReturnsData = extractData(results[9], { returns: [] });
+        setPurchaseReturns(purchaseReturnsData?.returns || []);
+        
         // Subscription
-        if (subscriptionResult.status === "fulfilled" && subscriptionResult.value) {
-          setSubscription(subscriptionResult.value.data?.data || null);
+        if (results[10].status === "fulfilled" && results[10].value) {
+          const subData = extractData(results[10], null);
+          setSubscription(subData);
         }
 
         setLastUpdated(new Date());
       } catch (err) {
         console.error("Dashboard fetch error:", err);
-        setError("Failed to load dashboard data. Please try again.");
+        setError("Failed to load dashboard data.");
         toast.error("Failed to load dashboard", err.message || "Please try refreshing");
       } finally {
         setLoading(false);
@@ -842,116 +875,150 @@ const DashboardPage = () => {
     [dateRange, branchContext.mode, branchContext.branch_id, isSuperAdmin, toast]
   );
 
-  // Initial load and date range changes
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Branch change detection
   useEffect(() => {
-    const prevBranch = prevBranchRef.current;
-    const branchChanged =
-      prevBranch.mode !== branchContext.mode ||
-      prevBranch.branch_id !== branchContext.branch_id;
-
-    if (branchChanged) {
+    const prev = prevBranchRef.current;
+    const changed =
+      prev.mode !== branchContext.mode ||
+      prev.branch_id !== branchContext.branch_id;
+    if (changed) {
       prevBranchRef.current = {
         mode: branchContext.mode,
         branch_id: branchContext.branch_id,
       };
-
-      if (branchContext.mode === "GLOBAL") {
+      if (branchContext.mode === "GLOBAL")
         toast.info("All Branches", "Loading combined data...");
-      } else if (branchContext.branch_name) {
-        toast.info("Branch Changed", `Loading data for ${branchContext.branch_name}`);
-      }
-
+      else if (branchContext.branch_name)
+        toast.info("Branch Changed", `Loading ${branchContext.branch_name}`);
       fetchDashboardData(true);
     }
-  }, [branchContext.mode, branchContext.branch_id, branchContext.branch_name, toast, fetchDashboardData]);
+  }, [
+    branchContext.mode,
+    branchContext.branch_id,
+    branchContext.branch_name,
+    toast,
+    fetchDashboardData,
+  ]);
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // COMPUTED DATA
-  // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════
+  // COMPUTED DATA - FIXED FIELD NAMES
+  // ════════════════════════════════════════════
 
-  // Stock Status for Pie Chart
+  // ✅ FIXED: Calculate "In Stock" count from available data
   const stockStatusData = useMemo(() => {
     if (!inventorySummary) return [];
-
+    
+    const totalItems = inventorySummary.totalItems || 0;
+    const lowStock = inventorySummary.lowStockCount || 0;
+    const outOfStock = inventorySummary.outOfStockCount || 0;
+    const expiringSoon = inventorySummary.expiringSoonCount || 0;
+    const expired = inventorySummary.expiredCount || 0;
+    
+    // Calculate healthy "In Stock" items (items that are not low, out, expiring, or expired)
+    // Note: totalItems only counts items with stock > 0, so outOfStock shouldn't be subtracted
+    const inStockCount = Math.max(0, totalItems - lowStock - expiringSoon);
+    
     return [
-      { name: "In Stock", value: inventorySummary.inStockCount || 0, color: COLORS.success },
-      { name: "Low Stock", value: inventorySummary.lowStockCount || 0, color: COLORS.warning },
-      { name: "Out of Stock", value: inventorySummary.outOfStockCount || 0, color: COLORS.danger },
-      { name: "Expired", value: inventorySummary.expiredCount || 0, color: COLORS.purple },
-    ].filter((item) => item.value > 0);
+      { name: "In Stock", value: inStockCount, color: COLORS.success },
+      { name: "Low Stock", value: lowStock, color: COLORS.warning },
+      { name: "Out of Stock", value: outOfStock, color: COLORS.danger },
+      { name: "Expiring Soon", value: expiringSoon, color: COLORS.orange },
+      { name: "Expired", value: expired, color: COLORS.purple },
+    ].filter((i) => i.value > 0);
   }, [inventorySummary]);
 
-  // Revenue Chart Data
   const revenueChartData = useMemo(() => {
-    const days = dateRange === "today" ? 1 : dateRange === "week" ? 7 : dateRange === "month" ? 30 : 12;
-    const data = [];
-
-    // Group sales by date
+    const days =
+      dateRange === "today"
+        ? 1
+        : dateRange === "week"
+        ? 7
+        : dateRange === "month"
+        ? 30
+        : 12;
     const salesByDate = new Map();
     const purchasesByDate = new Map();
 
-    recentSales.forEach((sale) => {
-      const date = new Date(sale.date).toLocaleDateString("en-IN", {
+    recentSales.forEach((s) => {
+      const d = new Date(s.date).toLocaleDateString("en-IN", {
         day: "numeric",
         month: "short",
       });
-      salesByDate.set(date, (salesByDate.get(date) || 0) + parseFloat(sale.amount || 0));
+      salesByDate.set(d, (salesByDate.get(d) || 0) + parseFloat(s.amount || 0));
     });
-
-    recentPurchases.forEach((purchase) => {
-      const date = new Date(purchase.date).toLocaleDateString("en-IN", {
+    recentPurchases.forEach((p) => {
+      const d = new Date(p.date).toLocaleDateString("en-IN", {
         day: "numeric",
         month: "short",
       });
-      purchasesByDate.set(date, (purchasesByDate.get(date) || 0) + parseFloat(purchase.amount || 0));
+      purchasesByDate.set(
+        d,
+        (purchasesByDate.get(d) || 0) + parseFloat(p.amount || 0)
+      );
     });
 
-    // Generate date labels
+    const data = [];
     for (let i = Math.min(days - 1, 6); i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const label = date.toLocaleDateString("en-IN", {
+      const dt = new Date();
+      dt.setDate(dt.getDate() - i);
+      const lbl = dt.toLocaleDateString("en-IN", {
         day: "numeric",
         month: "short",
       });
-
-      const sales = salesByDate.get(label) || 0;
-      const purchases = purchasesByDate.get(label) || 0;
-
-      data.push({
-        date: label,
-        sales,
-        purchases,
-        profit: sales - purchases,
-      });
+      const sales = salesByDate.get(lbl) || 0;
+      const purchases = purchasesByDate.get(lbl) || 0;
+      data.push({ date: lbl, sales, purchases, profit: sales - purchases });
     }
-
     return data;
   }, [recentSales, recentPurchases, dateRange]);
 
-  // Combined recent transactions
-  const recentTransactions = useMemo(() => {
-    const transactions = [
-      ...recentSales.slice(0, 5),
-      ...recentPurchases.slice(0, 5),
-    ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
+  const recentTransactions = useMemo(
+    () =>
+      [...recentSales.slice(0, 5), ...recentPurchases.slice(0, 5)]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 6),
+    [recentSales, recentPurchases]
+  );
 
-    return transactions;
-  }, [recentSales, recentPurchases]);
+  const maxProductSales = useMemo(
+    () => Math.max(...topProducts.map((p) => p.total_quantity), 1),
+    [topProducts]
+  );
 
-  // Max sales for progress bar
-  const maxProductSales = useMemo(() => {
-    return Math.max(...topProducts.map((p) => p.total_quantity), 1);
-  }, [topProducts]);
+  const pendingReturnCount = useMemo(
+    () =>
+      salesReturns.filter(
+        (r) => r.return_approval_status === "PENDING_APPROVAL"
+      ).length +
+      purchaseReturns.filter(
+        (r) => r.return_approval_status === "PENDING_APPROVAL"
+      ).length,
+    [salesReturns, purchaseReturns]
+  );
 
-  // ════════════════════════════════════════════════════════════════════════════
+  const totalAlerts = useMemo(() => {
+    let count = 0;
+    if (lowStockItems.length > 0) count++;
+    if (expiringItems.length > 0) count++;
+    if (notifications.critical > 0) count++;
+    if (pendingReturnCount > 0) count++;
+    if (isSuperAdmin && subscription?.days_remaining < 30) count++;
+    return count;
+  }, [
+    lowStockItems,
+    expiringItems,
+    notifications,
+    pendingReturnCount,
+    subscription,
+    isSuperAdmin,
+  ]);
+
+  // ════════════════════════════════════════════
   // HANDLERS
-  // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -961,601 +1028,742 @@ const DashboardPage = () => {
   const handleQuickAction = useCallback(
     (action) => {
       if (isGlobalMode && ["new-sale", "new-purchase"].includes(action)) {
-        toast.warning("Select a Branch", "Please select a specific branch first");
+        toast.warning(
+          "Select a Branch",
+          "Please select a specific branch first"
+        );
         return;
       }
-
-      switch (action) {
-        case "new-sale":
-          navigate("/sales/billing");
-          break;
-        case "new-purchase":
-          navigate("/purchase/billing");
-          break;
-        case "inventory":
-          navigate("/inventory");
-          break;
-        case "reports":
-          navigate("/reports-sales");
-          break;
-        default:
-          break;
-      }
+      const routes = {
+        "new-sale": "/sales/billing",
+        "new-purchase": "/purchase/billing",
+        inventory: "/inventory",
+        reports: "/reports-sales",
+      };
+      if (routes[action]) navigate(routes[action]);
     },
     [navigate, isGlobalMode, toast]
   );
 
-  // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════
   // ERROR STATE
-  // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════
 
   if (error && !loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertCircle size={32} className="text-red-500" />
+      <div className="min-h-[80vh] flex items-center justify-center p-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center"
+        >
+          <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle size={28} className="text-red-500" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Failed to Load Dashboard</h2>
-          <p className="text-gray-500 mb-6">{error}</p>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">
+            Dashboard Error
+          </h2>
+          <p className="text-sm text-gray-500 mb-5">{error}</p>
           <button
             onClick={() => fetchDashboardData(true)}
-            className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+            className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-medium text-sm
+              hover:bg-indigo-700 transition-colors"
           >
-            Try Again
+            Retry
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════
   // RENDER
-  // ════════════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════
+
+  const firstName =
+    user?.name || user?.first_name || user?.full_name?.split(" ")[0] || "User";
+  const greeting =
+    new Date().getHours() < 12
+      ? "Good morning"
+      : new Date().getHours() < 17
+      ? "Good afternoon"
+      : "Good evening";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-[1800px] mx-auto p-4 lg:p-6 space-y-6">
-        
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
-              Welcome back, {user?.first_name || user?.full_name?.split(" ")[0] || "User"}! 👋
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Here's what's happening with your business
-              {dateRange === "today"
-                ? " today"
-                : dateRange === "week"
-                ? " this week"
-                : dateRange === "month"
-                ? " this month"
-                : " this year"}
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50/30 relative">
+      <GridPattern />
+
+      <div className="relative max-w-[1800px] mx-auto px-3 py-3 lg:px-5 lg:py-4 space-y-3">
+        {/* ── HEADER ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <motion.h1
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-xl lg:text-2xl font-extrabold text-gray-900 tracking-tight"
+            >
+              {greeting}, {firstName}
+              <motion.span
+                animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
+                transition={{ duration: 2, delay: 0.5 }}
+                className="inline-block ml-1.5"
+              >
+                👋
+              </motion.span>
+            </motion.h1>
+
+            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+              {isSuperAdmin && (
+                <BranchBadge
+                  isGlobalMode={isGlobalMode}
+                  branchName={currentBranchName}
+                  lastUpdated={lastUpdated}
+                />
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Date Range Filter */}
-            <div className="flex bg-white rounded-xl border border-gray-200 p-1 shadow-sm">
-              {["today", "week", "month", "year"].map((range) => (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Date Range */}
+            <div className="flex bg-white/80 backdrop-blur rounded-xl border border-gray-200/60 p-0.5 shadow-sm">
+              {[
+                { key: "today", label: "Today" },
+                { key: "week", label: "7D" },
+                { key: "month", label: "30D" },
+                { key: "year", label: "1Y" },
+              ].map((r) => (
                 <button
-                  key={range}
-                  onClick={() => setDateRange(range)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all capitalize ${
-                    dateRange === range
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "text-gray-600 hover:bg-gray-100"
+                  key={r.key}
+                  onClick={() => setDateRange(r.key)}
+                  className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
+                    dateRange === r.key
+                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-100/80"
                   }`}
                 >
-                  {range === "week" ? "7 Days" : range === "month" ? "30 Days" : range}
+                  {r.label}
                 </button>
               ))}
             </div>
 
-            {/* Refresh Button */}
+            {/* Alerts indicator */}
+            {/* {totalAlerts > 0 && (
+              <div className="relative p-2 rounded-xl bg-red-50 border border-red-200 text-red-600">
+                <Bell size={16} />
+                <span
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white 
+                  text-[9px] font-bold rounded-full flex items-center justify-center"
+                >
+                  {totalAlerts}
+                </span>
+              </div>
+            )} */}
+
+            {/* Refresh */}
             <button
               onClick={handleRefresh}
               disabled={refreshing || loading}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all text-sm font-medium disabled:opacity-50 shadow-sm"
+              className="p-2 rounded-xl bg-white/80 border border-gray-200/60 text-gray-500 
+                hover:bg-gray-50 transition-all disabled:opacity-40"
             >
-              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-              <span className="hidden sm:inline">Refresh</span>
+              <RefreshCw
+                size={16}
+                className={refreshing ? "animate-spin" : ""}
+              />
             </button>
           </div>
         </div>
 
-        {/* Branch Context Banner */}
-        {isSuperAdmin && (
-          <BranchContextBanner
-            isGlobalMode={isGlobalMode}
-            branchName={currentBranchName}
-            lastUpdated={lastUpdated}
+        {/* ── QUICK ACTIONS + INLINE ALERTS ── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+          <QuickAction
+            title="Sale"
+            icon={ShoppingCart}
+            gradient="green"
+            onClick={() => handleQuickAction("new-sale")}
+            badge={isGlobalMode ? "⚡" : null}
+            delay={0}
           />
-        )}
+          <QuickAction
+            title="Purchase"
+            icon={Truck}
+            gradient="blue"
+            onClick={() => handleQuickAction("new-purchase")}
+            badge={isGlobalMode ? "⚡" : null}
+            delay={1}
+          />
+          <QuickAction
+            title="Stock"
+            icon={Package}
+            gradient="purple"
+            onClick={() => handleQuickAction("inventory")}
+            badge={
+              lowStockItems.length > 0 ? `${lowStockItems.length}` : null
+            }
+            delay={2}
+          />
+          <QuickAction
+            title="Reports"
+            icon={BarChart3}
+            gradient="amber"
+            onClick={() => handleQuickAction("reports")}
+            delay={3}
+          />
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {totalAlerts > 0 && (
+            <>
+              <div className="h-5 w-px bg-gray-200/80 mx-0.5 flex-shrink-0" />
+              {lowStockItems.length > 0 && (
+                <AlertPill
+                  type="warning"
+                  title="Low Stock"
+                  count={lowStockItems.length}
+                  icon={AlertTriangle}
+                  onClick={() => navigate("/inventory?filter=lowstock")}
+                />
+              )}
+              {expiringItems.length > 0 && (
+                <AlertPill
+                  type="danger"
+                  title="Expiring"
+                  count={expiringItems.length}
+                  icon={Clock}
+                  onClick={() => navigate("/inventory?filter=expiring")}
+                />
+              )}
+              {notifications.critical > 0 && (
+                <AlertPill
+                  type="info"
+                  title="Critical"
+                  count={notifications.critical}
+                  icon={Bell}
+                  onClick={() =>
+                    navigate("/notifications?priority=critical")
+                  }
+                />
+              )}
+              {pendingReturnCount > 0 && (
+                <AlertPill
+                  type="warning"
+                  title="Returns"
+                  count={pendingReturnCount}
+                  icon={RotateCcw}
+                  onClick={() => navigate("/sales/returns")}
+                />
+              )}
+              {isSuperAdmin && subscription?.days_remaining < 30 && (
+                <AlertPill
+                  type="info"
+                  title={`Plan: ${subscription.days_remaining}d`}
+                  count={subscription.days_remaining}
+                  icon={CreditCard}
+                  onClick={() => navigate("/settings/plans")}
+                />
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ── PRIMARY STATS ── ✅ FIXED FIELD NAMES */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <StatCard
-            title="Total Sales"
-            value={formatCurrency(salesStats?.total_sales || salesStats?.total_revenue || 0)}
-            subValue={`${formatNumber(salesStats?.total_invoices || 0)} invoices`}
-            change={salesStats?.growth_percentage}
-            trend={salesStats?.growth_percentage >= 0 ? "up" : "down"}
+            title="Sales"
+            value={formatCurrency(salesStats?.totalSalesAmount || 0)}
+            sub={`${formatNumber(salesStats?.totalInvoices || 0)} invoices`}
+            change={salesStats?.growthPercentage}
+            trend={(salesStats?.growthPercentage || 0) >= 0 ? "up" : "down"}
             icon={DollarSign}
-            color="green"
+            gradient="green"
             onClick={() => navigate("/sales-invoice")}
             loading={loading}
+            delay={0}
           />
           <StatCard
-            title="Total Purchases"
-            value={formatCurrency(purchaseStats?.total_purchases || purchaseStats?.total_amount || 0)}
-            subValue={`${formatNumber(purchaseStats?.total_invoices || 0)} invoices`}
-            change={purchaseStats?.growth_percentage}
-            trend={purchaseStats?.growth_percentage >= 0 ? "up" : "down"}
+            title="Purchases"
+            value={formatCurrency(purchaseStats?.totalAmount || 0)}
+            sub={`${formatNumber(purchaseStats?.totalInvoices || 0)} invoices`}
+            change={purchaseStats?.growthPercentage}
+            trend={(purchaseStats?.growthPercentage || 0) >= 0 ? "up" : "down"}
             icon={Truck}
-            color="blue"
+            gradient="blue"
             onClick={() => navigate("/purchase-invoices")}
             loading={loading}
+            delay={1}
           />
           <StatCard
-            title="Total Products"
+            title="Products"
             value={formatNumber(inventorySummary?.totalItems || 0)}
-            subValue={`${formatNumber(inventorySummary?.totalStockQuantity || 0)} units in stock`}
+            sub={`${formatNumber(inventorySummary?.totalStockQuantity || 0)} units`}
             icon={Package}
-            color="purple"
+            gradient="purple"
             onClick={() => navigate("/inventory")}
             loading={loading}
+            delay={2}
           />
           <StatCard
-            title="Low Stock Items"
+            title="Low Stock"
             value={formatNumber(inventorySummary?.lowStockCount || lowStockItems.length || 0)}
-            subValue={`${formatNumber(inventorySummary?.outOfStockCount || 0)} out of stock`}
+            sub={`${formatNumber(inventorySummary?.outOfStockCount || 0)} out of stock`}
             icon={AlertTriangle}
-            color={inventorySummary?.lowStockCount > 10 ? "red" : "amber"}
+            gradient={(inventorySummary?.lowStockCount || 0) > 10 ? "red" : "amber"}
             onClick={() => navigate("/inventory?filter=lowstock")}
             loading={loading}
+            delay={3}
           />
         </div>
 
-        {/* Secondary Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard
-            title="Pending Payments"
-            value={formatCurrency(salesStats?.pending_amount || 0)}
+        {/* ── SECONDARY METRICS STRIP ── ✅ FIXED FIELD NAMES */}
+        <div
+          className="flex items-center gap-0.5 bg-white/70 backdrop-blur-sm rounded-xl 
+          px-2 py-1 border border-gray-100/80 overflow-x-auto scrollbar-hide"
+        >
+          <MetricChip
             icon={Clock}
+            label="Outstanding"
             color="amber"
+            value={formatCurrency(salesStats?.totalOutstandingAmount || 0)}
             onClick={() => navigate("/sales-invoice?status=pending")}
             loading={loading}
           />
-          <StatCard
-            title="Expiring Soon"
-            value={formatNumber(inventorySummary?.expiringSoonCount || expiringItems.length || 0)}
-            subValue="Within 30 days"
+          <div className="h-3.5 w-px bg-gray-200 mx-0.5 flex-shrink-0" />
+          <MetricChip
             icon={Calendar}
+            label="Expiring"
             color="red"
+            value={formatNumber(inventorySummary?.expiringSoonCount || expiringItems.length || 0)}
+            badge="30d"
             onClick={() => navigate("/inventory?filter=expiring")}
             loading={loading}
           />
-          <StatCard
-            title="Sales Returns"
-            value={formatNumber(salesReturns.length)}
-            subValue={`${salesReturns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length} pending`}
+          <div className="h-3.5 w-px bg-gray-200 mx-0.5 flex-shrink-0" />
+          <MetricChip
+            icon={DollarSign}
+            label="Today"
+            color="green"
+            value={formatCurrency(salesStats?.todaySalesAmount || 0)}
+            badge={`${salesStats?.todayInvoiceCount || 0} bills`}
+            onClick={() => navigate("/sales-invoice")}
+            loading={loading}
+          />
+          <div className="h-3.5 w-px bg-gray-200 mx-0.5 flex-shrink-0" />
+          <MetricChip
             icon={RotateCcw}
+            label="Returns"
             color="pink"
+            value={formatNumber(salesReturns.length)}
+            badge={`${salesReturns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length} pending`}
             onClick={() => navigate("/sales-returns")}
             loading={loading}
           />
-          <StatCard
-            title="Notifications"
-            value={formatNumber(notifications.total)}
-            subValue={notifications.critical > 0 ? `${notifications.critical} critical` : "All clear"}
+          <div className="h-3.5 w-px bg-gray-200 mx-0.5 flex-shrink-0" />
+          <MetricChip
             icon={Bell}
+            label="Alerts"
             color={notifications.critical > 0 ? "red" : "teal"}
+            value={formatNumber(notifications.total)}
+            badge={notifications.critical > 0 ? `${notifications.critical} critical` : null}
             onClick={() => navigate("/notifications")}
             loading={loading}
           />
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <QuickActionCard
-            title="New Sale"
-            description="Create sales invoice"
-            icon={ShoppingCart}
-            color="green"
-            onClick={() => handleQuickAction("new-sale")}
-            badge={isGlobalMode ? "Select Branch" : null}
-          />
-          <QuickActionCard
-            title="New Purchase"
-            description="Record purchase entry"
-            icon={Truck}
-            color="blue"
-            onClick={() => handleQuickAction("new-purchase")}
-            badge={isGlobalMode ? "Select Branch" : null}
-          />
-          <QuickActionCard
-            title="Inventory"
-            description="Manage stock levels"
-            icon={Package}
-            color="purple"
-            onClick={() => handleQuickAction("inventory")}
-            badge={lowStockItems.length > 0 ? `${lowStockItems.length} low` : null}
-          />
-          <QuickActionCard
-            title="Reports"
-            description="View analytics"
-            icon={BarChart3}
-            color="amber"
-            onClick={() => handleQuickAction("reports")}
-          />
-        </div>
-
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Revenue Chart - 2 cols */}
-          <div className="xl:col-span-2 bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        {/* ── MAIN GRID: Charts ── */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+          {/* Revenue Chart */}
+          <GlassCard className="xl:col-span-7">
             {loading ? (
-              <div className="animate-pulse">
-                <div className="h-5 bg-gray-200 rounded w-40 mb-2" />
-                <div className="h-3 bg-gray-200 rounded w-60 mb-4" />
-                <div className="h-[300px] bg-gray-100 rounded-lg" />
-              </div>
+              <ChartSkeleton h={220} />
             ) : (
               <>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Revenue Overview</h3>
-                    <p className="text-xs text-gray-500">Sales vs Purchases comparison</p>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                      <span className="text-gray-600">Sales</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-blue-500" />
-                      <span className="text-gray-600">Purchases</span>
-                    </div>
-                  </div>
-                </div>
-
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={revenueChartData}>
+                <SectionHeader
+                  title="Revenue Overview"
+                  subtitle="Sales vs Purchases"
+                  icon={Activity}
+                />
+                <ResponsiveContainer width="100%" height={220}>
+                  <ComposedChart
+                    data={revenueChartData}
+                    margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
+                  >
                     <defs>
-                      <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={COLORS.success} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={COLORS.success} stopOpacity={0} />
+                      <linearGradient
+                        id="salesG"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor={COLORS.success}
+                          stopOpacity={0.25}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor={COLORS.success}
+                          stopOpacity={0}
+                        />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#f3f4f6"
+                      vertical={false}
+                    />
                     <XAxis
                       dataKey="date"
-                      tick={{ fontSize: 11, fill: "#6B7280" }}
+                      tick={{ fontSize: 10, fill: "#9CA3AF" }}
                       tickLine={false}
                       axisLine={{ stroke: "#E5E7EB" }}
                     />
                     <YAxis
-                      tick={{ fontSize: 11, fill: "#6B7280" }}
+                      tick={{ fontSize: 10, fill: "#9CA3AF" }}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(value) => formatCurrency(value)}
+                      tickFormatter={(v) => formatCurrency(v)}
                     />
-                    <Tooltip content={<CustomTooltip isCurrency />} />
+                    <Tooltip content={<ChartTooltip isCurrency />} />
                     <Area
                       type="monotone"
                       dataKey="sales"
                       stroke={COLORS.success}
-                      fill="url(#salesGradient)"
+                      fill="url(#salesG)"
                       strokeWidth={2}
                       name="Sales"
+                      dot={false}
+                      activeDot={{ r: 4, strokeWidth: 2 }}
                     />
                     <Bar
                       dataKey="purchases"
                       fill={COLORS.info}
-                      radius={[4, 4, 0, 0]}
+                      radius={[3, 3, 0, 0]}
                       name="Purchases"
-                      opacity={0.8}
+                      opacity={0.75}
+                      maxBarSize={28}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
-
-                {/* Summary Row */}
-                <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500">Total Sales</p>
-                    <p className="text-lg font-bold text-emerald-600">
-                      {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.sales, 0))}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500">Total Purchases</p>
-                    <p className="text-lg font-bold text-blue-600">
-                      {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.purchases, 0))}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500">Net Profit</p>
-                    <p className="text-lg font-bold text-purple-600">
-                      {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.profit, 0))}
-                    </p>
-                  </div>
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  <MiniMetric
+                    label="Total Sales"
+                    value={formatCurrency(
+                      revenueChartData.reduce(
+                        (s, d) => s + d.sales,
+                        0
+                      )
+                    )}
+                    color="text-emerald-600"
+                  />
+                  <MiniMetric
+                    label="Total Purchases"
+                    value={formatCurrency(
+                      revenueChartData.reduce(
+                        (s, d) => s + d.purchases,
+                        0
+                      )
+                    )}
+                    color="text-blue-600"
+                  />
+                  <MiniMetric
+                    label="Net Profit"
+                    value={formatCurrency(
+                      revenueChartData.reduce(
+                        (s, d) => s + d.profit,
+                        0
+                      )
+                    )}
+                    color="text-purple-600"
+                  />
                 </div>
               </>
             )}
-          </div>
+          </GlassCard>
 
-          {/* Stock Status Pie Chart - 1 col */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          {/* Stock Distribution */}
+          <GlassCard className="xl:col-span-5">
             {loading ? (
-              <div className="animate-pulse">
-                <div className="h-5 bg-gray-200 rounded w-32 mb-4" />
-                <div className="h-[220px] bg-gray-100 rounded-full mx-auto w-[220px]" />
-              </div>
+              <ChartSkeleton h={220} />
             ) : (
               <>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Stock Distribution</h3>
-                
+                <SectionHeader
+                  title="Stock Distribution"
+                  icon={PieChartIcon}
+                  action={() => navigate("/inventory")}
+                  actionLabel="Manage"
+                />
                 {stockStatusData.length > 0 ? (
-                  <>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie
-                          data={stockStatusData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={85}
-                          paddingAngle={4}
-                          dataKey="value"
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0">
+                      <ResponsiveContainer width={160} height={160}>
+                        <PieChart>
+                          <Pie
+                            data={stockStatusData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={45}
+                            outerRadius={70}
+                            paddingAngle={3}
+                            dataKey="value"
+                            animationBegin={200}
+                            animationDuration={800}
+                          >
+                            {stockStatusData.map((e, i) => (
+                              <Cell key={i} fill={e.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<ChartTooltip />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      {stockStatusData.map((s) => (
+                        <div
+                          key={s.name}
+                          className="flex items-center gap-2.5"
                         >
-                          {stockStatusData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    
-                    <div className="grid grid-cols-2 gap-3 mt-4">
-                      {stockStatusData.map((status) => (
-                        <div key={status.name} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                           <div
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: status.color }}
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: s.color }}
                           />
-                          <div className="min-w-0">
-                            <span className="text-xs text-gray-600 block truncate">{status.name}</span>
-                            <span className="text-sm font-bold text-gray-900">{formatNumber(status.value)}</span>
-                          </div>
+                          <span className="text-xs text-gray-500 flex-1">
+                            {s.name}
+                          </span>
+                          <span className="text-xs font-bold text-gray-800">
+                            {formatNumber(s.value)}
+                          </span>
                         </div>
                       ))}
+                      <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-600">
+                          Total
+                        </span>
+                        <span className="text-sm font-extrabold text-gray-900">
+                          {formatNumber(
+                            stockStatusData.reduce(
+                              (a, b) => a + b.value,
+                              0
+                            )
+                          )}
+                        </span>
+                      </div>
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <div className="h-[300px] flex items-center justify-center text-gray-400">
+                  <div className="h-[180px] flex items-center justify-center text-gray-300">
                     <div className="text-center">
-                      <PieChartIcon size={48} className="mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No stock data available</p>
+                      <Boxes
+                        size={36}
+                        className="mx-auto mb-2 opacity-50"
+                      />
+                      <p className="text-xs">No stock data</p>
                     </div>
                   </div>
                 )}
               </>
             )}
-          </div>
+          </GlassCard>
         </div>
 
-        {/* Bottom Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* ── BOTTOM GRID ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Top Products */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <GlassCard className="lg:col-span-4">
             {loading ? (
-              <ListSkeleton rows={5} />
+              <div className="animate-pulse space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-32" />
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-gray-200 rounded-md" />
+                    <div className="flex-1 h-3 bg-gray-200 rounded" />
+                    <div className="w-12 h-3 bg-gray-200 rounded" />
+                  </div>
+                ))}
+              </div>
             ) : (
               <>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Top Selling Products</h3>
-                    <p className="text-xs text-gray-500">By revenue this period</p>
-                  </div>
-                  <button
-                    onClick={() => navigate("/reports-sales")}
-                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
-                  >
-                    View All <ExternalLink size={12} />
-                  </button>
-                </div>
-                
+                <SectionHeader
+                  title="Top Products"
+                  subtitle="By revenue"
+                  icon={Sparkles}
+                  action={() => navigate("/reports-sales")}
+                />
                 {topProducts.length > 0 ? (
-                  <div className="space-y-1">
-                    {topProducts.map((product, index) => (
-                      <TopProductItem
-                        key={product.medicine_id}
-                        product={product}
-                        index={index}
-                        maxSales={maxProductSales}
+                  <div className="space-y-0.5">
+                    {topProducts.map((p, i) => (
+                      <ProductBar
+                        key={p.medicine_id}
+                        product={p}
+                        index={i}
+                        maxQty={maxProductSales}
                       />
                     ))}
                   </div>
                 ) : (
-                  <div className="py-12 text-center text-gray-400">
-                    <Pill size={40} className="mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No sales data for this period</p>
+                  <div className="py-8 text-center text-gray-300">
+                    <Pill
+                      size={32}
+                      className="mx-auto mb-1.5 opacity-50"
+                    />
+                    <p className="text-xs">No sales data yet</p>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Top products will appear after sales
+                    </p>
                   </div>
                 )}
               </>
             )}
-          </div>
+          </GlassCard>
 
           {/* Recent Transactions */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <GlassCard className="lg:col-span-4">
             {loading ? (
-              <ListSkeleton rows={5} />
+              <div className="animate-pulse space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-36" />
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gray-200 rounded-lg" />
+                    <div className="flex-1 h-3 bg-gray-200 rounded" />
+                    <div className="w-14 h-3 bg-gray-200 rounded" />
+                  </div>
+                ))}
+              </div>
             ) : (
               <>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
-                    <p className="text-xs text-gray-500">Latest sales & purchases</p>
-                  </div>
-                  <button
-                    onClick={() => navigate("/sales/invoice")}
-                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
-                  >
-                    View All <ExternalLink size={12} />
-                  </button>
-                </div>
-                
+                <SectionHeader
+                  title="Recent Transactions"
+                  subtitle="Sales & purchases"
+                  icon={FileText}
+                  action={() => navigate("/sales/invoice")}
+                />
                 {recentTransactions.length > 0 ? (
-                  <div className="space-y-1 max-h-[380px] overflow-y-auto">
-                    {recentTransactions.map((transaction) => (
-                      <TransactionItem
-                        key={`${transaction.type}-${transaction.invoice_id}`}
-                        transaction={transaction}
+                  <div
+                    className="space-y-0.5 max-h-[280px] overflow-y-auto scrollbar-thin 
+                    scrollbar-thumb-gray-200 scrollbar-track-transparent"
+                  >
+                    {recentTransactions.map((tx) => (
+                      <TransactionRow
+                        key={`${tx.type}-${tx.invoice_id}`}
+                        tx={tx}
                         onClick={() =>
                           navigate(
-                            transaction.type === "SALE"
-                              ? `/sales/invoice`
-                              : `/purchase/invoice`
+                            tx.type === "SALE"
+                              ? "/sales/invoice"
+                              : "/purchase/invoice"
                           )
                         }
                       />
                     ))}
                   </div>
                 ) : (
-                  <div className="py-12 text-center text-gray-400">
-                    <FileText size={40} className="mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No transactions for this period</p>
+                  <div className="py-8 text-center text-gray-300">
+                    <FileText
+                      size={32}
+                      className="mx-auto mb-1.5 opacity-50"
+                    />
+                    <p className="text-xs">No transactions</p>
                   </div>
                 )}
               </>
             )}
-          </div>
-        </div>
+          </GlassCard>
 
-        {/* Alert Cards */}
-        <AnimatePresence>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Low Stock Alert */}
-            {lowStockItems.length > 0 && (
-              <AlertCard
-                type="warning"
-                title="Low Stock Alert"
-                message={`${lowStockItems.length} items need restocking soon`}
-                count={lowStockItems.length}
-                icon={AlertTriangle}
-                onClick={() => navigate("/inventory?filter=lowstock")}
-              />
-            )}
-
-            {/* Expiring Soon Alert */}
-            {expiringItems.length > 0 && (
-              <AlertCard
-                type="danger"
-                title="Expiring Soon"
-                message={`${expiringItems.length} items expiring within 30 days`}
-                count={expiringItems.length}
-                icon={Clock}
-                onClick={() => navigate("/inventory?filter=expiring")}
-              />
-            )}
-
-            {/* Critical Notifications */}
-            {notifications.critical > 0 && (
-              <AlertCard
-                type="info"
-                title="Critical Alerts"
-                message={`${notifications.critical} notifications need attention`}
-                count={notifications.critical}
-                icon={Bell}
-                onClick={() => navigate("/notifications?priority=critical")}
-              />
-            )}
-
-            {/* Subscription Alert (Super Admin) */}
-            {isSuperAdmin && subscription && subscription.days_remaining < 30 && (
-              <AlertCard
-                type="info"
-                title="Plan Expiring"
-                message={`Your plan expires in ${subscription.days_remaining} days`}
-                count={subscription.days_remaining}
-                icon={CreditCard}
-                onClick={() => navigate("/settings/plans")}
-              />
-            )}
-
-            {/* Pending Returns */}
-            {(salesReturns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length > 0 ||
-              purchaseReturns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length > 0) && (
-              <AlertCard
-                type="warning"
-                title="Pending Returns"
-                message={`${
-                  salesReturns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length +
-                  purchaseReturns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length
-                } returns awaiting approval`}
-                count={
-                  salesReturns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length +
-                  purchaseReturns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length
-                }
-                icon={RotateCcw}
-                onClick={() => navigate("/sales/returns")}
-              />
-            )}
-          </div>
-        </AnimatePresence>
-
-        {/* Low Stock Items Preview */}
-        {!loading && lowStockItems.length > 0 && (
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-5 border border-amber-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 rounded-lg">
-                  <AlertTriangle size={20} className="text-amber-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-amber-900">Low Stock Items</h3>
-                  <p className="text-xs text-amber-700">Items that need restocking</p>
-                </div>
+          {/* Low Stock Preview - ✅ FIXED FIELD NAMES */}
+          <GlassCard className="lg:col-span-4">
+            {loading ? (
+              <div className="animate-pulse space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-28" />
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-14 bg-gray-100 rounded-xl" />
+                ))}
               </div>
-              <button
-                onClick={() => navigate("/inventory?filter=lowstock")}
-                className="text-sm text-amber-700 hover:text-amber-800 font-medium flex items-center gap-1"
-              >
-                View All ({lowStockItems.length}) <ChevronRight size={14} />
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {lowStockItems.slice(0, 4).map((item) => (
-                <div
-                  key={item.inventory_id}
-                  className="bg-white p-3 rounded-lg border border-amber-200 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => navigate("/inventory")}
-                >
-                  <p className="text-sm font-medium text-gray-900 truncate">{item.medicine_name || item.name}</p>
-                  <p className="text-xs text-gray-500 truncate">{item.batch_number}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-amber-700 font-medium">
-                      Stock: {item.current_stock || item.quantity}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      Min: {item.min_stock_level || item.minimum_stock || 10}
-                    </span>
+            ) : (
+              <>
+                <SectionHeader
+                  title="Low Stock Items"
+                  subtitle="Needs restocking"
+                  icon={AlertTriangle}
+                  action={
+                    lowStockItems.length > 0
+                      ? () => navigate("/inventory?filter=lowstock")
+                      : undefined
+                  }
+                  actionLabel={
+                    lowStockItems.length > 0
+                      ? `All (${lowStockItems.length})`
+                      : undefined
+                  }
+                />
+                {lowStockItems.length > 0 ? (
+                  <div
+                    className="space-y-2 max-h-[280px] overflow-y-auto scrollbar-thin 
+                    scrollbar-thumb-gray-200 scrollbar-track-transparent"
+                  >
+                    {lowStockItems.slice(0, 6).map((item, i) => (
+                      <motion.div
+                        key={item.inventory_id || i}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        onClick={() =>
+                          navigate("/inventory?filter=lowstock")
+                        }
+                        className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-50/60 
+                          to-orange-50/40 border border-amber-100/80 hover:border-amber-200 
+                          hover:shadow-sm cursor-pointer transition-all group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                          <Pill size={14} className="text-amber-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-800 truncate">
+                            {/* ✅ FIXED: Use correct field names from inventory service */}
+                            {item.medicine_name || item.medicine?.name || item.name || "Unknown"}
+                          </p>
+                          <p className="text-[10px] text-gray-400 truncate">
+                            {item.batch_number || item.batch || "-"}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs font-bold text-amber-700">
+                            {/* ✅ FIXED: Use correct field name */}
+                            {item.current_stock ?? item.available_stock ?? item.quantity ?? 0}
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            min {item.minimum_stock ?? item.medicine_min_stock ?? item.min_stock_level ?? 10}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="text-center py-4">
-          <p className="text-xs text-gray-400">
-            Dashboard data refreshes automatically. Last updated: {lastUpdated ? formatDateTime(lastUpdated) : "Loading..."}
-          </p>
+                ) : (
+                  <div className="py-8 text-center text-gray-300">
+                    <CheckCircle2
+                      size={32}
+                      className="mx-auto mb-1.5 text-emerald-300"
+                    />
+                    <p className="text-xs text-emerald-500">
+                      All stock healthy
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </GlassCard>
         </div>
+
+        {/* ── FOOTER ── */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="flex items-center justify-center gap-2 py-2"
+        >
+          <CircleDot size={8} className="text-indigo-400" />
+          <p className="text-[10px] text-gray-400 font-medium">
+            Last synced:{" "}
+            {lastUpdated ? formatDateTime(lastUpdated) : "Syncing..."}
+          </p>
+        </motion.div>
       </div>
     </div>
   );
