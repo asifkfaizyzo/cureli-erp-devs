@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import ExcelJS from "exceljs";
-import * as XLSX from "xlsx";
+// ✅ REMOVED: import * as XLSX from "xlsx";
 import { makeEmptyPurchaseRow, calculateRow } from "./usePurchaseCalculation";
 
 // ✅ Generate unique row ID
@@ -149,22 +149,18 @@ const parseExpiryFromData = (row, headers, values) => {
  * ✅ Check if row is marked as free item
  */
 const checkIsFreeItem = (row, values) => {
-  // Check explicit isFreeItem field
   if (row.isFreeItem === true || row.isFreeItem === 'true' || row.isFreeItem === '1') {
     return true;
   }
   
-  // Check if amount is 0 or "FREE"
   const amount = String(row.amount || '').toUpperCase().trim();
   if (amount === 'FREE' || amount === '0' || amount === '0.00') {
-    // Also check if qty > 0 (to distinguish from empty rows)
     const qty = parseFloat(row.qty) || 0;
     if (qty > 0) {
       return true;
     }
   }
   
-  // Check if sch column has "FREE" marker
   const sch = String(row.sch || '').toUpperCase().trim();
   if (sch === 'FREE' || sch === 'FREEITEM' || sch === 'FREE ITEM') {
     return true;
@@ -178,7 +174,7 @@ const checkIsFreeItem = (row, values) => {
  */
 const parseRowData = (headers, values, debugMode = false) => {
   const row = makeEmptyPurchaseRow();
-  row.rowId = generateRowId(); // ✅ Add unique ID
+  row.rowId = generateRowId();
   
   const mappedFields = {};
   
@@ -187,10 +183,8 @@ const parseRowData = (headers, values, debugMode = false) => {
     if (key && values[i] !== undefined && values[i] !== null) {
       let value = String(values[i]).trim();
       
-      // Clean numeric values
       if (['qty', 'pQty', 'sch', 'mrp', 'price', 'sRate', 'netRate', 'amount',
            'schemePercent', 'discountPercent', 'cgstPercent', 'sgstPercent', 'igstPercent'].includes(key)) {
-        // Don't clean if it's "FREE"
         if (value.toUpperCase() !== 'FREE') {
           value = value.replace(/[^\d.-]/g, '');
         }
@@ -203,28 +197,21 @@ const parseRowData = (headers, values, debugMode = false) => {
     }
   });
   
-  // Handle itemname2 as fallback
   if (!row.name && row.name2) {
     row.name = row.name2;
   }
   delete row.name2;
   
-  // Parse expiry date
   row.exp = parseExpiryFromData(row, headers, values);
-  
-  // ✅ Check if this is a free item
   row.isFreeItem = checkIsFreeItem(row, values);
   
-  // If it's a free item, set amount to 0
   if (row.isFreeItem) {
     row.amount = "0";
     row.netRate = "0";
     row.taxableValue = "0";
-    // Clear sch on free items (it's already marked as free)
     row.sch = "";
   }
   
-  // Default tax values
   if (!row.sch) row.sch = "";
   if (!row.pQty) row.pQty = "";
   if (!row.cgstPercent && !row.sgstPercent) {
@@ -247,7 +234,6 @@ const parseRowData = (headers, values, debugMode = false) => {
     });
   }
   
-  // ✅ Don't calculate for free items
   if (row.isFreeItem) {
     return row;
   }
@@ -255,12 +241,45 @@ const parseRowData = (headers, values, debugMode = false) => {
   return calculateRow(row);
 };
 
+// ✅ NEW: Helper to extract cell value from ExcelJS cell
+const extractCellValue = (cell) => {
+  const value = cell.value;
+
+  if (value === null || value === undefined) return "";
+
+  // Formula: { formula: '...', result: ... }
+  if (typeof value === 'object' && 'result' in value) {
+    const result = value.result;
+    if (result instanceof Date) return result.toLocaleDateString();
+    return result !== null && result !== undefined ? result : "";
+  }
+
+  // Rich text: { richText: [{ text: '...' }, ...] }
+  if (typeof value === 'object' && value.richText) {
+    return value.richText.map((rt) => rt.text).join('');
+  }
+
+  // Hyperlink: { text: '...', hyperlink: '...' }
+  if (typeof value === 'object' && value.text) {
+    return value.text;
+  }
+
+  // Error
+  if (typeof value === 'object' && value.error) {
+    return "";
+  }
+
+  // Date
+  if (value instanceof Date) {
+    return value.toLocaleDateString();
+  }
+
+  return value;
+};
+
 export const usePurchaseImportExport = (onImport, supplier, toast, productMaster = []) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  /**
-   * ✅ Enhanced product matching
-   */
   const detectNewProducts = useCallback((parsedRows) => {
     const newProducts = [];
     const processedRows = [];
@@ -282,7 +301,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         return;
       }
 
-      // ✅ Track free items
       if (row.isFreeItem) {
         freeItemCount++;
       }
@@ -291,7 +309,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       const rowMfac = (row.mfac || '').trim();
       const cacheKey = `${rowName.toLowerCase()}|${rowMfac.toLowerCase()}`;
       
-      // Check cache first
       if (matchedProductCache.has(cacheKey)) {
         const cachedMatch = matchedProductCache.get(cacheKey);
         
@@ -309,7 +326,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         return;
       }
       
-      // Find matching product
       const matchingProduct = productMaster.find(product => {
         const productName = (product.name || '').toLowerCase();
         const searchName = rowName.toLowerCase();
@@ -351,7 +367,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         });
         matchedCount++;
       } else {
-        // Check if already in newProducts
         const alreadyDetected = newProducts.some(newProd => {
           const newProdName = (newProd.name || '').toLowerCase();
           const newProdMfac = (newProd.manufacturer || '').toLowerCase();
@@ -443,22 +458,43 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     reader.readAsText(file);
   }, [onImport, toast, detectNewProducts]);
 
+  // ✅ MIGRATED: Now uses ExcelJS instead of xlsx
   const handleImportExcel = useCallback(async (file) => {
     setIsLoading(true);
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "", blankrows: false });
-      
+
+      // ✅ ExcelJS instead of XLSX.read()
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+      const worksheet = workbook.worksheets[0];
+
+      if (!worksheet || worksheet.rowCount < 2) {
+        toast.error("Excel file is empty");
+        setIsLoading(false);
+        return;
+      }
+
+      // ✅ Convert ExcelJS worksheet to array-of-arrays (same format XLSX gave us)
+      const data = [];
+      const colCount = worksheet.columnCount;
+
+      worksheet.eachRow({ includeEmpty: false }, (row) => {
+        const rowValues = [];
+        for (let col = 1; col <= colCount; col++) {
+          const cell = row.getCell(col);
+          rowValues.push(extractCellValue(cell));
+        }
+        data.push(rowValues);
+      });
+
       if (data.length < 2) {
         toast.error("Excel file is empty");
         setIsLoading(false);
         return;
       }
 
-      // Find header row
+      // Find header row (same logic as before — unchanged)
       let headerRowIndex = 0;
       let maxNonEmptyCells = 0;
       
@@ -512,7 +548,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     }
   }, [onImport, toast, detectNewProducts]);
 
-  // ✅ UPDATED: Export with free item handling
   const handleExportExcel = useCallback(async (rows) => {
     setIsLoading(true);
     try {
@@ -539,7 +574,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         { header: 'Rack', key: 'rack', width: 8 },
         { header: 'Sale Rate', key: 'sRate', width: 12 },
         { header: 'Free/Scheme', key: 'sch', width: 10 },
-        { header: 'Is Free Item', key: 'isFreeItem', width: 10 }, // ✅ Add free item column
+        { header: 'Is Free Item', key: 'isFreeItem', width: 10 },
       ];
 
       const dataRows = rows.filter(row => row.name || row.qty || row.price);
@@ -560,26 +595,25 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           price: row.price ? Number(row.price) : 0,
           discountPercent: row.discountPercent ? Number(row.discountPercent) : 0,
           netRate: isFree ? 0 : (row.netRate ? Number(row.netRate) : 0),
-          amount: isFree ? 'FREE' : (row.amount ? Number(row.amount) : 0), // ✅ Mark free items
+          amount: isFree ? 'FREE' : (row.amount ? Number(row.amount) : 0),
           cgstPercent: row.cgstPercent ? Number(row.cgstPercent) : 0,
           sgstPercent: row.sgstPercent ? Number(row.sgstPercent) : 0,
           mrp: row.mrp ? Number(row.mrp) : 0,
           rack: row.rack || '',
           sRate: row.sRate ? Number(row.sRate) : 0,
-          sch: isFree ? 'FREE' : (row.sch || ''), // ✅ Mark in sch column too
+          sch: isFree ? 'FREE' : (row.sch || ''),
           isFreeItem: isFree ? 'Yes' : 'No',
         };
         
         const excelRow = worksheet.addRow(rowData);
         
-        // ✅ Highlight free items with green
         if (isFree) {
           excelRow.fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FFE8F5E9' } // Light green
+            fgColor: { argb: 'FFE8F5E9' }
           };
-          excelRow.font = { color: { argb: 'FF2E7D32' } }; // Dark green text
+          excelRow.font = { color: { argb: 'FF2E7D32' } };
         } else if (index % 2 === 0) {
           excelRow.fill = {
             type: 'pattern',
@@ -589,7 +623,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         }
       });
 
-      // Header styling
       const headerRow = worksheet.getRow(1);
       headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
       headerRow.fill = {
@@ -600,7 +633,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       headerRow.height = 25;
       headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-      // Borders
       worksheet.eachRow((row) => {
         row.eachCell((cell) => {
           cell.border = {

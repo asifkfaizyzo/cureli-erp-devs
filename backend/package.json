@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
+  "overrides": {
+    "minimatch": "^10.2.1",
+    "glob": "^11.0.0",
+    "rimraf": "^6.0.1"
+  },
   "prisma": {
     "seed": "node --experimental-specifier-resolution=node prisma/seed.js"
   },
@@ -15,7 +20,7 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^6.19.0",
-    "axios": "^1.13.2",
+    "axios": "^1.13.5",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -35,6 +40,6 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.14"
   }
 }

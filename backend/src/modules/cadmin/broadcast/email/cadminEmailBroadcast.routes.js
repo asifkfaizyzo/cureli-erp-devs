@@ -141,8 +141,7 @@ router.get(
 router.get(
   '/broadcast/email/filters/shops',
   controller.getShopsForFilterController
-);
-
+); 
 router.get(
   '/broadcast/email/filters/plans',
   controller.getActivePlansController
