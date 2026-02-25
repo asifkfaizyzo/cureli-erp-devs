@@ -12,6 +12,7 @@ import {
 // CONFIGURATION
 // ============================================
 
+
 const STUCK_THRESHOLD_MINUTES = 10;
 const MAX_CAMPAIGNS_PER_CYCLE = 3; // Process max 3 campaigns per minute
 

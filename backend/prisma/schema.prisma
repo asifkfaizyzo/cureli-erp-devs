@@ -1455,6 +1455,18 @@ model EmailUnsubscribe {
   @@map("email_unsubscribes")
 }
 
+model CronLock {
+  job_name    String    @id @db.VarChar(100)
+  locked_by   String?   @db.VarChar(255)
+  locked_at   DateTime? @db.Timestamptz(6)
+  expires_at  DateTime? @db.Timestamptz(6)
+  last_result String?   @db.VarChar(20)
+  last_run_at DateTime? @db.Timestamptz(6)
+
+  @@index([expires_at])
+  @@map("cron_locks")
+}
+
 enum CAdminRole {
   SUPER_ADMIN
   ANALYST
