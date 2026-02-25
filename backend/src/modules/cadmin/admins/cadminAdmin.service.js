@@ -168,7 +168,7 @@ export async function getAdminByIdService(id) {
     phone: admin.phone_number,
     email: admin.email || "",
     role: formatRole(admin.role),
-    rawRole: admin.role,
+    rawRole: admin.role, // ✅ ADD THIS - Send raw DB role value
     status: formatStatus(admin.is_active),
     isActive: admin.is_active,
     lastLogin: formatDateTime(admin.last_login_at),

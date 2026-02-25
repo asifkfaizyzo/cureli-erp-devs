@@ -48,7 +48,7 @@ model CAdmin {
   reset_token         String?             @db.VarChar(500)
   reset_token_expires DateTime?           @db.Timestamptz(6)
   name                String
-  role                CAdminRole          @default(SUPER_ADMIN)
+  role                CAdminRole          @default(SUPER_CADMIN)
   broadcastCampaigns  BroadcastCampaign[] @relation("BroadcastCampaigns")
   broadcastSegments   BroadcastSegment[]  @relation("BroadcastSegments")
   broadcastTemplates  BroadcastTemplate[] @relation("BroadcastTemplates")
@@ -1468,9 +1468,10 @@ model CronLock {
 }
 
 enum CAdminRole {
-  SUPER_ADMIN
-  ANALYST
-  ACCOUNTING
+SUPER_CADMIN
+ANALYST
+ACCOUNTANT
+SALESMAN
 }
 
 enum PlanStatus {

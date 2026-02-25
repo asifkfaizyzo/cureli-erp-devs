@@ -124,9 +124,12 @@ const ViewTicketModal = ({
 
   if (!isOpen || !ticket) return null;
 
+  // ✅ UPDATED: New URL format matching backend fileStorage service
   const getAttachmentUrl = (storageKey) => {
     const baseURL = import.meta.env.VITE_API_URL;
-    return `${baseURL}/uploads/${storageKey}`;
+    // storage_key now contains just the filename (e.g., "1234567890-abcdef12.jpg")
+    // Backend serves files via /api/files/:folder/:filename
+    return `${baseURL}/api/files/tickets/${storageKey}`;
   };
 
   const formatDate = (dateString) => {
@@ -261,13 +264,12 @@ const ViewTicketModal = ({
             </div>
           </div>
 
-          {/* TABS - Enhanced with sliding indicator */}
+          {/* TABS */}
           <div className="relative px-6 pt-3 pb-0 bg-white border-b border-gray-200 flex-shrink-0">
             <div 
               ref={tabsContainerRef}
               className="flex gap-1 relative"
             >
-              {/* Sliding indicator */}
               <div
                 ref={tabIndicatorRef}
                 className="absolute bottom-0 h-0.5 bg-[#05015A] transition-all duration-300 ease-out rounded-full"
@@ -312,7 +314,7 @@ const ViewTicketModal = ({
             </div>
           </div>
 
-          {/* CONTENT - With smooth transitions */}
+          {/* CONTENT */}
           <div className="flex-1 overflow-hidden bg-gray-50">
             <div 
               className={`
@@ -324,9 +326,7 @@ const ViewTicketModal = ({
               {/* =============== TICKET INFO TAB =============== */}
               {activeTab === "details" && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Left Column - Ticket Content */}
                   <div className="lg:col-span-2 space-y-4">
-                    {/* Subject & Description Card */}
                     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="w-8 h-8 rounded-lg bg-[#05015A]/10 flex items-center justify-center">
@@ -365,7 +365,6 @@ const ViewTicketModal = ({
                     </div>
                   </div>
 
-                  {/* Right Column - Info Cards */}
                   <div className="space-y-4">
                     <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-4 shadow-sm">
                       <h3 className="font-semibold text-gray-900 text-sm border-b border-gray-100 pb-2">
@@ -399,7 +398,6 @@ const ViewTicketModal = ({
                       />
                     </div>
 
-                    {/* Reopen count status card */}
                     {canReopenStatus && (
                       <div className={`rounded-xl border p-4 shadow-sm ${
                         canReopenCount 
@@ -431,7 +429,7 @@ const ViewTicketModal = ({
                 </div>
               )}
 
-              {/* =============== COMMUNICATION TAB (NEW) =============== */}
+              {/* =============== COMMUNICATION TAB =============== */}
               {activeTab === "communication" && (
                 <div className="max-w-4xl mx-auto space-y-4">
                   {!hasCommunication ? (
@@ -446,7 +444,6 @@ const ViewTicketModal = ({
                     </div>
                   ) : (
                     <>
-                      {/* Admin Notes */}
                       {ticket.admin_notes && (
                         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                           <div className="bg-indigo-50 px-5 py-3 border-b border-indigo-100">
@@ -467,7 +464,6 @@ const ViewTicketModal = ({
                         </div>
                       )}
 
-                      {/* Cancellation Info */}
                       {ticket.status === "CANCELLED" && ticket.cancellation_reason && (
                         <div className="bg-white rounded-xl border border-red-200 shadow-sm overflow-hidden">
                           <div className="bg-red-50 px-5 py-3 border-b border-red-100">
@@ -498,7 +494,6 @@ const ViewTicketModal = ({
                         </div>
                       )}
 
-                      {/* Reopen History */}
                       {ticket.reopen_count > 0 && (
                         <div className="bg-white rounded-xl border border-orange-200 shadow-sm overflow-hidden">
                           <div className="bg-orange-50 px-5 py-3 border-b border-orange-100">
@@ -788,7 +783,6 @@ const AttachmentCard = ({ attachment, getUrl }) => {
 
 const TimelineItem = ({ color, title, description, date, by, count, isFirst, isLast }) => (
   <div className="relative flex gap-4 pl-8">
-    {/* Timeline dot */}
     <div
       className={`
         absolute left-2 w-4 h-4 rounded-full ${color} 
@@ -797,7 +791,6 @@ const TimelineItem = ({ color, title, description, date, by, count, isFirst, isL
       `}
     />
     
-    {/* Content card */}
     <div className={`
       flex-1 bg-gray-50 rounded-lg p-4 
       border border-gray-100

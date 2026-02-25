@@ -62,7 +62,7 @@ import cadminAuditRoutes from "./src/modules/cadmin/audit/cadminAudit.routes.js"
 import cadminBroadcastInAppRoutes from "./src/modules/cadmin/broadcast/inapp/cadminInAppBroadcast.routes.js";
 import cadminNotificationRoutes from "./src/modules/notifications/cadmin/cadminNotifications.routes.js";
 import cadminEmailBroadcastRoutes from './src//modules/cadmin/broadcast/email/cadminEmailBroadcast.routes.js';
-
+import cadminDashboardRoutes from "./src/modules/cadmin/dashboard/cadminDashboard.routes.js";
 // ═══════════════════════════════════════════════════════════
 // APP SETUP
 // ═══════════════════════════════════════════════════════════
@@ -272,7 +272,7 @@ app.use("/cadmin", cadminAuditRoutes);
 app.use("/cadmin", cadminBroadcastInAppRoutes);  
 app.use("/cadmin", cadminNotificationRoutes);
 app.use('/cadmin', cadminEmailBroadcastRoutes);
-
+app.use('/cadmin', cadminDashboardRoutes);
 // ============================================
 // 404 Handler
 // ============================================

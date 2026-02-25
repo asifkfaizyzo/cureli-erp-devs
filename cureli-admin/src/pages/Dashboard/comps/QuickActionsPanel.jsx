@@ -1,42 +1,99 @@
-import React from "react";
-import { UserCheck, FileSearch, Download, Settings } from "lucide-react";
+// src/pages/Dashboard/comps/QuickActionsPanel.jsx
 
-const actions = [
-  { id: 1, label: "Approve", count: 5, icon: UserCheck, color: "bg-emerald-500" },
-  { id: 2, label: "Review", count: 8, icon: FileSearch, color: "bg-amber-500" },
-  { id: 3, label: "Export", icon: Download, color: "bg-blue-500" },
-  { id: 4, label: "Settings", icon: Settings, color: "bg-gray-500" },
+import { useNavigate } from "react-router-dom";
+import {
+  Plus,
+  UserPlus,
+  ShieldCheck,
+  Radio,
+  FileText,
+  Settings,
+  ChevronRight,
+} from "lucide-react";
+
+const QUICK_ACTIONS = [
+  {
+    id: "create-plan",
+    label: "Create Plan",
+    description: "Add new subscription plan",
+    icon: Plus,
+    iconBg: "bg-gradient-to-br from-emerald-500 to-teal-600",
+    path: "/subscriptions/manage",
+  },
+  {
+    id: "add-admin",
+    label: "Add Admin",
+    description: "Create new admin account",
+    icon: UserPlus,
+    iconBg: "bg-gradient-to-br from-blue-500 to-indigo-600",
+    path: "/admins",
+  },
+  {
+    id: "verify-shops",
+    label: "Verify Shops",
+    description: "Review pending verifications",
+    icon: ShieldCheck,
+    iconBg: "bg-gradient-to-br from-violet-500 to-purple-600",
+    path: "/verification",
+  },
+  {
+    id: "broadcast",
+    label: "Send Broadcast",
+    description: "Create announcement",
+    icon: Radio,
+    iconBg: "bg-gradient-to-br from-amber-500 to-orange-600",
+    path: "/communications/broadcast",
+  },
+  {
+    id: "audit-logs",
+    label: "Audit Logs",
+    description: "View system activity",
+    icon: FileText,
+    iconBg: "bg-gradient-to-br from-slate-500 to-gray-600",
+    path: "/audit",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    description: "Configure system",
+    icon: Settings,
+    iconBg: "bg-gradient-to-br from-gray-500 to-slate-600",
+    path: "/settings",
+  },
 ];
 
 const QuickActionsPanel = () => {
-  return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 h-55">
-      
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">
-        Quick Actions
-      </h3>
+  const navigate = useNavigate();
 
-      <div className="grid grid-cols-2 gap-2">
-        {actions.map((action) => {
-          const Icon = action.icon;
-          return (
-            <button
-              key={action.id}
-              className="relative flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all"
-            >
-              <div className={`w-8 h-8 rounded-lg ${action.color} flex items-center justify-center`}>
-                <Icon size={16} className="text-white" />
-              </div>
-              <span className="text-xs text-gray-600">{action.label}</span>
-              
-              {action.count && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {action.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          Quick Actions
+        </h3>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        {QUICK_ACTIONS.map((action) => (
+          <button
+            key={action.id}
+            onClick={() => navigate(action.path)}
+            className="group flex flex-col items-center p-4 rounded-xl border border-gray-100 
+                       hover:border-[#000060]/20 hover:bg-gradient-to-br hover:from-[#000060]/5 hover:to-violet-50
+                       transition-all duration-200 hover:shadow-md"
+          >
+            <div className={`w-12 h-12 rounded-xl ${action.iconBg} flex items-center justify-center 
+                            shadow-lg mb-3 group-hover:scale-110 transition-transform`}>
+              <action.icon size={22} className="text-white" />
+            </div>
+            <span className="text-sm font-medium text-gray-800 text-center">
+              {action.label}
+            </span>
+            <span className="text-[10px] text-gray-400 text-center mt-0.5 line-clamp-1">
+              {action.description}
+            </span>
+          </button>
+        ))}
       </div>
     </div>
   );

@@ -107,13 +107,13 @@ const BLOCKED_EXTENSIONS = [
 ];
 
 // ============================================
-// VALIDATION HELPERS
+// VALIDATION HELPERS (NOW EXPORTED)
 // ============================================
 
 /**
  * Validate folder name against whitelist
  */
-function validateFolder(folder) {
+export function validateFolder(folder) {
   if (!folder || typeof folder !== 'string') {
     const err = new Error('Folder name is required');
     err.code = 'INVALID_FOLDER';
@@ -135,7 +135,7 @@ function validateFolder(folder) {
 /**
  * Validate file extension
  */
-function validateExtension(filename) {
+export function validateExtension(filename) {
   const ext = path.extname(filename).toLowerCase();
 
   if (BLOCKED_EXTENSIONS.includes(ext)) {
@@ -150,7 +150,7 @@ function validateExtension(filename) {
 /**
  * Validate MIME type for folder
  */
-function validateMimeType(folder, mimetype) {
+export function validateMimeType(folder, mimetype) {
   const allowed = ALLOWED_MIME_TYPES[folder];
 
   if (!allowed) {
@@ -172,7 +172,7 @@ function validateMimeType(folder, mimetype) {
 /**
  * Validate file size
  */
-function validateFileSize(folder, size) {
+export function validateFileSize(folder, size) {
   const maxSize = MAX_FILE_SIZES[folder];
 
   if (!maxSize) {
@@ -194,7 +194,7 @@ function validateFileSize(folder, size) {
 /**
  * Format file size for human readability
  */
-function formatFileSize(bytes) {
+export function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 Bytes';
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -255,16 +255,6 @@ function resolveAbsolutePath(folder, filename) {
 
 /**
  * Upload file to local disk
- * 
- * @param {Object} params
- * @param {Buffer} params.buffer - File buffer from multer memoryStorage
- * @param {string} params.folder - Target folder (e.g., 'shop_files')
- * @param {string} params.originalName - Original filename
- * @param {string} params.mimetype - MIME type
- * @param {number} params.size - File size in bytes
- * @param {string} [params.customFilename] - Optional custom filename (must include extension)
- * 
- * @returns {Promise<Object>} { filename, path, size, mimetype }
  */
 export async function uploadFile({
   buffer,
@@ -325,12 +315,6 @@ export async function uploadFile({
 
 /**
  * Delete file from local disk
- * 
- * @param {Object} params
- * @param {string} params.folder - Folder name
- * @param {string} params.filename - Filename to delete
- * 
- * @returns {Promise<boolean>} true if deleted, false if not found
  */
 export async function deleteFile({ folder, filename }) {
   try {
@@ -354,12 +338,6 @@ export async function deleteFile({ folder, filename }) {
 
 /**
  * Check if file exists
- * 
- * @param {Object} params
- * @param {string} params.folder - Folder name
- * @param {string} params.filename - Filename
- * 
- * @returns {Promise<boolean>}
  */
 export async function fileExists({ folder, filename }) {
   try {
@@ -375,12 +353,6 @@ export async function fileExists({ folder, filename }) {
 
 /**
  * Get file metadata
- * 
- * @param {Object} params
- * @param {string} params.folder - Folder name
- * @param {string} params.filename - Filename
- * 
- * @returns {Promise<Object>} { size, created_at, modified_at }
  */
 export async function getFileMetadata({ folder, filename }) {
   try {
@@ -410,12 +382,6 @@ export async function getFileMetadata({ folder, filename }) {
 /**
  * Get absolute file path (for internal use, streaming, etc.)
  * ⚠️ DO NOT expose this path to frontend
- * 
- * @param {Object} params
- * @param {string} params.folder - Folder name
- * @param {string} params.filename - Filename
- * 
- * @returns {string} Absolute file path
  */
 export function getAbsolutePath({ folder, filename }) {
   const validatedFolder = validateFolder(folder);
@@ -428,28 +394,17 @@ export function getAbsolutePath({ folder, filename }) {
 
 /**
  * Get public URL for file
- * 
- * For LOCAL: Returns path for express.static or custom endpoint
- * For S3: Will return S3 URL or CloudFront URL
- * 
- * @param {Object} params
- * @param {string} params.folder - Folder name
- * @param {string} params.filename - Filename
- * @param {string} [params.provider] - Override storage provider
- * 
- * @returns {string} Public URL
  */
 export function getPublicUrl({ folder, filename, provider = STORAGE_PROVIDER }) {
   const validatedFolder = validateFolder(folder);
 
   if (provider === 'local') {
-    // Return path compatible with new /api/files/* endpoint
+    // Return path compatible with /api/files/* endpoint
     return `/api/files/${validatedFolder}/${filename}`;
   }
 
   if (provider === 's3') {
     // TODO: Implement S3 URL generation
-    // For now, return placeholder
     return `https://placeholder-bucket.s3.amazonaws.com/${validatedFolder}/${filename}`;
   }
 
@@ -458,17 +413,6 @@ export function getPublicUrl({ folder, filename, provider = STORAGE_PROVIDER }) 
 
 /**
  * Get signed URL for private file access
- * 
- * For LOCAL: Returns same as getPublicUrl (no signing needed)
- * For S3: Will return presigned URL with expiration
- * 
- * @param {Object} params
- * @param {string} params.folder - Folder name
- * @param {string} params.filename - Filename
- * @param {number} [params.expiresIn] - Expiration in seconds (default: 3600 = 1 hour)
- * @param {string} [params.provider] - Override storage provider
- * 
- * @returns {Promise<string>} Signed URL
  */
 export async function getSignedUrl({
   folder,
@@ -479,19 +423,10 @@ export async function getSignedUrl({
   const validatedFolder = validateFolder(folder);
 
   if (provider === 'local') {
-    // Local files don't need signing, return public URL
     return getPublicUrl({ folder: validatedFolder, filename, provider: 'local' });
   }
 
   if (provider === 's3') {
-    // TODO: Implement S3 presigned URL generation
-    // const s3 = new S3Client({ region: process.env.AWS_REGION });
-    // const command = new GetObjectCommand({
-    //   Bucket: process.env.AWS_S3_BUCKET,
-    //   Key: `${validatedFolder}/${filename}`,
-    // });
-    // return await getSignedUrl(s3, command, { expiresIn });
-
     throw new Error('S3 presigned URLs not yet implemented');
   }
 
@@ -504,9 +439,6 @@ export async function getSignedUrl({
 
 /**
  * Delete multiple files
- * 
- * @param {Array<{folder: string, filename: string}>} files
- * @returns {Promise<{deleted: number, failed: number, errors: Array}>}
  */
 export async function deleteFiles(files) {
   const results = {
@@ -547,9 +479,6 @@ export async function deleteFiles(files) {
 
 /**
  * Get storage statistics for a folder
- * 
- * @param {string} folder - Folder name
- * @returns {Promise<Object>} { total_files, total_size, total_size_formatted }
  */
 export async function getFolderStats(folder) {
   try {
@@ -573,7 +502,6 @@ export async function getFolderStats(folder) {
         const stats = await fs.promises.stat(filePath);
         totalSize += stats.size;
       } catch (err) {
-        // Skip files that can't be read
         console.warn(`[FileStorage] Could not stat file: ${filename}`);
       }
     }
@@ -590,7 +518,7 @@ export async function getFolderStats(folder) {
 }
 
 // ============================================
-// EXPORTS
+// DEFAULT EXPORT (for backwards compatibility)
 // ============================================
 
 export default {
@@ -604,6 +532,7 @@ export default {
   getSignedUrl,
   getFolderStats,
   validateFolder,
+  validateExtension,
   validateMimeType,
   validateFileSize,
   formatFileSize,

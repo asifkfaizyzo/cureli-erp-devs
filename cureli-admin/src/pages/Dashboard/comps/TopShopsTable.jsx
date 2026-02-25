@@ -1,51 +1,139 @@
-import React from "react";
-import { TrendingUp } from "lucide-react";
+// src/pages/Dashboard/comps/TopShopsTable.jsx
 
-const shops = [
-  { name: "MediCare Plus", revenue: "₹45,200", orders: 124, growth: "+18%" },
-  { name: "HealthFirst", revenue: "₹38,400", orders: 98, growth: "+12%" },
-  { name: "QuickMeds", revenue: "₹32,100", orders: 87, growth: "+8%" },
-  { name: "CityPharma", revenue: "₹28,900", orders: 76, growth: "+5%" },
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Trophy,
+  ArrowRight,
+  TrendingUp,
+  Users,
+  Loader2,
+  Crown,
+} from "lucide-react";
+
+// Mock data
+const mockTopShops = [
+  { id: "1", name: "MedPlus Central", revenue: 125000, users: 12, growth: 15 },
+  { id: "2", name: "Apollo Pharmacy Hub", revenue: 98000, users: 8, growth: 12 },
+  { id: "3", name: "Netmeds Express Store", revenue: 87000, users: 6, growth: 8 },
+  { id: "4", name: "PharmEasy Outlet", revenue: 76000, users: 5, growth: -2 },
+  { id: "5", name: "1mg Health Store", revenue: 65000, users: 4, growth: 5 },
 ];
 
-const TopShopsTable = () => {
+const TopShopsTable = ({ period }) => {
+  const navigate = useNavigate();
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    setTimeout(() => {
+      setData(mockTopShops);
+      setLoading(false);
+    }, 500);
+  }, [period]);
+
+  const getRankBadge = (index) => {
+    if (index === 0) {
+      return (
+        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow">
+          <Crown size={12} className="text-white" />
+        </div>
+      );
+    }
+    if (index === 1) {
+      return (
+        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center">
+          <span className="text-[10px] font-bold text-white">2</span>
+        </div>
+      );
+    }
+    if (index === 2) {
+      return (
+        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-600 to-orange-700 flex items-center justify-center">
+          <span className="text-[10px] font-bold text-white">3</span>
+        </div>
+      );
+    }
+    return (
+      <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
+        <span className="text-[10px] font-semibold text-gray-500">{index + 1}</span>
+      </div>
+    );
+  };
+
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 h-55 flex flex-col">
-      
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">Top Shops</h3>
-        <button className="text-xs text-indigo-600 font-medium hover:text-indigo-700">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
+            <Trophy size={20} className="text-white" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">Top Shops</h3>
+            <p className="text-xs text-gray-500">By revenue this period</p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => navigate("/shops")}
+          className="flex items-center gap-1 text-sm text-[#000060] font-medium hover:underline"
+        >
           View All
+          <ArrowRight size={14} />
         </button>
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-y-auto">
-        <table className="w-full text-sm">
-          <thead className="text-xs text-gray-500 sticky top-0 bg-white">
-            <tr>
-              <th className="text-left font-medium pb-2">Shop</th>
-              <th className="text-right font-medium pb-2">Revenue</th>
-              <th className="text-right font-medium pb-2">Growth</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shops.map((shop, i) => (
-              <tr key={i} className="border-t border-gray-50">
-                <td className="py-2 text-gray-800 font-medium">{shop.name}</td>
-                <td className="py-2 text-gray-600 text-right">{shop.revenue}</td>
-                <td className="py-2 text-right">
-                  <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                    <TrendingUp size={10} />
-                    {shop.growth}
+      {loading ? (
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {data.map((shop, index) => (
+            <div
+              key={shop.id}
+              onClick={() => navigate(`/shops?search=${shop.name}`)}
+              className={`
+                flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all
+                ${index === 0 
+                  ? "bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-100" 
+                  : "hover:bg-gray-50"
+                }
+              `}
+            >
+              {/* Rank */}
+              {getRankBadge(index)}
+
+              {/* Shop Info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{shop.name}</p>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <Users size={10} />
+                    {shop.users} users
                   </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </div>
+              </div>
+
+              {/* Revenue & Growth */}
+              <div className="text-right">
+                <p className="text-sm font-bold text-gray-900">
+                  ₹{(shop.revenue / 1000).toFixed(0)}K
+                </p>
+                <div className={`flex items-center justify-end gap-1 text-xs ${
+                  shop.growth >= 0 ? "text-emerald-600" : "text-red-600"
+                }`}>
+                  <TrendingUp size={10} className={shop.growth < 0 ? "rotate-180" : ""} />
+                  {shop.growth >= 0 ? "+" : ""}{shop.growth}%
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
