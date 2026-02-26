@@ -35,9 +35,9 @@ const PDFViewer = ({ url, filename, onClose }) => {
         setError(null);
 
         // Convert relative URL to absolute with API base
-        const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+        const apiBase = import.meta.env.VITE_API_BASE_URL;
         let fetchUrl = url;
-        
+
         // If it's a relative path, use the PDF proxy endpoint
         if (url.startsWith("/uploads/")) {
           const parts = url.replace("/uploads/", "").split("/");
@@ -116,16 +116,16 @@ const PDFViewer = ({ url, filename, onClose }) => {
   };
 
   const handleDownload = () => {
-    const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+    const apiBase = import.meta.env.VITE_API_BASE_URL;
     let downloadUrl = url;
-    
+
     if (url.startsWith("/uploads/")) {
       const parts = url.replace("/uploads/", "").split("/");
       const folder = parts[0];
       const file = parts.slice(1).join("/");
       downloadUrl = `${apiBase}/api/download/${folder}/${file}?name=${encodeURIComponent(filename || "document.pdf")}`;
     }
-    
+
     window.open(downloadUrl, "_blank");
   };
 
@@ -289,7 +289,8 @@ const PDFViewer = ({ url, filename, onClose }) => {
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white/70 px-4 py-2 rounded-full text-xs">
         <span className="hidden md:inline">
           Press <kbd className="bg-gray-700 px-1 rounded">Esc</kbd> to close •{" "}
-          <kbd className="bg-gray-700 px-1 rounded">+</kbd>/<kbd className="bg-gray-700 px-1 rounded">-</kbd> to zoom
+          <kbd className="bg-gray-700 px-1 rounded">+</kbd>/
+          <kbd className="bg-gray-700 px-1 rounded">-</kbd> to zoom
         </span>
       </div>
     </div>

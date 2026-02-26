@@ -1,6 +1,6 @@
-// src/App.jsx
+// frontend/src/App.jsx
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 // ============================================
@@ -15,7 +15,7 @@ import AuthGuard from "./guards/AuthGuard";
 import SetupGuard from "./guards/SetupGuard";
 import PermissionGuard from "./guards/PermissionGuard";
 import OnboardingGuard from "./guards/OnboardingGuard";
-import BranchRequiredGuard from "./guards/BranchRequiredGuard"; // NEW
+import BranchRequiredGuard from "./guards/BranchRequiredGuard";
 
 // ============================================
 // PERMISSIONS CONFIG
@@ -61,9 +61,8 @@ import ProfilePage from "./pages/settings/profile/ProfilePage.jsx";
 import UpgradePlanPage from "./pages/settings/plans/UpgradePlanPage.jsx";
 
 // ============================================
-// oeder PAGES
+// ORDER PAGES
 // ============================================
-
 import OrdersPage from "./pages/orders/OrdersPage";
 import OrderSessionsPage from "./pages/orders/OrderSessionsPage";
 import PendingOrdersPage from "./pages/orders/PendingOrdersPage";
@@ -84,16 +83,11 @@ import SetupUsersPage from "./pages/setup/SetupUsersPage.jsx";
 import SetupReviewPage from "./pages/setup/SetupReviewPage.jsx";
 
 // ============================================
-// LANDING PAGES
+// NOTIFICATIONS
 // ============================================
-import Home from "./pages/landingPages/home/Home.jsx";
-import About from "./pages/landingPages/about/About.jsx";
-import Contact from "./pages/landingPages/contact/Contact.jsx";
-import Pricing from "./pages/landingPages/pricing/Pricing.jsx";
-import ScrollToTop from "./pages/landingPages/component/ScrollToTop.jsx";
+import NotificationsPage from "./pages/notifications/NotificationsPage.jsx";
 
 import "./index.css";
-import NotificationsPage from "./pages/notifications/NotificationsPage.jsx";
 
 // ============================================
 // MAINTENANCE CHECK COMPONENT
@@ -182,7 +176,6 @@ const AuthInitializer = ({ children }) => {
 // ============================================
 const App = () => {
   useEffect(() => {
-    // Zoom prevention code...
     const disableZoomScroll = (e) => {
       if (e.ctrlKey) e.preventDefault();
     };
@@ -215,7 +208,6 @@ const App = () => {
 
   return (
     <Router>
-      <ScrollToTop />
       <Routes>
         {/* ============================================ */}
         {/* MAINTENANCE PAGE (Always accessible - no check) */}
@@ -232,12 +224,9 @@ const App = () => {
               <AuthInitializer>
                 <Routes>
                   {/* ============================================ */}
-                  {/* LANDING PAGES (Public) */}
+                  {/* ROOT REDIRECT */}
                   {/* ============================================ */}
-                  <Route path="/" element={<Home />} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/contact" element={<Contact />} />
-                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/" element={<Navigate to="/login" replace />} />
 
                   {/* ============================================ */}
                   {/* PUBLIC ROUTES (No auth required) */}
@@ -376,7 +365,7 @@ const App = () => {
                           }
                         />
 
-                        {/* Purchase Invoices - Read only, works in GLOBAL mode */}
+                        {/* Purchase Returns - Read only, works in GLOBAL mode */}
                         <Route
                           path="/purchase-returns"
                           element={
@@ -430,8 +419,8 @@ const App = () => {
                           }
                         />
 
-                         {/* ============================================ */}
-                        {/* orders ROUTES */}
+                        {/* ============================================ */}
+                        {/* ORDER ROUTES */}
                         {/* ============================================ */}
 
                         <Route

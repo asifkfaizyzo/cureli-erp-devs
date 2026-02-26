@@ -19,7 +19,7 @@ import {
   Minimize2,
 } from "lucide-react";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Required document types
 const REQUIRED_TYPES = [
@@ -186,7 +186,7 @@ const ShopDocumentsTab = ({ shop }) => {
         setZoom((prev) => Math.min(Math.max(prev + delta, 0.5), 5));
       }
     },
-    [previewFile]
+    [previewFile],
   );
 
   // Mouse down for panning
@@ -505,7 +505,6 @@ const ShopDocumentsTab = ({ shop }) => {
         {/* Required Documents */}
         {requiredDocs.length > 0 && (
           <div>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {requiredDocs.map((doc) => renderDocumentCard(doc, false))}
             </div>
@@ -516,7 +515,9 @@ const ShopDocumentsTab = ({ shop }) => {
         {optionalDocs.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-sm font-semibold text-gray-700">Optional Documents</h3>
+              <h3 className="text-sm font-semibold text-gray-700">
+                Optional Documents
+              </h3>
               <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                 {optionalDocs.length}
               </span>
@@ -549,9 +550,12 @@ const ShopDocumentsTab = ({ shop }) => {
                 <FileText size={20} className="text-white" />
                 <div>
                   <h3 className="text-white font-medium text-sm">
-                    {FILE_TYPE_LABELS[previewFile.file_type] || previewFile.file_type}
+                    {FILE_TYPE_LABELS[previewFile.file_type] ||
+                      previewFile.file_type}
                   </h3>
-                  <p className="text-white/60 text-xs">{previewFile.original_name}</p>
+                  <p className="text-white/60 text-xs">
+                    {previewFile.original_name}
+                  </p>
                 </div>
               </div>
 
@@ -609,7 +613,11 @@ const ShopDocumentsTab = ({ shop }) => {
                   className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
                   title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                 >
-                  {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                  {isFullscreen ? (
+                    <Minimize2 size={18} />
+                  ) : (
+                    <Maximize2 size={18} />
+                  )}
                 </button>
                 <button
                   onClick={() => setPreviewFile(null)}
@@ -637,7 +645,11 @@ const ShopDocumentsTab = ({ shop }) => {
 
                   <div
                     className={`relative transition-transform ${
-                      isDragging ? "cursor-grabbing" : zoom > 1 ? "cursor-grab" : "cursor-default"
+                      isDragging
+                        ? "cursor-grabbing"
+                        : zoom > 1
+                          ? "cursor-grab"
+                          : "cursor-default"
                     }`}
                     style={{
                       transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,

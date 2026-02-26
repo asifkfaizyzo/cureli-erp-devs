@@ -1,18 +1,26 @@
 // src/pages/Communications/pages/Broadcast/InApp/comps/FileUploadAttachment.jsx
 
 import { useState, useRef, useCallback } from "react";
-import { 
-  Upload, X, Image, Video, AlertCircle, CheckCircle, 
-  Loader2, FileImage, FileVideo, Trash2 
+import {
+  Upload,
+  X,
+  Image,
+  Video,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+  FileImage,
+  FileVideo,
+  Trash2,
 } from "lucide-react";
 import * as broadcastAPI from "../../../../../../api/cadminBroadcast";
 
 // Backend URL for file serving
-const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const BACKEND_URL = import.meta.env.VITE_API_URL;
 
 /**
  * FileUploadAttachment Component
- * 
+ *
  * Handles single file upload (image or video) with:
  * - Immediate upload on file selection
  * - Progress bar during upload
@@ -58,60 +66,63 @@ function FileUploadAttachment({ attachment, onChange, disabled }) {
   /**
    * Handle file selection
    */
-  const handleFileSelect = useCallback(async (file) => {
-    if (!file || disabled) return;
+  const handleFileSelect = useCallback(
+    async (file) => {
+      if (!file || disabled) return;
 
-    // Clear previous error
-    setError(null);
+      // Clear previous error
+      setError(null);
 
-    // Validate file
-    const validationError = validateFile(file);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    // Start upload
-    setIsUploading(true);
-    setUploadProgress(0);
-
-    try {
-      const response = await broadcastAPI.uploadBroadcastAttachment(
-        file,
-        (progress) => setUploadProgress(progress)
-      );
-
-      if (response.data.success) {
-        const uploadedFile = response.data.data;
-        
-        // Create attachment object
-        const newAttachment = {
-          type: uploadedFile.type, // 'image' or 'video'
-          url: `${BACKEND_URL}${uploadedFile.url}`,
-          label: uploadedFile.original_name,
-          filename: uploadedFile.filename,
-          original_name: uploadedFile.original_name,
-          size: uploadedFile.size,
-          size_formatted: uploadedFile.size_formatted,
-          mime_type: uploadedFile.mime_type,
-        };
-
-        onChange(newAttachment);
-        setUploadProgress(100);
-      } else {
-        throw new Error(response.data.message || "Upload failed");
+      // Validate file
+      const validationError = validateFile(file);
+      if (validationError) {
+        setError(validationError);
+        return;
       }
-    } catch (err) {
-      console.error("Upload error:", err);
-      setError(
-        err.response?.data?.message || 
-        err.message || 
-        "Failed to upload file. Please try again."
-      );
-    } finally {
-      setIsUploading(false);
-    }
-  }, [disabled, onChange]);
+
+      // Start upload
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      try {
+        const response = await broadcastAPI.uploadBroadcastAttachment(
+          file,
+          (progress) => setUploadProgress(progress),
+        );
+
+        if (response.data.success) {
+          const uploadedFile = response.data.data;
+
+          // Create attachment object
+          const newAttachment = {
+            type: uploadedFile.type, // 'image' or 'video'
+            url: `${BACKEND_URL}${uploadedFile.url}`,
+            label: uploadedFile.original_name,
+            filename: uploadedFile.filename,
+            original_name: uploadedFile.original_name,
+            size: uploadedFile.size,
+            size_formatted: uploadedFile.size_formatted,
+            mime_type: uploadedFile.mime_type,
+          };
+
+          onChange(newAttachment);
+          setUploadProgress(100);
+        } else {
+          throw new Error(response.data.message || "Upload failed");
+        }
+      } catch (err) {
+        console.error("Upload error:", err);
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to upload file. Please try again.",
+        );
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [disabled, onChange],
+  );
 
   /**
    * Handle file input change
@@ -194,9 +205,10 @@ function FileUploadAttachment({ attachment, onChange, disabled }) {
       className={`
         relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
         transition-all duration-200
-        ${isDragOver 
-          ? "border-indigo-500 bg-indigo-50" 
-          : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+        ${
+          isDragOver
+            ? "border-indigo-500 bg-indigo-50"
+            : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
         }
         ${disabled ? "opacity-50 cursor-not-allowed" : ""}
       `}
@@ -216,17 +228,15 @@ function FileUploadAttachment({ attachment, onChange, disabled }) {
           <span className="text-gray-300">/</span>
           <Video size={24} />
         </div>
-        
+
         <div className="mt-2">
           <span className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
             Click to upload
           </span>
           <span className="text-sm text-gray-500"> or drag and drop</span>
         </div>
-        
-        <p className="text-xs text-gray-400">
-          Images or videos up to 50MB
-        </p>
+
+        <p className="text-xs text-gray-400">Images or videos up to 50MB</p>
       </div>
     </div>
   );
@@ -240,7 +250,9 @@ function FileUploadAttachment({ attachment, onChange, disabled }) {
         <Loader2 size={20} className="text-indigo-600 animate-spin" />
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium text-gray-700">Uploading...</span>
+            <span className="text-sm font-medium text-gray-700">
+              Uploading...
+            </span>
             <span className="text-sm text-gray-500">{uploadProgress}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -278,9 +290,7 @@ function FileUploadAttachment({ attachment, onChange, disabled }) {
                   e.target.nextSibling.style.display = "flex";
                 }}
               />
-              <div 
-                className="absolute inset-0 items-center justify-center bg-gray-100 hidden"
-              >
+              <div className="absolute inset-0 items-center justify-center bg-gray-100 hidden">
                 <FileImage size={48} className="text-gray-400" />
               </div>
             </div>
@@ -315,7 +325,10 @@ function FileUploadAttachment({ attachment, onChange, disabled }) {
             ) : (
               <Video size={14} className="text-purple-600 flex-shrink-0" />
             )}
-            <span className="text-xs text-gray-700 truncate flex-1" title={attachment.original_name}>
+            <span
+              className="text-xs text-gray-700 truncate flex-1"
+              title={attachment.original_name}
+            >
               {attachment.original_name || "Attachment"}
             </span>
             {attachment.size_formatted && (
@@ -367,13 +380,11 @@ function FileUploadAttachment({ attachment, onChange, disabled }) {
       {renderError()}
 
       {/* Upload area / Progress / Preview */}
-      {isUploading ? (
-        renderUploadProgress()
-      ) : attachment ? (
-        renderAttachmentPreview()
-      ) : (
-        renderUploadArea()
-      )}
+      {isUploading
+        ? renderUploadProgress()
+        : attachment
+          ? renderAttachmentPreview()
+          : renderUploadArea()}
 
       {/* Success indicator after upload */}
       {attachment && !isUploading && (

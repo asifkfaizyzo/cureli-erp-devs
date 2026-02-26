@@ -23,9 +23,13 @@ import {
   Minimize2,
 } from "lucide-react";
 import ConfirmDialog from "../../../../components/common/ConfirmDialog";
-import { verifyShopFile, rejectShopFile, uploadShopDocument } from "../../../../api/cadminShops";
+import {
+  verifyShopFile,
+  rejectShopFile,
+  uploadShopDocument,
+} from "../../../../api/cadminShops";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Required document types
 const REQUIRED_DOCUMENT_TYPES = [
@@ -97,16 +101,21 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
   const allRequiredPresent = missingRequiredTypes.length === 0;
 
   // Stats
-  const stats = useMemo(() => ({
-    requiredTotal: REQUIRED_DOCUMENT_TYPES.length,
-    requiredUploaded: REQUIRED_DOCUMENT_TYPES.length - missingRequiredTypes.length,
-    requiredMissing: missingRequiredTypes.length,
-    optionalTotal: OPTIONAL_DOCUMENT_TYPES.length,
-    optionalUploaded: OPTIONAL_DOCUMENT_TYPES.length - missingOptionalTypes.length,
-    verified: documents.filter((d) => d.status === "verified").length,
-    rejected: documents.filter((d) => d.status === "rejected").length,
-    pending: documents.filter((d) => d.status === "uploaded").length,
-  }), [documents, missingRequiredTypes, missingOptionalTypes]);
+  const stats = useMemo(
+    () => ({
+      requiredTotal: REQUIRED_DOCUMENT_TYPES.length,
+      requiredUploaded:
+        REQUIRED_DOCUMENT_TYPES.length - missingRequiredTypes.length,
+      requiredMissing: missingRequiredTypes.length,
+      optionalTotal: OPTIONAL_DOCUMENT_TYPES.length,
+      optionalUploaded:
+        OPTIONAL_DOCUMENT_TYPES.length - missingOptionalTypes.length,
+      verified: documents.filter((d) => d.status === "verified").length,
+      rejected: documents.filter((d) => d.status === "rejected").length,
+      pending: documents.filter((d) => d.status === "uploaded").length,
+    }),
+    [documents, missingRequiredTypes, missingOptionalTypes],
+  );
 
   // Notify parent
   useMemo(() => {
@@ -229,7 +238,7 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
         setZoom((prev) => Math.min(Math.max(prev + delta, 0.5), 5));
       }
     },
-    [previewFile]
+    [previewFile],
   );
 
   const handleMouseDown = (e) => {
@@ -273,7 +282,12 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ];
     if (!allowedTypes.includes(file.type)) {
       alert("Invalid file type. Please upload JPG, PNG, WebP or PDF.");
       return;
@@ -342,8 +356,8 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
                 isExpanded ? "col-span-1 md:col-span-2" : ""
               }`
             : isRequired
-            ? "border-red-200 border-dashed bg-red-50/30"
-            : "border-gray-200 border-dashed bg-gray-50/50"
+              ? "border-red-200 border-dashed bg-red-50/30"
+              : "border-gray-200 border-dashed bg-gray-50/50"
         }`}
       >
         {/* Hidden file input */}
@@ -380,7 +394,9 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
                     {!isRequired && (
                       <>
                         <span className="text-[9px] text-gray-400">•</span>
-                        <span className="text-[9px] text-gray-400">Optional</span>
+                        <span className="text-[9px] text-gray-400">
+                          Optional
+                        </span>
                       </>
                     )}
                   </div>
@@ -437,7 +453,11 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
                     className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 transition"
                     title={isExpanded ? "Collapse" : "Expand"}
                   >
-                    {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                    {isExpanded ? (
+                      <Minimize2 size={14} />
+                    ) : (
+                      <Maximize2 size={14} />
+                    )}
                   </button>
                 </div>
               </div>
@@ -505,7 +525,10 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
                   ) : (
                     <div className="h-24 flex items-center justify-center text-gray-400">
                       <div className="text-center">
-                        <FileText size={24} className="mx-auto mb-1 opacity-50" />
+                        <FileText
+                          size={24}
+                          className="mx-auto mb-1 opacity-50"
+                        />
                         <p className="text-xs">Preview not available</p>
                       </div>
                     </div>
@@ -540,10 +563,15 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
         ) : (
           /* ══════════════ MISSING DOCUMENT ══════════════ */
           <div className="p-4 flex flex-col items-center justify-center text-center">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
-              isRequired ? "bg-red-100" : "bg-gray-100"
-            }`}>
-              <FileText size={20} className={isRequired ? "text-red-300" : "text-gray-300"} />
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
+                isRequired ? "bg-red-100" : "bg-gray-100"
+              }`}
+            >
+              <FileText
+                size={20}
+                className={isRequired ? "text-red-300" : "text-gray-300"}
+              />
             </div>
 
             <div className="flex items-center gap-1.5 mb-1">
@@ -555,9 +583,11 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
               )}
             </div>
 
-            <p className={`text-[10px] mb-3 flex items-center gap-1 ${
-              isRequired ? "text-red-500" : "text-gray-400"
-            }`}>
+            <p
+              className={`text-[10px] mb-3 flex items-center gap-1 ${
+                isRequired ? "text-red-500" : "text-gray-400"
+              }`}
+            >
               {isRequired ? (
                 <>
                   <XCircle size={10} />
@@ -607,7 +637,8 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
             <AlertTriangle size={18} className="text-red-600 mt-0.5 shrink-0" />
             <div className="flex-1">
               <p className="font-semibold text-sm text-red-800 mb-1">
-                Missing Required Documents ({stats.requiredMissing} of {stats.requiredTotal})
+                Missing Required Documents ({stats.requiredMissing} of{" "}
+                {stats.requiredTotal})
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {missingRequiredTypes.map((type) => (
@@ -626,9 +657,14 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
 
         {allRequiredPresent && (
           <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-start gap-3">
-            <CheckCircle size={18} className="text-emerald-600 mt-0.5 shrink-0" />
+            <CheckCircle
+              size={18}
+              className="text-emerald-600 mt-0.5 shrink-0"
+            />
             <div>
-              <p className="font-semibold text-sm text-emerald-800">All Required Documents Uploaded</p>
+              <p className="font-semibold text-sm text-emerald-800">
+                All Required Documents Uploaded
+              </p>
               <p className="text-xs text-emerald-600">
                 {stats.requiredTotal} required documents present.
               </p>
@@ -663,17 +699,23 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
         {/* Required Documents */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">Required Documents</h3>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-              allRequiredPresent 
-                ? "bg-emerald-100 text-emerald-700" 
-                : "bg-red-100 text-red-700"
-            }`}>
+            <h3 className="text-sm font-semibold text-gray-700">
+              Required Documents
+            </h3>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                allRequiredPresent
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+            >
               {stats.requiredUploaded} / {stats.requiredTotal}
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {REQUIRED_DOCUMENT_TYPES.map((docType) => renderDocumentCard(docType, true))}
+            {REQUIRED_DOCUMENT_TYPES.map((docType) =>
+              renderDocumentCard(docType, true),
+            )}
           </div>
         </div>
 
@@ -716,7 +758,9 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
         message={
           <div className="space-y-3">
             <p className="text-gray-600 text-sm">
-              Rejecting <strong>{FILE_TYPE_LABELS[rejectingFile?.file_type]}</strong> will require re-upload.
+              Rejecting{" "}
+              <strong>{FILE_TYPE_LABELS[rejectingFile?.file_type]}</strong> will
+              require re-upload.
             </p>
             <textarea
               className="w-full h-20 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 resize-none"
@@ -743,7 +787,9 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
           <div
             className={`relative bg-white rounded-xl shadow-2xl overflow-hidden transition-all duration-300 ${
-              isFullscreen ? "w-full h-full rounded-none" : "w-full max-w-5xl h-[85vh]"
+              isFullscreen
+                ? "w-full h-full rounded-none"
+                : "w-full max-w-5xl h-[85vh]"
             }`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -753,9 +799,12 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
                 <FileText size={20} className="text-white" />
                 <div>
                   <h3 className="text-white font-medium text-sm">
-                    {FILE_TYPE_LABELS[previewFile.file_type] || previewFile.file_type}
+                    {FILE_TYPE_LABELS[previewFile.file_type] ||
+                      previewFile.file_type}
                   </h3>
-                  <p className="text-white/60 text-xs">{previewFile.original_name}</p>
+                  <p className="text-white/60 text-xs">
+                    {previewFile.original_name}
+                  </p>
                 </div>
               </div>
 
@@ -811,7 +860,11 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
                   className="p-2 text-white hover:bg-white/20 rounded-lg transition"
                   title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                 >
-                  {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                  {isFullscreen ? (
+                    <Minimize2 size={18} />
+                  ) : (
+                    <Maximize2 size={18} />
+                  )}
                 </button>
                 <button
                   onClick={() => setPreviewFile(null)}
@@ -838,7 +891,11 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
                   )}
                   <div
                     className={`relative transition-transform ${
-                      isDragging ? "cursor-grabbing" : zoom > 1 ? "cursor-grab" : "cursor-default"
+                      isDragging
+                        ? "cursor-grabbing"
+                        : zoom > 1
+                          ? "cursor-grab"
+                          : "cursor-default"
                     }`}
                     style={{
                       transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,

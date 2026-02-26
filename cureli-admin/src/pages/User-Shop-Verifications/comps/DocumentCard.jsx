@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useToast } from "../../../components/common/Toast";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const FILE_TYPE_LABELS = {
   drug_license: "Drug License",
@@ -104,7 +104,7 @@ const FilePreviewModal = ({ isOpen, onClose, doc }) => {
     } else {
       toast.error(
         "Download Failed",
-        "Unable to download file. File URL not available."
+        "Unable to download file. File URL not available.",
       );
     }
   };
@@ -210,7 +210,7 @@ const FilePreviewModal = ({ isOpen, onClose, doc }) => {
                     setImageError(true);
                     toast.error(
                       "Image Load Failed",
-                      "Unable to load image preview."
+                      "Unable to load image preview.",
                     );
                   }}
                 />
@@ -319,7 +319,7 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
       console.error("Download failed:", err);
       toast.error(
         "Download Failed",
-        "Unable to download file. Opening in new tab instead."
+        "Unable to download file. Opening in new tab instead.",
       );
       // Fallback: open in new tab
       window.open(fileUrl, "_blank");
@@ -471,4 +471,3 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
 };
 
 export default DocumentCard;
-

@@ -21,7 +21,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Required document types for shops
 const REQUIRED_TYPES = [
@@ -190,7 +190,7 @@ const UserDocumentsTab = ({ user }) => {
         setZoom((prev) => Math.min(Math.max(prev + delta, 0.5), 5));
       }
     },
-    [previewFile]
+    [previewFile],
   );
 
   // Mouse down for panning
@@ -336,11 +336,7 @@ const UserDocumentsTab = ({ user }) => {
                 className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 transition"
                 title={isExpanded ? "Collapse" : "Expand"}
               >
-                {isExpanded ? (
-                  <Minimize2 size={14} />
-                ) : (
-                  <Maximize2 size={14} />
-                )}
+                {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
               </button>
             </div>
           </div>
@@ -668,7 +664,11 @@ const UserDocumentsTab = ({ user }) => {
                   {/* Image with zoom and pan */}
                   <div
                     className={`relative transition-transform ${
-                      isDragging ? "cursor-grabbing" : zoom > 1 ? "cursor-grab" : "cursor-default"
+                      isDragging
+                        ? "cursor-grabbing"
+                        : zoom > 1
+                          ? "cursor-grab"
+                          : "cursor-default"
                     }`}
                     style={{
                       transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,

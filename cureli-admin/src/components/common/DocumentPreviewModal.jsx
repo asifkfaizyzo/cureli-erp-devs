@@ -20,7 +20,7 @@ const DocumentPreviewModal = ({ isOpen, onClose, document }) => {
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+  const apiBase = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     if (isOpen) {
@@ -37,11 +37,13 @@ const DocumentPreviewModal = ({ isOpen, onClose, document }) => {
 
   if (!isOpen || !document) return null;
 
-  const isPDF = document.mime_type === "application/pdf" || 
-                document.storage_key?.toLowerCase().endsWith(".pdf");
-  
-  const isImage = document.mime_type?.startsWith("image/") ||
-                  /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(document.storage_key);
+  const isPDF =
+    document.mime_type === "application/pdf" ||
+    document.storage_key?.toLowerCase().endsWith(".pdf");
+
+  const isImage =
+    document.mime_type?.startsWith("image/") ||
+    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(document.storage_key);
 
   const getFileUrl = () => {
     if (document.storage_key) {
@@ -95,7 +97,9 @@ const DocumentPreviewModal = ({ isOpen, onClose, document }) => {
             >
               <ZoomOut size={20} />
             </button>
-            <span className="text-white text-sm min-w-[50px] text-center">{zoom}%</span>
+            <span className="text-white text-sm min-w-[50px] text-center">
+              {zoom}%
+            </span>
             <button
               onClick={(e) => {
                 e.stopPropagation();
