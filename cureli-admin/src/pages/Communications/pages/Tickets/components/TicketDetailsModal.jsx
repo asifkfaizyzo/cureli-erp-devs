@@ -22,6 +22,8 @@ import {
   History,
   ArrowRight,
   XCircle,
+  ImageOff,
+  Download,
 } from "lucide-react";
 import {
   updateTicketStatus,
@@ -283,7 +285,7 @@ const InfoRow = ({ label, value, icon }) => (
 );
 
 // ============================================
-// ATTACHMENT CARD COMPONENT
+// ✅ UPDATED: ATTACHMENT CARD COMPONENT
 // ============================================
 const AttachmentCard = ({ attachment, getUrl }) => {
   const [imageError, setImageError] = useState(false);
@@ -291,7 +293,7 @@ const AttachmentCard = ({ attachment, getUrl }) => {
   const url = getUrl(attachment.storage_key);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
       <a href={url} target="_blank" rel="noopener noreferrer" className="block">
         {isImage && !imageError ? (
           <div className="h-32 bg-gray-100 overflow-hidden">
@@ -303,22 +305,29 @@ const AttachmentCard = ({ attachment, getUrl }) => {
             />
           </div>
         ) : (
-          <div className="h-32 bg-gray-50 flex items-center justify-center">
-            <Paperclip size={40} className="text-gray-300" />
+          <div className="h-32 bg-gray-50 flex flex-col items-center justify-center gap-2">
+            {imageError ? (
+              <>
+                <ImageOff size={24} className="text-gray-300" />
+                <span className="text-xs text-gray-400">Failed to load</span>
+              </>
+            ) : (
+              <Download size={24} className="text-gray-300" />
+            )}
           </div>
         )}
       </a>
 
-      <div className="p-3">
+      <div className="p-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <p
-              className="text-sm font-medium text-gray-900 truncate"
+              className="text-xs font-medium text-gray-900 truncate"
               title={attachment.original_name}
             >
               {attachment.original_name}
             </p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-[10px] text-gray-500">
               {(attachment.file_size / 1024).toFixed(1)} KB
             </p>
           </div>
@@ -326,9 +335,9 @@ const AttachmentCard = ({ attachment, getUrl }) => {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1.5 rounded-lg bg-[#05015A]/10 text-[#05015A] hover:bg-[#05015A]/20 transition-colors"
+            className="p-1 rounded bg-[#05015A]/10 text-[#05015A] hover:bg-[#05015A]/20 transition-colors"
           >
-            <ExternalLink size={14} />
+            <ExternalLink size={12} />
           </a>
         </div>
       </div>
@@ -432,8 +441,12 @@ const TicketDetailsModal = ({
     );
   }
 
+  // ✅ UPDATED: New URL format matching backend fileStorage service
   const getAttachmentUrl = (storageKey) => {
-    return `${import.meta.env.VITE_API_URL}/uploads/${storageKey}`;
+    const baseURL = import.meta.env.VITE_API_URL;
+    // storage_key now contains just the filename (e.g., "1234567890-abcdef12.jpg")
+    // Backend serves files via /api/files/:folder/:filename
+    return `${baseURL}/api/files/tickets/${storageKey}`;
   };
 
   const formatDate = (dateString) => {

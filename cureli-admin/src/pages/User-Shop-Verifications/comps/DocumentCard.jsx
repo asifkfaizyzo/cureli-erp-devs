@@ -21,7 +21,16 @@ import {
 } from "lucide-react";
 import { useToast } from "../../../components/common/Toast";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+// ✅ UPDATED: New URL format matching backend fileStorage service
+const getFileUrl = (storageKey) => {
+  if (!storageKey) return null;
+  if (storageKey.startsWith("http")) return storageKey;
+  
+  const baseURL = import.meta.env.VITE_API_URL;
+  // Backend serves files via /api/files/:folder/:filename
+  // storage_key contains just the filename (e.g., "1234567890-abcdef12.jpg")
+  return `${baseURL}/api/files/shop_files/${storageKey}`;
+};
 
 const FILE_TYPE_LABELS = {
   drug_license: "Drug License",
@@ -32,20 +41,6 @@ const FILE_TYPE_LABELS = {
   address_proof: "Address Proof",
   pan_card: "PAN Card",
   fssai_license: "FSSAI License",
-};
-
-// Get file URL for viewing (inline)
-const getFileUrl = (storageKey) => {
-  if (!storageKey) return null;
-  if (storageKey.startsWith("http")) return storageKey;
-  return `${BACKEND_URL}/uploads/shop_files/${storageKey}`;
-};
-
-// Get download URL (forces download)
-const getDownloadUrl = (storageKey, originalName) => {
-  if (!storageKey) return null;
-  const encodedName = encodeURIComponent(originalName || storageKey);
-  return `${BACKEND_URL}/api/download/shop_files/${storageKey}?name=${encodedName}`;
 };
 
 // ============================================
@@ -92,20 +87,39 @@ const FilePreviewModal = ({ isOpen, onClose, doc }) => {
 
   if (!isOpen || !doc) return null;
 
+  // ✅ UPDATED: Use new URL format
   const fileUrl = getFileUrl(doc.storage_key);
   const isImage = doc.mime_type?.includes("image");
   const isPdf = doc.mime_type?.includes("pdf");
 
-  const handleDownload = () => {
-    const downloadUrl = getDownloadUrl(doc.storage_key, doc.name);
-    if (downloadUrl) {
+  // ✅ UPDATED: Download using fetch + blob for better compatibility
+  const handleDownload = async () => {
+    if (!fileUrl) {
+      toast.error("Download Failed", "File URL not available.");
+      return;
+    }
+
+    try {
       toast.info("Downloading", `Downloading ${doc.name}...`, 2000);
-      window.location.href = downloadUrl;
-    } else {
-      toast.error(
-        "Download Failed",
-        "Unable to download file. File URL not available.",
-      );
+      
+      const response = await fetch(fileUrl);
+      if (!response.ok) throw new Error("Download failed");
+      
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = doc.name || `${doc.file_type}_document`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      
+      toast.success("Downloaded", `${doc.name} downloaded successfully.`, 2000);
+    } catch (err) {
+      console.error("Download failed:", err);
+      toast.error("Download Failed", "Unable to download file. Opening in new tab instead.");
+      window.open(fileUrl, "_blank");
     }
   };
 
@@ -201,7 +215,6 @@ const FilePreviewModal = ({ isOpen, onClose, doc }) => {
                 <img
                   src={fileUrl}
                   alt={doc.name}
-                  crossOrigin="anonymous"
                   className="max-w-full max-h-full object-contain transition-transform duration-200"
                   style={{ transform: `scale(${zoom / 100})` }}
                   onLoad={() => setImageLoading(false)}
@@ -264,6 +277,7 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
+  // ✅ UPDATED: Use new URL format
   const fileUrl = getFileUrl(doc.storage_key);
 
   const getFileIcon = () => {
@@ -300,6 +314,7 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
 
   const config = statusConfig[doc.status] || statusConfig.normal;
 
+  // ✅ UPDATED: Download using fetch + blob
   const handleDownload = async (e) => {
     e.stopPropagation();
 
@@ -311,10 +326,21 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
     setDownloading(true);
 
     try {
-      // Use the download endpoint
-      const downloadUrl = getDownloadUrl(doc.storage_key, doc.name);
       toast.info("Downloading", `Downloading ${doc.name}...`, 2000);
-      window.location.href = downloadUrl;
+      
+      const response = await fetch(fileUrl);
+      if (!response.ok) throw new Error("Download failed");
+      
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = doc.name || `${doc.file_type}_document`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      
     } catch (err) {
       console.error("Download failed:", err);
       toast.error(
@@ -331,7 +357,7 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
   return (
     <>
       <div
-        className={`group rounded-lg border  border-l-4 ${config.border} ${config.bg} border-black/20 hover:shadow-md transition-all duration-200`}
+        className={`group rounded-lg border border-l-4 ${config.border} ${config.bg} border-black/20 hover:shadow-md transition-all duration-200`}
       >
         <div className="p-3">
           {/* Top Row: Icon, Title, Status */}

@@ -2,6 +2,15 @@
 
 import { X, Users, Building2, UserCheck, Image, Video, Link2, ExternalLink } from "lucide-react";
 
+// ✅ UPDATED: Helper function to ensure correct URL format
+const ensureFullUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith("http")) return url;
+  
+  const baseURL = import.meta.env.VITE_API_URL;
+  return `${baseURL}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 function PreviewModal({ data, formData, onClose }) {
   const attachment = formData.attachments?.length > 0 ? formData.attachments[0] : null;
 
@@ -22,6 +31,12 @@ function PreviewModal({ data, formData, onClose }) {
       case 'link': return <Link2 size={16} className="text-blue-600" />;
       default: return <Link2 size={16} className="text-gray-600" />;
     }
+  };
+
+  // ✅ UPDATED: Get attachment URL with proper format
+  const getAttachmentUrl = () => {
+    if (!attachment) return null;
+    return ensureFullUrl(attachment.url);
   };
 
   return (
@@ -74,10 +89,10 @@ function PreviewModal({ data, formData, onClose }) {
                   {/* Attachment preview */}
                   {attachment && (
                     <div className="mt-3 pt-3 border-t border-gray-100">
-                      {attachment.type === 'image' && attachment.url ? (
+                      {attachment.type === 'image' && getAttachmentUrl() ? (
                         <div className="rounded-lg overflow-hidden bg-gray-100">
                           <img 
-                            src={attachment.url} 
+                            src={getAttachmentUrl()} 
                             alt="Attachment" 
                             className="w-full h-32 object-cover"
                             onError={(e) => {

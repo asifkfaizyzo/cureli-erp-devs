@@ -15,8 +15,16 @@ import {
 } from "lucide-react";
 import * as broadcastAPI from "../../../../../../api/cadminBroadcast";
 
-// Backend URL for file serving
-const BACKEND_URL = import.meta.env.VITE_API_URL;
+// ✅ UPDATED: New URL format matching backend fileStorage service
+const getFileUrl = (storageKey) => {
+  if (!storageKey) return null;
+  if (storageKey.startsWith("http")) return storageKey;
+  
+  const baseURL = import.meta.env.VITE_API_URL;
+  // Backend serves files via /api/files/:folder/:filename
+  // storage_key contains just the filename
+  return `${baseURL}/api/files/broadcast_attachments/${storageKey}`;
+};
 
 /**
  * FileUploadAttachment Component
@@ -93,12 +101,12 @@ function FileUploadAttachment({ attachment, onChange, disabled }) {
         if (response.data.success) {
           const uploadedFile = response.data.data;
 
-          // Create attachment object
+          // ✅ UPDATED: Create attachment object with new URL format
           const newAttachment = {
             type: uploadedFile.type, // 'image' or 'video'
-            url: `${BACKEND_URL}${uploadedFile.url}`,
+            url: getFileUrl(uploadedFile.filename), // Use helper function
             label: uploadedFile.original_name,
-            filename: uploadedFile.filename,
+            filename: uploadedFile.filename, // Just the filename
             original_name: uploadedFile.original_name,
             size: uploadedFile.size,
             size_formatted: uploadedFile.size_formatted,

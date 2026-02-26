@@ -29,7 +29,16 @@ import {
   uploadShopDocument,
 } from "../../../../api/cadminShops";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+// ✅ UPDATED: New URL format matching backend fileStorage service
+const getFileUrl = (storageKey) => {
+  if (!storageKey) return null;
+  if (storageKey.startsWith("http")) return storageKey;
+  
+  const baseURL = import.meta.env.VITE_API_URL;
+  // Backend serves files via /api/files/:folder/:filename
+  // storage_key contains just the filename (e.g., "1234567890-abcdef12.jpg")
+  return `${baseURL}/api/files/shop_files/${storageKey}`;
+};
 
 // Required document types
 const REQUIRED_DOCUMENT_TYPES = [
@@ -156,13 +165,6 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging, dragStart, zoom]);
-
-  // Helper functions
-  const getFileUrl = (storageKey) => {
-    if (!storageKey) return null;
-    if (storageKey.startsWith("http")) return storageKey;
-    return `${BACKEND_URL}/uploads/shop_files/${storageKey}`;
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -718,19 +720,6 @@ const ShopEditDocumentsTab = ({ shop, onRefresh, onValidationChange }) => {
             )}
           </div>
         </div>
-
-        {/* Optional Documents
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">Optional Documents</h3>
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-              {stats.optionalUploaded} / {stats.optionalTotal}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {OPTIONAL_DOCUMENT_TYPES.map((docType) => renderDocumentCard(docType, false))}
-          </div>
-        </div> */}
 
         {/* Instructions */}
         <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-start gap-3">

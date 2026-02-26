@@ -13,9 +13,69 @@ import {
   AlertTriangle,
   Maximize2,
   Minimize2,
+  ExternalLink,
 } from "lucide-react";
 
-const PDFViewer = ({ url, filename, onClose }) => {
+// ✅ UPDATED: Helper function to convert old URL format to new format
+const convertToNewFileUrl = (url, folder = "shop_files") => {
+  if (!url) return null;
+  
+  const baseURL = import.meta.env.VITE_API_URL;
+  
+  // If already using the new format, return as-is
+  if (url.includes("/api/files/")) {
+    return url;
+  }
+  
+  // If it's a full URL (external), return as-is
+  if (url.startsWith("http") && !url.includes(baseURL)) {
+    return url;
+  }
+  
+  // Extract filename from old URL formats
+  let filename = null;
+  
+  // Handle /uploads/folder/filename format
+  if (url.includes("/uploads/")) {
+    const parts = url.replace(/.*\/uploads\//, "").split("/");
+    if (parts.length >= 2) {
+      folder = parts[0];
+      filename = parts.slice(1).join("/");
+    } else {
+      filename = parts[0];
+    }
+  }
+  // Handle direct storage key (just filename)
+  else if (!url.startsWith("http") && !url.startsWith("/")) {
+    filename = url;
+  }
+  // Handle /api/pdf/folder/filename (old proxy format)
+  else if (url.includes("/api/pdf/")) {
+    const parts = url.replace(/.*\/api\/pdf\//, "").split("/");
+    if (parts.length >= 2) {
+      folder = parts[0];
+      filename = parts.slice(1).join("/");
+    }
+  }
+  // Handle /api/download/folder/filename (old download format)
+  else if (url.includes("/api/download/")) {
+    const parts = url.replace(/.*\/api\/download\//, "").split("/");
+    if (parts.length >= 2) {
+      folder = parts[0];
+      filename = parts.slice(1).join("/");
+    }
+  }
+  
+  if (!filename) {
+    // Fallback: just return the original URL
+    return url.startsWith("http") ? url : `${baseURL}${url}`;
+  }
+  
+  // ✅ New URL format: /api/files/:folder/:filename
+  return `${baseURL}/api/files/${folder}/${filename}`;
+};
+
+const PDFViewer = ({ url, filename, folder = "shop_files", onClose }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [zoom, setZoom] = useState(100);
@@ -27,28 +87,23 @@ const PDFViewer = ({ url, filename, onClose }) => {
   const containerRef = useRef(null);
   const iframeRef = useRef(null);
 
-  // Fetch PDF as blob to bypass CSP issues
+  // ✅ UPDATED: Convert URL to new format
+  const fileUrl = convertToNewFileUrl(url, folder);
+
+  // Fetch PDF as blob
   useEffect(() => {
     const fetchPDF = async () => {
+      if (!fileUrl) {
+        setError("No file URL provided");
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
 
-        // Convert relative URL to absolute with API base
-        const apiBase = import.meta.env.VITE_API_BASE_URL;
-        let fetchUrl = url;
-
-        // If it's a relative path, use the PDF proxy endpoint
-        if (url.startsWith("/uploads/")) {
-          const parts = url.replace("/uploads/", "").split("/");
-          const folder = parts[0];
-          const file = parts.slice(1).join("/");
-          fetchUrl = `${apiBase}/api/pdf/${folder}/${file}`;
-        } else if (!url.startsWith("http")) {
-          fetchUrl = `${apiBase}${url}`;
-        }
-
-        const response = await fetch(fetchUrl, {
+        const response = await fetch(fileUrl, {
           credentials: "include",
         });
 
@@ -67,9 +122,7 @@ const PDFViewer = ({ url, filename, onClose }) => {
       }
     };
 
-    if (url) {
-      fetchPDF();
-    }
+    fetchPDF();
 
     // Cleanup blob URL on unmount
     return () => {
@@ -77,7 +130,7 @@ const PDFViewer = ({ url, filename, onClose }) => {
         URL.revokeObjectURL(pdfBlobUrl);
       }
     };
-  }, [url]);
+  }, [fileUrl]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -115,18 +168,38 @@ const PDFViewer = ({ url, filename, onClose }) => {
     setRotation((prev) => (prev + 90) % 360);
   };
 
-  const handleDownload = () => {
-    const apiBase = import.meta.env.VITE_API_BASE_URL;
-    let downloadUrl = url;
+  // ✅ UPDATED: Download using fetch + blob
+  const handleDownload = async () => {
+    if (!fileUrl) return;
 
-    if (url.startsWith("/uploads/")) {
-      const parts = url.replace("/uploads/", "").split("/");
-      const folder = parts[0];
-      const file = parts.slice(1).join("/");
-      downloadUrl = `${apiBase}/api/download/${folder}/${file}?name=${encodeURIComponent(filename || "document.pdf")}`;
+    try {
+      const response = await fetch(fileUrl, {
+        credentials: "include",
+      });
+
+      if (!response.ok) throw new Error("Download failed");
+
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename || "document.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Download failed:", err);
+      // Fallback: open in new tab
+      window.open(fileUrl, "_blank");
     }
+  };
 
-    window.open(downloadUrl, "_blank");
+  // Open in new tab
+  const handleOpenInNewTab = () => {
+    if (fileUrl) {
+      window.open(fileUrl, "_blank");
+    }
   };
 
   const handlePrevPage = () => {
@@ -211,6 +284,15 @@ const PDFViewer = ({ url, filename, onClose }) => {
             {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
           </button>
 
+          {/* Open in new tab */}
+          <button
+            onClick={handleOpenInNewTab}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            title="Open in new tab"
+          >
+            <ExternalLink size={18} />
+          </button>
+
           {/* Download */}
           <button
             onClick={handleDownload}
@@ -252,12 +334,20 @@ const PDFViewer = ({ url, filename, onClose }) => {
             </div>
             <p className="text-white font-medium">Failed to load PDF</p>
             <p className="text-white/60 text-sm">{error}</p>
-            <button
-              onClick={handleDownload}
-              className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors"
-            >
-              Download Instead
-            </button>
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={handleDownload}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors"
+              >
+                Download Instead
+              </button>
+              <button
+                onClick={handleOpenInNewTab}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg text-sm transition-colors"
+              >
+                Open in New Tab
+              </button>
+            </div>
           </div>
         )}
 

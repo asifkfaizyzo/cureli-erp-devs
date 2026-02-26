@@ -17,6 +17,15 @@ const MAX_ATTACHMENTS = 5;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25MB total
 
+// ✅ UPDATED: Helper function to get file URL
+const getFileUrl = (filename) => {
+  if (!filename) return null;
+  if (filename.startsWith("http")) return filename;
+  
+  const baseURL = import.meta.env.VITE_API_URL;
+  return `${baseURL}/api/files/email_attachments/${filename}`;
+};
+
 function EmailAttachmentsPanel({ attachments = [], onChange, disabled }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -75,10 +84,12 @@ function EmailAttachmentsPanel({ attachments = [], onChange, disabled }) {
 
       if (response.data.success) {
         const uploadedFile = response.data.data;
+        
+        // ✅ UPDATED: Use helper function for URL
         onChange([
           ...attachments,
           {
-            url: uploadedFile.url,
+            url: getFileUrl(uploadedFile.filename),
             filename: uploadedFile.filename,
             original_name: uploadedFile.original_name,
             size: uploadedFile.size,

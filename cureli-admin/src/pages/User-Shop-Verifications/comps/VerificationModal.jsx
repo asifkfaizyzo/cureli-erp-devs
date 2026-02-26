@@ -17,11 +17,21 @@ import DocumentCard from "./DocumentCard";
 import VerificationDetailsTop from "./VerificationDetailsTop";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import { useToast } from "../../../components/common/Toast";
-// ✅ CHANGED: Import batchUpdateFiles instead of verifyFile, rejectFile
 import {
   getShopVerificationDetail,
   batchUpdateFiles,
 } from "../../../api/cadminDocs";
+
+// ✅ UPDATED: Helper function to generate file URL
+const getFileUrl = (storageKey) => {
+  if (!storageKey) return null;
+  if (storageKey.startsWith("http")) return storageKey;
+  
+  const baseURL = import.meta.env.VITE_API_URL;
+  // Backend serves files via /api/files/:folder/:filename
+  // storage_key contains just the filename (e.g., "1234567890-abcdef12.jpg")
+  return `${baseURL}/api/files/shop_files/${storageKey}`;
+};
 
 const VerificationModal = ({ shop, onClose }) => {
   const toast = useToast();
@@ -68,6 +78,7 @@ const VerificationModal = ({ shop, onClose }) => {
 
       setShopData(payload.shop);
 
+      // ✅ UPDATED: Use getFileUrl helper for pdfUrl
       const mappedDocs = (payload.files || []).map((f) => ({
         file_id: f.file_id,
         name: f.original_name || f.file_type || "Document",
@@ -88,7 +99,8 @@ const VerificationModal = ({ shop, onClose }) => {
         resubmission_count: f.resubmission_count || 0,
         storage_key: f.storage_key,
         mime_type: f.mime_type,
-        pdfUrl: f.storage_key ? `/uploads/shop_files/${f.storage_key}` : null,
+        // ✅ UPDATED: Use new URL format
+        pdfUrl: f.storage_key ? getFileUrl(f.storage_key) : null,
       }));
 
       setDocuments(mappedDocs);
@@ -133,17 +145,17 @@ const VerificationModal = ({ shop, onClose }) => {
     setHasUnsavedChanges(hasChanges);
   }, [documents, originalDocuments]);
 
-  // Validation - UNCHANGED (still requires all 6 reviewed)
+  // Validation - requires all 6 reviewed
   const canSave = useMemo(() => {
     if (!hasUnsavedChanges) return false;
 
-    // ✅ Must review ALL documents
+    // Must review ALL documents
     const allReviewed = documents.every(
       (d) => d.status === "approved" || d.status === "failed"
     );
     if (!allReviewed) return false;
 
-    // ✅ All rejected must have reasons
+    // All rejected must have reasons
     const rejectedWithoutReason = documents.some(
       (d) => d.status === "failed" && (!d.reason || !d.reason.trim())
     );
@@ -217,7 +229,7 @@ const VerificationModal = ({ shop, onClose }) => {
     }
   };
 
-  // ✅ UPDATED: Save all changes using batch API
+  // Save all changes using batch API
   const handleSave = async () => {
     if (!canSave) {
       toast.error(

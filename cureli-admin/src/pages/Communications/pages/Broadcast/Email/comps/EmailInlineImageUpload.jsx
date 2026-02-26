@@ -13,6 +13,16 @@ import * as emailBroadcastAPI from "../../../../../../api/cadminEmailBroadcast";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
+// ✅ UPDATED: Helper function to get file URL
+const getFileUrl = (filename) => {
+  if (!filename) return null;
+  if (filename.startsWith("http")) return filename;
+  
+  const baseURL = import.meta.env.VITE_API_URL;
+  // Inline images also go to email_attachments folder
+  return `${baseURL}/api/files/email_attachments/${filename}`;
+};
+
 function EmailInlineImageUpload({ image, onChange, disabled }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -52,8 +62,10 @@ function EmailInlineImageUpload({ image, onChange, disabled }) {
 
         if (response.data.success) {
           const uploadedFile = response.data.data;
+          
+          // ✅ UPDATED: Use helper function for URL
           onChange({
-            url: uploadedFile.url,
+            url: getFileUrl(uploadedFile.filename),
             filename: uploadedFile.filename,
             original_name: uploadedFile.original_name,
             size: uploadedFile.size,

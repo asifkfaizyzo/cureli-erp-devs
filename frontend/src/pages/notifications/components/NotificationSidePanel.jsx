@@ -25,7 +25,39 @@ import {
   isBroadcastNotification,
 } from '../../../config/notifications';
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// ✅ UPDATED: Helper function to get file URL with new format
+const getAttachmentUrl = (attachment) => {
+  if (!attachment?.url) return null;
+  
+  // If already a full URL, return as-is
+  if (attachment.url.startsWith('http://') || attachment.url.startsWith('https://')) {
+    return attachment.url;
+  }
+  
+  // If it starts with /api/files/, it's already in the new format
+  if (attachment.url.startsWith('/api/files/')) {
+    const baseURL = import.meta.env.VITE_API_URL;
+    return `${baseURL}${attachment.url}`;
+  }
+  
+  // Legacy format: /uploads/folder/filename
+  // Convert to new format: /api/files/folder/filename
+  if (attachment.url.startsWith('/uploads/')) {
+    const baseURL = import.meta.env.VITE_API_URL;
+    const urlWithoutUploads = attachment.url.replace('/uploads/', '');
+    const parts = urlWithoutUploads.split('/');
+    
+    if (parts.length >= 2) {
+      const folder = parts[0]; // e.g., 'broadcast_attachments'
+      const filename = parts.slice(1).join('/');
+      return `${baseURL}/api/files/${folder}/${filename}`;
+    }
+  }
+  
+  // Fallback: assume it's just a filename from broadcast_attachments
+  const baseURL = import.meta.env.VITE_API_URL;
+  return `${baseURL}/api/files/broadcast_attachments/${attachment.url}`;
+};
 
 const NotificationSidePanel = ({
   notification,
@@ -64,12 +96,6 @@ const NotificationSidePanel = ({
   const attachment = attachments.length > 0 ? attachments[0] : null;
 
   const isExpired = expiresAt && new Date(expiresAt) < new Date();
-
-  const getAttachmentUrl = (att) => {
-    if (!att?.url) return null;
-    if (att.url.startsWith('http://') || att.url.startsWith('https://')) return att.url;
-    return `${BACKEND_URL}${att.url}`;
-  };
 
   const handleNavigate = () => {
     if (route) navigate(route);
@@ -334,20 +360,6 @@ const NotificationSidePanel = ({
               <span>Mark as read</span>
             </button>
           )}
-
-          {/* Delete
-          <button
-            onClick={() => onDelete?.(notification_id)}
-            disabled={isDeleting}
-            className="p-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-            title="Delete"
-          >
-            {isDeleting ? (
-              <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
-            ) : (
-              <Trash2 size={14} />
-            )}
-          </button> */}
         </div>
       </div>
 

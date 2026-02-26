@@ -19,7 +19,16 @@ import {
   Minimize2,
 } from "lucide-react";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+// ✅ UPDATED: New URL format matching backend fileStorage service
+const getFileUrl = (storageKey) => {
+  if (!storageKey) return null;
+  if (storageKey.startsWith("http")) return storageKey;
+  
+  const baseURL = import.meta.env.VITE_API_URL;
+  // Backend serves files via /api/files/:folder/:filename
+  // storage_key contains just the filename (e.g., "1234567890-abcdef12.jpg")
+  return `${baseURL}/api/files/shop_files/${storageKey}`;
+};
 
 // Required document types
 const REQUIRED_TYPES = [
@@ -108,12 +117,6 @@ const ShopDocumentsTab = ({ shop }) => {
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging, dragStart, zoom]);
-
-  const getFileUrl = (storageKey) => {
-    if (!storageKey) return null;
-    if (storageKey.startsWith("http")) return storageKey;
-    return `${BACKEND_URL}/uploads/shop_files/${storageKey}`;
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";

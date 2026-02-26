@@ -2,7 +2,22 @@
 
 import { X, Users, Building2, Mail } from "lucide-react";
 
+// ✅ UPDATED: Helper function to ensure correct URL format
+const ensureFullUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith("http")) return url;
+  
+  const baseURL = import.meta.env.VITE_API_URL;
+  return `${baseURL}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 function EmailPreviewModal({ data, formData, onClose }) {
+  // ✅ UPDATED: Get inline image URL with proper format
+  const getInlineImageUrl = () => {
+    if (!formData.inline_image?.url) return null;
+    return ensureFullUrl(formData.inline_image.url);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
@@ -48,9 +63,12 @@ function EmailPreviewModal({ data, formData, onClose }) {
                     {formData.inline_image && (
                       <div className="mt-3 rounded-lg overflow-hidden bg-gray-100">
                         <img
-                          src={formData.inline_image.url}
+                          src={getInlineImageUrl()}
                           alt="Inline"
                           className="w-full h-24 object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
                         />
                       </div>
                     )}
