@@ -1,4 +1,4 @@
-// prisma/seed.js
+// prisma/seed.dev.js
 
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 const uuid = () => randomUUID();
 
 async function main() {
-  console.log("🌱 Starting CAdmin seed...\n");
+  console.log("🌱 Starting DEVELOPMENT CAdmin seed...\n");
 
   // ============================================
   // CLEAR EXISTING CADMIN DATA
@@ -26,7 +26,7 @@ async function main() {
   // ============================================
   console.log("👨‍💼 Creating CAdmins...\n");
 
-  // Get passwords from env or use defaults
+  // Get passwords from env or use defaults (dev only)
   const passwords = {
     superAdmin: process.env.CADMIN_DEFAULT_PASSWORD || "Qwerty@11",
     analyst: process.env.CADMIN_ANALYST_PASSWORD || "Analyst@123",
@@ -98,7 +98,7 @@ async function main() {
   // SUMMARY
   // ============================================
   console.log("\n" + "═".repeat(55));
-  console.log("🎉 SEED COMPLETED!");
+  console.log("🎉 DEVELOPMENT SEED COMPLETED!");
   console.log("═".repeat(55));
   console.log("\n🔐 LOGIN CREDENTIALS:\n");
   console.log("   SUPER_CADMIN │ cadmin │ " + passwords.superAdmin);
