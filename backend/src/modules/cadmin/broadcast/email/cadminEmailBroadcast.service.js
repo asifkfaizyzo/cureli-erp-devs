@@ -1,76 +1,82 @@
 // backend/src/modules/cadmin/broadcast/email/cadminEmailBroadcast.service.js
 
-import prisma from '../../../../config/prisma.js';
-import { sendMail, mailer } from '../../../../utils/email.js';
-import { convertPlainTextToHtml } from './emailBroadcast.converter.js';
-import * as fileStorage from '../../../../services/fileStorage.service.js';  
-import { buildEmailHtml, formatAttachmentsForNodemailer } from './emailBroadcast.template.js';
-import { 
-  getRemainingCapacity, 
-  canSendEmails, 
+import prisma from "../../../../config/prisma.js";
+import { sendMail, mailer } from "../../../../utils/email.js";
+import { convertPlainTextToHtml } from "./emailBroadcast.converter.js";
+import * as fileStorage from "../../../../services/fileStorage.service.js";
+import {
+  buildEmailHtml,
+  formatAttachmentsForNodemailer,
+} from "./emailBroadcast.template.js";
+import {
+  getRemainingCapacity,
+  canSendEmails,
   incrementSentCount,
   shouldPauseSending,
   getNextAvailableTime,
-} from './emailBroadcast.quota.js';
-import { 
-  resolveRecipients, 
+} from "./emailBroadcast.quota.js";
+import {
+  resolveRecipients,
   previewRecipients,
   getShopsForFilter,
   getActivePlans,
   getCAdminRoles,
-} from './emailBroadcast.recipients.js';
-import { 
+} from "./emailBroadcast.recipients.js";
+import {
   buildUnsubscribeUrl,
   filterUnsubscribedRecipients,
-} from './emailBroadcast.unsubscribe.js';
+} from "./emailBroadcast.unsubscribe.js";
 // ❌ REMOVED: import from multerEmailBroadcast.js
 // import {
 //   deleteEmailAttachment,
 //   deleteEmailAttachments,
 //   getEmailAttachmentPath,
 // } from '../../../../config/multerEmailBroadcast.js';
-import path from 'path';
-import fs from 'fs';
+import path from "path";
+import fs from "fs";
 
 // ============================================
 // CONSTANTS
 // ============================================
 
-const FOLDER = 'email_attachments'; // ✅ NEW: Define folder constant
+const FOLDER = "email_attachments"; // ✅ NEW: Define folder constant
 const BATCH_SIZE = 100;
 const BATCH_DELAY_MS = 1000; // 1 second between batches
 
 const CAMPAIGN_STATUS = {
-  DRAFT: 'DRAFT',
-  SCHEDULED: 'SCHEDULED',
-  SENDING: 'SENDING',
-  PAUSED: 'PAUSED',
-  SENT: 'SENT',
-  PARTIAL_FAILURE: 'PARTIAL_FAILURE',
-  FAILED: 'FAILED',
-  CANCELLED: 'CANCELLED',
+  DRAFT: "DRAFT",
+  SCHEDULED: "SCHEDULED",
+  SENDING: "SENDING",
+  PAUSED: "PAUSED",
+  SENT: "SENT",
+  PARTIAL_FAILURE: "PARTIAL_FAILURE",
+  FAILED: "FAILED",
+  CANCELLED: "CANCELLED",
 };
 
 // ============================================
-// ✅ NEW: FILE HELPER FUNCTIONS (using fileStorage)
+// FILE HELPER FUNCTIONS — S3 VERSION
 // ============================================
 
 /**
- * Delete a single email attachment
+ * Delete a single email attachment from S3
  */
 async function deleteEmailAttachment(filename) {
   if (!filename) return false;
-  
+
   try {
     return await fileStorage.deleteFile({ folder: FOLDER, filename });
   } catch (error) {
-    console.warn(`[Email Broadcast] Failed to delete attachment: ${filename}`, error.message);
+    console.warn(
+      `[Email Broadcast] Failed to delete attachment: ${filename}`,
+      error.message,
+    );
     return false;
   }
 }
 
 /**
- * Delete multiple email attachments
+ * Delete multiple email attachments from S3
  */
 async function deleteEmailAttachments(filenames) {
   if (!filenames || !Array.isArray(filenames) || filenames.length === 0) {
@@ -78,22 +84,33 @@ async function deleteEmailAttachments(filenames) {
   }
 
   const files = filenames
-    .filter(f => f) // Remove null/undefined
-    .map(filename => ({ folder: FOLDER, filename }));
+    .filter((f) => f)
+    .map((filename) => ({ folder: FOLDER, filename }));
 
   return await fileStorage.deleteFiles(files);
 }
 
 /**
- * Get file path for email attachment (for nodemailer)
+ * Get accessible URL for email attachment (for nodemailer)
+ *
+ * CHANGED: Returns a presigned S3 URL instead of a local file path.
+ * Nodemailer accepts URLs in the `path` field natively.
+ * URL expires in 1 hour — more than enough for email sending.
  */
-function getEmailAttachmentPath(filename) {
+async function getEmailAttachmentUrl(filename) {
   if (!filename) return null;
-  
+
   try {
-    return fileStorage.getAbsolutePath({ folder: FOLDER, filename });
+    return await fileStorage.getSignedUrl({
+      folder: FOLDER,
+      filename,
+      expiresIn: 3600, // 1 hour
+    });
   } catch (error) {
-    console.warn(`[Email Broadcast] Failed to get path for: ${filename}`, error.message);
+    console.warn(
+      `[Email Broadcast] Failed to get URL for: ${filename}`,
+      error.message,
+    );
     return null;
   }
 }
@@ -125,7 +142,7 @@ async function deleteEmailCampaignFiles(campaignId) {
 
   // Add attachments if exist
   if (campaign.attachments && Array.isArray(campaign.attachments)) {
-    campaign.attachments.forEach(att => {
+    campaign.attachments.forEach((att) => {
       if (att?.filename) {
         filesToDelete.push({
           folder: FOLDER,
@@ -156,7 +173,7 @@ export async function previewRecipientCount(data) {
     const preview = await previewRecipients(
       target_filters,
       target_users,
-      target_cadmins
+      target_cadmins,
     );
 
     // Get quota info
@@ -172,7 +189,7 @@ export async function previewRecipientCount(data) {
       },
     };
   } catch (error) {
-    console.error('[Email Broadcast] Preview failed:', error);
+    console.error("[Email Broadcast] Preview failed:", error);
     throw error;
   }
 }
@@ -205,7 +222,7 @@ export async function createDraft(data, context) {
     const preview = await previewRecipients(
       target_filters,
       target_users,
-      target_cadmins
+      target_cadmins,
     );
 
     // Create campaign
@@ -238,7 +255,7 @@ export async function createDraft(data, context) {
       created_at: campaign.created_at,
     };
   } catch (error) {
-    console.error('[Email Broadcast] Create draft failed:', error);
+    console.error("[Email Broadcast] Create draft failed:", error);
     throw error;
   }
 }
@@ -258,14 +275,20 @@ export async function updateDraft(campaignId, data, context) {
     });
 
     if (!existing) {
-      const error = new Error('Campaign not found');
+      const error = new Error("Campaign not found");
       error.status = 404;
       throw error;
     }
 
     // Can only edit draft or scheduled campaigns
-    if (![CAMPAIGN_STATUS.DRAFT, CAMPAIGN_STATUS.SCHEDULED].includes(existing.status)) {
-      const error = new Error(`Cannot edit campaign with status: ${existing.status}`);
+    if (
+      ![CAMPAIGN_STATUS.DRAFT, CAMPAIGN_STATUS.SCHEDULED].includes(
+        existing.status,
+      )
+    ) {
+      const error = new Error(
+        `Cannot edit campaign with status: ${existing.status}`,
+      );
       error.status = 400;
       throw error;
     }
@@ -296,8 +319,10 @@ export async function updateDraft(campaignId, data, context) {
 
     if (data.inline_image !== undefined) {
       // If changing inline image, delete old one
-      if (existing.inline_image?.filename && 
-          existing.inline_image.filename !== data.inline_image?.filename) {
+      if (
+        existing.inline_image?.filename &&
+        existing.inline_image.filename !== data.inline_image?.filename
+      ) {
         await deleteEmailAttachment(existing.inline_image.filename); // ✅ Now async
       }
       updateData.inline_image = data.inline_image;
@@ -305,11 +330,13 @@ export async function updateDraft(campaignId, data, context) {
 
     if (data.attachments !== undefined) {
       // Clean up removed attachments
-      const oldFilenames = (existing.attachments || []).map(a => a.filename);
-      const newFilenames = (data.attachments || []).map(a => a.filename);
-      const removedFilenames = oldFilenames.filter(f => f && !newFilenames.includes(f));
+      const oldFilenames = (existing.attachments || []).map((a) => a.filename);
+      const newFilenames = (data.attachments || []).map((a) => a.filename);
+      const removedFilenames = oldFilenames.filter(
+        (f) => f && !newFilenames.includes(f),
+      );
       await deleteEmailAttachments(removedFilenames); // ✅ Now async
-      
+
       updateData.attachments = data.attachments;
     }
 
@@ -322,15 +349,16 @@ export async function updateDraft(campaignId, data, context) {
     }
 
     // Recalculate recipient count if filters changed
-    const filtersChanged = data.target_filters !== undefined || 
-                          data.target_users !== undefined || 
-                          data.target_cadmins !== undefined;
+    const filtersChanged =
+      data.target_filters !== undefined ||
+      data.target_users !== undefined ||
+      data.target_cadmins !== undefined;
 
     if (filtersChanged) {
       const preview = await previewRecipients(
         updateData.target_filters || existing.target_filters,
         updateData.target_users ?? existing.target_users,
-        updateData.target_cadmins ?? existing.target_cadmins
+        updateData.target_cadmins ?? existing.target_cadmins,
       );
       updateData.recipient_count = preview.total_after_unsubscribe;
     }
@@ -351,7 +379,7 @@ export async function updateDraft(campaignId, data, context) {
       updated_at: updated.updated_at,
     };
   } catch (error) {
-    console.error('[Email Broadcast] Update draft failed:', error);
+    console.error("[Email Broadcast] Update draft failed:", error);
     throw error;
   }
 }
@@ -370,13 +398,19 @@ export async function scheduleCampaign(campaignId, scheduledFor, context) {
     });
 
     if (!existing) {
-      const error = new Error('Campaign not found');
+      const error = new Error("Campaign not found");
       error.status = 404;
       throw error;
     }
 
-    if (![CAMPAIGN_STATUS.DRAFT, CAMPAIGN_STATUS.SCHEDULED].includes(existing.status)) {
-      const error = new Error(`Cannot schedule campaign with status: ${existing.status}`);
+    if (
+      ![CAMPAIGN_STATUS.DRAFT, CAMPAIGN_STATUS.SCHEDULED].includes(
+        existing.status,
+      )
+    ) {
+      const error = new Error(
+        `Cannot schedule campaign with status: ${existing.status}`,
+      );
       error.status = 400;
       throw error;
     }
@@ -384,7 +418,7 @@ export async function scheduleCampaign(campaignId, scheduledFor, context) {
     // Validate scheduled time is in the future
     const scheduledDate = new Date(scheduledFor);
     if (scheduledDate <= new Date()) {
-      const error = new Error('Scheduled time must be in the future');
+      const error = new Error("Scheduled time must be in the future");
       error.status = 400;
       throw error;
     }
@@ -398,7 +432,9 @@ export async function scheduleCampaign(campaignId, scheduledFor, context) {
       },
     });
 
-    console.log(`[Email Broadcast] Campaign ${campaignId} scheduled for ${scheduledFor}`);
+    console.log(
+      `[Email Broadcast] Campaign ${campaignId} scheduled for ${scheduledFor}`,
+    );
 
     return {
       campaign_id: updated.campaign_id,
@@ -408,7 +444,7 @@ export async function scheduleCampaign(campaignId, scheduledFor, context) {
       recipient_count: updated.recipient_count,
     };
   } catch (error) {
-    console.error('[Email Broadcast] Schedule failed:', error);
+    console.error("[Email Broadcast] Schedule failed:", error);
     throw error;
   }
 }
@@ -442,11 +478,11 @@ export async function sendImmediate(data, context) {
       target_filters,
       target_users,
       target_cadmins,
-      true // exclude unsubscribed
+      true, // exclude unsubscribed
     );
 
     if (recipients.length === 0) {
-      const error = new Error('No recipients found for the selected filters');
+      const error = new Error("No recipients found for the selected filters");
       error.status = 400;
       throw error;
     }
@@ -454,7 +490,9 @@ export async function sendImmediate(data, context) {
     // Check quota
     const quotaCheck = await canSendEmails(recipients.length);
     if (!quotaCheck.canSend) {
-      console.log(`[Email Broadcast] Quota check: need ${recipients.length}, have ${quotaCheck.available}`);
+      console.log(
+        `[Email Broadcast] Quota check: need ${recipients.length}, have ${quotaCheck.available}`,
+      );
       // Will send what we can, pause for the rest
     }
 
@@ -482,17 +520,20 @@ export async function sendImmediate(data, context) {
 
     // Start async sending (don't await)
     processCampaignSending(campaign.campaign_id).catch((err) => {
-      console.error(`[Email Broadcast] Async sending failed for ${campaign.campaign_id}:`, err);
+      console.error(
+        `[Email Broadcast] Async sending failed for ${campaign.campaign_id}:`,
+        err,
+      );
     });
 
     return {
       campaign_id: campaign.campaign_id,
       status: CAMPAIGN_STATUS.SENDING,
       recipient_count: recipients.length,
-      message: 'Emails are being sent in the background',
+      message: "Emails are being sent in the background",
     };
   } catch (error) {
-    console.error('[Email Broadcast] Send immediate failed:', error);
+    console.error("[Email Broadcast] Send immediate failed:", error);
     throw error;
   }
 }
@@ -522,7 +563,7 @@ export async function sendTestEmail(data, context) {
     });
 
     if (!cadmin || !cadmin.email) {
-      const error = new Error('CAdmin email not found');
+      const error = new Error("CAdmin email not found");
       error.status = 400;
       throw error;
     }
@@ -544,7 +585,10 @@ export async function sendTestEmail(data, context) {
     });
 
     // Format attachments for Nodemailer
-    const nodemailerAttachments = formatAttachmentsForNodemailer(inline_image, attachments);
+    const nodemailerAttachments = formatAttachmentsForNodemailer(
+      inline_image,
+      attachments,
+    );
 
     // Send email
     await mailer.sendMail({
@@ -560,10 +604,10 @@ export async function sendTestEmail(data, context) {
     return {
       success: true,
       sent_to: cadmin.email,
-      message: 'Test email sent successfully',
+      message: "Test email sent successfully",
     };
   } catch (error) {
-    console.error('[Email Broadcast] Test email failed:', error);
+    console.error("[Email Broadcast] Test email failed:", error);
     throw error;
   }
 }
@@ -582,21 +626,29 @@ export async function cancelCampaign(campaignId, context) {
     });
 
     if (!existing) {
-      const error = new Error('Campaign not found');
+      const error = new Error("Campaign not found");
       error.status = 404;
       throw error;
     }
 
     // Can only cancel scheduled or paused campaigns
-    if (![CAMPAIGN_STATUS.SCHEDULED, CAMPAIGN_STATUS.PAUSED].includes(existing.status)) {
-      const error = new Error(`Cannot cancel campaign with status: ${existing.status}`);
+    if (
+      ![CAMPAIGN_STATUS.SCHEDULED, CAMPAIGN_STATUS.PAUSED].includes(
+        existing.status,
+      )
+    ) {
+      const error = new Error(
+        `Cannot cancel campaign with status: ${existing.status}`,
+      );
       error.status = 400;
       throw error;
     }
 
     // ✅ DELETE FILES USING NEW SERVICE
     const deleteResult = await deleteEmailCampaignFiles(campaignId);
-    console.log(`[Email Broadcast] Deleted ${deleteResult.deleted} files for cancelled campaign ${campaignId}`);
+    console.log(
+      `[Email Broadcast] Deleted ${deleteResult.deleted} files for cancelled campaign ${campaignId}`,
+    );
 
     // Update status
     const updated = await prisma.emailBroadcastCampaign.update({
@@ -612,11 +664,11 @@ export async function cancelCampaign(campaignId, context) {
     return {
       campaign_id: updated.campaign_id,
       status: updated.status,
-      action: 'cancelled',
+      action: "cancelled",
       files_deleted: deleteResult.deleted,
     };
   } catch (error) {
-    console.error('[Email Broadcast] Cancel failed:', error);
+    console.error("[Email Broadcast] Cancel failed:", error);
     throw error;
   }
 }
@@ -635,20 +687,22 @@ export async function deleteDraft(campaignId, context) {
     });
 
     if (!existing) {
-      const error = new Error('Campaign not found');
+      const error = new Error("Campaign not found");
       error.status = 404;
       throw error;
     }
 
     if (existing.status !== CAMPAIGN_STATUS.DRAFT) {
-      const error = new Error('Can only delete draft campaigns');
+      const error = new Error("Can only delete draft campaigns");
       error.status = 400;
       throw error;
     }
 
     // ✅ DELETE FILES USING NEW SERVICE
     const deleteResult = await deleteEmailCampaignFiles(campaignId);
-    console.log(`[Email Broadcast] Deleted ${deleteResult.deleted} files for campaign ${campaignId}`);
+    console.log(
+      `[Email Broadcast] Deleted ${deleteResult.deleted} files for campaign ${campaignId}`,
+    );
 
     // Delete campaign (cascade will delete attachment records)
     await prisma.emailBroadcastCampaign.delete({
@@ -659,11 +713,11 @@ export async function deleteDraft(campaignId, context) {
 
     return {
       campaign_id: campaignId,
-      action: 'deleted',
+      action: "deleted",
       files_deleted: deleteResult.deleted,
     };
   } catch (error) {
-    console.error('[Email Broadcast] Delete draft failed:', error);
+    console.error("[Email Broadcast] Delete draft failed:", error);
     throw error;
   }
 }
@@ -676,15 +730,15 @@ export async function deleteDraft(campaignId, context) {
  * Get all drafts (all CAdmins see all)
  */
 export async function getDrafts(pagination = {}) {
-  const { page = 1, limit = 10, search = '' } = pagination;
+  const { page = 1, limit = 10, search = "" } = pagination;
   const skip = (page - 1) * limit;
 
   const where = {
     status: CAMPAIGN_STATUS.DRAFT,
     ...(search && {
       OR: [
-        { subject: { contains: search, mode: 'insensitive' } },
-        { cadmin_name: { contains: search, mode: 'insensitive' } },
+        { subject: { contains: search, mode: "insensitive" } },
+        { cadmin_name: { contains: search, mode: "insensitive" } },
       ],
     }),
   };
@@ -692,7 +746,7 @@ export async function getDrafts(pagination = {}) {
   const [drafts, total] = await Promise.all([
     prisma.emailBroadcastCampaign.findMany({
       where,
-      orderBy: { updated_at: 'desc' },
+      orderBy: { updated_at: "desc" },
       skip,
       take: limit,
     }),
@@ -724,7 +778,7 @@ export async function getScheduled(pagination = {}) {
   const [scheduled, total] = await Promise.all([
     prisma.emailBroadcastCampaign.findMany({
       where,
-      orderBy: { scheduled_for: 'asc' },
+      orderBy: { scheduled_for: "asc" },
       skip,
       take: limit,
     }),
@@ -752,7 +806,7 @@ export async function getScheduled(pagination = {}) {
  * Get sent/failed/cancelled campaigns (history)
  */
 export async function getHistory(pagination = {}) {
-  const { page = 1, limit = 10, search = '' } = pagination;
+  const { page = 1, limit = 10, search = "" } = pagination;
   const skip = (page - 1) * limit;
 
   const where = {
@@ -766,8 +820,8 @@ export async function getHistory(pagination = {}) {
     },
     ...(search && {
       OR: [
-        { subject: { contains: search, mode: 'insensitive' } },
-        { cadmin_name: { contains: search, mode: 'insensitive' } },
+        { subject: { contains: search, mode: "insensitive" } },
+        { cadmin_name: { contains: search, mode: "insensitive" } },
       ],
     }),
   };
@@ -775,7 +829,7 @@ export async function getHistory(pagination = {}) {
   const [history, total] = await Promise.all([
     prisma.emailBroadcastCampaign.findMany({
       where,
-      orderBy: { sent_at: 'desc' },
+      orderBy: { sent_at: "desc" },
       skip,
       take: limit,
     }),
@@ -785,9 +839,10 @@ export async function getHistory(pagination = {}) {
   // Add delivery rate
   const historyWithStats = history.map((item) => ({
     ...item,
-    delivery_rate: item.recipient_count > 0
-      ? Math.round((item.delivered_count / item.recipient_count) * 100)
-      : 0,
+    delivery_rate:
+      item.recipient_count > 0
+        ? Math.round((item.delivered_count / item.recipient_count) * 100)
+        : 0,
   }));
 
   return {
@@ -810,7 +865,7 @@ export async function getCampaignById(campaignId) {
   });
 
   if (!campaign) {
-    const error = new Error('Campaign not found');
+    const error = new Error("Campaign not found");
     error.status = 404;
     throw error;
   }
@@ -827,7 +882,7 @@ export async function getCampaignById(campaignId) {
  */
 export async function getQuotaStatus() {
   const capacity = await getRemainingCapacity();
-  
+
   return {
     date: capacity.date,
     used: capacity.used,
@@ -862,7 +917,7 @@ export async function processCampaignSending(campaignId) {
     });
 
     if (!campaign) {
-      throw new Error('Campaign not found');
+      throw new Error("Campaign not found");
     }
 
     // Resolve recipients
@@ -870,7 +925,7 @@ export async function processCampaignSending(campaignId) {
       campaign.target_filters,
       campaign.target_users,
       campaign.target_cadmins,
-      true // exclude unsubscribed
+      true, // exclude unsubscribed
     );
 
     if (allRecipients.length === 0) {
@@ -879,7 +934,7 @@ export async function processCampaignSending(campaignId) {
         data: {
           status: CAMPAIGN_STATUS.FAILED,
           processing: false,
-          last_error: 'No recipients found',
+          last_error: "No recipients found",
         },
       });
       return;
@@ -898,8 +953,10 @@ export async function processCampaignSending(campaignId) {
       // Check if we should pause for quota
       const shouldPause = await shouldPauseSending();
       if (shouldPause) {
-        console.log(`[Email Broadcast] Pausing campaign ${campaignId} - daily quota exhausted`);
-        
+        console.log(
+          `[Email Broadcast] Pausing campaign ${campaignId} - daily quota exhausted`,
+        );
+
         await prisma.emailBroadcastCampaign.update({
           where: { campaign_id: campaignId },
           data: {
@@ -910,16 +967,16 @@ export async function processCampaignSending(campaignId) {
             failed_count: failed,
           },
         });
-        
+
         return { paused: true, delivered, failed };
       }
 
       const batch = recipients.slice(i, i + BATCH_SIZE);
-      
+
       // Check quota for this batch
       const capacity = await getRemainingCapacity();
       const canSend = Math.min(batch.length, capacity.remaining);
-      
+
       if (canSend === 0) {
         // Pause campaign
         await prisma.emailBroadcastCampaign.update({
@@ -934,10 +991,10 @@ export async function processCampaignSending(campaignId) {
       }
 
       const batchToSend = batch.slice(0, canSend);
-      
+
       // Send batch
       const batchResults = await sendBatch(campaign, batchToSend);
-      
+
       delivered += batchResults.delivered;
       failed += batchResults.failed;
       processedIndex += batchToSend.length;
@@ -982,21 +1039,28 @@ export async function processCampaignSending(campaignId) {
       },
     });
 
-    console.log(`[Email Broadcast] Campaign ${campaignId} completed: ${delivered} delivered, ${failed} failed`);
+    console.log(
+      `[Email Broadcast] Campaign ${campaignId} completed: ${delivered} delivered, ${failed} failed`,
+    );
 
     return { delivered, failed, status: finalStatus };
   } catch (error) {
-    console.error(`[Email Broadcast] Processing failed for ${campaignId}:`, error);
+    console.error(
+      `[Email Broadcast] Processing failed for ${campaignId}:`,
+      error,
+    );
 
     // Mark as failed
-    await prisma.emailBroadcastCampaign.update({
-      where: { campaign_id: campaignId },
-      data: {
-        status: CAMPAIGN_STATUS.FAILED,
-        processing: false,
-        last_error: error.message,
-      },
-    }).catch(() => {});
+    await prisma.emailBroadcastCampaign
+      .update({
+        where: { campaign_id: campaignId },
+        data: {
+          status: CAMPAIGN_STATUS.FAILED,
+          processing: false,
+          last_error: error.message,
+        },
+      })
+      .catch(() => {});
 
     throw error;
   }
@@ -1014,7 +1078,7 @@ async function sendBatch(campaign, recipients) {
       try {
         // Build personalized email
         const unsubscribeUrl = buildUnsubscribeUrl(recipient.email);
-        
+
         const html = buildEmailHtml({
           subject: campaign.subject,
           messageHtml: campaign.message_html,
@@ -1027,10 +1091,32 @@ async function sendBatch(campaign, recipients) {
           isTest: false,
         });
 
-        // Format attachments
+        // ✅ S3: Resolve presigned URLs for nodemailer
+        const resolvedInlineImage = inline_image?.filename
+          ? {
+              ...inline_image,
+              url: await getEmailAttachmentUrl(inline_image.filename),
+            }
+          : inline_image;
+
+        const resolvedAttachments = attachments
+          ? await Promise.all(
+              attachments.map(async (att) => {
+                if (att?.filename) {
+                  return {
+                    ...att,
+                    url: await getEmailAttachmentUrl(att.filename),
+                  };
+                }
+                return att;
+              }),
+            )
+          : [];
+
+        // Format attachments with resolved S3 URLs
         const nodemailerAttachments = formatAttachmentsForNodemailer(
-          campaign.inline_image,
-          campaign.attachments
+          resolvedInlineImage,
+          resolvedAttachments,
         );
 
         // Send email
@@ -1041,21 +1127,24 @@ async function sendBatch(campaign, recipients) {
           html: html,
           attachments: nodemailerAttachments,
           headers: {
-            'List-Unsubscribe': `<${unsubscribeUrl}>`,
-            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+            "List-Unsubscribe": `<${unsubscribeUrl}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           },
         });
 
         return { success: true, email: recipient.email };
       } catch (err) {
-        console.error(`[Email Broadcast] Failed to send to ${recipient.email}:`, err.message);
+        console.error(
+          `[Email Broadcast] Failed to send to ${recipient.email}:`,
+          err.message,
+        );
         return { success: false, email: recipient.email, error: err.message };
       }
-    })
+    }),
   );
 
   results.forEach((result) => {
-    if (result.status === 'fulfilled' && result.value.success) {
+    if (result.status === "fulfilled" && result.value.success) {
       delivered++;
     } else {
       failed++;
@@ -1077,16 +1166,17 @@ function getTimeUntil(dateString) {
   const now = new Date();
   const diffMs = scheduled - now;
 
-  if (diffMs < 0) return 'Sending soon...';
+  if (diffMs < 0) return "Sending soon...";
 
   const hours = Math.floor(diffMs / (1000 * 60 * 60));
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-  if (hours < 1) return `in ${minutes} minute${minutes !== 1 ? 's' : ''}`;
-  if (hours < 24) return `in ${hours} hour${hours !== 1 ? 's' : ''}, ${minutes} min`;
+  if (hours < 1) return `in ${minutes} minute${minutes !== 1 ? "s" : ""}`;
+  if (hours < 24)
+    return `in ${hours} hour${hours !== 1 ? "s" : ""}, ${minutes} min`;
 
   const days = Math.floor(hours / 24);
-  return `in ${days} day${days !== 1 ? 's' : ''}`;
+  return `in ${days} day${days !== 1 ? "s" : ""}`;
 }
 
 /**

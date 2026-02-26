@@ -4,7 +4,7 @@ import prisma from "../../config/prisma.js";
 import { success, fail } from "../../utils/response.js";
 import * as svc from "./shopFiles.service.js";
 import * as audit from "../audit/index.js";
-
+import * as fileStorage from "../../services/fileStorage.service.js";
 /**
  * Helper: Resolve shop_id for a user
  */
@@ -67,7 +67,10 @@ export async function getVerificationStatusController(req, res) {
     console.log("=== IS_FIRST_VERIFICATION DEBUG ===");
     console.log("user_id:", user_id);
     console.log("first_verified_at:", user?.first_verified_at);
-    console.log("first_login_after_verification:", user?.first_login_after_verification);
+    console.log(
+      "first_login_after_verification:",
+      user?.first_login_after_verification,
+    );
     console.log("is_first_verification:", isFirstVerification);
     console.log("=== END DEBUG ===");
 
@@ -109,6 +112,18 @@ export async function uploadShopFileController(req, res) {
       return fail(res, "No shop associated with your account", 400);
     }
 
+    // ✅ FIX: Import and call fileStorage.uploadFile() to actually save the file
+    const { default: fileStorageSvc } =
+      await import("../../services/fileStorage.service.js");
+
+    const uploadResult = await fileStorage.uploadFile({
+      buffer: req.file.buffer,
+      folder: "shop_files",
+      originalName: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+    });
+
     const auditContext = audit.extractRequestContext(req);
 
     const fileData = {
@@ -118,7 +133,7 @@ export async function uploadShopFileController(req, res) {
       original_name: req.file.originalname,
       mime_type: req.file.mimetype,
       file_size: req.file.size,
-      storage_key: req.file.filename,
+      storage_key: uploadResult.storage_key, // ✅ Now correctly set
       auditContext,
     };
 
@@ -177,12 +192,24 @@ export async function resubmitController(req, res) {
       return fail(res, "No file uploaded", 400);
     }
 
+    // ✅ FIX: Upload file to S3 via fileStorage
+    const { default: fileStorageSvc } =
+      await import("../../services/fileStorage.service.js");
+
+    const uploadResult = await fileStorage.uploadFile({
+      buffer: req.file.buffer,
+      folder: "shop_files",
+      originalName: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+    });
+
     const auditContext = audit.extractRequestContext(req);
 
     const fileData = {
       file_id,
       shop_id,
-      storage_key: req.file.filename,
+      storage_key: uploadResult.storage_key, // ✅ Now correctly set
       original_name: req.file.originalname,
       mime_type: req.file.mimetype,
       file_size: req.file.size,
@@ -231,7 +258,7 @@ export async function messageController(req, res) {
       return fail(
         res,
         "You do not have permission to message on this file",
-        403
+        403,
       );
     }
     return fail(res, "Failed to send message", 500);
