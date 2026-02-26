@@ -39,14 +39,14 @@ const BATCH_SIZE = 100;
 const BATCH_DELAY_MS = 1000; // 1 second between batches
 
 const CAMPAIGN_STATUS = {
-  DRAFT: 'draft',
-  SCHEDULED: 'scheduled',
-  SENDING: 'sending',
-  PAUSED: 'paused',
-  SENT: 'sent',
-  PARTIAL_FAILURE: 'partial_failure',
-  FAILED: 'failed',
-  CANCELLED: 'cancelled',
+  DRAFT: 'DRAFT',
+  SCHEDULED: 'SCHEDULED',
+  SENDING: 'SENDING',
+  PAUSED: 'PAUSED',
+  SENT: 'SENT',
+  PARTIAL_FAILURE: 'PARTIAL_FAILURE',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED',
 };
 
 // ============================================
