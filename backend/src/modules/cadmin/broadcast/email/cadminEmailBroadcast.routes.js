@@ -5,10 +5,18 @@ import * as controller from './cadminEmailBroadcast.controller.js';
 import { validateBody, validateQuery } from '../../../../middleware/validate.js';
 import { requireCAdmin } from '../../../../middleware/requireCAdmin.js';
 import * as schema from './cadminEmailBroadcast.schema.js';
-import { emailBroadcastUpload } from '../../../../config/multerEmailBroadcast.js';
 import * as unsubscribeController from './unsubscribeManagement.controller.js';
 
+// ✅ NEW: Import from universal multer config
+import { createUploader, handleMulterError } from '../../../../config/multer.js';
+
 const router = Router();
+
+// ✅ NEW: Use universal uploader for 'email_attachments' folder
+const emailAttachmentUpload = createUploader('email_attachments', {
+  fieldName: 'file',
+  maxFiles: 1,
+});
 
 // All routes require CAdmin auth
 router.use(requireCAdmin);
@@ -18,24 +26,20 @@ router.use(requireCAdmin);
 // ============================================
 
 // Upload inline image
+// ✅ UPDATED: Using universal uploader + error handler
 router.post(
   '/broadcast/email/upload/inline-image',
-  (req, res, next) => {
-    emailBroadcastUpload.single('file')(req, res, (err) => {
-      controller.handleMulterError(err, req, res, next);
-    });
-  },
+  emailAttachmentUpload,
+  handleMulterError,
   controller.uploadInlineImageController
 );
 
 // Upload file attachment
+// ✅ UPDATED: Using universal uploader + error handler
 router.post(
   '/broadcast/email/upload/attachment',
-  (req, res, next) => {
-    emailBroadcastUpload.single('file')(req, res, (err) => {
-      controller.handleMulterError(err, req, res, next);
-    });
-  },
+  emailAttachmentUpload,
+  handleMulterError,
   controller.uploadAttachmentController
 );
 
@@ -141,7 +145,8 @@ router.get(
 router.get(
   '/broadcast/email/filters/shops',
   controller.getShopsForFilterController
-); 
+);
+
 router.get(
   '/broadcast/email/filters/plans',
   controller.getActivePlansController

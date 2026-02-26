@@ -5,9 +5,17 @@ import * as controller from './cadminInAppBroadcast.controller.js';
 import { validateBody, validateQuery } from '../../../../middleware/validate.js';
 import { requireCAdmin } from '../../../../middleware/requireCAdmin.js';
 import * as schema from './cadminInAppBroadcast.schema.js';
-import { broadcastUpload } from '../../../../config/multerBroadcast.js';
+
+// ✅ NEW: Import from universal multer config
+import { createUploader, handleMulterError } from '../../../../config/multer.js';
 
 const router = Router();
+
+// ✅ NEW: Use universal uploader for 'broadcast_attachments' folder
+const broadcastUpload = createUploader('broadcast_attachments', {
+  fieldName: 'file',
+  maxFiles: 1,
+});
 
 // All routes require CAdmin auth
 router.use(requireCAdmin);
@@ -15,33 +23,15 @@ router.use(requireCAdmin);
 // ============================================
 // FILE UPLOAD ROUTES (must be before other routes)
 // ============================================
+
+// ✅ UPDATED: Using universal uploader + error handler
 router.post(
   '/broadcast/inapp/upload',
-  (req, res, next) => {
-    broadcastUpload.single('file')(req, res, (err) => {
-      if (err) {
-        if (err.code === 'LIMIT_FILE_SIZE') {
-          return res.status(400).json({
-            success: false,
-            message: 'File too large. Maximum size is 50MB.',
-          });
-        }
-        if (err.message.includes('Invalid file type')) {
-          return res.status(400).json({
-            success: false,
-            message: err.message,
-          });
-        }
-        return res.status(400).json({
-          success: false,
-          message: err.message || 'File upload failed',
-        });
-      }
-      next();
-    });
-  },
+  broadcastUpload,
+  handleMulterError,
   controller.uploadBroadcastAttachmentController
 );
+
 router.delete(
   '/broadcast/inapp/upload/:filename',
   controller.deleteBroadcastAttachmentController

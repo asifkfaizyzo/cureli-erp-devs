@@ -1,17 +1,12 @@
-// ============================================
-// backend\src\modules\cadmin\broadcast\inapp\cadminInAppBroadcast.controller.js
-// ============================================
+// backend/src/modules/cadmin/broadcast/inapp/cadminInAppBroadcast.controller.js
 
 import { success, fail } from '../../../../utils/response.js';
 import * as audit from '../../../audit/index.js';
 import * as service from './cadminInAppBroadcast.service.js';
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-import { getFileCategory, getBroadcastFileUrl } from "../../../../config/multerBroadcast.js";
+import * as fileStorage from '../../../../services/fileStorage.service.js'; // ✅ NEW
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const FOLDER = 'broadcast_attachments'; // ✅ Define folder constant
+
 /**
  * Preview recipient count
  * POST /cadmin/broadcast/inapp/preview
@@ -41,7 +36,6 @@ export async function sendImmediateController(req, res) {
       actor_name: req.cadmin?.name || 'CAdmin',
     });
 
-    // ✅ FIXED: Use existing action
     await audit.log({
       action: audit.AuditAction.SYSTEM_BROADCAST_SENT,
       actor_type: audit.ActorType.CADMIN,
@@ -81,7 +75,6 @@ export async function createDraftController(req, res) {
       actor_name: req.cadmin?.name || 'CAdmin',
     });
 
-    // ✅ FIXED: Use existing action
     await audit.log({
       action: audit.AuditAction.SYSTEM_BROADCAST_CREATED,
       actor_type: audit.ActorType.CADMIN,
@@ -145,7 +138,6 @@ export async function scheduleBroadcastController(req, res) {
       actor_name: req.cadmin?.name || 'CAdmin',
     });
 
-    // ✅ FIXED: Use existing action
     await audit.log({
       action: audit.AuditAction.SYSTEM_BROADCAST_CREATED,
       actor_type: audit.ActorType.CADMIN,
@@ -185,9 +177,6 @@ export async function cancelOrDeleteController(req, res) {
       ...auditContext,
       actor_id: req.cadmin?.cadmin_id,
     });
-
-    // Optional: Skip audit for deletes, or add a new action if you want to track
-    // For now, we'll skip audit logging for cancel/delete operations
 
     return success(res, result);
   } catch (err) {
@@ -253,7 +242,6 @@ export async function getCampaignByIdController(req, res) {
     return fail(res, err.message || 'Failed to fetch campaign', err.status || 404);
   }
 }
-
 
 export async function getShopsForFilterController(req, res) {
   try {
@@ -326,7 +314,7 @@ export async function getSegmentsController(req, res) {
  */
 export async function deleteSegmentController(req, res) {
   try {
-    await service.deleteSegment(req.params.segmentId, req.cadmin.cadmin_id);  // Changed from req.params.id
+    await service.deleteSegment(req.params.segmentId, req.cadmin.cadmin_id);
     return success(res, { deleted: true }, 'Segment deleted');
   } catch (err) {
     return fail(res, err.message || 'Failed to delete segment', err.status || 500);
@@ -365,7 +353,7 @@ export async function getTemplatesController(req, res) {
  */
 export async function useTemplateController(req, res) {
   try {
-    const result = await service.useTemplate(req.params.templateId);  // Changed from req.params.id
+    const result = await service.useTemplate(req.params.templateId);
     return success(res, result);
   } catch (err) {
     return fail(res, err.message || 'Failed to load template', err.status || 500);
@@ -382,19 +370,33 @@ export async function uploadBroadcastAttachmentController(req, res) {
       return fail(res, "No file uploaded", 400);
     }
 
-    const { filename, originalname, mimetype, size } = req.file;
-    const category = getFileCategory(mimetype);
-    const url = getBroadcastFileUrl(filename);
+    const { buffer, originalname, mimetype, size } = req.file;
 
-    console.log(`[Broadcast Upload] File uploaded: ${filename} (${category}, ${(size / 1024 / 1024).toFixed(2)}MB)`);
+    // ✅ NEW: Upload using fileStorage service
+    const uploadResult = await fileStorage.uploadFile({
+      buffer,
+      folder: FOLDER,
+      originalName: originalname,
+      mimetype,
+      size,
+    });
+
+    const url = fileStorage.getPublicUrl({ 
+      folder: FOLDER, 
+      filename: uploadResult.storage_key 
+    });
+
+    const category = getFileCategory(mimetype);
+
+    console.log(`[Broadcast Upload] File uploaded: ${uploadResult.storage_key} (${category}, ${fileStorage.formatFileSize(size)})`);
 
     return success(res, {
-      filename,
+      filename: uploadResult.storage_key,
       original_name: originalname,
       mime_type: mimetype,
       size,
-      size_formatted: formatFileSize(size),
-      type: category, // 'image' or 'video'
+      size_formatted: fileStorage.formatFileSize(size),
+      type: category,
       url,
     }, "File uploaded successfully");
   } catch (err) {
@@ -415,30 +417,21 @@ export async function deleteBroadcastAttachmentController(req, res) {
       return fail(res, "Filename is required", 400);
     }
 
-    // Security: Validate filename format to prevent directory traversal
+    // Security: Validate filename format
     const safeFilenameRegex = /^broadcast-\d+-[a-z0-9]+\.[a-z0-9]+$/i;
     if (!safeFilenameRegex.test(filename)) {
       return fail(res, "Invalid filename format", 400);
     }
 
-    // Construct file path
-    const uploadsDir = path.resolve(process.cwd(), "uploads", "broadcast_attachments");
-    const filePath = path.join(uploadsDir, filename);
+    // ✅ NEW: Check if file exists using fileStorage
+    const exists = await fileStorage.fileExists({ folder: FOLDER, filename });
 
-    // Security: Ensure resolved path is within uploads directory
-    const resolvedPath = path.resolve(filePath);
-    if (!resolvedPath.startsWith(uploadsDir)) {
-      return fail(res, "Access denied", 403);
-    }
-
-    // Check if file exists
-    if (!fs.existsSync(resolvedPath)) {
-      // File doesn't exist - consider it already deleted (idempotent)
+    if (!exists) {
       return success(res, { deleted: true, filename }, "File already deleted");
     }
 
-    // Delete the file
-    fs.unlinkSync(resolvedPath);
+    // ✅ NEW: Delete using fileStorage
+    await fileStorage.deleteFile({ folder: FOLDER, filename });
 
     console.log(`[Broadcast Upload] File deleted: ${filename}`);
 
@@ -450,12 +443,10 @@ export async function deleteBroadcastAttachmentController(req, res) {
 }
 
 /**
- * Helper: Format file size for display
+ * Helper: Get file category from MIME type
  */
-function formatFileSize(bytes) {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+function getFileCategory(mimetype) {
+  if (mimetype.startsWith("image/")) return "image";
+  if (mimetype.startsWith("video/")) return "video";
+  return "file";
 }

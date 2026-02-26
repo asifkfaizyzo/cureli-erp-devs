@@ -3,15 +3,9 @@
 import { success, fail } from '../../../../utils/response.js';
 import * as audit from '../../../audit/index.js';
 import * as service from './cadminEmailBroadcast.service.js';
-import {
-  emailBroadcastUpload,
-  getEmailAttachmentUrl,
-  isImageFile,
-  deleteEmailAttachment,
-  formatFileSize,
-} from '../../../../config/multerEmailBroadcast.js';
-import fs from 'fs';
-import path from 'path';
+import * as fileStorage from '../../../../services/fileStorage.service.js'; // ✅ NEW
+
+const FOLDER = 'email_attachments'; // ✅ Define folder constant
 
 // ============================================
 // PREVIEW RECIPIENTS
@@ -336,24 +330,35 @@ export async function uploadInlineImageController(req, res) {
       return fail(res, 'No file uploaded', 400);
     }
 
-    const { filename, originalname, mimetype, size } = req.file;
+    const { buffer, originalname, mimetype, size } = req.file;
 
     // Verify it's an image
     if (!isImageFile(mimetype)) {
-      deleteEmailAttachment(filename);
       return fail(res, 'Only image files are allowed for inline images', 400);
     }
 
-    const url = getEmailAttachmentUrl(filename);
+    // ✅ NEW: Upload using fileStorage service
+    const uploadResult = await fileStorage.uploadFile({
+      buffer,
+      folder: FOLDER,
+      originalName: originalname,
+      mimetype,
+      size,
+    });
 
-    console.log(`[Email Broadcast] Inline image uploaded: ${filename}`);
+    const url = fileStorage.getPublicUrl({ 
+      folder: FOLDER, 
+      filename: uploadResult.storage_key 
+    });
+
+    console.log(`[Email Broadcast] Inline image uploaded: ${uploadResult.storage_key}`);
 
     return success(res, {
-      filename,
+      filename: uploadResult.storage_key,
       original_name: originalname,
       mime_type: mimetype,
       size,
-      size_formatted: formatFileSize(size),
+      size_formatted: fileStorage.formatFileSize(size),
       url,
       type: 'inline_image',
     }, 'Image uploaded successfully');
@@ -373,17 +378,30 @@ export async function uploadAttachmentController(req, res) {
       return fail(res, 'No file uploaded', 400);
     }
 
-    const { filename, originalname, mimetype, size } = req.file;
-    const url = getEmailAttachmentUrl(filename);
+    const { buffer, originalname, mimetype, size } = req.file;
 
-    console.log(`[Email Broadcast] Attachment uploaded: ${filename}`);
+    // ✅ NEW: Upload using fileStorage service
+    const uploadResult = await fileStorage.uploadFile({
+      buffer,
+      folder: FOLDER,
+      originalName: originalname,
+      mimetype,
+      size,
+    });
+
+    const url = fileStorage.getPublicUrl({ 
+      folder: FOLDER, 
+      filename: uploadResult.storage_key 
+    });
+
+    console.log(`[Email Broadcast] Attachment uploaded: ${uploadResult.storage_key}`);
 
     return success(res, {
-      filename,
+      filename: uploadResult.storage_key,
       original_name: originalname,
       mime_type: mimetype,
       size,
-      size_formatted: formatFileSize(size),
+      size_formatted: fileStorage.formatFileSize(size),
       url,
       type: isImageFile(mimetype) ? 'image' : 'file',
     }, 'File uploaded successfully');
@@ -411,16 +429,35 @@ export async function deleteAttachmentController(req, res) {
       return fail(res, 'Invalid filename format', 400);
     }
 
-    const deleted = deleteEmailAttachment(filename);
+    // ✅ NEW: Check if file exists using fileStorage
+    const exists = await fileStorage.fileExists({ folder: FOLDER, filename });
+    
+    if (!exists) {
+      return success(res, { deleted: true, filename }, 'File already deleted');
+    }
+
+    // ✅ NEW: Delete using fileStorage
+    await fileStorage.deleteFile({ folder: FOLDER, filename });
 
     return success(res, { 
-      deleted: deleted, 
+      deleted: true, 
       filename 
-    }, deleted ? 'File deleted successfully' : 'File not found');
+    }, 'File deleted successfully');
   } catch (err) {
     console.error('[Email Broadcast Controller] Delete attachment failed:', err);
     return fail(res, err.message || 'Failed to delete file', 500);
   }
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Check if file is an image
+ */
+function isImageFile(mimetype) {
+  return mimetype.startsWith('image/');
 }
 
 // ============================================
@@ -432,7 +469,7 @@ export function handleMulterError(err, req, res, next) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return fail(res, 'File too large. Maximum size is 10MB.', 400);
     }
-    if (err.code === 'INVALID_FILE_TYPE') {
+    if (err.code === 'INVALID_FILE_TYPE' || err.code === 'INVALID_MIME_TYPE') {
       return fail(res, err.message, 400);
     }
     if (err.code === 'BLOCKED_EXTENSION') {

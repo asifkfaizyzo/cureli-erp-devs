@@ -23,11 +23,12 @@ import {
   buildUnsubscribeUrl,
   filterUnsubscribedRecipients,
 } from './emailBroadcast.unsubscribe.js';
-import {
-  deleteEmailAttachment,
-  deleteEmailAttachments,
-  getEmailAttachmentPath,
-} from '../../../../config/multerEmailBroadcast.js';
+// ❌ REMOVED: import from multerEmailBroadcast.js
+// import {
+//   deleteEmailAttachment,
+//   deleteEmailAttachments,
+//   getEmailAttachmentPath,
+// } from '../../../../config/multerEmailBroadcast.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -35,6 +36,7 @@ import fs from 'fs';
 // CONSTANTS
 // ============================================
 
+const FOLDER = 'email_attachments'; // ✅ NEW: Define folder constant
 const BATCH_SIZE = 100;
 const BATCH_DELAY_MS = 1000; // 1 second between batches
 
@@ -48,6 +50,97 @@ const CAMPAIGN_STATUS = {
   FAILED: 'FAILED',
   CANCELLED: 'CANCELLED',
 };
+
+// ============================================
+// ✅ NEW: FILE HELPER FUNCTIONS (using fileStorage)
+// ============================================
+
+/**
+ * Delete a single email attachment
+ */
+async function deleteEmailAttachment(filename) {
+  if (!filename) return false;
+  
+  try {
+    return await fileStorage.deleteFile({ folder: FOLDER, filename });
+  } catch (error) {
+    console.warn(`[Email Broadcast] Failed to delete attachment: ${filename}`, error.message);
+    return false;
+  }
+}
+
+/**
+ * Delete multiple email attachments
+ */
+async function deleteEmailAttachments(filenames) {
+  if (!filenames || !Array.isArray(filenames) || filenames.length === 0) {
+    return { deleted: 0, failed: 0 };
+  }
+
+  const files = filenames
+    .filter(f => f) // Remove null/undefined
+    .map(filename => ({ folder: FOLDER, filename }));
+
+  return await fileStorage.deleteFiles(files);
+}
+
+/**
+ * Get file path for email attachment (for nodemailer)
+ */
+function getEmailAttachmentPath(filename) {
+  if (!filename) return null;
+  
+  try {
+    return fileStorage.getAbsolutePath({ folder: FOLDER, filename });
+  } catch (error) {
+    console.warn(`[Email Broadcast] Failed to get path for: ${filename}`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Delete all files associated with a campaign
+ */
+async function deleteEmailCampaignFiles(campaignId) {
+  // Get campaign with attachments
+  const campaign = await prisma.emailBroadcastCampaign.findUnique({
+    where: { campaign_id: campaignId },
+    select: {
+      inline_image: true,
+      attachments: true,
+    },
+  });
+
+  if (!campaign) return { deleted: 0, failed: 0 };
+
+  const filesToDelete = [];
+
+  // Add inline image if exists
+  if (campaign.inline_image?.filename) {
+    filesToDelete.push({
+      folder: FOLDER,
+      filename: campaign.inline_image.filename,
+    });
+  }
+
+  // Add attachments if exist
+  if (campaign.attachments && Array.isArray(campaign.attachments)) {
+    campaign.attachments.forEach(att => {
+      if (att?.filename) {
+        filesToDelete.push({
+          folder: FOLDER,
+          filename: att.filename,
+        });
+      }
+    });
+  }
+
+  if (filesToDelete.length === 0) {
+    return { deleted: 0, failed: 0 };
+  }
+
+  return await fileStorage.deleteFiles(filesToDelete);
+}
 
 // ============================================
 // PREVIEW RECIPIENTS
@@ -205,7 +298,7 @@ export async function updateDraft(campaignId, data, context) {
       // If changing inline image, delete old one
       if (existing.inline_image?.filename && 
           existing.inline_image.filename !== data.inline_image?.filename) {
-        deleteEmailAttachment(existing.inline_image.filename);
+        await deleteEmailAttachment(existing.inline_image.filename); // ✅ Now async
       }
       updateData.inline_image = data.inline_image;
     }
@@ -215,7 +308,7 @@ export async function updateDraft(campaignId, data, context) {
       const oldFilenames = (existing.attachments || []).map(a => a.filename);
       const newFilenames = (data.attachments || []).map(a => a.filename);
       const removedFilenames = oldFilenames.filter(f => f && !newFilenames.includes(f));
-      deleteEmailAttachments(removedFilenames);
+      await deleteEmailAttachments(removedFilenames); // ✅ Now async
       
       updateData.attachments = data.attachments;
     }
@@ -975,27 +1068,6 @@ async function sendBatch(campaign, recipients) {
 // ============================================
 // HELPERS
 // ============================================
-
-
-
-/**
- * Delete email campaign attachments
- */
-async function deleteEmailCampaignFiles(campaignId) {
-  const attachments = await prisma.emailBroadcastAttachment.findMany({
-    where: { campaign_id: campaignId },
-  });
-
-  if (attachments.length === 0) return { deleted: 0 };
-
-  const filesToDelete = attachments.map(att => ({
-    folder: 'email_attachments',
-    filename: att.storage_key,
-  }));
-
-  return await fileStorage.deleteFiles(filesToDelete);
-}
-
 
 /**
  * Get human-readable time until scheduled
