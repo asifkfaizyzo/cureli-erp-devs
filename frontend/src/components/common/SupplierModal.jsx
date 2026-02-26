@@ -6,7 +6,8 @@ import {
   Phone, Mail, MapPin, Hash, FileText, Landmark, 
   CheckCircle2, AlertCircle, Sparkles,
   Building, Globe, Shield, Clock, Plus, ArrowUpDown,
-  ChevronUp, ChevronDown, Check, AlertTriangle, Info
+  ChevronUp, ChevronDown, Check, AlertTriangle, Info,
+  PackagePlus, ArrowRight
 } from "lucide-react";
 import { useToast } from "../../../components/common/Toast";
 import { useMenuStore } from "../../../store/useMenuStore";
@@ -300,42 +301,34 @@ const validatePincode = (pincode) => {
 // ============================================
 
 const sanitizePhone = (value) => {
-  // Allow only digits, +, -, space, and parentheses
   return value.replace(/[^\d\+\-\s\(\)]/g, '').slice(0, 15);
 };
 
 const sanitizeGST = (value) => {
-  // Allow only alphanumeric, convert to uppercase
   return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 15);
 };
 
 const sanitizeDrugLicense = (value) => {
-  // Allow alphanumeric, dash, and forward slash
   return value.replace(/[^A-Za-z0-9\-\/]/g, '').toUpperCase().slice(0, 25);
 };
 
 const sanitizePAN = (value) => {
-  // Allow only alphanumeric, convert to uppercase
   return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10);
 };
 
 const sanitizeIFSC = (value) => {
-  // Allow only alphanumeric, convert to uppercase
   return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 11);
 };
 
 const sanitizePincode = (value) => {
-  // Allow only digits
   return value.replace(/\D/g, '').slice(0, 6);
 };
 
 const sanitizeAccountNumber = (value) => {
-  // Allow only digits
   return value.replace(/\D/g, '').slice(0, 18);
 };
 
 const sanitizeNumber = (value) => {
-  // Allow only digits
   return value.replace(/\D/g, '');
 };
 
@@ -438,29 +431,24 @@ const FormField = ({
   
   const hasValue = value && value.toString().trim().length > 0;
   
-  // Determine error state
   const displayError = fieldError || localError;
   const showError = (touched || fieldError) && displayError && !isFocused;
   const isValid = hasValue && !displayError && showValidation;
 
-  // Handle input change with sanitization
   const handleChange = (e) => {
     let newValue = e.target.value;
     
-    // Apply sanitization if provided
     if (sanitizeFn) {
       newValue = sanitizeFn(newValue);
     }
     
     onChange?.(newValue);
     
-    // Clear error when user types
     if (localError) {
       setLocalError(null);
     }
   };
 
-  // Validate on blur
   const handleBlur = () => {
     setIsFocused(false);
     setTouched(true);
@@ -479,7 +467,6 @@ const FormField = ({
     setIsFocused(true);
   };
 
-  // Reset touched state when value is cleared externally
   useEffect(() => {
     if (!value && !hasValue) {
       setLocalError(null);
@@ -569,7 +556,6 @@ const FormField = ({
         )}
       </div>
 
-      {/* Error / Hint Message */}
       <div className="min-h-[18px] mt-1">
         {showError ? (
           <p className="text-[10px] text-red-500 flex items-start gap-1">
@@ -613,6 +599,48 @@ const SectionHeader = ({ icon: Icon, title, subtitle, badge, action }) => (
 );
 
 // ============================================
+// EMPTY SUPPLIERS STATE COMPONENT
+// ============================================
+const EmptySuppliersState = ({ onAddNew, viewportHeight }) => (
+  <div 
+    className="flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-indigo-50 rounded-xl border-2 border-dashed border-slate-200"
+    style={{ height: `${viewportHeight}px` }}
+  >
+    <div className="text-center max-w-sm mx-auto px-6">
+      {/* Icon */}
+      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
+        <Building2 size={36} className="text-white" />
+      </div>
+      
+      {/* Title */}
+      <h3 className="text-lg font-bold text-slate-800 mb-2">
+        No Suppliers Found
+      </h3>
+      
+      {/* Description */}
+      <p className="text-sm text-slate-500 mb-6">
+        Your supplier directory is empty. Add your first supplier to get started with purchase billing.
+      </p>
+      
+      {/* Action Button */}
+      <button
+        onClick={() => onAddNew?.("")}
+        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg"
+      >
+        <Plus size={18} />
+        <span>Add First Supplier</span>
+        <ArrowRight size={16} />
+      </button>
+      
+      {/* Help text */}
+      <p className="text-[11px] text-slate-400 mt-4">
+        Or switch to the <span className="font-medium text-indigo-600">General Info</span> tab to enter details manually
+      </p>
+    </div>
+  </div>
+);
+
+// ============================================
 // SUPPLIER TABLE COMPONENT
 // ============================================
 const SupplierTable = ({ 
@@ -622,7 +650,8 @@ const SupplierTable = ({
   searchQuery,
   visibleRows = 4,
   rowHeight = 56,
-  isMobile = false
+  isMobile = false,
+  onAddNew
 }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const tableBodyRef = useRef(null);
@@ -675,18 +704,36 @@ const SupplierTable = ({
 
   const hasOverflow = suppliers.length > visibleRows;
 
-  if (suppliers.length === 0) {
+  // ✅ EMPTY STATE - No suppliers at all
+  if (suppliers.length === 0 && !searchQuery) {
+    return <EmptySuppliersState onAddNew={onAddNew} viewportHeight={viewportHeight} />;
+  }
+
+  // ✅ NO SEARCH RESULTS
+  if (suppliers.length === 0 && searchQuery) {
     return (
       <div 
         className="flex flex-col items-center justify-center text-slate-400 bg-white rounded-xl border border-slate-200"
         style={{ height: `${viewportHeight}px` }}
       >
         <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-          <Users size={24} className="text-slate-300" />
+          <Search size={24} className="text-slate-300" />
         </div>
         <p className="text-sm font-medium text-slate-600">
-          {searchQuery ? "No matching suppliers found" : "No suppliers available"}
+          No suppliers match "{searchQuery}"
         </p>
+        <p className="text-xs text-slate-400 mt-1">
+          Try a different search term or add a new supplier
+        </p>
+        {onAddNew && (
+          <button
+            onClick={() => onAddNew(searchQuery)}
+            className="mt-4 flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors text-sm font-medium"
+          >
+            <Plus size={14} />
+            Add "{searchQuery}" as new supplier
+          </button>
+        )}
       </div>
     );
   }
@@ -727,10 +774,10 @@ const SupplierTable = ({
         style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}
       >
         {sortedSuppliers.map((supplier) => {
-          const isSelected = selectedId === supplier.id;
+          const isSelected = selectedId === supplier.id || selectedId === supplier.supplier_id;
           return (
             <div
-              key={supplier.id}
+              key={supplier.id || supplier.supplier_id}
               onClick={() => onSelect(supplier)}
               className={`p-3 cursor-pointer border-b border-slate-100 transition-colors ${
                 isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'
@@ -747,8 +794,12 @@ const SupplierTable = ({
                     {supplier.name}
                   </p>
                   <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-[10px] text-slate-500 font-mono">{supplier.gst || '—'}</span>
-                    <span className="text-[10px] text-slate-500">{supplier.officePhone || '—'}</span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {supplier.gst || supplier.gst_number || supplier.gstNumber || '—'}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {supplier.officePhone || supplier.office_phone || supplier.contact || '—'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -763,7 +814,16 @@ const SupplierTable = ({
 // ============================================
 // MAIN MODAL COMPONENT
 // ============================================
-const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }) => {
+const SupplierModal = ({ 
+  open, 
+  mode, 
+  supplier, 
+  onClose, 
+  onSave, 
+  saving = false,
+  existingSuppliers = [], // ✅ NEW PROP - suppliers from backend
+  onNavigateToAdd, // ✅ Optional callback to navigate to add supplier
+}) => {
   const toast = useToast();
   const isEdit = mode === "edit";
   const isView = mode === "view";
@@ -780,34 +840,35 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
   const sidebarExpanded = useMenuStore?.((s) => s.sidebarExpanded) || false;
   const { visibleRows, rowHeight, isMobile } = useResponsiveTableRows();
 
-  // Sample existing suppliers
-  const existingSuppliers = useMemo(() => [
-    { 
-      id: 1, 
-      name: "ABC Pharma Ltd", 
-      gst: "27AABCA1234C1Z5", 
-      address: "Industrial Area, Phase-II, New Delhi - 110020",
-      officePhone: "011-23456789",
-      drugLicense: "DL-DEL-20B-123456",
-      email: "accounts@abcpharma.com",
-    },
-  ], []);
-
+  // ✅ Use suppliers from props (from backend)
   const filteredSuppliers = useMemo(() => {
     if (!searchQuery.trim()) return existingSuppliers;
     const query = searchQuery.toLowerCase();
     return existingSuppliers.filter(s => 
-      s.name.toLowerCase().includes(query) ||
-      s.gst?.toLowerCase().includes(query)
+      s.name?.toLowerCase().includes(query) ||
+      s.gst?.toLowerCase().includes(query) ||
+      s.gst_number?.toLowerCase().includes(query) ||
+      s.gstNumber?.toLowerCase().includes(query)
     );
   }, [existingSuppliers, searchQuery]);
 
-  const tabs = [
-    { id: "general", label: "General Info", icon: Building2 },
-    { id: "contact", label: "Contact", icon: Phone },
-    { id: "banking", label: "Banking", icon: Landmark },
-    { id: "existing", label: "Select Supplier", icon: Users },
-  ];
+  // ✅ Dynamic tabs - only show "Select Supplier" if there are existing suppliers
+  const tabs = useMemo(() => {
+    const baseTabs = [
+      { id: "general", label: "General Info", icon: Building2 },
+      { id: "contact", label: "Contact", icon: Phone },
+      { id: "banking", label: "Banking", icon: Landmark },
+    ];
+    
+    // Always show the existing tab, but it will show empty state if no suppliers
+    baseTabs.push({ 
+      id: "existing", 
+      label: existingSuppliers.length > 0 ? "Select Supplier" : "Browse Suppliers", 
+      icon: Users 
+    });
+    
+    return baseTabs;
+  }, [existingSuppliers.length]);
 
   // Initialize form data
   useEffect(() => {
@@ -855,40 +916,34 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
     const errors = {};
     const errorDetails = [];
 
-    // Required: Supplier Name
     if (!formData.name?.trim()) {
       errors.name = 'Supplier name is required';
       errorDetails.push({ field: 'Supplier Name', message: 'Required', tab: 'general' });
     }
 
-    // Required: GST Number
     const gstValidation = validateGSTNumber(formData.gst);
     if (!gstValidation.isValid) {
       errors.gst = gstValidation.error;
       errorDetails.push({ field: 'GST Number', message: gstValidation.error, tab: 'general' });
     }
 
-    // Required: Drug License
     const drugLicenseValidation = validateDrugLicense(formData.drugLicense);
     if (!drugLicenseValidation.isValid) {
       errors.drugLicense = drugLicenseValidation.error;
       errorDetails.push({ field: 'Drug License', message: drugLicenseValidation.error, tab: 'general' });
     }
 
-    // Required: Address
     if (!formData.address?.trim()) {
       errors.address = 'Business address is required';
       errorDetails.push({ field: 'Address', message: 'Required', tab: 'general' });
     }
 
-    // Required: Office Phone
     const phoneValidation = validatePhoneNumber(formData.officePhone);
     if (!phoneValidation.isValid) {
       errors.officePhone = phoneValidation.error;
       errorDetails.push({ field: 'Office Phone', message: phoneValidation.error, tab: 'contact' });
     }
 
-    // Optional validations (only if value provided)
     if (formData.email?.trim()) {
       const emailValidation = validateEmail(formData.email);
       if (!emailValidation.isValid) {
@@ -921,7 +976,6 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
       }
     }
 
-    // Determine first error tab
     const firstErrorTab = errorDetails.length > 0 ? errorDetails[0].tab : null;
 
     return { 
@@ -940,12 +994,10 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
     setFormErrors(errors);
 
     if (!isValid) {
-      // Switch to the tab with the first error
       if (firstErrorTab) {
         setActiveTab(firstErrorTab);
       }
 
-      // Show specific error messages
       if (errorDetails.length === 1) {
         toast.error(
           `${errorDetails[0].field} Error`,
@@ -987,14 +1039,14 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
 
   // Handle Supplier Selection
   const handleSelectSupplier = (sup) => {
-    setSelectedSupplierId(sup.id);
+    setSelectedSupplierId(sup.id || sup.supplier_id);
     setFormData(prev => ({
       ...prev,
       name: sup.name,
-      gst: sup.gst,
-      address: sup.address,
-      officePhone: sup.officePhone,
-      drugLicense: sup.drugLicense || "",
+      gst: sup.gst || sup.gst_number || sup.gstNumber || "",
+      address: sup.address || sup.address_line_1 || "",
+      officePhone: sup.officePhone || sup.office_phone || sup.contact || "",
+      drugLicense: sup.drugLicense || sup.drug_license_no || "",
       email: sup.email || "",
     }));
     
@@ -1014,6 +1066,15 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
     }
   }, [formErrors]);
 
+  // ✅ Handle add new from empty state
+  const handleAddNewFromEmptyState = useCallback((searchTerm) => {
+    if (searchTerm) {
+      updateField('name', searchTerm);
+    }
+    setActiveTab("general");
+    toast.info("Add New Supplier", "Fill in the required details to create a supplier");
+  }, [updateField, toast]);
+
   if (!open || !supplier) return null;
 
   // Calculate form completion
@@ -1022,7 +1083,6 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
     const value = formData[f];
     if (!value?.trim()) return false;
     
-    // Check validation
     switch (f) {
       case 'gst': return validateGSTNumber(value).isValid;
       case 'drugLicense': return validateDrugLicense(value).isValid;
@@ -1173,6 +1233,14 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
                           isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'
                         }`}>
                           {existingSuppliers.length}
+                        </span>
+                      )}
+                      
+                      {tab.id === 'existing' && existingSuppliers.length === 0 && (
+                        <span className={`ml-1 px-1.5 py-0.5 text-[9px] font-bold rounded-full ${
+                          isActive ? 'bg-amber-100 text-amber-700' : 'bg-amber-50 text-amber-600'
+                        }`}>
+                          0
                         </span>
                       )}
                     </button>
@@ -1527,7 +1595,7 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
                   </motion.div>
                 )}
 
-                {/* Existing Suppliers Tab */}
+                {/* Existing Suppliers Tab - ✅ UPDATED WITH EMPTY STATE */}
                 {activeTab === "existing" && (
                   <motion.div
                     key="existing"
@@ -1539,32 +1607,39 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
                   >
                     <SectionHeader 
                       icon={Users} 
-                      title="Select Existing Supplier" 
-                      subtitle="Choose from your supplier directory"
-                      badge={`${filteredSuppliers.length} suppliers`}
+                      title={existingSuppliers.length > 0 ? "Select Existing Supplier" : "Supplier Directory"} 
+                      subtitle={existingSuppliers.length > 0 
+                        ? "Choose from your supplier directory" 
+                        : "No suppliers in your directory yet"
+                      }
+                      badge={existingSuppliers.length > 0 ? `${filteredSuppliers.length} suppliers` : "Empty"}
                     />
 
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                        <Search size={16} />
+                    {/* ✅ Search - Only show if there are suppliers */}
+                    {existingSuppliers.length > 0 && (
+                      <div className="relative">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                          <Search size={16} />
+                        </div>
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search by name or GST..."
+                          className="w-full h-10 pl-10 pr-10 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all duration-200 shadow-sm"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"
+                          >
+                            <X size={14} className="text-slate-400" />
+                          </button>
+                        )}
                       </div>
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search by name or GST..."
-                        className="w-full h-10 pl-10 pr-10 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-all duration-200 shadow-sm"
-                      />
-                      {searchQuery && (
-                        <button
-                          onClick={() => setSearchQuery("")}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full"
-                        >
-                          <X size={14} className="text-slate-400" />
-                        </button>
-                      )}
-                    </div>
+                    )}
 
+                    {/* ✅ Supplier Table with Empty State */}
                     <SupplierTable
                       suppliers={filteredSuppliers}
                       selectedId={selectedSupplierId}
@@ -1573,9 +1648,11 @@ const SupplierModal = ({ open, mode, supplier, onClose, onSave, saving = false }
                       visibleRows={visibleRows}
                       rowHeight={rowHeight}
                       isMobile={isMobile}
+                      onAddNew={handleAddNewFromEmptyState}
                     />
 
-                    {isEdit && (
+                    {/* ✅ Add new option - Only show if there are suppliers */}
+                    {isEdit && existingSuppliers.length > 0 && (
                       <div className="pt-2">
                         <button
                           onClick={() => setActiveTab("general")}

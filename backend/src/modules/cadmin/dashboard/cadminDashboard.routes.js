@@ -10,6 +10,7 @@ import {
   getTopShopsController,
   getRecentActivityController,
   getDashboardAlertsController,
+  getSubscriptionDistributionController,
 } from "./cadminDashboard.controller.js";
 
 const router = express.Router();
@@ -25,6 +26,9 @@ router.get("/dashboard/revenue", getRevenueDataController);
 
 // GET /cadmin/dashboard/user-growth - User/shop growth data
 router.get("/dashboard/user-growth", getUserGrowthController);
+
+// GET /cadmin/dashboard/subscriptions - Subscription distribution for donut
+router.get("/dashboard/subscriptions", getSubscriptionDistributionController);
 
 // GET /cadmin/dashboard/onboarding - Recent onboarding users
 router.get("/dashboard/onboarding", getRecentOnboardingController);

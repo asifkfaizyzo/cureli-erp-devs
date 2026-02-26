@@ -1,14 +1,36 @@
 // src/pages/Dashboard/comps/RevenueChart.jsx
 
-import { useState, useEffect } from "react";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign,
-  Loader2,
-  AlertCircle,
-} from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
+import { DollarSign, Loader2, AlertCircle, TrendingUp } from "lucide-react";
+import { Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from "recharts";
 import { getRevenueData } from "../../../api/cadminDashboard";
+
+// ✅ Currency formatter - NO division, amount already in rupees
+const formatCurrency = (v) => {
+  const n = parseFloat(v) || 0;
+  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
+  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
+  if (n >= 1000) return `₹${(n / 1000).toFixed(0)}K`;
+  return `₹${n.toLocaleString("en-IN")}`;
+};
+
+const ChartTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-gray-900/95 backdrop-blur-lg p-2 rounded-lg shadow-xl border border-gray-700/50">
+      <p className="text-[9px] font-semibold text-gray-300 mb-1">{label}</p>
+      {payload.map((e, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: e.color }} />
+          <span className="text-[10px] text-gray-400">{e.name}:</span>
+          {/* ✅ NO division - amount already in rupees */}
+          <span className="text-[10px] font-bold text-white ml-auto">{formatCurrency(e.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const RevenueChart = ({ period }) => {
   const [data, setData] = useState(null);
@@ -16,136 +38,123 @@ const RevenueChart = ({ period }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetch = async () => {
       setLoading(true);
       setError(null);
-      
       try {
-        console.log("[RevenueChart] Fetching data for period:", period);
-        const response = await getRevenueData(period);
-        console.log("[RevenueChart] Response:", response);
-        
-        if (response.data) {
-          setData(response.data);
-        } else {
-          setError("No data received");
-        }
-      } catch (err) {
-        console.error("[RevenueChart] Error:", err);
-        setError(err.message || "Failed to load revenue data");
+        const res = await getRevenueData(period);
+        setData(res.data);
+      } catch (e) {
+        setError(e.message || "Failed to load");
       } finally {
         setLoading(false);
       }
     };
-
-    fetchData();
+    fetch();
   }, [period]);
 
   const chartData = data?.data || [];
-  const summary = data?.summary || { total: 0, average: 0, maxValue: 0 };
+  const summary = data?.summary || {};
   
-  // Calculate growth (mock since we don't have previous period in same call)
-  const growth = 12.5; // You can calculate this from summary if available
+  const displayData = useMemo(() => {
+    if (chartData.length <= 15) return chartData;
+    const step = Math.ceil(chartData.length / 15);
+    return chartData.filter((_, i) => i % step === 0 || i === chartData.length - 1);
+  }, [chartData]);
+
+  const hasData = displayData.length > 0 && displayData.some(d => d.value > 0);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/25">
-            <DollarSign size={20} className="text-white" />
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white/80 backdrop-blur rounded-xl border border-gray-100/80 p-3"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm">
+            <DollarSign size={14} className="text-white" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">Revenue Overview</h3>
-            <p className="text-xs text-gray-500">Total earnings over time</p>
+            <h3 className="text-xs font-bold text-gray-900">Revenue</h3>
+            <p className="text-[9px] text-gray-400">Period overview</p>
           </div>
         </div>
-
+        
         {!loading && !error && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg">
-            <TrendingUp size={14} className="text-emerald-600" />
-            <span className="text-sm font-semibold text-emerald-700">
-              {chartData.length > 0 ? `${chartData.length} days` : "No data"}
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              {/* ✅ NO division - amount already in rupees */}
+              <p className="text-sm font-bold text-gray-900">{formatCurrency(summary.total || 0)}</p>
+              <p className="text-[9px] text-gray-400">{summary.transactionCount || 0} transactions</p>
+            </div>
+            {(summary.total || 0) > 0 && (
+              <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 rounded text-[9px] font-semibold text-emerald-600">
+                <TrendingUp size={10} />
+                Active
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Stats */}
-      {!loading && !error && (
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="p-3 bg-gray-50 rounded-xl">
-            <p className="text-xs text-gray-500 mb-1">Total Revenue</p>
-            <p className="text-xl font-bold text-gray-900">
-              ₹{(summary.total / 100).toLocaleString("en-IN")}
-            </p>
-          </div>
-          <div className="p-3 bg-gray-50 rounded-xl">
-            <p className="text-xs text-gray-500 mb-1">Daily Average</p>
-            <p className="text-xl font-bold text-gray-900">
-              ₹{(summary.average / 100).toLocaleString("en-IN")}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Chart */}
-      <div className="relative h-48">
+      <div style={{ width: "100%", height: 180, minHeight: 180, minWidth: 0 }}>
         {loading ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+          <div className="h-full flex items-center justify-center">
+            <Loader2 className="w-6 h-6 text-gray-300 animate-spin" />
           </div>
         ) : error ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-            <AlertCircle size={32} className="mb-2" />
-            <p className="text-sm">{error}</p>
+          <div className="h-full flex flex-col items-center justify-center text-gray-400">
+            <AlertCircle size={24} className="mb-1" />
+            <p className="text-[10px]">{error}</p>
           </div>
-        ) : chartData.length === 0 ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-            <DollarSign size={32} className="mb-2" />
-            <p className="text-sm">No revenue data for this period</p>
+        ) : !hasData ? (
+          <div className="h-full flex flex-col items-center justify-center text-gray-300">
+            <DollarSign size={28} className="mb-1 opacity-50" />
+            <p className="text-[10px]">No revenue data for this period</p>
+            <p className="text-[9px] text-gray-400 mt-0.5">Transactions will appear here</p>
           </div>
         ) : (
-          <div className="h-full flex items-end gap-1">
-            {chartData.slice(-20).map((d, i) => (
-              <div
-                key={i}
-                className="flex-1 min-w-0 group relative"
-                style={{ height: "100%" }}
-              >
-                <div
-                  className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-500 to-teal-400 rounded-t
-                             transition-all duration-300 hover:from-emerald-600 hover:to-teal-500"
-                  style={{ 
-                    height: summary.maxValue > 0 
-                      ? `${(d.value / summary.maxValue) * 100}%` 
-                      : "0%" 
-                  }}
-                />
-                
-                {/* Tooltip */}
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 
-                                transition-opacity pointer-events-none z-10">
-                  <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                    {d.label}: ₹{(d.value / 100).toLocaleString("en-IN")}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={displayData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <XAxis 
+                dataKey="label" 
+                tick={{ fontSize: 9, fill: "#9CA3AF" }} 
+                tickLine={false} 
+                axisLine={{ stroke: "#E5E7EB" }}
+                interval="preserveStartEnd"
+              />
+              <YAxis 
+                tick={{ fontSize: 9, fill: "#9CA3AF" }} 
+                tickLine={false} 
+                axisLine={false} 
+                /* ✅ NO division - amount already in rupees */
+                tickFormatter={(v) => formatCurrency(v)} 
+                width={50}
+              />
+              <Tooltip content={<ChartTooltip />} />
+              <Area 
+                type="monotone" 
+                dataKey="value" 
+                stroke="#10B981" 
+                fill="url(#revGrad)" 
+                strokeWidth={2} 
+                name="Revenue" 
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 2 }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
         )}
       </div>
-
-      {/* Legend */}
-      {!loading && !error && chartData.length > 0 && (
-        <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-gray-100">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gradient-to-br from-emerald-500 to-teal-400" />
-            <span className="text-xs text-gray-500">Daily Revenue</span>
-          </div>
-        </div>
-      )}
-    </div>
+    </motion.div>
   );
 };
 

@@ -1035,8 +1035,8 @@ const DashboardPage = () => {
         return;
       }
       const routes = {
-        "new-sale": "/sales/billing",
-        "new-purchase": "/purchase/billing",
+        "new-sale": "/Sales-billing",
+        "new-purchase": "/purchase-billing",
         inventory: "/inventory",
         reports: "/reports-sales",
       };
@@ -1146,19 +1146,6 @@ const DashboardPage = () => {
               ))}
             </div>
 
-            {/* Alerts indicator */}
-            {/* {totalAlerts > 0 && (
-              <div className="relative p-2 rounded-xl bg-red-50 border border-red-200 text-red-600">
-                <Bell size={16} />
-                <span
-                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white 
-                  text-[9px] font-bold rounded-full flex items-center justify-center"
-                >
-                  {totalAlerts}
-                </span>
-              </div>
-            )} */}
-
             {/* Refresh */}
             <button
               onClick={handleRefresh}
@@ -1179,7 +1166,7 @@ const DashboardPage = () => {
           <QuickAction
             title="Sale"
             icon={ShoppingCart}
-            gradient="green"
+            gradient="blue"
             onClick={() => handleQuickAction("new-sale")}
             badge={isGlobalMode ? "⚡" : null}
             delay={0}
@@ -1195,7 +1182,7 @@ const DashboardPage = () => {
           <QuickAction
             title="Stock"
             icon={Package}
-            gradient="purple"
+            gradient="blue"
             onClick={() => handleQuickAction("inventory")}
             badge={
               lowStockItems.length > 0 ? `${lowStockItems.length}` : null
@@ -1205,7 +1192,7 @@ const DashboardPage = () => {
           <QuickAction
             title="Reports"
             icon={BarChart3}
-            gradient="amber"
+            gradient="blue"
             onClick={() => handleQuickAction("reports")}
             delay={3}
           />

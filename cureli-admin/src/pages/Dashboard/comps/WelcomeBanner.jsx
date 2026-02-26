@@ -1,100 +1,88 @@
 // src/pages/Dashboard/comps/WelcomeBanner.jsx
 
-import { useState, useEffect } from "react";
-import { 
-  Sun, 
-  Moon, 
-  Sunrise, 
-  Sparkles,
-  TrendingUp,
-  Bell,
-  ShieldCheck,
-} from "lucide-react";
+import { useMemo } from "react";
+import { motion } from "framer-motion";
+import { Sun, Moon, Sunrise, Sunset, ShieldCheck, Bell, TrendingUp } from "lucide-react";
 
-const WelcomeBanner = ({ admin, pendingCounts }) => {
-  const [greeting, setGreeting] = useState({ text: "Hello", icon: Sun });
+const ROLE_LABELS = {
+  SUPER_CADMIN: "Super Admin",
+  ANALYST: "Analyst",
+  ACCOUNTANT: "Accountant",
+  SALESMAN: "Salesman",
+};
 
-  useEffect(() => {
+const PulseDot = ({ color = "emerald" }) => (
+  <span className="relative flex h-1.5 w-1.5">
+    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-${color}-400 opacity-75`} />
+    <span className={`relative inline-flex rounded-full h-1.5 w-1.5 bg-${color}-500`} />
+  </span>
+);
+
+const WelcomeBanner = ({ admin, role, pendingCounts, overviewData }) => {
+  const { greeting, Icon } = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) {
-      setGreeting({ text: "Good Morning", icon: Sunrise });
-    } else if (hour >= 12 && hour < 17) {
-      setGreeting({ text: "Good Afternoon", icon: Sun });
-    } else if (hour >= 17 && hour < 21) {
-      setGreeting({ text: "Good Evening", icon: Sun });
-    } else {
-      setGreeting({ text: "Good Night", icon: Moon });
-    }
+    if (hour >= 5 && hour < 12) return { greeting: "Good morning", Icon: Sunrise };
+    if (hour >= 12 && hour < 17) return { greeting: "Good afternoon", Icon: Sun };
+    if (hour >= 17 && hour < 21) return { greeting: "Good evening", Icon: Sunset };
+    return { greeting: "Good night", Icon: Moon };
   }, []);
 
-  const Icon = greeting.icon;
   const firstName = admin?.name?.split(" ")[0] || "Admin";
-  const roleDisplay = admin?.role?.replace("_", " ") || "Admin";
+  const roleDisplay = ROLE_LABELS[role] || role?.replace("_", " ");
 
-  // Calculate total pending
-  const totalPending = 
-    (pendingCounts?.pendingVerifications || 0) +
-    (pendingCounts?.pendingTickets || 0) +
-    (pendingCounts?.pendingEnquiries || 0);
+  let totalPending = 0;
+  if (role === "SUPER_CADMIN" || role === "ANALYST") {
+    totalPending = (pendingCounts?.pendingVerifications || 0) +
+      (pendingCounts?.pendingTickets || 0) +
+      (pendingCounts?.pendingEnquiries || 0);
+  } else if (role === "ACCOUNTANT") {
+    totalPending = overviewData?.subscriptions?.atRiskTotal || 0;
+  }
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-r from-[#000060] via-[#000080] to-violet-700 rounded-2xl p-5 text-white shadow-xl">
-      {/* Decorative Elements */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-      <div className="absolute bottom-0 left-0 w-48 h-48 bg-violet-500/20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
-      
-      {/* Sparkle decorations */}
-      <Sparkles className="absolute top-4 right-4 w-6 h-6 text-white/20 animate-pulse" />
-      <Sparkles className="absolute bottom-4 right-12 w-4 h-4 text-violet-300/30 animate-pulse delay-300" />
-
-      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Left: Greeting */}
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20">
-            <Icon size={28} className="text-amber-300" />
-          </div>
-          
-          <div>
-            <p className="text-sm text-white/70 flex items-center gap-2">
-              {greeting.text}
-              <span className="inline-block w-1 h-1 rounded-full bg-white/50" />
-              <span className="text-xs opacity-60">
-                {new Date().toLocaleDateString("en-IN", { 
-                  weekday: "long", 
-                  day: "numeric", 
-                  month: "short" 
-                })}
-              </span>
-            </p>
-            <h2 className="text-2xl font-bold mt-0.5">{firstName}!</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <ShieldCheck size={14} className="text-emerald-400" />
-              <span className="text-xs text-white/80 capitalize">{roleDisplay}</span>
-            </div>
-          </div>
+    <div className="flex-1 min-w-0">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-3"
+      >
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#000060] to-violet-600 
+          flex items-center justify-center shadow-lg shadow-indigo-500/20 flex-shrink-0">
+          <Icon size={18} className="text-amber-300" />
         </div>
 
-        {/* Right: Quick Stats */}
-        <div className="flex items-center gap-3">
-          {totalPending > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
-              <Bell size={18} className="text-amber-300" />
-              <div>
-                <p className="text-lg font-bold">{totalPending}</p>
-                <p className="text-[10px] text-white/60 uppercase tracking-wider">Pending</p>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-extrabold text-gray-900 truncate">
+              {greeting}, {firstName}
+            </h1>
+            <motion.span
+              animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
+              transition={{ duration: 2, delay: 0.5 }}
+            >
+              <Sunrise size={16} className="text-amber-500" />
+            </motion.span>
+          </div>
+
+          <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 rounded text-[10px] font-medium text-indigo-600">
+              <ShieldCheck size={10} />
+              {roleDisplay}
+            </div>
+            <PulseDot color="emerald" />
+            <span className="text-[10px] text-gray-400">
+              {new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+            </span>
+
+            {totalPending > 0 && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded text-[10px] font-medium text-amber-600">
+                <Bell size={10} />
+                {totalPending} pending
               </div>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
-            <TrendingUp size={18} className="text-emerald-400" />
-            <div>
-              <p className="text-lg font-bold">Active</p>
-              <p className="text-[10px] text-white/60 uppercase tracking-wider">Status</p>
-            </div>
+            )}
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

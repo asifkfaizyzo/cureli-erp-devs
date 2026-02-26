@@ -3,15 +3,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuthStore, selectBranchContext } from "../../store/useAuthStore";
 
 const STORAGE_KEY = 'cureli_purchase_supplier';
-const STORAGE_VERSION = 3; // ✅ Incremented for branch tracking
-
-const DEFAULT_SUPPLIERS = [
-  { id: 1, name: "ABC Pharma Ltd", gst: "27AABCA1234C1Z5", phone: "+91 98765 43210", address: "Mumbai, MH" },
-  { id: 2, name: "XYZ Medicals", gst: "07AAFCX5678D1Z2", phone: "+91 98765 43211", address: "Delhi, NCR" },
-  { id: 3, name: "PQR Distributors", gst: "29AAPCP5678R1Z3", phone: "+91 98765 43212", address: "Bangalore, KA" },
-  { id: 4, name: "LMN Healthcare", gst: "03AABCL1234M1Z4", phone: "+91 98765 43213", address: "Chandigarh, PB" },
-  { id: 5, name: "Global Pharma Inc", gst: "24AABCG5678P1Z5", phone: "+91 98765 43214", address: "Ahmedabad, GJ" },
-];
+const STORAGE_VERSION = 3;
 
 const getDefaultSupplier = () => ({
   supplier_id: null,
@@ -39,7 +31,7 @@ const loadFromStorage = () => {
     
     const parsed = JSON.parse(stored);
     
-    // ✅ Check version compatibility
+    // Check version compatibility
     if (parsed.version !== STORAGE_VERSION) {
       console.log('📦 Storage version mismatch, clearing old data');
       localStorage.removeItem(STORAGE_KEY);
@@ -57,7 +49,7 @@ const loadFromStorage = () => {
       return null;
     }
     
-    // ✅ Ensure all fields exist with defaults
+    // Ensure all fields exist with defaults
     const supplier = {
       ...getDefaultSupplier(),
       ...parsed.supplier,
@@ -98,11 +90,12 @@ export const usePurchaseSupplier = (total = 0) => {
   const previousBranchRef = useRef(branchContext.branch_id);
   
   const [supplier, setSupplier] = useState(getDefaultSupplier);
-  const [suppliersList, setSuppliersList] = useState(DEFAULT_SUPPLIERS);
+  // ✅ Initialize with empty array - suppliers will be loaded from API
+  const [suppliersList, setSuppliersList] = useState([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const saveTimeoutRef = useRef(null);
 
-  // ✅ NEW: Reset supplier when branch changes (except on initial mount)
+  // Reset supplier when branch changes (except on initial mount)
   useEffect(() => {
     if (!isInitialized) return;
     
@@ -121,6 +114,9 @@ export const usePurchaseSupplier = (total = 0) => {
         setSupplier(getDefaultSupplier());
         localStorage.removeItem(STORAGE_KEY);
       }
+      
+      // ✅ Also clear suppliers list - will be reloaded from API
+      setSuppliersList([]);
       
       previousBranchRef.current = currentBranchId;
     }
@@ -150,7 +146,7 @@ export const usePurchaseSupplier = (total = 0) => {
     });
   }, [total, supplier.amountPaid]);
 
-  // ✅ Auto-set payment mode to CASH if amount is paid but mode is not selected
+  // Auto-set payment mode to CASH if amount is paid but mode is not selected
   useEffect(() => {
     const paid = parseFloat(supplier.amountPaid) || 0;
     if (paid > 0 && !supplier.paymentMode) {
@@ -188,7 +184,7 @@ export const usePurchaseSupplier = (total = 0) => {
         supplierName: selected.name,
         supplierGST: selected.gst || selected.gstNumber || selected.gst_number || "",
         supplierPhone: selected.phone || selected.officePhone || selected.office_phone || "",
-        address: selected.address || "",
+        address: selected.address || selected.address_line_1 || "",
         creditDays: selected.creditDays?.toString() || selected.credit_days?.toString() || prev.creditDays,
       }));
     }
@@ -238,7 +234,7 @@ export const usePurchaseSupplier = (total = 0) => {
   }, []);
 
   /**
-   * ✅ Update a single field
+   * Update a single field
    */
   const updateField = useCallback((field, value) => {
     setSupplier(prev => ({
@@ -248,7 +244,7 @@ export const usePurchaseSupplier = (total = 0) => {
   }, []);
 
   /**
-   * ✅ Get payment status summary
+   * Get payment status summary
    */
   const getPaymentStatus = useCallback(() => {
     const paid = parseFloat(supplier.amountPaid) || 0;

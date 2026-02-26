@@ -22,7 +22,7 @@ import {
 
 const router = Router();
 
-// Rate limiter for public enquiry submission - 5 per 15 minutes
+// Rate limiters
 const enquirySubmitLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -33,11 +33,8 @@ const enquirySubmitLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.path.startsWith("/admin"),
-  // Use default keyGenerator (handles IPv6 properly) or remove this entirely
-  // The default already uses req.ip with proper IPv6 handling
 });
 
-// Stricter limiter for spam prevention - 10 per hour
 const strictEnquiryLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
@@ -48,37 +45,40 @@ const strictEnquiryLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.path.startsWith("/admin"),
-  // Use default keyGenerator (handles IPv6 properly) or remove this entirely
 });
 
-// PUBLIC ROUTES
+// ✅ PUBLIC ROUTES - Remove /enquiries prefix
 router.post(
-  "/enquiries",
+  "/",  // Changed from "/enquiries"
   strictEnquiryLimiter,
   enquirySubmitLimiter,
   validate(createEnquirySchema, "body"),
   submitEnquiry
 );
 
-// ADMIN ROUTES
+// ✅ ADMIN ROUTES - Remove /enquiries prefix
 router.get(
-  "/enquiries/admin/list",
+  "/admin/list",  // Changed from "/enquiries/admin/list"
   requireCAdmin,
   validate(listEnquiriesSchema, "query"),
   listEnquiries
 );
 
-router.get("/enquiries/admin/stats", requireCAdmin, getEnquiryStats);
+router.get(
+  "/admin/stats",  // Changed from "/enquiries/admin/stats"
+  requireCAdmin,
+  getEnquiryStats
+);
 
 router.get(
-  "/enquiries/admin/:enquiryId",
+  "/admin/:enquiryId",  // Changed from "/enquiries/admin/:enquiryId"
   requireCAdmin,
   validate(enquiryIdParamSchema, "params"),
   getEnquiryDetails
 );
 
 router.post(
-  "/enquiries/admin/:enquiryId/reply",
+  "/admin/:enquiryId/reply",  // Changed from "/enquiries/admin/:enquiryId/reply"
   requireCAdmin,
   validate(enquiryIdParamSchema, "params"),
   validate(replyEnquirySchema, "body"),
@@ -86,7 +86,7 @@ router.post(
 );
 
 router.patch(
-  "/enquiries/admin/:enquiryId/status",
+  "/admin/:enquiryId/status",  // Changed from "/enquiries/admin/:enquiryId/status"
   requireCAdmin,
   validate(enquiryIdParamSchema, "params"),
   validate(updateEnquiryStatusSchema, "body"),
@@ -94,7 +94,7 @@ router.patch(
 );
 
 router.delete(
-  "/enquiries/admin/:enquiryId",
+  "/admin/:enquiryId",  // Changed from "/enquiries/admin/:enquiryId"
   requireCAdmin,
   validate(enquiryIdParamSchema, "params"),
   deleteEnquiry

@@ -471,7 +471,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
     if (extension === 'xls') {
       console.log('📤 Uploading .xls file for server conversion...');
       
-      toast.info('Converting File', 'Converting legacy Excel format, please wait...');
+      toast.info('Converting File', 'Converting legacy Excel format, please wait for it to load');
 
       const formData = new FormData();
       formData.append('file', file);

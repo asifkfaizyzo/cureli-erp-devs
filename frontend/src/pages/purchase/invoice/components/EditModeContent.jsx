@@ -1,5 +1,6 @@
 // frontend/src/pages/purchase/invoice/components/EditModeContent.jsx
 // Edit Mode Components for Invoice Modal
+// ✅ UPDATED: Added hasLinkedReturns and linkedReturnCount props for footer display
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
@@ -16,6 +17,7 @@ import {
   FileText,
   ExternalLink,
   AlertTriangle,
+  Ban,
 } from "lucide-react";
 import { FinanceRow } from "./ViewModeContent";
 
@@ -229,7 +231,9 @@ const EditModeContent = ({
   tableBodyRef,
   onCreateReturn,
   showCreateReturnButton,
-  onViewReturn,  // ✅ NEW PROP
+  onViewReturn,
+  hasLinkedReturns = false,  // ✅ NEW PROP
+  linkedReturnCount = 0,      // ✅ NEW PROP
 }) => {
   const filledRows = editRows.filter(r => r.name).length;
 
@@ -265,7 +269,7 @@ const EditModeContent = ({
             <span>Live Summary</span>
           </div>
 
-          {/* ✅ NEW: Linked Returns Warning Banner */}
+          {/* ✅ UPDATED: Linked Returns Warning Banner */}
           {invoice.returnInvoices && invoice.returnInvoices.length > 0 && (
             <div className="mb-4 p-4 rounded-xl bg-red-50 border-2 border-red-300 animate-pulse">
               <div className="flex items-start gap-3">
@@ -347,7 +351,7 @@ const EditModeContent = ({
             </div>
           </div>
 
-          {isConfirmed && (
+          {isConfirmed && !hasLinkedReturns && (
             <div className="mt-6 p-4 rounded-xl bg-red-50 border border-red-200">
               <div className="flex items-start gap-2">
                 <RefreshCw size={16} className="text-red-600 shrink-0 mt-0.5" />
@@ -359,6 +363,21 @@ const EditModeContent = ({
                     <li>Add new stock based on updated quantities</li>
                     <li>Log all changes in audit trail</li>
                   </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ NEW: Show save blocked warning in summary */}
+          {hasLinkedReturns && (
+            <div className="mt-6 p-4 rounded-xl bg-red-100 border-2 border-red-300">
+              <div className="flex items-start gap-2">
+                <Ban size={16} className="text-red-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-red-800">
+                  <p className="font-bold">Save Disabled</p>
+                  <p className="mt-1 opacity-90">
+                    {linkedReturnCount} linked return{linkedReturnCount > 1 ? 's' : ''} must be cancelled before you can save changes to this invoice.
+                  </p>
                 </div>
               </div>
             </div>
@@ -375,6 +394,14 @@ const EditModeContent = ({
             </div>
             <h2 className="font-semibold text-amber-800">Edit Line Items</h2>
             <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white">{filledRows} / {editRows.length} items</span>
+            
+            {/* ✅ NEW: Show blocked indicator in table header */}
+            {hasLinkedReturns && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-300">
+                <Ban size={12} />
+                Save Blocked
+              </span>
+            )}
           </div>
           <button onClick={onAddRow} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
             <Plus size={14} />Add Row
@@ -431,7 +458,7 @@ const EditModeContent = ({
         <div className="shrink-0 px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Create Return Button - Only for CONFIRMED invoices without existing returns */}
-            {showCreateReturnButton && onCreateReturn && !(invoice.returnInvoices?.length > 0) && (
+            {showCreateReturnButton && onCreateReturn && !hasLinkedReturns && (
               <button
                 onClick={onCreateReturn}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg font-medium"
@@ -440,11 +467,30 @@ const EditModeContent = ({
                 <span className="text-sm">Create Return</span>
               </button>
             )}
+            
+            {/* ✅ NEW: Show warning when returns exist in footer */}
+            {hasLinkedReturns && (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-red-100 text-red-800 rounded-xl border border-red-300">
+                <AlertTriangle size={18} className="shrink-0" />
+                <div>
+                  <span className="font-semibold text-sm">
+                    Editing blocked
+                  </span>
+                  <span className="text-xs ml-2 opacity-80">
+                    Cancel {linkedReturnCount} return{linkedReturnCount > 1 ? 's' : ''} to enable saving
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Placeholder for future actions */}
+          {/* Right side - Additional info */}
           <div className="flex items-center gap-3">
-            {/* Reserved for additional edit mode actions */}
+            {hasLinkedReturns && (
+              <span className="text-xs text-gray-500">
+                Go to Purchase Returns → Cancel linked returns → Return to edit
+              </span>
+            )}
           </div>
         </div>
       </div>

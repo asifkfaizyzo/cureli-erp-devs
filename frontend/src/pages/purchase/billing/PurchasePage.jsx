@@ -8,6 +8,8 @@ import {
   AlertTriangle,
   ArrowLeft,
   RefreshCw,
+  Building2,
+  Plus,
 } from "lucide-react";
 
 // Components
@@ -275,6 +277,9 @@ const PurchasePage = () => {
   useEffect(() => {
     if (suppliers.length > 0) {
       setSuppliersList(suppliers);
+    } else {
+      // ✅ Also update when suppliers become empty
+      setSuppliersList([]);
     }
   }, [suppliers, setSuppliersList]);
 
@@ -541,6 +546,13 @@ const PurchasePage = () => {
   // SAVE HANDLER (DRAFT) - ✅ Updated for free items
   // ============================================
   const handleSave = useCallback(async () => {
+    // ✅ Check if suppliers exist first
+    if (suppliers.length === 0) {
+      toast.warning("No Suppliers", "Please add a supplier before creating an invoice.");
+      setSupplierModalOpen(true);
+      return false;
+    }
+
     // ✅ Get billable rows only (exclude free items for validation)
     const billableRows = getBillableRows();
     const freeRows = getFreeRows();
@@ -612,6 +624,7 @@ const PurchasePage = () => {
 
     return await performSave(allFilledRows);
   }, [
+    suppliers.length,
     getBillableRows, 
     getFreeRows,
     getFilledRows,
@@ -665,6 +678,13 @@ const PurchasePage = () => {
       return;
     }
 
+    // ✅ Check if suppliers exist first
+    if (suppliers.length === 0) {
+      toast.warning("No Suppliers", "Please add a supplier before creating an invoice.");
+      setSupplierModalOpen(true);
+      return;
+    }
+
     const billableRows = getBillableRows();
     if (billableRows.length === 0) {
       toast.warning("Please add at least one billable item to print");
@@ -706,6 +726,7 @@ const PurchasePage = () => {
     }
   }, [
     isEditingConfirmed,
+    suppliers.length,
     getBillableRows,
     getFilledRows, 
     currentInvoice, 
@@ -728,7 +749,7 @@ const PurchasePage = () => {
   // ============================================
   // SUPPLIER MODAL HANDLERS
   // ============================================
-  const handleAddNewSupplier = useCallback((supplierName) => {
+  const handleAddNewSupplier = useCallback((supplierName = "") => {
     if (isEditingConfirmed) {
       toast.warning("Not Allowed", "Cannot change supplier when editing a confirmed invoice.");
       return;
@@ -742,32 +763,49 @@ const PurchasePage = () => {
       try {
         const createdSupplier = await createSupplier({
           name: newSupplierData.name,
-          contactPerson: newSupplierData.contact,
+          contactPerson: newSupplierData.contactPerson || newSupplierData.contact,
           officePhone: newSupplierData.officePhone,
           personalPhone: newSupplierData.personalPhone,
           email: newSupplierData.email,
           addressLine1: newSupplierData.address,
           gstNumber: newSupplierData.gst,
+          drugLicenseNo: newSupplierData.drugLicense,
+          panNumber: newSupplierData.panNumber,
+          city: newSupplierData.city,
+          state: newSupplierData.state,
+          pincode: newSupplierData.pincode,
         });
 
         if (createdSupplier) {
+          // ✅ Update suppliers list immediately
+          setSuppliersList(prev => [...prev, {
+            ...createdSupplier,
+            name: createdSupplier.name,
+            gstNumber: createdSupplier.gst_number || createdSupplier.gstNumber,
+            officePhone: createdSupplier.office_phone || createdSupplier.officePhone,
+            address: createdSupplier.address_line_1 || createdSupplier.address,
+          }]);
+
+          // ✅ Auto-select the newly created supplier
           setSupplier((prev) => ({
             ...prev,
             supplier_id: createdSupplier.supplier_id,
             supplierName: createdSupplier.name,
-            supplierGST: createdSupplier.gstNumber || "",
-            supplierPhone: createdSupplier.officePhone || createdSupplier.personalPhone || "",
-            address: createdSupplier.address || "",
+            supplierGST: createdSupplier.gst_number || createdSupplier.gstNumber || "",
+            supplierPhone: createdSupplier.office_phone || createdSupplier.officePhone || createdSupplier.personal_phone || "",
+            address: createdSupplier.address_line_1 || createdSupplier.address || "",
           }));
 
           setSupplierModalOpen(false);
           setNewSupplierName("");
+
+          toast.success("Supplier Created", `${createdSupplier.name} has been added and selected.`);
         }
       } catch (error) {
         console.error("Supplier save error:", error);
       }
     },
-    [createSupplier, setSupplier]
+    [createSupplier, setSupplier, setSuppliersList, toast]
   );
 
   // ============================================
@@ -975,10 +1013,15 @@ const PurchasePage = () => {
 
   const hasData = hasUnsavedData();
 
+  // ✅ Check if no suppliers and not loading
+  const showNoSuppliersWarning = !isEditingConfirmed && 
+                                  suppliers.length === 0 && 
+                                  !loadingStates.supplier;
+
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
       
-      {/* WARNING BANNER */}
+      {/* ✅ SUPER ADMIN EDITING CONFIRMED WARNING BANNER */}
       {isEditingConfirmed && (
         <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-lg overflow-hidden shadow-sm">
           <div className="px-4 py-3 flex items-start gap-4">
@@ -1023,6 +1066,42 @@ const PurchasePage = () => {
               <ArrowLeft size={16} />
               Cancel Edit
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ NO SUPPLIERS WARNING BANNER */}
+      {showNoSuppliersWarning && (
+        <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg overflow-hidden shadow-sm">
+          <div className="px-4 py-3 flex items-start gap-4">
+            <div className="shrink-0 w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center shadow-sm">
+              <Building2 size={20} className="text-white" />
+            </div>
+            
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-amber-900">
+                No Suppliers Found
+              </h3>
+              <p className="text-sm text-amber-800 mt-1">
+                You need to add at least one supplier before creating a purchase invoice.
+                {branchContext.branch_name && (
+                  <span className="ml-1 text-amber-600">
+                    (Branch: <span className="font-medium">{branchContext.branch_name}</span>)
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-amber-600 mt-1">
+                Suppliers are filtered by the selected branch. Make sure to add suppliers for this branch.
+              </p>
+            </div>
+            
+            {/* <button
+              onClick={() => handleAddNewSupplier("")}
+              className="shrink-0 flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors shadow-sm"
+            >
+              <Plus size={16} />
+              Add Supplier
+            </button> */}
           </div>
         </div>
       )}
@@ -1127,6 +1206,7 @@ const PurchasePage = () => {
           setNewSupplierName("");
         }}
         onSave={handleSupplierSave}
+        existingSuppliers={suppliers}  // ✅ Pass real suppliers from backend
       />
 
       <ProductMasterModal
@@ -1174,4 +1254,4 @@ const PurchasePage = () => {
   );
 };
 
-export default PurchasePage;4
+export default PurchasePage;

@@ -16,8 +16,8 @@ import {
   Hash,
   Plus,
   Phone,
-  AlertCircle,
-  CreditCard
+  CreditCard,
+  ArrowRight
 } from "lucide-react";
 
 // ============================================
@@ -37,7 +37,7 @@ const SkeletonInput = ({ delay = 0 }) => (
 );
 
 // ============================================
-// ANIMATED INPUT COMPONENT (FIXED)
+// ANIMATED INPUT COMPONENT
 // ============================================
 const AnimatedInput = ({ 
   label, 
@@ -146,7 +146,7 @@ const AnimatedInput = ({
 };
 
 // ============================================
-// ANIMATED SELECT COMPONENT (FIXED - Always has label up when value exists)
+// ANIMATED SELECT COMPONENT
 // ============================================
 const AnimatedSelect = ({ 
   label, 
@@ -162,7 +162,6 @@ const AnimatedSelect = ({
   
   return (
     <div className={`relative ${className}`}>
-      {/* Label - Always up when has value */}
       <label 
         className={`
           absolute transition-all duration-200 pointer-events-none z-10
@@ -219,7 +218,7 @@ const AnimatedSelect = ({
 };
 
 // ============================================
-// SEARCHABLE SELECT COMPONENT
+// SEARCHABLE SELECT COMPONENT - ✅ LABEL ALWAYS UP
 // ============================================
 const SearchableSelect = ({ 
   label, 
@@ -245,7 +244,8 @@ const SearchableSelect = ({
   const filteredOptions = options.filter(opt => 
     opt[displayKey]?.toLowerCase().includes(search.toLowerCase()) ||
     opt.gst?.toLowerCase().includes(search.toLowerCase()) ||
-    opt.gstNumber?.toLowerCase().includes(search.toLowerCase())
+    opt.gstNumber?.toLowerCase().includes(search.toLowerCase()) ||
+    opt.gst_number?.toLowerCase().includes(search.toLowerCase())
   );
 
   const exactMatch = options.some(opt => 
@@ -291,7 +291,7 @@ const SearchableSelect = ({
 
   const handleAddNewSupplier = () => {
     const trimmedSearch = search.trim();
-    if (trimmedSearch && onAddNew) {
+    if (onAddNew) {
       onAddNew(trimmedSearch);
       setIsOpen(false);
       setSearch("");
@@ -303,14 +303,19 @@ const SearchableSelect = ({
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
+      {/* ✅ FIXED: Label ALWAYS stays in up position */}
       <label 
         className={`
-          absolute transition-all duration-200 pointer-events-none z-20
-          ${isFocused || hasValue || isOpen
-            ? '-top-2 text-[9px] bg-white px-1 font-semibold left-2' 
-            : 'top-1/2 -translate-y-1/2 text-[10px] left-8'
+          absolute -top-2 left-2 text-[9px] bg-white px-1 font-semibold z-20
+          transition-colors duration-200 pointer-events-none
+          ${isFocused || isOpen 
+            ? 'text-indigo-600' 
+            : isEmpty 
+              ? 'text-amber-600' 
+              : hasValue 
+                ? 'text-gray-600' 
+                : 'text-gray-500'
           }
-          ${isFocused || isOpen ? 'text-indigo-600' : 'text-gray-500'}
         `}
       >
         {label}
@@ -319,7 +324,7 @@ const SearchableSelect = ({
       {Icon && (
         <div className={`
           absolute left-2.5 top-1/2 -translate-y-1/2 transition-colors duration-200 z-10
-          ${isFocused || isOpen ? 'text-indigo-500' : 'text-gray-400'}
+          ${isFocused || isOpen ? 'text-indigo-500' : isEmpty ? 'text-amber-500' : 'text-gray-400'}
         `}>
           <Icon size={14} strokeWidth={1.5} />
         </div>
@@ -327,6 +332,11 @@ const SearchableSelect = ({
 
       <div
         onClick={() => {
+          // If empty, directly trigger add new
+          if (isEmpty && onAddNew) {
+            onAddNew("");
+            return;
+          }
           if (!isEmpty) {
             setIsOpen(true);
             setIsFocused(true);
@@ -338,14 +348,14 @@ const SearchableSelect = ({
           transition-all duration-200
           ${Icon ? 'pl-8' : 'pl-3'} pr-3
           ${isEmpty 
-            ? 'border-red-300 bg-red-50 cursor-not-allowed' 
+            ? 'border-amber-300 bg-amber-50 hover:bg-amber-100 hover:border-amber-400' 
             : isOpen 
               ? 'border-indigo-400 ring-2 ring-indigo-100 bg-white' 
               : 'border-gray-200 bg-white hover:border-gray-300'
           }
         `}
       >
-        {isOpen ? (
+        {isOpen && !isEmpty ? (
           <input
             ref={inputRef}
             type="text"
@@ -371,20 +381,27 @@ const SearchableSelect = ({
             }}
           />
         ) : (
-          <span className={`text-[11px] truncate ${
+          <span className={`text-[11px] truncate flex items-center gap-1.5 ${
             isEmpty 
-              ? 'text-red-600 font-medium' 
+              ? 'text-amber-700 font-medium' 
               : value 
                 ? 'text-gray-900 font-medium' 
                 : 'text-gray-400'
           }`}>
-            {isEmpty ? 'No suppliers available - Add one first' : value || ""}
+            {isEmpty ? (
+              <>
+                <Plus size={12} />
+                <span>Click to add your first supplier</span>
+              </>
+            ) : (
+              value || placeholder || ""
+            )}
           </span>
         )}
         
         <div className="flex items-center gap-1 ml-1">
           {isEmpty && (
-            <AlertCircle size={14} className="text-red-500" />
+            <ArrowRight size={14} className="text-amber-500" />
           )}
           {value && !isOpen && !isEmpty && (
             <button
@@ -451,15 +468,15 @@ const SearchableSelect = ({
                       <div className={`text-[11px] font-medium truncate ${value === option[displayKey] ? 'text-indigo-700' : 'text-gray-800'}`}>
                         {option[displayKey]}
                       </div>
-                      {(option.gst || option.gstNumber) && (
+                      {(option.gst || option.gstNumber || option.gst_number) && (
                         <div className="text-[9px] text-gray-400 mt-0.5 font-mono">
-                          GST: {option.gst || option.gstNumber}
+                          GST: {option.gst || option.gstNumber || option.gst_number}
                         </div>
                       )}
-                      {option.address && (
+                      {(option.address || option.address_line_1) && (
                         <div className="text-[9px] text-gray-400 flex items-center gap-1 mt-0.5 truncate">
                           <MapPin size={8} />
-                          <span className="truncate">{option.address}</span>
+                          <span className="truncate">{option.address || option.address_line_1}</span>
                         </div>
                       )}
                     </div>
@@ -493,6 +510,21 @@ const SearchableSelect = ({
                 <span className="ml-auto text-[9px] text-indigo-400 bg-white px-1.5 py-0.5 rounded shrink-0">
                   Enter
                 </span>
+              </button>
+            </div>
+          )}
+
+          {/* Always show add new option when not searching */}
+          {!search && onAddNew && (
+            <div className="border-t border-gray-100 px-3 py-2 bg-gradient-to-r from-gray-50 to-slate-50">
+              <button 
+                className="w-full text-left text-[10px] text-gray-600 hover:text-indigo-700 font-medium flex items-center gap-1.5 py-1 px-2 rounded-lg hover:bg-indigo-50 transition-colors"
+                onClick={() => onAddNew("")}
+              >
+                <span className="w-5 h-5 rounded-full bg-gray-400 hover:bg-indigo-500 flex items-center justify-center text-white shrink-0 transition-colors">
+                  <Plus size={12} />
+                </span>
+                <span>Add new supplier</span>
               </button>
             </div>
           )}
@@ -550,7 +582,7 @@ const DateInput = ({ label, value, onChange, className = "" }) => {
 };
 
 // ============================================
-// PAYMENT MODE OPTIONS (NO EMOJIS)
+// PAYMENT MODE OPTIONS
 // ============================================
 const PAYMENT_MODE_OPTIONS = [
   { value: "CASH", label: "Cash" },
@@ -561,9 +593,6 @@ const PAYMENT_MODE_OPTIONS = [
   { value: "CREDIT", label: "Credit" }
 ];
 
-// ============================================
-// DEFAULT PAYMENT MODE
-// ============================================
 const DEFAULT_PAYMENT_MODE = "CASH";
 
 // ============================================
@@ -580,12 +609,11 @@ const SupplierDetailsCard = ({
   isLocked = false,
 }) => {
   
-  // ✅ Set default payment mode on mount if not already set
   useEffect(() => {
     if (!supplier.paymentMode) {
       updateField("paymentMode", DEFAULT_PAYMENT_MODE);
     }
-  }, []); // Run only once on mount
+  }, []);
 
   const updateField = (field, value) => {
     if (onFieldChange) {
@@ -606,9 +634,9 @@ const SupplierDetailsCard = ({
       const updates = {
         supplier_id: selectedSupplier.supplier_id || selectedSupplier.id,
         supplierName: selectedSupplier.name,
-        supplierGST: selectedSupplier.gstNumber || selectedSupplier.gst || "",
-        supplierPhone: selectedSupplier.officePhone || selectedSupplier.personalPhone || "",
-        address: selectedSupplier.address || "",
+        supplierGST: selectedSupplier.gstNumber || selectedSupplier.gst || selectedSupplier.gst_number || "",
+        supplierPhone: selectedSupplier.officePhone || selectedSupplier.office_phone || selectedSupplier.personalPhone || selectedSupplier.personal_phone || "",
+        address: selectedSupplier.address || selectedSupplier.address_line_1 || "",
       };
 
       setSupplier(prev => ({ ...prev, ...updates }));
@@ -616,9 +644,6 @@ const SupplierDetailsCard = ({
     }
   };
 
-  // ============================================
-  // SKELETON LOADING STATE
-  // ============================================
   if (isLoading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full h-full flex flex-col overflow-hidden">
@@ -649,26 +674,30 @@ const SupplierDetailsCard = ({
     );
   }
 
-  // ✅ Use the supplier's paymentMode or default to CASH
   const currentPaymentMode = supplier.paymentMode || DEFAULT_PAYMENT_MODE;
+  const noSuppliers = suppliersList.length === 0;
 
-  // ============================================
-  // NORMAL RENDER
-  // ============================================
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full h-full flex flex-col overflow-visible">
       
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-4 py-2.5 border-b border-gray-100 shrink-0">
+      <div className={`px-4 py-2.5 border-b border-gray-100 shrink-0 ${
+        noSuppliers 
+          ? 'bg-gradient-to-r from-amber-50 to-orange-50' 
+          : 'bg-gradient-to-r from-indigo-50 to-purple-50'
+      }`}>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-            <Building2 size={14} className="text-indigo-600" />
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+            noSuppliers ? 'bg-amber-100' : 'bg-indigo-100'
+          }`}>
+            <Building2 size={14} className={noSuppliers ? 'text-amber-600' : 'text-indigo-600'} />
           </div>
           <div className="flex-1">
             <h3 className="text-xs font-bold text-gray-800">Supplier Details</h3>
             <p className="text-[9px] text-gray-500">Invoice & Payment Information</p>
           </div>
-          {suppliersList.length > 0 && (
+          
+          {suppliersList.length > 0 ? (
             <div className="flex items-center gap-1.5">
               <div className="flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded text-[9px] text-green-700 font-medium">
                 <CheckCircle2 size={10} />
@@ -681,12 +710,14 @@ const SupplierDetailsCard = ({
                 </div>
               )}
             </div>
-          )}
-          {suppliersList.length === 0 && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-red-100 border border-red-200 rounded text-[9px] text-red-700 font-medium">
-              <AlertCircle size={10} />
-              No suppliers
-            </div>
+          ) : (
+            <button
+              onClick={() => onAddNewSupplier?.("")}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-semibold transition-colors shadow-sm"
+            >
+              <Plus size={12} />
+              Add Supplier
+            </button>
           )}
         </div>
       </div>
@@ -776,7 +807,6 @@ const SupplierDetailsCard = ({
             suffix="days"
           />
 
-          {/* ✅ Payment Mode - With Default Value */}
           <AnimatedSelect
             label="Payment Mode"
             value={currentPaymentMode}
@@ -786,7 +816,6 @@ const SupplierDetailsCard = ({
             placeholder="Select mode..."
           />
           
-          {/* Amount Paid */}
           <AnimatedInput
             label="Amount Paid"
             value={supplier.amountPaid}

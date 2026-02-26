@@ -20,27 +20,27 @@ import {
   Users,
   Ban,
   CheckCircle,
+  Clock,
 } from "lucide-react";
 
 import { deleteUser, reactivateUser, formatRole } from "../../../../api/users";
 import ConfirmDialog from "../../../../components/common/ConfirmDialog";
-import TableSkeleton from "../../../../components/common/TableSkeleton";
-import TableEmptyState from "../../../../components/common/TableEmptyState";
 import Pagination from "../../../../components/common/Pagination";
-import { TABLE_CONFIG, getRoleBadgeStyle } from "../../../../config/tableConfig";
+import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
 
 // ============================================
 // COLUMN CONFIGURATION
 // ============================================
-const COLUMNS = {
-  user: { key: 'user', sortKey: 'full_name', label: 'User', width: 200, sortable: true, align: 'left' },
-  role: { key: 'role', sortKey: 'role', label: 'Role', width: 140, sortable: true, align: 'left' },
-  branch: { key: 'branch', sortKey: null, label: 'Branch', width: 150, sortable: false, align: 'left' },
-  contact: { key: 'contact', sortKey: null, label: 'Contact', width: 180, sortable: false, align: 'left' },
-  status: { key: 'status', sortKey: null, label: 'Status', width: 100, sortable: false, align: 'center' },
-  lastLogin: { key: 'lastLogin', sortKey: 'last_login_at', label: 'Last Login', width: 110, sortable: true, align: 'left' },
-  actions: { key: 'actions', sortKey: null, label: 'Actions', width: 80, sortable: false, align: 'center' },
-};
+const getColumnWidths = () => ({
+  rowNum: '4%',
+  user: '22%',
+  role: '12%',
+  branch: '14%',
+  contact: '18%',
+  status: '10%',
+  lastLogin: '12%',
+  actions: '8%',
+});
 
 /**
  * ActionMenu Component - Rendered via Portal
@@ -95,15 +95,15 @@ const ActionMenu = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.1 }}
-      className="fixed w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] py-1"
+      className="fixed w-44 bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] py-1"
       style={{ top: position.top, left: position.left }}
     >
       {canEdit && (
         <button
           onClick={() => { onClose(); onEdit(user); }}
-          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
         >
-          <Edit2 size={14} />
+          <Edit2 size={12} />
           Edit User
         </button>
       )}
@@ -111,9 +111,9 @@ const ActionMenu = ({
       {canResetPassword && (
         <button
           onClick={() => { onClose(); onResetPassword(user); }}
-          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
         >
-          <Key size={14} />
+          <Key size={12} />
           Reset Password
         </button>
       )}
@@ -123,9 +123,9 @@ const ActionMenu = ({
           {(canEdit || canResetPassword) && <div className="border-t border-gray-100 my-1" />}
           <button
             onClick={() => { onClose(); onReactivate(user); }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-600 hover:bg-emerald-50 transition-colors"
           >
-            <UserCheck size={14} />
+            <UserCheck size={12} />
             Reactivate
           </button>
         </>
@@ -136,16 +136,16 @@ const ActionMenu = ({
           <div className="border-t border-gray-100 my-1" />
           <button
             onClick={() => { onClose(); onDeactivate(user); }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
           >
-            <UserX size={14} />
+            <UserX size={12} />
             Deactivate
           </button>
         </>
       )}
 
       {!hasAnyAction && (
-        <p className="px-4 py-2 text-sm text-gray-400 italic">No actions available</p>
+        <p className="px-3 py-1.5 text-xs text-gray-400 italic">No actions available</p>
       )}
     </motion.div>,
     document.body
@@ -153,7 +153,241 @@ const ActionMenu = ({
 };
 
 /**
- * UserListTable
+ * Role Badge Component - Compact Style
+ */
+const RoleBadge = ({ role }) => {
+  const config = {
+    super_admin: {
+      bg: 'bg-purple-100',
+      text: 'text-purple-700',
+      border: 'border-purple-200',
+      icon: Shield,
+    },
+    branch_admin: {
+      bg: 'bg-blue-100',
+      text: 'text-blue-700',
+      border: 'border-blue-200',
+      icon: Shield,
+    },
+    staff: {
+      bg: 'bg-slate-100',
+      text: 'text-slate-600',
+      border: 'border-slate-200',
+      icon: User,
+    },
+  };
+
+  const roleConfig = config[role] || config.staff;
+  const Icon = roleConfig.icon;
+
+  return (
+    <span className={`
+      inline-flex items-center gap-1 px-1.5 py-0.5 
+      text-[9px] 2xl:text-[10px] font-medium rounded
+      border ${roleConfig.bg} ${roleConfig.text} ${roleConfig.border}
+    `}>
+      <Icon size={10} className="flex-shrink-0" />
+      <span className="truncate">{formatRole(role)}</span>
+    </span>
+  );
+};
+
+/**
+ * Status Badge Component - Compact Style
+ */
+const StatusBadge = ({ isActive }) => {
+  if (isActive) {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] 2xl:text-[10px] font-medium rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
+        <CheckCircle size={10} />
+        Active
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] 2xl:text-[10px] font-medium rounded bg-red-100 text-red-600 border border-red-200">
+      <Ban size={10} />
+      Inactive
+    </span>
+  );
+};
+
+/**
+ * User Row Component
+ */
+const UserRow = ({
+  user,
+  rowNumber,
+  isEven,
+  rowHeight,
+  isProcessing,
+  actionButtonRef,
+  onActionClick,
+}) => {
+  return (
+    <tr 
+      className={`
+        ${isEven ? 'bg-white' : 'bg-slate-50/50'} 
+        hover:bg-indigo-50/50 transition-colors duration-150
+        ${!user.is_active ? 'opacity-60' : ''}
+      `}
+      style={{ height: `${rowHeight}px` }}
+    >
+      {/* Row Number */}
+      <td className="px-1 py-0.5 text-center border-r border-slate-100">
+        <span className="text-[9px] 2xl:text-[10px] text-slate-400 font-medium">
+          {rowNumber}
+        </span>
+      </td>
+
+      {/* User Info */}
+      <td className="px-1.5 py-0.5 border-r border-slate-100">
+        <div className="flex items-center gap-2">
+          <div className={`
+            w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
+            ${user.is_active ? 'bg-indigo-100' : 'bg-slate-200'}
+          `}>
+            <span className={`
+              font-semibold text-[10px]
+              ${user.is_active ? 'text-indigo-600' : 'text-slate-400'}
+            `}>
+              {user.full_name?.charAt(0)?.toUpperCase() || "?"}
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`
+              text-[10px] 2xl:text-[11px] font-medium truncate
+              ${user.is_active ? 'text-slate-800' : 'text-slate-500'}
+            `}>
+              {user.full_name}
+            </p>
+            <p className="text-[8px] 2xl:text-[9px] text-slate-400 truncate">
+              @{user.username}
+            </p>
+          </div>
+        </div>
+      </td>
+
+      {/* Role */}
+      <td className="px-1.5 py-0.5 border-r border-slate-100">
+        <RoleBadge role={user.role} />
+      </td>
+
+      {/* Branch */}
+      <td className="px-1.5 py-0.5 border-r border-slate-100">
+        <div className="flex items-center gap-1">
+          <Building2 size={10} className="text-slate-400 flex-shrink-0" />
+          <span className="text-[9px] 2xl:text-[10px] text-slate-600 truncate">
+            {user.branch_name || "—"}
+          </span>
+        </div>
+      </td>
+
+      {/* Contact */}
+      <td className="px-1.5 py-0.5 border-r border-slate-100">
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1">
+            <Phone size={9} className="text-slate-400 flex-shrink-0" />
+            <span className="text-[9px] 2xl:text-[10px] text-slate-600">
+              {user.phone_number || "—"}
+            </span>
+          </div>
+          {user.email && (
+            <div className="flex items-center gap-1">
+              <Mail size={9} className="text-slate-400 flex-shrink-0" />
+              <span className="text-[8px] 2xl:text-[9px] text-slate-500 truncate">
+                {user.email}
+              </span>
+            </div>
+          )}
+        </div>
+      </td>
+
+      {/* Status */}
+      <td className="px-1 py-0.5 border-r border-slate-100 text-center">
+        <StatusBadge isActive={user.is_active} />
+      </td>
+
+      {/* Last Login */}
+      <td className="px-1.5 py-0.5 border-r border-slate-100">
+        <div className="flex items-center gap-1">
+          <Clock size={9} className="text-slate-400 flex-shrink-0" />
+          <span className="text-[9px] 2xl:text-[10px] text-slate-500">
+            {user.last_login_at
+              ? new Date(user.last_login_at).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "2-digit",
+                })
+              : "Never"
+            }
+          </span>
+        </div>
+      </td>
+
+      {/* Actions */}
+      <td className="px-1 py-0.5 text-center">
+        {isProcessing ? (
+          <Loader2 size={12} className="animate-spin text-slate-400 mx-auto" />
+        ) : (
+          <button
+            ref={actionButtonRef}
+            onClick={() => onActionClick(user.user_id)}
+            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+            title="Actions"
+          >
+            <MoreVertical size={12} />
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+};
+
+/**
+ * Loading Skeleton Row
+ */
+const SkeletonRow = ({ rowHeight, isEven }) => (
+  <tr 
+    className={isEven ? 'bg-white' : 'bg-slate-50/50'}
+    style={{ height: `${rowHeight}px` }}
+  >
+    <td className="px-1 py-0.5 border-r border-slate-100">
+      <div className="h-3 w-4 bg-slate-200 rounded animate-pulse mx-auto" />
+    </td>
+    <td className="px-1.5 py-0.5 border-r border-slate-100">
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 bg-slate-200 rounded-full animate-pulse" />
+        <div className="flex-1">
+          <div className="h-2.5 w-20 bg-slate-200 rounded animate-pulse mb-1" />
+          <div className="h-2 w-14 bg-slate-200 rounded animate-pulse" />
+        </div>
+      </div>
+    </td>
+    <td className="px-1.5 py-0.5 border-r border-slate-100">
+      <div className="h-4 w-16 bg-slate-200 rounded animate-pulse" />
+    </td>
+    <td className="px-1.5 py-0.5 border-r border-slate-100">
+      <div className="h-3 w-20 bg-slate-200 rounded animate-pulse" />
+    </td>
+    <td className="px-1.5 py-0.5 border-r border-slate-100">
+      <div className="h-3 w-24 bg-slate-200 rounded animate-pulse mb-1" />
+      <div className="h-2 w-28 bg-slate-200 rounded animate-pulse" />
+    </td>
+    <td className="px-1 py-0.5 border-r border-slate-100 text-center">
+      <div className="h-4 w-14 bg-slate-200 rounded animate-pulse mx-auto" />
+    </td>
+    <td className="px-1.5 py-0.5 border-r border-slate-100">
+      <div className="h-3 w-16 bg-slate-200 rounded animate-pulse" />
+    </td>
+    <td className="px-1 py-0.5">
+      <div className="h-4 w-4 bg-slate-200 rounded animate-pulse mx-auto" />
+    </td>
+  </tr>
+);
+
+/**
+ * UserListTable Component
  */
 const UserListTable = ({
   users,
@@ -161,9 +395,6 @@ const UserListTable = ({
   totalItems,
   currentPage,
   setCurrentPage,
-  rowsPerPage,
-  sortConfig,
-  onSortChange,
   onEdit,
   onResetPassword,
   onRefresh,
@@ -172,51 +403,59 @@ const UserListTable = ({
   currentBranchId,
   toast,
 }) => {
-  const { styles, heights } = TABLE_CONFIG;
-
-  // Menu state
+  const tableContainerRef = useRef(null);
+  const tableBodyRef = useRef(null);
+  const headerRef = useRef(null);
+  const actionButtonRefs = useRef({});
+  
+  const [scrollbarWidth, setScrollbarWidth] = useState(0);
+  const [scrollInfo, setScrollInfo] = useState({ canScrollUp: false, canScrollDown: false });
   const [actionMenuState, setActionMenuState] = useState({ userId: null, position: null });
   const [processingUserId, setProcessingUserId] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, user: null });
-  
-  // Column resizing
-  const [columnWidths, setColumnWidths] = useState(() => {
-    const widths = {};
-    Object.values(COLUMNS).forEach(col => { widths[col.key] = col.width; });
-    return widths;
-  });
-  const [resizing, setResizing] = useState(null);
-  
-  const actionButtonRefs = useRef({});
+
+  const visibleRows = useDynamicRowCount();
+  const rowHeight = 40;
+  const viewportHeight = visibleRows * rowHeight;
+  const columnWidths = getColumnWidths();
+
+  const totalPages = Math.ceil(totalItems / visibleRows);
 
   // ============================================
-  // COLUMN RESIZING
+  // SCROLLBAR & SCROLL HANDLING
   // ============================================
-  const handleMouseDown = (column, e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setResizing({ column, startX: e.clientX, startWidth: columnWidths[column] });
-  };
+  useEffect(() => {
+    const container = tableBodyRef.current;
+    if (!container) return;
+    const width = container.offsetWidth - container.clientWidth;
+    setScrollbarWidth(width);
+  }, [users.length, visibleRows]);
 
-  const handleMouseMove = useCallback((e) => {
-    if (!resizing) return;
-    const diff = e.clientX - resizing.startX;
-    const newWidth = Math.max(50, resizing.startWidth + diff);
-    setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
-  }, [resizing]);
-
-  const handleMouseUp = useCallback(() => setResizing(null), []);
+  const updateScrollInfo = useCallback(() => {
+    const container = tableBodyRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    setScrollInfo({
+      canScrollUp: scrollTop > 0,
+      canScrollDown: scrollTop + clientHeight < scrollHeight - 5,
+    });
+  }, []);
 
   useEffect(() => {
-    if (resizing) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, [resizing, handleMouseMove, handleMouseUp]);
+    const container = tableBodyRef.current;
+    if (!container) return;
+    container.addEventListener('scroll', updateScrollInfo);
+    updateScrollInfo();
+    return () => container.removeEventListener('scroll', updateScrollInfo);
+  }, [updateScrollInfo]);
+
+  const scrollToTop = useCallback(() => {
+    tableBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    tableBodyRef.current?.scrollTo({ top: tableBodyRef.current.scrollHeight, behavior: 'smooth' });
+  }, []);
 
   // ============================================
   // PERMISSION CHECKS
@@ -249,8 +488,8 @@ const UserListTable = ({
     if (!buttonEl) return null;
 
     const rect = buttonEl.getBoundingClientRect();
-    const menuWidth = 192;
-    const menuHeight = 150;
+    const menuWidth = 176;
+    const menuHeight = 140;
     const padding = 8;
 
     let top = rect.bottom + padding;
@@ -309,263 +548,192 @@ const UserListTable = ({
   };
 
   // ============================================
-  // SORTABLE HEADER COMPONENT
-  // ============================================
-  const SortableHeader = ({ columnKey }) => {
-    const config = COLUMNS[columnKey];
-    const sortKey = config.sortKey || config.key;
-    const isActive = sortConfig?.sort_by === sortKey;
-    const isAsc = isActive && sortConfig?.sort_order === "asc";
-    const isDesc = isActive && sortConfig?.sort_order === "desc";
-
-    return (
-      <th
-        style={{ width: columnWidths[columnKey], minWidth: 50 }}
-        className="relative group"
-      >
-        <div
-          className={`flex items-center justify-between ${styles.header.cell} ${
-            config.sortable ? "cursor-pointer select-none" : ""
-          }`}
-          onClick={() => config.sortable && onSortChange?.(sortKey)}
-        >
-          <span>{config.label}</span>
-          {config.sortable && (
-            <div className="flex flex-col gap-0.5">
-              <ChevronUp
-                size={12}
-                className={`transition-colors ${
-                  isAsc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive
-                }`}
-              />
-              <ChevronDown
-                size={12}
-                className={`-mt-1 transition-colors ${
-                  isDesc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive
-                }`}
-              />
-            </div>
-          )}
-        </div>
-        {/* Resize Handle */}
-        <div
-          onMouseDown={(e) => handleMouseDown(columnKey, e)}
-          className={styles.header.resizeHandle}
-        />
-      </th>
-    );
-  };
-
-  // ============================================
-  // NON-SORTABLE HEADER
-  // ============================================
-  const TableHeader = ({ columnKey }) => {
-    const config = COLUMNS[columnKey];
-    
-    if (config.sortable) {
-      return <SortableHeader columnKey={columnKey} />;
-    }
-
-    return (
-      <th
-        style={{ width: columnWidths[columnKey], minWidth: 50 }}
-        className={`relative group ${config.align === 'center' ? 'text-center' : ''}`}
-      >
-        <div className={styles.header.cell}>{config.label}</div>
-        <div
-          onMouseDown={(e) => handleMouseDown(columnKey, e)}
-          className={styles.header.resizeHandle}
-        />
-      </th>
-    );
-  };
-
-  // ============================================
-  // STATUS BADGE
-  // ============================================
-  const StatusBadge = ({ isActive }) => {
-    if (isActive) {
-      return (
-        <span className={styles.badges.status.active}>
-          <CheckCircle size={12} />
-          Active
-        </span>
-      );
-    }
-    return (
-      <span className={styles.badges.status.inactive}>
-        <Ban size={12} />
-        Inactive
-      </span>
-    );
-  };
-
-  // ============================================
   // COMPUTED VALUES
   // ============================================
-  const hasData = users.length > 0;
-  const showTable = loading || hasData;
-  const showEmptyState = !loading && !hasData;
-  const showPagination = !loading && hasData;
+  const hasOverflow = users.length > visibleRows;
+  const activeCount = users.filter(u => u.is_active).length;
+  const inactiveCount = users.filter(u => !u.is_active).length;
 
   // ============================================
   // RENDER
   // ============================================
   return (
     <>
-      <div className={styles.container.wrapper}>
-        {showTable && (
-          <div className="flex-1 min-h-0 overflow-auto">
-            <table className="w-full border-collapse text-sm" style={{ minWidth: "900px" }}>
-              {/* Header */}
-              <thead className="sticky top-0 z-10">
-                <tr className={styles.header.row}>
-                  <SortableHeader columnKey="user" />
-                  <SortableHeader columnKey="role" />
-                  <TableHeader columnKey="branch" />
-                  <TableHeader columnKey="contact" />
-                  <TableHeader columnKey="status" />
-                  <SortableHeader columnKey="lastLogin" />
-                  <TableHeader columnKey="actions" />
+      <div 
+        ref={tableContainerRef}
+        className="h-full w-full flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden"
+      >
+        {/* Header Stats Bar */}
+        <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <Users size={12} className="text-indigo-500" />
+              <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">Total:</span>
+              <span className="text-[10px] font-bold text-indigo-600">{totalItems}</span>
+            </div>
+            
+            <div className="h-3 w-px bg-slate-300" />
+            
+            <div className="flex items-center gap-1.5">
+              <CheckCircle size={10} className="text-emerald-500" />
+              <span className="text-[8px] text-slate-500">Active:</span>
+              <span className="text-[10px] font-semibold text-emerald-600">{activeCount}</span>
+            </div>
+            
+            {inactiveCount > 0 && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1.5">
+                  <Ban size={10} className="text-red-400" />
+                  <span className="text-[8px] text-slate-500">Inactive:</span>
+                  <span className="text-[10px] font-semibold text-red-500">{inactiveCount}</span>
+                </div>
+              </>
+            )}
+            
+            {totalPages > 1 && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white rounded border border-slate-200 text-[8px]">
+                  <span className="text-slate-500">Page</span>
+                  <span className="font-bold text-slate-700">
+                    {currentPage}/{totalPages}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-1">
+            {hasOverflow && (
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={scrollToTop}
+                  disabled={!scrollInfo.canScrollUp}
+                  className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronUp size={10} />
+                </button>
+                <button
+                  onClick={scrollToBottom}
+                  disabled={!scrollInfo.canScrollDown}
+                  className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronDown size={10} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Table Container */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Fixed Header */}
+          <div 
+            ref={headerRef}
+            className="shrink-0 overflow-hidden border-b-2 border-slate-300"
+            style={{ paddingRight: `${scrollbarWidth}px` }}
+          >
+            <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: columnWidths.rowNum }} />
+                <col style={{ width: columnWidths.user }} />
+                <col style={{ width: columnWidths.role }} />
+                <col style={{ width: columnWidths.branch }} />
+                <col style={{ width: columnWidths.contact }} />
+                <col style={{ width: columnWidths.status }} />
+                <col style={{ width: columnWidths.lastLogin }} />
+                <col style={{ width: columnWidths.actions }} />
+              </colgroup>
+              <thead>
+                <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white h-7">
+                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">#</th>
+                  <th className="px-1.5 py-1 text-[8px] 2xl:text-[9px] font-bold text-left border-r border-slate-600/30">User</th>
+                  <th className="px-1.5 py-1 text-[8px] 2xl:text-[9px] font-bold text-left border-r border-slate-600/30">Role</th>
+                  <th className="px-1.5 py-1 text-[8px] 2xl:text-[9px] font-bold text-left border-r border-slate-600/30">
+                    <div className="flex items-center gap-1">
+                      <Building2 size={10} />
+                      Branch
+                    </div>
+                  </th>
+                  <th className="px-1.5 py-1 text-[8px] 2xl:text-[9px] font-bold text-left border-r border-slate-600/30">Contact</th>
+                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">Status</th>
+                  <th className="px-1.5 py-1 text-[8px] 2xl:text-[9px] font-bold text-left border-r border-slate-600/30">Last Login</th>
+                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center">Actions</th>
                 </tr>
               </thead>
+            </table>
+          </div>
 
-              {/* Body */}
+          {/* Scrollable Body */}
+          <div 
+            ref={tableBodyRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden"
+            style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}
+          >
+            <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: columnWidths.rowNum }} />
+                <col style={{ width: columnWidths.user }} />
+                <col style={{ width: columnWidths.role }} />
+                <col style={{ width: columnWidths.branch }} />
+                <col style={{ width: columnWidths.contact }} />
+                <col style={{ width: columnWidths.status }} />
+                <col style={{ width: columnWidths.lastLogin }} />
+                <col style={{ width: columnWidths.actions }} />
+              </colgroup>
               <tbody>
                 {loading ? (
-                  <TableSkeleton
-                    rows={rowsPerPage}
-                    columns={Object.keys(COLUMNS).filter(k => k !== 'actions')}
-                  />
+                  Array.from({ length: visibleRows }).map((_, index) => (
+                    <SkeletonRow 
+                      key={index} 
+                      rowHeight={rowHeight} 
+                      isEven={index % 2 === 0} 
+                    />
+                  ))
                 ) : (
-                  users.map((user, index) => {
-                    const RoleIcon = user.role === "branch_admin" ? Shield : User;
-                    const isProcessing = processingUserId === user.user_id;
-
-                    return (
-                      <tr
-                        key={user.user_id ?? index}
-                        className={`${styles.row.base} ${
-                          index % 2 === 0 ? styles.row.even : styles.row.odd
-                        } ${styles.row.hover} ${!user.is_active ? styles.row.disabled : ''}`}
-                        style={{ height: `${heights.bodyRow}px` }}
-                      >
-                        {/* User */}
-                        <td className={`${styles.cell.base} ${styles.cell.primary}`}>
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              user.is_active ? "bg-[#000060]/10" : "bg-gray-200"
-                            }`}>
-                              <span className={`font-semibold text-sm ${
-                                user.is_active ? "text-[#000060]" : "text-gray-400"
-                              }`}>
-                                {user.full_name?.charAt(0)?.toUpperCase() || "?"}
-                              </span>
-                            </div>
-                            <div className="min-w-0">
-                              <p className={`font-medium truncate ${!user.is_active ? 'text-gray-500' : ''}`}>
-                                {user.full_name}
-                                {!user.is_active && (
-                                  <Ban size={14} className="inline-block ml-2 text-red-400" />
-                                )}
-                              </p>
-                              <p className={`text-xs ${styles.cell.muted} truncate`}>@{user.username}</p>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Role */}
-                        <td className={styles.cell.base}>
-                          <span className={getRoleBadgeStyle(user.role)}>
-                            <RoleIcon size={12} />
-                            {formatRole(user.role)}
-                          </span>
-                        </td>
-
-                        {/* Branch */}
-                        <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
-                          <div className="flex items-center gap-1.5">
-                            <Building2 size={14} className="text-gray-400 flex-shrink-0" />
-                            <span className="truncate">{user.branch_name || "—"}</span>
-                          </div>
-                        </td>
-
-                        {/* Contact */}
-                        <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <Phone size={12} className="text-gray-400 flex-shrink-0" />
-                              <span className="text-sm">{user.phone_number}</span>
-                            </div>
-                            {user.email && (
-                              <div className="flex items-center gap-1.5">
-                                <Mail size={12} className="text-gray-400 flex-shrink-0" />
-                                <span className="text-xs text-gray-500 truncate">{user.email}</span>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Status */}
-                        <td className={`${styles.cell.base} ${styles.cell.center}`}>
-                          <StatusBadge isActive={user.is_active} />
-                        </td>
-
-                        {/* Last Login */}
-                        <td className={`${styles.cell.base} ${styles.cell.muted}`}>
-                          {user.last_login_at
-                            ? new Date(user.last_login_at).toLocaleDateString("en-IN", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "Never"
-                          }
-                        </td>
-
-                        {/* Actions */}
-                        <td className={styles.cell.base}>
-                          <div className={styles.actions.container}>
-                            {isProcessing ? (
-                              <Loader2 size={15} className="animate-spin text-gray-400" />
-                            ) : (
-                              <button
-                                ref={(el) => (actionButtonRefs.current[user.user_id] = el)}
-                                onClick={() => handleActionClick(user.user_id)}
-                                className={`${styles.actions.button.base} ${styles.actions.button.view}`}
-                                title="Actions"
-                              >
-                                <MoreVertical size={15} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                  users.map((user, index) => (
+                    <UserRow
+                      key={user.user_id ?? index}
+                      user={user}
+                      rowNumber={index + 1}
+                      isEven={index % 2 === 0}
+                      rowHeight={rowHeight}
+                      isProcessing={processingUserId === user.user_id}
+                      actionButtonRef={(el) => (actionButtonRefs.current[user.user_id] = el)}
+                      onActionClick={handleActionClick}
+                    />
+                  ))
                 )}
               </tbody>
             </table>
+            
+            {/* Empty State */}
+            {!loading && users.length === 0 && (
+              <div 
+                className="flex flex-col items-center justify-center text-slate-400"
+                style={{ height: `${viewportHeight}px` }}
+              >
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                  <Users size={20} className="text-slate-400" />
+                </div>
+                <p className="text-sm font-medium text-slate-500">No users found</p>
+                <p className="text-xs text-slate-400">Try adjusting your filters or add a new user</p>
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Empty State */}
-        {showEmptyState && (
-          <TableEmptyState
-            icon={Users}
-            title="No users found"
-            subtitle="Try adjusting your filters or add a new user"
-          />
-        )}
-
+        </div>
+        
         {/* Pagination */}
-        {showPagination && (
-          <Pagination
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            totalItems={totalItems}
-            rowsPerPage={rowsPerPage}
-          />
+        {totalPages > 0 && !loading && users.length > 0 && (
+          <div className="shrink-0 border-t border-slate-200">
+            <Pagination
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              totalItems={totalItems}
+              rowsPerPage={visibleRows}
+            />
+          </div>
         )}
 
         {/* Action Menu Portal */}

@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { RefreshCw, LayoutDashboard, Loader2, AlertCircle } from "lucide-react";
+import { 
+  RefreshCw, 
+  LayoutDashboard, 
+  Loader2, 
+  AlertCircle,
+  Sparkles,
+  Clock,
+} from "lucide-react";
+import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../components/common/Toast";
 import { useMenuStore } from "../../store/useMenuStore";
@@ -27,11 +35,29 @@ import {
   getDashboardAlerts,
 } from "../../api/cadminDashboard";
 
-// ============================================
-// ROLE PERMISSIONS CONFIG
-// ============================================
+// ════════════════════════════════════════════
+// GRID PATTERN BACKGROUND
+// ════════════════════════════════════════════
+
+const GridPattern = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.02]">
+    <svg width="100%" height="100%">
+      <defs>
+        <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+          <circle cx="16" cy="16" r="1" fill="currentColor" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid)" />
+    </svg>
+  </div>
+);
+
+// ════════════════════════════════════════════
+// ROLE PERMISSIONS
+// ════════════════════════════════════════════
+
 const ROLE_PERMISSIONS = {
-  SUPER_ADMIN: {
+  SUPER_CADMIN: {
     canViewKPIs: true,
     canViewRevenue: true,
     canViewSubscriptions: true,
@@ -45,17 +71,17 @@ const ROLE_PERMISSIONS = {
   },
   ANALYST: {
     canViewKPIs: true,
-    canViewRevenue: true,
+    canViewRevenue: false,
     canViewSubscriptions: true,
     canViewUserGrowth: true,
     canViewOnboarding: true,
-    canViewTopShops: true,
+    canViewTopShops: false,
     canViewActivity: true,
     canViewAlerts: true,
     canViewQuickActions: false,
-    canViewPendingActions: false,
+    canViewPendingActions: true,
   },
-  ACCOUNTING: {
+  ACCOUNTANT: {
     canViewKPIs: true,
     canViewRevenue: true,
     canViewSubscriptions: true,
@@ -67,250 +93,253 @@ const ROLE_PERMISSIONS = {
     canViewQuickActions: false,
     canViewPendingActions: true,
   },
+  SALESMAN: {
+    canViewKPIs: true,
+    canViewRevenue: false,
+    canViewSubscriptions: false,
+    canViewUserGrowth: false,
+    canViewOnboarding: true,
+    canViewTopShops: true,
+    canViewActivity: false,
+    canViewAlerts: false,
+    canViewQuickActions: false,
+    canViewPendingActions: false,
+  },
 };
 
-// ============================================
-// MAIN DASHBOARD COMPONENT
-// ============================================
+const normalizeRole = (role) => {
+  if (!role) return "ANALYST";
+  const upper = role.toUpperCase();
+  if (upper === "SUPER_ADMIN" || upper === "SUPER_CADMIN") return "SUPER_CADMIN";
+  if (upper === "ACCOUNTING" || upper === "ACCOUNTANT") return "ACCOUNTANT";
+  if (upper === "SALES" || upper === "SALESMAN") return "SALESMAN";
+  return upper;
+};
+
+const formatDateTime = (date) =>
+  new Date(date).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+// ════════════════════════════════════════════
+// MAIN DASHBOARD
+// ════════════════════════════════════════════
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const { admin, pendingCounts } = useAuth();
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
 
-  // State
   const [period, setPeriod] = useState("30d");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [overviewData, setOverviewData] = useState(null);
   const [alerts, setAlerts] = useState([]);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Get permissions based on role
-  const permissions = useMemo(() => {
-    const role = admin?.role?.toUpperCase() || "ANALYST";
-    console.log("[DASHBOARD] Admin role:", role);
-    return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.ANALYST;
-  }, [admin?.role]);
+  const normalizedRole = useMemo(() => normalizeRole(admin?.role), [admin?.role]);
+  const permissions = useMemo(
+    () => ROLE_PERMISSIONS[normalizedRole] || ROLE_PERMISSIONS.ANALYST,
+    [normalizedRole]
+  );
 
-  // Set breadcrumbs
   useEffect(() => {
     setBreadcrumbs(["Dashboard"]);
   }, [setBreadcrumbs]);
 
-  // Fetch dashboard data
   const fetchDashboardData = useCallback(async (showToast = false) => {
     try {
-      if (showToast) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
+      if (showToast) setRefreshing(true);
+      else setLoading(true);
       setError(null);
-
-      console.log("[DASHBOARD] Fetching data for period:", period);
 
       const [overviewRes, alertsRes] = await Promise.allSettled([
         getDashboardOverview(period),
-        getDashboardAlerts(),
+        permissions.canViewAlerts ? getDashboardAlerts() : Promise.resolve({ data: [] }),
       ]);
 
-      // Process overview
       if (overviewRes.status === "fulfilled") {
-        console.log("[DASHBOARD] Overview data:", overviewRes.value);
         setOverviewData(overviewRes.value.data);
       } else {
-        console.error("[DASHBOARD] Overview failed:", overviewRes.reason);
-        setError("Failed to load dashboard overview");
+        setError("Failed to load dashboard data");
       }
 
-      // Process alerts
       if (alertsRes.status === "fulfilled") {
-        console.log("[DASHBOARD] Alerts data:", alertsRes.value);
         setAlerts(alertsRes.value.data || []);
-      } else {
-        console.error("[DASHBOARD] Alerts failed:", alertsRes.reason);
       }
+
+      setLastUpdated(new Date());
 
       if (showToast) {
-        toast.success("Dashboard Refreshed", "All data has been updated.");
+        toast.success("Refreshed", "Dashboard data updated");
       }
     } catch (err) {
-      console.error("[DASHBOARD] fetchDashboardData error:", err);
-      setError(err.message || "Failed to load dashboard data");
-      toast.error("Load Failed", "Some dashboard data could not be loaded.");
+      setError(err.message || "Failed to load dashboard");
+      toast.error("Error", "Could not load dashboard data");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [period, toast]);
+  }, [period, permissions.canViewAlerts, toast]);
 
-  // Initial load and period change
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Refresh handler
-  const handleRefresh = useCallback(() => {
-    fetchDashboardData(true);
-  }, [fetchDashboardData]);
-
-  // Dismiss alert
-  const handleDismissAlert = useCallback((alertId) => {
-    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
-  }, []);
+  const handleRefresh = useCallback(() => fetchDashboardData(true), [fetchDashboardData]);
+  const handleDismissAlert = useCallback((id) => setAlerts((p) => p.filter((a) => a.id !== id)), []);
 
   // Loading state
   if (loading) {
     return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-3"
+        >
           <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#000060] to-violet-600 flex items-center justify-center animate-pulse">
-              <LayoutDashboard size={32} className="text-white" />
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#000060] to-violet-600 flex items-center justify-center">
+              <LayoutDashboard size={24} className="text-white" />
             </div>
-            <Loader2 
-              size={24} 
-              className="absolute -bottom-1 -right-1 text-[#000060] animate-spin" 
-            />
+            <Loader2 size={20} className="absolute -bottom-1 -right-1 text-[#000060] animate-spin" />
           </div>
-          <div className="text-center">
-            <p className="text-lg font-semibold text-gray-800">Loading Dashboard</p>
-            <p className="text-sm text-gray-500">Fetching your data...</p>
-          </div>
-        </div>
+          <p className="text-sm font-semibold text-gray-700">Loading Dashboard</p>
+          <p className="text-[10px] text-gray-400">Fetching your data...</p>
+        </motion.div>
       </div>
     );
   }
 
-  return (
-    <div className="w-full h-full min-w-0 flex flex-col gap-4 overflow-hidden">
-      {/* ===== HEADER ===== */}
-      <div className="flex-shrink-0 flex flex-col gap-3">
-        {/* Title Row */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#000060] to-violet-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#000060]/25">
-              <LayoutDashboard size={20} className="text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 truncate">
-                Dashboard
-              </h1>
-              <p className="text-sm text-gray-500">
-                Welcome back, {admin?.name || "Admin"}
-              </p>
-            </div>
+  // Error state
+  if (error && !overviewData) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-center"
+        >
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <AlertCircle size={24} className="text-red-500" />
           </div>
+          <h2 className="text-base font-bold text-gray-900 mb-1">Dashboard Error</h2>
+          <p className="text-xs text-gray-500 mb-4">{error}</p>
+          <button
+            onClick={() => fetchDashboardData(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium text-xs hover:bg-indigo-700 transition-colors"
+          >
+            Retry
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
-          {/* Actions */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+  const showChartsRow = permissions.canViewRevenue || permissions.canViewSubscriptions;
+  const showTablesRow = permissions.canViewOnboarding || permissions.canViewTopShops;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50/30 relative">
+      <GridPattern />
+
+      <div className="relative max-w-[1800px] mx-auto px-3 py-3 lg:px-4 lg:py-3 space-y-3">
+        {/* ── HEADER ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <WelcomeBanner 
+            admin={admin} 
+            role={normalizedRole}
+            pendingCounts={pendingCounts}
+            overviewData={overviewData}
+          />
+
+          <div className="flex items-center gap-2 flex-shrink-0">
             <PeriodSelector value={period} onChange={setPeriod} />
             
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
-                         hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
-                         disabled:opacity-50"
+              className="p-2 rounded-xl bg-white/80 backdrop-blur border border-gray-200/60 
+                text-gray-500 hover:bg-gray-50 transition-all disabled:opacity-40 shadow-sm"
             >
-              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-              <span className="hidden sm:inline">Refresh</span>
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </button>
           </div>
         </div>
 
-        {/* Welcome Banner */}
-        <WelcomeBanner 
-          admin={admin} 
-          pendingCounts={pendingCounts}
-          overviewData={overviewData}
-        />
-
-        {/* Error Banner */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle size={18} />
-              <span className="text-sm">{error}</span>
-            </div>
-            <button
-              onClick={handleRefresh}
-              className="text-red-700 hover:text-red-900 font-medium underline text-sm"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Alerts Banner */}
+        {/* ── ALERTS ── */}
         {permissions.canViewAlerts && alerts.length > 0 && (
           <AlertsBanner alerts={alerts} onDismiss={handleDismissAlert} />
         )}
-      </div>
 
-      {/* ===== SCROLLABLE CONTENT ===== */}
-      <div className="flex-1 min-h-0 overflow-auto space-y-4 pb-4">
-        {/* KPI Cards */}
+        {/* ── QUICK ACTIONS ── */}
+        {permissions.canViewQuickActions && <QuickActionsPanel />}
+
+        {/* ── KPI CARDS ── */}
         {permissions.canViewKPIs && overviewData && (
-          <KPICardsGrid 
-            data={overviewData} 
-            period={period}
-            role={admin?.role}
-          />
+          <KPICardsGrid data={overviewData} period={period} role={normalizedRole} loading={false} />
         )}
 
-        {/* Quick Actions (SUPER_ADMIN only) */}
-        {permissions.canViewQuickActions && (
-          <QuickActionsPanel />
-        )}
-
-        {/* Pending Actions Panel */}
+        {/* ── PENDING ACTIONS ── */}
         {permissions.canViewPendingActions && overviewData && (
-          <PendingActionsPanel 
-            data={overviewData} 
-            pendingCounts={pendingCounts}
-            role={admin?.role}
-          />
+          <PendingActionsPanel data={overviewData} pendingCounts={pendingCounts} role={normalizedRole} />
         )}
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {/* Revenue Chart */}
-          {permissions.canViewRevenue && (
-            <div className="xl:col-span-2">
-              <RevenueChart period={period} />
-            </div>
-          )}
-
-          {/* Subscription Donut */}
-          {permissions.canViewSubscriptions && overviewData?.subscriptions && (
-            <SubscriptionDonut data={overviewData.subscriptions} />
-          )}
-        </div>
-
-        {/* User Growth Chart */}
-        {permissions.canViewUserGrowth && (
-          <UserGrowthChart period={period} />
+        {/* ── CHARTS ROW ── */}
+        {showChartsRow && (
+          <div className={`grid gap-3 ${
+            permissions.canViewRevenue && permissions.canViewSubscriptions
+              ? "grid-cols-1 xl:grid-cols-12"
+              : "grid-cols-1"
+          }`}>
+            {permissions.canViewRevenue && (
+              <div className={permissions.canViewSubscriptions ? "xl:col-span-7" : ""}>
+                <RevenueChart period={period} />
+              </div>
+            )}
+            {permissions.canViewSubscriptions && (
+              <div className={permissions.canViewRevenue ? "xl:col-span-5" : ""}>
+                <SubscriptionDonut />
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Tables Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Onboarding Table */}
-          {permissions.canViewOnboarding && (
-            <OnboardingTable />
-          )}
+        {/* ── USER GROWTH ── */}
+        {permissions.canViewUserGrowth && <UserGrowthChart period={period} />}
 
-          {/* Top Shops Table */}
-          {permissions.canViewTopShops && (
-            <TopShopsTable period={period} />
-          )}
-        </div>
-
-        {/* Activity Feed */}
-        {permissions.canViewActivity && (
-          <ActivityFeed limit={10} />
+        {/* ── TABLES ROW ── */}
+        {showTablesRow && (
+          <div className={`grid gap-3 ${
+            permissions.canViewOnboarding && permissions.canViewTopShops
+              ? "grid-cols-1 lg:grid-cols-2"
+              : "grid-cols-1"
+          }`}>
+            {permissions.canViewOnboarding && <OnboardingTable />}
+            {permissions.canViewTopShops && <TopShopsTable period={period} />}
+          </div>
         )}
+
+        {/* ── ACTIVITY FEED ── */}
+        {permissions.canViewActivity && <ActivityFeed limit={8} />}
+
+        {/* ── FOOTER ── */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="flex items-center justify-center gap-2 py-2"
+        >
+          <Clock size={10} className="text-gray-400" />
+          <p className="text-[10px] text-gray-400 font-medium">
+            Last synced: {lastUpdated ? formatDateTime(lastUpdated) : "Syncing..."}
+          </p>
+        </motion.div>
       </div>
     </div>
   );

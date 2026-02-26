@@ -2,165 +2,194 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  UserPlus,
-  ArrowRight,
-  Store,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-  Loader2,
-  AlertCircle,
+import { motion } from "framer-motion";
+import { 
+  UserPlus, ArrowRight, Store, Clock, CheckCircle, AlertTriangle, 
+  Loader2, AlertCircle, ChevronLeft, ChevronRight, Users, Building2 
 } from "lucide-react";
 import { getRecentOnboarding } from "../../../api/cadminDashboard";
 
 const OnboardingTable = () => {
   const navigate = useNavigate();
   const [data, setData] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetch = async () => {
       setLoading(true);
-      setError(null);
-      
       try {
-        console.log("[OnboardingTable] Fetching data");
-        const response = await getRecentOnboarding(5);
-        console.log("[OnboardingTable] Response:", response);
-        
-        if (response.data) {
-          setData(response.data);
-        }
-      } catch (err) {
-        console.error("[OnboardingTable] Error:", err);
-        setError(err.message || "Failed to load onboarding data");
+        const res = await getRecentOnboarding(page, 5);
+        console.log("[OnboardingTable] Response:", res);
+        setData(res.data?.users || []);
+        setPagination(res.data?.pagination || null);
+      } catch (e) {
+        setError(e.message);
       } finally {
         setLoading(false);
       }
     };
+    fetch();
+  }, [page]);
 
-    fetchData();
-  }, []);
-
-  const formatTimeAgo = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-    
-    if (diffHrs < 1) return "Just now";
-    if (diffHrs < 24) return `${diffHrs}h ago`;
-    return `${Math.floor(diffHrs / 24)}d ago`;
+  const formatTime = (d) => {
+    if (!d) return "";
+    const diff = Math.floor((Date.now() - new Date(d)) / 60000);
+    if (diff < 60) return `${diff}m`;
+    if (diff < 1440) return `${Math.floor(diff / 60)}h`;
+    return `${Math.floor(diff / 1440)}d`;
   };
 
-  const getStatusBadge = (status, step, maxSteps) => {
+  const StatusBadge = ({ status, step, max }) => {
     if (status === "completed") {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-          <CheckCircle size={12} />
-          Completed
+        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-medium bg-emerald-100 text-emerald-700">
+          <CheckCircle size={8} />Done
         </span>
       );
     }
     if (status === "stuck") {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-          <AlertTriangle size={12} />
-          Stuck
+        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-medium bg-red-100 text-red-700">
+          <AlertTriangle size={8} />Stuck
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-        <Clock size={12} />
-        Step {step}/{maxSteps}
+      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-medium bg-blue-100 text-blue-700">
+        <Clock size={8} />{step}/{max}
+      </span>
+    );
+  };
+
+  const LimitBadge = ({ used, limit, icon: Icon, color }) => {
+    if (!limit) return null;
+    const isOver = used > limit;
+    return (
+      <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-medium 
+        ${isOver ? "bg-red-50 text-red-600" : `bg-${color}-50 text-${color}-600`}`}>
+        <Icon size={8} />
+        {used}/{limit}
       </span>
     );
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/25">
-            <UserPlus size={20} className="text-white" />
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white/80 backdrop-blur rounded-xl border border-gray-100/80 p-3"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+            <UserPlus size={14} className="text-white" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">Recent Onboarding</h3>
-            <p className="text-xs text-gray-500">New shop registrations</p>
+            <h3 className="text-xs font-bold text-gray-900">Onboarding</h3>
+            <p className="text-[9px] text-gray-400">
+              {pagination ? `${pagination.totalCount} total` : "Recent signups"}
+            </p>
           </div>
         </div>
-
-        <button
-          onClick={() => navigate("/users")}
-          className="flex items-center gap-1 text-sm text-[#000060] font-medium hover:underline"
+        <button 
+          onClick={() => navigate("/users")} 
+          className="text-[10px] text-indigo-600 font-semibold flex items-center gap-0.5 hover:underline"
         >
-          View All
-          <ArrowRight size={14} />
+          View All <ArrowRight size={10} />
         </button>
       </div>
 
-      {/* Content */}
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+        <div className="h-[200px] flex items-center justify-center">
+          <Loader2 className="w-6 h-6 text-gray-300 animate-spin" />
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-          <AlertCircle size={32} className="mb-2" />
-          <p className="text-sm">{error}</p>
+        <div className="h-[200px] flex flex-col items-center justify-center text-gray-400">
+          <AlertCircle size={24} className="mb-1" />
+          <p className="text-[10px]">{error}</p>
         </div>
       ) : data.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-          <UserPlus size={32} className="mb-2" />
-          <p className="text-sm">No recent onboarding</p>
+        <div className="h-[200px] flex flex-col items-center justify-center text-gray-300">
+          <UserPlus size={28} className="mb-1 opacity-50" />
+          <p className="text-[10px]">No recent signups</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase">Shop</th>
-                <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase">Owner</th>
-                <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500 uppercase">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/users?search=${encodeURIComponent(item.owner_name)}`)}
-                >
-                  <td className="py-3 px-2">
-                    <div className="flex items-center gap-2">
-                      <Store size={14} className="text-gray-400" />
-                      <span className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
-                        {item.shop_name}
+        <>
+          <div className="space-y-1.5">
+            {data.map((item, i) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                onClick={() => navigate(`/users?search=${encodeURIComponent(item.owner_name)}`)}
+                className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+              >
+                <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                  <Store size={12} className="text-gray-500" />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-medium text-gray-900 truncate">{item.shop_name}</p>
+                  <p className="text-[9px] text-gray-400 truncate">{item.owner_name}</p>
+                </div>
+                
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <StatusBadge status={item.status} step={item.step} max={item.max_steps} />
+                  
+                  {item.status === "completed" && (
+                    <>
+                      <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-medium 
+                        ${item.branchesUsed > item.branchesLimit ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>
+                        <Building2 size={8} />
+                        {item.branchesUsed}/{item.branchesLimit || "∞"}
                       </span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-2">
-                    <span className="text-sm text-gray-600">{item.owner_name}</span>
-                  </td>
-                  <td className="py-3 px-2 text-center">
-                    {getStatusBadge(item.status, item.step, item.max_steps)}
-                  </td>
-                  <td className="py-3 px-2 text-right">
-                    <span className="text-xs text-gray-400">{formatTimeAgo(item.created_at)}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-medium 
+                        ${item.usersUsed > item.usersLimit ? "bg-red-50 text-red-600" : "bg-indigo-50 text-indigo-600"}`}>
+                        <Users size={8} />
+                        {item.usersUsed}/{item.usersLimit || "∞"}
+                      </span>
+                    </>
+                  )}
+                </div>
+                
+                <span className="text-[9px] text-gray-400 flex-shrink-0 w-6 text-right">
+                  {formatTime(item.created_at)}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
+              <span className="text-[9px] text-gray-400">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={!pagination.hasPrev}
+                  className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft size={14} className="text-gray-500" />
+                </button>
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={!pagination.hasNext}
+                  className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={14} className="text-gray-500" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
-    </div>
+    </motion.div>
   );
 };
 

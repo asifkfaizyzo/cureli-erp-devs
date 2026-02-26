@@ -1,6 +1,6 @@
 // src/pages/settings/branches/comps/BranchListTable.jsx
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -17,25 +17,30 @@ import {
   Ban,
   ChevronUp,
   ChevronDown,
+  Crown,
+  GitBranch,
 } from "lucide-react";
 
 import { deleteBranch, reactivateBranch } from "../../../../api/branches";
 import ConfirmDialog from "../../../../components/common/ConfirmDialog";
-import TableSkeleton from "../../../../components/common/TableSkeleton";
-import TableEmptyState from "../../../../components/common/TableEmptyState";
-import { TABLE_CONFIG } from "../../../../config/tableConfig";
+import Pagination from "../../../../components/common/Pagination";
+import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
 
 // ============================================
-// COLUMN CONFIGURATION - SAME PATTERN AS UserListTable
+// CONSTANTS
 // ============================================
-const COLUMNS = {
-  branch: { key: "branch", sortKey: "branch_name", label: "Branch", width: 200, sortable: true, align: "left" },
-  address: { key: "address", sortKey: "city", label: "Address", width: 220, sortable: true, align: "left" },
-  contact: { key: "contact", sortKey: null, label: "Contact", width: 140, sortable: false, align: "left" },
-  users: { key: "users", sortKey: "user_count", label: "Users", width: 80, sortable: true, align: "center" },
-  status: { key: "status", sortKey: "is_active", label: "Status", width: 100, sortable: true, align: "center" },
-  actions: { key: "actions", sortKey: null, label: "Actions", width: 80, sortable: false, align: "center" },
-};
+const DEFAULT_ROWS_PER_PAGE = 10;
+const ROW_HEIGHT = 44;
+
+const getColumnWidths = () => ({
+  rowNum: '4%',
+  branch: '24%',
+  address: '28%',
+  contact: '16%',
+  users: '10%',
+  status: '10%',
+  actions: '8%',
+});
 
 /**
  * ActionMenu Component - Rendered via Portal
@@ -65,7 +70,7 @@ const ActionMenu = ({ branch, position, onClose, onEdit, onDeactivate, onReactiv
     return () => document.removeEventListener("keydown", handleEscape);
   }, [onClose]);
 
-  if (!position) return null;
+  if (!position || !branch) return null;
 
   return createPortal(
     <motion.div
@@ -79,9 +84,9 @@ const ActionMenu = ({ branch, position, onClose, onEdit, onDeactivate, onReactiv
     >
       <button
         onClick={() => { onClose(); onEdit(branch); }}
-        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
       >
-        <Edit2 size={14} />
+        <Edit2 size={12} />
         Edit Branch
       </button>
 
@@ -90,9 +95,9 @@ const ActionMenu = ({ branch, position, onClose, onEdit, onDeactivate, onReactiv
           <div className="border-t border-gray-100 my-1" />
           <button
             onClick={() => { onClose(); onReactivate(branch); }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-600 hover:bg-emerald-50 transition-colors"
           >
-            <Power size={14} />
+            <Power size={12} />
             Reactivate
           </button>
         </>
@@ -103,16 +108,16 @@ const ActionMenu = ({ branch, position, onClose, onEdit, onDeactivate, onReactiv
           <div className="border-t border-gray-100 my-1" />
           <button
             onClick={() => { onClose(); onDeactivate(branch); }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
           >
-            <Trash2 size={14} />
+            <Trash2 size={12} />
             Deactivate
           </button>
         </>
       )}
 
       {branch.is_main && branch.is_active && (
-        <p className="px-4 py-2 text-xs text-gray-400 italic">Main branch cannot be deactivated</p>
+        <p className="px-3 py-1.5 text-[10px] text-gray-400 italic">Main branch cannot be deactivated</p>
       )}
     </motion.div>,
     document.body
@@ -120,71 +125,313 @@ const ActionMenu = ({ branch, position, onClose, onEdit, onDeactivate, onReactiv
 };
 
 /**
- * BranchListTable - MATCHES UserListTable pattern exactly
+ * Branch Type Badge - Compact Style
+ */
+const BranchTypeBadge = ({ isMain }) => {
+  if (isMain) {
+    return (
+      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 text-[8px] 2xl:text-[9px] font-semibold rounded bg-amber-100 text-amber-700 border border-amber-200">
+        <Crown size={8} />
+        Main
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-0.5 px-1 py-0.5 text-[8px] 2xl:text-[9px] font-medium rounded bg-slate-100 text-slate-600 border border-slate-200">
+      <GitBranch size={8} />
+      Branch
+    </span>
+  );
+};
+
+/**
+ * Status Badge Component - Compact Style
+ */
+const StatusBadge = ({ isActive }) => {
+  if (isActive) {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] 2xl:text-[10px] font-medium rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
+        <CheckCircle size={10} />
+        Active
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] 2xl:text-[10px] font-medium rounded bg-red-100 text-red-600 border border-red-200">
+      <Ban size={10} />
+      Inactive
+    </span>
+  );
+};
+
+/**
+ * Format address helper
+ */
+const formatAddress = (branch) => {
+  const parts = [branch.address_line_1, branch.city, branch.state, branch.pincode].filter(Boolean);
+  return parts.join(", ") || "No address";
+};
+
+/**
+ * Branch Row Component
+ */
+const BranchRow = ({
+  branch,
+  rowNumber,
+  isEven,
+  rowHeight,
+  isProcessing,
+  actionButtonRef,
+  onActionClick,
+}) => {
+  return (
+    <tr 
+      className={`
+        ${isEven ? 'bg-white' : 'bg-slate-50/50'} 
+        hover:bg-indigo-50/50 transition-colors duration-150
+        ${!branch.is_active ? 'opacity-60' : ''}
+      `}
+      style={{ height: `${rowHeight}px` }}
+    >
+      {/* Row Number */}
+      <td className="px-1 py-0.5 text-center border-r border-slate-100">
+        <span className="text-[9px] 2xl:text-[10px] text-slate-400 font-medium">
+          {rowNumber}
+        </span>
+      </td>
+
+      {/* Branch Info */}
+      <td className="px-1.5 py-0.5 border-r border-slate-100">
+        <div className="flex items-center gap-2">
+          <div className={`
+            w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0
+            ${!branch.is_active 
+              ? 'bg-slate-200' 
+              : branch.is_main 
+                ? 'bg-amber-100' 
+                : 'bg-indigo-100'
+            }
+          `}>
+            <Building2 
+              size={14} 
+              className={
+                !branch.is_active 
+                  ? 'text-slate-400' 
+                  : branch.is_main 
+                    ? 'text-amber-600' 
+                    : 'text-indigo-600'
+              } 
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className={`
+              text-[10px] 2xl:text-[11px] font-medium truncate
+              ${branch.is_active ? 'text-slate-800' : 'text-slate-500'}
+            `}>
+              {branch.branch_name}
+            </p>
+            <BranchTypeBadge isMain={branch.is_main} />
+          </div>
+        </div>
+      </td>
+
+      {/* Address */}
+      <td className="px-1.5 py-0.5 border-r border-slate-100">
+        <div className="flex items-center gap-1 min-w-0">
+          <MapPin size={10} className="text-slate-400 flex-shrink-0" />
+          <span 
+            className="text-[9px] 2xl:text-[10px] text-slate-600 truncate"
+            title={formatAddress(branch)}
+          >
+            {formatAddress(branch)}
+          </span>
+        </div>
+      </td>
+
+      {/* Contact */}
+      <td className="px-1.5 py-0.5 border-r border-slate-100">
+        {branch.contact_number ? (
+          <div className="flex items-center gap-1">
+            <Phone size={10} className="text-slate-400 flex-shrink-0" />
+            <span className="text-[9px] 2xl:text-[10px] text-slate-600">
+              {branch.contact_number}
+            </span>
+          </div>
+        ) : (
+          <span className="text-[9px] 2xl:text-[10px] text-slate-400">—</span>
+        )}
+      </td>
+
+      {/* Users Count */}
+      <td className="px-1 py-0.5 border-r border-slate-100 text-center">
+        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded">
+          <Users size={10} className="text-slate-500" />
+          <span className="text-[9px] 2xl:text-[10px] font-medium text-slate-600">
+            {branch.user_count || 0}
+          </span>
+        </div>
+      </td>
+
+      {/* Status */}
+      <td className="px-1 py-0.5 border-r border-slate-100 text-center">
+        <StatusBadge isActive={branch.is_active} />
+      </td>
+
+      {/* Actions */}
+      <td className="px-1 py-0.5 text-center">
+        {isProcessing ? (
+          <Loader2 size={12} className="animate-spin text-slate-400 mx-auto" />
+        ) : (
+          <button
+            ref={actionButtonRef}
+            onClick={() => onActionClick(branch.branch_id)}
+            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+            title="Actions"
+          >
+            <MoreVertical size={12} />
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+};
+
+/**
+ * Loading Skeleton Row
+ */
+const SkeletonRow = ({ rowHeight, isEven }) => (
+  <tr 
+    className={isEven ? 'bg-white' : 'bg-slate-50/50'}
+    style={{ height: `${rowHeight}px` }}
+  >
+    <td className="px-1 py-0.5 border-r border-slate-100">
+      <div className="h-3 w-4 bg-slate-200 rounded animate-pulse mx-auto" />
+    </td>
+    <td className="px-1.5 py-0.5 border-r border-slate-100">
+      <div className="flex items-center gap-2">
+        <div className="w-7 h-7 bg-slate-200 rounded-lg animate-pulse" />
+        <div className="flex-1">
+          <div className="h-2.5 w-24 bg-slate-200 rounded animate-pulse mb-1" />
+          <div className="h-3 w-12 bg-slate-200 rounded animate-pulse" />
+        </div>
+      </div>
+    </td>
+    <td className="px-1.5 py-0.5 border-r border-slate-100">
+      <div className="h-3 w-32 bg-slate-200 rounded animate-pulse" />
+    </td>
+    <td className="px-1.5 py-0.5 border-r border-slate-100">
+      <div className="h-3 w-20 bg-slate-200 rounded animate-pulse" />
+    </td>
+    <td className="px-1 py-0.5 border-r border-slate-100 text-center">
+      <div className="h-4 w-10 bg-slate-200 rounded animate-pulse mx-auto" />
+    </td>
+    <td className="px-1 py-0.5 border-r border-slate-100 text-center">
+      <div className="h-4 w-14 bg-slate-200 rounded animate-pulse mx-auto" />
+    </td>
+    <td className="px-1 py-0.5">
+      <div className="h-4 w-4 bg-slate-200 rounded animate-pulse mx-auto" />
+    </td>
+  </tr>
+);
+
+/**
+ * BranchListTable Component
  */
 const BranchListTable = ({
-  branches,
-  loading,
-  rowsPerPage,
-  sortConfig,
-  onSortChange,
+  branches = [],
+  loading = false,
   onEdit,
   onRefresh,
   toast,
 }) => {
-  const { styles, heights } = TABLE_CONFIG;
-
-  // Menu state
+  const tableContainerRef = useRef(null);
+  const tableBodyRef = useRef(null);
+  const headerRef = useRef(null);
+  const actionButtonRefs = useRef({});
+  
+  const [scrollbarWidth, setScrollbarWidth] = useState(0);
+  const [scrollInfo, setScrollInfo] = useState({ canScrollUp: false, canScrollDown: false });
   const [actionMenuState, setActionMenuState] = useState({ branchId: null, position: null });
   const [processingBranchId, setProcessingBranchId] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, branch: null });
+  
+  // ✅ INTERNAL PAGINATION STATE
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Column resizing - SAME AS UserListTable
-  const [columnWidths, setColumnWidths] = useState(() => {
-    const widths = {};
-    Object.values(COLUMNS).forEach((col) => {
-      widths[col.key] = col.width;
+  // ✅ Get dynamic row count with proper fallback
+  const dynamicRowCount = useDynamicRowCount();
+  const rowsPerPage = useMemo(() => {
+    const count = Number(dynamicRowCount);
+    return !isNaN(count) && count > 0 ? count : DEFAULT_ROWS_PER_PAGE;
+  }, [dynamicRowCount]);
+
+  const viewportHeight = rowsPerPage * ROW_HEIGHT;
+  const columnWidths = getColumnWidths();
+
+  // ✅ Safe pagination calculations
+  const totalItems = Array.isArray(branches) ? branches.length : 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / rowsPerPage));
+  
+  // ✅ Ensure currentPage is always valid
+  const safeCurrentPage = useMemo(() => {
+    const page = Number(currentPage);
+    if (isNaN(page) || page < 1) return 1;
+    if (page > totalPages) return totalPages;
+    return page;
+  }, [currentPage, totalPages]);
+
+  // ✅ Reset to valid page if current page exceeds total
+  useEffect(() => {
+    if (currentPage !== safeCurrentPage) {
+      setCurrentPage(safeCurrentPage);
+    }
+  }, [safeCurrentPage, currentPage]);
+
+  // ✅ Paginate the branches array
+  const startIndex = (safeCurrentPage - 1) * rowsPerPage;
+  const paginatedBranches = useMemo(() => {
+    if (!Array.isArray(branches)) return [];
+    return branches.slice(startIndex, startIndex + rowsPerPage);
+  }, [branches, startIndex, rowsPerPage]);
+
+  // ============================================
+  // SCROLLBAR & SCROLL HANDLING
+  // ============================================
+  useEffect(() => {
+    const container = tableBodyRef.current;
+    if (!container) return;
+    const width = container.offsetWidth - container.clientWidth;
+    setScrollbarWidth(width);
+  }, [paginatedBranches.length, rowsPerPage]);
+
+  const updateScrollInfo = useCallback(() => {
+    const container = tableBodyRef.current;
+    if (!container) return;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    setScrollInfo({
+      canScrollUp: scrollTop > 0,
+      canScrollDown: scrollTop + clientHeight < scrollHeight - 5,
     });
-    return widths;
-  });
-  const [resizing, setResizing] = useState(null);
-
-  const actionButtonRefs = useRef({});
-
-  // ============================================
-  // COLUMN RESIZING - SAME AS UserListTable
-  // ============================================
-  const handleMouseDown = (column, e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setResizing({ column, startX: e.clientX, startWidth: columnWidths[column] });
-  };
-
-  const handleMouseMove = useCallback(
-    (e) => {
-      if (!resizing) return;
-      const diff = e.clientX - resizing.startX;
-      const newWidth = Math.max(50, resizing.startWidth + diff);
-      setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
-    },
-    [resizing]
-  );
-
-  const handleMouseUp = useCallback(() => setResizing(null), []);
+  }, []);
 
   useEffect(() => {
-    if (resizing) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, [resizing, handleMouseMove, handleMouseUp]);
+    const container = tableBodyRef.current;
+    if (!container) return;
+    container.addEventListener('scroll', updateScrollInfo);
+    updateScrollInfo();
+    return () => container.removeEventListener('scroll', updateScrollInfo);
+  }, [updateScrollInfo]);
+
+  const scrollToTop = useCallback(() => {
+    tableBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    tableBodyRef.current?.scrollTo({ top: tableBodyRef.current.scrollHeight, behavior: 'smooth' });
+  }, []);
 
   // ============================================
-  // MENU POSITION
+  // MENU POSITION CALCULATION
   // ============================================
   const calculateMenuPosition = useCallback((branchId) => {
     const buttonEl = actionButtonRefs.current[branchId];
@@ -221,7 +468,7 @@ const BranchListTable = ({
 
   const handleDeactivateClick = (branch) => {
     if (branch.is_main) {
-      toast.warning("Cannot Deactivate", "Main branch cannot be deactivated.", 4000);
+      toast?.warning?.("Cannot Deactivate", "Main branch cannot be deactivated.", 4000);
       return;
     }
     setConfirmDialog({ isOpen: true, type: "deactivate", branch });
@@ -233,270 +480,257 @@ const BranchListTable = ({
 
   const handleConfirmAction = async () => {
     const { type, branch } = confirmDialog;
+    if (!branch) return;
+    
     setProcessingBranchId(branch.branch_id);
     setConfirmDialog({ isOpen: false, type: null, branch: null });
 
     try {
       if (type === "deactivate") {
         await deleteBranch(branch.branch_id);
-        toast.success("Branch Deactivated", `${branch.branch_name} deactivated.`, 4000);
+        toast?.success?.("Branch Deactivated", `${branch.branch_name} deactivated.`, 4000);
       } else if (type === "reactivate") {
         await reactivateBranch(branch.branch_id);
-        toast.success("Branch Reactivated", `${branch.branch_name} reactivated.`, 4000);
+        toast?.success?.("Branch Reactivated", `${branch.branch_name} reactivated.`, 4000);
       }
-      onRefresh();
+      onRefresh?.();
     } catch (err) {
       console.error(`Failed to ${type} branch:`, err);
       const errorMessage = err.response?.data?.message || `Failed to ${type} branch.`;
-      toast.error(`${type === "deactivate" ? "Deactivation" : "Reactivation"} Failed`, errorMessage, 5000);
+      toast?.error?.(`${type === "deactivate" ? "Deactivation" : "Reactivation"} Failed`, errorMessage, 5000);
     } finally {
       setProcessingBranchId(null);
     }
   };
 
-  // ============================================
-  // HELPER
-  // ============================================
-  const formatAddress = (branch) => {
-    const parts = [branch.address_line_1, branch.city, branch.state, branch.pincode].filter(Boolean);
-    return parts.join(", ") || "No address";
-  };
-
-  // ============================================
-  // SORTABLE HEADER - SAME AS UserListTable
-  // ============================================
-  const SortableHeader = ({ columnKey }) => {
-    const config = COLUMNS[columnKey];
-    const sortKey = config.sortKey || config.key;
-    const isActive = sortConfig?.sort_by === sortKey;
-    const isAsc = isActive && sortConfig?.sort_order === "asc";
-    const isDesc = isActive && sortConfig?.sort_order === "desc";
-
-    return (
-      <th style={{ width: columnWidths[columnKey], minWidth: 50 }} className="relative group">
-        <div
-          className={`flex items-center justify-between ${styles.header.cell} ${
-            config.sortable ? "cursor-pointer select-none" : ""
-          }`}
-          onClick={() => config.sortable && onSortChange?.(sortKey)}
-        >
-          <span className="truncate">{config.label}</span>
-          {config.sortable && (
-            <div className="flex flex-col gap-0.5">
-              <ChevronUp
-                size={12}
-                className={`transition-colors ${isAsc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive}`}
-              />
-              <ChevronDown
-                size={12}
-                className={`-mt-1 transition-colors ${isDesc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive}`}
-              />
-            </div>
-          )}
-        </div>
-        {/* Resize Handle */}
-        <div onMouseDown={(e) => handleMouseDown(columnKey, e)} className={styles.header.resizeHandle} />
-      </th>
-    );
-  };
-
-  // ============================================
-  // TABLE HEADER - SAME AS UserListTable
-  // ============================================
-  const TableHeader = ({ columnKey }) => {
-    const config = COLUMNS[columnKey];
-
-    if (config.sortable) {
-      return <SortableHeader columnKey={columnKey} />;
+  // ✅ Safe page change handler
+  const handlePageChange = useCallback((page) => {
+    const newPage = Number(page);
+    if (!isNaN(newPage) && newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
     }
-
-    return (
-      <th
-        style={{ width: columnWidths[columnKey], minWidth: 50 }}
-        className={`relative group ${config.align === "center" ? "text-center" : ""}`}
-      >
-        <div className={styles.header.cell}>
-          <span className="truncate">{config.label}</span>
-        </div>
-        <div onMouseDown={(e) => handleMouseDown(columnKey, e)} className={styles.header.resizeHandle} />
-      </th>
-    );
-  };
-
-  // ============================================
-  // STATUS BADGE
-  // ============================================
-  const StatusBadge = ({ isActive }) => {
-    if (isActive) {
-      return (
-        <span className={styles.badges.status.active}>
-          <CheckCircle size={12} />
-          Active
-        </span>
-      );
-    }
-    return (
-      <span className={styles.badges.status.inactive}>
-        <Ban size={12} />
-        Inactive
-      </span>
-    );
-  };
+  }, [totalPages]);
 
   // ============================================
   // COMPUTED VALUES
   // ============================================
-  const hasData = branches.length > 0;
-  const showTable = loading || hasData;
-  const showEmptyState = !loading && !hasData;
+  const hasOverflow = paginatedBranches.length > rowsPerPage;
+  const activeCount = branches.filter(b => b.is_active).length;
+  const inactiveCount = branches.filter(b => !b.is_active).length;
+  const mainBranch = branches.find(b => b.is_main);
+  const showPagination = !loading && totalItems > 0;
 
   // ============================================
   // RENDER
   // ============================================
   return (
     <>
-      <div className={styles.container.wrapper}>
-        {showTable && (
-          <div className="flex-1 min-h-0 overflow-auto">
-            <table className="w-full border-collapse text-sm" style={{ minWidth: "820px" }}>
-              {/* Header */}
-              <thead className="sticky top-0 z-10">
-                <tr className={styles.header.row}>
-                  <SortableHeader columnKey="branch" />
-                  <SortableHeader columnKey="address" />
-                  <TableHeader columnKey="contact" />
-                  <SortableHeader columnKey="users" />
-                  <SortableHeader columnKey="status" />
-                  <TableHeader columnKey="actions" />
+      <div 
+        ref={tableContainerRef}
+        className="h-full w-full flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden"
+      >
+        {/* Header Stats Bar */}
+        <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <Building2 size={12} className="text-indigo-500" />
+              <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">Total:</span>
+              <span className="text-[10px] font-bold text-indigo-600">{totalItems}</span>
+            </div>
+            
+            <div className="h-3 w-px bg-slate-300" />
+            
+            <div className="flex items-center gap-1.5">
+              <CheckCircle size={10} className="text-emerald-500" />
+              <span className="text-[8px] text-slate-500">Active:</span>
+              <span className="text-[10px] font-semibold text-emerald-600">{activeCount}</span>
+            </div>
+            
+            {inactiveCount > 0 && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1.5">
+                  <Ban size={10} className="text-red-400" />
+                  <span className="text-[8px] text-slate-500">Inactive:</span>
+                  <span className="text-[10px] font-semibold text-red-500">{inactiveCount}</span>
+                </div>
+              </>
+            )}
+
+            {mainBranch && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded border border-amber-200">
+                  <Crown size={9} className="text-amber-600" />
+                  <span className="text-[8px] font-medium text-amber-700 truncate max-w-[80px]">
+                    {mainBranch.branch_name}
+                  </span>
+                </div>
+              </>
+            )}
+            
+            {totalPages > 1 && (
+              <>
+                <div className="h-3 w-px bg-slate-300" />
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white rounded border border-slate-200 text-[8px]">
+                  <span className="text-slate-500">Page</span>
+                  <span className="font-bold text-slate-700">
+                    {safeCurrentPage}/{totalPages}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-1">
+            {hasOverflow && (
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={scrollToTop}
+                  disabled={!scrollInfo.canScrollUp}
+                  className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronUp size={10} />
+                </button>
+                <button
+                  onClick={scrollToBottom}
+                  disabled={!scrollInfo.canScrollDown}
+                  className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronDown size={10} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Table Container */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Fixed Header */}
+          <div 
+            ref={headerRef}
+            className="shrink-0 overflow-hidden border-b-2 border-slate-300"
+            style={{ paddingRight: `${scrollbarWidth}px` }}
+          >
+            <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: columnWidths.rowNum }} />
+                <col style={{ width: columnWidths.branch }} />
+                <col style={{ width: columnWidths.address }} />
+                <col style={{ width: columnWidths.contact }} />
+                <col style={{ width: columnWidths.users }} />
+                <col style={{ width: columnWidths.status }} />
+                <col style={{ width: columnWidths.actions }} />
+              </colgroup>
+              <thead>
+                <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white h-7">
+                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">#</th>
+                  <th className="px-1.5 py-1 text-[8px] 2xl:text-[9px] font-bold text-left border-r border-slate-600/30">
+                    <div className="flex items-center gap-1">
+                      <Building2 size={10} />
+                      Branch
+                    </div>
+                  </th>
+                  <th className="px-1.5 py-1 text-[8px] 2xl:text-[9px] font-bold text-left border-r border-slate-600/30">
+                    <div className="flex items-center gap-1">
+                      <MapPin size={10} />
+                      Address
+                    </div>
+                  </th>
+                  <th className="px-1.5 py-1 text-[8px] 2xl:text-[9px] font-bold text-left border-r border-slate-600/30">
+                    <div className="flex items-center gap-1">
+                      <Phone size={10} />
+                      Contact
+                    </div>
+                  </th>
+                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">
+                    <div className="flex items-center justify-center gap-1">
+                      <Users size={10} />
+                      Users
+                    </div>
+                  </th>
+                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">Status</th>
+                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center">Actions</th>
                 </tr>
               </thead>
+            </table>
+          </div>
 
-              {/* Body */}
+          {/* Scrollable Body */}
+          <div 
+            ref={tableBodyRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden"
+            style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}
+          >
+            <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: columnWidths.rowNum }} />
+                <col style={{ width: columnWidths.branch }} />
+                <col style={{ width: columnWidths.address }} />
+                <col style={{ width: columnWidths.contact }} />
+                <col style={{ width: columnWidths.users }} />
+                <col style={{ width: columnWidths.status }} />
+                <col style={{ width: columnWidths.actions }} />
+              </colgroup>
               <tbody>
                 {loading ? (
-                  <TableSkeleton rows={rowsPerPage} columns={Object.keys(COLUMNS).filter((k) => k !== "actions")} />
+                  Array.from({ length: rowsPerPage }).map((_, index) => (
+                    <SkeletonRow 
+                      key={index} 
+                      rowHeight={ROW_HEIGHT} 
+                      isEven={index % 2 === 0} 
+                    />
+                  ))
                 ) : (
-                  branches.map((branch, index) => {
-                    const isProcessing = processingBranchId === branch.branch_id;
-
-                    return (
-                      <tr
-                        key={branch.branch_id ?? index}
-                        className={`${styles.row.base} ${index % 2 === 0 ? styles.row.even : styles.row.odd} ${
-                          styles.row.hover
-                        } ${!branch.is_active ? styles.row.disabled : ""}`}
-                        style={{ height: `${heights.bodyRow}px` }}
-                      >
-                        {/* Branch */}
-                        <td className={`${styles.cell.base} ${styles.cell.primary}`}>
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                !branch.is_active
-                                  ? "bg-gray-200"
-                                  : branch.is_main
-                                  ? "bg-emerald-100"
-                                  : "bg-[#000060]/10"
-                              }`}
-                            >
-                              <Building2
-                                size={18}
-                                className={
-                                  !branch.is_active
-                                    ? "text-gray-400"
-                                    : branch.is_main
-                                    ? "text-emerald-600"
-                                    : "text-[#000060]"
-                                }
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <p className={`font-medium truncate ${!branch.is_active ? "text-gray-500" : ""}`}>
-                                {branch.branch_name}
-                                {!branch.is_active && <Ban size={14} className="inline-block ml-2 text-red-400" />}
-                              </p>
-                              <span
-                                className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                                  branch.is_main ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"
-                                }`}
-                              >
-                                {branch.is_main ? "Main" : "Branch"}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Address */}
-                        <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <MapPin size={14} className="text-gray-400 flex-shrink-0" />
-                            <span className="truncate" title={formatAddress(branch)}>
-                              {formatAddress(branch)}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Contact */}
-                        <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
-                          {branch.contact_number ? (
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <Phone size={14} className="text-gray-400 flex-shrink-0" />
-                              <span className="truncate">{branch.contact_number}</span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">—</span>
-                          )}
-                        </td>
-
-                        {/* Users */}
-                        <td className={`${styles.cell.base} ${styles.cell.center}`}>
-                          <div className="inline-flex items-center gap-1 justify-center">
-                            <Users size={14} className="text-gray-400" />
-                            <span className={styles.cell.muted}>{branch.user_count || 0}</span>
-                          </div>
-                        </td>
-
-                        {/* Status */}
-                        <td className={`${styles.cell.base} ${styles.cell.center}`}>
-                          <StatusBadge isActive={branch.is_active} />
-                        </td>
-
-                        {/* Actions */}
-                        <td className={styles.cell.base}>
-                          <div className={styles.actions.container}>
-                            {isProcessing ? (
-                              <Loader2 size={15} className="animate-spin text-gray-400" />
-                            ) : (
-                              <button
-                                ref={(el) => (actionButtonRefs.current[branch.branch_id] = el)}
-                                onClick={() => handleActionClick(branch.branch_id)}
-                                className={`${styles.actions.button.base} ${styles.actions.button.view}`}
-                                title="Actions"
-                              >
-                                <MoreVertical size={15} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                  paginatedBranches.map((branch, index) => (
+                    <BranchRow
+                      key={branch.branch_id ?? index}
+                      branch={branch}
+                      rowNumber={startIndex + index + 1}
+                      isEven={index % 2 === 0}
+                      rowHeight={ROW_HEIGHT}
+                      isProcessing={processingBranchId === branch.branch_id}
+                      actionButtonRef={(el) => (actionButtonRefs.current[branch.branch_id] = el)}
+                      onActionClick={handleActionClick}
+                    />
+                  ))
                 )}
               </tbody>
             </table>
+            
+            {/* Empty State */}
+            {!loading && totalItems === 0 && (
+              <div 
+                className="flex flex-col items-center justify-center text-slate-400"
+                style={{ height: `${viewportHeight}px` }}
+              >
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                  <Building2 size={20} className="text-slate-400" />
+                </div>
+                <p className="text-sm font-medium text-slate-500">No branches found</p>
+                <p className="text-xs text-slate-400">Create your first branch to get started</p>
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Empty State */}
-        {showEmptyState && (
-          <TableEmptyState icon={Building2} title="No branches found" subtitle="Create your first branch to get started" />
+        </div>
+        
+        {/* Pagination */}
+        {showPagination && (
+          <div className="shrink-0 border-t border-slate-200">
+            <Pagination
+              currentPage={safeCurrentPage}
+              setCurrentPage={handlePageChange}
+              totalItems={totalItems}
+              rowsPerPage={rowsPerPage}
+            />
+          </div>
         )}
 
         {/* Action Menu Portal */}
         <AnimatePresence>
           {actionMenuState.branchId && (
             <ActionMenu
-              branch={branches.find((b) => b.branch_id === actionMenuState.branchId)}
+              branch={paginatedBranches.find((b) => b.branch_id === actionMenuState.branchId)}
               position={actionMenuState.position}
               onClose={handleCloseMenu}
               onEdit={onEdit}
@@ -517,7 +751,7 @@ const BranchListTable = ({
           confirmDialog.type === "deactivate" ? (
             <>
               Are you sure you want to deactivate <strong>{confirmDialog.branch?.branch_name}</strong>?
-              <span className="text-sm block mt-2 text-amber-600 font-medium">
+              <span className="text-xs block mt-2 text-amber-600 font-medium">
                 All users in this branch will be moved to the main branch.
               </span>
             </>

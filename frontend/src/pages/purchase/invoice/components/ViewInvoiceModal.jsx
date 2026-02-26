@@ -3,6 +3,7 @@
 // Updated with Payment Status Threshold Logic (Balance > ₹10 for Partially Paid)
 // Status/Payment dropdowns only available in Edit mode
 // ✅ UPDATED: Integrated PrintInvoiceModal
+// ✅ UPDATED: Disable save button when returns exist
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -48,7 +49,7 @@ import CreateReturnModal from "../../returns/components/CreateReturnModal";
 import ViewModeContent from "./ViewModeContent";
 import EditModeContent from "./EditModeContent";
 import ViewReturnModal from "../../returns/components/ViewReturnModal";
-import PrintInvoiceModal from "./PrintInvoiceModal"; // ✅ NEW IMPORT
+import PrintInvoiceModal from "./PrintInvoiceModal";
 import { 
   calculateEditRow, 
   makeEmptyRow, 
@@ -494,13 +495,13 @@ const ViewInvoiceModal = ({
   open,
   onClose,
   invoice,
-  onPrint, // This will now open the print modal
+  onPrint,
   onEdit,
   onDelete,
   onRefresh,
   isSuperAdmin = false,
   initialMode = 'view',
-  companyInfo, // ✅ NEW: Company info for print modal
+  companyInfo,
 }) => {
   const toast = useToast();
   
@@ -522,15 +523,12 @@ const ViewInvoiceModal = ({
   const [isChangingPaymentStatus, setIsChangingPaymentStatus] = useState(false);
   const [createReturnModal, setCreateReturnModal] = useState(false);
   
-  // ✅ NEW: Print modal state
   const [showPrintModal, setShowPrintModal] = useState(false);
   
-  // Return viewing state
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   
-  // Linked returns state
   const [linkedReturns, setLinkedReturns] = useState([]);
   const [loadingReturns, setLoadingReturns] = useState(false);
   
@@ -548,6 +546,18 @@ const ViewInvoiceModal = ({
   const paymentStatusButtonRef = useRef(null);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // ✅ NEW: COMPUTED - Check if invoice has linked returns (blocks save)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const hasLinkedReturns = useMemo(() => {
+    return linkedReturns && linkedReturns.length > 0;
+  }, [linkedReturns]);
+
+  const linkedReturnCount = useMemo(() => {
+    return linkedReturns?.length || 0;
+  }, [linkedReturns]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // COMPUTED: Effective Payment Display (with threshold logic)
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -563,7 +573,7 @@ const ViewInvoiceModal = ({
     if (open && invoice) {
       setShowStatusMenu(false);
       setShowPaymentStatusMenu(false);
-      setShowPrintModal(false); // ✅ Reset print modal state
+      setShowPrintModal(false);
       
       if (initialMode === 'edit') {
         const rows = transformInvoiceToRows(invoice);
@@ -697,7 +707,7 @@ const ViewInvoiceModal = ({
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ✅ NEW: PRINT HANDLER
+  // PRINT HANDLER
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handlePrint = useCallback(() => {
@@ -1373,10 +1383,19 @@ const ViewInvoiceModal = ({
   }, [editRows.length]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SAVE HANDLER
+  // ✅ UPDATED: SAVE HANDLER - Block if returns exist
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handleSave = useCallback(async () => {
+    // ✅ NEW: Safety check - prevent save if returns exist
+    if (hasLinkedReturns) {
+      toast.error(
+        "Cannot Save", 
+        `This invoice has ${linkedReturnCount} linked return(s). Cancel them first to enable editing.`
+      );
+      return;
+    }
+
     const filledRows = editRows.filter(r => r.name && r.qty && parseFloat(r.qty) > 0);
     
     if (filledRows.length === 0) {
@@ -1435,7 +1454,7 @@ const ViewInvoiceModal = ({
     } else {
       await performSave(filledRows);
     }
-  }, [editRows, invoice, toast]);
+  }, [editRows, invoice, toast, hasLinkedReturns, linkedReturnCount]);
 
   const performSave = useCallback(async (filledRows) => {
     setIsSaving(true);
@@ -1593,6 +1612,9 @@ const ViewInvoiceModal = ({
   const totalQty = invoice.lineItems?.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0) || 0;
   const totalFree = invoice.lineItems?.reduce((sum, item) => sum + (parseFloat(item.free_quantity) || 0), 0) || 0;
   const itemCount = invoice.lineItems?.length || 0;
+
+  // ✅ NEW: Determine if save should be disabled
+  const isSaveDisabled = isSaving || hasLinkedReturns;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -1783,7 +1805,6 @@ const ViewInvoiceModal = ({
                   <div className="flex items-center gap-2">
                     {mode === 'view' ? (
                       <>
-                        {/* ✅ UPDATED: Print button now opens print modal */}
                         <button 
                           onClick={handlePrint} 
                           className="p-2.5 rounded-xl bg-[#000060]/5 hover:bg-[#000060]/10 text-[#000060] transition-all border border-[#000060]/10" 
@@ -1812,7 +1833,7 @@ const ViewInvoiceModal = ({
                             <Trash2 size={18} />
                           </button>
                         )}
-                                               <button onClick={onClose} className="p-2.5 rounded-xl bg-[#000060] text-white hover:bg-[#000060]/90 transition-all ml-2" title="Close">
+                        <button onClick={onClose} className="p-2.5 rounded-xl bg-[#000060] text-white hover:bg-[#000060]/90 transition-all ml-2" title="Close">
                           <X size={18} />
                         </button>
                       </>
@@ -1821,15 +1842,49 @@ const ViewInvoiceModal = ({
                         <button onClick={handleCancelEdit} disabled={isSaving} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all border border-gray-300">
                           <ArrowLeft size={16} /><span className="text-sm font-medium">Cancel</span>
                         </button>
+
+                        {/* ✅ NEW: Show warning badge when returns exist in edit mode */}
+                        {hasLinkedReturns && (
+                          <div className="flex items-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-xl border border-red-300 animate-pulse">
+                            <AlertTriangle size={16} className="shrink-0" />
+                            <span className="text-xs font-semibold">
+                              {linkedReturnCount} return{linkedReturnCount > 1 ? 's' : ''} must be cancelled
+                            </span>
+                          </div>
+                        )}
+
+                        {/* ✅ UPDATED: Save button - now disabled when returns exist */}
                         <button
                           onClick={handleSave}
-                          disabled={isSaving}
+                          disabled={isSaveDisabled}
                           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all shadow-lg ${
-                            isConfirmed ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-[#000060] hover:bg-[#000060]/90 text-white"
+                            hasLinkedReturns
+                              ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                              : isConfirmed 
+                                ? "bg-amber-500 hover:bg-amber-600 text-white" 
+                                : "bg-[#000060] hover:bg-[#000060]/90 text-white"
                           }`}
+                          title={
+                            hasLinkedReturns 
+                              ? `Cannot save: ${linkedReturnCount} return(s) must be cancelled first` 
+                              : 'Save changes'
+                          }
                         >
-                          {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                          <span className="text-sm font-medium">{isSaving ? "Saving..." : "Save Changes"}</span>
+                          {isSaving ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : hasLinkedReturns ? (
+                            <Ban size={16} />
+                          ) : (
+                            <Save size={16} />
+                          )}
+                          <span className="text-sm font-medium">
+                            {isSaving 
+                              ? "Saving..." 
+                              : hasLinkedReturns 
+                                ? "Save Blocked" 
+                                : "Save Changes"
+                            }
+                          </span>
                         </button>
                       </>
                     )}
@@ -1843,7 +1898,8 @@ const ViewInvoiceModal = ({
                 {invoice.supplier_invoice_no && (<><span className="text-[#000060]/20">•</span><div className="flex items-center gap-2"><Hash size={14} className="text-[#000060]/40" /><span className="font-mono">{invoice.supplier_invoice_no}</span></div></>)}
                 {invoice.supplier && (<><span className="text-[#000060]/20">•</span><div className="flex items-center gap-2"><Building2 size={14} className="text-[#000060]/40" /><span>{invoice.supplier.name}</span></div></>)}
                 {invoice.branch && (<><span className="text-[#000060]/20">•</span><div className="flex items-center gap-2"><MapPin size={14} className="text-[#000060]/40" /><span>{invoice.branch.branch_name}</span></div></>)}
-                {mode === 'edit' && isConfirmed && (<><span className="text-[#000060]/20">•</span><div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100 text-amber-700"><AlertTriangle size={12} /><span className="text-xs font-medium">Stock will be recalculated on save</span></div></>)}
+                {mode === 'edit' && isConfirmed && !hasLinkedReturns && (<><span className="text-[#000060]/20">•</span><div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100 text-amber-700"><AlertTriangle size={12} /><span className="text-xs font-medium">Stock will be recalculated on save</span></div></>)}
+                {mode === 'edit' && hasLinkedReturns && (<><span className="text-[#000060]/20">•</span><div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-red-100 text-red-700"><Ban size={12} /><span className="text-xs font-medium">Save blocked: Cancel returns first</span></div></>)}
               </div>
             </div>
 
@@ -1888,11 +1944,13 @@ const ViewInvoiceModal = ({
                 onCreateReturn={() => setCreateReturnModal(true)}
                 showCreateReturnButton={showCreateReturnButton}
                 onViewReturn={handleViewReturn}
+                hasLinkedReturns={hasLinkedReturns}
+                linkedReturnCount={linkedReturnCount}
               />
             )}
           </motion.div>
 
-          {/* ✅ NEW: Print Invoice Modal */}
+          {/* Print Invoice Modal */}
           <PrintInvoiceModal
             open={showPrintModal}
             onClose={handleClosePrintModal}

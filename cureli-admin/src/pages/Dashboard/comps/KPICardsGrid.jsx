@@ -2,212 +2,211 @@
 
 import { useNavigate } from "react-router-dom";
 import {
-  Store,
-  Users,
-  CreditCard,
-  Ticket,
-  Mail,
-  ShieldCheck,
-  AlertTriangle,
-  Ban,
-  TrendingUp,
-  BadgeIndianRupee,
-  Clock,
+  Store, Users, CreditCard, Ticket, Mail, ShieldCheck,
+  AlertTriangle, Ban, BadgeIndianRupee, Clock, Building2,
 } from "lucide-react";
 import KPICard from "./KPICard";
 
-const KPICardsGrid = ({ data, period, role }) => {
+// ✅ Currency formatter helper
+const formatCurrency = (value) => {
+  const num = parseFloat(value) || 0;
+  if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
+  if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
+  if (num >= 1000) return `₹${(num / 1000).toFixed(1)}K`;
+  return `₹${num.toLocaleString("en-IN")}`;
+};
+
+const KPICardsGrid = ({ data, period, role, loading }) => {
   const navigate = useNavigate();
-  
-  console.log("[KPICardsGrid] data:", data);
-  console.log("[KPICardsGrid] role:", role);
 
-  if (!data) {
-    console.log("[KPICardsGrid] No data available");
-    return null;
-  }
+  if (!data) return null;
 
-  const isAccounting = role?.toUpperCase() === "ACCOUNTING";
-  const isSuperAdmin = role?.toUpperCase() === "SUPER_ADMIN";
-
-  // Build KPIs based on available data
   const kpis = [];
 
-  // Total Shops
+  // Common KPIs
   if (data.shops) {
     kpis.push({
       id: "total-shops",
       title: "Total Shops",
       value: data.shops.total || 0,
-      change: data.shops.growth || null,
-      changeLabel: data.shops.growth !== null ? "vs previous period" : null,
+      change: data.shops.growth,
+      trend: (data.shops.growth || 0) >= 0 ? "up" : "down",
       icon: Store,
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
+      gradient: "blue",
       onClick: () => navigate("/shops"),
+      roles: ["SUPER_CADMIN", "ANALYST", "ACCOUNTANT", "SALESMAN"],
     });
   }
 
-  // Active Subscriptions
   if (data.subscriptions) {
     kpis.push({
-      id: "active-subscriptions",
-      title: "Active Subscriptions",
+      id: "active-subs",
+      title: "Active Subs",
       value: data.subscriptions.active || 0,
-      change: null,
       icon: CreditCard,
-      iconBg: "bg-emerald-100",
-      iconColor: "text-emerald-600",
+      gradient: "green",
       onClick: () => navigate("/subscriptions/manage"),
+      roles: ["SUPER_CADMIN", "ANALYST", "ACCOUNTANT"],
     });
   }
 
-  // For SUPER_ADMIN and ANALYST
-  if (!isAccounting) {
-    // Verified Shops
+  // Role-specific
+  if (role === "SUPER_CADMIN" || role === "ANALYST") {
     if (data.shops) {
       kpis.push({
-        id: "verified-shops",
-        title: "Verified Shops",
+        id: "verified",
+        title: "Verified",
         value: data.shops.verified || 0,
-        change: null,
         icon: ShieldCheck,
-        iconBg: "bg-violet-100",
-        iconColor: "text-violet-600",
+        gradient: "purple",
         onClick: () => navigate("/verification"),
+        roles: ["SUPER_CADMIN", "ANALYST"],
       });
-    }
-
-    // Pending Verification
-    if (data.shops) {
       kpis.push({
-        id: "pending-verification",
-        title: "Pending Verification",
+        id: "pending",
+        title: "Pending",
         value: data.shops.pendingVerification || 0,
-        change: null,
         icon: Clock,
-        iconBg: "bg-amber-100",
-        iconColor: "text-amber-600",
+        gradient: "amber",
         onClick: () => navigate("/verification"),
+        roles: ["SUPER_CADMIN", "ANALYST"],
       });
     }
-
-    // Total Users
     if (data.users) {
       kpis.push({
-        id: "total-users",
-        title: "Total Users",
+        id: "users",
+        title: "Users",
         value: data.users.total || 0,
-        change: data.users.growth || null,
-        changeLabel: data.users.growth !== null ? "vs previous period" : null,
+        change: data.users.growth,
+        trend: (data.users.growth || 0) >= 0 ? "up" : "down",
         icon: Users,
-        iconBg: "bg-indigo-100",
-        iconColor: "text-indigo-600",
+        gradient: "indigo",
         onClick: () => navigate("/users"),
+        roles: ["SUPER_CADMIN", "ANALYST"],
       });
     }
-
-    // Open Tickets
     if (data.tickets) {
       kpis.push({
-        id: "open-tickets",
-        title: "Open Tickets",
-        value: data.tickets.total || 0,
-        change: null,
+        id: "tickets",
+        title: "Pending Tickets",
+        value: data.tickets.totalOpen || 0,
         icon: Ticket,
-        iconBg: "bg-orange-100",
-        iconColor: "text-orange-600",
+        gradient: "amber",
         onClick: () => navigate("/communications/tickets"),
+        roles: ["SUPER_CADMIN", "ANALYST"],
+      });
+    }
+    if (data.enquiries) {
+      kpis.push({
+        id: "enquiries",
+        title: "Enquiries",
+        value: data.enquiries.pending || 0,
+        icon: Mail,
+        gradient: "teal",
+        onClick: () => navigate("/communications/enquiries"),
+        roles: ["SUPER_CADMIN", "ANALYST"],
       });
     }
   }
 
-  // For ACCOUNTING
-  if (isAccounting || isSuperAdmin) {
-    // At-Risk Total
+  if (role === "SUPER_CADMIN" || role === "ACCOUNTANT") {
     if (data.subscriptions) {
       kpis.push({
         id: "at-risk",
-        title: "At-Risk Subscriptions",
+        title: "At Risk",
         value: data.subscriptions.atRiskTotal || 0,
-        change: null,
         icon: AlertTriangle,
-        iconBg: "bg-red-100",
-        iconColor: "text-red-600",
-        onClick: () => navigate("/subscriptions/risk"),
+        gradient: "red",
+        onClick: () => navigate("/subscriptions"),
+        roles: ["SUPER_CADMIN", "ACCOUNTANT"],
       });
     }
+    if (data.revenue) {
+      // ✅ FIXED: Amount is already in rupees, NO division needed
+      kpis.push({
+        id: "revenue",
+        title: "Revenue",
+        value: formatCurrency(data.revenue.totalRevenue),
+        change: data.revenue.revenueGrowth,
+        trend: (data.revenue.revenueGrowth || 0) >= 0 ? "up" : "down",
+        icon: BadgeIndianRupee,
+        gradient: "green",
+        roles: ["SUPER_CADMIN", "ACCOUNTANT"],
+      });
+    }
+  }
 
-    // Suspended
-    if (data.subscriptions && isAccounting) {
+  if (role === "ACCOUNTANT") {
+    if (data.subscriptions) {
       kpis.push({
         id: "suspended",
         title: "Suspended",
         value: data.subscriptions.suspended || 0,
-        change: null,
         icon: Ban,
-        iconBg: "bg-gray-100",
-        iconColor: "text-gray-600",
+        gradient: "gray",
         onClick: () => navigate("/subscriptions/risk"),
+        roles: ["ACCOUNTANT"],
       });
-
-      // Grace Period
       kpis.push({
-        id: "grace-period",
-        title: "In Grace Period",
+        id: "grace",
+        title: "Grace Period",
         value: data.subscriptions.gracePeriod || 0,
-        change: null,
         icon: AlertTriangle,
-        iconBg: "bg-amber-100",
-        iconColor: "text-amber-600",
+        gradient: "amber",
         onClick: () => navigate("/subscriptions/risk"),
+        roles: ["ACCOUNTANT"],
       });
-
-      // Expiring
       kpis.push({
         id: "expiring",
-        title: "Expiring Soon",
+        title: "Expiring",
         value: data.subscriptions.expiring || 0,
-        change: null,
         icon: Clock,
-        iconBg: "bg-blue-100",
-        iconColor: "text-blue-600",
+        gradient: "blue",
         onClick: () => navigate("/subscriptions/risk"),
-      });
-    }
-
-    // Revenue (if available)
-    if (data.revenue) {
-      kpis.push({
-        id: "revenue",
-        title: "Period Revenue",
-        value: `₹${(data.revenue.totalRevenue / 100).toLocaleString("en-IN")}`,
-        change: data.revenue.revenueGrowth || null,
-        changeLabel: data.revenue.revenueGrowth !== null ? "vs previous period" : null,
-        icon: BadgeIndianRupee,
-        iconBg: "bg-emerald-100",
-        iconColor: "text-emerald-600",
-        onClick: null,
+        roles: ["ACCOUNTANT"],
       });
     }
   }
 
-  console.log("[KPICardsGrid] Generated KPIs:", kpis.length);
+  if (role === "SALESMAN") {
+    if (data.shops) {
+      kpis.push({
+        id: "active-shops",
+        title: "Active Shops",
+        value: data.shops.active || 0,
+        icon: Building2,
+        gradient: "green",
+        onClick: () => navigate("/shops"),
+        roles: ["SALESMAN"],
+      });
+    }
+    if (data.users) {
+      kpis.push({
+        id: "users-basic",
+        title: "Users",
+        value: data.users.total || 0,
+        icon: Users,
+        gradient: "indigo",
+        roles: ["SALESMAN"],
+      });
+    }
+  }
+
+  const filtered = kpis.filter((k) => k.roles.includes(role));
+  const count = filtered.length;
+  
+  const gridClass = count <= 3 
+    ? "grid-cols-1 sm:grid-cols-3" 
+    : count <= 4 
+    ? "grid-cols-2 sm:grid-cols-4"
+    : count <= 6
+    ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
+    : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-6";
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-      {kpis.map((kpi) => (
-        <KPICard
-          key={kpi.id}
-          title={kpi.title}
-          value={kpi.value}
-          change={kpi.change}
-          changeLabel={kpi.changeLabel}
-          icon={kpi.icon}
-          iconBg={kpi.iconBg}
-          iconColor={kpi.iconColor}
-          onClick={kpi.onClick}
-        />
+    <div className={`grid ${gridClass} gap-2.5`}>
+      {filtered.map((kpi, i) => (
+        <KPICard key={kpi.id} {...kpi} loading={loading} delay={i} />
       ))}
     </div>
   );
