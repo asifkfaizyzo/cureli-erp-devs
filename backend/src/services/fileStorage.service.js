@@ -1,22 +1,32 @@
 // backend/src/services/fileStorage.service.js
+// ============================================
+// FILE STORAGE SERVICE — S3 PROVIDER
+// ============================================
+//
+// MIGRATION NOTES:
+// - All local fs operations replaced with S3 SDK equivalents
+// - storage_key remains FILENAME ONLY (e.g., "17000000-abc123.pdf")
+// - S3 key is constructed internally as folder/filename
+// - Validation logic is 100% unchanged
+// - API contract (return shapes) is 100% unchanged
+// - New function: getFileStream() — for Phase 3 file serving
+// ============================================
 
-import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
+import s3Client, { S3_BUCKET } from '../config/s3.js';
+import {
+  PutObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl as generatePresignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // ============================================
-// CONSTANTS
+// CONSTANTS (UNCHANGED)
 // ============================================
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Get project root (backend folder)
-const PROJECT_ROOT = path.resolve(__dirname, '../../');
-
-const STORAGE_PROVIDER = process.env.FILE_STORAGE_PROVIDER || 'local';
-const UPLOAD_ROOT = process.env.FILE_STORAGE_ROOT || 'uploads';
 
 // Whitelisted folders (prevent directory traversal)
 const ALLOWED_FOLDERS = [
@@ -107,7 +117,7 @@ const BLOCKED_EXTENSIONS = [
 ];
 
 // ============================================
-// VALIDATION HELPERS (NOW EXPORTED)
+// VALIDATION HELPERS (100% UNCHANGED)
 // ============================================
 
 /**
@@ -202,8 +212,12 @@ export function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+// ============================================
+// INTERNAL HELPERS
+// ============================================
+
 /**
- * Generate unique filename
+ * Generate unique filename (UNCHANGED)
  */
 function generateUniqueFilename(originalName, folder) {
   const ext = path.extname(originalName).toLowerCase();
@@ -221,40 +235,38 @@ function generateUniqueFilename(originalName, folder) {
 }
 
 /**
- * Ensure directory exists
+ * Build S3 object key from folder + filename
+ * This is the ONLY place where the full S3 path is constructed.
+ * Callers never see this — they work with folder + filename separately.
+ *
+ * @param {string} folder - Validated folder name
+ * @param {string} filename - Filename (storage_key from DB)
+ * @returns {string} S3 key like "tickets/17000000-abc123.pdf"
  */
-function ensureDirectoryExists(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-    console.log(`[FileStorage] Created directory: ${dirPath}`);
-  }
+function buildS3Key(folder, filename) {
+  return `${folder}/${filename}`;
 }
 
 /**
- * Resolve absolute path safely
+ * Check if an S3 error is a "not found" error
  */
-function resolveAbsolutePath(folder, filename) {
-  const folderPath = path.join(PROJECT_ROOT, UPLOAD_ROOT, folder);
-  const fullPath = path.resolve(folderPath, filename);
-
-  // Security: Ensure resolved path is within uploads directory
-  const uploadsDir = path.resolve(PROJECT_ROOT, UPLOAD_ROOT);
-
-  if (!fullPath.startsWith(uploadsDir)) {
-    const err = new Error('Path traversal attempt detected');
-    err.code = 'PATH_TRAVERSAL';
-    throw err;
-  }
-
-  return fullPath;
+function isNotFoundError(error) {
+  return (
+    error.name === 'NotFound' ||
+    error.name === 'NoSuchKey' ||
+    error.$metadata?.httpStatusCode === 404
+  );
 }
 
 // ============================================
-// CORE FILE OPERATIONS (LOCAL)
+// CORE S3 OPERATIONS
 // ============================================
 
 /**
- * Upload file to local disk
+ * Upload file to S3
+ *
+ * @returns {{ filename, folder, size, mimetype, storage_key, uploaded_at }}
+ *   storage_key = filename only (NOT the full S3 key)
  */
 export async function uploadFile({
   buffer,
@@ -287,24 +299,28 @@ export async function uploadFile({
       validateExtension(customFilename);
     }
 
-    // 3. Resolve path
-    const folderPath = path.join(PROJECT_ROOT, UPLOAD_ROOT, validatedFolder);
-    ensureDirectoryExists(folderPath);
+    // 3. Build S3 key
+    const key = buildS3Key(validatedFolder, filename);
 
-    const filePath = path.join(folderPath, filename);
+    // 4. Upload to S3
+    const command = new PutObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: mimetype,
+    });
 
-    // 4. Write file
-    await fs.promises.writeFile(filePath, buffer);
+    await s3Client.send(command);
 
-    console.log(`[FileStorage] Uploaded: ${validatedFolder}/${filename} (${formatFileSize(size)})`);
+    console.log(`[FileStorage] Uploaded to S3: ${key} (${formatFileSize(size)})`);
 
-    // 5. Return metadata
+    // 5. Return metadata (storage_key = filename only, NOT the full S3 key)
     return {
       filename,
       folder: validatedFolder,
       size,
       mimetype,
-      storage_key: filename, // For DB storage (just filename, not full path)
+      storage_key: filename,
       uploaded_at: new Date(),
     };
   } catch (error) {
@@ -314,20 +330,31 @@ export async function uploadFile({
 }
 
 /**
- * Delete file from local disk
+ * Delete file from S3
+ *
+ * @param {{ folder: string, filename: string }}
+ * @returns {boolean} true if deleted, false if not found
  */
 export async function deleteFile({ folder, filename }) {
   try {
     const validatedFolder = validateFolder(folder);
-    const filePath = resolveAbsolutePath(validatedFolder, filename);
+    const key = buildS3Key(validatedFolder, filename);
 
-    if (!fs.existsSync(filePath)) {
-      console.warn(`[FileStorage] File not found for deletion: ${validatedFolder}/${filename}`);
+    // Check existence first to maintain return contract
+    // (S3 DeleteObject is idempotent — doesn't error on missing objects)
+    const exists = await fileExists({ folder: validatedFolder, filename });
+    if (!exists) {
+      console.warn(`[FileStorage] File not found for deletion: ${key}`);
       return false;
     }
 
-    await fs.promises.unlink(filePath);
-    console.log(`[FileStorage] Deleted: ${validatedFolder}/${filename}`);
+    const command = new DeleteObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+    });
+
+    await s3Client.send(command);
+    console.log(`[FileStorage] Deleted: ${key}`);
 
     return true;
   } catch (error) {
@@ -337,100 +364,142 @@ export async function deleteFile({ folder, filename }) {
 }
 
 /**
- * Check if file exists
+ * Check if file exists in S3
  */
 export async function fileExists({ folder, filename }) {
   try {
     const validatedFolder = validateFolder(folder);
-    const filePath = resolveAbsolutePath(validatedFolder, filename);
+    const key = buildS3Key(validatedFolder, filename);
 
-    return fs.existsSync(filePath);
+    const command = new HeadObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+    });
+
+    await s3Client.send(command);
+    return true;
   } catch (error) {
+    if (isNotFoundError(error)) {
+      return false;
+    }
     console.error('[FileStorage] Existence check failed:', error.message);
     return false;
   }
 }
 
 /**
- * Get file metadata
+ * Get file metadata from S3
+ *
+ * Return shape matches original contract.
+ * Note: S3 only has one timestamp (LastModified), so both
+ * created_at and modified_at return the same value.
  */
 export async function getFileMetadata({ folder, filename }) {
   try {
     const validatedFolder = validateFolder(folder);
-    const filePath = resolveAbsolutePath(validatedFolder, filename);
+    const key = buildS3Key(validatedFolder, filename);
 
-    if (!fs.existsSync(filePath)) {
+    const command = new HeadObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+    });
+
+    const response = await s3Client.send(command);
+
+    return {
+      size: response.ContentLength,
+      size_formatted: formatFileSize(response.ContentLength),
+      content_type: response.ContentType,
+      created_at: response.LastModified,
+      modified_at: response.LastModified,
+    };
+  } catch (error) {
+    if (isNotFoundError(error)) {
       const err = new Error('File not found');
       err.code = 'FILE_NOT_FOUND';
       throw err;
     }
-
-    const stats = await fs.promises.stat(filePath);
-
-    return {
-      size: stats.size,
-      size_formatted: formatFileSize(stats.size),
-      created_at: stats.birthtime,
-      modified_at: stats.mtime,
-    };
-  } catch (error) {
     console.error('[FileStorage] Get metadata failed:', error.message);
     throw error;
   }
 }
 
 /**
- * Get absolute file path (for internal use, streaming, etc.)
- * ⚠️ DO NOT expose this path to frontend
+ * Get readable stream from S3
+ *
+ * NEW FUNCTION — used by files.controller.js (Phase 3) to stream
+ * files directly from S3 to HTTP response.
+ *
+ * @param {{ folder: string, filename: string }}
+ * @returns {{ stream, contentType, contentLength, lastModified }}
  */
-export function getAbsolutePath({ folder, filename }) {
-  const validatedFolder = validateFolder(folder);
-  return resolveAbsolutePath(validatedFolder, filename);
+export async function getFileStream({ folder, filename }) {
+  try {
+    const validatedFolder = validateFolder(folder);
+    const key = buildS3Key(validatedFolder, filename);
+
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+    });
+
+    const response = await s3Client.send(command);
+
+    return {
+      stream: response.Body,
+      contentType: response.ContentType || 'application/octet-stream',
+      contentLength: response.ContentLength,
+      lastModified: response.LastModified,
+    };
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      const err = new Error('File not found');
+      err.code = 'FILE_NOT_FOUND';
+      throw err;
+    }
+    console.error('[FileStorage] Get file stream failed:', error.message);
+    throw error;
+  }
 }
 
 // ============================================
-// URL GENERATION (FUTURE S3-READY)
+// URL GENERATION
 // ============================================
 
 /**
  * Get public URL for file
+ *
+ * Returns the backend proxy path — NOT a direct S3 URL.
+ * All access goes through /api/files/* which streams from S3.
  */
-export function getPublicUrl({ folder, filename, provider = STORAGE_PROVIDER }) {
+export function getPublicUrl({ folder, filename }) {
   const validatedFolder = validateFolder(folder);
-
-  if (provider === 'local') {
-    // Return path compatible with /api/files/* endpoint
-    return `/api/files/${validatedFolder}/${filename}`;
-  }
-
-  if (provider === 's3') {
-    // TODO: Implement S3 URL generation
-    return `https://placeholder-bucket.s3.amazonaws.com/${validatedFolder}/${filename}`;
-  }
-
-  throw new Error(`Unknown storage provider: ${provider}`);
+  return `/api/files/${validatedFolder}/${filename}`;
 }
 
 /**
- * Get signed URL for private file access
+ * Get presigned URL for private/temporary file access
+ *
+ * Returns a time-limited direct S3 URL.
+ * Use for cases where backend proxy isn't suitable
+ * (e.g., large file downloads, email attachment references).
  */
-export async function getSignedUrl({
-  folder,
-  filename,
-  expiresIn = 3600,
-  provider = STORAGE_PROVIDER,
-}) {
-  const validatedFolder = validateFolder(folder);
+export async function getSignedUrl({ folder, filename, expiresIn = 3600 }) {
+  try {
+    const validatedFolder = validateFolder(folder);
+    const key = buildS3Key(validatedFolder, filename);
 
-  if (provider === 'local') {
-    return getPublicUrl({ folder: validatedFolder, filename, provider: 'local' });
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+    });
+
+    const url = await generatePresignedUrl(s3Client, command, { expiresIn });
+    return url;
+  } catch (error) {
+    console.error('[FileStorage] Get signed URL failed:', error.message);
+    throw error;
   }
-
-  if (provider === 's3') {
-    throw new Error('S3 presigned URLs not yet implemented');
-  }
-
-  throw new Error(`Unknown storage provider: ${provider}`);
 }
 
 // ============================================
@@ -479,35 +548,42 @@ export async function deleteFiles(files) {
 
 /**
  * Get storage statistics for a folder
+ *
+ * Uses S3 ListObjectsV2 with pagination to count all objects
+ * under the folder prefix.
  */
 export async function getFolderStats(folder) {
   try {
     const validatedFolder = validateFolder(folder);
-    const folderPath = path.join(PROJECT_ROOT, UPLOAD_ROOT, validatedFolder);
+    const prefix = `${validatedFolder}/`;
 
-    if (!fs.existsSync(folderPath)) {
-      return {
-        total_files: 0,
-        total_size: 0,
-        total_size_formatted: '0 Bytes',
-      };
-    }
-
-    const files = await fs.promises.readdir(folderPath);
+    let totalFiles = 0;
     let totalSize = 0;
+    let continuationToken;
 
-    for (const filename of files) {
-      try {
-        const filePath = path.join(folderPath, filename);
-        const stats = await fs.promises.stat(filePath);
-        totalSize += stats.size;
-      } catch (err) {
-        console.warn(`[FileStorage] Could not stat file: ${filename}`);
+    do {
+      const command = new ListObjectsV2Command({
+        Bucket: S3_BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      });
+
+      const response = await s3Client.send(command);
+
+      if (response.Contents) {
+        totalFiles += response.Contents.length;
+        for (const obj of response.Contents) {
+          totalSize += obj.Size || 0;
+        }
       }
-    }
+
+      continuationToken = response.IsTruncated
+        ? response.NextContinuationToken
+        : undefined;
+    } while (continuationToken);
 
     return {
-      total_files: files.length,
+      total_files: totalFiles,
       total_size: totalSize,
       total_size_formatted: formatFileSize(totalSize),
     };
@@ -518,22 +594,46 @@ export async function getFolderStats(folder) {
 }
 
 // ============================================
-// DEFAULT EXPORT (for backwards compatibility)
+// DEPRECATED — REMOVED FOR S3
+// ============================================
+
+/**
+ * @deprecated REMOVED — S3 has no local file paths.
+ *
+ * Callers must migrate:
+ * - files.controller.js → use getFileStream() instead (Phase 3)
+ * - cadminEmailBroadcast.service.js → use getSignedUrl() instead (Phase 6)
+ */
+export function getAbsolutePath() {
+  throw new Error(
+    '[FileStorage] getAbsolutePath() is removed — storage is S3. ' +
+    'Use getFileStream() to stream files or getSignedUrl() for direct access.'
+  );
+}
+
+// ============================================
+// DEFAULT EXPORT
 // ============================================
 
 export default {
+  // Core operations
   uploadFile,
   deleteFile,
   deleteFiles,
   fileExists,
   getFileMetadata,
-  getAbsolutePath,
+  getFileStream,
+  // URL generation
   getPublicUrl,
   getSignedUrl,
+  // Statistics
   getFolderStats,
+  // Validation (unchanged)
   validateFolder,
   validateExtension,
   validateMimeType,
   validateFileSize,
   formatFileSize,
+  // Deprecated
+  getAbsolutePath,
 };

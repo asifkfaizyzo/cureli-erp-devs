@@ -1,6 +1,16 @@
+// backend/src/utils/cleanup.js
+
 import prisma from "../config/prisma.js";
-import fs from "fs";
-import path from "path";
+import * as fileStorage from "../services/fileStorage.service.js";
+
+// ============================================
+// MIGRATION NOTES:
+// - Removed fs import
+// - Removed path import  
+// - deleteUserAndRelatedData: replaced fs.existsSync + fs.unlinkSync
+//   with fileStorage.deleteFile()
+// - All other functions: UNCHANGED
+// ============================================
 
 export async function cleanupOldPendingUsers() {
   try {
@@ -20,9 +30,6 @@ export async function cleanupOldPendingUsers() {
     return null;
   }
 }
-
-
-
 
 export async function cleanupIncompleteUsers() {
   try {
@@ -97,17 +104,22 @@ export async function cleanupIncompleteUsers() {
 
 /**
  * Delete a single user and all related data
+ *
+ * CHANGED: File deletion now uses fileStorage.deleteFile() instead of raw fs
  */
 async function deleteUserAndRelatedData(user) {
   const filesDeleted = [];
 
-  // 1. Delete shop files from disk
+  // 1. Delete shop files from S3
   if (user.shop?.shopFiles) {
     for (const file of user.shop.shopFiles) {
       try {
-        const filePath = path.join("uploads", "shop_files", file.storage_key);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+        const deleted = await fileStorage.deleteFile({
+          folder: "shop_files",
+          filename: file.storage_key,
+        });
+
+        if (deleted) {
           filesDeleted.push(file.storage_key);
         }
       } catch (err) {
@@ -136,7 +148,7 @@ async function deleteUserAndRelatedData(user) {
     },
   });
 
-  // 4. Delete from database (cascade will handle ShopFiles)
+  // 4. Delete from database (cascade will handle ShopFiles records)
   if (user.shop_id) {
     // Delete shop files from DB
     await prisma.shopFile.deleteMany({
@@ -160,7 +172,7 @@ async function deleteUserAndRelatedData(user) {
 }
 
 /**
- * Delete old deletion logs (older than 90 days)
+ * Delete old deletion logs (older than 90 days) — UNCHANGED
  */
 export async function cleanupOldDeletionLogs() {
   try {

@@ -1,78 +1,140 @@
 // backend/src/cron/emailFileCleanupWorker.js
+// ============================================
+// EMAIL ATTACHMENT CLEANUP WORKER — S3 VERSION
+// ============================================
+//
+// MIGRATION NOTES:
+// - Removed all fs.readdirSync, fs.statSync, fs.existsSync
+// - Removed EMAIL_ATTACHMENTS_DIR constant
+// - Removed path import
+// - Orphan detection now uses S3 ListObjectsV2 via getFolderFileList()
+// - File age check uses S3 object LastModified instead of fs stat
+// - deleteFile / deleteFiles still go through fileStorage service
+// - Cron schedule and lock mechanism: UNCHANGED
+// ============================================
 
 import cron from "node-cron";
 import prisma from "../config/prisma.js";
-import { withCronLock } from "./cronLock.js"; // ✅ NEW
+import { withCronLock } from "./cronLock.js";
 import * as fileStorage from "../services/fileStorage.service.js";
-import fs from "fs";
-import path from "path";
+import s3Client, { S3_BUCKET } from "../config/s3.js";
+import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 
 // ============================================
 // CONFIGURATION
 // ============================================
 
-const EMAIL_ATTACHMENTS_DIR = path.resolve(
-  process.cwd(),
-  "uploads/email_attachments",
-);
+const FOLDER = "email_attachments";
 const ORPHAN_FILE_AGE_HOURS = 24;
+
+// ============================================
+// S3 HELPER: List all objects in folder
+// ============================================
+
+/**
+ * List all objects in the email_attachments folder in S3
+ * Returns array of { filename, lastModified, size }
+ */
+async function listFolderObjects(folder) {
+  const prefix = `${folder}/`;
+  const objects = [];
+  let continuationToken;
+
+  do {
+    const command = new ListObjectsV2Command({
+      Bucket: S3_BUCKET,
+      Prefix: prefix,
+      ContinuationToken: continuationToken,
+    });
+
+    const response = await s3Client.send(command);
+
+    if (response.Contents) {
+      for (const obj of response.Contents) {
+        // Extract filename from key (remove folder prefix)
+        const filename = obj.Key.substring(prefix.length);
+
+        // Skip empty keys (the folder "object" itself)
+        if (!filename) continue;
+
+        objects.push({
+          filename,
+          lastModified: obj.LastModified,
+          size: obj.Size,
+        });
+      }
+    }
+
+    continuationToken = response.IsTruncated
+      ? response.NextContinuationToken
+      : undefined;
+  } while (continuationToken);
+
+  return objects;
+}
 
 // ============================================
 // FILE CLEANUP FUNCTIONS
 // ============================================
 
+/**
+ * Find and delete orphaned files in S3
+ * An orphaned file exists in S3 but has no corresponding
+ * EmailBroadcastAttachment record in DB, and is older than threshold.
+ */
 async function cleanupOrphanedFiles() {
   try {
-    if (!fs.existsSync(EMAIL_ATTACHMENTS_DIR)) {
-      return { cleaned: 0, message: "Upload directory does not exist" };
+    // 1. List all objects in S3 folder
+    const s3Objects = await listFolderObjects(FOLDER);
+
+    if (s3Objects.length === 0) {
+      return { cleaned: 0, message: "No files in S3 folder" };
     }
 
-    const files = fs.readdirSync(EMAIL_ATTACHMENTS_DIR);
-
-    if (files.length === 0) {
-      return { cleaned: 0, message: "No files to clean" };
-    }
-
+    // 2. Get all referenced storage_keys from DB
     const referencedAttachments =
       await prisma.emailBroadcastAttachment.findMany({
         select: { storage_key: true },
       });
 
     const referencedFiles = new Set(
-      referencedAttachments.map((att) => att.storage_key),
+      referencedAttachments.map((att) => att.storage_key)
     );
 
+    // 3. Find orphaned files older than threshold
     const orphanThreshold =
       Date.now() - ORPHAN_FILE_AGE_HOURS * 60 * 60 * 1000;
     let cleaned = 0;
 
-    for (const filename of files) {
-      if (referencedFiles.has(filename)) {
+    for (const obj of s3Objects) {
+      // Skip if file is referenced in DB
+      if (referencedFiles.has(obj.filename)) {
         continue;
       }
 
-      const filePath = path.join(EMAIL_ATTACHMENTS_DIR, filename);
+      // Skip if file is too new (might be mid-upload)
+      const fileAge = obj.lastModified ? obj.lastModified.getTime() : Date.now();
+      if (fileAge >= orphanThreshold) {
+        continue;
+      }
 
+      // Delete orphaned file
       try {
-        const stats = fs.statSync(filePath);
+        const deleted = await fileStorage.deleteFile({
+          folder: FOLDER,
+          filename: obj.filename,
+        });
 
-        if (stats.mtimeMs < orphanThreshold) {
-          const deleted = await fileStorage.deleteFile({
-            folder: "email_attachments",
-            filename,
-          });
-
-          if (deleted) {
-            cleaned++;
-            console.log(
-              `[File Cleanup] Deleted orphaned file: ${filename}`,
-            );
-          }
+        if (deleted) {
+          cleaned++;
+          console.log(
+            `[File Cleanup] Deleted orphaned file: ${obj.filename}`
+          );
         }
       } catch (err) {
         console.error(
-          `[File Cleanup] Failed to process file ${filename}:`,
-          err.message,
+          `[File Cleanup] Failed to delete orphaned file ${obj.filename}:`,
+          err.message
         );
       }
     }
@@ -83,11 +145,14 @@ async function cleanupOrphanedFiles() {
 
     return { cleaned, message: `Cleaned ${cleaned} orphaned files` };
   } catch (err) {
-    console.error("[File Cleanup] Cleanup failed:", err);
+    console.error("[File Cleanup] Orphan cleanup failed:", err);
     return { cleaned: 0, error: err.message };
   }
 }
 
+/**
+ * Delete files from cancelled campaigns
+ */
 async function cleanupCancelledCampaignFiles() {
   try {
     const cancelledCampaigns =
@@ -106,7 +171,7 @@ async function cleanupCancelledCampaignFiles() {
       if (campaign.attachmentFiles.length === 0) continue;
 
       const filesToDelete = campaign.attachmentFiles.map((att) => ({
-        folder: "email_attachments",
+        folder: FOLDER,
         filename: att.storage_key,
       }));
 
@@ -122,7 +187,7 @@ async function cleanupCancelledCampaignFiles() {
 
     if (cleaned > 0) {
       console.log(
-        `[File Cleanup] Cleaned ${cleaned} file(s) from cancelled campaigns`,
+        `[File Cleanup] Cleaned ${cleaned} file(s) from cancelled campaigns`
       );
     }
 
@@ -130,19 +195,18 @@ async function cleanupCancelledCampaignFiles() {
   } catch (err) {
     console.error(
       "[File Cleanup] Cancelled campaign cleanup failed:",
-      err,
+      err
     );
     return { cleaned: 0, error: err.message };
   }
 }
 
-async function cleanupDeletedDraftFiles() {
-  return cleanupOrphanedFiles();
-}
-
+/**
+ * Get storage stats for email attachments folder
+ */
 async function getStorageStats() {
   try {
-    return await fileStorage.getFolderStats("email_attachments");
+    return await fileStorage.getFolderStats(FOLDER);
   } catch (err) {
     console.error("[File Cleanup] Get storage stats failed:", err);
     return { error: err.message };
@@ -165,7 +229,7 @@ async function runFileCleanup() {
 
     if (totalCleaned > 0) {
       console.log(
-        `[File Cleanup] Completed - cleaned ${totalCleaned} total file(s)`,
+        `[File Cleanup] Completed - cleaned ${totalCleaned} total file(s)`
       );
     }
 
@@ -181,16 +245,15 @@ async function runFileCleanup() {
 }
 
 // ============================================
-// INITIALIZE CRON JOB
+// INITIALIZE CRON JOB — UNCHANGED
 // ============================================
 
 export function initializeFileCleanupWorker() {
-  // ✅ CHANGED: Wrapped with distributed lock
   cron.schedule("0 4 * * *", () =>
-    withCronLock("file-cleanup", 30, runFileCleanup),
+    withCronLock("file-cleanup", 30, runFileCleanup)
   );
   console.log(
-    "[File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)",
+    "[File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)"
   );
 }
 

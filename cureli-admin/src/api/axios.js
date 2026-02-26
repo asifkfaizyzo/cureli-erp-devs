@@ -1,8 +1,9 @@
 //Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\api\axios.js
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL ;
 const CAdminAPI = axios.create({
-  baseURL: "http://localhost:5000/cadmin",
+  baseURL: `${API_URL}/cadmin`,
   withCredentials: true,
 });
 // Helper to decode JWT and check expiry
@@ -21,7 +22,7 @@ function isTokenExpired(token) {
 async function refreshAccessToken() {
   try {
     console.log("🔄 Attempting to refresh access token...");
-    const response = await axios.get("http://localhost:5000/cadmin/refresh", {
+    const response = await axios.get(`${API_URL}/cadmin/refresh`, {
       withCredentials: true,
     });
     const newToken = response.data?.data?.access_token;

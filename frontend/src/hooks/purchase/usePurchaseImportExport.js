@@ -485,7 +485,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         throw new Error('Authentication required. Please log in again.');
       }
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const apiUrl = import.meta.env.VITE_API_URL ;
       
       console.log('🌐 API URL:', `${apiUrl}/api/excel/convert`);
 
