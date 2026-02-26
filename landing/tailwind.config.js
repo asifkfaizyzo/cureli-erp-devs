@@ -67,12 +67,20 @@ export default {
   theme: {
     extend: {
       screens: {
-        xs: "475px",
+        'xs': '375px',   // iPhone SE, small phones
+        'sm': '640px',   // Large phones, small tablets  
+        'md': '768px',   // Tablets
+        'lg': '1024px',  // Laptops
+        'xl': '1280px',  // Desktops
+        '2xl': '1536px', // Large screens
       },
       fontFamily: {
         poppins: ["Poppins", "sans-serif"],
         manrope: ["Manrope", "sans-serif"],
         sans: ["Manrope", "sans-serif"],
+      },
+      spacing: {
+        'safe': 'env(safe-area-inset-bottom)',
       },
     },
   },

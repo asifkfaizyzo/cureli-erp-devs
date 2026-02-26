@@ -1,37 +1,44 @@
 import { useEffect } from "react";
 import AOS from "aos";
+import dashboardMockup2 from "../../../../assets/images/dashboard-mockup2.png"; 
+import dashboard from "../../../../assets/images/dashoard.png";
+import inventory from "../../../../assets/images/inventory.png"; 
+import purchase from "../../../../assets/images/purchase.png"; 
+import sales from "../../../../assets/images/sales.png"; 
+import suppliers from "../../../../assets/images/suppliers.png"; 
+
 ///dummy data
 
 const features = [
+   {
+  title: "Dashboard",
+  description: "Get a real-time overview of sales, inventory, and performance with powerful analytics and insights.",
+  img: dashboard
+},
   { 
     title: "Sales", 
     description: "We provide reliable, accessible pharmacy care to improve health daily.",
-    img: "src/assets/images/dashboard-mockup2.png" 
+    img: sales 
   },
   { 
     title: "Purchase", 
     description: "We ensure timely, cost-effective purchasing to keep your pharmacy stocked.",
-    img: "src/assets/images/dashboard-mockup2.png" 
+    img: purchase 
   },
   { 
     title: "Inventory", 
     description: "We maintain real-time inventory ensuring essential medicines remain available always.",
-    img: "src/assets/images/dashboard-mockup2.png" 
+    img: inventory 
   },
   { 
     title: "Suppliers", 
     description: "Trusted suppliers help us deliver quality medicines with timely restocking.",
-    img: "src/assets/images/dashboard-mockup2.png" 
-  },
-  { 
-    title: "Report", 
-    description: "We generate accurate reports providing insights to improve pharmacy operations.",
-    img: "src/assets/images/dashboard-mockup2.png" 
+    img: suppliers 
   },
   { 
     title: "Orders", 
     description: "We manage orders efficiently delivering timely, accurate service to patients.",
-    img: "src/assets/images/dashboard-mockup2.png" 
+    img: dashboardMockup2 
   }
 ];
 

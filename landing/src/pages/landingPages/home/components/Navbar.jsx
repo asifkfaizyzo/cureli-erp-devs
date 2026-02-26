@@ -18,6 +18,18 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
+
   const navItems = [
     { path: "/", label: "Home" },
     { path: "/about", label: "About" },
@@ -28,30 +40,38 @@ const Navbar = () => {
   return (
     <nav
       className={`fixed top-0 left-0 w-full z-50
-      backdrop-blur-lg bg-[#000060]
-      transition-all duration-300 
-      ${scrolled ? "shadow-lg" : "shadow-md"}`}
+        backdrop-blur-lg bg-[#000060]
+        transition-all duration-300 
+        ${scrolled ? "shadow-lg" : "shadow-md"}`}
     >
-      <div className="relative w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-5 md:py-6">
+      {/* MAIN NAVBAR CONTAINER - Changed to flexbox for better phone layout */}
+      <div 
+        className="
+          flex items-center justify-between
+          w-full 
+          px-4 sm:px-6 lg:px-8
+          py-3 xs:py-3.5 sm:py-5 md:py-6
+          min-h-[56px] xs:min-h-[64px] sm:min-h-0
+        "
+      >
 
-        {/* LEFT — LOGO + NAME (Far Left) - Responsive */}
-        <div className="absolute left-4 sm:left-6 lg:left-8 top-1/2 transform -translate-y-1/2">
-          <Link to="/" className="flex items-center gap-2">
-            {/* Logo - Responsive sizing */}
-            <img 
-              src={logo} 
-              alt="Cureli ERP" 
-              className="h-8 sm:h-10 md:h-12 w-auto" 
-            />
-            {/* Text - Hidden on small screens, visible from sm up */}
-            <span className="hidden sm:inline-block text-lg md:text-xl lg:text-2xl font-bold text-white font-manrope">
-              Cureli
-            </span>
-          </Link>
-        </div>
+        {/* LEFT — LOGO + NAME */}
+        <Link 
+          to="/" 
+          className="flex items-center gap-2 flex-shrink-0"
+        >
+          <img 
+            src={logo} 
+            alt="Cureli ERP" 
+            className="h-8 sm:h-10 md:h-12 w-auto" 
+          />
+          <span className="hidden sm:inline-block text-lg md:text-xl lg:text-2xl font-bold text-white font-manrope">
+            Cureli
+          </span>
+        </Link>
 
         {/* CENTER — NAV LINKS (Desktop Only) */}
-        <div className="hidden md:flex items-center justify-center gap-6 lg:gap-10 w-full">
+        <div className="hidden md:flex items-center justify-center gap-6 lg:gap-10 flex-1">
           {navItems.map((item) => (
             <Link
               key={item.path}
@@ -68,8 +88,8 @@ const Navbar = () => {
           ))}
         </div>
 
-        {/* RIGHT — BUTTONS (Far Right) */}
-        <div className="absolute right-4 sm:right-6 lg:right-8 top-1/2 transform -translate-y-1/2 flex items-center gap-3 sm:gap-4">
+        {/* RIGHT — BUTTONS & MENU */}
+        <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
           
           {/* Desktop Buttons */}
           <div className="hidden lg:flex items-center gap-3">
@@ -105,10 +125,15 @@ const Navbar = () => {
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Menu Button - Better touch target for phones */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden text-white p-1 hover:bg-white/10 rounded-md transition-colors duration-200"
+            className="
+              md:hidden text-white 
+              p-2 xs:p-2.5 
+              hover:bg-white/10 
+              rounded-md transition-colors duration-200
+            "
             aria-label="Toggle menu"
             aria-expanded={isOpen}
           >
@@ -118,22 +143,26 @@ const Navbar = () => {
 
       </div>
 
-      {/* MOBILE MENU */}
+      {/* MOBILE MENU - Improved phone padding */}
       {isOpen && (
         <div className="md:hidden bg-[#000060]/95 backdrop-blur-xl border-t border-white/20">
-          <div className="px-4 sm:px-6 py-4">
-            <div className="flex flex-col gap-4">
+          <div className="px-4 xs:px-5 sm:px-6 py-4 xs:py-5">
+            <div className="flex flex-col gap-3 xs:gap-4">
               
               {navItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`font-manrope text-white py-2 px-3 rounded-md transition-all duration-200
+                  className={`
+                    font-manrope text-white 
+                    py-2.5 xs:py-3 px-3 xs:px-4 
+                    rounded-md transition-all duration-200
                     ${
                       location.pathname === item.path
                         ? "bg-white/20 font-semibold"
                         : "hover:bg-white/10"
-                    }`}
+                    }
+                  `}
                   onClick={() => setIsOpen(false)}
                 >
                   {item.label}
@@ -141,17 +170,17 @@ const Navbar = () => {
               ))}
 
               <div className="border-t border-white/20 pt-4 mt-2 flex flex-col gap-3">
-                <Link
-                  to="/login"
-                  className="bg-white text-[#000060] rounded-md text-center py-2 font-manrope font-semibold hover:bg-gray-100 transition-colors duration-200"
+                <a
+                  href="https://pharmacy.curelihealth.com/login"
+                  className="bg-white text-[#000060] rounded-md text-center py-2.5 xs:py-3 font-manrope font-semibold hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
                 >
                   Sign In
-                </Link>
+                </a>
 
                 <Link
                   to="/book-demo"
-                  className="bg-white text-[#000060] rounded-md text-center py-2 font-manrope font-semibold hover:bg-gray-100 transition-colors duration-200"
+                  className="bg-white text-[#000060] rounded-md text-center py-2.5 xs:py-3 font-manrope font-semibold hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
                 >
                   Book a Demo

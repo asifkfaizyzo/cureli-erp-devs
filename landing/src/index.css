@@ -105,3 +105,37 @@ tr:hover td:first-child .row-number-badge {
   transform: scale(1.1);
 }
 
+/* Add to your global styles or index.css */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Set CSS variable for navbar height */
+:root {
+  --navbar-height: 56px;
+}
+
+@media (min-width: 375px) {
+  :root {
+    --navbar-height: 64px;
+  }
+}
+
+@media (min-width: 640px) {
+  :root {
+    --navbar-height: 72px;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --navbar-height: 80px;
+  }
+}
