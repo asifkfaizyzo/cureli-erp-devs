@@ -4,7 +4,7 @@ import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
 
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: `${import.meta.env.VITE_API_URL}/api`,
   withCredentials: true,
 });
 
@@ -132,7 +132,7 @@ API.interceptors.response.use(
 
       try {
         const res = await axios.post(
-          "http://localhost:5000/api/auth/refresh",
+          `${import.meta.env.VITE_API_URL}/api/auth/refresh`,
           {},
           { withCredentials: true }
         );
