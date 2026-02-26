@@ -418,7 +418,8 @@ const ContactFormCard = () => {
                   Our Location :
                 </h4>
                 <p className="font-manrope text-xs sm:text-sm text-white/80 leading-relaxed">
-                  Jl. Raya Puputan No 142, Denpasar
+                  Door No.198,CMH Road, 2nd Floor,Suite No.3652, Indiranagar, Bangalore North, Bangalore- 560038,
+Karnataka
                 </p>
               </div>
             </div>
@@ -432,7 +433,7 @@ const ContactFormCard = () => {
                   Email Us :
                 </h4>
                 <p className="font-manrope text-xs sm:text-sm text-white/80">
-                  support@domain.com
+                  cureliofficial@gmail.com
                 </p>
               </div>
             </div>

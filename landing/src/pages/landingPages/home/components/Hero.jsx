@@ -51,7 +51,7 @@ const Hero = () => {
           data-aos-delay="300"
         >
           <a
-            href="#pricing"
+            href="/contact"
             className="px-6 sm:px-8 py-3 bg-white text-[#05015A] font-semibold rounded-lg shadow-md hover:bg-gray-100 transition-all duration-200"
           >
             Book a Demo

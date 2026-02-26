@@ -106,7 +106,7 @@ const AboutSectionCombined = () => {
         </p>
 
         <Link
-          to="/book-demo"
+          to="/contact"
           className="inline-block px-6 sm:px-7 md:px-8 py-2.5 sm:py-3 md:py-3.5 bg-[#05015A] text-white rounded-lg font-manrope font-semibold text-sm sm:text-base hover:bg-[#030139] transition-all duration-300 shadow-md hover:shadow-lg"
         >
           Book a Demo

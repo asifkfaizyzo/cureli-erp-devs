@@ -81,7 +81,7 @@ const Navbar = () => {
             </Link>
 
             <Link
-              to="/book-demo"
+              to="/contact"
               className="px-5 py-2 bg-white border border-white text-[#000060] rounded-md font-manrope font-semibold shadow hover:bg-gray-100 transition-colors duration-200"
             >
               Book a Demo
@@ -98,7 +98,7 @@ const Navbar = () => {
             </Link>
 
             <Link
-              to="/book-demo"
+              to="/contact"
               className="px-3 py-2 bg-white border border-white text-[#000060] rounded-md font-manrope font-semibold text-sm hover:bg-gray-100 transition-colors duration-200"
             >
               Demo
@@ -150,7 +150,7 @@ const Navbar = () => {
                 </Link>
 
                 <Link
-                  to="/book-demo"
+                  to="/contact"
                   className="bg-white text-[#000060] rounded-md text-center py-2 font-manrope font-semibold hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
                 >

@@ -131,7 +131,7 @@ const Footer = () => {
           
           {/* Copyright */}
           <p className="font-manrope text-xs text-white/60">
-            ©CURELI2025. ALL RIGHTS RESERVED.
+            ©CURELI2026. ALL RIGHTS RESERVED.
           </p>
 
           {/* Social Icons */}

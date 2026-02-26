@@ -93,15 +93,15 @@ const Navbar = () => {
           
           {/* Desktop Buttons */}
           <div className="hidden lg:flex items-center gap-3">
-            <Link
-              to="/login"
+            <a
+              href="https://pharmacy.curelihealth.com/login"
               className="px-5 py-2 bg-[#000060] text-white rounded-md font-manrope font-semibold shadow hover:bg-[#000040] transition-colors duration-200"
             >
               Sign In
-            </Link>
+            </a>
 
             <Link
-              to="/book-demo"
+              to="/contact"
               className="px-5 py-2 bg-white border border-[#000060] text-[#000060] rounded-md font-manrope font-semibold shadow hover:bg-gray-100 transition-colors duration-200"
             >
               Book a Demo
@@ -110,15 +110,15 @@ const Navbar = () => {
 
           {/* Tablet Compact Buttons */}
           <div className="hidden md:flex lg:hidden items-center gap-2">
-            <Link
-              to="/login"
+            <a
+              href="https://pharmacy.curelihealth.com/login"
               className="px-3 py-2 bg-[#000060] text-white rounded-md font-manrope font-semibold text-sm hover:bg-[#000040] transition-colors duration-200"
             >
               Sign In
-            </Link>
+            </a>
 
             <Link
-              to="/book-demo"
+              to="/contact"
               className="px-3 py-2 bg-white border border-[#000060] text-[#000060] rounded-md font-manrope font-semibold text-sm hover:bg-gray-100 transition-colors duration-200"
             >
               Demo
@@ -170,16 +170,16 @@ const Navbar = () => {
               ))}
 
               <div className="border-t border-white/20 pt-4 mt-2 flex flex-col gap-3">
-                <Link
-                  to="/login"
+                <a
+                  href="https://pharmacy.curelihealth.com/login"
                   className="bg-white text-[#000060] rounded-md text-center py-2.5 xs:py-3 font-manrope font-semibold hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
                 >
                   Sign In
-                </Link>
+                </a>
 
                 <Link
-                  to="/book-demo"
+                  to="/contact"
                   className="bg-white text-[#000060] rounded-md text-center py-2.5 xs:py-3 font-manrope font-semibold hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
                 >

@@ -265,7 +265,7 @@ app.use("/cadmin", cadminPlansRoutes);
 app.use("/cadmin", cadminAdminRoutes);
 app.use("/cadmin", cadminProfileRoutes);
 app.use("/cadmin", cadminTicketsRoutes);
-app.use("/cadmin", enquiriesRoutes);
+app.use("/cadmin/enquiries", enquiriesRoutes);
 app.use("/cadmin", cadminSubscriptionsRoutes);
 app.use("/cadmin", cadminAuditRoutes);
 app.use("/cadmin", cadminBroadcastInAppRoutes);  
