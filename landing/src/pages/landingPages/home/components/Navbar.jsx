@@ -1,4 +1,4 @@
-// src/components/Navbar.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\landing\src\pages\landingPages\home\components\Navbar.jsx
 
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -73,12 +73,12 @@ const Navbar = () => {
           
           {/* Desktop Buttons */}
           <div className="hidden lg:flex items-center gap-3">
-            <Link
-              to="/login"
+            <a
+              href="https://pharmacy.curelihealth.com/login"
               className="px-5 py-2 bg-white text-[#000060] rounded-md font-manrope font-semibold shadow hover:bg-gray-100 transition-colors duration-200"
             >
               Sign In
-            </Link>
+            </a>
 
             <Link
               to="/book-demo"
@@ -90,12 +90,12 @@ const Navbar = () => {
 
           {/* Tablet Compact Buttons */}
           <div className="hidden md:flex lg:hidden items-center gap-2">
-            <Link
-              to="/login"
+            <a
+              href="https://pharmacy.curelihealth.com/login"
               className="px-3 py-2 bg-white text-[#000060] rounded-md font-manrope font-semibold text-sm hover:bg-gray-100 transition-colors duration-200"
             >
               Sign In
-            </Link>
+            </a>
 
             <Link
               to="/book-demo"
