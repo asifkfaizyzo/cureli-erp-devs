@@ -16,7 +16,7 @@ import crypto from 'crypto';
 // CONFIGURATION
 // ============================================
 
-const BASE_URL = process.env.APP_URL || 'http://localhost:5000';
+const BASE_URL = process.env.APP_URL ;
 const TOKEN_LENGTH = 32; // 64 hex characters
 
 // ============================================
