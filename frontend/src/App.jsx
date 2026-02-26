@@ -110,9 +110,7 @@ const MaintenanceCheck = ({ children }) => {
       }
 
       try {
-        const response = await fetch(
-          "http://localhost:5000/api/maintenance/status",
-        );
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/maintenance/status`);
         const data = await response.json();
 
         if (data.success && data.data.maintenance_mode) {
