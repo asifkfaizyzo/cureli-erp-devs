@@ -1,7 +1,21 @@
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AOS from "aos";
-import { Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
+import { Facebook, Instagram, Linkedin } from "lucide-react";
+
+// Custom X (Twitter) Icon Component
+const XIcon = ({ size = 24, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+    aria-hidden="true"
+  >
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
 
 const Footer = () => {
   const navigate = useNavigate();
@@ -28,6 +42,14 @@ const Footer = () => {
   const handleLinkClick = (path) => {
     navigate(path);
   };
+
+  // Social links data with custom X icon
+  const socialLinks = [
+    { icon: Facebook, href: "https://facebook.com", label: "Facebook" },
+    { icon: XIcon, href: "https://x.com", label: "X (Twitter)", isCustom: true },
+    { icon: Instagram, href: "https://instagram.com", label: "Instagram" },
+    { icon: Linkedin, href: "https://linkedin.com", label: "LinkedIn" },
+  ];
 
   return (
     <footer className="text-white bg-[#000060] relative z-10">
@@ -83,9 +105,6 @@ const Footer = () => {
                     to={item.path}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Optional: use navigate if Link doesn't work
-                      // e.preventDefault();
-                      // handleLinkClick(item.path);
                     }}
                     className="font-manrope text-sm text-white/80 hover:text-white transition-colors duration-200 inline-block py-1 cursor-pointer"
                   >
@@ -136,12 +155,7 @@ const Footer = () => {
 
           {/* Social Icons */}
           <div className="flex gap-4">
-            {[
-              { icon: Facebook, href: "https://facebook.com", label: "Facebook" },
-              { icon: Twitter, href: "https://twitter.com", label: "Twitter" },
-              { icon: Instagram, href: "https://instagram.com", label: "Instagram" },
-              { icon: Linkedin, href: "https://linkedin.com", label: "LinkedIn" },
-            ].map((social) => (
+            {socialLinks.map((social) => (
               <a
                 key={social.label}
                 href={social.href}
@@ -150,7 +164,11 @@ const Footer = () => {
                 className="text-white/70 hover:text-white transition-colors duration-200"
                 aria-label={social.label}
               >
-                <social.icon size={20} />
+                {social.isCustom ? (
+                  <social.icon size={20} />
+                ) : (
+                  <social.icon size={20} />
+                )}
               </a>
             ))}
           </div>

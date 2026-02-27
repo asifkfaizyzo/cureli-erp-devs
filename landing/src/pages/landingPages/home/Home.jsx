@@ -6,7 +6,7 @@ import Features from "./components/Features";
 import Pricing from "./components/Pricing";
 import Testimonials from "./components/Testimonials";
 import FAQ from "./components/FAQ";
-import Footer from "./components/Footer";
+import Footer from "../../../components/common/Footer";
 
 const Home = () => {
   return (

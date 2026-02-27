@@ -8,12 +8,14 @@ import * as audit from "../../audit/index.js";
 // HELPERS
 // ============================================
 
+// ✅ UPDATED: Match Prisma CAdminRole enum
 function formatRole(role) {
   if (!role) return "Super Admin";
   const map = {
-    SUPER_ADMIN: "Super Admin",
+    SUPER_CADMIN: "Super Admin",
     ANALYST: "Analyst",
-    ACCOUNTING: "Accounting",
+    ACCOUNTANT: "Accountant",
+    SALESMAN: "Salesman",
   };
   return map[role] || role;
 }
@@ -44,13 +46,17 @@ function formatDate(dt) {
   return `${day}/${month}/${year}`;
 }
 
+// ✅ UPDATED: Match Prisma CAdminRole enum with backward compatibility
 function mapRoleToDb(role) {
   if (!role) return null;
   const r = role.toLowerCase().replace(/\s+/g, "_");
   const map = {
-    super_admin: "SUPER_ADMIN",
+    super_cadmin: "SUPER_CADMIN",
+    super_admin: "SUPER_CADMIN", // Backward compatibility
     analyst: "ANALYST",
-    accounting: "ACCOUNTING",
+    accountant: "ACCOUNTANT",
+    accounting: "ACCOUNTANT", // Backward compatibility
+    salesman: "SALESMAN",
   };
   return map[r] || role.toUpperCase();
 }
@@ -86,7 +92,7 @@ export async function getAdminsService(query) {
     ];
   }
 
-  const sortField = sort === "username" ? "username" : sort === "username" ? "username" : sort === "role" ? "role" : sort === "last_login_at" ? "last_login_at" : "created_at";
+  const sortField = sort === "username" ? "username" : sort === "role" ? "role" : sort === "last_login_at" ? "last_login_at" : "created_at";
   const orderBy = { [sortField]: order };
 
   const [total, admins] = await Promise.all([
@@ -168,7 +174,7 @@ export async function getAdminByIdService(id) {
     phone: admin.phone_number,
     email: admin.email || "",
     role: formatRole(admin.role),
-    rawRole: admin.role, // ✅ ADD THIS - Send raw DB role value
+    rawRole: admin.role,
     status: formatStatus(admin.is_active),
     isActive: admin.is_active,
     lastLogin: formatDateTime(admin.last_login_at),
@@ -207,7 +213,7 @@ export async function createAdminService(data, auditContext = {}) {
         phone_number: phone,
         email: email.toLowerCase(),
         password_hash,
-        role: role || "SUPER_ADMIN",
+        role: role || "SUPER_CADMIN", // ✅ Changed default
         is_active: status === "Active",
       },
       select: {
@@ -424,10 +430,10 @@ export async function toggleAdminAccessService(id, isActive, auditContext = {}) 
     throw createError("Admin not found", 404);
   }
 
-  // Prevent deactivating last Super Admin
-  if (!isActive && existing.role === "SUPER_ADMIN") {
+  // ✅ UPDATED: Match Prisma enum SUPER_CADMIN
+  if (!isActive && existing.role === "SUPER_CADMIN") {
     const activeSuperAdmins = await prisma.cAdmin.count({
-      where: { role: "SUPER_ADMIN", is_active: true },
+      where: { role: "SUPER_CADMIN", is_active: true },
     });
     if (activeSuperAdmins <= 1) {
       throw createError("Cannot deactivate the last active Super Admin", 400);

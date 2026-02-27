@@ -4,7 +4,7 @@ import ContactHero from "./components/ContactHero";
 import ContactFormCard from "./components/ContactFormCard";
 import MapSection from "./components/MapSection";
 import Navbar from "../about/components/Navbar";
-import Footer from "../home/components/Footer";
+import Footer from "../../../components/common/Footer";
 import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 
 const Contact = () => {

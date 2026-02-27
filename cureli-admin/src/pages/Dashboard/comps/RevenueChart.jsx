@@ -6,7 +6,6 @@ import { DollarSign, Loader2, AlertCircle, TrendingUp } from "lucide-react";
 import { Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from "recharts";
 import { getRevenueData } from "../../../api/cadminDashboard";
 
-// ✅ Currency formatter - NO division, amount already in rupees
 const formatCurrency = (v) => {
   const n = parseFloat(v) || 0;
   if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
@@ -24,7 +23,6 @@ const ChartTooltip = ({ active, payload, label }) => {
         <div key={i} className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: e.color }} />
           <span className="text-[10px] text-gray-400">{e.name}:</span>
-          {/* ✅ NO division - amount already in rupees */}
           <span className="text-[10px] font-bold text-white ml-auto">{formatCurrency(e.value)}</span>
         </div>
       ))}
@@ -55,14 +53,45 @@ const RevenueChart = ({ period }) => {
 
   const chartData = data?.data || [];
   const summary = data?.summary || {};
-  
-  const displayData = useMemo(() => {
-    if (chartData.length <= 15) return chartData;
-    const step = Math.ceil(chartData.length / 15);
-    return chartData.filter((_, i) => i % step === 0 || i === chartData.length - 1);
-  }, [chartData]);
 
-  const hasData = displayData.length > 0 && displayData.some(d => d.value > 0);
+  // ✅ FIX: Check against full chartData OR summary, not sampled displayData
+  const hasData = useMemo(() => {
+    if ((summary.total || 0) > 0) return true;
+    if ((summary.transactionCount || 0) > 0) return true;
+    return chartData.some((d) => d.value > 0);
+  }, [chartData, summary]);
+
+  // ✅ FIX: Smart sampling that preserves non-zero data points
+  const displayData = useMemo(() => {
+    if (chartData.length <= 30) return chartData;
+
+    const maxPoints = 30;
+    const step = Math.ceil(chartData.length / maxPoints);
+
+    // Collect indices that must be included (non-zero values)
+    const nonZeroIndices = new Set();
+    chartData.forEach((d, i) => {
+      if (d.value > 0) {
+        nonZeroIndices.add(i);
+      }
+    });
+
+    // Collect sampled indices (evenly spaced)
+    const sampledIndices = new Set();
+    sampledIndices.add(0); // Always include first
+    sampledIndices.add(chartData.length - 1); // Always include last
+
+    for (let i = step; i < chartData.length - 1; i += step) {
+      sampledIndices.add(i);
+    }
+
+    // Merge: sampled + all non-zero
+    const allIndices = new Set([...sampledIndices, ...nonZeroIndices]);
+
+    // Sort and build result
+    const sortedIndices = Array.from(allIndices).sort((a, b) => a - b);
+    return sortedIndices.map((i) => chartData[i]);
+  }, [chartData]);
 
   return (
     <motion.div
@@ -84,7 +113,6 @@ const RevenueChart = ({ period }) => {
         {!loading && !error && (
           <div className="flex items-center gap-3">
             <div className="text-right">
-              {/* ✅ NO division - amount already in rupees */}
               <p className="text-sm font-bold text-gray-900">{formatCurrency(summary.total || 0)}</p>
               <p className="text-[9px] text-gray-400">{summary.transactionCount || 0} transactions</p>
             </div>
@@ -135,7 +163,6 @@ const RevenueChart = ({ period }) => {
                 tick={{ fontSize: 9, fill: "#9CA3AF" }} 
                 tickLine={false} 
                 axisLine={false} 
-                /* ✅ NO division - amount already in rupees */
                 tickFormatter={(v) => formatCurrency(v)} 
                 width={50}
               />

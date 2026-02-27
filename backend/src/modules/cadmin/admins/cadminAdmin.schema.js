@@ -1,4 +1,4 @@
-//backend\src\modules\cadmin\admins\cadminAdmin.schema.js
+// src/modules/cadmin/admins/cadminAdmin.schema.js
 import { z } from "zod";
 import { fail } from "../../../utils/response.js";
 
@@ -10,8 +10,12 @@ const ALLOWED_LIMITS = [6, 8, 10, 12, 14, 20];
 const ALLOWED_SORT_FIELDS = ["name", "username", "role", "created_at", "last_login_at"];
 const ALLOWED_SORT_ORDER = ["asc", "desc"];
 const ALLOWED_STATUS = ["", "active", "inactive"];
-const ALLOWED_ROLES = ["", "super_admin", "analyst", "accounting"];
-const CADMIN_ROLES = ["SUPER_ADMIN", "ANALYST", "ACCOUNTING"];
+
+// ✅ UPDATED: Match Prisma enum values (lowercase for query params)
+const ALLOWED_ROLES = ["", "super_cadmin", "analyst", "accountant", "salesman"];
+
+// ✅ UPDATED: Match Prisma CAdminRole enum exactly
+const CADMIN_ROLES = ["SUPER_CADMIN", "ANALYST", "ACCOUNTANT", "SALESMAN"];
 
 // ============================================
 // ZOD SCHEMAS
@@ -42,7 +46,7 @@ const createAdminSchema = z.object({
   phone: z.string().trim().regex(/^\d{10}$/, "Phone must be exactly 10 digits"),
   email: z.string().trim().email("Invalid email format"),
   password: z.string().min(8, "Password must be at least 8 characters").max(50, "Password must be less than 50 characters"),
-  role: z.enum(CADMIN_ROLES).default("SUPER_ADMIN"),
+  role: z.enum(CADMIN_ROLES).default("SUPER_CADMIN"), // ✅ Changed default
   status: z.enum(["Active", "Inactive"]).default("Active"),
 });
 
@@ -51,7 +55,7 @@ const updateAdminSchema = z.object({
   username: z.string().trim().min(3).max(50).regex(/^[a-zA-Z0-9_]+$/).optional(),
   phone: z.string().trim().regex(/^\d{10}$/).optional(),
   email: z.string().trim().email().optional(),
-  role: z.enum(CADMIN_ROLES).optional(),
+  role: z.enum(CADMIN_ROLES).optional(), // ✅ Uses updated CADMIN_ROLES
 }).refine((data) => Object.keys(data).length > 0, {
   message: "At least one field must be provided for update",
 });

@@ -31,6 +31,8 @@ import {
   getActorTypeOptions,
   AUDIT_CATEGORIES,
 } from '../../config/modules/auditConfig';
+import { useCAdminPermission } from '../../hooks/useCAdminPermission';
+import { CADMIN_PERMISSIONS } from '../../config/cadminPermissions';
 
 // ============================================
 // FILTER OPTIONS
@@ -68,6 +70,10 @@ const AuditPage = () => {
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const rowsPerPage = useDynamicRowCount();
+  const { hasPermission } = useCAdminPermission();
+
+  // Check export permission
+  const canExport = hasPermission(CADMIN_PERMISSIONS.AUDIT_EXPORT);
 
   // ============================================
   // STATE
@@ -282,14 +288,16 @@ const AuditPage = () => {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setExportModalOpen(true)}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
-                         hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2"
-            >
-              <Download size={16} />
-              <span className="hidden sm:inline">Export</span>
-            </button>
+            {canExport && (
+              <button
+                onClick={() => setExportModalOpen(true)}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
+                           hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2"
+              >
+                <Download size={16} />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+            )}
             <button
               onClick={handleRefresh}
               disabled={loading}
@@ -459,11 +467,13 @@ const AuditPage = () => {
       {/* ════════════════════════════════════════════
           EXPORT MODAL
       ════════════════════════════════════════════ */}
-      <AuditExportModal
-        isOpen={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        currentFilters={currentFilters}
-      />
+      {canExport && (
+        <AuditExportModal
+          isOpen={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          currentFilters={currentFilters}
+        />
+      )}
     </div>
   );
 };

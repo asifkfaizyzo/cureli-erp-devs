@@ -4,8 +4,9 @@ import AboutHero from "./components/AboutHero";
 import AboutPartners from "./components/AboutPartners";
 import AboutMission from "./components/AboutMission";
 import AboutCTA from "./components/AboutCTA";
-import Navbar from "./components/Navbar";
-import Footer from "../home/components/Footer";
+import Footer from "../../../components/common/Footer";
+import Navbar from "../about/components/Navbar";
+
 
 const About = () => {
   return (

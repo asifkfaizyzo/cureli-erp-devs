@@ -1,7 +1,7 @@
 // src/pages/shops-management/ShopsPage.jsx
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useSearchParams } from "react-router-dom"; // ✅ ADD THIS
+import { useSearchParams } from "react-router-dom";
 import {
   HousePlus,
   RefreshCw,
@@ -16,21 +16,46 @@ import StyledDateFilter from "../../components/common/StyledDateFilter";
 import { getShops } from "../../api/cadminShops";
 import { useToast } from "../../components/common/Toast";
 import useDynamicRowCount from "../../hooks/useDynamicRowCount";
+import { useCAdminPermission } from "../../hooks/useCAdminPermission";
+import { CADMIN_PERMISSIONS } from "../../config/cadminPermissions";
 
-// ... existing OPTIONS constants ...
+// Filter options
+const VERIFICATION_OPTIONS = [
+  { value: "", label: "All Verification" },
+  { value: "PENDING", label: "Pending" },
+  { value: "VERIFIED", label: "Verified" },
+  { value: "REJECTED", label: "Rejected" },
+];
+
+const SUBSCRIPTION_OPTIONS = [
+  { value: "", label: "All Subscriptions" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "EXPIRED", label: "Expired" },
+  { value: "GRACE_PERIOD", label: "Grace Period" },
+  { value: "SUSPENDED", label: "Suspended" },
+];
+
+const ACTIVE_OPTIONS = [
+  { value: "", label: "All Status" },
+  { value: "true", label: "Active" },
+  { value: "false", label: "Inactive" },
+];
 
 const ShopsPage = () => {
-  
   const toast = useToast();
   const rowsPerPage = useDynamicRowCount();
-  
-  // ✅ ADD: Get URL search params
+  const { hasPermission } = useCAdminPermission();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Permission checks
+  const canEdit = hasPermission(CADMIN_PERMISSIONS.SHOPS_EDIT);
+  const canVerify = hasPermission(CADMIN_PERMISSIONS.SHOPS_VERIFY);
+  const canSuspend = hasPermission(CADMIN_PERMISSIONS.SHOPS_SUSPEND);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
-  // ✅ CHANGED: Initialize from URL param
+  // Initialize from URL param
   const initialSearch = searchParams.get("search") || "";
   const [searchText, setSearchText] = useState(initialSearch);
   
@@ -52,19 +77,18 @@ const ShopsPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // ✅ ADD: Sync URL params to state when URL changes
+  // Sync URL params to state when URL changes
   useEffect(() => {
     const searchFromUrl = searchParams.get("search");
     if (searchFromUrl && searchFromUrl !== searchText) {
       setSearchText(searchFromUrl);
-      // Optionally clear filters when coming from external link
       setVerificationFilter("");
       setSubscriptionFilter("");
       setActiveFilter("");
       setDateFilter("");
       setCurrentPage(1);
     }
-  }, [searchParams]); // Only depend on searchParams, not searchText to avoid loop
+  }, [searchParams]);
 
   // Count active filters
   const activeFiltersCount = useMemo(() => {
@@ -151,7 +175,7 @@ const ShopsPage = () => {
   const handleRefresh = useCallback(() => {
     toast.info("Data Refreshed", "Loading latest Shops data...", 2000);
     fetchShops();
-  }, [fetchShops]);
+  }, [fetchShops, toast]);
 
   const handleClearFilters = useCallback(() => {
     setSearchText("");
@@ -159,12 +183,10 @@ const ShopsPage = () => {
     setSubscriptionFilter("");
     setActiveFilter("");
     setDateFilter("");
-    // ✅ ADD: Clear URL params
     searchParams.delete("search");
     setSearchParams(searchParams);
   }, [searchParams, setSearchParams]);
 
-  // ✅ ADD: Update search with URL sync
   const handleSearchChange = useCallback((value) => {
     setSearchText(value);
     if (value) {
@@ -248,14 +270,13 @@ const ShopsPage = () => {
                        disabled:opacity-50 flex-shrink-0"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            
           </button>
         </div>
 
         {/* Search & Filters */}
         <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {/* Search Input - ✅ CHANGED to use handleSearchChange */}
+            {/* Search Input */}
             <div className="relative flex-1 min-w-[200px]">
               <Search
                 size={18}
@@ -265,7 +286,7 @@ const ShopsPage = () => {
                 type="text"
                 placeholder="Search by shop name, email, or phone..."
                 value={searchText}
-                onChange={(e) => handleSearchChange(e.target.value)} // ✅ CHANGED
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
                            bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20 
                            focus:border-[#000060] transition-all"
@@ -273,7 +294,7 @@ const ShopsPage = () => {
               {searchText && (
                 <button
                   type="button"
-                  onClick={() => handleSearchChange("")} // ✅ CHANGED
+                  onClick={() => handleSearchChange("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded
                              text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
                 >
@@ -388,6 +409,9 @@ const ShopsPage = () => {
           onSortChange={handleSortChange}
           onRefresh={handleRefresh}
           onShopUpdate={handleShopUpdate}
+          canEdit={canEdit}
+          canVerify={canVerify}
+          canSuspend={canSuspend}
         />
       </div>
     </div>

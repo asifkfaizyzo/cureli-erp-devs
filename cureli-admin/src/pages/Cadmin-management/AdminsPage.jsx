@@ -25,9 +25,10 @@ const STATUS_OPTIONS = [
 
 const ROLE_OPTIONS = [
   { value: "", label: "All Roles" },
-  { value: "super_admin", label: "Super Admin" },
+  { value: "super_cadmin", label: "Super Admin" },
   { value: "analyst", label: "Analyst" },
-  { value: "accounting", label: "Accounting" },
+  { value: "accountant", label: "Accountant" },
+  { value: "salesman", label: "Salesman" },
 ];
 
 const AdminsPage = () => {

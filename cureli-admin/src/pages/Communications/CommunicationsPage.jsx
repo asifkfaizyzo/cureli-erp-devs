@@ -1,6 +1,6 @@
 // src/pages/Communications/CommunicationsPage.jsx
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   MessageSquare,
   Ticket,
@@ -18,6 +18,8 @@ import { getAllTickets } from "../../api/cadminTickets";
 import { useNavigate } from "react-router-dom";
 import { useMenuStore } from "../../store/useMenuStore";
 import { useToast } from "../../components/common/Toast";
+import { useCAdminPermission } from "../../hooks/useCAdminPermission";
+import { CADMIN_PERMISSIONS } from "../../config/cadminPermissions";
 
 // ============================================
 // STAT ITEM COMPONENT
@@ -124,6 +126,8 @@ const CommunicationCard = ({
 // ============================================
 const CommunicationsPage = () => {
   const toast = useToast();
+  const { hasPermission } = useCAdminPermission();
+  
   const [ticketStats, setTicketStats] = useState(null);
   const [enquiryStats, setEnquiryStats] = useState(null);
   const [loadingTickets, setLoadingTickets] = useState(true);
@@ -199,82 +203,100 @@ const CommunicationsPage = () => {
   const totalEnquiries = enquiryStats?.total || enquiryStats?.totalEnquiries || 0;
   const pendingEnquiries = enquiryStats?.pending || enquiryStats?.pendingEnquiries || 0;
 
-  // Communication channels
-  const channels = [
-    {
-      id: "tickets",
-      title: "Support Tickets",
-      description: "Manage customer support requests and track resolution progress",
-      icon: Ticket,
-      path: "/communications/tickets",
-      breadcrumbs: ["Communications", "Tickets"],
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-      isLoading: loadingTickets,
-      stats: ticketStats
-        ? [
-            {
-              icon: TrendingUp,
-              label: "Total",
-              value: totalTickets,
-              color: "bg-blue-50 text-blue-600",
-            },
-            {
-              icon: Clock,
-              label: "Pending",
-              value: pendingTickets,
-              color: "bg-amber-50 text-amber-600",
-            },
-          ]
-        : null,
-    },
-    {
-      id: "enquiries",
-      title: "Enquiries",
-      description: "Handle general inquiries and respond to customer questions and doubts",
-      icon: Mail,
-      path: "/communications/enquiries",
-      breadcrumbs: ["Communications", "Enquiries"],
-      iconBg: "bg-emerald-100",
-      iconColor: "text-emerald-600",
-      isLoading: loadingEnquiries,
-      stats: enquiryStats
-        ? [
-            {
-              icon: TrendingUp,
-              label: "Total",
-              value: totalEnquiries,
-              color: "bg-emerald-50 text-emerald-600",
-            },
-            {
-              icon: Clock,
-              label: "Pending",
-              value: pendingEnquiries,
-              color: "bg-amber-50 text-amber-600",
-            },
-          ]
-        : null,
-    },
-    {
-      id: "broadcast",
-      title: "Broadcast",
-      description: "Send announcements and notifications to users",
-      icon: Radio,
-      path: "/communications/broadcast",
-      breadcrumbs: ["Communications", "Broadcast"],
-      iconBg: "bg-violet-100",
-      iconColor: "text-violet-600",
-      isLoading: false,
-      isComingSoon: false,
-      stats: null,
-    },
-  ];
+  // Communication channels - filtered by permissions
+  const channels = useMemo(() => {
+    const allChannels = [
+      {
+        id: "tickets",
+        title: "Support Tickets",
+        description: "Manage customer support requests and track resolution progress",
+        icon: Ticket,
+        path: "/communications/tickets",
+        breadcrumbs: ["Communications", "Tickets"],
+        iconBg: "bg-blue-100",
+        iconColor: "text-blue-600",
+        isLoading: loadingTickets,
+        permissionKey: CADMIN_PERMISSIONS.TICKETS_VIEW,
+        stats: ticketStats
+          ? [
+              {
+                icon: TrendingUp,
+                label: "Total",
+                value: totalTickets,
+                color: "bg-blue-50 text-blue-600",
+              },
+              {
+                icon: Clock,
+                label: "Pending",
+                value: pendingTickets,
+                color: "bg-amber-50 text-amber-600",
+              },
+            ]
+          : null,
+      },
+      {
+        id: "enquiries",
+        title: "Enquiries",
+        description: "Handle general inquiries and respond to customer questions and doubts",
+        icon: Mail,
+        path: "/communications/enquiries",
+        breadcrumbs: ["Communications", "Enquiries"],
+        iconBg: "bg-emerald-100",
+        iconColor: "text-emerald-600",
+        isLoading: loadingEnquiries,
+        permissionKey: CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
+        stats: enquiryStats
+          ? [
+              {
+                icon: TrendingUp,
+                label: "Total",
+                value: totalEnquiries,
+                color: "bg-emerald-50 text-emerald-600",
+              },
+              {
+                icon: Clock,
+                label: "Pending",
+                value: pendingEnquiries,
+                color: "bg-amber-50 text-amber-600",
+              },
+            ]
+          : null,
+      },
+      {
+        id: "broadcast",
+        title: "Broadcast",
+        description: "Send announcements and notifications to users",
+        icon: Radio,
+        path: "/communications/broadcast",
+        breadcrumbs: ["Communications", "Broadcast"],
+        iconBg: "bg-violet-100",
+        iconColor: "text-violet-600",
+        isLoading: false,
+        isComingSoon: false,
+        permissionKey: CADMIN_PERMISSIONS.BROADCAST_VIEW,
+        stats: null,
+      },
+    ];
+
+    // Filter channels based on permissions
+    return allChannels.filter((channel) => hasPermission(channel.permissionKey));
+  }, [
+    loadingTickets,
+    loadingEnquiries,
+    ticketStats,
+    enquiryStats,
+    totalTickets,
+    pendingTickets,
+    totalEnquiries,
+    pendingEnquiries,
+    hasPermission,
+  ]);
 
   const isLoading = loadingTickets || loadingEnquiries;
 
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
-      {/* Header - ✅ FIXED: Now matches UserPage exactly */}
+      {/* Header */}
       <div className="flex-shrink-0 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3 min-w-0">

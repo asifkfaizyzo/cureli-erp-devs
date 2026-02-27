@@ -15,15 +15,15 @@ import StyledDateFilter from "../../components/common/StyledDateFilter";
 import { getCAdminUsers } from "../../api/cadminUsers";
 import { useToast } from "../../components/common/Toast";
 import useDynamicRowCount from "../../hooks/useDynamicRowCount";
+import { useCAdminPermission } from "../../hooks/useCAdminPermission";
+import { CADMIN_PERMISSIONS } from "../../config/cadminPermissions";
 
-// ✅ FIXED: Remove "suspended", only Active/Inactive
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
 ];
 
-// ✅ FIXED: Correct roles - Super Admin, Branch Admin, Staff
 const ROLE_OPTIONS = [
   { value: "", label: "All Roles" },
   { value: "super_admin", label: "Super Admin" },
@@ -33,12 +33,13 @@ const ROLE_OPTIONS = [
 
 const UserPage = () => {
   const toast = useToast();
-
-  // Get search params from URL
+  const { hasPermission } = useCAdminPermission();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  // Use dynamic row count from global config
   const rowsPerPage = useDynamicRowCount();
+
+  // Permission checks
+  const canEdit = hasPermission(CADMIN_PERMISSIONS.USERS_EDIT);
+  const canBlock = hasPermission(CADMIN_PERMISSIONS.USERS_BLOCK);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -78,7 +79,6 @@ const UserPage = () => {
     const searchFromUrl = searchParams.get("search");
     if (searchFromUrl) {
       setSearchText(searchFromUrl);
-      // Clear status and role filters when searching from URL to show all results
       setStatusFilter("");
       setRoleFilter("");
       setCurrentPage(1);
@@ -136,7 +136,7 @@ const UserPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Reset to page 1 when filters change (but not when rowsPerPage changes)
+  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchText, statusFilter, roleFilter, dateFilter, sortConfig]);
@@ -145,14 +145,13 @@ const UserPage = () => {
   const handleRefresh = useCallback(() => {
     toast.info("Data Refreshed", "Loading latest Users data...", 2000);
     fetchUsers();
-  }, [fetchUsers]);
+  }, [fetchUsers, toast]);
 
   const handleClearFilters = useCallback(() => {
     setSearchText("");
     setStatusFilter("");
     setRoleFilter("");
     setDateFilter("");
-    // Clear URL params
     searchParams.delete("search");
     setSearchParams(searchParams);
   }, [searchParams, setSearchParams]);
@@ -164,7 +163,6 @@ const UserPage = () => {
           prev.map((user) => (user.id === userId ? { ...user, ...updates } : user))
         );
 
-        // Show appropriate toast based on the update
         if (updates.is_active === false) {
           toast.success(
             "User Deactivated",
@@ -199,11 +197,9 @@ const UserPage = () => {
 
   const handleSearchChange = (value) => {
     setSearchText(value);
-    // Update URL params when search changes
     if (value) {
       setSearchParams({ search: value });
     } else {
-      // Remove search param if empty
       searchParams.delete("search");
       setSearchParams(searchParams);
     }
@@ -236,7 +232,6 @@ const UserPage = () => {
                        disabled:opacity-50 flex-shrink-0"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            
           </button>
         </div>
 
@@ -355,7 +350,7 @@ const UserPage = () => {
         )}
       </div>
 
-      {/* Table Container - Takes remaining height */}
+      {/* Table Container */}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <UserTable
           currentPage={currentPage}
@@ -368,6 +363,8 @@ const UserPage = () => {
           onSortChange={handleSortChange}
           onRefresh={handleRefresh}
           onUserUpdate={handleUserUpdate}
+          canEdit={canEdit}
+          canBlock={canBlock}
         />
       </div>
     </div>

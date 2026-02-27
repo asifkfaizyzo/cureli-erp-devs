@@ -1,6 +1,6 @@
 // src/components/layout/AdminSidebar.jsx
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -13,10 +13,11 @@ import {
   ShieldCheck,
   UserStar,
   MessageSquare,
-  ClipboardList, // ✅ NEW: For Orders icon
+  ClipboardList,
 } from "lucide-react";
 
 import { useMenuStore } from "../../store/useMenuStore";
+import { useCAdminMenuPermissions, useCAdminPermission } from "../../hooks/useCAdminPermission";
 
 /* ───────────────── Sidebar Width Config ───────────────── */
 const COLLAPSED_WIDTH = 72;
@@ -57,6 +58,7 @@ const MENU_ITEMS = [
     icon: LayoutGrid,
     path: "/dashboard",
     breadcrumbs: ["Dashboard"],
+    permissionKey: "dashboard",
   },
   {
     id: "users",
@@ -64,6 +66,7 @@ const MENU_ITEMS = [
     icon: Users,
     path: "/users",
     breadcrumbs: ["Users"],
+    permissionKey: "users",
   },
   {
     id: "shops",
@@ -71,14 +74,15 @@ const MENU_ITEMS = [
     icon: HousePlus,
     path: "/shops",
     breadcrumbs: ["Shops"],
+    permissionKey: "shops",
   },
-  // ✅ NEW: Orders Menu Item
   {
     id: "orders",
     label: "Orders",
     icon: ClipboardList,
     path: "/orders",
     breadcrumbs: ["Orders"],
+    permissionKey: "orders",
   },
   {
     id: "verification",
@@ -86,6 +90,7 @@ const MENU_ITEMS = [
     icon: ShieldCheck,
     path: "/verification",
     breadcrumbs: ["Verification"],
+    permissionKey: "verifications",
   },
   {
     id: "subscriptions",
@@ -93,6 +98,7 @@ const MENU_ITEMS = [
     icon: CreditCard,
     path: "/subscriptions",
     breadcrumbs: ["Subscriptions"],
+    permissionKey: "subscriptions",
   },
   {
     id: "audits",
@@ -100,6 +106,7 @@ const MENU_ITEMS = [
     icon: ListChecks,
     path: "/audits",
     breadcrumbs: ["Audits"],
+    permissionKey: "audit",
   },
   {
     id: "admins",
@@ -107,6 +114,7 @@ const MENU_ITEMS = [
     icon: UserStar,
     path: "/admins",
     breadcrumbs: ["Admins"],
+    permissionKey: "admins",
   },
   {
     id: "communications",
@@ -114,6 +122,7 @@ const MENU_ITEMS = [
     icon: MessageSquare,
     path: "/communications",
     breadcrumbs: ["Communications"],
+    permissionKey: "communications",
   },
   {
     id: "settings",
@@ -121,6 +130,8 @@ const MENU_ITEMS = [
     icon: Settings,
     path: "/settings",
     breadcrumbs: ["Settings"],
+    permissionKey: "settings",
+    superAdminOnly: true, // Flag for super admin only access
   },
 ];
 
@@ -146,7 +157,6 @@ const CHILD_ROUTES = {
     parentId: "subscriptions",
     breadcrumbs: ["Subscriptions", "Plans"],
   },
-  // ✅ NEW: Orders child routes
   "/orders/sessions": {
     parentId: "orders",
     breadcrumbs: ["Orders", "Sessions"],
@@ -166,9 +176,7 @@ const CHILD_ROUTES = {
 };
 
 /* ───────────────── NON-SIDEBAR ROUTES ───────────────── */
-const NON_SIDEBAR_ROUTES = [
-  "/notifications",
-];
+const NON_SIDEBAR_ROUTES = ["/notifications"];
 
 /* ───────────────── Menu Item Component ───────────────── */
 const MenuItem = ({ item, activeMenu, isExpanded, onNavigate }) => {
@@ -222,6 +230,9 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const permissions = useCAdminMenuPermissions();
+  const { isSuperCAdmin } = useCAdminPermission();
+
   const isExpanded = expanded;
 
   const [expandedWidth, setExpandedWidth] = useState(getExpandedWidth);
@@ -234,6 +245,19 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  /* ───────────── Filter menu items based on permissions ───────────── */
+  const visibleMenuItems = useMemo(() => {
+    return MENU_ITEMS.filter((item) => {
+      // Check if item is super admin only
+      if (item.superAdminOnly && !isSuperCAdmin) {
+        return false;
+      }
+
+      const permission = permissions[item.permissionKey];
+      return permission?.visible !== false;
+    });
+  }, [permissions, isSuperCAdmin]);
 
   /* ───────────── navigation handler ───────────── */
   const handleNavigation = useCallback(
@@ -268,20 +292,20 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       return;
     }
 
-    for (const item of MENU_ITEMS) {
+    for (const item of visibleMenuItems) {
       if (item.path === currentPath) {
         setActiveMenu(item.id);
         setBreadcrumbs(item.breadcrumbs);
         return;
       }
     }
-  }, [location.pathname, setActiveMenu, setBreadcrumbs]);
+  }, [location.pathname, setActiveMenu, setBreadcrumbs, visibleMenuItems]);
 
   /* 2️⃣ FALLBACK for invalid routes */
   useEffect(() => {
     const currentPath = location.pathname;
 
-    const isValidMain = MENU_ITEMS.some((m) => m.path === currentPath);
+    const isValidMain = visibleMenuItems.some((m) => m.path === currentPath);
     const isValidChild = Object.keys(CHILD_ROUTES).includes(currentPath);
     const isNonSidebarRoute = NON_SIDEBAR_ROUTES.includes(currentPath);
 
@@ -290,7 +314,7 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     }
 
     const allValidPaths = [
-      ...MENU_ITEMS.map((m) => m.path),
+      ...visibleMenuItems.map((m) => m.path),
       ...Object.keys(CHILD_ROUTES),
       ...NON_SIDEBAR_ROUTES,
     ];
@@ -304,7 +328,7 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       setBreadcrumbs(["Dashboard"]);
       navigate("/dashboard");
     }
-  }, [location.pathname, navigate, setActiveMenu, setBreadcrumbs]);
+  }, [location.pathname, navigate, setActiveMenu, setBreadcrumbs, visibleMenuItems]);
 
   return (
     <motion.aside
@@ -325,7 +349,7 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
         style={{ gap: "clamp(4px, 1.5vh, 16px)" }}
       >
         <div className="flex flex-col" style={{ gap: "clamp(2px, 1vh, 12px)" }}>
-          {MENU_ITEMS.map((item) => (
+          {visibleMenuItems.map((item) => (
             <MenuItem
               key={item.id}
               item={item}

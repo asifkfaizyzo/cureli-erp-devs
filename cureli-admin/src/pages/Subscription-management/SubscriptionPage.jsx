@@ -20,6 +20,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "../../components/common/Toast";
 import { useMenuStore } from "../../store/useMenuStore";
 import Pagination from "../../components/common/Pagination";
+import { useCAdminPermission } from "../../hooks/useCAdminPermission";
+import { CADMIN_PERMISSIONS } from "../../config/cadminPermissions";
 
 // Components
 import PlanCard from "./comps/plans/PlanCard";
@@ -30,7 +32,7 @@ import ConfirmActionModal from "./comps/plans/ConfirmActionModal";
 // Config
 import { generateCloneName, PLAN_STATUS } from "../../config/modules/subscriptionConfig";
 
-// Utils - ✅ NEW IMPORT
+// Utils
 import { normalizePlans, countPlansNeedingReview } from "../../utils/normalizePlan";
 
 // API
@@ -49,7 +51,7 @@ import {
 // Plans per page (2 rows × 4 columns = 8)
 const PLANS_PER_PAGE = 8;
 
-// Status filter options - using UPPERCASE to match backend values
+// Status filter options
 const STATUS_FILTERS = [
   { key: "all", label: "All", icon: Package },
   { key: PLAN_STATUS.ACTIVE, label: "Active", icon: CheckCircle },
@@ -61,6 +63,12 @@ const STATUS_FILTERS = [
 export default function SubscriptionPage() {
   const toast = useToast();
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
+  const { hasPermission } = useCAdminPermission();
+
+  // Permission checks
+  const canEdit = hasPermission(CADMIN_PERMISSIONS.PLANS_EDIT);
+  const canCreate = hasPermission(CADMIN_PERMISSIONS.PLANS_CREATE);
+  const canDelete = hasPermission(CADMIN_PERMISSIONS.PLANS_DELETE);
 
   // ============================================
   // STATE
@@ -123,13 +131,10 @@ export default function SubscriptionPage() {
 
       if (plansResponse.success) {
         const rawPlans = plansResponse.data.plans || [];
-        
-        // ✅ NORMALIZE PLANS with flagForReview for C-Admin
         const normalizedPlans = normalizePlans(rawPlans, { flagForReview: true });
         
         setPlans(normalizedPlans);
         
-        // ✅ Show warning toast if there are plans needing review
         const reviewCount = countPlansNeedingReview(normalizedPlans);
         if (reviewCount > 0) {
           toast.warning(
@@ -156,14 +161,12 @@ export default function SubscriptionPage() {
     fetchPlans();
   }, [fetchPlans]);
 
-  // Reset filters when switching plan types
   useEffect(() => {
     setStatusFilter("all");
     setSearchQuery("");
     setCurrentPage(1);
   }, [planTypeFilter]);
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
@@ -177,12 +180,10 @@ export default function SubscriptionPage() {
   // DERIVED DATA
   // ============================================
 
-  // ✅ Count plans needing review
   const plansNeedingReview = useMemo(() => {
     return countPlansNeedingReview(plans);
   }, [plans]);
 
-  // Filter plans based on search and status
   const filteredPlans = useMemo(() => {
     return plans.filter((p) => {
       const matchesSearch =
@@ -193,13 +194,11 @@ export default function SubscriptionPage() {
     });
   }, [plans, searchQuery, statusFilter]);
 
-  // Paginate filtered plans
   const paginatedPlans = useMemo(() => {
     const startIndex = (currentPage - 1) * PLANS_PER_PAGE;
     return filteredPlans.slice(startIndex, startIndex + PLANS_PER_PAGE);
   }, [filteredPlans, currentPage]);
 
-  // Stats for current filter - use stats from API for accuracy
   const planCounts = useMemo(() => ({
     all: plans.length,
     [PLAN_STATUS.ACTIVE]: stats.active || plans.filter((p) => p.status === PLAN_STATUS.ACTIVE).length,
@@ -215,6 +214,17 @@ export default function SubscriptionPage() {
   // ============================================
 
   const handlePlanAction = (actionType, plan) => {
+    // Check permissions for edit/delete actions
+    if ((actionType === 'edit' || actionType === 'clone') && !canEdit) {
+      toast.warning("Permission Denied", "You don't have permission to edit plans");
+      return;
+    }
+
+    if (actionType === 'delete' && !canDelete) {
+      toast.warning("Permission Denied", "You don't have permission to delete plans");
+      return;
+    }
+
     switch (actionType) {
       case "edit":
         setSelectedPlan(plan);
@@ -461,7 +471,7 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* ✅ NEW: Expired Promo Warning Banner */}
+      {/* Expired Promo Warning Banner */}
       {plansNeedingReview > 0 && (
         <div className="flex-shrink-0 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -500,7 +510,7 @@ export default function SubscriptionPage() {
 
           {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {planTypeFilter === "PRE_MADE" && (
+            {canCreate && planTypeFilter === "PRE_MADE" && (
               <button
                 onClick={() => setCreateModalOpen(true)}
                 disabled={actionLoading}
@@ -578,7 +588,7 @@ export default function SubscriptionPage() {
             </div>
           </div>
 
-          {/* Status Filters - Only show for PRE_MADE */}
+          {/* Status Filters */}
           {planTypeFilter === "PRE_MADE" && (
             <div className="pt-3 border-t border-gray-200">
               <div className="flex items-center gap-2 flex-wrap">
@@ -587,7 +597,6 @@ export default function SubscriptionPage() {
                   const count = planCounts[filterOption.key] || 0;
                   const isActive = statusFilter === filterOption.key;
 
-                  // Skip deprecated and suspended if count is 0
                   if (
                     (filterOption.key === PLAN_STATUS.DEPRECATED || filterOption.key === PLAN_STATUS.SUSPENDED) &&
                     count === 0
@@ -616,7 +625,6 @@ export default function SubscriptionPage() {
                   );
                 })}
 
-                {/* Promo Filter */}
                 {stats.with_active_promo > 0 && (
                   <button
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium 
@@ -631,7 +639,6 @@ export default function SubscriptionPage() {
                   </button>
                 )}
 
-                {/* ✅ NEW: Needs Review Filter */}
                 {plansNeedingReview > 0 && (
                   <button
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium 
@@ -645,7 +652,6 @@ export default function SubscriptionPage() {
                   </button>
                 )}
 
-                {/* Clear Filters */}
                 {hasActiveFilters && (
                   <button
                     onClick={handleClearFilters}
@@ -660,7 +666,6 @@ export default function SubscriptionPage() {
             </div>
           )}
 
-          {/* Info text for Custom Plans */}
           {planTypeFilter === "CUSTOM" && (
             <div className="text-sm text-gray-500 italic">
               Custom plans are created specifically for individual shops when assigning subscriptions.
@@ -678,13 +683,13 @@ export default function SubscriptionPage() {
                 key={plan.plan_id} 
                 plan={plan} 
                 onAction={handlePlanAction}
-                // ✅ Pass the review flag to PlanCard for visual indication
                 needsReview={plan._needs_review}
+                canEdit={canEdit}
+                canDelete={canDelete}
               />
             ))}
           </div>
         ) : (
-          /* Empty State */
           <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border-2 border-dashed border-gray-200">
             <div className="p-5 bg-gray-100 rounded-full mb-4">
               <BadgeIndianRupee size={40} className="text-gray-400" />
@@ -706,7 +711,7 @@ export default function SubscriptionPage() {
               >
                 Clear Filters
               </button>
-            ) : planTypeFilter === "PRE_MADE" ? (
+            ) : canCreate && planTypeFilter === "PRE_MADE" ? (
               <button
                 onClick={() => setCreateModalOpen(true)}
                 className="px-5 py-2.5 bg-[#000060] text-white rounded-xl text-sm font-semibold hover:bg-[#000080] transition-all"
@@ -738,13 +743,15 @@ export default function SubscriptionPage() {
       )}
 
       {/* Modals */}
-      <CreatePlanModal
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onSubmit={handleCreatePlan}
-        existingNames={plans.map((p) => p.name)}
-        loading={actionLoading}
-      />
+      {canCreate && (
+        <CreatePlanModal
+          isOpen={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          onSubmit={handleCreatePlan}
+          existingNames={plans.map((p) => p.name)}
+          loading={actionLoading}
+        />
+      )}
 
       <PlanModal
         isOpen={planModalOpen}
@@ -757,6 +764,7 @@ export default function SubscriptionPage() {
         allPlans={plans}
         mode={planModalMode}
         loading={actionLoading}
+        canEdit={canEdit}
       />
 
       <ConfirmActionModal

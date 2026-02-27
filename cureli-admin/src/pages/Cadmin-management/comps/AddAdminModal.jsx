@@ -17,9 +17,10 @@ const STATUS_OPTIONS = [
 ];
 
 const ROLE_OPTIONS = [
-  { value: "SUPER_ADMIN", label: "Super Admin" },
+  { value: "SUPER_CADMIN", label: "Super Admin" },
   { value: "ANALYST", label: "Analyst" },
-  { value: "ACCOUNTING", label: "Accounting" },
+  { value: "ACCOUNTANT", label: "Accountant" },
+  { value: "SALESMAN", label: "Salesman" },
 ];
 
 // FORM INPUT COMPONENT
@@ -167,16 +168,16 @@ const PasswordStrength = ({ password }) => {
 
 // MAIN COMPONENT
 const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
-  const [formData, setFormData] = useState({
-    name: "",
-    username: "",
-    phone: "",
-    email: "",
-    status: "Active",
-    role: "SUPER_ADMIN",
-    password: "",
-    confirmPassword: "",
-  });
+ const [formData, setFormData] = useState({
+  name: "",
+  username: "",
+  phone: "",
+  email: "",
+  status: "Active",
+  role: "SUPER_CADMIN", // ✅ Changed from SUPER_ADMIN
+  password: "",
+  confirmPassword: "",
+});
 
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
@@ -195,7 +196,7 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
         phone: "",
         email: "",
         status: "Active",
-        role: "SUPER_ADMIN",
+        role: "SUPER_CADMIN",
         password: "",
         confirmPassword: "",
       });

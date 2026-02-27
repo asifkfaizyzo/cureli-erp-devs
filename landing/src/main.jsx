@@ -5,7 +5,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import "./index.css";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import { ToastProvider } from "./components/common/Toast";
+import { ToastProvider } from "./components/Toast";
 import "aos/dist/aos.css";
 import AOS from "aos";
 

@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 
-
 const CreateAccount = ({ onLoginClick }) => {
   const navigate = useNavigate();
   const { executeRecaptcha } = useGoogleReCaptcha();
@@ -37,8 +36,6 @@ const CreateAccount = ({ onLoginClick }) => {
     localStorage.removeItem("user_id");
     localStorage.removeItem("user_name");
     localStorage.removeItem("onboarding_step");
-
-    // Clear refresh_token cookie
     document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
   };
 
@@ -61,8 +58,7 @@ const CreateAccount = ({ onLoginClick }) => {
     else if (!/[A-Z]/.test(pass)) err.password = "Missing uppercase letter";
     else if (!/[a-z]/.test(pass)) err.password = "Missing lowercase letter";
     else if (!/[0-9]/.test(pass)) err.password = "Missing number";
-    else if (!/[!@#$%^&*]/.test(pass))
-      err.password = "Missing special character";
+    else if (!/[!@#$%^&*]/.test(pass)) err.password = "Missing special character";
 
     if (!form.agree) err.agree = "You must agree";
 
@@ -71,12 +67,10 @@ const CreateAccount = ({ onLoginClick }) => {
   };
 
   // ---------------------------
-  // SIGNUP API
+  // GOOGLE SIGNUP
   // ---------------------------
-
   const handleGoogleSignup = async (response) => {
     try {
-      // ✅ Clear any existing session before new signup
       clearPreviousSession();
 
       const credential = response.credential;
@@ -93,62 +87,60 @@ const CreateAccount = ({ onLoginClick }) => {
       });
     } catch (err) {
       console.error("GOOGLE SIGNUP ERROR:", err);
-      alert("Google sign-up failed");
+      alert(err?.response?.data?.message || "Google sign-up failed");
     }
   };
 
- const handleCreateAccount = async () => {
-  if (!validate()) return;
+  // ---------------------------
+  // REGULAR SIGNUP
+  // ---------------------------
+  const handleCreateAccount = async () => {
+    if (!validate()) return;
 
-  // ✅ CHECK IF RECAPTCHA IS READY
-  if (!executeRecaptcha) {
-    console.error("❌ executeRecaptcha is not available");
-    alert("reCAPTCHA not ready. Please try again.");
-    return;
-  }
+    if (!executeRecaptcha) {
+      console.error("❌ executeRecaptcha is not available");
+      alert("reCAPTCHA not ready. Please try again.");
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    clearPreviousSession();
+    try {
+      clearPreviousSession();
 
-    // ✅ GET RECAPTCHA TOKEN
-    const recaptchaToken = await executeRecaptcha("signup");
-    
-    // ✅ ADD LOGGING TO VERIFY TOKEN
-    console.log("✅ reCAPTCHA Token generated:", recaptchaToken);
+      const recaptchaToken = await executeRecaptcha("signup");
+      console.log("✅ reCAPTCHA Token generated:", recaptchaToken);
 
-    const payload = {
-      first_name: form.first_name,
-      last_name: form.last_name,
-      email: form.email,
-      password: form.password,
-      recaptchaToken,
-    };
-
-    // ✅ LOG THE FULL PAYLOAD
-    console.log("📤 Sending payload:", payload);
-
-    const res = await signupUser(payload);
-    const pending_id = res.data.data.pending_id;
-
-    navigate("/onboarding", {
-      state: {
-        pending_id,
-        email: form.email,
+      const payload = {
         first_name: form.first_name,
         last_name: form.last_name,
-      },
-    });
-  } catch (err) {
-    console.error("❌ Signup failed:", err);
-    console.error("📥 Response data:", err?.response?.data);
-    console.error("📊 Response status:", err?.response?.status);
-    alert(err?.response?.data?.message || "Signup failed");
-  }
+        email: form.email,
+        password: form.password,
+        recaptchaToken,
+      };
 
-  setLoading(false);
-};
+      console.log("📤 Sending payload:", payload);
+
+      const res = await signupUser(payload);
+      const pending_id = res.data.data.pending_id;
+
+      navigate("/onboarding", {
+        state: {
+          pending_id,
+          email: form.email,
+          first_name: form.first_name,
+          last_name: form.last_name,
+        },
+      });
+    } catch (err) {
+      console.error("❌ Signup failed:", err);
+      console.error("📥 Response data:", err?.response?.data);
+      console.error("📊 Response status:", err?.response?.status);
+      alert(err?.response?.data?.message || "Signup failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <motion.div
@@ -161,6 +153,7 @@ const CreateAccount = ({ onLoginClick }) => {
         Create Account
       </h1>
 
+      {/* Name Fields */}
       <div className="flex gap-3 mb-3">
         <div className="w-1/2">
           <label className="text-xs font-bold text-[#000060]">First Name</label>
@@ -169,12 +162,11 @@ const CreateAccount = ({ onLoginClick }) => {
             placeholder="First Name"
             className={`w-full mt-1 px-2 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
               errors.first_name ? "border-red-500" : "border-gray-300"
-            } placeholder-xs sm:placeholder-sm md:placeholder-sm`}
+            }`}
             value={form.first_name}
             onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-            onKeyDown={(e) => e.key === "Enter" && lastNameRef.current.focus()}
+            onKeyDown={(e) => e.key === "Enter" && lastNameRef.current?.focus()}
           />
-
           {errors.first_name && (
             <p className="text-xs text-red-500 mt-1">{errors.first_name}</p>
           )}
@@ -191,7 +183,7 @@ const CreateAccount = ({ onLoginClick }) => {
             }`}
             value={form.last_name}
             onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-            onKeyDown={(e) => e.key === "Enter" && emailRef.current.focus()}
+            onKeyDown={(e) => e.key === "Enter" && emailRef.current?.focus()}
           />
           {errors.last_name && (
             <p className="text-xs text-red-500 mt-1">{errors.last_name}</p>
@@ -199,6 +191,7 @@ const CreateAccount = ({ onLoginClick }) => {
         </div>
       </div>
 
+      {/* Email Field */}
       <div className="mb-3">
         <label className="text-xs font-bold text-[#000060]">Email</label>
         <input
@@ -210,16 +203,16 @@ const CreateAccount = ({ onLoginClick }) => {
           }`}
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
-          onKeyDown={(e) => e.key === "Enter" && passwordRef.current.focus()}
+          onKeyDown={(e) => e.key === "Enter" && passwordRef.current?.focus()}
         />
         {errors.email && (
           <p className="text-xs text-red-500 mt-1">{errors.email}</p>
         )}
       </div>
 
+      {/* Password Field */}
       <div className="mb-3">
         <label className="text-xs font-bold text-[#000060]">Password</label>
-
         <div
           className={`flex items-center gap-2 mt-1 px-3 py-2 rounded-xl bg-[#F7F7FF] border text-sm ${
             errors.password ? "border-red-500" : "border-gray-300"
@@ -232,42 +225,29 @@ const CreateAccount = ({ onLoginClick }) => {
             className="w-full bg-transparent outline-none text-sm"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
+            onKeyDown={(e) => e.key === "Enter" && handleCreateAccount()}
           />
-
-          {showPassword ? (
-            <IoEyeOutline
-              className="text-gray-600 text-lg cursor-pointer"
-              onClick={() => setShowPassword(false)}
-            />
-          ) : (
-            <IoEyeOffOutline
-              className="text-gray-600 text-lg cursor-pointer"
-              onClick={() => setShowPassword(true)}
-            />
-          )}
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="text-gray-600 hover:text-gray-800"
+            tabIndex={-1}
+          >
+            {showPassword ? (
+              <IoEyeOutline className="text-lg" />
+            ) : (
+              <IoEyeOffOutline className="text-lg" />
+            )}
+          </button>
         </div>
 
+        {/* Password Rules */}
         <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
-          <PasswordRuleInline
-            valid={form.password.length >= 8}
-            text="8+ chars"
-          />
-          <PasswordRuleInline
-            valid={/[A-Z]/.test(form.password)}
-            text="uppercase"
-          />
-          <PasswordRuleInline
-            valid={/[a-z]/.test(form.password)}
-            text="lowercase"
-          />
-          <PasswordRuleInline
-            valid={/[0-9]/.test(form.password)}
-            text="number"
-          />
-          <PasswordRuleInline
-            valid={/[!@#$%^&*]/.test(form.password)}
-            text="special"
-          />
+          <PasswordRuleInline valid={form.password.length >= 8} text="8+ chars" />
+          <PasswordRuleInline valid={/[A-Z]/.test(form.password)} text="uppercase" />
+          <PasswordRuleInline valid={/[a-z]/.test(form.password)} text="lowercase" />
+          <PasswordRuleInline valid={/[0-9]/.test(form.password)} text="number" />
+          <PasswordRuleInline valid={/[!@#$%^&*]/.test(form.password)} text="special" />
         </div>
 
         {errors.password && (
@@ -275,56 +255,102 @@ const CreateAccount = ({ onLoginClick }) => {
         )}
       </div>
 
-      <label className="flex items-center gap-2 text-gray-600 text-xs mb-2">
+      {/* Terms Agreement */}
+      <label className="flex items-start gap-2 text-gray-600 text-xs mb-2">
         <input
           type="checkbox"
-          className="w-3 h-3"
+          className="w-3 h-3 mt-0.5"
           checked={form.agree}
           onChange={(e) => setForm({ ...form, agree: e.target.checked })}
         />
-        I agree with{" "}
-        <span
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/terms");
-          }}
-          className="text-[#000060] font-semibold cursor-pointer hover:underline"
-        >
-          Terms
-        </span>{" "}
-        and{" "}
-        <span
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("/privacy");
-          }}
-          className="text-[#000060] font-semibold cursor-pointer hover:underline"
-        >
-          Privacy Policies
+        <span>
+          I agree with{" "}
+          <span
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/terms");
+            }}
+            className="text-[#000060] font-semibold cursor-pointer hover:underline"
+          >
+            Terms
+          </span>{" "}
+          and{" "}
+          <span
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/privacy");
+            }}
+            className="text-[#000060] font-semibold cursor-pointer hover:underline"
+          >
+            Privacy Policies
+          </span>
         </span>
       </label>
       {errors.agree && <p className="text-xs text-red-500">{errors.agree}</p>}
 
+      {/* Create Account Button */}
       <button
         onClick={handleCreateAccount}
         disabled={loading}
-        className="w-full bg-[#000060] text-white py-2 rounded-xl font-semibold mt-3 text-sm 
-        hover:bg-[#000060d1] transition disabled:bg-gray-400"
+        className="w-full bg-[#000060] text-white py-2.5 rounded-xl font-semibold mt-3 text-sm 
+                   hover:bg-[#000060d1] transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
         {loading ? "Creating..." : "Create Account"}
       </button>
 
+      {/* Divider */}
       <div className="flex items-center my-4">
         <div className="flex-grow h-[1px] bg-gray-300"></div>
-        <span className="mx-2 text-gray-500 text-xs">or</span>
+        <span className="mx-3 text-gray-500 text-xs">or</span>
         <div className="flex-grow h-[1px] bg-gray-300"></div>
       </div>
 
-      <GoogleLogin
-        onSuccess={handleGoogleSignup}
-        onError={() => alert("Google sign-in failed")}
-      />
+      {/* ✅ GOOGLE LOGIN BUTTON - FORCED FULL WIDTH */}
+      <div className="google-login-wrapper w-full">
+        <style>
+          {`
+            .google-login-wrapper {
+              width: 100%;
+            }
+            
+            .google-login-wrapper > div {
+              width: 100% !important;
+            }
+            
+            .google-login-wrapper > div > div {
+              width: 100% !important;
+            }
+            
+            .google-login-wrapper iframe {
+              width: 100% !important;
+            }
+            
+            /* Target the actual button inside iframe */
+            .google-login-wrapper [role="button"] {
+              width: 100% !important;
+            }
+            
+            /* Override Google's inline styles */
+            #credential_picker_container,
+            .nsm7Bb-HzV7m-LgbsSe {
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+          `}
+        </style>
+        <GoogleLogin
+          onSuccess={handleGoogleSignup}
+          onError={() => alert("Google sign-in failed")}
+          width="100%"
+          size="large"
+          theme="outline"
+          text="signup_with"
+          shape="rectangular"
+          logo_alignment="left"
+        />
+      </div>
 
+      {/* Login Link */}
       <p className="text-center mt-4 text-xs text-gray-600">
         Already have an account?{" "}
         <span
@@ -335,18 +361,19 @@ const CreateAccount = ({ onLoginClick }) => {
         </span>
       </p>
 
-      <p className="text-center text-[13px] text-gray-400 mt-4">
-        This site is protected by reCAPTCHA and the <br />
+      {/* reCAPTCHA Notice */}
+      <p className="text-center text-[11px] text-gray-400 mt-4 leading-relaxed">
+        This site is protected by reCAPTCHA and the{" "}
         <span
-          onClick={() => navigate("/privacy")}
-          className="text-[#000060] underline cursor-pointer hover:font-semibold"
+          onClick={() => window.open("https://policies.google.com/privacy", "_blank")}
+          className="text-[#000060] underline cursor-pointer hover:font-medium"
         >
-          Google Privacy
+          Google Privacy Policy
         </span>{" "}
-        policy and{" "}
+        and{" "}
         <span
-          onClick={() => navigate("/terms")}
-          className="text-[#000060] underline cursor-pointer hover:font-semibold"
+          onClick={() => window.open("https://policies.google.com/terms", "_blank")}
+          className="text-[#000060] underline cursor-pointer hover:font-medium"
         >
           Terms of Service
         </span>{" "}
@@ -361,11 +388,7 @@ export default CreateAccount;
 const PasswordRuleInline = ({ valid, text }) => (
   <span
     className={`px-2 py-[3px] rounded-full border text-[10px] flex items-center gap-1
-      ${
-        valid
-          ? "border-green-500 text-green-600"
-          : "border-gray-400 text-gray-500"
-      }`}
+      ${valid ? "border-green-500 text-green-600" : "border-gray-400 text-gray-500"}`}
   >
     {valid ? "✔" : "•"} {text}
   </span>

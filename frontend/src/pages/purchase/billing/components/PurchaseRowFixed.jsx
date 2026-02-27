@@ -9,7 +9,7 @@ const FIELD_ORDER = [
   "price", "discountPercent", "netRate", "sgstPercent", "mrp", "rack", "sRate", "sch"
 ];
 
-// ✅ NEW: Dropdown component that renders via Portal
+// ✅ Dropdown component that renders via Portal
 const ProductDropdown = ({ 
   isOpen, 
   anchorRef, 
@@ -26,9 +26,8 @@ const ProductDropdown = ({
     if (isOpen && anchorRef.current) {
       const rect = anchorRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-      const dropdownHeight = 280; // max height
+      const dropdownHeight = 280;
       
-      // Determine if dropdown should appear above or below
       const spaceBelow = viewportHeight - rect.bottom;
       const showAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
       
@@ -40,7 +39,6 @@ const ProductDropdown = ({
     }
   }, [isOpen, anchorRef]);
 
-  // Close on click outside
   useEffect(() => {
     if (!isOpen) return;
     
@@ -54,7 +52,6 @@ const ProductDropdown = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, anchorRef, onClose]);
 
-  // Close on scroll
   useEffect(() => {
     if (!isOpen) return;
     
@@ -62,7 +59,6 @@ const ProductDropdown = ({
       onClose();
     };
     
-    // Find scrollable parent
     let scrollParent = anchorRef.current?.parentElement;
     while (scrollParent) {
       if (scrollParent.scrollHeight > scrollParent.clientHeight) {
@@ -169,13 +165,12 @@ const PurchaseRowFixed = memo(forwardRef(({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const rowRef = useRef(null);
   const fieldRefs = useRef({});
-  const nameInputRef = useRef(null); // ✅ NEW: Ref for dropdown anchor
+  const nameInputRef = useRef(null);
   
   const schBlurTimeoutRef = useRef(null);
 
   const isFreeItem = item.isFreeItem === true;
 
-  // ✅ Enhanced filtering
   const filteredProducts = productMaster.filter(p => {
     const searchLower = productSearch.toLowerCase();
     return (
@@ -212,13 +207,16 @@ const PurchaseRowFixed = memo(forwardRef(({
     },
     scrollIntoView: () => {
       rowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    },
+    // ✅ NEW: Expose method to close dropdown
+    closeDropdown: () => {
+      setShowProductDropdown(false);
     }
   }), []);
 
   const registerFieldRef = useCallback((fieldKey, inputRef) => {
     if (inputRef) {
       fieldRefs.current[fieldKey] = inputRef;
-      // ✅ Also store name input ref for dropdown positioning
       if (fieldKey === 'name') {
         nameInputRef.current = inputRef;
       }
@@ -239,12 +237,16 @@ const PurchaseRowFixed = memo(forwardRef(({
     return exists;
   }, [productMaster]);
 
+  // ✅ FIXED: Close dropdown before calling onAddNewProduct
   const handleProductNameBlur = useCallback((productName) => {
     if (!productName || productName.trim().length < 2) return;
     
     const exists = checkProductExists(productName);
     
     if (!exists && onAddNewProduct) {
+      // ✅ Close dropdown FIRST
+      setShowProductDropdown(false);
+      
       onAddNewProduct({
         rowIndex: index,
         productName: productName.trim(),
@@ -383,6 +385,8 @@ const PurchaseRowFixed = memo(forwardRef(({
       e.preventDefault();
       
       if (fieldKey === "name" && item.name && !showProductDropdown) {
+        // ✅ Close dropdown before triggering modal
+        setShowProductDropdown(false);
         handleProductNameBlur(item.name);
       }
       
@@ -398,6 +402,34 @@ const PurchaseRowFixed = memo(forwardRef(({
     }
 
     if (e.key === "Tab") {
+      // ✅ FIXED: Close dropdown on Tab press
+      if (fieldKey === "name") {
+        setShowProductDropdown(false);
+        
+        // Check if it's a new product and trigger modal
+        if (item.name && item.name.trim().length >= 2) {
+          const exists = checkProductExists(item.name);
+          if (!exists && onAddNewProduct) {
+            onAddNewProduct({
+              rowIndex: index,
+              productName: item.name.trim(),
+              name: item.name.trim(),
+              manufacturer: item.mfac || '',
+              mfac: item.mfac || '',
+              hsn: item.hsn || '',
+              hsnCode: item.hsn || '',
+              rack: item.rack || '',
+              rackNo: item.rack || '',
+              pack: item.pack || '',
+              packSize: item.pack || '',
+              cgstPercent: item.cgstPercent || '6',
+              sgstPercent: item.sgstPercent || '6',
+            });
+            // Don't prevent default - let Tab navigation continue
+          }
+        }
+      }
+      
       if (e.shiftKey) {
         e.preventDefault();
         const movedWithinRow = focusPrevFieldInRow();
@@ -445,7 +477,7 @@ const PurchaseRowFixed = memo(forwardRef(({
     showProductDropdown, filteredProducts, highlightedIndex, index, isLast, 
     focusNextFieldInRow, focusPrevFieldInRow, onNavigateToNextRow, onNavigateToPrevRow, 
     onCreateNewRow, onRemoveRow, onProductSelect, handleProductNameBlur, item.name,
-    isFreeItem
+    isFreeItem, checkProductExists, onAddNewProduct, item
   ]);
 
   useEffect(() => {
@@ -461,7 +493,6 @@ const PurchaseRowFixed = memo(forwardRef(({
     onChange(index, key, value);
   }, [index, onChange, isFreeItem]);
 
-  // ✅ Handle product selection from dropdown
   const handleDropdownProductSelect = useCallback((product) => {
     onProductSelect(index, product);
     setShowProductDropdown(false);
@@ -474,11 +505,20 @@ const PurchaseRowFixed = memo(forwardRef(({
     }, 50);
   }, [index, onProductSelect]);
 
-  // ✅ Handle add new product from dropdown
+  // ✅ FIXED: Close dropdown before triggering add new
   const handleDropdownAddNew = useCallback(() => {
     setShowProductDropdown(false);
-    handleProductNameBlur(productSearch);
+    
+    // Small delay to ensure dropdown is closed before modal opens
+    setTimeout(() => {
+      handleProductNameBlur(productSearch);
+    }, 10);
   }, [productSearch, handleProductNameBlur]);
+
+  // ✅ NEW: Close dropdown handler
+  const handleCloseDropdown = useCallback(() => {
+    setShowProductDropdown(false);
+  }, []);
 
   const inputBase = `
     w-full h-full bg-transparent border-0 outline-none
@@ -543,7 +583,7 @@ const PurchaseRowFixed = memo(forwardRef(({
         </div>
       </td>
 
-      {/* 2. ITEM DESCRIPTION - ✅ FIXED: Using Portal for dropdown */}
+      {/* 2. ITEM DESCRIPTION */}
       <td className={`${cellBase} relative ${
         isFreeItem 
           ? 'bg-green-50' 
@@ -573,12 +613,19 @@ const PurchaseRowFixed = memo(forwardRef(({
               }
             }}
             onBlur={(e) => {
-              // Delay closing to allow click on dropdown
+              // ✅ FIXED: Don't trigger blur handler here since Tab already handles it
+              // Only handle blur for mouse clicks outside
+              // The setTimeout allows click on dropdown to register first
               setTimeout(() => {
-                if (e.target.value && e.target.value.trim().length >= 2 && !isFreeItem) {
-                  handleProductNameBlur(e.target.value);
+                // Check if focus moved to another element outside this row
+                const activeElement = document.activeElement;
+                const isInDropdown = activeElement?.closest?.('[data-dropdown="true"]');
+                
+                if (!isInDropdown && !showProductDropdown) {
+                  // Focus moved elsewhere, don't trigger modal
+                  // Modal is already triggered by Tab handler
                 }
-              }, 200);
+              }, 250);
             }}
             onKeyDown={(e) => handleKeyDown(e, "name")}
             readOnly={isFreeItem}
@@ -617,6 +664,7 @@ const PurchaseRowFixed = memo(forwardRef(({
                 onClick={() => {
                   handleChange("name", "");
                   setProductSearch("");
+                  setShowProductDropdown(false);
                 }}
                 className="p-0.5 hover:bg-slate-200 rounded-full"
                 title="Clear"
@@ -626,7 +674,7 @@ const PurchaseRowFixed = memo(forwardRef(({
             )}
           </div>
 
-          {/* ✅ FIXED: Product dropdown using Portal */}
+          {/* Product dropdown using Portal */}
           <ProductDropdown
             isOpen={showProductDropdown && !isFreeItem}
             anchorRef={nameInputRef}
@@ -635,11 +683,12 @@ const PurchaseRowFixed = memo(forwardRef(({
             onSelect={handleDropdownProductSelect}
             onAddNew={handleDropdownAddNew}
             searchTerm={productSearch}
-            onClose={() => setShowProductDropdown(false)}
+            onClose={handleCloseDropdown}
           />
         </div>
       </td>
 
+      {/* Rest of the cells remain the same... */}
       {/* 3. MFAC */}
       <td className={`${cellBase} ${isFreeItem ? 'bg-green-50/50' : 'bg-violet-50/20'}`}>
         <input 
