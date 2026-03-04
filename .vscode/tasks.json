@@ -4,7 +4,7 @@
   "tasks": [
     {
       "label": "start-cureli",
-      "dependsOn": ["Backend", "cAdmin", "ERP","Prisma","Backend tree","ERP tree","cAdmin tree","Git"],
+      "dependsOn": ["Backend", "cAdmin", "ERP","Landing","Prisma","Backend tree","ERP tree","cAdmin tree","Git"],
       "dependsOrder": "parallel"
     },
     {
@@ -73,6 +73,18 @@
       "command": "npm run dev",
       "options": {
         "cwd": "${workspaceFolder}/frontend"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Landing",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/landing"
       },
       "isBackground": true,
       "presentation": {
