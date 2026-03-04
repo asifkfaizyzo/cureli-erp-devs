@@ -45,7 +45,7 @@ const Navbar = () => {
         ${scrolled ? "shadow-lg" : "shadow-md"}`}
     >
       {/* MAIN NAVBAR CONTAINER - Changed to flexbox for better phone layout */}
-      <div 
+      <div
         className="
           flex items-center justify-between
           w-full 
@@ -54,16 +54,12 @@ const Navbar = () => {
           min-h-[56px] xs:min-h-[64px] sm:min-h-0
         "
       >
-
         {/* LEFT — LOGO + NAME */}
-        <Link 
-          to="/" 
-          className="flex items-center gap-2 flex-shrink-0"
-        >
-          <img 
-            src={logo} 
-            alt="Cureli ERP" 
-            className="h-8 sm:h-10 md:h-12 w-auto" 
+        <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+          <img
+            src={logo}
+            alt="Cureli ERP"
+            className="h-8 sm:h-10 md:h-12 w-auto"
           />
           <span className="hidden sm:inline-block text-lg md:text-xl lg:text-2xl font-bold text-[#000060] font-manrope">
             Cureli
@@ -90,11 +86,10 @@ const Navbar = () => {
 
         {/* RIGHT — BUTTONS & MENU */}
         <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
-          
           {/* Desktop Buttons */}
           <div className="hidden lg:flex items-center gap-3">
             <a
-              href="https://pharmacy.curelihealth.com/login"
+              href={SIGN_IN_URL}
               className="px-5 py-2 bg-[#000060] text-white rounded-md font-manrope font-semibold shadow hover:bg-[#000040] transition-colors duration-200"
             >
               Sign In
@@ -111,7 +106,7 @@ const Navbar = () => {
           {/* Tablet Compact Buttons */}
           <div className="hidden md:flex lg:hidden items-center gap-2">
             <a
-              href="https://pharmacy.curelihealth.com/login"
+              href={SIGN_IN_URL}
               className="px-3 py-2 bg-[#000060] text-white rounded-md font-manrope font-semibold text-sm hover:bg-[#000040] transition-colors duration-200"
             >
               Sign In
@@ -140,7 +135,6 @@ const Navbar = () => {
             {isOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
-
       </div>
 
       {/* MOBILE MENU - Improved phone padding */}
@@ -148,7 +142,6 @@ const Navbar = () => {
         <div className="md:hidden bg-[#000060]/95 backdrop-blur-xl border-t border-white/20">
           <div className="px-4 xs:px-5 sm:px-6 py-4 xs:py-5">
             <div className="flex flex-col gap-3 xs:gap-4">
-              
               {navItems.map((item) => (
                 <Link
                   key={item.path}
@@ -171,7 +164,7 @@ const Navbar = () => {
 
               <div className="border-t border-white/20 pt-4 mt-2 flex flex-col gap-3">
                 <a
-                  href="https://pharmacy.curelihealth.com/login"
+                  href={SIGN_IN_URL}
                   className="bg-white text-[#000060] rounded-md text-center py-2.5 xs:py-3 font-manrope font-semibold hover:bg-gray-100 transition-colors duration-200"
                   onClick={() => setIsOpen(false)}
                 >
@@ -190,7 +183,6 @@ const Navbar = () => {
           </div>
         </div>
       )}
-
     </nav>
   );
 };

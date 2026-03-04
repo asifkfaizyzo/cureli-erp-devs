@@ -10,7 +10,7 @@ import LoginForm from "./comps/LoginForm";
 import CreateAccount from "./comps/CreateAccount";
 import OtpVerify from "./comps/OtpVerify";
 import ReCaptchaWrapper from "../../components/common/ReCaptchaWrapper";
-
+const LANDING_PAGE_URL = import.meta.env.VITE_LANDING_PAGE;
 const LoginPage = () => {
   const [showOtp, setShowOtp] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
@@ -62,7 +62,10 @@ const LoginPage = () => {
 
           {/* Logo */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2 md:left-6 lg:left-8 md:translate-x-0 z-20 transition-all">
-            <div className="flex items-center gap-2">
+            <a
+              href={LANDING_PAGE_URL}
+              className="flex items-center gap-2 cursor-pointer"
+            >
               <img
                 src={logo}
                 alt="Cureli ERP"
@@ -71,7 +74,7 @@ const LoginPage = () => {
               <span className="hidden sm:inline-block text-lg md:text-xl lg:text-2xl font-bold text-white font-manrope drop-shadow-md">
                 Cureli
               </span>
-            </div>
+            </a>
           </div>
 
           {/* Hero text */}
