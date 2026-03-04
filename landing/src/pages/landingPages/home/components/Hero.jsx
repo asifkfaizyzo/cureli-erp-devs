@@ -1,10 +1,125 @@
-// src/components/Hero.jsx
-import { useEffect } from "react";
-import AOS from "aos";
-import heroBg from "../../../../assets/images/hero-bg.png";
-import dashboardMockup from "../../../../assets/images/dashoard.png"; // Add your dashboard image
-import dashboardMockup2 from "../../../../assets/images/purchase.png"; // Add your dashboard image
+// src/pages/landingPages/home/components/Hero.jsx
 
+import { useEffect, memo } from "react";
+import AOS from "aos";
+import heroBg from "../../../../assets/images/Background.svg";
+import phones from "../../../../assets/images/phones.svg";
+
+// ============================================
+// FOG PARTICLES DATA - Outside component
+// ============================================
+const FOG_PARTICLES = [
+  {
+    id: 1,
+    className: "w-48 h-48 xs:w-56 xs:h-56 sm:w-64 sm:h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 xl:w-[28rem] xl:h-[28rem] 2xl:w-[32rem] 2xl:h-[32rem]",
+    style: {
+      background: "radial-gradient(circle, rgba(255,0,255,0.25) 0%, rgba(255,0,255,0.1) 40%, transparent 70%)",
+      top: "20%",
+      left: "30%",
+      filter: "blur(60px)",
+    },
+    animation: "animate-float-slow",
+  },
+  {
+    id: 2,
+    className: "w-56 h-56 xs:w-64 xs:h-64 sm:w-72 sm:h-72 md:w-96 md:h-96 lg:w-[28rem] lg:h-[28rem] xl:w-[32rem] xl:h-[32rem] 2xl:w-[36rem] 2xl:h-[36rem]",
+    style: {
+      background: "radial-gradient(circle, rgba(167,139,250,0.3) 0%, rgba(167,139,250,0.1) 40%, transparent 70%)",
+      top: "40%",
+      left: "45%",
+      filter: "blur(70px)",
+    },
+    animation: "animate-float-medium",
+  },
+  {
+    id: 3,
+    className: "w-44 h-44 xs:w-52 xs:h-52 sm:w-56 sm:h-56 md:w-72 md:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 2xl:w-[28rem] 2xl:h-[28rem]",
+    style: {
+      background: "radial-gradient(circle, rgba(129,140,248,0.25) 0%, rgba(129,140,248,0.08) 40%, transparent 70%)",
+      top: "50%",
+      left: "38%",
+      filter: "blur(50px)",
+    },
+    animation: "animate-float-fast",
+  },
+];
+
+// ============================================
+// FOG PARTICLE COMPONENT
+// ============================================
+const FogParticle = memo(({ particle }) => (
+  <div
+    className={`absolute rounded-full ${particle.className} ${particle.animation}`}
+    style={particle.style}
+    aria-hidden="true"
+  />
+));
+
+FogParticle.displayName = "FogParticle";
+
+// ============================================
+// HERO CONTENT COMPONENT
+// ============================================
+const HeroContent = memo(() => (
+  <div
+    className="text-center lg:text-left order-2 lg:order-1"
+    data-aos="fade-right"
+  >
+    {/* Badge */}
+    <div className="inline-block px-3 py-1 xs:px-4 xs:py-1.5 mb-4 sm:mb-5 md:mb-6 text-xs xs:text-sm sm:text-base bg-white/10 border border-white/20 rounded-full backdrop-blur-sm">
+      Decentralized App & Platform
+    </div>
+
+    {/* Heading */}
+    <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-7xl font-semibold leading-tight mb-4 sm:mb-5 md:mb-6">
+      Next-Gen Medicine{" "}
+      <br className="hidden xs:block" />
+      Delivery App
+    </h1>
+
+    {/* Description */}
+    <p className="text-sm xs:text-base sm:text-lg md:text-lg lg:text-xl xl:text-xl text-white/80 mb-6 sm:mb-7 md:mb-8 max-w-xs xs:max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl mx-auto lg:mx-0 leading-relaxed">
+      Cureli bridges the gap between care and convenience. We provide a
+      seamless mobile app for patients to order medicine instantly,
+      powered by a robust ERP system for pharmacies to manage their
+      business efficiently.
+    </p>
+
+    {/* CTA Button */}
+    <a
+      href="#contact"
+      className="inline-flex items-center gap-2 px-5 py-2.5 xs:px-6 xs:py-3 sm:px-7 sm:py-3.5 md:px-8 md:py-4 text-sm xs:text-base sm:text-lg border border-white rounded-lg hover:bg-white hover:text-[#05015A] transition-all duration-300 font-medium"
+    >
+      Get Started
+      <span aria-hidden="true">→</span>
+    </a>
+  </div>
+));
+
+HeroContent.displayName = "HeroContent";
+
+// ============================================
+// HERO IMAGE COMPONENT
+// ============================================
+const HeroImage = memo(() => (
+  <div
+    className="relative flex justify-center lg:justify-end xl:justify-center order-1 lg:order-2 mb-8 lg:mb-0"
+    data-aos="fade-left"
+  >
+    <img
+      src={phones}
+      alt="Cureli App Screens showing medicine ordering interface"
+      className="w-full max-w-[280px] xs:max-w-[320px] sm:max-w-[400px] md:max-w-[480px] lg:max-w-[520px] xl:max-w-[580px] 2xl:max-w-[650px] object-contain drop-shadow-2xl"
+      loading="eager"
+    />
+  </div>
+));
+
+HeroImage.displayName = "HeroImage";
+
+// ============================================
+// MAIN HERO COMPONENT
+// ============================================
 const Hero = () => {
   useEffect(() => {
     AOS.init({ duration: 1000, once: true });
@@ -13,100 +128,30 @@ const Hero = () => {
   return (
     <section
       id="home"
-      className="relative w-full min-h-screen flex items-center justify-center text-white overflow-hidden pt-20"
+      className="relative w-full min-h-screen flex items-center text-white overflow-visible pt-20 pb-24 xs:pt-22 xs:pb-26 sm:pt-24 sm:pb-28 md:pt-28 md:pb-32 lg:pt-24 lg:pb-28 xl:pt-28 xl:pb-32 2xl:pt-32 2xl:pb-36"
+      aria-label="Hero section"
     >
-      {/* Background Image */}
-     <div
-  className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-150"
-  style={{ backgroundImage: `url(${heroBg})` }}
-></div>
-
-     
-
-      {/* Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-12">
-        
-        {/* Heading */}
-        <h1
-          className="mt-[-3%] text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-medium leading-tight mb-3 sm:mb-4"
-          data-aos="fade-up"
-        >
-          Reliable Process Management for Confident <br className="hidden sm:block" /> 
-          Business Growth.
-        </h1>
-
-        {/* Subtext */}
-        <p
-          className="text-base sm:text-lg md:text-xl max-w-4xl mx-auto mb-4 sm:mb-5 opacity-90 px-4"
-          data-aos="fade-up"
-          data-aos-delay="150"
-        >
-          Empowering Healthcare Stakeholders with Cutting Edge and Innovative Software Products
-        </p>
-
-        {/* CTA Buttons */}
-        <div
-          className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mt-4 px-4"
-          data-aos="fade-up"
-          data-aos-delay="300"
-        >
-          <a
-            href="/contact"
-            className="px-6 sm:px-8 py-3 bg-white text-[#05015A] font-semibold rounded-lg shadow-md hover:bg-gray-100 transition-all duration-200"
-          >
-            Book a Demo
-          </a>
-
-          <a
-            href="#contact"
-            className="px-6 sm:px-8 py-3 bg-transparent border-2 border-white font-semibold rounded-lg shadow-md hover:bg-white/10 transition-all duration-200"
-          >
-            Contact Us
-          </a>
-        </div>
-
-        {/* Dashboard Mockup */}
-       <div
-  className="mt-5 sm:mt-8 md:mt-10 w-full flex justify-center px-4"
-  data-aos="fade-up"
-  data-aos-delay="450"
->
-  <div className="relative w-full max-w-[95%] sm:max-w-[80%] md:max-w-[70%] lg:max-w-[800px] xl:max-w-[900px] 2xl:max-w-[1100px]">
-    
-    {/* Glow Effect Behind Mockup */}
-    {/* <div className="absolute inset-0 bg-gradient-to-t from-purple-500/30 to-transparent blur-2xl rounded-3xl transform scale-105"></div>
-     */}
-    {/* Main Large Dashboard Image Container (Base Layer) */}
-    <div className="relative bg-white/5 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-2 sm:p-3 md:p-4 border border-white/20 shadow-2xl z-10">
-      <img
-        src={dashboardMockup}
-        alt="Cureli Dashboard"
-        className="w-full h-auto rounded-xl sm:rounded-2xl shadow-lg"
+      {/* Background */}
+      <div
+        className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${heroBg})` }}
+        aria-hidden="true"
       />
-    </div>
 
-    {/* Small Dashboard Image - Positioned on top, centered, bottom aligned */}
-    <div 
-      className="absolute bottom-2 sm:bottom-3 md:bottom-4 left-1/2 -translate-x-1/2 w-[55%] sm:w-[50%] md:w-[45%] lg:w-[75%] z-20"
-      data-aos="fade-up"
-      data-aos-delay="300"
-    >
-      <div className="relative bg-white/10 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-2.5 md:p-3 border border-white/30 shadow-2xl transform hover:scale-[1.02] transition-transform duration-300">
-        <img
-          src={dashboardMockup2}
-          alt="Cureli Billing System"
-          className="w-full h-auto rounded-lg sm:rounded-xl shadow-2xl"
-        />
+      {/* Fog Particles */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        {FOG_PARTICLES.map((particle) => (
+          <FogParticle key={particle.id} particle={particle} />
+        ))}
       </div>
-    </div>
 
-    {/* Optional: Floating Elements */}
-    {/* <div className="absolute -top-4 -left-4 w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/30 rounded-full blur-xl animate-pulse"></div>
-    <div className="absolute -bottom-4 -right-4 w-20 h-20 sm:w-24 sm:h-24 bg-blue-500/30 rounded-full blur-xl animate-pulse"></div> */}
-  </div>
-</div>
-
-
+      {/* Content Container */}
+      <div className="relative z-10 w-full max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 xs:px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
+        {/* Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 md:gap-10 lg:gap-12 xl:gap-16 2xl:gap-20 items-center">
+          <HeroContent />
+          <HeroImage />
+        </div>
       </div>
     </section>
   );

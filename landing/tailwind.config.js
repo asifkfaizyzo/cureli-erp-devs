@@ -66,21 +66,66 @@ export default {
   ],
   theme: {
     extend: {
+      // ============================================
+      // RESPONSIVE BREAKPOINTS
+      // ============================================
       screens: {
-        'xs': '375px',   // iPhone SE, small phones
-        'sm': '640px',   // Large phones, small tablets  
-        'md': '768px',   // Tablets
-        'lg': '1024px',  // Laptops
-        'xl': '1280px',  // Desktops
-        '2xl': '1536px', // Large screens
+        'xs': '375px',    // Small phones (iPhone SE)
+        'sm': '640px',    // Large phones, small tablets
+        'md': '768px',    // Tablets
+        'lg': '1024px',   // Laptops
+        'xl': '1280px',   // Desktops
+        '2xl': '1536px',  // Large screens (24 inch)
+        '3xl': '1920px',  // Extra large screens (27 inch)
       },
+      // ============================================
+      // FONTS
+      // ============================================
       fontFamily: {
         poppins: ["Poppins", "sans-serif"],
         manrope: ["Manrope", "sans-serif"],
         sans: ["Manrope", "sans-serif"],
       },
+      // ============================================
+      // SPACING
+      // ============================================
       spacing: {
         'safe': 'env(safe-area-inset-bottom)',
+        '18': '4.5rem',
+        '22': '5.5rem',
+        '26': '6.5rem',
+      },
+      // ============================================
+      // FOG PARTICLE ANIMATIONS
+      // ============================================
+      animation: {
+        "float-slow": "float 8s ease-in-out infinite",
+        "float-medium": "float 6s ease-in-out infinite reverse",
+        "float-fast": "float 5s ease-in-out infinite",
+      },
+      keyframes: {
+        float: {
+          "0%, 100%": {
+            transform: "translateY(0px) translateX(0px)",
+          },
+          "25%": {
+            transform: "translateY(-20px) translateX(10px)",
+          },
+          "50%": {
+            transform: "translateY(0px) translateX(20px)",
+          },
+          "75%": {
+            transform: "translateY(20px) translateX(10px)",
+          },
+        },
+      },
+      // ============================================
+      // MAX WIDTH FOR LARGE SCREENS
+      // ============================================
+      maxWidth: {
+        '8xl': '88rem',   // 1408px
+        '9xl': '96rem',   // 1536px
+        '10xl': '104rem', // 1664px
       },
     },
   },

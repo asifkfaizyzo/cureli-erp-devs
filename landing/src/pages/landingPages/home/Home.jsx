@@ -1,4 +1,4 @@
-// src/pages/Home.jsx
+// src/pages/landingPages/home/Home.jsx
 
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
@@ -7,19 +7,42 @@ import Pricing from "./components/Pricing";
 import Testimonials from "./components/Testimonials";
 import FAQ from "./components/FAQ";
 import Footer from "../../../components/common/Footer";
+import HeroStatsCard from "./components/HeroStatsCard";
+import WhyChooseUs from "./components/WhyChooseUs";
+import PlatformOptions from "./components/PlatformOptions";
+import ERPShowcase from "./components/ERPShowcase";
 
 const Home = () => {
   return (
-    <div className="bg-[#000060] w-full overflow-x-hidden">
-      {/* Sticky Navbar */}
+    <div className="bg-[linear-gradient(90deg,#1D0A36,#1D025E,#020245)] w-full overflow-x-hidden">
+      {/* Navbar */}
       <Navbar />
 
-      {/* Page Sections */}
-      <Hero />
-      <Features />
-      <Pricing />
+      {/* Hero + Features wrapper for overlapping card */}
+      <div className="relative">
+        {/* Hero Section */}
+        <Hero />
+        <div 
+          className="absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 w-full max-w-5xl px-4"
+          style={{ top: 'var(--card-position)' }}
+        >
+          <HeroStatsCard />
+        </div>
+
+        {/* Features Section */}
+        <Features />
+
+        {/* HeroStatsCard - absolutely positioned at the junction */}
+        
+      </div>
+
+      <WhyChooseUs />
       <Testimonials />
+      <PlatformOptions />
+      <ERPShowcase />
       <FAQ />
+
+      {/* Footer */}
       <Footer />
     </div>
   );

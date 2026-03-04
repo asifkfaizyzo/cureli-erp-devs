@@ -40,7 +40,7 @@ const Navbar = () => {
   return (
     <nav
       className={`fixed top-0 left-0 w-full z-50
-        backdrop-blur-lg bg-[#000060]
+        backdrop-blur-lg bg-[linear-gradient(90deg,#1D0A36,#1D025E,#020245)]
         transition-all duration-300 
         ${scrolled ? "shadow-lg" : "shadow-md"}`}
     >
