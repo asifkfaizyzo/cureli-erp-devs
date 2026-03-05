@@ -138,19 +138,20 @@ export async function verifyLoginOtp(user_id, code) {
     throw err;
   }
 
-  if (code === "0000") {
-    await prisma.user.update({
-      where: { user_id },
-      data: {
-        login_verification_id: null,
-        login_otp_expires: null,
-        login_otp_attempts: 0,
-        last_login_at: new Date(),
-      },
-    });
 
-    return { success: true };
-  }
+if (code === "0000" && process.env.NODE_ENV === "development") {
+  await prisma.user.update({
+    where: { user_id },
+    data: {
+      login_verification_id: null,
+      login_otp_expires: null,
+      login_otp_attempts: 0,
+      last_login_at: new Date(),
+    },
+  });
+
+  return { success: true };
+}
 
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
