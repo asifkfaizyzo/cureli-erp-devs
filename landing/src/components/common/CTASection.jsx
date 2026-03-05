@@ -1,7 +1,7 @@
 // src/pages/landingPages/home/components/CTASection.jsx
 
 import { Link } from "react-router-dom";
-import ctaLogo from "../../assets/icons/medical-cross.svg";
+import ctaLogo from "../../assets/icons/Medical-cross.svg";
 
 const CTASection = () => {
   return (
