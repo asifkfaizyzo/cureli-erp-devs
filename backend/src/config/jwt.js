@@ -1,3 +1,4 @@
+//backend\src\config\jwt.js
 import dotenv from "dotenv";
 dotenv.config();
 

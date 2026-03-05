@@ -453,6 +453,21 @@ export function initializeCronJobs() {
     }),
   );
 
+    cron.schedule("45 3 * * *", () =>
+    withCronLock("cleanup-otp-limits", 10, async () => {
+      console.log("[CRON] Cleaning up old OTP daily limits...");
+      try {
+        const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const result = await prisma.otpDailyLimit.deleteMany({
+          where: { date: { lt: cutoff } },
+        });
+        console.log(`[CRON] Removed ${result.count} old OTP limit records`);
+      } catch (err) {
+        console.error("[CRON] OTP limits cleanup failed:", err);
+      }
+    }),
+  );
+
   console.log("All cron jobs initialized:");
   console.log("   - Session cleanup: Every hour");
   console.log("   - Plan transition: Daily at 2:00 AM");
@@ -464,4 +479,5 @@ export function initializeCronJobs() {
   console.log("   - Incomplete users cleanup: Daily at 3:15 AM");
   console.log("   - Deletion logs cleanup: Daily at 3:30 AM");
   console.log("   - Scheduled broadcasts: Every 5 minutes");
+  console.log("   - OTP daily limits cleanup: Daily at 3:45 AM");
 }

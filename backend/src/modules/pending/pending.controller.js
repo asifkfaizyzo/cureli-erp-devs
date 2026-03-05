@@ -15,6 +15,7 @@ import {
 } from "./pending.service.js";
 import { success, fail } from "../../utils/response.js";
 import { jwtDecode } from "jwt-decode";
+import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
 import {
   verifyRecaptcha,
@@ -27,6 +28,8 @@ import {
   REFRESH_EXPIRES,
 } from "../../config/jwt.js";
 import * as audit from "../audit/index.js";
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export async function startPendingSignup(req, res) {
   try {
@@ -85,15 +88,30 @@ export async function googleSignupController(req, res) {
       return fail(res, "Missing Google credential", 400);
     }
 
-    const decoded = jwtDecode(credential);
+    // Verify the Google ID token signature and claims
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      payload = ticket.getPayload();
+    } catch (verifyErr) {
+      console.error("Google token verification failed:", verifyErr.message);
+      return fail(res, "Invalid Google credential", 401);
+    }
 
-    const google_id = decoded.sub;
-    const email = decoded.email;
-    const first_name = decoded.given_name || decoded.name?.split(" ")[0] || "";
+    const google_id = payload.sub;
+    const email = payload.email;
+    const first_name = payload.given_name || payload.name?.split(" ")[0] || "";
     const last_name =
-      decoded.family_name || decoded.name?.split(" ").slice(1).join(" ") || "";
+      payload.family_name || payload.name?.split(" ").slice(1).join(" ") || "";
 
     if (!email) return fail(res, "Google did not return an email", 400);
+
+    if (!payload.email_verified) {
+      return fail(res, "Google email not verified", 400);
+    }
 
     const pending = await createPendingUserFromGoogle({
       google_id,
@@ -116,7 +134,7 @@ export async function googleSignupController(req, res) {
     if (err.code === "GOOGLE_ID_EXISTS") {
       return fail(res, err.message, 409);
     }
-    
+
     if (err.code === "EMAIL_EXISTS") {
       return fail(res, err.message, 409);
     }
@@ -181,6 +199,7 @@ export async function requestSmsOtp(req, res) {
     console.error("❌ requestSmsOtp error:", err);
     
     if (err.code === "OTP_COOLDOWN") return fail(res, err.message, 429);
+        if (err.code === "OTP_DAILY_LIMIT") return fail(res, err.message, 429);
     if (err.code === "NOT_FOUND") return fail(res, err.message, 404);
     if (err.code === "PHONE_EXISTS") return fail(res, err.message, 409);
     if (err.code === "PHONE_PENDING_EXISTS") return fail(res, err.message, 409);
@@ -201,6 +220,7 @@ export async function verifySmsOtpController(req, res) {
     if (err.code === "NO_OTP") return fail(res, err.message, 400);
     if (err.code === "OTP_EXPIRED") return fail(res, err.message, 400);
     if (err.code === "INVALID_OTP") return fail(res, err.message, 400);
+        if (err.code === "TOO_MANY_ATTEMPTS") return fail(res, err.message, 429);
 
     console.error(err);
     return fail(res, "Failed to verify SMS OTP", 500);

@@ -15,6 +15,7 @@ import { initializeCronJobs } from "./src/cron/jobs.js";
 // MIDDLEWARE IMPORTS
 // ═══════════════════════════════════════════════════════════
 import maintenanceMiddleware from "./src/middleware/maintenance.js";
+import { globalLimiter, authLimiter } from "./src/middleware/rateLimiter.js";
 import publicUnsubscribeRoutes from './src/modules/public/unsubscribe/unsubscribe.routes.js';
 
 // ═══════════════════════════════════════════════════════════
@@ -73,6 +74,7 @@ const app = express();
 const allowedOrigins = [
   process.env.USER_FRONTEND_ORIGIN || "http://localhost:5173",
   process.env.ADMIN_FRONTEND_ORIGIN || "http://localhost:5174",
+  process.env.LANDING_FRONTEND_ORIGIN || "http://localhost:5175",
 ].filter(Boolean);
 
 // ============================================
@@ -97,7 +99,7 @@ app.use(
       directives: {
         defaultSrc: ["'self'"],
         imgSrc: ["'self'", "data:", "blob:", ...allowedOrigins],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         connectSrc: ["'self'", ...allowedOrigins],
         frameSrc: ["'self'", "blob:", "data:"],
@@ -112,7 +114,7 @@ app.use(
 // ============================================
 // Body Parsing Middleware
 // ============================================
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
 // ============================================
@@ -120,7 +122,8 @@ app.use(cookieParser());
 // Must be AFTER body parsing, BEFORE routes
 // ============================================
 app.use(maintenanceMiddleware);
-
+app.use("/api", globalLimiter);
+app.use("/cadmin", globalLimiter);
 // ============================================
 // Static Files - With proper headers for PDFs
 // ============================================

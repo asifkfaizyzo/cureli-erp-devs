@@ -74,7 +74,7 @@ export async function updateOnboardingStepController(req, res) {
       return success(
         res,
         { onboarding_step: user.onboarding_step },
-        "Step already completed"
+        "Step already completed",
       );
     }
 
@@ -134,7 +134,7 @@ export async function loginController(req, res) {
         return fail(
           res,
           "Your signup was not completed. Please restart the signup process.",
-          400
+          400,
         );
       }
 
@@ -146,9 +146,11 @@ export async function loginController(req, res) {
         res,
         "Your account has been suspended. Please contact Cureli support for assistance.",
         403,
-        { code: "ACCOUNT_SUSPENDED" }
+        { code: "ACCOUNT_SUSPENDED" },
       );
     }
+
+
 
     if (!user.password_hash) {
       return fail(res, "This account requires Google login", 400);
@@ -164,7 +166,7 @@ export async function loginController(req, res) {
     const tempToken = jwt.sign(
       { user_id: user.user_id, purpose: "login_otp" },
       TEMP_TOKEN_SECRET,
-      { expiresIn: "10m" }
+      { expiresIn: "10m" },
     );
 
     return success(
@@ -176,7 +178,7 @@ export async function loginController(req, res) {
           : null,
         message: "OTP sent to your registered phone number",
       },
-      "OTP sent"
+      "OTP sent",
     );
   } catch (err) {
     console.error(err);
@@ -185,11 +187,17 @@ export async function loginController(req, res) {
       return fail(
         res,
         "No phone number registered. Please contact support.",
-        400
+        400,
       );
     }
 
     if (err.code === "OTP_COOLDOWN") {
+      return fail(res, err.message, 429);
+    }
+    if (err.code === "OTP_DAILY_LIMIT") {
+      return fail(res, err.message, 429);
+    }
+        if (err.code === "OTP_LOCKED") {
       return fail(res, err.message, 429);
     }
 
@@ -222,7 +230,7 @@ export async function resendLoginOtpController(req, res) {
     const newTempToken = jwt.sign(
       { user_id: decoded.user_id, purpose: "login_otp" },
       TEMP_TOKEN_SECRET,
-      { expiresIn: "10m" }
+      { expiresIn: "10m" },
     );
 
     return success(
@@ -234,7 +242,7 @@ export async function resendLoginOtpController(req, res) {
           : null,
         message: "OTP resent successfully",
       },
-      "OTP resent"
+      "OTP resent",
     );
   } catch (err) {
     console.error("Resend OTP error:", err);
@@ -243,7 +251,7 @@ export async function resendLoginOtpController(req, res) {
       return fail(
         res,
         "No phone number registered. Please contact support.",
-        400
+        400,
       );
     }
 
@@ -320,7 +328,7 @@ export async function verifyLoginOtpController(req, res) {
         session_id: sessionToken,
       },
       REFRESH_SECRET,
-      { expiresIn: REFRESH_EXPIRES }
+      { expiresIn: REFRESH_EXPIRES },
     );
 
     res.cookie("refresh_token", refreshToken, {
@@ -366,7 +374,7 @@ export async function verifyLoginOtpController(req, res) {
         role: user.role,
         user_name: `${user.first_name} ${user.last_name || ""}`.trim(),
       },
-      "Login successful"
+      "Login successful",
     );
   } catch (err) {
     console.error(err);
@@ -397,9 +405,15 @@ export async function refreshTokenController(req, res) {
     try {
       decoded = jwt.verify(refreshToken, REFRESH_SECRET);
     } catch (err) {
+      res.clearCookie("refresh_token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+      });
       return fail(res, "Invalid refresh token", 401);
     }
 
+    // Validate session is still active
     if (decoded.session_id) {
       const session = await validateUserSession(
         decoded.user_id,
@@ -435,9 +449,15 @@ export async function refreshTokenController(req, res) {
     });
 
     if (!user || !user.is_active) {
+      res.clearCookie("refresh_token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+      });
       return fail(res, "Invalid user", 401);
     }
 
+    // Issue new access token
     const accessToken = jwt.sign(
       {
         user_id: user.user_id,
@@ -450,6 +470,24 @@ export async function refreshTokenController(req, res) {
       ACCESS_SECRET,
       { expiresIn: ACCESS_EXPIRES }
     );
+
+    // Rotate refresh token — issue a new one, replace the cookie
+    const newRefreshToken = jwt.sign(
+      {
+        user_id: user.user_id,
+        branch_id: user.branch_id || null,
+        session_id: decoded.session_id,
+      },
+      REFRESH_SECRET,
+      { expiresIn: REFRESH_EXPIRES }
+    );
+
+    res.cookie("refresh_token", newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     return success(res, { access_token: accessToken });
   } catch (err) {
