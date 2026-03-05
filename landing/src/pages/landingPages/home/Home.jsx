@@ -1,16 +1,16 @@
 // src/pages/landingPages/home/Home.jsx
 
-import Navbar from "./components/Navbar";
+import Navbar from "../../../components/common/Navbar";
 import Hero from "./components/Hero";
 import Features from "./components/Features";
-import Pricing from "./components/Pricing";
 import Testimonials from "./components/Testimonials";
-import FAQ from "./components/FAQ";
+import FAQ from "../../../components/common/FAQ";
 import Footer from "../../../components/common/Footer";
 import HeroStatsCard from "./components/HeroStatsCard";
 import WhyChooseUs from "./components/WhyChooseUs";
 import PlatformOptions from "./components/PlatformOptions";
 import ERPShowcase from "./components/ERPShowcase";
+import CTASection from "../../../components/common/CTASection";
 
 const Home = () => {
   return (
@@ -41,6 +41,7 @@ const Home = () => {
       <PlatformOptions />
       <ERPShowcase />
       <FAQ />
+      <CTASection />
 
       {/* Footer */}
       <Footer />

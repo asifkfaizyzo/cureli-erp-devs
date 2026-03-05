@@ -1,9 +1,9 @@
-// src/pages/landingPages/home/components/Hero.jsx
+// src/pages/landingPages/services/components/Hero.jsx
 
 import { useEffect, memo } from "react";
 import AOS from "aos";
 import heroBg from "../../../../assets/images/Background.svg";
-import phones from "../../../../assets/images/phones.svg";
+import phones from "../../../../assets/images/ServiceHero.svg";
 
 // ============================================
 // FOG PARTICLES DATA - Outside component
@@ -120,7 +120,7 @@ HeroImage.displayName = "HeroImage";
 // ============================================
 // MAIN HERO COMPONENT
 // ============================================
-const Hero = () => {
+const ServiceHero = () => {
   useEffect(() => {
     AOS.init({ duration: 1000, once: true });
   }, []);
@@ -160,4 +160,4 @@ const Hero = () => {
   );
 };
 
-export default Hero;
+export default ServiceHero;

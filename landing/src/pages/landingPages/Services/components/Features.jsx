@@ -1,68 +1,68 @@
-// src/pages/landingPages/home/components/WhyChooseUs.jsx
+// src/pages/landingPages/services/components/Features.jsx
 
 import { useEffect, memo } from "react";
 import AOS from "aos";
 import {
-  Layers,
-  Workflow,
-  Zap,
-  ShieldCheck,
-  HeartHandshake,
-  TrendingUp,
+  ShoppingCart,
+  Package,
+  FileText,
+  CreditCard,
+  Star,
+  MapPin,
 } from "lucide-react";
 import SpotlightCard from "../../../../components/ui/SpotlightCard";
 
 // ============================================
 // CONSTANTS
 // ============================================
-const ITEMS_DATA = [
+const FEATURES_DATA = [
   {
     id: 1,
-    icon: Layers,
-    title: "One Unified Platform",
-    desc: "Cureli combines a powerful pharmacy ERP system with an online medicine delivery app, eliminating the need for multiple disconnected tools.",
-    spotlightColor: "rgba(99, 102, 241, 0.3)",
-    iconBg: "from-indigo-500 to-purple-600",
+    icon: ShoppingCart,
+    title: "Order Management",
+    desc: "Enable order customization and management to heighten customer satisfaction.",
+    spotlightColor: "rgba(139, 92, 246, 0.3)",
+    iconBg: "from-violet-500 to-purple-600",
   },
   {
     id: 2,
-    icon: Workflow,
-    title: "Seamless App & ERP Integration",
-    desc: "Orders placed through the Cureli app sync instantly with the ERP, ensuring real-time inventory updates, accurate billing, and smooth fulfillment.",
-    spotlightColor: "rgba(168, 85, 247, 0.3)",
-    iconBg: "from-purple-500 to-pink-600",
+    icon: Package,
+    title: "Inventory Management",
+    desc: "Be on top of your pharmacy inventory and keep your operations running smoothly with this powerful inventory management module.",
+    spotlightColor: "rgba(59, 130, 246, 0.3)",
+    iconBg: "from-blue-500 to-indigo-600",
   },
   {
     id: 3,
-    icon: Zap,
-    title: "Faster Operations",
-    desc: "Automated processes reduce manual work, minimize errors, and speed up billing, inventory control, and reporting.",
+    icon: FileText,
+    title: "Real-time Order Status",
+    desc: "Customers can keep an eye on the status of their orders. The app notifies them when their order is accepted, prepared, dispatched, or delivered.",
+    spotlightColor: "rgba(16, 185, 129, 0.3)",
+    iconBg: "from-emerald-500 to-teal-600",
+  },
+  {
+    id: 4,
+    icon: CreditCard,
+    title: "Make Payment Easy",
+    desc: "Multiple payment gateways to facilitate 100% safe and secure transactions online.",
+    spotlightColor: "rgba(245, 158, 11, 0.3)",
+    iconBg: "from-amber-500 to-orange-600",
+  },
+  {
+    id: 5,
+    icon: Star,
+    title: "Rating and Reviews",
+    desc: "Collect feedback from your clientele and leverage it for future improvements and service expansion.",
     spotlightColor: "rgba(236, 72, 153, 0.3)",
     iconBg: "from-pink-500 to-rose-600",
   },
   {
-    id: 4,
-    icon: ShieldCheck,
-    title: "Secure & Reliable",
-    desc: "Cureli ensures secure data handling, reliable system performance, and compliance with industry standards.",
-    spotlightColor: "rgba(34, 197, 94, 0.3)",
-    iconBg: "from-emerald-500 to-teal-600",
-  },
-  {
-    id: 5,
-    icon: HeartHandshake,
-    title: "Improved Customer Experiences",
-    desc: "Quick medicine discovery, easy prescription uploads, fast delivery, and transparent order tracking create a better experience for customers.",
-    spotlightColor: "rgba(251, 146, 60, 0.3)",
-    iconBg: "from-orange-500 to-amber-600",
-  },
-  {
     id: 6,
-    icon: TrendingUp,
-    title: "Scalable for Any Size Business",
-    desc: "Whether you run a single medical store or a multi-branch pharmacy chain, Cureli scales with your growth.",
-    spotlightColor: "rgba(59, 130, 246, 0.3)",
-    iconBg: "from-blue-500 to-cyan-600",
+    icon: MapPin,
+    title: "Delivering Zoning",
+    desc: "Assign drivers to their specific delivery zones to make rapid and efficient deliveries.",
+    spotlightColor: "rgba(6, 182, 212, 0.3)",
+    iconBg: "from-cyan-500 to-blue-600",
   },
 ];
 
@@ -71,8 +71,8 @@ const AOS_BASE_DELAY = 100;
 // ============================================
 // FEATURE CARD COMPONENT
 // ============================================
-const FeatureCard = memo(({ item, index }) => {
-  const IconComponent = item.icon;
+const FeatureCard = memo(({ feature, index }) => {
+  const IconComponent = feature.icon;
 
   return (
     <div
@@ -82,25 +82,25 @@ const FeatureCard = memo(({ item, index }) => {
     >
       <SpotlightCard
         className="h-full bg-white/5 backdrop-blur-md p-6 xs:p-7 sm:p-8 group cursor-pointer"
-        spotlightColor={item.spotlightColor}
+        spotlightColor={feature.spotlightColor}
         borderColor="rgba(255, 255, 255, 0.08)"
         hoverBorderColor="rgba(255, 255, 255, 0.25)"
       >
         {/* Icon Container */}
         <div
-          className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${item.iconBg} flex items-center justify-center mb-4 xs:mb-5 sm:mb-6 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}
+          className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${feature.iconBg} flex items-center justify-center mb-4 xs:mb-5 sm:mb-6 shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}
         >
           <IconComponent className="w-6 h-6 xs:w-7 xs:h-7 sm:w-8 sm:h-8 text-white" />
         </div>
 
         {/* Title */}
         <h3 className="text-lg xs:text-xl sm:text-xl md:text-2xl font-semibold text-white mb-2 xs:mb-3 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-purple-200 transition-all duration-300">
-          {item.title}
+          {feature.title}
         </h3>
 
         {/* Description */}
         <p className="text-sm xs:text-base sm:text-base text-white/70 leading-relaxed group-hover:text-white/90 transition-colors duration-300">
-          {item.desc}
+          {feature.desc}
         </p>
       </SpotlightCard>
     </div>
@@ -114,26 +114,18 @@ FeatureCard.displayName = "FeatureCard";
 // ============================================
 const SectionHeader = memo(() => (
   <header className="text-center mb-12 xs:mb-14 sm:mb-16 md:mb-20">
-    {/* Badge */}
-    {/* <div
-      className="inline-flex items-center gap-2 px-4 py-2 mb-4 xs:mb-5 sm:mb-6 bg-white/10 border border-white/20 rounded-full backdrop-blur-sm"
-      data-aos="fade-down"
-    >
-      <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-      <span className="text-sm xs:text-base text-white/90 font-medium">
-        Why Cureli?
-      </span>
-    </div> */}
-
     {/* Title */}
     <h2
       className="text-3xl xs:text-4xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 xs:mb-5 sm:mb-6"
       data-aos="fade-up"
     >
-      Why Choose{" "}
-      <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400">
-        Us?
+      Features of{" "}
+      <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-purple-400 to-indigo-400">
+        Cureli's
       </span>
+      <br className="hidden sm:block" />
+      <span className="sm:hidden"> </span>
+      Advanced Medicine App
     </h2>
 
     {/* Subtitle */}
@@ -142,8 +134,9 @@ const SectionHeader = memo(() => (
       data-aos="fade-up"
       data-aos-delay="100"
     >
-      Discover why thousands of pharmacies trust Cureli to power their business
-      and delight their customers.
+      Combined with some of the most advanced and powerful software modules,
+      this medicine ordering system will set you up for success, even in
+      competitive markets.
     </p>
   </header>
 ));
@@ -154,27 +147,30 @@ SectionHeader.displayName = "SectionHeader";
 // FLOATING DECORATIONS COMPONENT
 // ============================================
 const FloatingDecorations = memo(() => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-    {/* Top Left Glow */}
+  <div
+    className="absolute inset-0 overflow-hidden pointer-events-none"
+    aria-hidden="true"
+  >
+    {/* Top Right Glow */}
     <div
       className="absolute w-72 h-72 xs:w-80 xs:h-80 sm:w-96 sm:h-96 lg:w-[500px] lg:h-[500px] rounded-full animate-float-slow"
       style={{
         background:
-          "radial-gradient(circle, rgba(168, 85, 247, 0.12) 0%, transparent 70%)",
+          "radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%)",
         top: "-10%",
-        left: "-5%",
+        right: "-5%",
         filter: "blur(60px)",
       }}
     />
 
-    {/* Bottom Right Glow */}
+    {/* Bottom Left Glow */}
     <div
       className="absolute w-64 h-64 xs:w-72 xs:h-72 sm:w-80 sm:h-80 lg:w-[400px] lg:h-[400px] rounded-full animate-float-medium"
       style={{
         background:
-          "radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%)",
+          "radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 70%)",
         bottom: "-5%",
-        right: "-5%",
+        left: "-5%",
         filter: "blur(60px)",
       }}
     />
@@ -184,7 +180,7 @@ const FloatingDecorations = memo(() => (
       className="absolute w-48 h-48 sm:w-64 sm:h-64 lg:w-80 lg:h-80 rounded-full animate-float-fast"
       style={{
         background:
-          "radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, transparent 70%)",
+          "radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%)",
         top: "50%",
         left: "50%",
         transform: "translate(-50%, -50%)",
@@ -197,18 +193,18 @@ const FloatingDecorations = memo(() => (
 FloatingDecorations.displayName = "FloatingDecorations";
 
 // ============================================
-// MAIN WHY CHOOSE US COMPONENT
+// MAIN FEATURES COMPONENT
 // ============================================
-const WhyChooseUs = () => {
+const Features = () => {
   useEffect(() => {
     AOS.init({ duration: 1000, once: true });
   }, []);
 
   return (
     <section
-      id="why-choose-us"
+      id="features"
       className="relative py-16 xs:py-20 sm:py-24 md:py-28 lg:py-32 bg-transparent overflow-hidden"
-      aria-labelledby="why-choose-us-heading"
+      aria-labelledby="features-heading"
     >
       {/* Floating Decorations */}
       <FloatingDecorations />
@@ -230,8 +226,8 @@ const WhyChooseUs = () => {
 
         {/* Features Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 xs:gap-5 sm:gap-6 md:gap-8">
-          {ITEMS_DATA.map((item, index) => (
-            <FeatureCard key={item.id} item={item} index={index} />
+          {FEATURES_DATA.map((feature, index) => (
+            <FeatureCard key={feature.id} feature={feature} index={index} />
           ))}
         </div>
 
@@ -242,10 +238,10 @@ const WhyChooseUs = () => {
           data-aos-delay="600"
         >
           <a
-            href="\contact"
-            className="inline-flex items-center gap-2 xs:gap-3 px-6 xs:px-8 py-3 xs:py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm xs:text-base sm:text-lg font-semibold rounded-xl hover:from-purple-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-purple-500/25"
+            href="/contact"
+            className="inline-flex items-center gap-2 xs:gap-3 px-6 xs:px-8 py-3 xs:py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm xs:text-base sm:text-lg font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-violet-500/25"
           >
-            <span>Get Started Today</span>
+            <span>Explore All Features</span>
             <svg
               className="w-4 h-4 xs:w-5 xs:h-5"
               fill="none"
@@ -266,4 +262,4 @@ const WhyChooseUs = () => {
   );
 };
 
-export default WhyChooseUs;
+export default Features;

@@ -1,102 +1,377 @@
-import { Truck, Home, CheckCircle } from "lucide-react";
+// src/pages/landingPages/home/components/PlatformOptions.jsx
 
-const PlatformOptions = () => {
-  const pulseFeatures = [
-    "Discover trusted medical stores near you",
-    "Check availability, pricing, and alternatives",
-    "Exclusive deals from partner pharmacies",
-    "Optimized delivery routes for quicker service",
-    "Secure and simple prescription handling",
-  ];
+import { useEffect, useState, memo } from "react";
+import AOS from "aos";
+import { Truck, Home, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
 
-  const pharmaFeatures = [
-    "Real-time stock tracking with batch & expiry control",
-    "GST-compliant billing for in-store & online sales",
-    "Purchase orders, supplier bills, and GRN handling",
-    "Daily, monthly & branch-wise performance insights",
-    "Automatic sync with Cureli delivery app",
-  ];
+// ============================================
+// CONSTANTS
+// ============================================
+const PLATFORMS_DATA = [
+  {
+    id: 1,
+    icon: Truck,
+    title: "For Cureli Pulse",
+    subtitle: "Medicine Delivery Platform",
+    description:
+      "Launch and scale a multi-vendor medicine delivery marketplace with full control over vendors, drivers and operations.",
+    features: [
+      "Discover trusted medical stores near you",
+      "Check availability, pricing, and alternatives",
+      "Exclusive deals from partner pharmacies",
+      "Optimized delivery routes for quicker service",
+      "Secure and simple prescription handling",
+    ],
+     gradient: "from-indigo-500 to-blue-600",
+    lightGradient: "from-indigo-50 to-blue-50",
+    borderColor: "border-indigo-200",
+    hoverBorderColor: "group-hover:border-indigo-400",
+    iconBg: "bg-indigo-100",
+    iconColor: "text-indigo-600",
+    checkColor: "text-indigo-500",
+    hoverShadow: "hover:shadow-indigo-200/50",
+  },
+  {
+    id: 2,
+    icon: Home,
+    title: "For Cureli PharmaERP",
+    subtitle: "Pharmacy Management System",
+    description:
+      "Digitally manage and automate pharmacy operations with real-time inventory, billing, purchases, suppliers, and analytics to improve profitability.",
+    features: [
+      "Real-time stock tracking with batch & expiry control",
+      "GST-compliant billing for in-store & online sales",
+      "Purchase orders, supplier bills, and GRN handling",
+      "Daily, monthly & branch-wise performance insights",
+      "Automatic sync with Cureli delivery app",
+    ],
+    gradient: "from-indigo-500 to-blue-600",
+    lightGradient: "from-indigo-50 to-blue-50",
+    borderColor: "border-indigo-200",
+    hoverBorderColor: "group-hover:border-indigo-400",
+    iconBg: "bg-indigo-100",
+    iconColor: "text-indigo-600",
+    checkColor: "text-indigo-500",
+    hoverShadow: "hover:shadow-indigo-200/50",
+  },
+];
+
+const INITIAL_FEATURES_SHOWN = 3;
+const AOS_BASE_DELAY = 150;
+
+// ============================================
+// FEATURE ITEM COMPONENT
+// ============================================
+const FeatureItem = memo(({ feature, checkColor }) => (
+  <li className="flex items-start gap-3 text-gray-700 group/item">
+    <CheckCircle
+      className={`w-4 h-4 xs:w-5 xs:h-5 ${checkColor} flex-shrink-0 mt-0.5 transition-transform duration-300 group-hover/item:scale-110`}
+    />
+    <span className="text-sm xs:text-base leading-relaxed transition-colors duration-300 group-hover/item:text-gray-900">
+      {feature}
+    </span>
+  </li>
+));
+
+FeatureItem.displayName = "FeatureItem";
+
+// ============================================
+// PLATFORM CARD COMPONENT - BALANCED HOVER
+// ============================================
+// ============================================
+// PLATFORM CARD COMPONENT - SLOW SMOOTH HOVER
+// ============================================
+const PlatformCard = memo(({ platform, index }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const IconComponent = platform.icon;
+
+  const visibleFeatures = isExpanded
+    ? platform.features
+    : platform.features.slice(0, INITIAL_FEATURES_SHOWN);
+
+  const hasMoreFeatures = platform.features.length > INITIAL_FEATURES_SHOWN;
 
   return (
-    <section className="py-24 bg-[#d7e4ef]">
-      <div className="max-w-7xl mx-auto px-6">
+    <div
+      className={`group relative rounded-2xl xs:rounded-3xl border-2 ${platform.borderColor} ${platform.hoverBorderColor} bg-gradient-to-br ${platform.lightGradient} p-5 xs:p-6 sm:p-8 md:p-10 shadow-lg overflow-hidden cursor-pointer hover:shadow-2xl ${platform.hoverShadow}`}
+      data-aos="fade-up"
+      data-aos-delay={index * AOS_BASE_DELAY}
+      style={{
+        transition: "all 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "scale(1.02) translateY(-8px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "scale(1) translateY(0)";
+      }}
+    >
+      {/* Background Decoration - Animated on hover */}
+      <div
+        className={`absolute -top-20 -right-20 w-40 h-40 xs:w-48 xs:h-48 sm:w-56 sm:h-56 rounded-full bg-gradient-to-br ${platform.gradient} opacity-5 group-hover:opacity-15 group-hover:scale-125 group-hover:rotate-12`}
+        style={{
+          transition: "all 1s cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className={`absolute -bottom-16 -left-16 w-32 h-32 xs:w-40 xs:h-40 rounded-full bg-gradient-to-br ${platform.gradient} opacity-5 group-hover:opacity-15 group-hover:scale-125 group-hover:-rotate-12`}
+        style={{
+          transition: "all 1s cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+        aria-hidden="true"
+      />
 
-        {/* Title */}
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-semibold text-[#3c45a5] mb-3">
-            Build for Both Delivery <br />
-            Platform & Pharmacies Brands
-          </h2>
+      {/* Subtle Glow Overlay on Hover */}
+      <div
+        className={`absolute inset-0 rounded-2xl xs:rounded-3xl bg-gradient-to-br ${platform.gradient} opacity-0 group-hover:opacity-[0.03] pointer-events-none`}
+        style={{
+          transition: "opacity 1s cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+      />
 
-          <p className="text-gray-600">
-            Choose your path and launch your medicines delivery business in weeks
-          </p>
+      {/* Content */}
+      <div className="relative z-10">
+        {/* Icon */}
+        <div
+          className={`w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-xl sm:rounded-2xl ${platform.iconBg} mb-4 xs:mb-5 sm:mb-6 shadow-md group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-lg`}
+          style={{
+            transition: "all 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          <IconComponent
+            className={`w-6 h-6 xs:w-7 xs:h-7 sm:w-8 sm:h-8 ${platform.iconColor} group-hover:scale-110`}
+            style={{
+              transition: "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
+          />
         </div>
 
-        {/* Cards */}
-        <div className="grid lg:grid-cols-2 gap-10">
+        {/* Subtitle Badge */}
+        <div
+          className={`inline-flex items-center gap-1.5 px-3 xs:px-4 py-1 xs:py-1.5 mb-3 xs:mb-4 rounded-full bg-gradient-to-r ${platform.gradient} shadow-md group-hover:shadow-lg group-hover:translate-x-1`}
+          style={{
+            transition: "all 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          <span 
+            className="w-1.5 h-1.5 xs:w-2 xs:h-2 rounded-full bg-white/80 group-hover:scale-125"
+            style={{
+              transition: "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
+          />
+          <span className="text-xs xs:text-sm font-medium text-white">
+            {platform.subtitle}
+          </span>
+        </div>
 
-          {/* Card 1 */}
-          <div className="rounded-2xl border border-purple-300 bg-gradient-to-br from-[#f0d8f5] to-[#d6bde8] p-8 shadow-lg">
+        {/* Title */}
+        <h3 
+          className="text-xl xs:text-2xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 xs:mb-3 group-hover:translate-x-0.5"
+          style={{
+            transition: "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          {platform.title}
+        </h3>
 
-            {/* Icon */}
-            <div className="w-12 h-12 flex items-center justify-center rounded-lg bg-purple-200 mb-6">
-              <Truck size={26} className="text-purple-700" />
-            </div>
+        {/* Description */}
+        <p 
+          className="text-sm xs:text-base sm:text-base md:text-lg text-gray-600 mb-5 xs:mb-6 sm:mb-8 leading-relaxed group-hover:text-gray-700"
+          style={{
+            transition: "color 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          {platform.description}
+        </p>
 
-            {/* Title */}
-            <h3 className="text-xl font-semibold mb-4">
-              For Cureli Pulse
-            </h3>
+        {/* Features List */}
+        <ul className="space-y-3 xs:space-y-4">
+          {visibleFeatures.map((feature, i) => (
+            <FeatureItem
+              key={i}
+              feature={feature}
+              checkColor={platform.checkColor}
+            />
+          ))}
+        </ul>
 
-            <p className="text-gray-700 mb-6">
-              Launch and scale a multi-vendor medicine delivery marketplace with
-              full control over vendors, drivers and operations.
-            </p>
+        {/* Read More / Read Less Button - Only on Mobile/Tablet */}
+        {hasMoreFeatures && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={`mt-4 xs:mt-5 sm:mt-6 inline-flex items-center gap-2 text-sm xs:text-base font-medium ${platform.iconColor} transition-all duration-300 hover:gap-3 lg:hidden`}
+            aria-expanded={isExpanded}
+          >
+            <span>{isExpanded ? "Show Less" : "Read More"}</span>
+            {isExpanded ? (
+              <ChevronUp className="w-4 h-4 xs:w-5 xs:h-5 transition-transform duration-300" />
+            ) : (
+              <ChevronDown className="w-4 h-4 xs:w-5 xs:h-5 transition-transform duration-300" />
+            )}
+          </button>
+        )}
 
-            {/* Features */}
-            <ul className="space-y-3">
-              {pulseFeatures.map((item, i) => (
-                <li key={i} className="flex items-center gap-3 text-gray-800">
-                  <CheckCircle size={18} className="text-indigo-700" />
-                  {item}
-                </li>
-              ))}
-            </ul>
+        {/* All Features Visible on Large Screens */}
+        <ul className="hidden lg:block space-y-4 mt-4">
+          {platform.features.slice(INITIAL_FEATURES_SHOWN).map((feature, i) => (
+            <FeatureItem
+              key={i + INITIAL_FEATURES_SHOWN}
+              feature={feature}
+              checkColor={platform.checkColor}
+            />
+          ))}
+        </ul>
 
+        {/* CTA Button */}
+        <div className="mt-6 xs:mt-8 sm:mt-10">
+          <a
+            href="contact"
+            className={`group/btn inline-flex items-center gap-2 px-5 xs:px-6 sm:px-8 py-2.5 xs:py-3 sm:py-4 rounded-xl bg-gradient-to-r ${platform.gradient} text-white text-sm xs:text-base font-semibold shadow-lg transition-all duration-500 hover:shadow-xl hover:scale-105 hover:-translate-y-0.5`}
+          >
+            <span>Get Started</span>
+            <svg
+              className="w-4 h-4 xs:w-5 xs:h-5 transition-transform duration-300 group-hover/btn:translate-x-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 8l4 4m0 0l-4 4m4-4H3"
+              />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+PlatformCard.displayName = "PlatformCard";
+
+// ============================================
+// SECTION HEADER COMPONENT
+// ============================================
+const SectionHeader = memo(() => (
+  <header className="text-center mb-10 xs:mb-12 sm:mb-14 md:mb-16 lg:mb-20">
+    {/* Badge */}
+    {/* <div
+      className="inline-flex items-center gap-2 px-4 py-2 mb-4 xs:mb-5 sm:mb-6 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full shadow-md transition-all duration-500 hover:shadow-lg hover:scale-105"
+      data-aos="fade-down"
+    >
+      <span className="w-2 h-2 rounded-full bg-white/80 animate-pulse" />
+      <span className="text-sm xs:text-base text-white font-medium">
+        Our Platforms
+      </span>
+    </div> */}
+
+    {/* Title */}
+    <h2
+      className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-bold text-gray-900 mb-3 xs:mb-4 sm:mb-5 px-4 leading-tight"
+      data-aos="fade-up"
+    >
+      Build for Both{" "}
+      <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">
+        Delivery Platform
+      </span>
+      <br className="hidden xs:block" />
+      <span className="xs:hidden"> </span>& Pharmacies Brands
+    </h2>
+
+    {/* Subtitle */}
+    <p
+      className="text-sm xs:text-base sm:text-lg md:text-xl text-gray-600 max-w-xs xs:max-w-sm sm:max-w-xl md:max-w-2xl mx-auto px-4 xs:px-0 leading-relaxed"
+      data-aos="fade-up"
+      data-aos-delay="100"
+    >
+      Choose your path and launch your medicines delivery business in weeks,
+      not months.
+    </p>
+  </header>
+));
+
+SectionHeader.displayName = "SectionHeader";
+
+// ============================================
+// DECORATIVE ELEMENTS
+// ============================================
+const DecorativeElements = memo(() => (
+  <div
+    className="absolute inset-0 overflow-hidden pointer-events-none"
+    aria-hidden="true"
+  >
+    {/* Top Left Pattern */}
+    <div
+      className="absolute w-64 h-64 xs:w-80 xs:h-80 sm:w-96 sm:h-96 rounded-full"
+      style={{
+        background:
+          "radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%)",
+        top: "-10%",
+        left: "-5%",
+        filter: "blur(40px)",
+      }}
+    />
+
+    {/* Bottom Right Pattern */}
+    <div
+      className="absolute w-56 h-56 xs:w-72 xs:h-72 sm:w-80 sm:h-80 rounded-full"
+      style={{
+        background:
+          "radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%)",
+        bottom: "-5%",
+        right: "-5%",
+        filter: "blur(40px)",
+      }}
+    />
+  </div>
+));
+
+DecorativeElements.displayName = "DecorativeElements";
+
+// ============================================
+// MAIN PLATFORM OPTIONS COMPONENT
+// ============================================
+const PlatformOptions = () => {
+  useEffect(() => {
+    AOS.init({ duration: 1000, once: true });
+  }, []);
+
+  return (
+    <section
+      id="platforms"
+      className="relative py-16 xs:py-20 sm:py-24 md:py-28 lg:py-32 bg-white overflow-hidden"
+      aria-labelledby="platforms-heading"
+    >
+      {/* Decorative Elements */}
+      <DecorativeElements />
+
+      <div className="relative z-10 max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 xs:px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
+        {/* Section Header */}
+        <SectionHeader />
+
+        {/* Platform Cards Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xs:gap-8 sm:gap-10 md:gap-12">
+          {PLATFORMS_DATA.map((platform, index) => (
+            <PlatformCard key={platform.id} platform={platform} index={index} />
+          ))}
+        </div>
+
+        {/* Bottom Connector Visual */}
+        <div
+          className="mt-12 xs:mt-14 sm:mt-16 md:mt-20 flex justify-center"
+          data-aos="fade-up"
+          data-aos-delay="400"
+        >
+          <div className="group flex items-center gap-3 xs:gap-4 sm:gap-6 px-6 xs:px-8 sm:px-10 py-3 xs:py-4 bg-indigo-500 to-blue-500 rounded-full shadow-lg transition-all duration-500 hover:shadow-xl hover:scale-105">
+            <div className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full bg-white/80 animate-pulse transition-transform duration-300 group-hover:scale-125" />
+            <span className="text-xs xs:text-sm sm:text-base text-white font-medium">
+              Both platforms work seamlessly together
+            </span>
+            <div className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full bg-white/80 animate-pulse transition-transform duration-300 group-hover:scale-125" />
           </div>
-
-          {/* Card 2 */}
-          <div className="rounded-2xl border border-indigo-300 bg-gradient-to-br from-[#e5e8f9] to-[#cfd6f3] p-8 shadow-lg">
-
-            {/* Icon */}
-            <div className="w-12 h-12 flex items-center justify-center rounded-lg bg-indigo-200 mb-6">
-              <Home size={26} className="text-indigo-700" />
-            </div>
-
-            {/* Title */}
-            <h3 className="text-xl font-semibold mb-4">
-              For Cureli PharmaERP
-            </h3>
-
-            <p className="text-gray-700 mb-6">
-              Digitally manage and automate pharmacy operations with real-time
-              inventory, billing, purchases, suppliers, and analytics to improve
-              profitability.
-            </p>
-
-            {/* Features */}
-            <ul className="space-y-3">
-              {pharmaFeatures.map((item, i) => (
-                <li key={i} className="flex items-center gap-3 text-gray-800">
-                  <CheckCircle size={18} className="text-indigo-700" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-
-          </div>
-
         </div>
       </div>
     </section>

@@ -5,18 +5,19 @@ import AboutPartners from "./components/AboutPartners";
 import AboutMission from "./components/AboutMission";
 import AboutCTA from "./components/AboutCTA";
 import Footer from "../../../components/common/Footer";
-import Navbar from "../about/components/Navbar";
+import Navbar from "../../../components/common/Navbar";
+import CTASection from "../../../components/common/CTASection";
 
 
 const About = () => {
   return (
-    <div className="w-full overflow-hidden">
+    <div className="bg-[linear-gradient(90deg,#1D0A36,#1D025E,#020245)] w-full overflow-x-hidden">
 
       <Navbar />
       <AboutHero />
       <AboutPartners />
       <AboutMission />
-      <AboutCTA />
+      <CTASection />
       <Footer />
     </div>
   );

@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import ContactHero from "./components/ContactHero";
 import ContactFormCard from "./components/ContactFormCard";
 import MapSection from "./components/MapSection";
-import Navbar from "../about/components/Navbar";
+import Navbar from "../../../components/common/Navbar";
 import Footer from "../../../components/common/Footer";
 import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 

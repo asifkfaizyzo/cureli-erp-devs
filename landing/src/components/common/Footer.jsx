@@ -45,10 +45,10 @@ const Footer = () => {
 
   // Social links data with custom X icon
   const socialLinks = [
-    { icon: Facebook, href: "https://facebook.com", label: "Facebook" },
-    { icon: XIcon, href: "https://x.com", label: "X (Twitter)", isCustom: true },
-    { icon: Instagram, href: "https://instagram.com", label: "Instagram" },
-    { icon: Linkedin, href: "https://linkedin.com", label: "LinkedIn" },
+    { icon: Facebook, href: "https://www.facebook.com/share/18L1w65XLr/?mibextid=wwXIfr", label: "Facebook" },
+    { icon: XIcon, href: "https://x.com/cureliofficial", label: "X (Twitter)", isCustom: true },
+    { icon: Instagram, href: "https://www.instagram.com/curelioffical/", label: "Instagram" },
+    { icon: Linkedin, href: "https://www.linkedin.com/company/cureli/", label: "LinkedIn" },
   ];
 
   return (
@@ -93,7 +93,7 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Informations - FULLY FIXED */}
+          {/* Informations */}
           <div data-aos="fade-up" data-aos-delay="200" className="relative z-20">
             <h4 className="font-manrope text-xs uppercase tracking-wider text-white/60 mb-4">
               INFORMATIONS
@@ -151,6 +151,19 @@ const Footer = () => {
           {/* Copyright */}
           <p className="font-manrope text-xs text-white/60">
             ©CURELI2026. ALL RIGHTS RESERVED.
+          </p>
+
+          {/* Developed By */}
+          <p className="font-manrope text-xs text-white/60">
+            Developed by{" "}
+            <a
+              href="https://yourzerosandones.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white font-semibold hover:text-white/80 transition-colors duration-200"
+            >
+              YOURZEROSANDONES
+            </a>
           </p>
 
           {/* Social Icons */}

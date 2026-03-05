@@ -17,7 +17,7 @@ import MaintenancePage from "./pages/maintenance/MaintenancePage.jsx";
 import Home from "./pages/landingPages/home/Home.jsx";
 import About from "./pages/landingPages/about/About.jsx";
 import Contact from "./pages/landingPages/contact/Contact.jsx";
-import Pricing from "./pages/landingPages/pricing/Pricing.jsx";
+import Services from "./pages/landingPages/Services/Services.jsx";
 import ScrollToTop from "./pages/landingPages/component/ScrollToTop.jsx";
 
 import "./index.css";
@@ -36,7 +36,7 @@ const App = () => {
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
-        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/Services" element={<Services />} />
 
         {/* ============================================ */}
         {/* LEGAL PAGES */}

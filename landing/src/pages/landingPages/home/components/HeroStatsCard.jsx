@@ -82,7 +82,7 @@ DescriptionSection.displayName = "DescriptionSection";
 // ============================================
 const CTAButton = memo(() => (
   <a
-    href="#contact"
+    href="contact"
     className="inline-flex items-center justify-center border border-white text-white px-4 py-1.5 xs:px-5 xs:py-2 sm:px-6 sm:py-2.5 md:px-6 md:py-2.5 rounded-lg whitespace-nowrap hover:bg-white hover:text-[#2a0a68] transition-all duration-300 mx-auto md:mx-0 text-xs xs:text-sm sm:text-base font-medium"
   >
     Get Started

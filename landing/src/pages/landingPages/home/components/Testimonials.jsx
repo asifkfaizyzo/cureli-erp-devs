@@ -1,103 +1,289 @@
-// src/components/Testimonials.jsx
-import { useEffect } from "react";
+// src/pages/landingPages/home/components/Testimonials.jsx
+
+import { useEffect, memo, useRef, useState, useCallback } from "react";
 import AOS from "aos";
 import { Quote } from "lucide-react";
 
+// ============================================
+// CONSTANTS
+// ============================================
+const TESTIMONIALS_DATA = [
+  {
+    id: 1,
+    name: "Victoria Thompson",
+    role: "CEO and Co-founder of ABC Company",
+    image: "https://i.pravatar.cc/150?img=5",
+    text: "Their ability to capture our brand essence in every project is unparalleled - an invaluable creative collaborator.",
+  },
+  {
+    id: 2,
+    name: "Michael Chen",
+    role: "CEO and Co-founder of ABC Company",
+    image: "https://i.pravatar.cc/150?img=6",
+    text: "Their ability to capture our brand essence in every project is unparalleled - an invaluable creative collaborator.",
+  },
+  {
+    id: 3,
+    name: "Sarah Johnson",
+    role: "CEO and Co-founder of ABC Company",
+    image: "https://i.pravatar.cc/150?img=7",
+    text: "Their ability to capture our brand essence in every project is unparalleled - an invaluable creative collaborator.",
+  },
+];
+
+const AOS_BASE_DELAY = 120;
+
+// ============================================
+// TESTIMONIAL CARD COMPONENT WITH SPOTLIGHT
+// ============================================
+const TestimonialCard = memo(({ item, index }) => {
+  const cardRef = useRef(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    setMousePosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+  }, []);
+
+  return (
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className="group relative bg-white/5 backdrop-blur-md p-6 xs:p-7 sm:p-8 md:p-10 rounded-2xl sm:rounded-3xl border border-white/10 shadow-xl flex flex-col cursor-pointer overflow-hidden transition-all duration-500 ease-out hover:shadow-[0_20px_50px_rgba(34,211,238,0.15)] hover:border-white/25 hover:-translate-y-3 hover:scale-[1.02]"
+      data-aos="fade-up"
+      data-aos-delay={index * AOS_BASE_DELAY}
+      style={{
+        transform: isHovered
+          ? `perspective(1000px) rotateX(${(mousePosition.y - 150) / 50}deg) rotateY(${(mousePosition.x - 150) / -50}deg) translateY(-12px) scale(1.02)`
+          : "perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px) scale(1)",
+        transition: "all 0.4s cubic-bezier(0.03, 0.98, 0.52, 0.99)",
+      }}
+    >
+      {/* Spotlight Effect */}
+      <div
+        className="pointer-events-none absolute inset-0 z-10 transition-opacity duration-500"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(34, 211, 238, 0.15), transparent 40%)`,
+        }}
+      />
+
+      {/* Border Glow Effect */}
+      <div
+        className="absolute inset-0 rounded-2xl sm:rounded-3xl transition-opacity duration-500 pointer-events-none"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          background: `radial-gradient(400px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(34, 211, 238, 0.1), transparent 50%)`,
+          filter: "blur(20px)",
+        }}
+      />
+
+      {/* Content */}
+      <div className="relative z-20">
+        {/* Quote Icon */}
+        <div
+          className="w-10 h-10 xs:w-11 xs:h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 flex items-center justify-center mb-5 xs:mb-6 sm:mb-7 shadow-lg shadow-cyan-500/20 transition-all duration-500 ease-out group-hover:scale-110 group-hover:rotate-12 group-hover:shadow-cyan-400/40"
+        >
+          <Quote
+            className="text-white transition-all duration-500 group-hover:scale-90"
+            size={18}
+            fill="white"
+          />
+        </div>
+
+        {/* Testimonial Text */}
+        <p className="font-manrope text-white/75 text-sm xs:text-base sm:text-base md:text-lg leading-relaxed mb-6 xs:mb-7 sm:mb-8 flex-grow transition-all duration-500 group-hover:text-white">
+          "{item.text}"
+        </p>
+
+        {/* Profile */}
+        <div className="flex items-center gap-3 xs:gap-4 mt-auto">
+          <div className="relative">
+            {/* Image Glow */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 opacity-0 group-hover:opacity-50 blur-md transition-all duration-500" />
+            <img
+              src={item.image}
+              alt={item.name}
+              className="relative w-11 h-11 xs:w-12 xs:h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-white/20 shadow-lg transition-all duration-500 group-hover:border-cyan-400/80 group-hover:scale-110"
+              loading="lazy"
+            />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h4 className="font-manrope text-sm xs:text-base sm:text-lg font-bold text-white transition-all duration-500 group-hover:text-cyan-300 truncate">
+              {item.name}
+            </h4>
+            <p className="font-manrope text-xs xs:text-sm text-white/50 transition-all duration-500 group-hover:text-white/80 line-clamp-2">
+              {item.role}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Background Gradient Effect */}
+      <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-cyan-400/0 via-transparent to-teal-400/0 opacity-0 group-hover:opacity-100 group-hover:from-cyan-400/5 group-hover:to-teal-400/5 transition-all duration-700 pointer-events-none" />
+
+      {/* Shine Effect */}
+      <div
+        className="absolute inset-0 rounded-2xl sm:rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none overflow-hidden"
+        style={{
+          background:
+            "linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.03) 55%, transparent 60%)",
+          backgroundSize: "200% 100%",
+          animation: isHovered ? "shine 1.5s ease-in-out" : "none",
+        }}
+      />
+    </div>
+  );
+});
+
+TestimonialCard.displayName = "TestimonialCard";
+
+// ============================================
+// SECTION HEADER COMPONENT
+// ============================================
+const SectionHeader = memo(() => (
+  <header className="text-center mb-10 xs:mb-12 sm:mb-14 md:mb-16 lg:mb-20">
+    {/* Badge */}
+    {/* <div
+      className="inline-flex items-center gap-2 px-4 py-2 mb-4 xs:mb-5 sm:mb-6 bg-gradient-to-r from-cyan-500/20 to-teal-500/20 border border-cyan-400/30 rounded-full backdrop-blur-sm hover:border-cyan-400/50 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-teal-500/30 transition-all duration-500 cursor-default"
+      data-aos="fade-down"
+    >
+      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+      <span className="text-sm xs:text-base text-white font-medium">
+        Testimonials
+      </span>
+    </div> */}
+
+    {/* Title */}
+    <h2
+      className="font-manrope text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-3 xs:mb-4 sm:mb-5 px-4"
+      data-aos="fade-up"
+    >
+      <span className="text-white">Words of Praise</span>{" "}
+      <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-400">
+        from others
+      </span>
+      <br className="hidden sm:block" />
+      <span className="text-white/70">about our presence.</span>
+    </h2>
+
+    {/* Subtitle */}
+    <p
+      className="text-sm xs:text-base sm:text-lg md:text-xl text-white/60 max-w-xs xs:max-w-sm sm:max-w-xl md:max-w-2xl mx-auto px-4 xs:px-0 leading-relaxed"
+      data-aos="fade-up"
+      data-aos-delay="100"
+    >
+      See what our clients have to say about their experience working with us.
+    </p>
+  </header>
+));
+
+SectionHeader.displayName = "SectionHeader";
+
+// ============================================
+// FLOATING DECORATIONS COMPONENT
+// ============================================
+const FloatingDecorations = memo(() => (
+  <div
+    className="absolute inset-0 overflow-hidden pointer-events-none"
+    aria-hidden="true"
+  >
+    {/* Top Right Glow */}
+    <div
+      className="absolute w-64 h-64 xs:w-72 xs:h-72 sm:w-96 sm:h-96 lg:w-[450px] lg:h-[450px] rounded-full animate-float-slow"
+      style={{
+        background:
+          "radial-gradient(circle, rgba(34, 211, 238, 0.1) 0%, transparent 70%)",
+        top: "-5%",
+        right: "-5%",
+        filter: "blur(60px)",
+      }}
+    />
+
+    {/* Bottom Left Glow */}
+    <div
+      className="absolute w-56 h-56 xs:w-64 xs:h-64 sm:w-80 sm:h-80 lg:w-[400px] lg:h-[400px] rounded-full animate-float-medium"
+      style={{
+        background:
+          "radial-gradient(circle, rgba(20, 184, 166, 0.1) 0%, transparent 70%)",
+        bottom: "-5%",
+        left: "-5%",
+        filter: "blur(60px)",
+      }}
+    />
+  </div>
+));
+
+FloatingDecorations.displayName = "FloatingDecorations";
+
+// ============================================
+// MAIN TESTIMONIALS COMPONENT
+// ============================================
 const Testimonials = () => {
   useEffect(() => {
     AOS.init({ duration: 1000, once: true });
-  }, []);
 
-  const testimonials = [
-    {
-      name: "Victoria Thompson",
-      role: "CEO and Co-founder of ABC Company",
-      image: "https://i.pravatar.cc/150?img=5",
-      text: "Their ability to capture our brand essence in every project is unparalleled - an invaluable creative collaborator.",
-    },
-    {
-      name: "Victoria Thompson",
-      role: "CEO and Co-founder of ABC Company",
-      image: "https://i.pravatar.cc/150?img=5",
-      text: "Their ability to capture our brand essence in every project is unparalleled - an invaluable creative collaborator.",
-    },
-    {
-      name: "Victoria Thompson",
-      role: "CEO and Co-founder of ABC Company",
-      image: "https://i.pravatar.cc/150?img=5",
-      text: "Their ability to capture our brand essence in every project is unparalleled - an invaluable creative collaborator.",
-    },
-  ];
+    // Add shine animation keyframes
+    const styleSheet = document.createElement("style");
+    styleSheet.textContent = `
+      @keyframes shine {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+    `;
+    document.head.appendChild(styleSheet);
+
+    return () => {
+      document.head.removeChild(styleSheet);
+    };
+  }, []);
 
   return (
     <section
       id="testimonials"
-      className="bg-[#000060] py-16 sm:py-20 md:py-24 lg:py-28 overflow-hidden">
-    {/* <section
-      id="testimonials"
-      className="py-16 sm:py-20 md:py-24 lg:py-28 overflow-hidden"
-      style={{ 
-        background: "linear-gradient(135deg, #3B1C8C 0%, #1A0B4E 100%)"
-      }}
-    > */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      className="relative py-16 xs:py-20 sm:py-24 md:py-28 lg:py-32 bg-transparent overflow-hidden"
+      aria-labelledby="testimonials-heading"
+    >
+      {/* Floating Decorations */}
+      <FloatingDecorations />
 
-        {/* Heading */}
-        <div className="text-center mb-10 sm:mb-12 md:mb-16 lg:mb-20">
-          <h2
-            className="font-manrope text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-medium text-white mb-2 sm:mb-3 lg:mb-4 px-4"
-            data-aos="fade-up"
-          >
-            <span className="font-bold">Words of Praise</span>{" "}
-            <span className="text-white/70">from others</span>
-            <br className="hidden sm:block" />
-            <span className="text-white/70">about our presence.</span>
-          </h2>
-        </div>
+      {/* Grid Pattern Overlay */}
+      <div
+        className="absolute inset-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                           linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: "60px 60px",
+        }}
+        aria-hidden="true"
+      />
+
+      <div className="relative z-10 max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 xs:px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
+        {/* Section Header */}
+        <SectionHeader />
 
         {/* Testimonials Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 md:gap-7 lg:gap-8">
-          {testimonials.map((item, i) => (
-            <div
-              key={i}
-              className="group relative bg-gradient-to-br from-[#5B3B9E]/40 to-[#3B2870]/40 backdrop-blur-sm p-6 sm:p-7 md:p-8 lg:p-10 rounded-2xl sm:rounded-3xl border border-white/20 shadow-xl hover:shadow-2xl transition-all duration-500 ease-out hover:scale-[1.03] hover:-translate-y-2 flex flex-col"
-              data-aos="fade-up"
-              data-aos-delay={i * 120}
-            >
-              {/* Quote Icon */}
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-cyan-400 flex items-center justify-center mb-5 sm:mb-6 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12 group-hover:bg-cyan-300">
-                <Quote className="text-white transition-transform duration-300 group-hover:scale-90" size={20} fill="white" />
-              </div>
-
-              {/* Testimonial Text */}
-              <p className="font-manrope text-white/90 text-sm sm:text-base leading-relaxed mb-6 sm:mb-8 flex-grow transition-colors duration-300 group-hover:text-white">
-                {item.text}
-              </p>
-
-              {/* Profile */}
-              <div className="flex items-center gap-3 sm:gap-4 mt-auto">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-11 h-11 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover border-2 border-white/30 transition-all duration-300 group-hover:border-cyan-400 group-hover:scale-105"
-                />
-
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-manrope text-sm sm:text-base md:text-lg font-bold text-white transition-colors duration-300 group-hover:text-cyan-300 truncate">
-                    {item.name}
-                  </h4>
-                  <p className="font-manrope text-xs sm:text-sm text-white/70 transition-colors duration-300 group-hover:text-white/90 line-clamp-2">
-                    {item.role}
-                  </p>
-                </div>
-              </div>
-
-              {/* Hover Glow Effect */}
-              <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-cyan-400/0 to-cyan-400/0 group-hover:from-cyan-400/10 group-hover:to-cyan-400/5 transition-all duration-500 pointer-events-none"></div>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 xs:gap-5 sm:gap-6 md:gap-7 lg:gap-8">
+          {TESTIMONIALS_DATA.map((item, index) => (
+            <TestimonialCard key={item.id} item={item} index={index} />
           ))}
         </div>
-
       </div>
     </section>
   );
