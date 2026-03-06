@@ -159,17 +159,7 @@ TestimonialCard.displayName = "TestimonialCard";
 // ============================================
 const SectionHeader = memo(() => (
   <header className="text-center mb-10 xs:mb-12 sm:mb-14 md:mb-16 lg:mb-20">
-    {/* Badge */}
-    {/* <div
-      className="inline-flex items-center gap-2 px-4 py-2 mb-4 xs:mb-5 sm:mb-6 bg-gradient-to-r from-cyan-500/20 to-teal-500/20 border border-cyan-400/30 rounded-full backdrop-blur-sm hover:border-cyan-400/50 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-teal-500/30 transition-all duration-500 cursor-default"
-      data-aos="fade-down"
-    >
-      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-      <span className="text-sm xs:text-base text-white font-medium">
-        Testimonials
-      </span>
-    </div> */}
-
+   
     {/* Title */}
     <h2
       className="font-manrope text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-3 xs:mb-4 sm:mb-5 px-4"

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 
@@ -10,8 +10,35 @@ import SastaSundar from "../../../../assets/images/Sasta-sundar.png";
 import HealthcareIllustration from "../../../../assets/images/About-layout.png";
 
 const AboutPartners = () => {
+  const trackRef = useRef(null);
+  const [animationDuration, setAnimationDuration] = useState(30);
+
   useEffect(() => {
     AOS.init({ duration: 900, once: true });
+  }, []);
+
+  // Calculate proper animation duration based on content width
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const calculateDuration = () => {
+      const children = track.children;
+      const totalItems = children.length / 2; // half are duplicates
+      let singleSetWidth = 0;
+
+      for (let i = 0; i < totalItems; i++) {
+        singleSetWidth += children[i].offsetWidth;
+      }
+
+      // Speed: ~50px per second for smooth feel
+      const duration = singleSetWidth / 50;
+      setAnimationDuration(Math.max(duration, 15));
+    };
+
+    calculateDuration();
+    window.addEventListener("resize", calculateDuration);
+    return () => window.removeEventListener("resize", calculateDuration);
   }, []);
 
   const logos = [
@@ -25,9 +52,12 @@ const AboutPartners = () => {
     { src: SastaSundar, name: "Sasta Sundar" },
   ];
 
+  // Triple the logos to guarantee no gaps on ultra-wide screens
+  const tripleLogos = [...logos, ...logos, ...logos];
+
   return (
     <>
-      {/* SECTION 1: Auto-Scrolling Logo Carousel */}
+      {/* ─── SECTION 1: Infinite Logo Carousel ─── */}
       <section className="py-10 sm:py-12 md:py-16 bg-white overflow-hidden">
         <div className="px-4 sm:px-6 lg:px-8">
           <h2
@@ -37,56 +67,53 @@ const AboutPartners = () => {
             Our Trusted leading healthcare partners.
           </h2>
 
-          {/* Infinite Scrolling Container */}
-          <div className="relative">
-            <div className="logo-scroll-container">
-              <div className="logo-scroll-track">
-                {/* First set of logos */}
-                {logos.map((logo, i) => (
-                  <div
-                    key={`logo-1-${i}`}
-                    className="logo-item flex flex-col items-center justify-center px-4 sm:px-6 md:px-8 lg:px-10"
-                  >
-                    <img
-                      src={logo.src}
-                      alt={logo.name}
-                      className="h-8 sm:h-10 md:h-12 lg:h-14 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity duration-300"
-                    />
-                    <span className="text-[10px] sm:text-xs md:text-sm text-[#05015A] mt-1.5 sm:mt-2 font-medium">
-                      {logo.name}
-                    </span>
-                  </div>
-                ))}
-                {/* Duplicate set for seamless loop */}
-                {logos.map((logo, i) => (
-                  <div
-                    key={`logo-2-${i}`}
-                    className="logo-item flex flex-col items-center justify-center px-4 sm:px-6 md:px-8 lg:px-10"
-                  >
-                    <img
-                      src={logo.src}
-                      alt={logo.name}
-                      className="h-8 sm:h-10 md:h-12 lg:h-14 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity duration-300"
-                    />
-                    <span className="text-[10px] sm:text-xs md:text-sm text-[#05015A] mt-1.5 sm:mt-2 font-medium">
-                      {logo.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
+          {/* Carousel Wrapper */}
+          <div className="relative w-full overflow-hidden">
+            {/* Left fade */}
+            <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-20 md:w-28 lg:w-36 z-10 pointer-events-none bg-gradient-to-r from-white to-transparent" />
+            {/* Right fade */}
+            <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-20 md:w-28 lg:w-36 z-10 pointer-events-none bg-gradient-to-l from-white to-transparent" />
+
+            {/* Scrolling Track */}
+            <div
+              ref={trackRef}
+              className="flex items-center will-change-transform hover:[animation-play-state:paused]"
+              style={{
+                animation: `seamlessScroll ${animationDuration}s linear infinite`,
+                width: "fit-content",
+              }}
+            >
+              {tripleLogos.map((logo, i) => (
+                <div
+                  key={`logo-${i}`}
+                  className="flex-shrink-0 flex flex-col items-center justify-center px-5 sm:px-7 md:px-9 lg:px-12"
+                  style={{ minWidth: "clamp(100px, 12vw, 180px)" }}
+                >
+                  <img
+                    src={logo.src}
+                    alt={logo.name}
+                    className="h-8 sm:h-10 md:h-12 lg:h-14 w-auto object-contain opacity-60 hover:opacity-100 transition-opacity duration-300 select-none"
+                    draggable={false}
+                    loading="lazy"
+                  />
+                  <span className="text-[10px] sm:text-xs md:text-sm text-[#05015A]/70 mt-1.5 sm:mt-2 font-medium font-manrope whitespace-nowrap">
+                    {logo.name}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* SECTION 2: Image + Text Layout (40:60 ratio) */}
+      {/* ─── SECTION 2: Image + Text Layout (40:60) ─── */}
       <section className="py-12 sm:py-16 md:py-20 lg:py-24 bg-white">
         <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:gap-10 xl:gap-12 items-center">
-            
-            {/* Left: Illustration - 40% width */}
-            <div 
-              data-aos="fade-right" 
+
+            {/* Left: Illustration — 40% */}
+            <div
+              data-aos="fade-right"
               className="w-full lg:w-[40%] order-2 lg:order-1"
             >
               <div className="flex justify-center lg:justify-start">
@@ -98,21 +125,23 @@ const AboutPartners = () => {
               </div>
             </div>
 
-            {/* Right: Content - 60% width */}
-            <div 
-              data-aos="fade-left" 
+            {/* Right: Content — 60% */}
+            <div
+              data-aos="fade-left"
               className="w-full lg:w-[60%] order-1 lg:order-2"
             >
               <h2 className="font-manrope text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-[#05015A] mb-3 sm:mb-4 md:mb-6 leading-tight">
                 Complete HealthCare Solution
               </h2>
               <p className="font-manrope text-xs sm:text-sm md:text-base lg:text-lg text-gray-600 leading-relaxed">
-                At Cureli, our vision is to empower every pharmacy or small- intelligent,
-                seamless, and connected technology that transforms the way care is delivered. We aim
-                to create a fully integrated ecosystem where pharmacists can operate with unmatched
-                efficiency, real-time insight, and uncompromised accuracy. By simplifying workflows,
-                automating operational burdens, and enabling data-driven decisions, we strive to
-                elevate the quality of patient care, strengthen pharmacy performance, and contribute
+                At Cureli, our vision is to empower every pharmacy or small-
+                intelligent, seamless, and connected technology that transforms
+                the way care is delivered. We aim to create a fully integrated
+                ecosystem where pharmacists can operate with unmatched
+                efficiency, real-time insight, and uncompromised accuracy. By
+                simplifying workflows, automating operational burdens, and
+                enabling data-driven decisions, we strive to elevate the quality
+                of patient care, strengthen pharmacy performance, and contribute
                 to healthier communities.
               </p>
             </div>
@@ -121,54 +150,14 @@ const AboutPartners = () => {
         </div>
       </section>
 
-      {/* CSS for Infinite Scroll Animation */}
-      <style jsx>{`
-        .logo-scroll-container {
-          width: 100%;
-          overflow: hidden;
-          position: relative;
-        }
-
-        .logo-scroll-track {
-          display: flex;
-          animation: scroll 30s linear infinite;
-          width: fit-content;
-        }
-
-        .logo-scroll-track:hover {
-          animation-play-state: paused;
-        }
-
-        .logo-item {
-          flex-shrink: 0;
-          min-width: 100px;
-        }
-
-        @keyframes scroll {
+      {/* ─── SEAMLESS SCROLL ANIMATION ─── */}
+      <style>{`
+        @keyframes seamlessScroll {
           0% {
-            transform: translateX(0);
+            transform: translate3d(0, 0, 0);
           }
           100% {
-            transform: translateX(-50%);
-          }
-        }
-
-        /* Responsive logo item widths */
-        @media (min-width: 640px) {
-          .logo-item {
-            min-width: 130px;
-          }
-        }
-
-        @media (min-width: 768px) {
-          .logo-item {
-            min-width: 150px;
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .logo-item {
-            min-width: 160px;
+            transform: translate3d(-33.3333%, 0, 0);
           }
         }
       `}</style>
