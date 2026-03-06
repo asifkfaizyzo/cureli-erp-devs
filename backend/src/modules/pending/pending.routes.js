@@ -3,7 +3,7 @@ import { validateBody } from "../../middleware/validate.js";
 import {
   pendingSignupSchema,
   usernameSchema,
-  checkUsernameSchema 
+  checkUsernameSchema,
 } from "./pending.schema.js";
 
 import {
@@ -16,26 +16,27 @@ import {
   completePendingSignupController,
   googleSetPasswordController,
   googleSignupController,
-  checkUsernameController 
+  checkUsernameController,
 } from "./pending.controller.js";
+
+import { authLimiter, otpLimiter, signupLimiter } from "../../middleware/rateLimiter.js";
 
 const router = express.Router();
 
-router.post("/signup/start", validateBody(pendingSignupSchema), startPendingSignup);
-router.post("/signup/google", googleSignupController);
-router.post("/signup/google/set-password", googleSetPasswordController);
+// Signup initiation — rate limited to prevent spam account creation
+router.post("/signup/start", signupLimiter, validateBody(pendingSignupSchema), startPendingSignup);
+router.post("/signup/google", signupLimiter, googleSignupController);
+router.post("/signup/google/set-password", signupLimiter, googleSetPasswordController);
 
-// Email OTP endpoints (existing)
-router.post("/signup/email-otp", requestEmailOtp);
-router.post("/signup/verify-email", verifyEmailOtpController);
+// OTP endpoints — strict rate limits
+router.post("/signup/email-otp", otpLimiter, requestEmailOtp);
+router.post("/signup/verify-email", authLimiter, verifyEmailOtpController);
+router.post("/signup/sms-otp", otpLimiter, requestSmsOtp);
+router.post("/signup/verify-sms", authLimiter, verifySmsOtpController);
 
-// SMS OTP endpoints (new)
-router.post("/signup/sms-otp", requestSmsOtp);
-router.post("/signup/verify-sms", verifySmsOtpController);
-
-// Username selection — now requires BOTH email && phone verified
-router.post("/signup/username", validateBody(usernameSchema), chooseUsernameController);
-router.post("/signup/complete", completePendingSignupController);
-router.post("/signup/check-username", validateBody(checkUsernameSchema), checkUsernameController);
+// Username and completion — signup limiter
+router.post("/signup/username", signupLimiter, validateBody(usernameSchema), chooseUsernameController);
+router.post("/signup/complete", signupLimiter, completePendingSignupController);
+router.post("/signup/check-username", signupLimiter, validateBody(checkUsernameSchema), checkUsernameController);
 
 export default router;

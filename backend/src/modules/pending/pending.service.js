@@ -9,7 +9,7 @@ import { getMCAuthToken } from "../../providers/messageCentral/token.js";
 import { mcSendOtp } from "../../providers/messageCentral/sendOtp.js";
 import { mcValidateOtp } from "../../providers/messageCentral/validateOtp.js";
 import * as audit from "../audit/index.js";
-
+import { checkSmsOtpLimit, checkEmailOtpLimit } from "../../utils/otpLimiter.js";
 export async function cleanupExpiredPendingUsers(expiryMinutes = 10) {
   try {
     const cutoff = new Date(Date.now() - expiryMinutes * 60 * 1000);
@@ -182,6 +182,13 @@ export async function sendEmailOtp(pending_id, isResend = false) {
       throw err;
     }
   }
+    // Check daily email OTP limit
+  const limitCheck = await checkEmailOtpLimit(pending.email);
+  if (!limitCheck.allowed) {
+    const err = new Error("Daily OTP limit reached for this email. Please try again tomorrow.");
+    err.code = "OTP_DAILY_LIMIT";
+    throw err;
+  }
 
   const otp = generateOtp();
   const hash = await hashOtp(otp);
@@ -191,6 +198,7 @@ export async function sendEmailOtp(pending_id, isResend = false) {
     data: {
       email_otp_hash: hash,
       email_otp_expires: new Date(Date.now() + 5 * 60 * 1000),
+      email_otp_attempts: 0,  // ← ADD THIS
     },
   });
 
@@ -230,8 +238,22 @@ export async function verifyEmailOtp(pending_id, otp) {
     throw err;
   }
 
+  // Check attempt limit (5 attempts max)
+  const attempts = pending.email_otp_attempts || 0;
+  if (attempts >= 5) {
+    const err = new Error("Too many failed attempts. Please request a new OTP.");
+    err.code = "TOO_MANY_ATTEMPTS";
+    throw err;
+  }
+
   const isValid = await verifyOtp(otp, pending.email_otp_hash);
   if (!isValid) {
+    // Increment attempt counter
+    await prisma.pendingUser.update({
+      where: { pending_id },
+      data: { email_otp_attempts: attempts + 1 },
+    });
+
     const err = new Error("Invalid OTP");
     err.code = "INVALID_OTP";
     throw err;
@@ -243,6 +265,7 @@ export async function verifyEmailOtp(pending_id, otp) {
       email_verified: true,
       email_otp_hash: null,
       email_otp_expires: null,
+      email_otp_attempts: 0,
     },
   });
 
@@ -309,6 +332,13 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
       throw err;
     }
   }
+    // Check daily SMS limit
+  const limitCheck = await checkSmsOtpLimit(phone);
+  if (!limitCheck.allowed) {
+    const err = new Error("Daily OTP limit reached for this phone number. Please try again tomorrow.");
+    err.code = "OTP_DAILY_LIMIT";
+    throw err;
+  }
 
   console.log("🔑 Getting MC auth token...");
 
@@ -343,6 +373,7 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
       sms_verification_id: verificationId,
       sms_transaction_id: transactionId || null,
       sms_otp_expires: new Date(Date.now() + timeout * 1000),
+       sms_otp_attempts: 0,
     },
   });
 
@@ -379,6 +410,13 @@ export async function verifySmsOtp(pending_id, code) {
     err.code = "OTP_EXPIRED";
     throw err;
   }
+    // Check attempt limit (5 attempts max)
+  const attempts = pending.sms_otp_attempts || 0;
+  if (attempts >= 5) {
+    const err = new Error("Too many failed attempts. Please request a new OTP.");
+    err.code = "TOO_MANY_ATTEMPTS";
+    throw err;
+  }
 
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
@@ -411,6 +449,12 @@ export async function verifySmsOtp(pending_id, code) {
   }
 
   const respCode = Number(result.responseCode || result.response_code || 0);
+
+  // Increment attempt counter on any non-success
+  await prisma.pendingUser.update({
+    where: { pending_id },
+    data: { sms_otp_attempts: (pending.sms_otp_attempts || 0) + 1 },
+  });
 
   if (respCode === 702) {
     const err = new Error("Wrong OTP");

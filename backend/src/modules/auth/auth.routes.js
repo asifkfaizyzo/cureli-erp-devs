@@ -1,4 +1,3 @@
-//backend\src\modules\auth\auth.routes.js
 import express from "express";
 import { validateBody } from "../../middleware/validate.js";
 import {
@@ -21,23 +20,25 @@ import {
 import { forgotPasswordController, resetPasswordController } from "./auth.controller.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { getUserPermissionsHandler } from "../../middleware/rbac.js";
+import { authLimiter, otpLimiter } from "../../middleware/rateLimiter.js";
 
 const router = express.Router();
 
-router.post("/login", validateBody(loginSchema), loginController);
-router.post("/verify-login-otp", validateBody(verifyLoginOtpSchema), verifyLoginOtpController);
-router.post("/resend-login-otp", validateBody(resendLoginOtpSchema), resendLoginOtpController);
+// Public sensitive routes — rate limited
+router.post("/login", authLimiter, otpLimiter, validateBody(loginSchema), loginController);
+router.post("/verify-login-otp", authLimiter, validateBody(verifyLoginOtpSchema), verifyLoginOtpController);
+router.post("/resend-login-otp", authLimiter, otpLimiter, validateBody(resendLoginOtpSchema), resendLoginOtpController);
+router.post("/forgot-password", authLimiter, validateBody(forgotPasswordSchema), forgotPasswordController);
+router.post("/reset-password", authLimiter, validateBody(resetPasswordSchema), resetPasswordController);
+
+// Semi-public — global limiter is sufficient
 router.post("/refresh", refreshTokenController);
 
-router.post("/forgot-password", validateBody(forgotPasswordSchema), forgotPasswordController);
-router.post("/reset-password", validateBody(resetPasswordSchema), resetPasswordController);
-
+// Authenticated routes — no auth limiter needed
 router.post("/logout", requireAuth, logoutController);
-
 router.get("/onboarding-status", requireAuth, getOnboardingStatusController);
 router.post("/onboarding-step", requireAuth, updateOnboardingStepController);
 router.post("/complete-onboarding", requireAuth, completeOnboardingController);
-
 router.get("/permissions", requireAuth, getUserPermissionsHandler);
 
 export default router;

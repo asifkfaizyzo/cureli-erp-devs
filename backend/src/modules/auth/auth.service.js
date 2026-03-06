@@ -8,6 +8,7 @@ import { ACCESS_SECRET, REFRESH_SECRET, ACCESS_EXPIRES, REFRESH_EXPIRES } from "
 import { notify } from "../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 import * as audit from "../audit/index.js";
+import { invalidateAllUserSessions } from "../../utils/session.js";
 
 export async function createOwnerAccount({ first_name, last_name, email, password }, auditContext) {
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -80,11 +81,9 @@ export async function requestPasswordReset(email) {
     return { success: true };
   }
 
-  if (user.login_provider === "google" && !user.password_hash) {
-    const err = new Error("This account uses Google login. Please sign in with Google.");
-    err.code = "GOOGLE_ACCOUNT";
-    throw err;
-  }
+if (user.login_provider === "google" && !user.password_hash) {
+  return { success: true };
+}
 
   const resetToken = generateResetToken();
   const hashedToken = hashToken(resetToken);
@@ -141,6 +140,7 @@ export async function resetPassword(token, newPassword, auditContext) {
       reset_token_expires: null,
     },
   });
+   await invalidateAllUserSessions(user.user_id, "password_reset");
 
   // Audit: Password reset completed (SECURITY ACTION - must not fail)
   await audit.log({

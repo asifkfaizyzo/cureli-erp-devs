@@ -3,6 +3,7 @@ import prisma from "../../config/prisma.js";
 import { getMCAuthToken } from "../../providers/messageCentral/token.js";
 import { mcSendOtp } from "../../providers/messageCentral/sendOtp.js";
 import { mcValidateOtp } from "../../providers/messageCentral/validateOtp.js";
+import { checkSmsOtpLimit } from "../../utils/otpLimiter.js";
 
 export async function sendLoginOtp(user_id, isResend = false) {
   const user = await prisma.user.findUnique({ where: { user_id } });
@@ -29,23 +30,31 @@ export async function sendLoginOtp(user_id, isResend = false) {
 
       if (isResend) {
         const otpValiditySeconds = 300;
-        const otpSentAt = new Date(expiresAt.getTime() - otpValiditySeconds * 1000);
+        const otpSentAt = new Date(
+          expiresAt.getTime() - otpValiditySeconds * 1000,
+        );
         const secondsSinceSent = Math.floor((now - otpSentAt) / 1000);
 
         if (secondsSinceSent < 30) {
           const waitTime = 30 - secondsSinceSent;
-          const err = new Error(`Please wait ${waitTime} seconds before requesting a new OTP.`);
+          const err = new Error(
+            `Please wait ${waitTime} seconds before requesting a new OTP.`,
+          );
           err.code = "OTP_COOLDOWN";
           err.waitTime = waitTime;
           throw err;
         }
       } else {
         const otpValiditySeconds = 300;
-        const otpSentAt = new Date(expiresAt.getTime() - otpValiditySeconds * 1000);
+        const otpSentAt = new Date(
+          expiresAt.getTime() - otpValiditySeconds * 1000,
+        );
         const secondsSinceSent = Math.floor((now - otpSentAt) / 1000);
 
         if (secondsSinceSent < 60) {
-          const err = new Error("OTP already sent. Please check your phone or wait to resend.");
+          const err = new Error(
+            "OTP already sent. Please check your phone or wait to resend.",
+          );
           err.code = "OTP_COOLDOWN";
           err.waitTime = 30 - Math.min(secondsSinceSent, 30);
           throw err;
@@ -54,9 +63,30 @@ export async function sendLoginOtp(user_id, isResend = false) {
     }
   }
 
+  // Check if user is locked out from too many OTP cycles
+  if (user.otp_locked_until && new Date(user.otp_locked_until) > now) {
+    const minutesRemaining = Math.ceil(
+      (new Date(user.otp_locked_until) - now) / 60000,
+    );
+    const err = new Error(
+      `Account temporarily locked. Try again in ${minutesRemaining} minutes.`,
+    );
+    err.code = "OTP_LOCKED";
+    throw err;
+  }
+
+  // Check daily SMS limit for this phone number
+  const limitCheck = await checkSmsOtpLimit(user.phone_number);
+  if (!limitCheck.allowed) {
+    const err = new Error(
+      "Daily OTP limit reached. Please try again tomorrow.",
+    );
+    err.code = "OTP_DAILY_LIMIT";
+    throw err;
+  }
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
-    process.env.MC_PASSWORD
+    process.env.MC_PASSWORD,
   );
 
   try {
@@ -91,17 +121,24 @@ export async function sendLoginOtp(user_id, isResend = false) {
     if (responseCode === 506 || message === "REQUEST_ALREADY_EXISTS") {
       if (user.login_otp_expires) {
         const expiresAt = new Date(user.login_otp_expires);
-        const secondsRemaining = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+        const secondsRemaining = Math.max(
+          0,
+          Math.ceil((expiresAt - now) / 1000),
+        );
 
         if (secondsRemaining > 0) {
-          const err = new Error(`OTP already sent. Please wait ${Math.min(secondsRemaining, 30)} seconds or check your phone.`);
+          const err = new Error(
+            `OTP already sent. Please wait ${Math.min(secondsRemaining, 30)} seconds or check your phone.`,
+          );
           err.code = "OTP_COOLDOWN";
           err.waitTime = Math.min(secondsRemaining, 30);
           throw err;
         }
       }
 
-      const err = new Error("Please wait 30 seconds before requesting a new OTP.");
+      const err = new Error(
+        "Please wait 30 seconds before requesting a new OTP.",
+      );
       err.code = "OTP_COOLDOWN";
       err.waitTime = 30;
       throw err;
@@ -133,29 +170,30 @@ export async function verifyLoginOtp(user_id, code) {
   }
 
   if (user.login_otp_attempts >= 3) {
-    const err = new Error("Too many failed attempts. Please request a new OTP.");
+    const err = new Error(
+      "Too many failed attempts. Please request a new OTP.",
+    );
     err.code = "TOO_MANY_ATTEMPTS";
     throw err;
   }
 
+  if (code === "0000" && process.env.NODE_ENV === "development") {
+    await prisma.user.update({
+      where: { user_id },
+      data: {
+        login_verification_id: null,
+        login_otp_expires: null,
+        login_otp_attempts: 0,
+        last_login_at: new Date(),
+      },
+    });
 
-if (code === "0000" && process.env.NODE_ENV === "development") {
-  await prisma.user.update({
-    where: { user_id },
-    data: {
-      login_verification_id: null,
-      login_otp_expires: null,
-      login_otp_attempts: 0,
-      last_login_at: new Date(),
-    },
-  });
-
-  return { success: true };
-}
+    return { success: true };
+  }
 
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
-    process.env.MC_PASSWORD
+    process.env.MC_PASSWORD,
   );
 
   const result = await mcValidateOtp({
@@ -179,6 +217,8 @@ if (code === "0000" && process.env.NODE_ENV === "development") {
         login_otp_expires: null,
         login_otp_attempts: 0,
         last_login_at: new Date(),
+        otp_cycle_failures: 0,
+        otp_locked_until: null,
       },
     });
     return { success: true };
@@ -186,10 +226,33 @@ if (code === "0000" && process.env.NODE_ENV === "development") {
 
   const respCode = Number(result.responseCode || result.response_code || 0);
 
+  const newAttempts = user.login_otp_attempts + 1;
+  const newCycleFailures =
+    newAttempts >= 3
+      ? (user.otp_cycle_failures || 0) + 1
+      : user.otp_cycle_failures || 0;
+
+  // Lock account after 5 failed OTP cycles (15 total wrong guesses)
+  const shouldLock = newCycleFailures >= 5;
+
   await prisma.user.update({
     where: { user_id },
-    data: { login_otp_attempts: user.login_otp_attempts + 1 },
+    data: {
+      login_otp_attempts: newAttempts,
+      otp_cycle_failures: newCycleFailures,
+      ...(shouldLock && {
+        otp_locked_until: new Date(Date.now() + 60 * 60 * 1000), // 1 hour lockout
+      }),
+    },
   });
+
+  if (shouldLock) {
+    const err = new Error(
+      "Too many failed attempts. Account locked for 1 hour.",
+    );
+    err.code = "OTP_LOCKED";
+    throw err;
+  }
 
   if (respCode === 702) {
     const err = new Error("Invalid OTP");

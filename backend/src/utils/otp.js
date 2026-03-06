@@ -1,7 +1,11 @@
+//backend\src\utils\otp.js
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 export function generateOtp() {
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  // Generate a 4-digit OTP using cryptographically secure randomness
+  // crypto.randomInt is synchronous and uses the OS CSPRNG
+  return crypto.randomInt(1000, 10000).toString();
 }
 
 export async function hashOtp(otp) {
