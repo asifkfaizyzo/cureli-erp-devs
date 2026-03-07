@@ -365,13 +365,6 @@ const PlatformOptions = () => {
           data-aos="fade-up"
           data-aos-delay="400"
         >
-          <div className="group flex items-center gap-3 xs:gap-4 sm:gap-6 px-6 xs:px-8 sm:px-10 py-3 xs:py-4 bg-indigo-500 to-blue-500 rounded-full shadow-lg transition-all duration-500 hover:shadow-xl hover:scale-105">
-            <div className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full bg-white/80 animate-pulse transition-transform duration-300 group-hover:scale-125" />
-            <span className="text-xs xs:text-sm sm:text-base text-white font-medium">
-              Both platforms work seamlessly together
-            </span>
-            <div className="w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full bg-white/80 animate-pulse transition-transform duration-300 group-hover:scale-125" />
-          </div>
         </div>
       </div>
     </section>

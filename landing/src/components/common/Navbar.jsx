@@ -38,17 +38,21 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 w-full z-50 px-4 sm:px-6 lg:px-8 transition-all duration-500">
+      <nav 
+        className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
+          scrolled ? "px-4 sm:px-6 lg:px-8" : "px-0"
+        }`}
+      >
         <div
           className={`transition-all duration-500 ease-out ${
-            scrolled ? "py-3" : "py-4 sm:py-5"
+            scrolled ? "py-3" : "py-0"
           }`}
         >
           <div
             className={`relative mx-auto transition-all duration-500 ease-out ${
               scrolled
                 ? "max-w-[90%] sm:max-w-[85%] md:max-w-[80%] lg:max-w-[70%]"
-                : "max-w-full"
+                : "max-w-full w-full"
             }`}
           >
             <div
@@ -64,7 +68,7 @@ const Navbar = () => {
               className={`relative z-10 flex items-center justify-between transition-all duration-500 ${
                 scrolled
                   ? "px-4 sm:px-6 lg:px-8 py-3 sm:py-3.5"
-                  : "px-4 sm:px-6 lg:px-8 py-3 sm:py-3.5"
+                  : "px-4 sm:px-6 lg:px-8 py-4 sm:py-5"
               }`}
             >
               {/* LEFT — LOGO */}
@@ -79,7 +83,6 @@ const Navbar = () => {
                     scrolled ? "h-7 sm:h-9" : "h-8 sm:h-10 md:h-11"
                   }`}
                 />
-                {/* Logo Text - Always visible */}
                 <div className="flex items-center gap-1 sm:gap-2">
                   <span
                     className={`font-bold text-white font-manrope transition-all duration-500 ${
@@ -88,7 +91,6 @@ const Navbar = () => {
                   >
                     Cureli
                   </span>
-
                 </div>
               </Link>
 
@@ -179,7 +181,7 @@ const Navbar = () => {
         </div>
       </nav>
 
-      {/* MOBILE MENU */}
+      {/* MOBILE MENU - unchanged */}
       <div
         className={`fixed inset-0 z-40 md:hidden transition-all duration-500 ${
           isOpen ? "opacity-100 visible" : "opacity-0 invisible"
