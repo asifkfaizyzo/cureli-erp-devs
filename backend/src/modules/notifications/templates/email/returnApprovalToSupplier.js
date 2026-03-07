@@ -57,7 +57,7 @@ export const returnApprovalToSupplier = ({
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Purchase Return Approved - Cureli</title>
+          <title>Purchase Return Approved - Cureli Health</title>
         </head>
         <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6fb;">
           <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -65,7 +65,7 @@ export const returnApprovalToSupplier = ({
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #05015A 0%, #0a0280 100%); border-radius: 12px 12px 0 0; padding: 32px; text-align: center;">
               <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width: 70px; margin-bottom: 12px;"/>
-              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 600;">📦 Purchase Return Approved</h1>
+              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 600;"> Purchase Return Approved</h1>
               <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 13px;">
                 Action Required • Return #${returnInvoiceNumber}
               </p>
@@ -139,7 +139,7 @@ export const returnApprovalToSupplier = ({
               <!-- Next Steps -->
               <div style="background: #f0f9ff; border-left: 4px solid #05015A; border-radius: 0 8px 8px 0; padding: 14px 16px; margin-bottom: 24px;">
                 <h4 style="margin: 0 0 8px; font-size: 12px; color: #05015A; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
-                  📋 Next Steps
+                   Next Steps
                 </h4>
                 <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #374151; line-height: 1.7;">
                   <li>The returned medicines listed below are ready for pickup</li>
@@ -171,7 +171,7 @@ export const returnApprovalToSupplier = ({
 
               <!-- Contact Info -->
               <div style="background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 12px 16px;">
-                <p style="margin: 0 0 6px; font-size: 12px; color: #92400e; font-weight: 600;">📞 Need Clarification?</p>
+                <p style="margin: 0 0 6px; font-size: 12px; color: #92400e; font-weight: 600;"> Need Clarification?</p>
                 <p style="margin: 0; font-size: 13px; color: #78350f; line-height: 1.5;">
                   Contact: <strong>${shopName}</strong><br>
                   ${shopContact ? `Phone: <strong>${shopContact}</strong>` : ""}
@@ -186,7 +186,7 @@ export const returnApprovalToSupplier = ({
               <p style="margin: 0 0 6px; color: #d1d5db;">
                 Automated notification from <strong>${shopName}</strong>
               </p>
-              <p style="margin: 0;">Powered by <strong>Cureli</strong> ERP System</p>
+              <p style="margin: 0;">Powered by <strong>Cureli</strong> Health System</p>
             </div>
 
           </div>
@@ -217,7 +217,7 @@ ${shopContact ? `Phone: ${shopContact}` : ""}
 
 ---
 This is an automated notification from ${shopName}
-Powered by Cureli ERP System
+Powered by Cureli Health System
     `,
   };
 };

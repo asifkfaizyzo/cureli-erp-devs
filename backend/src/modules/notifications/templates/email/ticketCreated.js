@@ -24,7 +24,7 @@ export function ticketCreatedTemplate(context) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ticket Created - Cureli</title>
+  <title>Ticket Created - Cureli Health</title>
 </head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
   <div style="max-width:560px;margin:0 auto;padding:20px;">
@@ -44,7 +44,7 @@ export function ticketCreatedTemplate(context) {
       </p>
       
       <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 20px;">
-        Thank you for contacting <strong>Cureli</strong> support. Your ticket has been successfully created and assigned to our team.
+        Thank you for contacting <strong>Cureli Health</strong> support. Your ticket has been successfully created and assigned to our team.
       </p>
 
       <!-- Ticket Info Box -->
@@ -100,7 +100,7 @@ export function ticketCreatedTemplate(context) {
 
       <!-- Support Info -->
       <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-        Need urgent help? Contact us at <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@cureli.com</a>
+        Need urgent help? Contact us at <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
       </p>
 
     </div>

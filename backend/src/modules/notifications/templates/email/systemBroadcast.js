@@ -18,7 +18,7 @@ export function systemBroadcastTemplate(context) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Announcement - Cureli</title>
+  <title>Announcement - Cureli Health</title>
 </head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
   <div style="max-width:560px;margin:0 auto;padding:20px;">
@@ -27,7 +27,7 @@ export function systemBroadcastTemplate(context) {
     <div style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:70px;margin-bottom:12px;"/>
       <h1 style="margin:0;font-size:22px;font-weight:600;"> Important Announcement</h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;">From the Cureli Health Health</p>
+      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;">From the Cureli  Health</p>
     </div>
 
     <!-- Content -->
@@ -46,13 +46,13 @@ export function systemBroadcastTemplate(context) {
       <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;">
         <p style="font-size:14px;color:#666;margin:0 0 6px;">Best regards,</p>
         <p style="font-size:15px;color:#05015A;margin:0;font-weight:600;">${sender_name}</p>
-        <p style="font-size:12px;color:#9ca3af;margin:4px 0 0;">Cureli Team</p>
+        <p style="font-size:12px;color:#9ca3af;margin:4px 0 0;">Cureli Health</p>
       </div>
 
       <!-- Contact Info -->
       <div style="background:#fef9e7;border-left:4px solid #f59e0b;padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p style="margin:0;color:#92400e;font-size:13px;">
-          💬 Questions? Contact us at <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
+           Questions? Contact us at <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
         </p>
       </div>
 

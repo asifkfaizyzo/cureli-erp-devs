@@ -49,7 +49,7 @@ export function subscriptionSuspendedTemplate(context) {
       <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p style="margin:0 0 8px;color:#991b1b;font-size:13px;font-weight:600;"> Currently Unavailable:</p>
         <ul style="margin:0;padding-left:20px;color:#7f1d1d;font-size:12px;line-height:1.6;">
-          <li>Access to Cureli dashboard and all features</li>
+          <li>Access to Cureli Health dashboard and all features</li>
           <li>Staff login and operations</li>
           <li>Inventory management and sales tracking</li>
           <li>Reports and analytics</li>
@@ -60,7 +60,7 @@ export function subscriptionSuspendedTemplate(context) {
       <div style="background:#f0f9ff;border-left:4px solid #05015A;padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p style="margin:0 0 10px;color:#05015A;font-size:14px;font-weight:600;"> To Restore Access:</p>
         <ol style="margin:0;padding-left:20px;color:#374151;font-size:13px;line-height:1.7;">
-          <li>Log in to your Cureli account</li>
+          <li>Log in to your Cureli Health account</li>
           <li>Navigate to Subscription settings</li>
           <li>Complete the payment to reactivate</li>
           <li>Access will be restored immediately</li>
@@ -100,7 +100,7 @@ export function subscriptionSuspendedTemplate(context) {
     <!-- Footer -->
     <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
       <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> ERP</p>
+      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> Health</p>
       <p style="margin:0;">All rights reserved</p>
     </div>
 

@@ -61,14 +61,14 @@ export function ticketStatusChangedTemplate(context) {
     : '';
 
   const emailSubjects = {
-    PENDING: `[${ticket_number}] Your ticket is being reviewed - Cureli`,
-    IN_PROGRESS: `[${ticket_number}] Support is working on your ticket - Cureli`,
-    RESOLVED: `[${ticket_number}] Your ticket has been resolved ✓ - Cureli`,
-    CLOSED: `[${ticket_number}] Your ticket has been closed - Cureli`,
-    CANCELLED: `[${ticket_number}] Your ticket has been cancelled - Cureli`,
+    PENDING: `[${ticket_number}] Your ticket is being reviewed - Cureli Heath`,
+    IN_PROGRESS: `[${ticket_number}] Support is working on your ticket - Cureli Heath`,
+    RESOLVED: `[${ticket_number}] Your ticket has been resolved ✓ - Cureli Heath`,
+    CLOSED: `[${ticket_number}] Your ticket has been closed - Cureli Heath`,
+    CANCELLED: `[${ticket_number}] Your ticket has been cancelled - Cureli Heath`,
   };
 
-  const subject = emailSubjects[to_status] || `[${ticket_number}] Ticket Status Update - Cureli`;
+  const subject = emailSubjects[to_status] || `[${ticket_number}] Ticket Status Update - Cureli Heath`;
 
   const html = `
     <!DOCTYPE html>
@@ -76,7 +76,7 @@ export function ticketStatusChangedTemplate(context) {
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Ticket Update - Cureli</title>
+      <title>Ticket Update - Cureli Heath</title>
     </head>
     <body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
       <div style="max-width:560px;margin:0 auto;padding:20px;">
@@ -84,7 +84,7 @@ export function ticketStatusChangedTemplate(context) {
         <!-- Header -->
         <div style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
           <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:70px;margin-bottom:12px;"/>
-          <h1 style="margin:0;font-size:22px;font-weight:600;">🎫 Ticket Update</h1>
+          <h1 style="margin:0;font-size:22px;font-weight:600;"> Ticket Update</h1>
           <p style="margin:8px 0 0;opacity:0.9;font-size:13px;">Your support ticket has been updated</p>
         </div>
 
@@ -128,7 +128,7 @@ export function ticketStatusChangedTemplate(context) {
 
           <!-- Support Info -->
           <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-            Questions? Contact <a href="mailto:support@cureli.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
+            Questions? Contact <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
           </p>
 
         </div>
@@ -136,7 +136,7 @@ export function ticketStatusChangedTemplate(context) {
         <!-- Footer -->
         <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
           <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-          <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> Support</p>
+          <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli Health</strong> Support</p>
           <p style="margin:0;color:#6b7280;font-size:11px;">This is an automated notification regarding your support ticket.</p>
         </div>
 

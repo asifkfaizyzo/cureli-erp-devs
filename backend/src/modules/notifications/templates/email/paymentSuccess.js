@@ -14,7 +14,7 @@ export function paymentSuccessTemplate(context) {
     payment_date,
   } = context;
 
-  const subject = '✅ Payment Successful - Cureli';
+  const subject = ' Payment Successful - Cureli';
 
   const formattedAmount = amount
     ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount)
@@ -26,7 +26,7 @@ export function paymentSuccessTemplate(context) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Successful - Cureli</title>
+  <title>Payment Successful - Cureli Health</title>
 </head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
   <div style="max-width:560px;margin:0 auto;padding:20px;">
@@ -34,7 +34,7 @@ export function paymentSuccessTemplate(context) {
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#059669 0%,#047857 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:70px;margin-bottom:12px;"/>
-      <h1 style="margin:0;font-size:22px;font-weight:600;">✅ Payment Successful</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;"> Payment Successful</h1>
       <p style="margin:12px 0 0;font-size:32px;font-weight:700;letter-spacing:-1px;">${formattedAmount}</p>
       <p style="margin:4px 0 0;opacity:0.9;font-size:13px;">Thank you for your payment</p>
     </div>
@@ -85,26 +85,26 @@ export function paymentSuccessTemplate(context) {
       <!-- Success Note -->
       <div style="background:#f0fdf4;border-left:4px solid #059669;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p style="margin:0;color:#065f46;font-size:13px;">
-          ✅ <strong>Receipt Generated:</strong> A receipt has been sent to your email for your records.
+           <strong>Receipt Generated:</strong> A receipt has been sent to your email for your records.
         </p>
       </div>
 
       <!-- Info Box -->
       <div style="background:#f0f9ff;border-left:4px solid #05015A;padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
         <p style="margin:0;color:#05015A;font-size:13px;">
-          💡 You can view your complete payment history and subscription details in your dashboard.
+           You can view your complete payment history and subscription details in your dashboard.
         </p>
       </div>
 
       <!-- CTA Button -->
       <div style="text-align:center;margin:28px 0;">
         <a href="${FRONTEND_URL}/subscription" style="display:inline-block;background:linear-gradient(135deg,#05015A,#0a0280);color:white;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 3px 10px rgba(5,1,90,0.2);">
-          📊 View Subscription
+           View Subscription
         </a>
       </div>
 
       <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-        Questions about your payment? Contact us at <a href="mailto:support@cureli.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@cureli.com</a>
+        Questions about your payment? Contact us at <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
       </p>
 
     </div>
@@ -112,7 +112,7 @@ export function paymentSuccessTemplate(context) {
     <!-- Footer -->
     <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
       <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> ERP</p>
+      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> Health</p>
       <p style="margin:0;">All rights reserved</p>
     </div>
 
