@@ -592,7 +592,7 @@ export async function sendTestEmail(data, context) {
 
     // Send email
     await mailer.sendMail({
-      from: `"Cureli ERP" <${process.env.SMTP_USER}>`,
+      from: `"Cureli Health" <info@curelihealth.com>`,
       to: cadmin.email,
       subject: `[TEST] ${subject}`,
       html: html,
@@ -1121,7 +1121,7 @@ async function sendBatch(campaign, recipients) {
 
         // Send email
         await mailer.sendMail({
-          from: `"Cureli ERP" <${process.env.SMTP_USER}>`,
+          from: `"Cureli Health" <info@curelihealth.com>`,
           to: recipient.email,
           subject: campaign.subject,
           html: html,

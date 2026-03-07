@@ -18,7 +18,7 @@ export function emailVerificationOtpTemplate(context) {
       <div style="max-width:600px;margin:0 auto;padding:20px;">
         
         <div style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-          <h1 style="margin:0;font-size:24px;">🔐 Email Verification</h1>
+          <h1 style="margin:0;font-size:24px;">Email Verification</h1>
         </div>
 
         <div style="background:white;padding:32px;border:1px solid #e5e7eb;border-top:none;">
