@@ -37,14 +37,27 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
 
     try {
       const response = await emailBroadcastAPI.getScheduled(page, rowsPerPage);
-      if (response.data.success) {
-        const { scheduled, pagination } = response.data.data;
-        setCampaigns(scheduled);
-        setTotalPages(pagination.total_pages);
-        setTotalItems(pagination.total);
-        onCountChange?.(pagination.total);
+
+      console.log("[EmailScheduledList] API Response:", response);
+
+      // ✅ FIXED: Handle both response formats
+      let scheduledData = [];
+      let pagination = { page: 1, limit: 10, total: 0, total_pages: 1 };
+
+      if (response && response.success) {
+        scheduledData = response.data?.scheduled || [];
+        pagination = response.data?.pagination || pagination;
+      } else if (response && response.scheduled) {
+        scheduledData = response.scheduled || [];
+        pagination = response.pagination || pagination;
       }
+
+      setCampaigns(scheduledData);
+      setTotalPages(pagination.total_pages || 1);
+      setTotalItems(pagination.total || 0);
+      onCountChange?.(pagination.total || 0);
     } catch (err) {
+      console.error("[EmailScheduledList] Load error:", err);
       setError(err.response?.data?.message || "Failed to load scheduled campaigns");
     } finally {
       setLoading(false);
@@ -79,6 +92,7 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
   };
 
   const getStatusBadge = (status) => {
+    const statusLower = status?.toLowerCase() || "";
     const statusConfig = {
       scheduled: {
         bg: "bg-blue-100",
@@ -94,7 +108,7 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
       },
     };
 
-    const config = statusConfig[status] || statusConfig.scheduled;
+    const config = statusConfig[statusLower] || statusConfig.scheduled;
     const Icon = config.icon;
 
     return (
@@ -145,7 +159,10 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
   return (
     <div className={styles.container.wrapper}>
       <div className="flex-1 min-h-0 overflow-auto">
-        <table className="w-full border-collapse text-sm" style={{ minWidth: "900px" }}>
+        <table
+          className="w-full border-collapse text-sm"
+          style={{ minWidth: "900px" }}
+        >
           <thead className="sticky top-0 z-10">
             <tr className={styles.header.row}>
               <th className={styles.header.cell}>Subject</th>
@@ -215,7 +232,9 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
                 <td className={styles.cell.base}>
                   <div className={styles.actions.container}>
                     <button
-                      onClick={() => handleCancel(campaign.campaign_id, campaign.subject)}
+                      onClick={() =>
+                        handleCancel(campaign.campaign_id, campaign.subject)
+                      }
                       disabled={cancellingId === campaign.campaign_id}
                       className={`${styles.actions.button.base} ${styles.actions.button.delete}`}
                       title="Cancel Campaign"
@@ -235,12 +254,13 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
       </div>
 
       {/* Paused Campaign Info */}
-      {campaigns.some((c) => c.status === "paused") && (
+      {campaigns.some((c) => c.status?.toLowerCase() === "paused") && (
         <div className="px-4 py-2 bg-amber-50 border-t border-amber-200">
           <div className="flex items-center gap-2 text-amber-700">
             <AlertCircle size={14} />
             <span className="text-xs">
-              Paused campaigns will automatically resume when daily quota resets (midnight IST)
+              Paused campaigns will automatically resume when daily quota resets
+              (midnight IST)
             </span>
           </div>
         </div>

@@ -86,6 +86,7 @@ function CreateEmailForm({
     }
   }, [debouncedFilters, formData.target_users, formData.target_cadmins]);
 
+  // ✅ FIXED: Proper response parsing
   const fetchRecipientCount = async () => {
     setIsPreviewLoading(true);
     try {
@@ -94,8 +95,15 @@ function CreateEmailForm({
         formData.target_users,
         formData.target_cadmins
       );
-      if (response.data.success) {
-        setRecipientPreview(response.data.data);
+
+      console.log("[CreateEmailForm] Preview Recipients Response:", response);
+
+      // API returns response.data, so response is already the data object
+      if (response && response.success) {
+        setRecipientPreview(response.data);
+      } else if (response && response.total !== undefined) {
+        // Direct data format
+        setRecipientPreview(response);
       }
     } catch (err) {
       console.error("Preview failed:", err);
@@ -165,12 +173,13 @@ function CreateEmailForm({
   // ACTIONS
   // ============================================
 
+  // ✅ FIXED: Proper response parsing
   const handleSendTestEmail = async () => {
     if (!validateForm()) return;
-    
+
     setTestLoading(true);
     setError(null);
-    
+
     try {
       const testData = {
         subject: formData.subject,
@@ -180,33 +189,50 @@ function CreateEmailForm({
         action_url: formData.action_url || null,
         action_label: formData.action_label || null,
       };
-      
+
       const res = await emailBroadcastAPI.sendTestEmail(testData);
-      if (res.data.success) {
-        setSuccess(`Test email sent to ${res.data.data.sent_to}`);
+
+      console.log("[CreateEmailForm] Send Test Email Response:", res);
+
+      // API returns response.data, so res is already the data object
+      if (res && res.success) {
+        setSuccess(`Test email sent to ${res.data?.sent_to || "your email"}`);
+      } else if (res && res.sent_to) {
+        setSuccess(`Test email sent to ${res.sent_to}`);
+      } else {
+        throw new Error(res?.message || "Failed to send test email");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to send test email");
+      setError(err.response?.data?.message || err.message || "Failed to send test email");
     } finally {
       setTestLoading(false);
     }
   };
 
+  // ✅ FIXED: Proper response parsing
   const handleSaveDraft = async () => {
     if (!validateForm()) return;
     setLoading(true);
     setError(null);
-    
+
     try {
       const submissionData = prepareSubmissionData();
 
+      let res;
       if (editDraft?.campaign_id) {
-        await emailBroadcastAPI.updateDraft(editDraft.campaign_id, submissionData);
-        setSuccess("Draft updated");
+        res = await emailBroadcastAPI.updateDraft(editDraft.campaign_id, submissionData);
+        console.log("[CreateEmailForm] Update Draft Response:", res);
+        if (res && (res.success || res.campaign_id)) {
+          setSuccess("Draft updated");
+        }
       } else {
-        await emailBroadcastAPI.createDraft(submissionData);
-        setSuccess("Draft saved");
+        res = await emailBroadcastAPI.createDraft(submissionData);
+        console.log("[CreateEmailForm] Create Draft Response:", res);
+        if (res && (res.success || res.campaign_id)) {
+          setSuccess("Draft saved");
+        }
       }
+
       setTimeout(() => onDraftSaved?.(), 1000);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save draft");
@@ -220,17 +246,24 @@ function CreateEmailForm({
     setShowConfirmModal(true);
   };
 
+  // ✅ FIXED: Proper response parsing
   const confirmSendNow = async () => {
     setShowConfirmModal(false);
     setLoading(true);
-    
+
     try {
       const submissionData = prepareSubmissionData();
       const res = await emailBroadcastAPI.sendEmailNow(submissionData);
-      
-      if (res.data.success) {
-        setSuccess(`Sending to ${res.data.data.recipient_count} recipients`);
+
+      console.log("[CreateEmailForm] Send Now Response:", res);
+
+      // API returns response.data, so res is already the data object
+      if (res && (res.success || res.campaign_id)) {
+        const recipientCount = res.data?.recipient_count || res.recipient_count || 0;
+        setSuccess(`Sending to ${recipientCount} recipients`);
         setTimeout(() => onSuccess?.(), 1500);
+      } else {
+        throw new Error(res?.message || "Failed to send");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to send");
@@ -244,22 +277,26 @@ function CreateEmailForm({
     setShowScheduleModal(true);
   };
 
+  // ✅ FIXED: Proper response parsing
   const confirmSchedule = async (scheduledFor) => {
     setShowScheduleModal(false);
     setLoading(true);
-    
+
     try {
       const submissionData = prepareSubmissionData();
       let campaignId = editDraft?.campaign_id;
 
       if (!campaignId) {
         const draftRes = await emailBroadcastAPI.createDraft(submissionData);
-        campaignId = draftRes.data.data.campaign_id;
+        console.log("[CreateEmailForm] Create Draft for Schedule Response:", draftRes);
+        campaignId = draftRes.data?.campaign_id || draftRes.campaign_id;
       } else {
         await emailBroadcastAPI.updateDraft(campaignId, submissionData);
       }
 
-      await emailBroadcastAPI.scheduleCampaign(campaignId, scheduledFor);
+      const scheduleRes = await emailBroadcastAPI.scheduleCampaign(campaignId, scheduledFor);
+      console.log("[CreateEmailForm] Schedule Campaign Response:", scheduleRes);
+
       setSuccess(`Scheduled for ${new Date(scheduledFor).toLocaleString()}`);
       setTimeout(() => onScheduled?.(), 1500);
     } catch (err) {
@@ -352,7 +389,11 @@ URLs will be automatically converted to clickable links."
                   <span className="text-[10px] text-gray-400">
                     Plain text • URLs auto-linked
                   </span>
-                  <span className={`text-[10px] ${charCount > 2000 ? "text-red-500" : "text-gray-400"}`}>
+                  <span
+                    className={`text-[10px] ${
+                      charCount > 2000 ? "text-red-500" : "text-gray-400"
+                    }`}
+                  >
                     {charCount.toLocaleString()} characters
                   </span>
                 </div>
@@ -430,7 +471,11 @@ URLs will be automatically converted to clickable links."
                       )}
                       <div className="flex items-center gap-2 px-3 py-1.5 bg-[#05015A] rounded-lg">
                         <span className="text-sm font-bold text-white">
-                          {recipientPreview.total_after_unsubscribe?.toLocaleString() || recipientPreview.total?.toLocaleString()}
+                          {(
+                            recipientPreview.total_after_unsubscribe ||
+                            recipientPreview.total ||
+                            0
+                          ).toLocaleString()}
                         </span>
                         <span className="text-xs text-white/80">recipients</span>
                       </div>

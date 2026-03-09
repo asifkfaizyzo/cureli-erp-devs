@@ -35,22 +35,38 @@ const EmailBroadcastPage = () => {
     loadUnsubscribeCount();
   }, []);
 
+  // ✅ FIXED: Proper response parsing
   const loadQuota = async () => {
     try {
       const res = await emailBroadcastAPI.getQuotaStatus();
-      if (res.data.success) {
-        setQuota(res.data.data);
+
+      console.log("[EmailBroadcastPage] Quota API Response:", res);
+
+      // API returns response.data, so res is already the data object
+      if (res && res.success) {
+        setQuota(res.data);
+      } else if (res && res.remaining !== undefined) {
+        // Direct data format
+        setQuota(res);
       }
     } catch (err) {
       console.error("Failed to load quota:", err);
     }
   };
 
+  // ✅ FIXED: Proper response parsing
   const loadUnsubscribeCount = async () => {
     try {
       const res = await emailBroadcastAPI.getUnsubscribeCount();
-      if (res.data.success) {
-        setUnsubscribeCount(res.data.data.count);
+
+      console.log("[EmailBroadcastPage] Unsubscribe Count API Response:", res);
+
+      // API returns response.data, so res is already the data object
+      if (res && res.success) {
+        setUnsubscribeCount(res.data?.count || 0);
+      } else if (res && res.count !== undefined) {
+        // Direct data format
+        setUnsubscribeCount(res.count || 0);
       }
     } catch (err) {
       console.error("Failed to load unsubscribe count:", err);
@@ -113,16 +129,16 @@ const EmailBroadcastPage = () => {
               <div className="text-right">
                 <p className="text-xs text-gray-500">Today's Quota</p>
                 <p className="text-sm font-semibold text-gray-900">
-                  {quota.remaining.toLocaleString()} / {quota.limit.toLocaleString()}
+                  {(quota.remaining || 0).toLocaleString()} / {(quota.limit || 0).toLocaleString()}
                 </p>
               </div>
-              <div 
+              <div
                 className={`w-2 h-8 rounded-full ${
-                  quota.usage_percent > 90 
-                    ? 'bg-red-500' 
-                    : quota.usage_percent > 70 
-                    ? 'bg-amber-500' 
-                    : 'bg-green-500'
+                  (quota.usage_percent || 0) > 90
+                    ? "bg-red-500"
+                    : (quota.usage_percent || 0) > 70
+                    ? "bg-amber-500"
+                    : "bg-green-500"
                 }`}
               />
             </div>
@@ -233,8 +249,8 @@ const EmailBroadcastPage = () => {
         )}
 
         {activeTab === "history" && (
-          <EmailHistoryList 
-            refreshTrigger={refreshTrigger} 
+          <EmailHistoryList
+            refreshTrigger={refreshTrigger}
             onRetry={() => {
               refreshLists();
               loadQuota();

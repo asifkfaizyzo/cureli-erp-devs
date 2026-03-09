@@ -27,14 +27,27 @@ function EmailDraftsList({ refreshTrigger, onCountChange, onEdit }) {
 
     try {
       const response = await emailBroadcastAPI.getDrafts(page, rowsPerPage);
-      if (response.data.success) {
-        const { drafts: draftData, pagination } = response.data.data;
-        setDrafts(draftData);
-        setTotalPages(pagination.total_pages);
-        setTotalItems(pagination.total);
-        onCountChange?.(pagination.total);
+
+      console.log("[EmailDraftsList] API Response:", response);
+
+      // ✅ FIXED: Handle both response formats
+      let draftsData = [];
+      let pagination = { page: 1, limit: 10, total: 0, total_pages: 1 };
+
+      if (response && response.success) {
+        draftsData = response.data?.drafts || [];
+        pagination = response.data?.pagination || pagination;
+      } else if (response && response.drafts) {
+        draftsData = response.drafts || [];
+        pagination = response.pagination || pagination;
       }
+
+      setDrafts(draftsData);
+      setTotalPages(pagination.total_pages || 1);
+      setTotalItems(pagination.total || 0);
+      onCountChange?.(pagination.total || 0);
     } catch (err) {
+      console.error("[EmailDraftsList] Load error:", err);
       setError(err.response?.data?.message || "Failed to load drafts");
     } finally {
       setLoading(false);
@@ -102,7 +115,10 @@ function EmailDraftsList({ refreshTrigger, onCountChange, onEdit }) {
   return (
     <div className={styles.container.wrapper}>
       <div className="flex-1 min-h-0 overflow-auto">
-        <table className="w-full border-collapse text-sm" style={{ minWidth: "900px" }}>
+        <table
+          className="w-full border-collapse text-sm"
+          style={{ minWidth: "900px" }}
+        >
           <thead className="sticky top-0 z-10">
             <tr className={styles.header.row}>
               <th className={styles.header.cell}>Subject</th>
@@ -149,7 +165,8 @@ function EmailDraftsList({ refreshTrigger, onCountChange, onEdit }) {
 
                 <td className={`${styles.cell.base} ${styles.cell.center}`}>
                   <span className={styles.cell.muted}>
-                    {(draft.attachments?.length || 0) + (draft.inline_image ? 1 : 0)}
+                    {(draft.attachments?.length || 0) +
+                      (draft.inline_image ? 1 : 0)}
                   </span>
                 </td>
 
@@ -173,7 +190,9 @@ function EmailDraftsList({ refreshTrigger, onCountChange, onEdit }) {
                       <Edit2 size={16} />
                     </button>
                     <button
-                      onClick={() => handleDelete(draft.campaign_id, draft.subject)}
+                      onClick={() =>
+                        handleDelete(draft.campaign_id, draft.subject)
+                      }
                       className={`${styles.actions.button.base} ${styles.actions.button.delete}`}
                       title="Delete Draft"
                     >

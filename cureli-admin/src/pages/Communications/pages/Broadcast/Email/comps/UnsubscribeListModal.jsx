@@ -45,13 +45,26 @@ function UnsubscribeListModal({ onClose }) {
 
     try {
       const response = await emailBroadcastAPI.getUnsubscribeList(page, 20, search);
-      if (response.data.success) {
-        const { records: data, pagination } = response.data.data;
-        setRecords(data);
-        setTotalPages(pagination.total_pages);
-        setTotalItems(pagination.total);
+
+      console.log("[UnsubscribeListModal] API Response:", response);
+
+      // ✅ FIXED: Handle both response formats
+      let recordsData = [];
+      let pagination = { page: 1, limit: 20, total: 0, total_pages: 1 };
+
+      if (response && response.success) {
+        recordsData = response.data?.records || [];
+        pagination = response.data?.pagination || pagination;
+      } else if (response && response.records) {
+        recordsData = response.records || [];
+        pagination = response.pagination || pagination;
       }
+
+      setRecords(recordsData);
+      setTotalPages(pagination.total_pages || 1);
+      setTotalItems(pagination.total || 0);
     } catch (err) {
+      console.error("[UnsubscribeListModal] Load error:", err);
       setError(err.response?.data?.message || "Failed to load unsubscribe list");
     } finally {
       setLoading(false);
@@ -67,21 +80,36 @@ function UnsubscribeListModal({ onClose }) {
     setAddSuccess(null);
 
     try {
-      await emailBroadcastAPI.addToSuppressionList(newEmail.trim(), newReason.trim());
-      setAddSuccess(`${newEmail} added to suppression list`);
-      setNewEmail("");
-      setNewReason("");
-      setShowAddForm(false);
-      loadRecords();
+      const response = await emailBroadcastAPI.addToSuppressionList(
+        newEmail.trim(),
+        newReason.trim()
+      );
+
+      console.log("[UnsubscribeListModal] Add response:", response);
+
+      // ✅ FIXED: Handle response
+      if (response && (response.success || response.message)) {
+        setAddSuccess(`${newEmail} added to suppression list`);
+        setNewEmail("");
+        setNewReason("");
+        setShowAddForm(false);
+        loadRecords();
+      } else {
+        throw new Error(response?.message || "Failed to add email");
+      }
     } catch (err) {
-      setAddError(err.response?.data?.message || "Failed to add email");
+      setAddError(err.response?.data?.message || err.message || "Failed to add email");
     } finally {
       setAddLoading(false);
     }
   };
 
   const handleRemove = async (email) => {
-    if (!window.confirm(`Remove ${email} from suppression list? They will receive broadcast emails again.`)) {
+    if (
+      !window.confirm(
+        `Remove ${email} from suppression list? They will receive broadcast emails again.`
+      )
+    ) {
       return;
     }
 
@@ -126,7 +154,10 @@ function UnsubscribeListModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
@@ -136,9 +167,12 @@ function UnsubscribeListModal({ onClose }) {
               <Users size={20} className="text-red-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Unsubscribe List</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Unsubscribe List
+              </h3>
               <p className="text-xs text-gray-500">
-                {totalItems} email{totalItems !== 1 ? "s" : ""} excluded from broadcasts
+                {totalItems} email{totalItems !== 1 ? "s" : ""} excluded from
+                broadcasts
               </p>
             </div>
           </div>
@@ -153,7 +187,10 @@ function UnsubscribeListModal({ onClose }) {
         {/* Toolbar */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
           <div className="relative flex-1 max-w-xs">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
             <input
               type="text"
               placeholder="Search emails..."
@@ -287,7 +324,7 @@ function UnsubscribeListModal({ onClose }) {
               <tbody>
                 {records.map((record, index) => (
                   <tr
-                    key={record.id}
+                    key={record.id || record.unsubscribe_id || index}
                     className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
                       index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
                     }`}
@@ -295,7 +332,9 @@ function UnsubscribeListModal({ onClose }) {
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
                         <Mail size={14} className="text-gray-400" />
-                        <span className="font-medium text-gray-900">{record.email}</span>
+                        <span className="font-medium text-gray-900">
+                          {record.email}
+                        </span>
                       </div>
                     </td>
                     <td className="px-5 py-3">
@@ -304,7 +343,9 @@ function UnsubscribeListModal({ onClose }) {
                       </span>
                     </td>
                     <td className="px-5 py-3">
-                      <span className="text-gray-500">{formatDate(record.unsubscribed_at)}</span>
+                      <span className="text-gray-500">
+                        {formatDate(record.unsubscribed_at)}
+                      </span>
                     </td>
                     <td className="px-5 py-3 text-center">
                       <button

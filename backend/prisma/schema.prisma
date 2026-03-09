@@ -1356,11 +1356,15 @@ model EmailBroadcastCampaign {
   
   // Targeting
   target_filters      Json
+  target_users        Boolean   @default(true)    // ✅ ADD THIS
+  target_cadmins      Boolean   @default(false)   // ✅ ADD THIS
   recipient_count     Int       @default(0)
   
   // Content
-  inline_image        Json?     // { filename, path, contentType, size }
-  attachments         Json?     // [{ filename, path, contentType, size }]
+  inline_image        Json?
+  attachments         Json?
+  action_url          String?   @db.VarChar(500)  // ✅ ADD THIS
+  action_label        String?   @db.VarChar(100)  // ✅ ADD THIS
 
   attachmentFiles     EmailBroadcastAttachment[] @relation("CampaignAttachments")
   
