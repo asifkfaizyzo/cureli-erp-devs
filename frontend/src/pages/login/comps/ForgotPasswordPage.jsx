@@ -1,11 +1,16 @@
+// src/pages/login/comps/ForgotPasswordPage.jsx
+
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
 import { forgotPassword } from "../../../api/auth";
+import { useToast } from "../../../components/common/Toast";
 
 const ForgotPasswordPage = () => {
   const navigate = useNavigate();
+  const toast = useToast();
+
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -13,15 +18,18 @@ const ForgotPasswordPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
+    // Validation
     if (!email.trim()) {
       setError("Email is required");
+      toast.warning("Validation Error", "Please enter your email address");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Invalid email address");
+      toast.warning("Validation Error", "Please enter a valid email address");
       return;
     }
 
@@ -31,13 +39,17 @@ const ForgotPasswordPage = () => {
     try {
       await forgotPassword({ email });
       setSuccess(true);
+      toast.success("Email Sent!", "Check your inbox for password reset instructions");
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to send reset link");
+      const message = err?.response?.data?.message || "Failed to send reset link";
+      setError(message);
+      toast.error("Request Failed", message);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
+  // Success State View
   if (success) {
     return (
       <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center px-4 font-poppins">
@@ -82,11 +94,22 @@ const ForgotPasswordPage = () => {
           >
             Back to Login
           </button>
+
+          <button
+            onClick={() => {
+              setSuccess(false);
+              setEmail("");
+            }}
+            className="w-full mt-3 py-2 text-[#000060] font-medium hover:underline transition"
+          >
+            Try a different email
+          </button>
         </motion.div>
       </div>
     );
   }
 
+  // Form View
   return (
     <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center px-4 font-poppins">
       <motion.div
@@ -135,7 +158,7 @@ const ForgotPasswordPage = () => {
             type="submit"
             disabled={loading}
             className="w-full bg-[#000060] text-white py-3 rounded-xl font-semibold mt-6
-              hover:bg-[#000060d1] transition disabled:bg-gray-400"
+              hover:bg-[#000060d1] transition disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {loading ? "Sending..." : "Send Reset Link"}
           </button>

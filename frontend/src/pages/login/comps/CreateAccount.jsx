@@ -1,3 +1,5 @@
+// src/pages/login/comps/CreateAccount.jsx
+
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
@@ -5,10 +7,12 @@ import { googleSignup, signupUser } from "../../../api/auth";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import { useToast } from "../../../components/common/Toast";
 
 const CreateAccount = ({ onLoginClick }) => {
   const navigate = useNavigate();
   const { executeRecaptcha } = useGoogleReCaptcha();
+  const toast = useToast();
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -76,6 +80,8 @@ const CreateAccount = ({ onLoginClick }) => {
       const credential = response.credential;
       const res = await googleSignup({ credential });
 
+      toast.success("Success!", "Google account linked successfully");
+
       navigate("/onboarding", {
         state: {
           pending_id: res.data.data.pending_id,
@@ -87,19 +93,30 @@ const CreateAccount = ({ onLoginClick }) => {
       });
     } catch (err) {
       console.error("GOOGLE SIGNUP ERROR:", err);
-      alert(err?.response?.data?.message || "Google sign-up failed");
+      const message = err?.response?.data?.message || "Google sign-up failed";
+      toast.error("Google Sign-up Failed", message);
     }
+  };
+
+  // ---------------------------
+  // GOOGLE ERROR
+  // ---------------------------
+  const handleGoogleError = () => {
+    toast.error("Google Sign-in Failed", "Unable to connect with Google. Please try again.");
   };
 
   // ---------------------------
   // REGULAR SIGNUP
   // ---------------------------
   const handleCreateAccount = async () => {
-    if (!validate()) return;
+    if (!validate()) {
+      toast.warning("Validation Error", "Please fix the errors before continuing");
+      return;
+    }
 
     if (!executeRecaptcha) {
       console.error("❌ executeRecaptcha is not available");
-      alert("reCAPTCHA not ready. Please try again.");
+      toast.error("Error", "reCAPTCHA not ready. Please try again.");
       return;
     }
 
@@ -124,6 +141,8 @@ const CreateAccount = ({ onLoginClick }) => {
       const res = await signupUser(payload);
       const pending_id = res.data.data.pending_id;
 
+      toast.success("Account Created!", "Please complete email verification");
+
       navigate("/onboarding", {
         state: {
           pending_id,
@@ -136,7 +155,9 @@ const CreateAccount = ({ onLoginClick }) => {
       console.error("❌ Signup failed:", err);
       console.error("📥 Response data:", err?.response?.data);
       console.error("📊 Response status:", err?.response?.status);
-      alert(err?.response?.data?.message || "Signup failed");
+      
+      const message = err?.response?.data?.message || "Signup failed. Please try again.";
+      toast.error("Signup Failed", message);
     } finally {
       setLoading(false);
     }
@@ -305,7 +326,7 @@ const CreateAccount = ({ onLoginClick }) => {
         <div className="flex-grow h-[1px] bg-gray-300"></div>
       </div>
 
-      {/* ✅ GOOGLE LOGIN BUTTON - FORCED FULL WIDTH */}
+      {/* GOOGLE LOGIN BUTTON - FORCED FULL WIDTH */}
       <div className="google-login-wrapper w-full">
         <style>
           {`
@@ -325,12 +346,10 @@ const CreateAccount = ({ onLoginClick }) => {
               width: 100% !important;
             }
             
-            /* Target the actual button inside iframe */
             .google-login-wrapper [role="button"] {
               width: 100% !important;
             }
             
-            /* Override Google's inline styles */
             #credential_picker_container,
             .nsm7Bb-HzV7m-LgbsSe {
               width: 100% !important;
@@ -340,7 +359,7 @@ const CreateAccount = ({ onLoginClick }) => {
         </style>
         <GoogleLogin
           onSuccess={handleGoogleSignup}
-          onError={() => alert("Google sign-in failed")}
+          onError={handleGoogleError}
           width="100%"
           size="large"
           theme="outline"

@@ -1,6 +1,6 @@
-// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\LoginPage.jsx
+// src/pages/login/LoginPage.jsx
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import bgImage from "../../assets/images/login-background.jpg";
@@ -10,33 +10,53 @@ import LoginForm from "./comps/LoginForm";
 import CreateAccount from "./comps/CreateAccount";
 import OtpVerify from "./comps/OtpVerify";
 import ReCaptchaWrapper from "../../components/common/ReCaptchaWrapper";
+
 const LANDING_PAGE_URL = import.meta.env.VITE_LANDING_PAGE;
+
+// ✅ Helper to get initial session message from URL (runs once, outside component)
+const getInitialSessionMessage = (searchParams) => {
+  const reason = searchParams.get("reason");
+  
+  if (reason === "session_replaced") {
+    return {
+      type: "warning",
+      text: "You were logged out because your account was accessed from another device.",
+    };
+  }
+  
+  if (reason === "session_expired") {
+    return {
+      type: "info",
+      text: "Your session has expired. Please log in again.",
+    };
+  }
+  
+  return null;
+};
+
 const LoginPage = () => {
   const [showOtp, setShowOtp] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
-  const [sessionMessage, setSessionMessage] = useState(null);
-
   const [searchParams] = useSearchParams();
+  
+  // ✅ Initialize state directly from URL params (no effect needed for initial value)
+  const [sessionMessage, setSessionMessage] = useState(() => 
+    getInitialSessionMessage(searchParams)
+  );
+  
+  // ✅ Track if we've already cleaned the URL
+  const hasCleanedUrl = useRef(false);
 
-  // ✅ Check for session-related URL params
+  // ✅ Only clean URL after mount (no setState, just URL cleanup)
   useEffect(() => {
     const reason = searchParams.get("reason");
-
-    if (reason === "session_replaced") {
-      setSessionMessage({
-        type: "warning",
-        text: "You were logged out because your account was accessed from another device.",
-      });
-    } else if (reason === "session_expired") {
-      setSessionMessage({
-        type: "info",
-        text: "Your session has expired. Please log in again.",
-      });
-    }
-
-    // Clear the URL param after reading
-    if (reason) {
-      window.history.replaceState({}, "", "/login");
+    
+    if (reason && !hasCleanedUrl.current) {
+      hasCleanedUrl.current = true;
+      // Use setTimeout to avoid synchronous state-like updates
+      setTimeout(() => {
+        window.history.replaceState({}, "", "/login");
+      }, 0);
     }
   }, [searchParams]);
 
@@ -97,7 +117,7 @@ const LoginPage = () => {
 
           {/* Form container */}
           <div className="relative z-10 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-sm bg-white rounded-xl p-6 sm:p-8 transition-all">
-            {/* ✅ Session Message Alert */}
+            {/* Session Message Alert */}
             {sessionMessage && (
               <div
                 className={`mb-4 p-3 rounded-lg text-sm ${

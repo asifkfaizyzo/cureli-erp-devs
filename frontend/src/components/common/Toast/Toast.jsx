@@ -1,6 +1,6 @@
-// src/components/common/Toast/Toast.jsx - Simpler version
+// src/components/common/Toast/Toast.jsx
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { 
   CheckCircle, 
   XCircle, 
@@ -91,14 +91,24 @@ const Toast = ({
   const circumference = radius * 2 * Math.PI;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
+  // ✅ Define handleClose with useCallback BEFORE the effects that use it
+  const handleClose = useCallback(() => {
+    setIsLeaving(true);
+    setTimeout(() => onClose?.(id), 300);
+  }, [id, onClose]);
+
+  // Entrance animation
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), 10);
     return () => clearTimeout(timer);
   }, []);
 
+  // Progress timer
   useEffect(() => {
     if (duration <= 0) return;
+    
     let intervalId;
+    
     const tick = () => {
       if (!isPaused) {
         if (!startTimeRef.current) startTimeRef.current = Date.now();
@@ -110,10 +120,12 @@ const Toast = ({
         if (remaining <= 0) handleClose();
       }
     };
+    
     intervalId = setInterval(tick, 16);
     return () => clearInterval(intervalId);
-  }, [duration, isPaused]);
+  }, [duration, isPaused, handleClose]);
 
+  // Pause/resume tracking
   useEffect(() => {
     if (isPaused) {
       remainingTimeRef.current = (progressRef.current / 100) * duration;
@@ -122,11 +134,6 @@ const Toast = ({
       startTimeRef.current = Date.now();
     }
   }, [isPaused, duration]);
-
-  const handleClose = () => {
-    setIsLeaving(true);
-    setTimeout(() => onClose?.(id), 300);
-  };
 
   return (
     <div
@@ -184,7 +191,7 @@ const Toast = ({
           </div>
         </div>
 
-        {/* Content - Fully Flexible */}
+        {/* Content */}
         <div className="flex-1 min-w-0 py-0.5">
           {title && (
             <p className={`text-sm font-semibold ${config.titleColor} leading-tight break-words`}>
