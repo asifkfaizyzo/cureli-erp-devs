@@ -1,6 +1,6 @@
 // src/pages/login/comps/LoginOtpVerification.jsx
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { IoArrowBackOutline } from "react-icons/io5";
 import { verifyLoginOtp, resendLoginOtp } from "../../../api/auth";
@@ -11,6 +11,7 @@ import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useSetupStore } from "../../../store/useSetupStore";
+import { useToast } from "../../../components/common/Toast";
 
 // Constants
 const RESEND_TIMER_SECONDS = 60;
@@ -20,7 +21,6 @@ const RESEND_TIMER_SECONDS = 60;
  * Called BEFORE setting new auth to prevent state conflicts
  */
 const clearAllStaleData = () => {
-  // List of all app-specific localStorage keys
   const keysToRemove = [
     'cureli-auth-storage',
     'cureli-setup-storage',
@@ -32,7 +32,7 @@ const clearAllStaleData = () => {
     'branch_name',
     'shop_name',
   ];
-  
+
   keysToRemove.forEach(key => {
     try {
       localStorage.removeItem(key);
@@ -40,10 +40,8 @@ const clearAllStaleData = () => {
       console.warn(`Failed to remove ${key}:`, e);
     }
   });
-  
-  // Clear sessionStorage completely
+
   sessionStorage.clear();
-  
   console.log('🧹 Cleared all stale data before new login');
 };
 
@@ -51,6 +49,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
   const resetSetup = useSetupStore((state) => state.resetSetup);
+  const toast = useToast();
 
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
@@ -65,11 +64,13 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
 
   const inputsRef = useRef([]);
 
+  // Focus first input on mount
   useEffect(() => {
     const t = setTimeout(() => inputsRef.current[0]?.focus(), 100);
     return () => clearTimeout(t);
   }, []);
 
+  // Timer countdown
   useEffect(() => {
     if (timer > 0) {
       const interval = setInterval(() => setTimer((t) => t - 1), 1000);
@@ -77,6 +78,139 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
     }
   }, [timer]);
 
+  // Sync props with state
+  useEffect(() => {
+    setCurrentTempToken(tempToken);
+  }, [tempToken]);
+
+  useEffect(() => {
+    setCurrentPhoneHint(phoneHint);
+  }, [phoneHint]);
+
+  const triggerShake = useCallback(() => {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  }, []);
+
+  const determineDestination = useCallback(async (role) => {
+    if (role === "staff" || role === "branch_admin") {
+      console.log(`📍 ${role} → /dashboard`);
+      return "/dashboard";
+    }
+
+    try {
+      const subRes = await getMySubscription();
+      const hasActive = subRes.data?.data?.has_active_subscription === true;
+
+      if (!hasActive) {
+        console.log("📍 No active subscription → /plan-selection");
+        return "/plan-selection";
+      }
+
+      try {
+        const setupRes = await getSetupStatus();
+        const setupData = setupRes.data?.data;
+
+        if (setupData?.is_complete) {
+          console.log("📍 Setup complete → /dashboard");
+          return "/dashboard";
+        } else {
+          console.log("📍 Setup incomplete → /setup");
+          return "/setup";
+        }
+      } catch (setupErr) {
+        console.warn("Setup status check failed, defaulting to /setup", setupErr);
+        return "/setup";
+      }
+    } catch (err) {
+      console.warn("Subscription check failed, defaulting to /plan-selection", err);
+      return "/plan-selection";
+    }
+  }, []);
+
+  const handleVerify = useCallback(async (otpCode = null) => {
+    const code = otpCode || otp.join("");
+    if (code.length !== 4 || loading || success) return;
+
+    setLoading(true);
+    setError("");
+    setResendSuccess(false);
+
+    try {
+      const res = await verifyLoginOtp({
+        temp_token: currentTempToken,
+        otp: code,
+      });
+
+      const {
+        access_token,
+        next_step,
+        shop_id,
+        user_id,
+        branch_id,
+        branch_name,
+        shop_name,
+        role,
+        user_name,
+      } = res.data.data;
+
+      setSuccess(true);
+      toast.success("Verified!", "Logging you in...");
+
+      // Clear ALL stale data before setting new auth
+      clearAllStaleData();
+      resetSetup();
+
+      // Set fresh auth data
+      setAuth({
+        access_token,
+        user_id,
+        shop_id,
+        branch_id,
+        branch_name,
+        shop_name,
+        role,
+        user_name,
+      });
+
+      setTimeout(async () => {
+        if (next_step === -1) {
+          const destination = await determineDestination(role);
+          navigate(destination, { replace: true });
+          return;
+        }
+
+        if ([12, 14, 15].includes(next_step)) {
+          navigate("/verification", {
+            state: { resume_step: next_step },
+            replace: true,
+          });
+          return;
+        }
+
+        navigate("/onboarding", {
+          state: { resume_step: next_step },
+          replace: true,
+        });
+      }, 600);
+    } catch (err) {
+      console.error("OTP verification error:", err);
+      const msg = err?.response?.data?.message || "Invalid OTP. Please try again.";
+
+      setError(msg);
+      toast.error("Verification Failed", msg);
+      triggerShake();
+
+      setTimeout(() => {
+        setOtp(["", "", "", ""]);
+        inputsRef.current[0]?.focus();
+      }, 300);
+
+      setLoading(false);
+    }
+  }, [otp, loading, success, currentTempToken, toast, resetSetup, setAuth, determineDestination, navigate, triggerShake]);
+
+  // Auto-verify when 4 digits entered
   useEffect(() => {
     const code = otp.join("");
     if (
@@ -87,16 +221,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
     ) {
       handleVerify(code);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [otp]);
-
-  useEffect(() => {
-    setCurrentTempToken(tempToken);
-  }, [tempToken]);
-
-  useEffect(() => {
-    setCurrentPhoneHint(phoneHint);
-  }, [phoneHint]);
+  }, [otp, loading, success, handleVerify]);
 
   const handleChange = (value, index) => {
     if (!/^\d?$/.test(value)) return;
@@ -140,130 +265,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
     }
   };
 
-  const triggerShake = () => {
-    setShake(true);
-    setTimeout(() => setShake(false), 500);
-  };
-
-  const determineDestination = async (role) => {
-    if (role === "staff" || role === "branch_admin") {
-      console.log(`📍 ${role} → /dashboard`);
-      return "/dashboard";
-    }
-
-    try {
-      const subRes = await getMySubscription();
-      const hasActive = subRes.data?.data?.has_active_subscription === true;
-
-      if (!hasActive) {
-        console.log("📍 No active subscription → /plan-selection");
-        return "/plan-selection";
-      }
-
-      try {
-        const setupRes = await getSetupStatus();
-        const setupData = setupRes.data?.data;
-
-        if (setupData?.is_complete) {
-          console.log("📍 Setup complete → /dashboard");
-          return "/dashboard";
-        } else {
-          console.log("📍 Setup incomplete → /setup");
-          return "/setup";
-        }
-      } catch (setupErr) {
-        console.warn("Setup status check failed, defaulting to /setup", setupErr);
-        return "/setup";
-      }
-    } catch (err) {
-      console.warn("Subscription check failed, defaulting to /plan-selection", err);
-      return "/plan-selection";
-    }
-  };
-
-  const handleVerify = async (otpCode = null) => {
-    const code = otpCode || otp.join("");
-    if (code.length !== 4 || loading || success) return;
-
-    setLoading(true);
-    setError("");
-    setResendSuccess(false);
-
-    try {
-      const res = await verifyLoginOtp({
-        temp_token: currentTempToken,
-        otp: code,
-      });
-
-      const {
-        access_token,
-        next_step,
-        shop_id,
-        user_id,
-        branch_id,
-        branch_name,
-        shop_name,
-        role,
-        user_name,
-      } = res.data.data;
-
-      setSuccess(true);
-
-      // ✅ CRITICAL: Clear ALL stale data before setting new auth
-      // This prevents conflicts when switching between users
-      clearAllStaleData();
-      
-      // Also reset the zustand setup store state (in memory)
-      resetSetup();
-
-      // Now set fresh auth data
-      setAuth({
-        access_token,
-        user_id,
-        shop_id,
-        branch_id,
-        branch_name,
-        shop_name,
-        role,
-        user_name,
-      });
-
-      setTimeout(async () => {
-        if (next_step === -1) {
-          const destination = await determineDestination(role);
-          navigate(destination, { replace: true });
-          return;
-        }
-
-        if ([12, 14, 15].includes(next_step)) {
-          navigate("/verification", {
-            state: { resume_step: next_step },
-            replace: true,
-          });
-          return;
-        }
-
-        navigate("/onboarding", {
-          state: { resume_step: next_step },
-          replace: true,
-        });
-      }, 600);
-    } catch (err) {
-      console.error("OTP verification error:", err);
-      const msg = err?.response?.data?.message || "Invalid OTP. Please try again.";
-
-      setError(msg);
-      triggerShake();
-
-      setTimeout(() => {
-        setOtp(["", "", "", ""]);
-        inputsRef.current[0]?.focus();
-      }, 300);
-
-      setLoading(false);
-    }
-  };
-
   const handleResend = async () => {
     if (timer > 0 || resending) return;
 
@@ -290,8 +291,9 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
       }
 
       setResendSuccess(true);
+      toast.success("OTP Resent", `New code sent to ${newPhoneHint || 'your phone'}`);
+      
       setTimeout(() => setResendSuccess(false), 3000);
-
       setTimer(RESEND_TIMER_SECONDS);
 
       setTimeout(() => {
@@ -300,18 +302,20 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
 
     } catch (err) {
       console.error("Resend OTP error:", err);
-      
+
       const status = err?.response?.status;
       const msg = err?.response?.data?.message || "Failed to resend OTP";
       const waitTime = err?.response?.data?.data?.waitTime;
 
       if (status === 401) {
         setError("Session expired. Please login again.");
+        toast.error("Session Expired", "Please login again");
         setTimeout(() => {
           onBack?.();
         }, 2000);
       } else if (status === 429) {
         setError(msg);
+        toast.warning("Too Many Requests", msg);
         if (waitTime && waitTime > 0) {
           setTimer(waitTime);
         } else {
@@ -324,6 +328,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
         }
       } else {
         setError(msg);
+        toast.error("Resend Failed", msg);
       }
     } finally {
       setResending(false);
@@ -425,7 +430,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
                 <span>{error}</span>
               </motion.div>
             )}
-            
+
             {resendSuccess && !error && (
               <motion.div
                 initial={{ opacity: 0, y: -5 }}

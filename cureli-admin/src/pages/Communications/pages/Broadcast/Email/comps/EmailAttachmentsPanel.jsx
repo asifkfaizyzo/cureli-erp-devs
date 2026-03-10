@@ -17,11 +17,11 @@ const MAX_ATTACHMENTS = 5;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25MB total
 
-// ✅ UPDATED: Helper function to get file URL
+// Helper function to get file URL
 const getFileUrl = (filename) => {
   if (!filename) return null;
   if (filename.startsWith("http")) return filename;
-  
+
   const baseURL = import.meta.env.VITE_API_URL;
   return `${baseURL}/api/files/email_attachments/${filename}`;
 };
@@ -82,26 +82,43 @@ function EmailAttachmentsPanel({ attachments = [], onChange, disabled }) {
         (progress) => setUploadProgress(progress)
       );
 
-      if (response.data.success) {
-        const uploadedFile = response.data.data;
-        
-        // ✅ UPDATED: Use helper function for URL
+      console.log("[EmailAttachmentsPanel] Upload response:", response);
+
+      // ✅ FIXED: Check response.success, not response.data.success
+      // API returns response.data, so response is already the data object
+      if (response && response.success) {
+        const uploadedFile = response.data;
+
         onChange([
           ...attachments,
           {
-            url: getFileUrl(uploadedFile.filename),
+            url: uploadedFile.url || getFileUrl(uploadedFile.filename),
             filename: uploadedFile.filename,
             original_name: uploadedFile.original_name,
             size: uploadedFile.size,
             mime_type: uploadedFile.mime_type,
           },
         ]);
+      } else if (response && response.filename) {
+        // Direct data format (without success wrapper)
+        onChange([
+          ...attachments,
+          {
+            url: response.url || getFileUrl(response.filename),
+            filename: response.filename,
+            original_name: response.original_name,
+            size: response.size,
+            mime_type: response.mime_type,
+          },
+        ]);
       } else {
-        throw new Error(response.data.message || "Upload failed");
+        throw new Error(response?.message || "Upload failed");
       }
     } catch (err) {
-      console.error("Upload error:", err);
-      setError(err.response?.data?.message || err.message || "Failed to upload file");
+      console.error("[EmailAttachmentsPanel] Upload error:", err);
+      setError(
+        err.response?.data?.message || err.message || "Failed to upload file"
+      );
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -155,7 +172,10 @@ function EmailAttachmentsPanel({ attachments = [], onChange, disabled }) {
 
       {error && (
         <div className="flex items-start gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-          <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <AlertCircle
+            size={14}
+            className="text-red-500 flex-shrink-0 mt-0.5"
+          />
           <p className="text-xs text-red-700">{error}</p>
         </div>
       )}

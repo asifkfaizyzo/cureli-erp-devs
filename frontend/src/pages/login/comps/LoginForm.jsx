@@ -1,4 +1,4 @@
-// src/components/LoginForm.jsx
+// src/pages/login/comps/LoginForm.jsx
 
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { loginUser } from "../../../api/auth";
 import LoginOtpVerification from "./LoginOtpVerification";
+import { useToast } from "../../../components/common/Toast";
 
 const LoginForm = ({ onRegisterClick }) => {
   const [username, setUsername] = useState("");
@@ -26,15 +27,62 @@ const LoginForm = ({ onRegisterClick }) => {
 
   const passwordRef = useRef(null);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const validateForm = () => {
     const newErrors = {};
-
     if (!username.trim()) newErrors.username = "Username is required";
     if (!password.trim()) newErrors.password = "Password is required";
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  /**
+   * Get user-friendly error message from API response
+   * Always show generic message for security (don't reveal if user exists)
+   */
+  const getLoginErrorMessage = (err) => {
+    const status = err?.response?.status;
+    const responseMessage = err?.response?.data?.message;
+
+    // For security: Always show generic message for auth failures
+    // Don't reveal if username exists or if password format is wrong
+    if (status === 400 || status === 401) {
+      // These are auth-related errors - show generic message
+      if (
+        responseMessage?.toLowerCase().includes("validation") ||
+        responseMessage?.toLowerCase().includes("invalid") ||
+        responseMessage?.toLowerCase().includes("credentials")
+      ) {
+        return "Invalid username or password";
+      }
+    }
+
+    // For 403, check if suspended
+    if (status === 403) {
+      return null; // Handle separately as suspended
+    }
+
+    // For specific known messages, return them
+    if (responseMessage?.includes("signup was not completed")) {
+      return responseMessage;
+    }
+
+    if (responseMessage?.includes("Google login")) {
+      return responseMessage;
+    }
+
+    if (responseMessage?.includes("phone number")) {
+      return responseMessage;
+    }
+
+    // Rate limiting
+    if (status === 429) {
+      return responseMessage || "Too many attempts. Please try again later.";
+    }
+
+    // Default fallback
+    return "Invalid username or password";
   };
 
   const handleLogin = async () => {
@@ -52,22 +100,29 @@ const LoginForm = ({ onRegisterClick }) => {
       setTempToken(temp_token);
       setPhoneHint(phone_hint);
       setShowOtpScreen(true);
-    } catch (err) {
-      console.error(err);
 
+      toast.success("OTP Sent", `Verification code sent to ${phone_hint}`);
+    } catch (err) {
+      console.error("Login error:", err);
+
+      const status = err?.response?.status;
       const response = err?.response?.data;
       const errorCode = response?.data?.code;
 
-      if (errorCode === "ACCOUNT_SUSPENDED" || err?.response?.status === 403) {
+      // Handle suspended account
+      if (errorCode === "ACCOUNT_SUSPENDED" || status === 403) {
         setIsSuspended(true);
-      } else {
-        setErrors({
-          general: response?.message || "Invalid username or password",
-        });
+        toast.error("Account Suspended", "Your account has been suspended");
+        return;
       }
-    }
 
-    setLoading(false);
+      // Get appropriate error message
+      const message = getLoginErrorMessage(err);
+      setErrors({ general: message });
+      toast.error("Login Failed", message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBackToLogin = () => {
@@ -77,7 +132,6 @@ const LoginForm = ({ onRegisterClick }) => {
     setPassword("");
   };
 
-  // NEW: Handle token update from OTP component (after resend)
   const handleTokenUpdate = (newToken, newPhoneHint) => {
     console.log("Token updated after resend");
     setTempToken(newToken);
@@ -101,7 +155,7 @@ const LoginForm = ({ onRegisterClick }) => {
           tempToken={tempToken}
           phoneHint={phoneHint}
           onBack={handleBackToLogin}
-          onTokenUpdate={handleTokenUpdate}  // NEW: Pass the callback
+          onTokenUpdate={handleTokenUpdate}
         />
       </AnimatePresence>
     );
@@ -276,8 +330,7 @@ const LoginForm = ({ onRegisterClick }) => {
 
         {/* STAY LOGGED IN + FORGOT */}
         <div className="flex items-center justify-between text-sm my-4">
-          <label className="flex items-center gap-2 text-gray-600">
-          </label>
+          <label className="flex items-center gap-2 text-gray-600"></label>
 
           <span
             onClick={() => navigate("/forgot-password")}

@@ -1,6 +1,6 @@
 // src/pages/Communications/pages/Broadcast/Email/comps/EmailHistoryList.jsx
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import {
   CheckCircle,
   AlertTriangle,
@@ -41,13 +41,26 @@ function EmailHistoryList({ refreshTrigger, onRetry }) {
 
     try {
       const response = await emailBroadcastAPI.getHistory(page, rowsPerPage, search);
-      if (response.data.success) {
-        const { history, pagination } = response.data.data;
-        setCampaigns(history);
-        setTotalPages(pagination.total_pages);
-        setTotalItems(pagination.total);
+
+      console.log("[EmailHistoryList] API Response:", response);
+
+      // ✅ FIXED: Handle both response formats
+      let historyData = [];
+      let pagination = { page: 1, limit: 10, total: 0, total_pages: 1 };
+
+      if (response && response.success) {
+        historyData = response.data?.history || [];
+        pagination = response.data?.pagination || pagination;
+      } else if (response && response.history) {
+        historyData = response.history || [];
+        pagination = response.pagination || pagination;
       }
+
+      setCampaigns(historyData);
+      setTotalPages(pagination.total_pages || 1);
+      setTotalItems(pagination.total || 0);
     } catch (err) {
+      console.error("[EmailHistoryList] Load error:", err);
       setError(err.response?.data?.message || "Failed to load history");
     } finally {
       setLoading(false);
@@ -82,6 +95,7 @@ function EmailHistoryList({ refreshTrigger, onRetry }) {
   };
 
   const getStatusConfig = (status) => {
+    const statusLower = status?.toLowerCase() || "";
     const configs = {
       sent: {
         bg: "bg-green-100",
@@ -108,11 +122,12 @@ function EmailHistoryList({ refreshTrigger, onRetry }) {
         label: "Cancelled",
       },
     };
-    return configs[status] || configs.sent;
+    return configs[statusLower] || configs.sent;
   };
 
   const canRetry = (status) => {
-    return ["failed", "partial_failure"].includes(status);
+    const statusLower = status?.toLowerCase() || "";
+    return ["failed", "partial_failure"].includes(statusLower);
   };
 
   const { styles } = TABLE_CONFIG;
@@ -162,7 +177,10 @@ function EmailHistoryList({ refreshTrigger, onRetry }) {
       ) : (
         <>
           <div className="flex-1 min-h-0 overflow-auto">
-            <table className="w-full border-collapse text-sm" style={{ minWidth: "1000px" }}>
+            <table
+              className="w-full border-collapse text-sm"
+              style={{ minWidth: "1000px" }}
+            >
               <thead className="sticky top-0 z-10">
                 <tr className={styles.header.row}>
                   <th className={styles.header.cell} style={{ width: "30px" }}></th>
@@ -183,9 +201,8 @@ function EmailHistoryList({ refreshTrigger, onRetry }) {
                   const isExpanded = expandedId === campaign.campaign_id;
 
                   return (
-                    <>
+                    <Fragment key={campaign.campaign_id}>
                       <tr
-                        key={campaign.campaign_id}
                         className={`
                           ${styles.row.base}
                           ${index % 2 === 0 ? styles.row.even : styles.row.odd}
@@ -196,7 +213,9 @@ function EmailHistoryList({ refreshTrigger, onRetry }) {
                       >
                         <td className={styles.cell.base}>
                           <button
-                            onClick={() => setExpandedId(isExpanded ? null : campaign.campaign_id)}
+                            onClick={() =>
+                              setExpandedId(isExpanded ? null : campaign.campaign_id)
+                            }
                             className="p-1 hover:bg-gray-100 rounded transition-colors"
                           >
                             <ChevronDown
@@ -233,7 +252,13 @@ function EmailHistoryList({ refreshTrigger, onRetry }) {
                         </td>
 
                         <td className={`${styles.cell.base} ${styles.cell.center}`}>
-                          <span className={campaign.failed_count > 0 ? "text-red-600 font-medium" : "text-gray-400"}>
+                          <span
+                            className={
+                              campaign.failed_count > 0
+                                ? "text-red-600 font-medium"
+                                : "text-gray-400"
+                            }
+                          >
                             {campaign.failed_count || 0}
                           </span>
                         </td>
@@ -243,9 +268,9 @@ function EmailHistoryList({ refreshTrigger, onRetry }) {
                             <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full ${
-                                  campaign.delivery_rate >= 90
+                                  (campaign.delivery_rate || 0) >= 90
                                     ? "bg-green-500"
-                                    : campaign.delivery_rate >= 70
+                                    : (campaign.delivery_rate || 0) >= 70
                                     ? "bg-amber-500"
                                     : "bg-red-500"
                                 }`}
@@ -265,7 +290,9 @@ function EmailHistoryList({ refreshTrigger, onRetry }) {
                         </td>
 
                         <td className={styles.cell.base}>
-                          <span className={styles.cell.primary}>{campaign.cadmin_name}</span>
+                          <span className={styles.cell.primary}>
+                            {campaign.cadmin_name}
+                          </span>
                         </td>
 
                         <td className={styles.cell.base}>
@@ -334,7 +361,7 @@ function EmailHistoryList({ refreshTrigger, onRetry }) {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

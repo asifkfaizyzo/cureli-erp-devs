@@ -52,7 +52,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="text-white bg-[#000060] relative z-10">
+    <footer className="text-white bg-[linear-gradient(90deg,#1D0A36,#1D025E,#020245)] relative z-10">
       
       {/* Main Footer Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">

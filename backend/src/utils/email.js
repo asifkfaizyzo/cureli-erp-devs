@@ -13,7 +13,7 @@ export const mailer = nodemailer.createTransport({
 
 export async function sendMail(to, subject, html) {
   await mailer.sendMail({
-    from: `"Cureli ERP" <${process.env.SMTP_USER}>`,
+    from: `"Cureli Health" <info@curelihealth.com>`,
     to,
     subject,
     html,

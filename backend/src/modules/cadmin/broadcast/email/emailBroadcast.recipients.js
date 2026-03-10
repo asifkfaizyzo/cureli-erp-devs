@@ -5,35 +5,12 @@ import { filterUnsubscribedRecipients } from './emailBroadcast.unsubscribe.js';
 
 /**
  * Email Broadcast Recipient Resolver
- * 
- * Features:
- * - Shop owner targeting (super_admin only)
- * - CAdmin targeting
- * - AND/OR filter mode support
- * - Registration date filtering
- * - Unsubscribe exclusion
- * - Deduplication by email
  */
 
 // ============================================
 // MAIN RESOLVER
 // ============================================
 
-/**
- * Resolve all recipients based on filters
- * 
- * @param {Object} filters - Target filters
- * @param {Array} filters.shop_ids - Specific shop UUIDs
- * @param {Array} filters.plan_ids - Plan UUIDs
- * @param {string} filters.filter_mode - 'AND' or 'OR' (default: 'OR')
- * @param {string} filters.registration_date_from - ISO date string
- * @param {string} filters.registration_date_to - ISO date string
- * @param {Array} filters.cadmin_roles - CAdmin roles ['SUPER_ADMIN', 'ANALYST', 'ACCOUNTING']
- * @param {boolean} targetUsers - Include shop owners
- * @param {boolean} targetCAdmins - Include CAdmins
- * @param {boolean} excludeUnsubscribed - Filter out unsubscribed (default: true)
- * @returns {Array} - Array of recipient objects
- */
 export async function resolveRecipients(
   filters = {},
   targetUsers = true,
@@ -42,27 +19,19 @@ export async function resolveRecipients(
 ) {
   const recipients = [];
 
-  // ─────────────────────────────────────────
-  // RESOLVE SHOP OWNERS
-  // ─────────────────────────────────────────
   if (targetUsers) {
     const shopOwners = await resolveShopOwners(filters);
     recipients.push(...shopOwners);
     console.log(`[Recipients] Resolved ${shopOwners.length} shop owner(s)`);
   }
 
-  // ─────────────────────────────────────────
-  // RESOLVE CADMINS
-  // ─────────────────────────────────────────
   if (targetCAdmins) {
     const cadmins = await resolveCAdmins(filters);
     recipients.push(...cadmins);
     console.log(`[Recipients] Resolved ${cadmins.length} CAdmin(s)`);
   }
 
-  // ─────────────────────────────────────────
-  // DEDUPLICATE BY EMAIL
-  // ─────────────────────────────────────────
+  // Deduplicate by email
   const seen = new Set();
   const deduplicated = recipients.filter((r) => {
     const key = r.email.toLowerCase().trim();
@@ -73,9 +42,6 @@ export async function resolveRecipients(
 
   console.log(`[Recipients] After dedup: ${deduplicated.length} unique recipient(s)`);
 
-  // ─────────────────────────────────────────
-  // EXCLUDE UNSUBSCRIBED
-  // ─────────────────────────────────────────
   if (excludeUnsubscribed) {
     const filtered = await filterUnsubscribedRecipients(deduplicated);
     console.log(`[Recipients] After unsubscribe filter: ${filtered.length} recipient(s)`);
@@ -89,9 +55,6 @@ export async function resolveRecipients(
 // SHOP OWNER RESOLVER
 // ============================================
 
-/**
- * Resolve shop owners (users with role = super_admin)
- */
 async function resolveShopOwners(filters) {
   const {
     shop_ids,
@@ -106,13 +69,8 @@ async function resolveShopOwners(filters) {
   const hasShopFilter = shop_ids && shop_ids.length > 0;
   const hasPlanFilter = plan_ids && plan_ids.length > 0;
 
-  // ─────────────────────────────────────────
-  // BUILD SHOP QUERY BASED ON FILTER MODE
-  // ─────────────────────────────────────────
-
   if (hasShopFilter && hasPlanFilter) {
     if (filter_mode === 'AND') {
-      // AND: Shops that match BOTH shop_ids AND plan_ids
       shops = await prisma.shop.findMany({
         where: {
           is_active: true,
@@ -136,7 +94,6 @@ async function resolveShopOwners(filters) {
         },
       });
     } else {
-      // OR: Shops that match shop_ids OR shops with plan_ids
       const [shopsByIds, shopsByPlan] = await Promise.all([
         prisma.shop.findMany({
           where: {
@@ -178,7 +135,6 @@ async function resolveShopOwners(filters) {
         }),
       ]);
 
-      // Merge and dedupe by shop_id
       const shopMap = new Map();
       [...shopsByIds, ...shopsByPlan].forEach((shop) => {
         shopMap.set(shop.shop_id, shop);
@@ -186,7 +142,6 @@ async function resolveShopOwners(filters) {
       shops = Array.from(shopMap.values());
     }
   } else if (hasShopFilter) {
-    // Only shop_ids filter
     shops = await prisma.shop.findMany({
       where: {
         is_active: true,
@@ -205,7 +160,6 @@ async function resolveShopOwners(filters) {
       },
     });
   } else if (hasPlanFilter) {
-    // Only plan_ids filter
     shops = await prisma.shop.findMany({
       where: {
         is_active: true,
@@ -228,7 +182,7 @@ async function resolveShopOwners(filters) {
       },
     });
   } else {
-    // No shop/plan filter - get all active shops
+    // No filter - get all active shops
     shops = await prisma.shop.findMany({
       where: { is_active: true },
       include: {
@@ -245,9 +199,7 @@ async function resolveShopOwners(filters) {
     });
   }
 
-  // ─────────────────────────────────────────
-  // APPLY REGISTRATION DATE FILTER (on shop.created_at)
-  // ─────────────────────────────────────────
+  // Apply registration date filter
   if (registration_date_from || registration_date_to) {
     shops = shops.filter((shop) => {
       const shopDate = new Date(shop.created_at);
@@ -267,22 +219,13 @@ async function resolveShopOwners(filters) {
     });
   }
 
-  // ─────────────────────────────────────────
-  // MAP TO RECIPIENTS
-  // ─────────────────────────────────────────
+  // Map to recipients
   const recipients = [];
 
   for (const shop of shops) {
-    // Skip if no owner
     if (!shop.owner) continue;
-
-    // Skip if owner is not active
     if (!shop.owner.is_active) continue;
-
-    // Skip if owner has no email
     if (!shop.owner.email) continue;
-
-    // Only super_admin role (shop owners)
     if (shop.owner.role !== 'super_admin') continue;
 
     recipients.push({
@@ -302,9 +245,6 @@ async function resolveShopOwners(filters) {
 // CADMIN RESOLVER
 // ============================================
 
-/**
- * Resolve CAdmins
- */
 async function resolveCAdmins(filters) {
   const { cadmin_roles } = filters;
 
@@ -339,10 +279,6 @@ async function resolveCAdmins(filters) {
 // PREVIEW FUNCTIONS
 // ============================================
 
-/**
- * Get recipient preview with breakdown
- * Does NOT exclude unsubscribed (for accurate preview)
- */
 export async function previewRecipients(
   filters = {},
   targetUsers = true,
@@ -352,19 +288,16 @@ export async function previewRecipients(
     filters,
     targetUsers,
     targetCAdmins,
-    false // Don't exclude unsubscribed for preview count
+    false
   );
 
-  // Count unsubscribed separately
   const unsubscribedCount = await countUnsubscribedInList(recipients);
 
-  // Build breakdown
   const byType = {
     users: recipients.filter((r) => r.type === 'user').length,
     cadmins: recipients.filter((r) => r.type === 'cadmin').length,
   };
 
-  // Group by shop
   const byShop = {};
   recipients
     .filter((r) => r.type === 'user' && r.shop_id)
@@ -384,9 +317,6 @@ export async function previewRecipients(
   };
 }
 
-/**
- * Count how many recipients in list are unsubscribed
- */
 async function countUnsubscribedInList(recipients) {
   if (recipients.length === 0) return 0;
 
@@ -418,64 +348,85 @@ export async function getShopsForFilter(search = '', page = 1, limit = 50) {
     }),
   };
 
-  const [shops, total] = await Promise.all([
-    prisma.shop.findMany({
-      where,
-      select: {
-        shop_id: true,
-        business_name: true,
-        created_at: true,
-        owner: {
-          select: {
-            full_name: true,
-            email: true,
+  try {
+    const [shops, total] = await Promise.all([
+      prisma.shop.findMany({
+        where,
+        select: {
+          shop_id: true,
+          business_name: true,
+          created_at: true,
+          owner: {
+            select: {
+              full_name: true,
+              email: true,
+            },
           },
         },
-      },
-      orderBy: { business_name: 'asc' },
-      skip,
-      take: limit,
-    }),
-    prisma.shop.count({ where }),
-  ]);
+        orderBy: { business_name: 'asc' },
+        skip,
+        take: limit,
+      }),
+      prisma.shop.count({ where }),
+    ]);
 
-  return {
-    shops: shops.map((shop) => ({
-      shop_id: shop.shop_id,
-      business_name: shop.business_name,
-      owner_name: shop.owner?.full_name || 'N/A',
-      owner_email: shop.owner?.email || 'N/A',
-      created_at: shop.created_at,
-    })),
-    pagination: { page, limit, total },
-  };
+    console.log(`[Recipients] getShopsForFilter: Found ${shops.length} shops (total: ${total})`);
+
+    return {
+      shops: shops.map((shop) => ({
+        shop_id: shop.shop_id,
+        business_name: shop.business_name,
+        owner_name: shop.owner?.full_name || 'N/A',
+        owner_email: shop.owner?.email || 'N/A',
+        created_at: shop.created_at,
+      })),
+      pagination: { page, limit, total },
+    };
+  } catch (error) {
+    console.error('[Recipients] getShopsForFilter error:', error);
+    throw error;
+  }
 }
 
 /**
  * Get active plans for filter dropdown
+ * ✅ FIXED: Use the enum value from Prisma
  */
 export async function getActivePlans() {
-  const plans = await prisma.plan.findMany({
-    where: { status: 'ACTIVE' },
-    select: {
-      plan_id: true,
-      name: true,
-      type: true,
-    },
-    orderBy: { name: 'asc' },
-  });
+  try {
+    const plans = await prisma.plan.findMany({
+      where: { 
+        status: 'ACTIVE',  // ✅ This should match your PlanStatus enum
+        deleted_at: null,  // ✅ Exclude soft-deleted plans
+      },
+      select: {
+        plan_id: true,
+        name: true,
+        type: true,
+      },
+      orderBy: { name: 'asc' },
+    });
 
-  return { plans };
+    console.log(`[Recipients] getActivePlans: Found ${plans.length} active plans`);
+
+    return { plans };
+  } catch (error) {
+    console.error('[Recipients] getActivePlans error:', error);
+    throw error;
+  }
 }
 
 /**
  * Get CAdmin roles for filter dropdown
+ * ✅ FIXED: Match CAdminRole enum from Prisma schema
  */
 export function getCAdminRoles() {
+  // These should match your CAdminRole enum
   return [
-    { value: 'SUPER_ADMIN', label: 'Super Admin' },
+    { value: 'SUPER_CADMIN', label: 'Super Admin' },
     { value: 'ANALYST', label: 'Analyst' },
-    { value: 'ACCOUNTING', label: 'Accounting' },
+    { value: 'ACCOUNTANT', label: 'Accountant' },
+    { value: 'SALESMAN', label: 'Salesman' },
   ];
 }
 

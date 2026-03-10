@@ -1,28 +1,27 @@
-//backend\src\modules\auth\auth.schema.js
+//backend/src/modules/auth/auth.schema.js
 import { z } from "zod";
 
+// Password format regex - for use in registration/password change only
+const passwordFormatRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+// Login: Only check fields exist (don't validate format - let controller handle auth)
 export const loginSchema = z.object({
-  username: z.string().min(3, "Username required"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-      "Password must include uppercase, lowercase, number, and symbol"
-    ),
+  username: z.string().min(1, "Username required"),
+  password: z.string().min(1, "Password required"),
 });
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
 });
 
+// Password reset: Validate format (user is setting NEW password)
 export const resetPasswordSchema = z.object({
   token: z.string().min(1, "Token required"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
     .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+      passwordFormatRegex,
       "Password must include uppercase, lowercase, number, and symbol"
     ),
 });

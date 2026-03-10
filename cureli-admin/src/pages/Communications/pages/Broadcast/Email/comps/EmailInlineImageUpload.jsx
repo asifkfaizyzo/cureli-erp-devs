@@ -13,13 +13,12 @@ import * as emailBroadcastAPI from "../../../../../../api/cadminEmailBroadcast";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-// ✅ UPDATED: Helper function to get file URL
+// Helper function to get file URL
 const getFileUrl = (filename) => {
   if (!filename) return null;
   if (filename.startsWith("http")) return filename;
-  
+
   const baseURL = import.meta.env.VITE_API_URL;
-  // Inline images also go to email_attachments folder
   return `${baseURL}/api/files/email_attachments/${filename}`;
 };
 
@@ -60,23 +59,37 @@ function EmailInlineImageUpload({ image, onChange, disabled }) {
           (progress) => setUploadProgress(progress)
         );
 
-        if (response.data.success) {
-          const uploadedFile = response.data.data;
-          
-          // ✅ UPDATED: Use helper function for URL
+        console.log("[EmailInlineImageUpload] Upload response:", response);
+
+        // ✅ FIXED: Check response.success, not response.data.success
+        // API returns response.data, so response is already the data object
+        if (response && response.success) {
+          const uploadedFile = response.data;
+
           onChange({
-            url: getFileUrl(uploadedFile.filename),
+            url: uploadedFile.url || getFileUrl(uploadedFile.filename),
             filename: uploadedFile.filename,
             original_name: uploadedFile.original_name,
             size: uploadedFile.size,
           });
           setUploadProgress(100);
+        } else if (response && response.filename) {
+          // Direct data format (without success wrapper)
+          onChange({
+            url: response.url || getFileUrl(response.filename),
+            filename: response.filename,
+            original_name: response.original_name,
+            size: response.size,
+          });
+          setUploadProgress(100);
         } else {
-          throw new Error(response.data.message || "Upload failed");
+          throw new Error(response?.message || "Upload failed");
         }
       } catch (err) {
-        console.error("Upload error:", err);
-        setError(err.response?.data?.message || err.message || "Failed to upload image");
+        console.error("[EmailInlineImageUpload] Upload error:", err);
+        setError(
+          err.response?.data?.message || err.message || "Failed to upload image"
+        );
       } finally {
         setIsUploading(false);
       }
@@ -145,7 +158,11 @@ function EmailInlineImageUpload({ image, onChange, disabled }) {
       onDrop={handleDrop}
       className={`
         relative border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all duration-200
-        ${isDragOver ? "border-indigo-500 bg-indigo-50" : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"}
+        ${
+          isDragOver
+            ? "border-indigo-500 bg-indigo-50"
+            : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+        }
         ${disabled ? "opacity-50 cursor-not-allowed" : ""}
       `}
     >
@@ -177,7 +194,9 @@ function EmailInlineImageUpload({ image, onChange, disabled }) {
         <Loader2 size={20} className="text-indigo-600 animate-spin" />
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium text-gray-700">Uploading...</span>
+            <span className="text-sm font-medium text-gray-700">
+              Uploading...
+            </span>
             <span className="text-sm text-gray-500">{uploadProgress}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -195,14 +214,17 @@ function EmailInlineImageUpload({ image, onChange, disabled }) {
   const renderImagePreview = () => {
     if (!image) return null;
 
+    const imageUrl = image.url || getFileUrl(image.filename);
+
     return (
       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
         <div className="relative h-32 bg-gray-100">
           <img
-            src={image.url}
+            src={imageUrl}
             alt={image.original_name || "Inline image"}
             className="w-full h-full object-contain"
             onError={(e) => {
+              console.error("Image failed to load:", imageUrl);
               e.target.style.display = "none";
             }}
           />
@@ -233,12 +255,17 @@ function EmailInlineImageUpload({ image, onChange, disabled }) {
       <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
         <Image size={12} />
         Inline Image
-        <span className="text-gray-400 font-normal">(appears in email body)</span>
+        <span className="text-gray-400 font-normal">
+          (appears in email body)
+        </span>
       </label>
 
       {error && (
         <div className="flex items-start gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-          <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <AlertCircle
+            size={14}
+            className="text-red-500 flex-shrink-0 mt-0.5"
+          />
           <p className="text-xs text-red-700">{error}</p>
         </div>
       )}

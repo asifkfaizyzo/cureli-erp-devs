@@ -13,6 +13,7 @@ import {
   Filter,
   ToggleLeft,
   ToggleRight,
+  Loader2,
 } from "lucide-react";
 import StyledDateFilter from "../../../../../../components/common/StyledDateFilter";
 import * as emailBroadcastAPI from "../../../../../../api/cadminEmailBroadcast";
@@ -34,8 +35,14 @@ function EmailAudienceFilterPanel({
   // UI states
   const [shopSearch, setShopSearch] = useState("");
   const [loadingShops, setLoadingShops] = useState(false);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [loadingRoles, setLoadingRoles] = useState(false);
   const [showShopDropdown, setShowShopDropdown] = useState(false);
   const [showPlanDropdown, setShowPlanDropdown] = useState(false);
+
+  // Error states
+  const [shopError, setShopError] = useState(null);
+  const [planError, setPlanError] = useState(null);
 
   // Selected values
   const [selectedShops, setSelectedShops] = useState([]);
@@ -43,7 +50,7 @@ function EmailAudienceFilterPanel({
   const [selectedCAdminRoles, setSelectedCAdminRoles] = useState([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [filterMode, setFilterMode] = useState("OR"); // AND or OR
+  const [filterMode, setFilterMode] = useState("OR");
 
   const debouncedShopSearch = useDebounce(shopSearch, 300);
 
@@ -60,46 +67,111 @@ function EmailAudienceFilterPanel({
     }
   }, [debouncedShopSearch, showUserFilters]);
 
+  // ✅ FIXED: Proper response parsing
   const loadShops = async (search = "") => {
     setLoadingShops(true);
+    setShopError(null);
+
     try {
       const res = await emailBroadcastAPI.getShopsForFilter(search);
-      if (res.data.success) {
-        setShops(res.data.data.shops || []);
+
+      console.log("[EmailAudienceFilterPanel] Shops API Response:", res);
+
+      // API returns response.data, so res is already the data object
+      if (res && res.success) {
+        setShops(res.data?.shops || []);
+        console.log("[EmailAudienceFilterPanel] Loaded shops:", res.data?.shops?.length || 0);
+      } else if (res && res.shops) {
+        // Direct data format
+        setShops(res.shops || []);
+        console.log("[EmailAudienceFilterPanel] Loaded shops (direct):", res.shops?.length || 0);
+      } else {
+        console.warn("[EmailAudienceFilterPanel] Unexpected shops response format:", res);
+        setShops([]);
       }
     } catch (err) {
-      console.error("Failed to load shops:", err);
+      console.error("[EmailAudienceFilterPanel] Failed to load shops:", err);
+      setShopError(err.response?.data?.message || err.message || "Failed to load shops");
+      setShops([]);
     } finally {
       setLoadingShops(false);
     }
   };
 
+  // ✅ FIXED: Proper response parsing
   const loadPlans = async () => {
+    setLoadingPlans(true);
+    setPlanError(null);
+
     try {
       const res = await emailBroadcastAPI.getActivePlans();
-      if (res.data.success) {
-        setPlans(res.data.data.plans || []);
+
+      console.log("[EmailAudienceFilterPanel] Plans API Response:", res);
+
+      // API returns response.data, so res is already the data object
+      if (res && res.success) {
+        setPlans(res.data?.plans || []);
+        console.log("[EmailAudienceFilterPanel] Loaded plans:", res.data?.plans?.length || 0);
+      } else if (res && res.plans) {
+        // Direct data format
+        setPlans(res.plans || []);
+        console.log("[EmailAudienceFilterPanel] Loaded plans (direct):", res.plans?.length || 0);
+      } else {
+        console.warn("[EmailAudienceFilterPanel] Unexpected plans response format:", res);
+        setPlans([]);
       }
     } catch (err) {
-      console.error("Failed to load plans:", err);
+      console.error("[EmailAudienceFilterPanel] Failed to load plans:", err);
+      setPlanError(err.response?.data?.message || err.message || "Failed to load plans");
+      setPlans([]);
+    } finally {
+      setLoadingPlans(false);
     }
   };
 
+  // ✅ FIXED: Proper response parsing
   const loadCAdminRoles = async () => {
+    setLoadingRoles(true);
+
     try {
       const res = await emailBroadcastAPI.getCAdminRoles();
-      if (res.data.success) {
-        setCAdminRoles(res.data.data || []);
+
+      console.log("[EmailAudienceFilterPanel] CAdmin Roles API Response:", res);
+
+      // API returns response.data, so res is already the data object
+      if (res && res.success) {
+        setCAdminRoles(res.data || []);
+      } else if (Array.isArray(res)) {
+        // Direct array format
+        setCAdminRoles(res);
+      } else if (res && Array.isArray(res.data)) {
+        setCAdminRoles(res.data);
+      } else {
+        console.warn("[EmailAudienceFilterPanel] Unexpected roles response format:", res);
+        // Fallback to hardcoded roles
+        setCAdminRoles([
+          { value: "SUPER_CADMIN", label: "Super Admin" },
+          { value: "ANALYST", label: "Analyst" },
+          { value: "ACCOUNTANT", label: "Accountant" },
+        ]);
       }
     } catch (err) {
-      console.error("Failed to load CAdmin roles:", err);
+      console.error("[EmailAudienceFilterPanel] Failed to load CAdmin roles:", err);
+      // Fallback to hardcoded roles
+      setCAdminRoles([
+        { value: "SUPER_CADMIN", label: "Super Admin" },
+        { value: "ANALYST", label: "Analyst" },
+        { value: "ACCOUNTANT", label: "Accountant" },
+      ]);
+    } finally {
+      setLoadingRoles(false);
     }
   };
 
   const updateFilters = useCallback(
     (updates) => {
       const newFilters = { ...filters, ...updates };
-      
+
       // Clean up empty arrays and null values
       Object.keys(newFilters).forEach((key) => {
         if (Array.isArray(newFilters[key]) && newFilters[key].length === 0) {
@@ -109,7 +181,7 @@ function EmailAudienceFilterPanel({
           delete newFilters[key];
         }
       });
-      
+
       onChange(newFilters);
     },
     [filters, onChange]
@@ -122,7 +194,7 @@ function EmailAudienceFilterPanel({
       : [...selectedShops, shop];
 
     setSelectedShops(newSelected);
-    updateFilters({ 
+    updateFilters({
       shop_ids: newSelected.map((s) => s.shop_id),
       filter_mode: filterMode,
     });
@@ -135,7 +207,7 @@ function EmailAudienceFilterPanel({
       : [...selectedPlans, plan.plan_id];
 
     setSelectedPlans(newSelected);
-    updateFilters({ 
+    updateFilters({
       plan_ids: newSelected,
       filter_mode: filterMode,
     });
@@ -247,6 +319,7 @@ function EmailAudienceFilterPanel({
               <label className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5 block">
                 <Building2 size={12} />
                 Shops
+                {loadingShops && <Loader2 size={10} className="animate-spin ml-1" />}
               </label>
               <button
                 type="button"
@@ -289,8 +362,13 @@ function EmailAudienceFilterPanel({
                     </div>
                     <div className="max-h-40 overflow-y-auto p-1">
                       {loadingShops ? (
-                        <div className="p-3 text-center text-xs text-gray-400">
-                          Loading...
+                        <div className="p-3 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                          <Loader2 size={14} className="animate-spin" />
+                          Loading shops...
+                        </div>
+                      ) : shopError ? (
+                        <div className="p-3 text-center text-xs text-red-500">
+                          {shopError}
                         </div>
                       ) : shops.length === 0 ? (
                         <div className="p-3 text-center text-xs text-gray-400">
@@ -309,15 +387,15 @@ function EmailAudienceFilterPanel({
                                 isSelected ? "bg-[#05015A]/5" : ""
                               }`}
                             >
-                              <div>
-                                <span className="font-medium text-gray-900">
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-gray-900 block truncate">
                                   {shop.business_name}
                                 </span>
-                                <span className="text-gray-400 ml-2">
-                                  ({shop.owner_email})
+                                <span className="text-gray-400 text-[10px] block truncate">
+                                  {shop.owner_email || shop.owner_name || "No owner info"}
                                 </span>
                               </div>
-                              {isSelected && <Check size={14} className="text-[#05015A]" />}
+                              {isSelected && <Check size={14} className="text-[#05015A] flex-shrink-0 ml-2" />}
                             </button>
                           );
                         })
@@ -366,6 +444,7 @@ function EmailAudienceFilterPanel({
               <label className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5 block">
                 <CreditCard size={12} />
                 Plans
+                {loadingPlans && <Loader2 size={10} className="animate-spin ml-1" />}
               </label>
               <button
                 type="button"
@@ -392,9 +471,18 @@ function EmailAudienceFilterPanel({
                   />
                   <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
                     <div className="max-h-40 overflow-y-auto p-1">
-                      {plans.length === 0 ? (
+                      {loadingPlans ? (
+                        <div className="p-3 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                          <Loader2 size={14} className="animate-spin" />
+                          Loading plans...
+                        </div>
+                      ) : planError ? (
+                        <div className="p-3 text-center text-xs text-red-500">
+                          {planError}
+                        </div>
+                      ) : plans.length === 0 ? (
                         <div className="p-3 text-center text-xs text-gray-400">
-                          No plans available
+                          No active plans available
                         </div>
                       ) : (
                         plans.map((plan) => {
@@ -407,8 +495,15 @@ function EmailAudienceFilterPanel({
                                 isSelected ? "bg-[#05015A]/5" : ""
                               }`}
                             >
-                              <span className="font-medium text-gray-900">{plan.name}</span>
-                              {isSelected && <Check size={14} className="text-[#05015A]" />}
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-gray-900">{plan.name}</span>
+                                {plan.type && (
+                                  <span className="text-gray-400 text-[10px] ml-2">
+                                    ({plan.type})
+                                  </span>
+                                )}
+                              </div>
+                              {isSelected && <Check size={14} className="text-[#05015A] flex-shrink-0 ml-2" />}
                             </button>
                           );
                         })
@@ -456,6 +551,7 @@ function EmailAudienceFilterPanel({
           <label className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1.5 block">
             <Shield size={12} />
             CAdmin Roles
+            {loadingRoles && <Loader2 size={10} className="animate-spin ml-1" />}
           </label>
           <div className="flex flex-wrap gap-1.5">
             {cadminRoles.length === 0 ? (

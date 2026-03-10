@@ -10,7 +10,7 @@ import HeroStatsCard from "./components/HeroStatsCard";
 import WhyChooseUs from "./components/WhyChooseUs";
 import PlatformOptions from "./components/PlatformOptions";
 import ERPShowcase from "./components/ERPShowcase";
-import CTASection from "../../../components/common/CTASection";
+import AppInsight from "../../../components/common/AppInsight";
 
 const Home = () => {
   return (
@@ -41,7 +41,7 @@ const Home = () => {
       <PlatformOptions />
       <ERPShowcase />
       <FAQ />
-      <CTASection />
+      <AppInsight />
 
       {/* Footer */}
       <Footer />
