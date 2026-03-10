@@ -5,7 +5,7 @@ import CTASection from "../../../components/common/CTASection";
 import PricingSection from "./components/PricingSection";
 import Features from "./components/Features";
 import ServiceHero from "./components/ServiceHero";
-import AppInsight from "./components/AppInsight";
+import AppInsight from "../../../components/common/AppInsight";
 import ServiceShowcase from "./components/ServiceShowcase";
 import HowItWorks from "./components/HowItWorks";
 
