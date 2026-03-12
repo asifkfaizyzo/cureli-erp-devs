@@ -2,14 +2,26 @@
 
 import prisma from "../../config/prisma.js";
 import { hashPassword } from "../../utils/hash.js";
+import { msg91SendSms, formatPhoneNumber } from "../../providers/msg91/sendSms.js";
 import { generateOtp, hashOtp, verifyOtp } from "../../utils/otp.js";
 import { notify } from "../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
-import { getMCAuthToken } from "../../providers/messageCentral/token.js";
-import { mcSendOtp } from "../../providers/messageCentral/sendOtp.js";
-import { mcValidateOtp } from "../../providers/messageCentral/validateOtp.js";
 import * as audit from "../audit/index.js";
 import { checkSmsOtpLimit, checkEmailOtpLimit } from "../../utils/otpLimiter.js";
+
+// ============================================
+// CONSTANTS
+// ============================================
+const OTP_VALIDITY_SECONDS = 300; // 5 minutes
+const EMAIL_OTP_VALIDITY_SECONDS = 300; // 5 minutes
+const RESEND_COOLDOWN_SECONDS = 30;
+const INITIAL_COOLDOWN_SECONDS = 60;
+const MAX_OTP_ATTEMPTS = 5;
+
+// ============================================
+// CLEANUP
+// ============================================
+
 export async function cleanupExpiredPendingUsers(expiryMinutes = 10) {
   try {
     const cutoff = new Date(Date.now() - expiryMinutes * 60 * 1000);
@@ -26,6 +38,10 @@ export async function cleanupExpiredPendingUsers(expiryMinutes = 10) {
     return null;
   }
 }
+
+// ============================================
+// CREATE PENDING USER
+// ============================================
 
 export async function createPendingUser({
   first_name,
@@ -130,6 +146,7 @@ export async function setPasswordForPending(pending_id, password) {
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
   });
+
   if (!pending) {
     const err = new Error("Pending user not found");
     err.code = "NOT_FOUND";
@@ -152,6 +169,10 @@ export async function setPasswordForPending(pending_id, password) {
   return true;
 }
 
+// ============================================
+// EMAIL OTP
+// ============================================
+
 export async function sendEmailOtp(pending_id, isResend = false) {
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
@@ -163,14 +184,15 @@ export async function sendEmailOtp(pending_id, isResend = false) {
     throw err;
   }
 
+  // Check cooldown
   if (pending.email_otp_expires) {
     const expiresAt = new Date(pending.email_otp_expires);
     const now = new Date();
 
-    const otpSentAt = new Date(expiresAt.getTime() - 5 * 60 * 1000);
+    const otpSentAt = new Date(expiresAt.getTime() - EMAIL_OTP_VALIDITY_SECONDS * 1000);
     const secondsSinceSent = (now - otpSentAt) / 1000;
 
-    const cooldownSeconds = isResend ? 30 : 60;
+    const cooldownSeconds = isResend ? RESEND_COOLDOWN_SECONDS : INITIAL_COOLDOWN_SECONDS;
 
     if (secondsSinceSent < cooldownSeconds) {
       const waitTime = Math.ceil(cooldownSeconds - secondsSinceSent);
@@ -182,7 +204,8 @@ export async function sendEmailOtp(pending_id, isResend = false) {
       throw err;
     }
   }
-    // Check daily email OTP limit
+
+  // Check daily email OTP limit
   const limitCheck = await checkEmailOtpLimit(pending.email);
   if (!limitCheck.allowed) {
     const err = new Error("Daily OTP limit reached for this email. Please try again tomorrow.");
@@ -190,29 +213,32 @@ export async function sendEmailOtp(pending_id, isResend = false) {
     throw err;
   }
 
+  // Generate OTP
   const otp = generateOtp();
   const hash = await hashOtp(otp);
 
+  // Store OTP hash
   await prisma.pendingUser.update({
     where: { pending_id },
     data: {
       email_otp_hash: hash,
-      email_otp_expires: new Date(Date.now() + 5 * 60 * 1000),
-      email_otp_attempts: 0,  // ← ADD THIS
+      email_otp_expires: new Date(Date.now() + EMAIL_OTP_VALIDITY_SECONDS * 1000),
+      email_otp_attempts: 0,
     },
   });
 
+  // Send email notification
   await notify({
     type: NOTIFICATION_EVENTS.EMAIL_VERIFICATION_OTP,
     context: {
       email: pending.email,
       name: pending.first_name,
       otp,
-      expires_in_minutes: 5,
+      expires_in_minutes: EMAIL_OTP_VALIDITY_SECONDS / 60,
     },
   });
 
-  return { success: true };
+  return { success: true, timeout: EMAIL_OTP_VALIDITY_SECONDS };
 }
 
 export async function verifyEmailOtp(pending_id, otp) {
@@ -238,15 +264,17 @@ export async function verifyEmailOtp(pending_id, otp) {
     throw err;
   }
 
-  // Check attempt limit (5 attempts max)
+  // Check attempt limit
   const attempts = pending.email_otp_attempts || 0;
-  if (attempts >= 5) {
+  if (attempts >= MAX_OTP_ATTEMPTS) {
     const err = new Error("Too many failed attempts. Please request a new OTP.");
     err.code = "TOO_MANY_ATTEMPTS";
     throw err;
   }
 
+  // Verify OTP
   const isValid = await verifyOtp(otp, pending.email_otp_hash);
+
   if (!isValid) {
     // Increment attempt counter
     await prisma.pendingUser.update({
@@ -259,6 +287,7 @@ export async function verifyEmailOtp(pending_id, otp) {
     throw err;
   }
 
+  // Success - clear OTP state and mark verified
   await prisma.pendingUser.update({
     where: { pending_id },
     data: {
@@ -272,6 +301,10 @@ export async function verifyEmailOtp(pending_id, otp) {
   return true;
 }
 
+// ============================================
+// SMS OTP
+// ============================================
+
 export async function sendSmsOtp(pending_id, phone, isResend = false) {
   console.log("📱 sendSmsOtp called with:", { pending_id, phone });
 
@@ -279,14 +312,13 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     where: { pending_id },
   });
 
-  console.log("📋 Pending user found:", pending ? "Yes" : "No");
-
   if (!pending) {
     const err = new Error("Pending user not found");
     err.code = "NOT_FOUND";
     throw err;
   }
 
+  // Check if phone already registered
   const existingUser = await prisma.user.findFirst({
     where: { phone_number: phone },
     select: { user_id: true },
@@ -298,6 +330,7 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     throw err;
   }
 
+  // Check if phone pending by another user
   const existingPending = await prisma.pendingUser.findFirst({
     where: {
       phone,
@@ -313,15 +346,15 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     throw err;
   }
 
+  // Check cooldown
   if (pending.sms_otp_expires) {
     const expiresAt = new Date(pending.sms_otp_expires);
     const now = new Date();
 
-    const otpValiditySeconds = 300;
-    const otpSentAt = new Date(expiresAt.getTime() - otpValiditySeconds * 1000);
+    const otpSentAt = new Date(expiresAt.getTime() - OTP_VALIDITY_SECONDS * 1000);
     const secondsSinceSent = (now - otpSentAt) / 1000;
 
-    const cooldownSeconds = isResend ? 30 : 60;
+    const cooldownSeconds = isResend ? RESEND_COOLDOWN_SECONDS : INITIAL_COOLDOWN_SECONDS;
 
     if (secondsSinceSent < cooldownSeconds) {
       const waitTime = Math.ceil(cooldownSeconds - secondsSinceSent);
@@ -329,10 +362,12 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
         `Please wait ${waitTime} seconds before requesting a new OTP.`
       );
       err.code = "OTP_COOLDOWN";
+      err.waitTime = waitTime;
       throw err;
     }
   }
-    // Check daily SMS limit
+
+  // Check daily SMS limit
   const limitCheck = await checkSmsOtpLimit(phone);
   if (!limitCheck.allowed) {
     const err = new Error("Daily OTP limit reached for this phone number. Please try again tomorrow.");
@@ -340,46 +375,39 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     throw err;
   }
 
-  console.log("🔑 Getting MC auth token...");
+  console.log("🔑 Generating OTP...");
 
-  const authToken = await getMCAuthToken(
-    process.env.MC_CUSTOMER,
-    process.env.MC_PASSWORD
-  );
+  // Generate OTP
+  const otpLength = Number(process.env.SMS_OTP_LENGTH || 4);
+  const otp = generateOtp(otpLength);
+  const otpHash = await hashOtp(otp);
 
-  console.log("✅ Auth token received:", authToken ? "Yes" : "No");
-
-  const data = await mcSendOtp({
-    authToken,
-    customerId: process.env.MC_CUSTOMER,
-    mobileNumber: phone,
-    otpLength: Number(process.env.SMS_OTP_LENGTH || 4),
-    countryCode: process.env.MC_COUNTRY || "91",
+  // Send via MSG91
+  await msg91SendSms({
+    templateId: process.env.MSG91_PHONE_VERIFY_TEMPLATE,
+    mobile: formatPhoneNumber(phone, process.env.MC_COUNTRY || "91"),
+    variables: {
+      name: pending.first_name || "User",
+      number: otp,
+    },
   });
 
-  console.log("📥 mcSendOtp response:", JSON.stringify(data, null, 2));
+  console.log("✅ SMS sent successfully");
 
-  const verificationId =
-    data?.verificationId || data?.verificationID || data?.verification_id;
-  const transactionId = data?.transactionId || data?.transaction_id;
-  const timeout = Number(data?.timeout || data?.time || 300);
-
-  console.log("📝 Extracted:", { verificationId, transactionId, timeout });
-
+  // Store OTP hash
   await prisma.pendingUser.update({
     where: { pending_id },
     data: {
       phone,
-      sms_verification_id: verificationId,
-      sms_transaction_id: transactionId || null,
-      sms_otp_expires: new Date(Date.now() + timeout * 1000),
-       sms_otp_attempts: 0,
+      sms_otp_hash: otpHash,
+      sms_otp_expires: new Date(Date.now() + OTP_VALIDITY_SECONDS * 1000),
+      sms_otp_attempts: 0,
     },
   });
 
   console.log("✅ Database updated successfully");
 
-  return { verificationId, transactionId, timeout };
+  return { success: true, timeout: OTP_VALIDITY_SECONDS };
 }
 
 export async function verifySmsOtp(pending_id, code) {
@@ -393,7 +421,7 @@ export async function verifySmsOtp(pending_id, code) {
     throw err;
   }
 
-  if (!pending.sms_verification_id || !pending.sms_otp_expires) {
+  if (!pending.sms_otp_hash || !pending.sms_otp_expires) {
     const err = new Error("OTP not requested");
     err.code = "NO_OTP";
     throw err;
@@ -410,79 +438,53 @@ export async function verifySmsOtp(pending_id, code) {
     err.code = "OTP_EXPIRED";
     throw err;
   }
-    // Check attempt limit (5 attempts max)
+
+  // Check attempt limit
   const attempts = pending.sms_otp_attempts || 0;
-  if (attempts >= 5) {
+  if (attempts >= MAX_OTP_ATTEMPTS) {
     const err = new Error("Too many failed attempts. Please request a new OTP.");
     err.code = "TOO_MANY_ATTEMPTS";
     throw err;
   }
 
-  const authToken = await getMCAuthToken(
-    process.env.MC_CUSTOMER,
-    process.env.MC_PASSWORD
-  );
-  const result = await mcValidateOtp({
-    authToken,
-    verificationId: pending.sms_verification_id,
-    code,
-    mobileNumber: pending.phone,
-  });
+  // Verify OTP
+  const isValid = await verifyOtp(code, pending.sms_otp_hash);
 
-  if (!result) {
-    const err = new Error("Provider returned no data");
-    err.code = "PROVIDER_ERROR";
-    throw err;
-  }
-
-  if (result.verificationStatus === "VERIFICATION_COMPLETED") {
+  if (!isValid) {
+    // Increment attempt counter
     await prisma.pendingUser.update({
       where: { pending_id },
-      data: {
-        sms_verified: true,
-        sms_verification_id: null,
-        sms_transaction_id: null,
-        sms_otp_expires: null,
-      },
+      data: { sms_otp_attempts: attempts + 1 },
     });
-    return true;
-  }
 
-  const respCode = Number(result.responseCode || result.response_code || 0);
-
-  // Increment attempt counter on any non-success
-  await prisma.pendingUser.update({
-    where: { pending_id },
-    data: { sms_otp_attempts: (pending.sms_otp_attempts || 0) + 1 },
-  });
-
-  if (respCode === 702) {
-    const err = new Error("Wrong OTP");
+    const err = new Error("Invalid OTP");
     err.code = "INVALID_OTP";
     throw err;
   }
 
-  if (respCode === 705) {
-    const err = new Error("OTP expired");
-    err.code = "OTP_EXPIRED";
-    throw err;
-  }
+  // Success - clear OTP state and mark verified
+  await prisma.pendingUser.update({
+    where: { pending_id },
+    data: {
+      sms_verified: true,
+      sms_otp_hash: null,
+      sms_otp_expires: null,
+      sms_otp_attempts: 0,
+    },
+  });
 
-  if (respCode === 703) {
-    const err = new Error("Already verified");
-    err.code = "ALREADY_VERIFIED";
-    throw err;
-  }
-
-  const err = new Error("Invalid / failed verification");
-  err.code = "INVALID_OTP";
-  throw err;
+  return true;
 }
+
+// ============================================
+// USERNAME
+// ============================================
 
 export async function setUsername(pending_id, username) {
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
   });
+
   if (!pending) {
     const err = new Error("Pending user not found");
     err.code = "NOT_FOUND";
@@ -494,6 +496,7 @@ export async function setUsername(pending_id, username) {
     err.code = "EMAIL_NOT_VERIFIED";
     throw err;
   }
+
   if (!pending.sms_verified) {
     const err = new Error("Phone must be verified before choosing username");
     err.code = "PHONE_NOT_VERIFIED";
@@ -565,18 +568,22 @@ async function generateAvailableUsernames(baseUsername, count = 4) {
   const generateVariations = (base) => {
     const variations = [];
 
+    // Two digit suffix
     for (let i = 0; i < 5; i++) {
       variations.push(`${base}${Math.floor(Math.random() * 90 + 10)}`);
     }
 
+    // Three digit suffix
     for (let i = 0; i < 5; i++) {
       variations.push(`${base}${Math.floor(Math.random() * 900 + 100)}`);
     }
 
+    // Underscore + two digits
     for (let i = 0; i < 5; i++) {
       variations.push(`${base}_${Math.floor(Math.random() * 90 + 10)}`);
     }
 
+    // Timestamp suffix
     const timestamp = Date.now().toString().slice(-4);
     variations.push(`${base}_${timestamp}`);
 
@@ -599,17 +606,17 @@ async function generateAvailableUsernames(baseUsername, count = 4) {
       select: { pending_id: true },
     });
 
-    if (
-      !existsInUsers &&
-      !existsInPending &&
-      !suggestions.includes(variation)
-    ) {
+    if (!existsInUsers && !existsInPending && !suggestions.includes(variation)) {
       suggestions.push(variation);
     }
   }
 
   return suggestions;
 }
+
+// ============================================
+// FINALIZE SIGNUP
+// ============================================
 
 export async function finalizePendingSignup(pending_id, auditContext) {
   const pending = await prisma.pendingUser.findUnique({
@@ -643,7 +650,7 @@ export async function finalizePendingSignup(pending_id, auditContext) {
   const userData = {
     first_name: pending.first_name,
     last_name: pending.last_name,
-    full_name: pending.first_name + " " + pending.last_name,
+    full_name: `${pending.first_name} ${pending.last_name}`,
     email: pending.email,
     username: pending.username,
     phone_number: pending.phone,
@@ -678,7 +685,7 @@ export async function finalizePendingSignup(pending_id, auditContext) {
     data: { shop_id: shop.shop_id },
   });
 
-  // ✅ AUDIT: Shop account created
+  // AUDIT: Shop account created
   await audit.log({
     action: audit.AuditAction.SHOP_ACCOUNT_CREATED,
     entity_type: audit.EntityType.SHOP,
