@@ -117,8 +117,8 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
   // OTP METHOD HANDLERS
   // ============================================
 
-  // Send OTP to old phone
-  const handleSendOldOtp = async () => {
+  // Select OTP method and send OTP immediately
+  const handleSelectOtpMethod = async () => {
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -126,6 +126,9 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
       const response = await initiatePhoneVerifyOld();
       const timeout = response.data?.data?.timeout || 300;
       startCountdown(Math.min(30, timeout));
+      
+      // Only set method if OTP was sent successfully
+      setMethod("otp");
     } catch (err) {
       console.error("Send old OTP error:", err);
       const message = err.response?.data?.message || "Failed to send OTP";
@@ -155,6 +158,7 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
     try {
       await verifyOldPhoneOtp({ otp: formData.old_otp });
       setOldPhoneVerified(true);
+      setFormData((prev) => ({ ...prev, old_otp: "" })); // Clear old OTP
     } catch (err) {
       console.error("Verify old OTP error:", err);
       const message = err.response?.data?.message || "Failed to verify OTP";
@@ -341,15 +345,10 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
       setOldPhoneVerified(false);
       setFormData((prev) => ({ ...prev, new_phone: "" }));
       setErrors({});
+      setSubmitError(null);
     } else {
       handleBackToMethodSelection();
     }
-  };
-
-  // Start OTP method - send OTP immediately
-  const handleSelectOtpMethod = () => {
-    setMethod("otp");
-    handleSendOldOtp();
   };
 
   // Success State
@@ -479,6 +478,18 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                   Choose how you want to verify your identity
                 </p>
 
+                {/* Error Display */}
+                {submitError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"
+                  >
+                    <AlertCircle size={16} />
+                    {submitError}
+                  </motion.div>
+                )}
+
                 {/* OTP Method */}
                 <button
                   onClick={handleSelectOtpMethod}
@@ -486,20 +497,29 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                   className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-[#000060] hover:bg-[#000060]/5 transition-colors text-left disabled:opacity-50"
                 >
                   <div className="w-12 h-12 bg-[#000060]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <MessageSquare size={24} className="text-[#000060]" />
+                    {isSubmitting ? (
+                      <Loader2 size={24} className="text-[#000060] animate-spin" />
+                    ) : (
+                      <MessageSquare size={24} className="text-[#000060]" />
+                    )}
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">Verify via OTP</p>
                     <p className="text-sm text-gray-500">
-                      We'll send a code to your current phone
+                      {isSubmitting 
+                        ? "Sending OTP..." 
+                        : "We'll send a code to your current phone"}
                     </p>
                   </div>
-                  <ArrowRight size={20} className="text-gray-400" />
+                  {!isSubmitting && <ArrowRight size={20} className="text-gray-400" />}
                 </button>
 
                 {/* Password Method */}
                 <button
-                  onClick={() => setMethod("password")}
+                  onClick={() => {
+                    setMethod("password");
+                    setSubmitError(null);
+                  }}
                   disabled={isSubmitting}
                   className="w-full flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-[#000060] hover:bg-[#000060]/5 transition-colors text-left disabled:opacity-50"
                 >
@@ -783,14 +803,14 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                 </div>
 
                 <p className="text-xs text-gray-500 text-center">
-                  Code expires in 10 minutes.
+                  Code expires in 5 minutes.
                 </p>
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* Submit Error */}
-          {submitError && (
+          {submitError && method && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}

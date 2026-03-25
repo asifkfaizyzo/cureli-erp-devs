@@ -89,19 +89,24 @@ model PendingUser {
   password_hash       String?
   google_id           String?   @unique
   login_provider      String    @default("password")
+  
+  // Email OTP (unchanged - already using hash)
   email_otp_hash      String?
   email_otp_expires   DateTime?
+  email_otp_attempts  Int       @default(0)
   email_verified      Boolean   @default(false)
+  
+  // Phone / SMS OTP (UPDATED - removed MessageCentral fields)
   phone               String?
-  sms_verification_id String?
-  sms_transaction_id  String?
+  sms_otp_hash        String?                        // NEW - replaces sms_verification_id
   sms_otp_expires     DateTime? @db.Timestamptz(6)
+  sms_otp_attempts    Int       @default(0)
   sms_verified        Boolean   @default(false)
+  
+  
   username            String?
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
   updated_at          DateTime  @updatedAt @db.Timestamptz(6)
-  email_otp_attempts Int @default(0)
-  sms_otp_attempts   Int @default(0)
 
   @@map("pending_users")
 }
@@ -129,20 +134,30 @@ model User {
   onboarding_step                Int                         @default(4)
   reset_token                    String?                     @db.VarChar(500)
   reset_token_expires            DateTime?                   @db.Timestamptz(6)
-  login_otp_attempts             Int                         @default(0)
+  
+  // Login OTP fields
+  login_otp_hash                 String?                     // ← ADD THIS LINE
   login_otp_expires              DateTime?                   @db.Timestamptz(6)
-  login_verification_id          String?
+  login_otp_attempts             Int                         @default(0)
+  
   first_verified_at              DateTime?                   @db.Timestamptz(6)
+  
+  // Email change fields
   email_change_expires           DateTime?                   @db.Timestamptz(6)
   email_change_new_email         String?
   email_change_otp_hash          String?
-  email_change_verification_id   String?
+  
+  // Phone change fields
   phone_change_expires           DateTime?                   @db.Timestamptz(6)
   phone_change_new_number        String?
   phone_change_old_verified      Boolean                     @default(false)
-  phone_change_verification_id   String?
-  otp_cycle_failures   Int       @default(0)
-  otp_locked_until     DateTime?
+  phone_change_otp_hash          String?
+
+  // OTP security
+  otp_cycle_failures             Int                         @default(0)
+  otp_locked_until               DateTime?
+  
+  // Relations
   activityLogs                   ActivityLog[]
   creditApplications             CreditApplication[]         @relation("CreditApplicationsBy")
   customerCreditApplications     CustomerCreditApplication[] @relation("CustomerCreditApplicationsBy")

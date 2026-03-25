@@ -12,13 +12,11 @@ const CTASection = () => {
         {/* LEFT CONTENT */}
         <div className="max-w-xl text-center md:text-left">
           <h2 className="text-2xl xs:text-3xl sm:text-3xl md:text-4xl font-semibold leading-snug mb-3 xs:mb-4">
-            Ready to scale your pharmacy with Cureli's ERP
-            and online delivery system?
+            Ready to Transform Your Pharmacy Operations?
           </h2>
 
           <p className="text-white/80 mb-5 xs:mb-6 text-sm xs:text-base">
-            Get your branded ordering & delivery system live in just
-            24 hours. No tech skill needed.
+            Join over 100 pharmacies already running smarter with Cureli. Go live with your branded medicine ordering and ERP system in as little as 24 hours – no technical background required.
           </p>
 
           <Link

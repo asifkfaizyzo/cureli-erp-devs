@@ -10,45 +10,45 @@ import { ChevronDown } from "lucide-react";
 const FAQS_DATA = [
   {
     id: 1,
-    question: "Does the system support purchase orders and vendor management?",
+    question: "Does Cureli allow creation of purchase orders and management of suppliers?",
     answer:
-      "Yes! Cureli ERP includes comprehensive vendor management, purchase orders, and supplier tracking features.",
+      "Yes! Cureli ERP offers complete vendor management, purchase order creation, and detailed supplier tracking capabilities.",
   },
   {
     id: 2,
-    question: "How does the ERP help in billing and invoicing?",
+    question: "How does the ERP handle the billing and invoice generation process?",
     answer:
-      "Our ERP provides fast, GST-compliant billing with automated invoice generation and payment tracking.",
+      "Our ERP delivers swift, GST-compliant billing with automated invoice creation and seamless payment tracking.",
   },
   {
     id: 3,
-    question: "Can it manage medicine expiry and batch tracking?",
+    question: "Can the system monitor expiry dates of medicines and manage batch details?",
     answer:
       "Absolutely! The system tracks batch numbers, expiry dates, and sends automated low-stock alerts.",
   },
   {
     id: 4,
-    question: "Does it support barcode or QR code billing?",
+    question: "Does Cureli support barcode and QR code scanning directly at the billing counter?",
     answer:
-      "Yes, Cureli ERP supports both barcode and QR code scanning for quick and accurate billing.",
+      "Yes, Cureli ERP is fully compatible with both barcode and QR code scanning for fast, error-free billing.",
   },
   {
     id: 5,
-    question: "Is GST included in the billing system?",
+    question: "Is GST automatically applied and calculated within the billing module?",
     answer:
-      "Yes, all invoices are 100% GST-compliant with automatic tax calculations and HSN code support.",
+      "Yes, every invoice is fully GST-compliant with built-in tax calculations and complete HSN code support.",
   },
   {
     id: 6,
-    question: "Can I access reports and analytics?",
+    question: "Can I view detailed reports and track business analytics?",
     answer:
-      "Yes, you get detailed sales reports, inventory analytics, tax summaries, and business insights.",
+      "Yes, access comprehensive sales reports, inventory insights, tax summaries, and actionable business performance data.",
   },
   {
     id: 7,
-    question: "Is the software easy to use for non-technical staff?",
+    question: "Is the software manageable and easy to navigate for non-technical pharmacy staff?",
     answer:
-      "Absolutely! Our intuitive interface is designed for ease of use with complete training and support.",
+      "Absolutely! Our simple, intuitive interface is built for everyday ease of use, backed by full training and support.",
   },
 ];
 
@@ -180,8 +180,7 @@ const SectionHeader = memo(() => (
       data-aos="fade-up"
       data-aos-delay="150"
     >
-      Our platform is built to help you work smarter, not harder. It adapts to
-      your needs and supports your goals.
+      Have questions about Cureli and its suitability for your pharmacy? We get these questions most often from pharmacists and owners considering our solution for their pharmacies.
     </p>
   </header>
 ));

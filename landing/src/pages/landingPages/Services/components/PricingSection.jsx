@@ -13,9 +13,9 @@ const PricingSection = () => {
   }, []);
 
   const perks = [
-    "Switch Plans Anytime",
-    "No Credit Card Required",
-    "Cancel Anytime",
+    "Switch plans at any time",
+    "No credit card needed to start",
+    "Cancel at any time without penalty",
   ];
 
   const pricingData = {
@@ -129,7 +129,7 @@ const PricingSection = () => {
             className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-bold text-[#05015A] max-w-4xl mx-auto leading-tight"
             data-aos="fade-up"
           >
-            One simple plan for a smarter, safer pharmacy
+            Transparent Pricing for Every Stage of Your Pharmacy's Growth
           </h1>
 
           {/* Subtitle */}
@@ -138,7 +138,7 @@ const PricingSection = () => {
             data-aos="fade-up"
             data-aos-delay="50"
           >
-            Choose the perfect plan that fits your pharmacy's needs. Scale as you grow.
+            Our plans are built around the way pharmacies really grow – from a single branch starting out to a multi-branch chain with complex reporting requirements. All plans come with full access to our core features.
           </p>
 
           {/* Perks */}

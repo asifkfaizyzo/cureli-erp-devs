@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
-import logo from "../../assets/icons/cureli-white.svg";
+import logo from "../../assets/icons/Artboard 26.svg";
 
 const SIGN_IN_URL = import.meta.env.VITE_SIGN_IN_URL;
 
@@ -14,7 +14,6 @@ const Navbar = () => {
 
   useEffect(() => setIsOpen(false), [location.pathname]);
 
-  // smoother scroll detection
   useEffect(() => {
     const handleScroll = () => {
       requestAnimationFrame(() => {
@@ -23,7 +22,6 @@ const Navbar = () => {
     };
 
     window.addEventListener("scroll", handleScroll);
-
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -94,7 +92,7 @@ const Navbar = () => {
                   }`}
                 />
 
-                <div className="flex items-center gap-1 sm:gap-2">
+                {/* <div className="flex items-center gap-1 sm:gap-2">
                   <span
                     className={`font-bold text-white font-manrope transition-all duration-700 ${
                       scrolled
@@ -104,7 +102,7 @@ const Navbar = () => {
                   >
                     Cureli
                   </span>
-                </div>
+                </div> */}
               </Link>
 
               {/* CENTER — NAV LINKS */}
@@ -201,9 +199,91 @@ const Navbar = () => {
         </div>
       </nav>
 
-      {/* MOBILE MENU (unchanged) */}
-      {/* keep your existing mobile menu block exactly the same */}
+      {/* ============================================ */}
+      {/* MOBILE MENU OVERLAY */}
+      {/* ============================================ */}
 
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={toggleMenu}
+        aria-hidden="true"
+      />
+
+      {/* Slide-in Panel */}
+      <div
+        className={`fixed top-0 right-0 z-50 h-full w-[280px] xs:w-[320px] bg-[#0a0a20] shadow-2xl shadow-black/40 transition-transform duration-500 ease-out md:hidden ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {/* Close Button Only */}
+        <div className="flex items-center justify-end px-5 pt-5 pb-4 border-b border-white/10">
+          <button
+            onClick={toggleMenu}
+            className="p-2 rounded-full bg-white/10 hover:bg-white/15 transition-all duration-300"
+            aria-label="Close menu"
+          >
+            <X size={18} className="text-white" />
+          </button>
+        </div>
+
+        {/* Nav Links */}
+        <div className="flex flex-col px-5 py-6 gap-1">
+          {navItems.map((item, index) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => setIsOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-manrope text-base font-medium transition-all duration-300 ${
+                isActive(item.path)
+                  ? "bg-white/15 text-white"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
+              }`}
+              style={{
+                transitionDelay: isOpen ? `${index * 50 + 100}ms` : "0ms",
+                opacity: isOpen ? 1 : 0,
+                transform: isOpen ? "translateX(0)" : "translateX(20px)",
+              }}
+            >
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Divider */}
+        <div className="mx-5 h-px bg-white/10" />
+
+        {/* Action Buttons */}
+        <div
+          className="flex flex-col gap-3 px-5 py-6"
+          style={{
+            transitionDelay: isOpen ? "350ms" : "0ms",
+            opacity: isOpen ? 1 : 0,
+            transform: isOpen ? "translateY(0)" : "translateY(10px)",
+            transition: "all 0.4s ease-out",
+          }}
+        >
+          <a
+            href={SIGN_IN_URL}
+            onClick={() => setIsOpen(false)}
+            className="w-full text-center px-4 py-3 rounded-xl font-manrope font-semibold text-sm
+                       text-white border border-white/20 hover:bg-white/10 transition-all duration-300"
+          >
+            Sign In
+          </a>
+
+          <Link
+            to="/contact"
+            onClick={() => setIsOpen(false)}
+            className="w-full text-center px-4 py-3 rounded-xl font-manrope font-semibold text-sm
+                       bg-white text-[#0a0a20] hover:bg-white/90 transition-all duration-300"
+          >
+            Book a Demo
+          </Link>
+        </div>
+      </div>
     </>
   );
 };

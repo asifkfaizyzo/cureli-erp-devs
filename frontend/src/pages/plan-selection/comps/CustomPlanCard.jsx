@@ -177,7 +177,7 @@ export default function CustomPlanCard() {
 
           {/* Contact Button */}
           <a
-            href="mailto:sales@cureli.com?subject=Custom%20Plan%20Inquiry"
+            href="mailto:info@cureliofficial.com?subject=Custom%20Plan%20Inquiry"
             className={`
               mt-3 w-full py-2.5 rounded-xl text-sm font-semibold
               text-white transition-all duration-300

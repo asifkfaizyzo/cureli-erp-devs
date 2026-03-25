@@ -1,6 +1,6 @@
 import Navbar from "../../../components/common/Navbar";
 import Footer from "../../../components/common/Footer";
-import FAQSection from "../../../components/common/FAQ";
+import FAQSection from "./components/FAQ";
 import CTASection from "../../../components/common/CTASection";
 import PricingSection from "./components/PricingSection";
 import Features from "./components/Features";

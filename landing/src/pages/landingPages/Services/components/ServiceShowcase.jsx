@@ -101,10 +101,10 @@ const SectionHeader = memo(() => (
       className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 xs:mb-5 sm:mb-6 leading-tight"
       data-aos="fade-up"
     >
-      Powerful Pharmacy{" "}
       <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400">
-        ERP Solutions
+        Cureli PharmaERP
       </span>
+      {" "}- A Complete Back Office for Your Pharmacy
     </h2>
 
     {/* Description */}
@@ -113,8 +113,7 @@ const SectionHeader = memo(() => (
       data-aos="fade-up"
       data-aos-delay="100"
     >
-      Transform your pharmacy with our comprehensive ERP solution. Manage
-      inventory, billing, and online orders from a single dashboard.
+      Cureli PharmaERP is designed specifically for pharmacy business needs. Procurement, stock management, sales, and accounting can all be managed in one place. Every aspect of our ERP is connected and works in harmony with all the others. For example, every sale is connected to stock levels and every purchase is connected to your accounts.
     </p>
   </div>
 ));

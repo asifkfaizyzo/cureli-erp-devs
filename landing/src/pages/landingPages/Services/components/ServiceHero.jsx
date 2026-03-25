@@ -6,14 +6,16 @@ import heroBg from "../../../../assets/images/Background.svg";
 import phones from "../../../../assets/images/ServiceHero.svg";
 
 // ============================================
-// FOG PARTICLES DATA - Outside component
+// FOG PARTICLES DATA
 // ============================================
 const FOG_PARTICLES = [
   {
     id: 1,
-    className: "w-48 h-48 xs:w-56 xs:h-56 sm:w-64 sm:h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 xl:w-[28rem] xl:h-[28rem] 2xl:w-[32rem] 2xl:h-[32rem]",
+    className:
+      "w-48 h-48 xs:w-56 xs:h-56 sm:w-64 sm:h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 xl:w-[28rem] xl:h-[28rem] 2xl:w-[32rem] 2xl:h-[32rem]",
     style: {
-      background: "radial-gradient(circle, rgba(255,0,255,0.25) 0%, rgba(255,0,255,0.1) 40%, transparent 70%)",
+      background:
+        "radial-gradient(circle, rgba(255,0,255,0.25) 0%, rgba(255,0,255,0.1) 40%, transparent 70%)",
       top: "20%",
       left: "30%",
       filter: "blur(60px)",
@@ -22,9 +24,11 @@ const FOG_PARTICLES = [
   },
   {
     id: 2,
-    className: "w-56 h-56 xs:w-64 xs:h-64 sm:w-72 sm:h-72 md:w-96 md:h-96 lg:w-[28rem] lg:h-[28rem] xl:w-[32rem] xl:h-[32rem] 2xl:w-[36rem] 2xl:h-[36rem]",
+    className:
+      "w-56 h-56 xs:w-64 xs:h-64 sm:w-72 sm:h-72 md:w-96 md:h-96 lg:w-[28rem] lg:h-[28rem] xl:w-[32rem] xl:h-[32rem] 2xl:w-[36rem] 2xl:h-[36rem]",
     style: {
-      background: "radial-gradient(circle, rgba(167,139,250,0.3) 0%, rgba(167,139,250,0.1) 40%, transparent 70%)",
+      background:
+        "radial-gradient(circle, rgba(167,139,250,0.3) 0%, rgba(167,139,250,0.1) 40%, transparent 70%)",
       top: "40%",
       left: "45%",
       filter: "blur(70px)",
@@ -33,9 +37,11 @@ const FOG_PARTICLES = [
   },
   {
     id: 3,
-    className: "w-44 h-44 xs:w-52 xs:h-52 sm:w-56 sm:h-56 md:w-72 md:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 2xl:w-[28rem] 2xl:h-[28rem]",
+    className:
+      "w-44 h-44 xs:w-52 xs:h-52 sm:w-56 sm:h-56 md:w-72 md:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 2xl:w-[28rem] 2xl:h-[28rem]",
     style: {
-      background: "radial-gradient(circle, rgba(129,140,248,0.25) 0%, rgba(129,140,248,0.08) 40%, transparent 70%)",
+      background:
+        "radial-gradient(circle, rgba(129,140,248,0.25) 0%, rgba(129,140,248,0.08) 40%, transparent 70%)",
       top: "50%",
       left: "38%",
       filter: "blur(50px)",
@@ -54,38 +60,29 @@ const FogParticle = memo(({ particle }) => (
     aria-hidden="true"
   />
 ));
-
 FogParticle.displayName = "FogParticle";
 
 // ============================================
 // HERO CONTENT COMPONENT
 // ============================================
 const HeroContent = memo(() => (
-  <div
-    className="text-center lg:text-left"
-    data-aos="fade-right"
-  >
-    {/* Badge */}
+  <div className="text-center lg:text-left" data-aos="fade-right">
     <div className="inline-block px-3 py-1 xs:px-4 xs:py-1.5 mb-4 sm:mb-5 md:mb-6 text-xs xs:text-sm sm:text-base bg-white/10 border border-white/20 rounded-full backdrop-blur-sm">
-      Decentralized App & Platform
+      Decentralized App &amp; Platform
     </div>
 
-    {/* Heading */}
     <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-7xl font-semibold leading-tight mb-4 sm:mb-5 md:mb-6">
-      Next-Gen Medicine{" "}
+      Built Around Your{" "}
       <br className="hidden xs:block" />
-      Delivery App
+      Pharmacy's Success
     </h1>
 
-    {/* Description */}
     <p className="text-sm xs:text-base sm:text-lg md:text-lg lg:text-xl xl:text-xl text-white/80 mb-6 sm:mb-7 md:mb-8 max-w-xs xs:max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl mx-auto lg:mx-0 leading-relaxed">
-      Cureli bridges the gap between care and convenience. We provide a
-      seamless mobile app for patients to order medicine instantly,
-      powered by a robust ERP system for pharmacies to manage their
-      business efficiently.
+      With our medicine ordering app for patients and our all-in-one pharmacy
+      ERP system, everything we offer is designed to help modernize your pharmacy
+      and your patients' experience.
     </p>
 
-    {/* CTA Button */}
     <a
       href="/contact"
       className="inline-flex items-center gap-2 px-5 py-2.5 xs:px-6 xs:py-3 sm:px-7 sm:py-3.5 md:px-8 md:py-4 text-sm xs:text-base sm:text-lg border border-white rounded-lg hover:bg-white hover:text-[#05015A] transition-all duration-300 font-medium"
@@ -95,7 +92,6 @@ const HeroContent = memo(() => (
     </a>
   </div>
 ));
-
 HeroContent.displayName = "HeroContent";
 
 // ============================================
@@ -103,7 +99,7 @@ HeroContent.displayName = "HeroContent";
 // ============================================
 const HeroImage = memo(() => (
   <div
-    className="relative flex justify-center lg:justify-end xl:justify-center mt-8 lg:mt-0"
+    className="relative flex justify-center lg:justify-end xl:justify-center mt-0 lg:mt-0"
     data-aos="fade-left"
   >
     <img
@@ -114,7 +110,6 @@ const HeroImage = memo(() => (
     />
   </div>
 ));
-
 HeroImage.displayName = "HeroImage";
 
 // ============================================
@@ -139,7 +134,10 @@ const ServiceHero = () => {
       />
 
       {/* Fog Particles */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      <div
+        className="absolute inset-0 pointer-events-none overflow-hidden"
+        aria-hidden="true"
+      >
         {FOG_PARTICLES.map((particle) => (
           <FogParticle key={particle.id} particle={particle} />
         ))}
@@ -149,11 +147,17 @@ const ServiceHero = () => {
       <div className="relative z-10 w-full max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 xs:px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         {/* Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 md:gap-10 lg:gap-12 xl:gap-16 2xl:gap-20 items-center">
-          {/* Content First (Top on Mobile, Left on Desktop) */}
-          <HeroContent />
-          
-          {/* Image Second (Bottom on Mobile, Right on Desktop) */}
-          <HeroImage />
+
+          {/* ✅ Image — order-1 on mobile (top), order-2 on lg (right) */}
+          <div className="order-1 lg:order-2">
+            <HeroImage />
+          </div>
+
+          {/* ✅ Content — order-2 on mobile (bottom), order-1 on lg (left) */}
+          <div className="order-2 lg:order-1">
+            <HeroContent />
+          </div>
+
         </div>
       </div>
     </section>

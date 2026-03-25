@@ -664,7 +664,7 @@ function CustomPlanCard() {
           </ul>
 
           <a
-            href="mailto:sales@cureli.com"
+            href="mailto:info@cureliofficial.com?subject=Custom%20Plan%20Inquiry"
             className="mt-auto w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-300 bg-amber-600 hover:bg-amber-700 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
           >
             <Mail size={16} />

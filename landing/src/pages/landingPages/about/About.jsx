@@ -3,7 +3,6 @@ import React from "react";
 import AboutHero from "./components/AboutHero";
 import AboutPartners from "./components/AboutPartners";
 import AboutMission from "./components/AboutMission";
-import AboutCTA from "./components/AboutCTA";
 import Footer from "../../../components/common/Footer";
 import Navbar from "../../../components/common/Navbar";
 import CTASection from "../../../components/common/CTASection";

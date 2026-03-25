@@ -3,12 +3,14 @@
 import { useEffect, memo } from "react";
 import AOS from "aos";
 import {
-  ShoppingCart,
-  Package,
-  Clock,
-  MapPin,
-  CreditCard,
-  Star,
+  Sparkles,
+  Smile,
+  Dumbbell,
+  Pill,
+  Baby,
+  HeartPulse,
+  Leaf,
+  PawPrint,
 } from "lucide-react";
 import featuresImage from "../../../../assets/images/layout-left.svg";
 
@@ -18,39 +20,51 @@ import featuresImage from "../../../../assets/images/layout-left.svg";
 const FEATURES_DATA = [
   {
     id: 1,
-    icon: ShoppingCart,
-    title: "Order Management",
-    desc: "Enable seamless order customization and management capabilities to greatly enhance customer satisfaction outcomes.",
+    icon: Sparkles,
+    title: "Look & Feel Good",
+    desc: "Explore top beauty and personal care products for a confident, radiant you.",
   },
   {
     id: 2,
-    icon: Package,
-    title: "Inventory Management",
-    desc: "Enable seamless order customization and management capabilities to greatly enhance customer satisfaction outcomes.",
+    icon: Smile,
+    title: "Lifestyle Essentials",
+    desc: "Everything you need to support a balanced, healthy, and fulfilling everyday lifestyle.",
   },
   {
     id: 3,
-    icon: Clock,
-    title: "Real-time Order Status",
-    desc: "Enable seamless order customization and management capabilities to greatly enhance customer satisfaction outcomes.",
+    icon: Dumbbell,
+    title: "Stay Fit, Stay Healthy",
+    desc: "Fitness and wellness products to keep your body active and performing well.",
   },
   {
     id: 4,
-    icon: MapPin,
-    title: "Delivering Zoning",
-    desc: "Serve steaming hot food in minutes! Assign drivers to their specific delivery zones to make rapid and fresh food deliveries.",
+    icon: Pill,
+    title: "Relief Essentials",
+    desc: "Fast-acting remedies and comfort solutions to ease pain and everyday discomfort effectively.",
   },
   {
     id: 5,
-    icon: CreditCard,
-    title: "Make Payment Easy",
-    desc: "Multiple payment gateways to facilitate 100% safe and secure transactions online.",
+    icon: Baby,
+    title: "For All Your Baby's Needs",
+    desc: "Gentle, trusted products carefully chosen to keep your little one safe and happy.",
   },
   {
     id: 6,
-    icon: Star,
-    title: "Rating and Reviews",
-    desc: "Collect customer feedback and leverage insights to drive future improvements and service expansion.",
+    icon: HeartPulse,
+    title: "Health Essentials",
+    desc: "Daily health must-haves to support your overall well-being and long-term vitality.",
+  },
+  {
+    id: 7,
+    icon: Leaf,
+    title: "Ayurvedic Essentials",
+    desc: "Ancient herbal wisdom meets modern wellness, natural products for holistic everyday health.",
+  },
+  {
+    id: 8,
+    icon: PawPrint,
+    title: "Veterinary Care",
+    desc: "Premium health and nutrition products to keep your pets happy and healthy.",
   },
 ];
 
@@ -100,10 +114,7 @@ const SectionHeader = memo(() => (
       className="text-2xl xs:text-3xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-5xl 2xl:text-6xl font-semibold text-[#2E3192] mb-3 xs:mb-4 sm:mb-5 leading-tight"
       data-aos="fade-up"
     >
-      Features of Cureli's Advanced Medicine
-      <br className="hidden sm:block" />
-      <span className="sm:hidden"> </span>
-      Ordering App
+      What You Can Order
     </h2>
 
     <p
@@ -111,9 +122,9 @@ const SectionHeader = memo(() => (
       data-aos="fade-up"
       data-aos-delay="150"
     >
-      Combined with some of the most advanced and powerful software modules,
-      this medicine ordering system will set you up for success, even in
-      competitive markets.
+      Each component of Cureli has been designed to ensure a smooth experience
+      for customers placing orders and to make it easy for you and your team to
+      process them. Here's what the system can get you right out of the box.
     </p>
   </header>
 ));
@@ -131,7 +142,7 @@ const FeaturesImage = memo(() => (
     <div className="h-[250px] xs:h-[280px] sm:h-[320px] md:h-[380px] lg:h-[420px] xl:h-[480px] 2xl:h-[520px] flex items-center">
       <img
         src={featuresImage}
-        alt="Medicine ordering app illustration showing mobile interface"
+        alt="Cureli app interface showing product categories"
         className="h-full w-auto object-contain"
         loading="lazy"
       />
@@ -146,9 +157,9 @@ FeaturesImage.displayName = "FeaturesImage";
 // ============================================
 const FeaturesGrid = memo(() => (
   <div
-    className="grid grid-cols-1 sm:grid-cols-2 gap-6 xs:gap-8 sm:gap-x-8 sm:gap-y-10 md:gap-x-10 md:gap-y-12 lg:gap-x-10 lg:gap-y-12 xl:gap-x-12 xl:gap-y-14 order-1 lg:order-2"
+    className="grid grid-cols-1 sm:grid-cols-2 gap-6 xs:gap-8 sm:gap-x-8 sm:gap-y-10 md:gap-x-10 md:gap-y-12 lg:gap-x-10 lg:gap-y-10 xl:gap-x-12 xl:gap-y-12 order-1 lg:order-2"
     role="list"
-    aria-label="App features"
+    aria-label="Product categories"
   >
     {FEATURES_DATA.map((feature, index) => (
       <FeatureCard key={feature.id} feature={feature} index={index} />
@@ -169,7 +180,6 @@ const Features = () => {
   return (
     <section
       id="features"
-      // INCREASED TOP PADDING FOR MOBILE TO ACCOUNT FOR HEROSTATSCARD
       className="pt-28 pb-12 xs:pt-32 xs:pb-16 sm:pt-28 sm:pb-20 md:pt-28 md:pb-24 lg:pt-28 lg:pb-24 xl:pt-32 xl:pb-28 2xl:pt-36 2xl:pb-32 bg-[#F4F5F7]"
       aria-labelledby="features-heading"
     >

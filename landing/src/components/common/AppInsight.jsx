@@ -12,19 +12,18 @@ const AppInsight = () => {
         {/* Title */}
         <div className="text-center mb-6 xs:mb-8 sm:mb-10 md:mb-12">
           <h2 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-1.5 xs:mb-2 sm:mb-2.5 px-2">
-            An Insight Of Our Cureli
+            Ready to bring your pharmacy into the future with Cureli?
           </h2>
           <p className="text-xs xs:text-sm sm:text-base text-white/70 max-w-xs xs:max-w-sm sm:max-w-lg md:max-w-xl mx-auto px-4 xs:px-0 leading-relaxed">
-            Experience seamless medicine shopping with Cureli Pulse, a multi-pharmacy
-            delivery app built using advanced, reliable technologies.
+            Implementation can be started immediately and have your branded medicine ordering and delivery system live in as little as 24 hours, with no technical knowledge required.
           </p>
         </div>
 
         {/* Main Card */}
         <div className="bg-white rounded-xl xs:rounded-2xl sm:rounded-3xl md:rounded-[32px] p-3 xs:p-4 sm:p-5 md:p-8 lg:p-10 flex flex-col lg:flex-row items-center justify-between gap-3 xs:gap-4 sm:gap-6 md:gap-8 lg:gap-10">
           
-          {/* LEFT PHONES */}
-          <div className="flex justify-center w-full lg:w-1/2 order-2 lg:order-1">
+          {/* PHONES - First on mobile (top), Left on desktop */}
+          <div className="flex justify-center w-full lg:w-1/2">
             <img
               src={phones}
               alt="Cureli App"
@@ -32,8 +31,8 @@ const AppInsight = () => {
             />
           </div>
 
-          {/* RIGHT CONTENT */}
-          <div className="w-full lg:w-1/2 text-center lg:text-left order-1 lg:order-2">
+          {/* CONTENT - Second on mobile (bottom), Right on desktop */}
+          <div className="w-full lg:w-1/2 text-center lg:text-left">
             <h3 className="text-lg xs:text-xl sm:text-2xl font-semibold text-gray-900 mb-1.5 xs:mb-2 sm:mb-2.5">
               Download the App now!
             </h3>
