@@ -11,18 +11,17 @@ const PLATFORMS_DATA = [
   {
     id: 1,
     icon: Truck,
-    title: "For Cureli Pulse",
-    subtitle: "Medicine Delivery Platform",
+    title: "Cureli Pulse",
+    subtitle: "Medicine Delivery Marketplace Platform",
     description:
-      "Launch and scale a multi-vendor medicine delivery marketplace with full control over vendors, drivers and operations.",
+      "Create and operate a multi-vendor-based medicine delivery marketplace. Cureli Pulse empowers you with complete control and visibility of pharmacy partners, delivery staff, and the customer experience.",
     features: [
-      "Discover trusted medical stores near you",
-      "Check availability, pricing, and alternatives",
-      "Exclusive deals from partner pharmacies",
-      "Optimized delivery routes for quicker service",
-      "Secure and simple prescription handling",
+      "Geo-based discovery of pharmacies for customers",
+      "Live stock availability, pricing, and alternative medicine suggestions",
+      "Pharmacy partner promotions and exclusive deals management",
+      "Intelligent delivery zone routing for efficient order fulfilment",
     ],
-     gradient: "from-indigo-500 to-blue-600",
+    gradient: "from-indigo-500 to-blue-600",
     lightGradient: "from-indigo-50 to-blue-50",
     borderColor: "border-indigo-200",
     hoverBorderColor: "group-hover:border-indigo-400",
@@ -34,16 +33,16 @@ const PLATFORMS_DATA = [
   {
     id: 2,
     icon: Home,
-    title: "For Cureli PharmaERP",
-    subtitle: "Pharmacy Management System",
+    title: "Cureli PharmaERP",
+    subtitle: "Your Pharmacy Management Partner",
     description:
-      "Digitally manage and automate pharmacy operations with real-time inventory, billing, purchases, suppliers, and analytics to improve profitability.",
+      "A dedicated ERP solution that manages all aspects of your pharmacy operations, from procurement to the billing counter.",
     features: [
-      "Real-time stock tracking with batch & expiry control",
-      "GST-compliant billing for in-store & online sales",
-      "Purchase orders, supplier bills, and GRN handling",
-      "Daily, monthly & branch-wise performance insights",
-      "Automatic sync with Cureli delivery app",
+      "Batch tracking, expiry dates, and intelligent re-ordering.",
+      "Compliant billing for both in-store and online sales.",
+      "Complete end-to-end management.",
+      "Dashboards that provide you with real-time information on your operations.",
+      "Bi-directional data sync with the Cureli delivery app.",
     ],
     gradient: "from-indigo-500 to-blue-600",
     lightGradient: "from-indigo-50 to-blue-50",
@@ -154,7 +153,7 @@ const PlatformCard = memo(({ platform, index }) => {
             transition: "all 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
-          <span 
+          <span
             className="w-1.5 h-1.5 xs:w-2 xs:h-2 rounded-full bg-white/80 group-hover:scale-125"
             style={{
               transition: "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -166,7 +165,7 @@ const PlatformCard = memo(({ platform, index }) => {
         </div>
 
         {/* Title */}
-        <h3 
+        <h3
           className="text-xl xs:text-2xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 xs:mb-3 group-hover:translate-x-0.5"
           style={{
             transition: "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -176,7 +175,7 @@ const PlatformCard = memo(({ platform, index }) => {
         </h3>
 
         {/* Description */}
-        <p 
+        <p
           className="text-sm xs:text-base sm:text-base md:text-lg text-gray-600 mb-5 xs:mb-6 sm:mb-8 leading-relaxed group-hover:text-gray-700"
           style={{
             transition: "color 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -287,8 +286,7 @@ const SectionHeader = memo(() => (
       data-aos="fade-up"
       data-aos-delay="100"
     >
-      Choose your path and launch your medicines delivery business in weeks,
-      not months.
+     Choose your path and launch your medicines delivery business in weeks, not months.
     </p>
   </header>
 ));
@@ -364,8 +362,7 @@ const PlatformOptions = () => {
           className="mt-12 xs:mt-14 sm:mt-16 md:mt-20 flex justify-center"
           data-aos="fade-up"
           data-aos-delay="400"
-        >
-        </div>
+        ></div>
       </div>
     </section>
   );

@@ -4,7 +4,7 @@ import Navbar from "../../../components/common/Navbar";
 import Hero from "./components/Hero";
 import Features from "./components/Features";
 import Testimonials from "./components/Testimonials";
-import FAQ from "../../../components/common/FAQ";
+import FAQ from "./components/FAQ";
 import Footer from "../../../components/common/Footer";
 import HeroStatsCard from "./components/HeroStatsCard";
 import WhyChooseUs from "./components/WhyChooseUs";

@@ -13,27 +13,27 @@ const mission = [
   {
     icon: HeartPulse,
     title: "Empower Healthcare Providers",
-    desc: "Equip clinics, hospitals, diagnostic centers, and pharmacies with advanced tools to manage their operations efficiently and provide top-notch patient care.",
+    desc: "To empower pharmacies, clinics, diagnostic centers, and hospitals with the technology required to efficiently operate their day-to-day operations and provide quality healthcare services.",
   },
   {
     icon: Users,
     title: "Improve Patient Experiences",
-    desc: "Enhance patient satisfaction by simplifying processes and ensuring timely, accurate medical services.",
+    desc: "To improve the patient experience by streamlining all aspects of the patient journey, including medicine ordering and prescription management.",
   },
   {
     icon: ShieldCheck,
-    title: "Ensure Quality and Compliance",
-    desc: "Maintain the highest standards of quality and compliance in all our offerings, ensuring the safety and security of patient data.",
+    title: "Ensure Quality & Compliance",
+    desc: "To develop and maintain a platform that meets the security and compliance requirements of the healthcare industry.",
   },
   {
     icon: Zap,
-    title: "Drive Efficiency",
-    desc: "Streamline administrative and clinical processes to reduce costs and improve operational efficiency for healthcare providers.",
+    title: "Drive Operational Efficiency",
+    desc: "To drive operational efficiency by automating all aspects of the pharmacy operation to reduce costs and allow healthcare providers to focus on more important aspects.",
   },
   {
     icon: Lightbulb,
-    title: "Foster Innovation",
-    desc: "Continuously innovate and integrate new technologies to stay ahead in the healthcare industry.",
+    title: "Foster Continuous Innovation",
+    desc: "To continually innovate our platform to remain relevant in the future.",
   },
 ];
 
@@ -326,8 +326,7 @@ const AboutMission = () => {
                         ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
             style={{ transitionDelay: "200ms" }}
           >
-            Our mission is to continuously innovate and enhance our platform to
-            meet the evolving needs of the healthcare industry. We aim to:
+            Our mission is to continually enhance our platform to allow pharmacies, clinics, and healthcare providers to thrive now and in the future. To achieve our mission, we are dedicated to five core principles that drive our development process.
           </p>
 
           {/* Decorative Divider */}

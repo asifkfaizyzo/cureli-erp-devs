@@ -11,12 +11,12 @@ import {
 } from "lucide-react";
 
 const steps = [
-  { icon: FileSearch, title: "Browse Info", description: "Users can browse and filter the search." },
-  { icon: ClipboardList, title: "Order Placement", description: "Users can start placing orders." },
-  { icon: CreditCard, title: "Payment Type", description: "Choose the relevant payment options." },
-  { icon: PackageCheck, title: "Dispatch Update", description: "Vendor can update the dispatch details." },
-  { icon: MapPin, title: "Tracking Order", description: "Real-time order tracking available." },
-  { icon: Truck, title: "Delivery", description: "Pay the delivery person via cash or card." },
+  { icon: FileSearch, title: "Browse & Search", description: "Search medicines by condition." },
+  { icon: ClipboardList, title: "Place Order", description: "Add, upload, and order." },
+  { icon: CreditCard, title: "Select Payment", description: "Pick your payment method." },
+  { icon: PackageCheck, title: "Dispatch Update", description: "Order confirmed and dispatched." },
+  { icon: MapPin, title: "Track in Real Time", description: "Live map order tracking." },
+  { icon: Truck, title: "Receive & Pay", description: "Delivered and payment collected." },
 ];
 
 // ============================================
@@ -106,10 +106,6 @@ const StepCard = ({ step, stepNumber, isVisible, delay = 0 }) => {
 // HORIZONTAL ARROW CONNECTOR
 // ============================================
 const HorizontalArrow = ({ direction = "right", isVisible, delay = 0 }) => {
-  // paddingTop aligns arrow center with icon center
-  // Icon center = step-label-height(~22px) + icon-radius(34px) = ~56px
-  // Arrow center = pt + 8px → pt = 56 - 8 = 48px
-
   return (
     <div
       className={`self-start flex items-center justify-center
@@ -171,14 +167,12 @@ const CurvedConnector = ({ isVisible }) => (
       className="text-gray-300"
       fill="none"
     >
-      {/* Curved path: goes down from Step 3, curves right, then goes down to Step 4 */}
       <path
         d="M20 0 C20 20, 30 24, 30 32 C30 40, 20 44, 20 64"
         stroke="currentColor"
         strokeWidth="2"
         strokeDasharray="5 3"
       />
-      {/* Arrowhead */}
       <polygon points="15,56 20,66 25,56" fill="currentColor" />
     </svg>
   </div>
@@ -219,16 +213,6 @@ const HowItWorks = () => {
 
         {/* ==========================================
             DESKTOP / TABLET LAYOUT (md and up)
-            
-            Visual Flow:
-            [Step 1] ——→ [Step 2] ——→ [Step 3]
-                                          ↓
-            [Step 6] ←—— [Step 5] ←—— [Step 4]
-            
-            Grid: 5 columns [1fr auto 1fr auto 1fr]
-            Row 1: Steps 1-3 with right arrows
-            Row 2: Curved connector (column 5 only)
-            Row 3: Steps 6-4 with left arrows
             ========================================== */}
         <div className="hidden md:grid grid-cols-[1fr_auto_1fr_auto_1fr] items-start">
           {/* ===== ROW 1: Step 1 → 2 → 3 ===== */}
@@ -238,7 +222,7 @@ const HowItWorks = () => {
           <HorizontalArrow direction="right" isVisible={isVisible} delay={550} />
           <StepCard step={steps[2]} stepNumber={3} isVisible={isVisible} delay={600} />
 
-          {/* ===== ROW 2: Curved Connector (right column only) ===== */}
+          {/* ===== ROW 2: Curved Connector ===== */}
           <div aria-hidden="true" />
           <div aria-hidden="true" />
           <div aria-hidden="true" />
@@ -255,14 +239,6 @@ const HowItWorks = () => {
 
         {/* ==========================================
             MOBILE LAYOUT (below md)
-            
-            Vertical Timeline:
-            ○ Step 1
-            |
-            ○ Step 2
-            |
-            ...
-            ○ Step 6
             ========================================== */}
         <div className="md:hidden max-w-sm mx-auto">
           {steps.map((step, idx) => {
@@ -275,9 +251,8 @@ const HowItWorks = () => {
                             ${isVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-6"}`}
                 style={{ transitionDelay: `${idx * 150 + 200}ms` }}
               >
-                {/* Timeline Rail: Icon + Connecting Line */}
+                {/* Timeline Rail */}
                 <div className="flex flex-col items-center flex-shrink-0">
-                  {/* Icon Circle */}
                   <div
                     className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full
                                 border-2 border-gray-200 bg-white shadow-sm
@@ -289,7 +264,6 @@ const HowItWorks = () => {
                   >
                     <Icon size={20} strokeWidth={1.5} className="text-gray-600" />
 
-                    {/* Step Number Badge */}
                     <span
                       className="absolute -top-1 -right-1 w-5 h-5 bg-indigo-500 text-white
                                    text-[9px] font-bold rounded-full flex items-center justify-center
@@ -299,10 +273,8 @@ const HowItWorks = () => {
                     </span>
                   </div>
 
-                  {/* Vertical Connecting Line */}
                   {idx < steps.length - 1 && (
                     <div className="relative w-0.5 flex-1 min-h-[28px] my-1">
-                      {/* Dashed line */}
                       <div
                         className="absolute inset-0 bg-repeat-y"
                         style={{
@@ -310,7 +282,6 @@ const HowItWorks = () => {
                           backgroundSize: "2px 8px",
                         }}
                       />
-                      {/* Small arrow dot */}
                       <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2">
                         <svg width="8" height="6" viewBox="0 0 8 6" className="text-gray-300">
                           <polygon points="0,0 4,6 8,0" fill="currentColor" />

@@ -33,14 +33,12 @@ const AboutHero = () => {
           {/* TEXT - Left Aligned */}
           <div data-aos="fade-up" className="text-left ml-0 sm:ml-4 md:ml-8 lg:ml-12">
             <h1 className="font-manrope text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-medium text-white leading-tight sm:leading-snug">
-              Your Healthcare Cureli for <br className="hidden sm:block" />
-              More Than Two Decades
+              Built for Pharmacies. Designed to <br className="hidden sm:block" />
+              Deliver Better Healthcare.
             </h1>
 
             <p className="font-manrope text-white/70 max-w-xl sm:max-w-2xl lg:max-w-3xl mt-4 sm:mt-5 md:mt-6 text-sm sm:text-base md:text-lg leading-relaxed">
-              We offer critical web-based solutions and services to health care
-              providers, payers, and technology partners, making payments
-              smarter, faster, and easier.
+              Cureli delivers integrated digital solutions to pharmacies, healthcare providers, and technology partners. This helps to streamline operations, speed up transactions, and integrate the technology that helps the flow of healthcare.
             </p>
           </div>
 

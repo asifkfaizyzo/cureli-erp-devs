@@ -20,47 +20,47 @@ const ITEMS_DATA = [
     id: 1,
     icon: Layers,
     title: "One Unified Platform",
-    desc: "Cureli combines a powerful pharmacy ERP system with an online medicine delivery app, eliminating the need for multiple disconnected tools.",
+    desc: "Manage your app, ERP, and pharmacy business with one solution. No third-party integrations, no duplicate data entry, no data silos.",
     spotlightColor: "rgba(99, 102, 241, 0.3)",
     iconBg: "from-indigo-500 to-purple-600",
   },
   {
     id: 2,
     icon: Workflow,
-    title: "Seamless App & ERP Integration",
-    desc: "Orders placed through the Cureli app sync instantly with the ERP, ensuring real-time inventory updates, accurate billing, and smooth fulfillment.",
+    title: "Live App-ERP Synchronisation",
+    desc: "Each app order is reflected in our ERP in real-time. No manual intervention needed. No missed orders. No missed opportunities.",
     spotlightColor: "rgba(168, 85, 247, 0.3)",
     iconBg: "from-purple-500 to-pink-600",
   },
   {
     id: 3,
     icon: Zap,
-    title: "Faster Operations",
-    desc: "Automated processes reduce manual work, minimize errors, and speed up billing, inventory control, and reporting.",
+    title: "Faster, More Accurate Operations",
+    desc: "Automate bill generation, calculation, and report generation. Reduce errors. Focus on delivering better customer service.",
     spotlightColor: "rgba(236, 72, 153, 0.3)",
     iconBg: "from-pink-500 to-rose-600",
   },
   {
     id: 4,
     icon: ShieldCheck,
-    title: "Secure & Reliable",
-    desc: "Cureli ensures secure data handling, reliable system performance, and compliance with industry standards.",
+    title: "Enterprise-Grade Security & Reliability",
+    desc: "Your data is safe with us. Our servers are up and running, ensuring our solution is available when you need it. Our solution is compliant with industry regulations.",
     spotlightColor: "rgba(34, 197, 94, 0.3)",
     iconBg: "from-emerald-500 to-teal-600",
   },
   {
     id: 5,
     icon: HeartHandshake,
-    title: "Improved Customer Experiences",
-    desc: "Quick medicine discovery, easy prescription uploads, fast delivery, and transparent order tracking create a better experience for customers.",
+    title: "Enhanced Patient Experience",
+    desc: "The app allows patients to search for medicines, upload prescriptions, track orders, and receive updates on their orders in real-time.",
     spotlightColor: "rgba(251, 146, 60, 0.3)",
     iconBg: "from-orange-500 to-amber-600",
   },
   {
     id: 6,
     icon: TrendingUp,
-    title: "Scalable for Any Size Business",
-    desc: "Whether you run a single medical store or a multi-branch pharmacy chain, Cureli scales with your growth.",
+    title: "Scalable by Design",
+    desc: "From a single counter to a multiple-branch network with centralized reporting, Cureli can grow with your pharmacy or healthcare business.",
     spotlightColor: "rgba(59, 130, 246, 0.3)",
     iconBg: "from-blue-500 to-cyan-600",
   },
@@ -114,17 +114,6 @@ FeatureCard.displayName = "FeatureCard";
 // ============================================
 const SectionHeader = memo(() => (
   <header className="text-center mb-12 xs:mb-14 sm:mb-16 md:mb-20">
-    {/* Badge */}
-    {/* <div
-      className="inline-flex items-center gap-2 px-4 py-2 mb-4 xs:mb-5 sm:mb-6 bg-white/10 border border-white/20 rounded-full backdrop-blur-sm"
-      data-aos="fade-down"
-    >
-      <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-      <span className="text-sm xs:text-base text-white/90 font-medium">
-        Why Cureli?
-      </span>
-    </div> */}
-
     {/* Title */}
     <h2
       className="text-3xl xs:text-4xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 xs:mb-5 sm:mb-6"
@@ -142,8 +131,7 @@ const SectionHeader = memo(() => (
       data-aos="fade-up"
       data-aos-delay="100"
     >
-      Discover why thousands of pharmacies trust Cureli to power their business
-      and delight their customers.
+      Cureli is designed exclusively for pharmacy businesses. It is not a generic solution like other retail management solutions. This is why over 10,000 businesses trust us to operate their businesses.
     </p>
   </header>
 ));

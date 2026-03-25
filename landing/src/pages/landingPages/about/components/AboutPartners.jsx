@@ -131,18 +131,10 @@ const AboutPartners = () => {
               className="w-full lg:w-[60%] order-1 lg:order-2"
             >
               <h2 className="font-manrope text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold text-[#05015A] mb-3 sm:mb-4 md:mb-6 leading-tight">
-                Complete HealthCare Solution
+                Health, Simplified Completely
               </h2>
               <p className="font-manrope text-xs sm:text-sm md:text-base lg:text-lg text-gray-600 leading-relaxed">
-                At Cureli, our vision is to empower every pharmacy or small-
-                intelligent, seamless, and connected technology that transforms
-                the way care is delivered. We aim to create a fully integrated
-                ecosystem where pharmacists can operate with unmatched
-                efficiency, real-time insight, and uncompromised accuracy. By
-                simplifying workflows, automating operational burdens, and
-                enabling data-driven decisions, we strive to elevate the quality
-                of patient care, strengthen pharmacy performance, and contribute
-                to healthier communities.
+                Our vision at Cureli is to empower all pharmacies, from individual outlets to multi-chain pharmacy groups, with intelligent, seamless, and connected technology that helps to revolutionize the way healthcare is delivered. We are on a mission to develop a fully integrated ecosystem in which pharmacists are able to operate with real-time knowledge, operational precision, and absolute confidence in the data they are using. This helps to raise the standard of patient care, pharmacy performance, and the health of the communities they serve.
               </p>
             </div>
 

@@ -20,7 +20,7 @@ const FEATURES_DATA = [
     id: 1,
     icon: ShoppingCart,
     title: "Order Management",
-    desc: "Enable order customization and management to heighten customer satisfaction.",
+    desc: "Manage, place, and track medicine orders in real time. Pharmacy staff can manage the entire process on one screen.",
     spotlightColor: "rgba(139, 92, 246, 0.3)",
     iconBg: "from-violet-500 to-purple-600",
   },
@@ -28,39 +28,39 @@ const FEATURES_DATA = [
     id: 2,
     icon: Package,
     title: "Inventory Management",
-    desc: "Be on top of your pharmacy inventory and keep your operations running smoothly with this powerful inventory management module.",
+    desc: "Get real-time updates on the stock levels of all products. Receive automated alerts before the stock runs out.",
     spotlightColor: "rgba(59, 130, 246, 0.3)",
     iconBg: "from-blue-500 to-indigo-600",
   },
   {
     id: 3,
     icon: FileText,
-    title: "Real-time Order Status",
-    desc: "Customers can keep an eye on the status of their orders. The app notifies them when their order is accepted, prepared, dispatched, or delivered.",
+    title: "Real-Time Order Status",
+    desc: "Customers will be updated on the status of their orders, such as accepted, being prepared, dispatched, and delivered. This will save on calls and ensure satisfaction.",
     spotlightColor: "rgba(16, 185, 129, 0.3)",
     iconBg: "from-emerald-500 to-teal-600",
   },
   {
     id: 4,
     icon: CreditCard,
-    title: "Make Payment Easy",
-    desc: "Multiple payment gateways to facilitate 100% safe and secure transactions online.",
+    title: "Flexible Payment Options",
+    desc: "Process payments through various payment gateways with security and encryption. Each transaction will be traceable.",
     spotlightColor: "rgba(245, 158, 11, 0.3)",
     iconBg: "from-amber-500 to-orange-600",
   },
   {
     id: 5,
     icon: Star,
-    title: "Rating and Reviews",
-    desc: "Collect feedback from your clientele and leverage it for future improvements and service expansion.",
+    title: "Ratings & Reviews",
+    desc: "Collect structured reviews from the customer after each order. Identify gaps in the service and enhance the delivery process with the data obtained.",
     spotlightColor: "rgba(236, 72, 153, 0.3)",
     iconBg: "from-pink-500 to-rose-600",
   },
   {
     id: 6,
     icon: MapPin,
-    title: "Delivering Zoning",
-    desc: "Assign drivers to their specific delivery zones to make rapid and efficient deliveries.",
+    title: "Delivery Zone Management",
+    desc: "Set up delivery zones and allocate drivers to these zones. Optimize routes to minimize delivery time and cost.",
     spotlightColor: "rgba(6, 182, 212, 0.3)",
     iconBg: "from-cyan-500 to-blue-600",
   },
@@ -119,13 +119,13 @@ const SectionHeader = memo(() => (
       className="text-3xl xs:text-4xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 xs:mb-5 sm:mb-6"
       data-aos="fade-up"
     >
-      Features of{" "}
+      Key Features of the{" "}
       <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-purple-400 to-indigo-400">
-        Cureli's
+        Cureli
       </span>
       <br className="hidden sm:block" />
       <span className="sm:hidden"> </span>
-      Advanced Medicine App
+      Medicine Ordering App
     </h2>
 
     {/* Subtitle */}
@@ -134,9 +134,7 @@ const SectionHeader = memo(() => (
       data-aos="fade-up"
       data-aos-delay="100"
     >
-      Combined with some of the most advanced and powerful software modules,
-      this medicine ordering system will set you up for success, even in
-      competitive markets.
+      Each and every feature of the app has been designed with the requirements of the pharmacy in mind, making the process smoother for the customer as well as the staff. These are the key features of the app.
     </p>
   </header>
 ));
