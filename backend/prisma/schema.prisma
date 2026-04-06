@@ -566,6 +566,7 @@ model Medicine {
   medicine_id      String                @id @default(uuid()) @db.Uuid
   name             String                @db.VarChar(200)
   generic_name     String?               @db.VarChar(200)
+  master_medicine_id String?             @db.Uuid
   manufacturer     String                @db.VarChar(150)
   category         String?               @db.VarChar(100)
   sub_category     String?               @db.VarChar(100)
@@ -602,6 +603,7 @@ model Medicine {
   @@index([shop_id, name])
   @@index([hsn_code])
   @@index([manufacturer])
+  @@index([master_medicine_id])
   @@map("medicines")
 }
 
@@ -1500,6 +1502,61 @@ model OtpDailyLimit {
   @@unique([identifier, date], name: "identifier_date")
   @@index([date])
   @@map("otp_daily_limits")
+}
+
+// ══════════════════════════════════════════════════════════════
+// MASTER MEDICINE CATALOG (Global Medicine Database)
+// ══════════════════════════════════════════════════════════════
+
+model MasterMedicine {
+  master_medicine_id String   @id @default(uuid()) @db.Uuid
+  name               String   @db.VarChar(300)
+  normalized_name    String   @db.VarChar(300)
+  composition        String?  @db.VarChar(500)
+  type               MedicineType
+  manufacturer       String?  @db.VarChar(200)
+  marketer           String?  @db.VarChar(200)
+  pack_size          String?  @db.VarChar(100)
+  prescription_required Boolean @default(false)
+  is_active          Boolean  @default(true)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @updatedAt @db.Timestamptz(6)
+  
+  images             MasterMedicineImage[]
+  
+  @@index([normalized_name])
+  @@index([name])
+  @@index([type])
+  @@index([is_active])
+  @@map("master_medicines")
+}
+
+model MasterMedicineImage {
+  image_id           String   @id @default(uuid()) @db.Uuid
+  master_medicine_id String   @db.Uuid
+  url                String   @db.VarChar(500)
+  type               ImageType
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  
+  medicine           MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
+  
+  @@index([master_medicine_id])
+  @@index([type])
+  @@map("master_medicine_images")
+}
+
+// ══════════════════════════════════════════════════════════════
+// ENUMS
+// ══════════════════════════════════════════════════════════════
+
+enum MedicineType {
+  DRUG
+  OTC
+}
+
+enum ImageType {
+  PRIMARY
+  GALLERY
 }
 
 enum CAdminRole {

@@ -1,3 +1,4 @@
+//cureli-admin/src/api/cadminAdmins.js
 import CAdminAPI from "./axios";
 
 /**

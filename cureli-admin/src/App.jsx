@@ -18,7 +18,7 @@ import VerificationPage from "./pages/User-Shop-Verifications/VerificationPage";
 import ShopsPage from "./pages/shops-management/ShopsPage";
 import AdminsPage from "./pages/Cadmin-management/AdminsPage";
 import OrdersPage from "./pages/orders/OrdersPage";
-
+import MasterMedicinesPage from "./pages/MasterMedicines/MasterMedicinesPage";
 // Subscription Management
 import RiskMonitorPage from "./pages/Subscription-management/RiskMonitorPage";
 import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
@@ -102,14 +102,16 @@ function App() {
             PUBLIC ROUTES - No authentication required
         ════════════════════════════════════════════════════════════ */}
         <Route path="/login" element={<AdminLoginPage />} />
-        <Route path="/admin-forgot-password" element={<CAdminForgotPassword />} />
+        <Route
+          path="/admin-forgot-password"
+          element={<CAdminForgotPassword />}
+        />
         <Route path="/reset-password" element={<CAdminResetPassword />} />
 
         {/* ════════════════════════════════════════════════════════════
             PROTECTED ROUTES - Wrapped with AuthProvider + Permission Guards
         ════════════════════════════════════════════════════════════ */}
         <Route element={<ProtectedLayout />}>
-          
           {/* ──────────────────────────────────────────────────────────
               DASHBOARD - All roles can access
           ────────────────────────────────────────────────────────── */}
@@ -152,7 +154,9 @@ function App() {
           <Route
             path="/verification"
             element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.VERIFICATIONS_VIEW}>
+              <PermissionGuard
+                permission={CADMIN_PERMISSIONS.VERIFICATIONS_VIEW}
+              >
                 <VerificationPage />
               </PermissionGuard>
             }
@@ -172,7 +176,9 @@ function App() {
           <Route
             path="/subscriptions/manage"
             element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW}>
+              <PermissionGuard
+                permission={CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW}
+              >
                 <SubscriptionPage />
               </PermissionGuard>
             }
@@ -208,11 +214,22 @@ function App() {
           <Route
             path="/admins"
             element={
-              <PermissionGuard 
+              <PermissionGuard
                 permission={CADMIN_PERMISSIONS.ADMINS_VIEW}
                 roles={["SUPER_CADMIN"]}
               >
                 <AdminsPage />
+              </PermissionGuard>
+            }
+          />
+          {/* ──────────────────────────────────────────────────────────
+              MASTER MEDICINES CATALOG - All roles can view
+            ────────────────────────────────────────────────────────── */}
+          <Route
+            path="/master-medicines"
+            element={
+              <PermissionGuard permission={CADMIN_PERMISSIONS.DASHBOARD_VIEW}>
+                <MasterMedicinesPage />
               </PermissionGuard>
             }
           />
@@ -223,7 +240,9 @@ function App() {
           <Route
             path="/notifications"
             element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW}>
+              <PermissionGuard
+                permission={CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW}
+              >
                 <NotificationsPage />
               </PermissionGuard>
             }
