@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
-import logo from "../../assets/icons/Artboard 26.svg";
+import logo from "../../assets/icons/cureliwhitewithtext.svg";
 
 const SIGN_IN_URL = import.meta.env.VITE_SIGN_IN_URL;
 

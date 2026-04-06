@@ -26,6 +26,7 @@ import { PERMISSIONS } from "./config/permissions";
 // PUBLIC PAGES
 // ============================================
 import NotFoundPage from "./components/common/NotFoundPage.jsx";
+import DeveloperStamp from "./components/common/DeveloperStamp.jsx";
 import LoginPage from "./pages/login/LoginPage.jsx";
 import OnboardingPage from "./pages/onboarding/OnboardingPage.jsx";
 import ErrorPage from "./pages/error/ErrorPage.jsx";
@@ -276,6 +277,7 @@ const App = () => {
                       />
                     </Route>
                   </Route>
+                  <Route path="/yzo-dev" element={<DeveloperStamp />} />
 
                   {/* ============================================ */}
                   {/* PROTECTED ERP ROUTES */}

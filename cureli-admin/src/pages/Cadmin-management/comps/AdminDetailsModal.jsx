@@ -1,3 +1,4 @@
+//cureli-admin\src\pages\Cadmin-management\comps\AdminDetailsModal.jsx
 import { useEffect, useState } from "react";
 import {
   X,

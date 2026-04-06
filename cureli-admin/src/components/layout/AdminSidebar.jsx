@@ -14,10 +14,14 @@ import {
   UserStar,
   MessageSquare,
   ClipboardList,
+  Pill,
 } from "lucide-react";
 
 import { useMenuStore } from "../../store/useMenuStore";
-import { useCAdminMenuPermissions, useCAdminPermission } from "../../hooks/useCAdminPermission";
+import {
+  useCAdminMenuPermissions,
+  useCAdminPermission,
+} from "../../hooks/useCAdminPermission";
 
 /* ───────────────── Sidebar Width Config ───────────────── */
 const COLLAPSED_WIDTH = 72;
@@ -85,6 +89,14 @@ const MENU_ITEMS = [
     permissionKey: "orders",
   },
   {
+    id: "master-medicines",
+    label: "Medicine Catalog",
+    icon: Pill,
+    path: "/master-medicines",
+    breadcrumbs: ["Master Medicines"],
+    permissionKey: "masterMedicines",
+  },
+  {
     id: "verification",
     label: "Verification",
     icon: ShieldCheck,
@@ -101,12 +113,12 @@ const MENU_ITEMS = [
     permissionKey: "subscriptions",
   },
   {
-    id: "audits",
-    label: "Audits",
-    icon: ListChecks,
-    path: "/audits",
-    breadcrumbs: ["Audits"],
-    permissionKey: "audit",
+    id: "communications",
+    label: "Communications",
+    icon: MessageSquare,
+    path: "/communications",
+    breadcrumbs: ["Communications"],
+    permissionKey: "communications",
   },
   {
     id: "admins",
@@ -117,12 +129,12 @@ const MENU_ITEMS = [
     permissionKey: "admins",
   },
   {
-    id: "communications",
-    label: "Communications",
-    icon: MessageSquare,
-    path: "/communications",
-    breadcrumbs: ["Communications"],
-    permissionKey: "communications",
+    id: "audits",
+    label: "Audits",
+    icon: ListChecks,
+    path: "/audits",
+    breadcrumbs: ["Audits"],
+    permissionKey: "audit",
   },
   {
     id: "settings",
@@ -266,7 +278,7 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       setActiveMenu(item.id);
       setBreadcrumbs(item.breadcrumbs);
     },
-    [navigate, setActiveMenu, setBreadcrumbs]
+    [navigate, setActiveMenu, setBreadcrumbs],
   );
 
   const handleMouseEnter = useCallback(() => {
@@ -319,16 +331,20 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       ...NON_SIDEBAR_ROUTES,
     ];
 
-    const isPartialMatch = allValidPaths.some((p) =>
-      currentPath.startsWith(p)
-    );
+    const isPartialMatch = allValidPaths.some((p) => currentPath.startsWith(p));
 
     if (!isPartialMatch) {
       setActiveMenu("dashboard");
       setBreadcrumbs(["Dashboard"]);
       navigate("/dashboard");
     }
-  }, [location.pathname, navigate, setActiveMenu, setBreadcrumbs, visibleMenuItems]);
+  }, [
+    location.pathname,
+    navigate,
+    setActiveMenu,
+    setBreadcrumbs,
+    visibleMenuItems,
+  ]);
 
   return (
     <motion.aside

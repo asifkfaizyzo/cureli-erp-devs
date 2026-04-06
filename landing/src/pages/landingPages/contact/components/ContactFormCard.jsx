@@ -8,7 +8,6 @@ import {
   Phone,
   MapPin,
   Facebook,
-  Twitter,
   Instagram,
   Linkedin,
   Loader2,
@@ -16,6 +15,20 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { submitEnquiry } from "../../../../api/enquiries";
+
+// Custom X (Twitter) Icon Component
+const XIcon = ({ size = 24, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+    aria-hidden="true"
+  >
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
 
 const ContactFormCard = () => {
   const { executeRecaptcha } = useGoogleReCaptcha();
@@ -34,6 +47,14 @@ const ContactFormCard = () => {
 
   const isMounted = useRef(true);
   const timeoutRef = useRef(null);
+
+  // Social links data
+  const socialLinks = [
+    { icon: Facebook, href: "https://www.facebook.com/share/18L1w65XLr/?mibextid=wwXIfr", label: "Facebook" },
+    { icon: XIcon, href: "https://x.com/cureliofficial", label: "X (Twitter)", isCustom: true },
+    { icon: Instagram, href: "https://www.instagram.com/curelioffical/", label: "Instagram" },
+    { icon: Linkedin, href: "https://www.linkedin.com/company/cureli/", label: "LinkedIn" },
+  ];
 
   useEffect(() => {
     AOS.init({ duration: 900, once: true });
@@ -418,7 +439,7 @@ const ContactFormCard = () => {
                   Our Location :
                 </h4>
                 <p className="font-manrope text-xs sm:text-sm text-white/80 leading-relaxed">
-                  Door No.198,CMH Road, 2nd Floor,Suite No.3652, Indiranagar, Bangalore North, Bangalore- 560038,
+                  Indiranagar, Bangalore North, Bangalore- 560038,
 Karnataka
                 </p>
               </div>
@@ -458,13 +479,20 @@ Karnataka
               Follow our social media:
             </p>
             <div className="flex gap-2 xs:gap-2.5 sm:gap-3">
-              {[Facebook, Twitter, Instagram, Linkedin].map((Icon, index) => (
+              {socialLinks.map((social) => (
                 <a
-                  key={index}
-                  href="#"
+                  key={social.label}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-8 h-8 xs:w-9 xs:h-9 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all duration-300"
+                  aria-label={social.label}
                 >
-                  <Icon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                  {social.isCustom ? (
+                    <social.icon size={14} className="xs:w-4 xs:h-4" />
+                  ) : (
+                    <social.icon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                  )}
                 </a>
               ))}
             </div>

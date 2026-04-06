@@ -89,9 +89,9 @@ export function useCAdminPermission() {
  * ============================================
  * USE CADMIN MENU PERMISSIONS HOOK
  * ============================================
- * 
+ *
  * Returns visibility/disabled state for sidebar menu items.
- * 
+ *
  * Permission Matrix Reference:
  * ┌─────────────────┬──────────────┬─────────┬────────────┬──────────┐
  * │ Feature         │ SUPER_CADMIN │ ANALYST │ ACCOUNTANT │ SALESMAN │
@@ -114,125 +114,134 @@ export function useCAdminPermission() {
 export function useCAdminMenuPermissions() {
   const { hasPermission, isSuperCAdmin } = useCAdminPermission();
 
-  return useMemo(() => ({
-    // ════════════════════════════════════════════════════════════
-    // DASHBOARD - All roles can view
-    // ════════════════════════════════════════════════════════════
-    dashboard: {
-      visible: true,
-      disabled: !hasPermission(CADMIN_PERMISSIONS.DASHBOARD_VIEW),
-    },
+  return useMemo(
+    () => ({
+      // ════════════════════════════════════════════════════════════
+      // DASHBOARD - All roles can view
+      // ════════════════════════════════════════════════════════════
+      dashboard: {
+        visible: true,
+        disabled: !hasPermission(CADMIN_PERMISSIONS.DASHBOARD_VIEW),
+      },
 
-    // ════════════════════════════════════════════════════════════
-    // SHOPS - All roles can view
-    // ════════════════════════════════════════════════════════════
-    shops: {
-      visible: hasPermission(CADMIN_PERMISSIONS.SHOPS_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.SHOPS_VIEW),
-    },
+      // ════════════════════════════════════════════════════════════
+      // SHOPS - All roles can view
+      // ════════════════════════════════════════════════════════════
+      shops: {
+        visible: hasPermission(CADMIN_PERMISSIONS.SHOPS_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.SHOPS_VIEW),
+      },
 
-    // ════════════════════════════════════════════════════════════
-    // USERS - SUPER_CADMIN and ANALYST only
-    // ════════════════════════════════════════════════════════════
-    users: {
-      visible: hasPermission(CADMIN_PERMISSIONS.USERS_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.USERS_VIEW),
-    },
+      // ════════════════════════════════════════════════════════════
+      // USERS - SUPER_CADMIN and ANALYST only
+      // ════════════════════════════════════════════════════════════
+      users: {
+        visible: hasPermission(CADMIN_PERMISSIONS.USERS_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.USERS_VIEW),
+      },
 
-    // ════════════════════════════════════════════════════════════
-    // SUBSCRIPTIONS (Parent) - SUPER_CADMIN, ANALYST, ACCOUNTANT
-    // ════════════════════════════════════════════════════════════
-    subscriptions: {
-      visible:
-        hasPermission(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW) ||
-        hasPermission(CADMIN_PERMISSIONS.PLANS_VIEW) ||
-        hasPermission(CADMIN_PERMISSIONS.RISK_VIEW),
-      disabled: false,
-    },
+      // ════════════════════════════════════════════════════════════
+      // SUBSCRIPTIONS (Parent) - SUPER_CADMIN, ANALYST, ACCOUNTANT
+      // ════════════════════════════════════════════════════════════
+      subscriptions: {
+        visible:
+          hasPermission(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW) ||
+          hasPermission(CADMIN_PERMISSIONS.PLANS_VIEW) ||
+          hasPermission(CADMIN_PERMISSIONS.RISK_VIEW),
+        disabled: false,
+      },
 
-    // Subscriptions submenu
-    subscriptionsList: {
-      visible: hasPermission(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW),
-    },
-    plans: {
-      visible: hasPermission(CADMIN_PERMISSIONS.PLANS_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.PLANS_VIEW),
-    },
-    riskMonitor: {
-      visible: hasPermission(CADMIN_PERMISSIONS.RISK_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.RISK_VIEW),
-    },
+      // Subscriptions submenu
+      subscriptionsList: {
+        visible: hasPermission(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW),
+      },
+      plans: {
+        visible: hasPermission(CADMIN_PERMISSIONS.PLANS_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.PLANS_VIEW),
+      },
+      riskMonitor: {
+        visible: hasPermission(CADMIN_PERMISSIONS.RISK_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.RISK_VIEW),
+      },
 
-    // ════════════════════════════════════════════════════════════
-    // VERIFICATIONS - SUPER_CADMIN and SALESMAN only
-    // ════════════════════════════════════════════════════════════
-    verifications: {
-      visible: hasPermission(CADMIN_PERMISSIONS.VERIFICATIONS_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.VERIFICATIONS_VIEW),
-    },
+      // ════════════════════════════════════════════════════════════
+      // VERIFICATIONS - SUPER_CADMIN and SALESMAN only
+      // ════════════════════════════════════════════════════════════
+      verifications: {
+        visible: hasPermission(CADMIN_PERMISSIONS.VERIFICATIONS_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.VERIFICATIONS_VIEW),
+      },
 
-    // ════════════════════════════════════════════════════════════
-    // COMMUNICATIONS (Parent) - Based on submenu visibility
-    // ════════════════════════════════════════════════════════════
-    communications: {
-      visible:
-        hasPermission(CADMIN_PERMISSIONS.BROADCAST_VIEW) ||
-        hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW) ||
-        hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
-      disabled: false,
-    },
+      // ════════════════════════════════════════════════════════════
+      // COMMUNICATIONS (Parent) - Based on submenu visibility
+      // ════════════════════════════════════════════════════════════
+      communications: {
+        visible:
+          hasPermission(CADMIN_PERMISSIONS.BROADCAST_VIEW) ||
+          hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW) ||
+          hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
+        disabled: false,
+      },
 
-    // Broadcast - SUPER_CADMIN and ANALYST
-    broadcast: {
-      visible: hasPermission(CADMIN_PERMISSIONS.BROADCAST_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.BROADCAST_VIEW),
-    },
+      // Broadcast - SUPER_CADMIN and ANALYST
+      broadcast: {
+        visible: hasPermission(CADMIN_PERMISSIONS.BROADCAST_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.BROADCAST_VIEW),
+      },
 
-    // Enquiries - SUPER_CADMIN, ANALYST, SALESMAN
-    enquiries: {
-      visible: hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
-    },
+      // Enquiries - SUPER_CADMIN, ANALYST, SALESMAN
+      enquiries: {
+        visible: hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
+      },
 
-    // Tickets - SUPER_CADMIN, ANALYST (view), SALESMAN (full)
-    tickets: {
-      visible: hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
-    },
+      // Tickets - SUPER_CADMIN, ANALYST (view), SALESMAN (full)
+      tickets: {
+        visible: hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
+      },
 
-    // ════════════════════════════════════════════════════════════
-    // ADMIN MANAGEMENT - SUPER_CADMIN only
-    // ════════════════════════════════════════════════════════════
-    admins: {
-      visible: isSuperCAdmin,
-      disabled: !isSuperCAdmin,
-    },
+      // ════════════════════════════════════════════════════════════
+      // ADMIN MANAGEMENT - SUPER_CADMIN only
+      // ════════════════════════════════════════════════════════════
+      admins: {
+        visible: isSuperCAdmin,
+        disabled: !isSuperCAdmin,
+      },
 
-    // ════════════════════════════════════════════════════════════
-    // AUDIT - SUPER_CADMIN, ANALYST, ACCOUNTANT
-    // ════════════════════════════════════════════════════════════
-    audit: {
-      visible: hasPermission(CADMIN_PERMISSIONS.AUDIT_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.AUDIT_VIEW),
-    },
+      // ════════════════════════════════════════════════════════════
+      // AUDIT - SUPER_CADMIN, ANALYST, ACCOUNTANT
+      // ════════════════════════════════════════════════════════════
+      audit: {
+        visible: hasPermission(CADMIN_PERMISSIONS.AUDIT_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.AUDIT_VIEW),
+      },
 
-    // ════════════════════════════════════════════════════════════
-    // ORDERS - All roles can view
-    // ════════════════════════════════════════════════════════════
-    orders: {
-      visible: hasPermission(CADMIN_PERMISSIONS.ORDERS_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.ORDERS_VIEW),
-    },
-
-    // ════════════════════════════════════════════════════════════
-    // NOTIFICATIONS - All roles
-    // ════════════════════════════════════════════════════════════
-    notifications: {
-      visible: hasPermission(CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW),
-      disabled: !hasPermission(CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW),
-    },
-  }), [hasPermission, isSuperCAdmin]);
+      // ════════════════════════════════════════════════════════════
+      // ORDERS - All roles can view
+      // ════════════════════════════════════════════════════════════
+      orders: {
+        visible: hasPermission(CADMIN_PERMISSIONS.ORDERS_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.ORDERS_VIEW),
+      },
+      // ════════════════════════════════════════════════════════════
+      // MASTER MEDICINES - All roles can view
+      // ════════════════════════════════════════════════════════════
+      masterMedicines: {
+        visible: hasPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+      },
+      // ════════════════════════════════════════════════════════════
+      // NOTIFICATIONS - All roles
+      // ════════════════════════════════════════════════════════════
+      notifications: {
+        visible: hasPermission(CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW),
+        disabled: !hasPermission(CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW),
+      },
+    }),
+    [hasPermission, isSuperCAdmin],
+  );
 }
 
 export default useCAdminPermission;

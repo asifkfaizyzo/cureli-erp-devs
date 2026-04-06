@@ -1,13 +1,13 @@
 // src/pages/landingPages/home/components/CTASection.jsx
 
 import { Link } from "react-router-dom";
-import ctaLogo from "../../assets/icons/Medical-cross.svg";
+import ctaLogo from "../../assets/icons/curelinew copy.svg";
 
 const CTASection = () => {
   return (
     <section className="py-16 xs:py-20 sm:py-24 bg-white px-4 xs:px-5 sm:px-6">
       {/* Gradient Card */}
-      <div className="max-w-7xl mx-auto rounded-2xl xs:rounded-3xl px-6 xs:px-8 sm:px-10 md:px-12 py-10 xs:py-12 sm:py-16 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-10 text-white relative overflow-hidden bg-gradient-to-r from-[#00004B] to-[#879AF0]">
+      <div className="max-w-7xl mx-auto rounded-2xl xs:rounded-3xl px-6 xs:px-8 sm:px-10 md:px-12 py-10 xs:py-12 sm:py-16 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-10 text-white relative overflow-hidden bg-gradient-to-l from-[#00004B] to-[#879AF0]">
         
         {/* LEFT CONTENT */}
         <div className="max-w-xl text-center md:text-left">
@@ -45,7 +45,7 @@ const CTASection = () => {
           <img
             src={ctaLogo}
             alt="Medical Logo"
-            className="w-[150px] lg:w-[200px] opacity-40"
+            className="w-[150px] lg:w-[200px] opacity-60"
           />
         </div>
       </div>

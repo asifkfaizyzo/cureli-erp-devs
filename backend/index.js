@@ -63,6 +63,8 @@ import cadminBroadcastInAppRoutes from "./src/modules/cadmin/broadcast/inapp/cad
 import cadminNotificationRoutes from "./src/modules/notifications/cadmin/cadminNotifications.routes.js";
 import cadminEmailBroadcastRoutes from './src//modules/cadmin/broadcast/email/cadminEmailBroadcast.routes.js';
 import cadminDashboardRoutes from "./src/modules/cadmin/dashboard/cadminDashboard.routes.js";
+import cadminMasterMedicinesRoutes from "./src/modules/cadmin/master-medicines/cadminMasterMedicines.routes.js";
+
 // ═══════════════════════════════════════════════════════════
 // APP SETUP
 // ═══════════════════════════════════════════════════════════
@@ -76,6 +78,8 @@ const allowedOrigins = [
   process.env.ADMIN_FRONTEND_ORIGIN || "http://localhost:5174",
   process.env.LANDING_FRONTEND_ORIGIN || "http://localhost:5175",
 ].filter(Boolean);
+
+
 
 // ============================================
 // CORS - Must be before other middleware
@@ -152,7 +156,30 @@ app.use(
     },
   })
 );
-
+// ============================================
+// Static Files - Master Medicine Images
+// ============================================
+app.use(
+  '/static/medicine_images',
+  (req, res, next) => {
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+    }
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(path.join(__dirname, 'static/medicine_images'), {
+    setHeaders: (res, filePath) => {
+      const ext = path.extname(filePath).toLowerCase();
+      if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
+        res.setHeader("Content-Disposition", "inline");
+        res.setHeader("Cache-Control", "public, max-age=86400"); // Cache for 1 day
+      }
+    },
+  })
+);
 app.use('/api/files', filesRoutes);
 
 // ============================================
@@ -275,6 +302,7 @@ app.use("/cadmin", cadminBroadcastInAppRoutes);
 app.use("/cadmin", cadminNotificationRoutes);
 app.use('/cadmin', cadminEmailBroadcastRoutes);
 app.use('/cadmin', cadminDashboardRoutes);
+app.use('/cadmin', cadminMasterMedicinesRoutes);
 // ============================================
 // 404 Handler
 // ============================================

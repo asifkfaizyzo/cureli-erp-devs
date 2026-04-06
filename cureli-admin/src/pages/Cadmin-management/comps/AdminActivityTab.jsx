@@ -1,3 +1,4 @@
+//cureli-admin\src\pages\Cadmin-management\comps\AdminActivityTab.jsx
 import {
   LogIn,
   KeyRound,
