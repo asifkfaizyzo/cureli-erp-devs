@@ -277,7 +277,7 @@ const App = () => {
                       />
                     </Route>
                   </Route>
-                  <Route path="/dev" element={<DeveloperStamp />} />
+                  <Route path="/yzo-dev" element={<DeveloperStamp />} />
 
                   {/* ============================================ */}
                   {/* PROTECTED ERP ROUTES */}

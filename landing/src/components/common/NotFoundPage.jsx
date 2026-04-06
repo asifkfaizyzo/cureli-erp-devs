@@ -1,7 +1,7 @@
 //Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\components\common\NotFoundPage .jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import logo from "../../assets/icons/cureli-white.svg"; 
+import { Search } from 'lucide-react'; // Assuming you are using lucide-react or similar icons
 
 const NotFoundPage = () => {
   const navigate = useNavigate();
@@ -48,7 +48,7 @@ const NotFoundPage = () => {
       <div className="text-center z-10 w-full max-w-3xl flex flex-col items-center">
 
         {/* --- CURELI LOGO --- */}
-        <img src={logo} alt="Cureli Logo" className="h-16 mb-8" />
+        <img src="src\assets\icons\cureliwhitenew.svg" alt="Cureli Logo" className="h-26 mb-6" />
         <div className="mb-6 animate-fade-in-down">
           <div className="flex items-center gap-2 text-white">
             

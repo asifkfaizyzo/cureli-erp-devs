@@ -50,7 +50,7 @@ const App = () => {
         {/* ============================================ */}
         <Route path="/maintenance" element={<MaintenancePage />} />
         <Route path="/error" element={<ErrorPage />} />
-        <Route path="/dev" element={<DeveloperStamp />} />
+        <Route path="/yzo-dev" element={<DeveloperStamp />} />
 
 
         {/* ============================================ */}
