@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import bgImage from "../../assets/images/login-background.jpg";
-import logo from "../../assets/icons/cureli-white.svg";
+import logo from "../../assets/icons/Artboard 24.svg";
 
 import LoginForm from "./comps/LoginForm";
 import CreateAccount from "./comps/CreateAccount";
@@ -91,9 +91,9 @@ const LoginPage = () => {
                 alt="Cureli ERP"
                 className="h-8 sm:h-10 md:h-12 w-auto"
               />
-              <span className="hidden sm:inline-block text-lg md:text-xl lg:text-2xl font-bold text-white font-manrope drop-shadow-md">
+              {/* <span className="hidden sm:inline-block text-lg md:text-xl lg:text-2xl font-bold text-white font-manrope drop-shadow-md">
                 Cureli
-              </span>
+              </span> */}
             </a>
           </div>
 

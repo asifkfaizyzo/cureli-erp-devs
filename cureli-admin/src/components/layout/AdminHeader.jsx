@@ -13,7 +13,7 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import logo from "../../assets/icons/cureli.svg";
+import logo from "../../assets/icons/curelinew.svg";
 import { useAuth } from "../../context/AuthContext";
 
 // ✅ Import NotificationDropdown

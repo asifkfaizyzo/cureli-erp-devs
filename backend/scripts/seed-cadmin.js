@@ -5,10 +5,11 @@ dotenv.config();
 
 async function seed() {
   try {
-    const username = process.env.CADMIN_DEFAULT_USERNAME ;
-    const password = process.env.CADMIN_DEFAULT_PASSWORD ;
-    const email = process.env.CADMIN_DEFAULT_EMAIL ;
+    const username = process.env.CADMIN_DEFAULT_USERNAME;
+    const password = process.env.CADMIN_DEFAULT_PASSWORD;
+    const email = process.env.CADMIN_DEFAULT_EMAIL;
     const phone = process.env.CADMIN_DEFAULT_PHONE;
+    const name = process.env.CADMIN_DEFAULT_NAME || "Super Admin"; // ✅ Add this
 
     const hash = await hashPassword(password);
 
@@ -25,6 +26,7 @@ async function seed() {
         phone_number: phone,
         password_hash: hash,
         is_active: true,
+        name, // ✅ Add this
       },
     });
 

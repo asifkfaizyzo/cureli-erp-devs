@@ -48,7 +48,7 @@ const NotFoundPage = () => {
       <div className="text-center z-10 w-full max-w-3xl flex flex-col items-center">
 
         {/* --- CURELI LOGO --- */}
-        <img src="src\assets\icons\cureli-white.svg" alt="Cureli Logo" className="h-16 mb-8" />
+        <img src="src\assets\icons\cureliwhitenew.svg" alt="Cureli Logo" className="h-26 mb-6" />
         <div className="mb-6 animate-fade-in-down">
           <div className="flex items-center gap-2 text-white">
             

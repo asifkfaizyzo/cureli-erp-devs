@@ -10,6 +10,7 @@ import ErrorPage from "./pages/error/ErrorPage.jsx";
 import TermsPage from "./pages/common/TermsPage.jsx";
 import PrivacyPage from "./pages/common/PrivacyPage.jsx";
 import MaintenancePage from "./pages/maintenance/MaintenancePage.jsx";
+import DeveloperStamp from './components/common/DeveloperStamp';
 
 // ============================================
 // LANDING PAGES
@@ -49,6 +50,8 @@ const App = () => {
         {/* ============================================ */}
         <Route path="/maintenance" element={<MaintenancePage />} />
         <Route path="/error" element={<ErrorPage />} />
+        <Route path="/dev" element={<DeveloperStamp />} />
+
 
         {/* ============================================ */}
         {/* 404 NOT FOUND */}

@@ -18,7 +18,7 @@ import {
   ChevronRight,
   Layers,
 } from "lucide-react";
-import logo from "../../assets/icons/cureli.svg";
+import logo from "../../assets/icons/curelinew.svg";
 
 import {
   useAuthStore,

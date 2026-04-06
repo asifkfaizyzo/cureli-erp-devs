@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogOut, Loader2 } from "lucide-react";
-import logo from "../../assets/icons/cureli.svg";
+import logo from "../../assets/icons/curelibluewithbluetext.svg";
 
 const OnboardingHeader = ({ userName }) => {
   const navigate = useNavigate();
@@ -49,11 +49,9 @@ const OnboardingHeader = ({ userName }) => {
           <img
             src={logo}
             alt="Cureli"
-            className="w-8 h-7 sm:w-10 sm:h-9 object-contain group-hover:scale-105 transition-transform"
+            className="w-24 h-12 sm:w-29 sm:h-10 object-contain group-hover:scale-105 transition-transform"
           />
-          <span className="font-bold text-[#000060] text-xl sm:text-2xl group-hover:text-[#000060]/80 transition-colors">
-            Cureli
-          </span>
+          
         </div>
 
         {/* Right - User info + Logout */}
