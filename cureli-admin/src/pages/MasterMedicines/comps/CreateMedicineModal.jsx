@@ -1,5 +1,5 @@
 // cadmin/src/pages/MasterMedicines/comps/CreateMedicineModal.jsx
-
+import StyledSelect from "../../../components/common/StyledSelect";
 import { useState, useEffect } from "react";
 import {
   X,
@@ -150,7 +150,9 @@ const CreateMedicineModal = ({ isOpen, item, onClose, onConfirm }) => {
             <div className="flex items-center gap-3">
               <Plus size={20} className="text-white" />
               <div>
-                <h2 className="text-white text-lg font-semibold">Create New Master Medicine</h2>
+                <h2 className="text-white text-lg font-semibold">
+                  Create New Master Medicine
+                </h2>
                 <p className="text-white/70 text-sm">
                   Add a new medicine to the global catalog
                 </p>
@@ -168,7 +170,9 @@ const CreateMedicineModal = ({ isOpen, item, onClose, onConfirm }) => {
         {/* Source Info */}
         <div className="px-6 py-3 bg-green-50 border-b border-green-100 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <span className="text-sm text-green-600 font-medium">Creating from:</span>
+            <span className="text-sm text-green-600 font-medium">
+              Creating from:
+            </span>
             <span className="px-3 py-1 bg-white rounded-lg text-sm font-semibold text-gray-800 shadow-sm">
               "{item.normalizedName}"
             </span>
@@ -180,12 +184,17 @@ const CreateMedicineModal = ({ isOpen, item, onClose, onConfirm }) => {
             <div className="mt-2 flex flex-wrap gap-1">
               <span className="text-xs text-green-600">Variations:</span>
               {item.sampleNames.slice(0, 5).map((name, idx) => (
-                <span key={idx} className="px-2 py-0.5 bg-white text-xs text-gray-600 rounded">
+                <span
+                  key={idx}
+                  className="px-2 py-0.5 bg-white text-xs text-gray-600 rounded"
+                >
                   {name}
                 </span>
               ))}
               {item.sampleNames.length > 5 && (
-                <span className="text-xs text-green-500">+{item.sampleNames.length - 5} more</span>
+                <span className="text-xs text-green-500">
+                  +{item.sampleNames.length - 5} more
+                </span>
               )}
             </div>
           )}
@@ -229,15 +238,14 @@ const CreateMedicineModal = ({ isOpen, item, onClose, onConfirm }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Type <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <StyledSelect
                     value={formData.type}
-                    onChange={(e) => handleChange("type", e.target.value)}
-                    className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white
-                              focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
-                  >
-                    <option value="DRUG">Drug (Rx)</option>
-                    <option value="OTC">OTC (Over-the-Counter)</option>
-                  </select>
+                    onChange={(value) => handleChange("type", value)}
+                    options={[
+                      { value: "DRUG", label: "Drug (Rx)" },
+                      { value: "OTC", label: "OTC (Over-the-Counter)" },
+                    ]}
+                  />
                 </div>
 
                 {/* Prescription Required */}
@@ -246,10 +254,14 @@ const CreateMedicineModal = ({ isOpen, item, onClose, onConfirm }) => {
                     <input
                       type="checkbox"
                       checked={formData.prescriptionRequired}
-                      onChange={(e) => handleChange("prescriptionRequired", e.target.checked)}
+                      onChange={(e) =>
+                        handleChange("prescriptionRequired", e.target.checked)
+                      }
                       className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                     />
-                    <span className="text-sm text-gray-700">Prescription Required</span>
+                    <span className="text-sm text-gray-700">
+                      Prescription Required
+                    </span>
                   </label>
                 </div>
 
@@ -261,7 +273,9 @@ const CreateMedicineModal = ({ isOpen, item, onClose, onConfirm }) => {
                   <input
                     type="text"
                     value={formData.composition}
-                    onChange={(e) => handleChange("composition", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("composition", e.target.value)
+                    }
                     placeholder="e.g., Paracetamol (500mg)"
                     className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm
                               focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
@@ -285,7 +299,9 @@ const CreateMedicineModal = ({ isOpen, item, onClose, onConfirm }) => {
                   <input
                     type="text"
                     value={formData.manufacturer}
-                    onChange={(e) => handleChange("manufacturer", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("manufacturer", e.target.value)
+                    }
                     onBlur={() => handleBlur("manufacturer")}
                     placeholder="e.g., Cipla Ltd"
                     className={`w-full h-10 px-3 border rounded-lg text-sm
@@ -368,18 +384,18 @@ const CreateMedicineModal = ({ isOpen, item, onClose, onConfirm }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Schedule
                   </label>
-                  <select
+                  <StyledSelect
                     value={formData.schedule}
-                    onChange={(e) => handleChange("schedule", e.target.value)}
-                    className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white
-                              focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
-                  >
-                    <option value="">None</option>
-                    <option value="H">Schedule H</option>
-                    <option value="H1">Schedule H1</option>
-                    <option value="X">Schedule X</option>
-                    <option value="G">Schedule G</option>
-                  </select>
+                    onChange={(value) => handleChange("schedule", value)}
+                    options={[
+                      { value: "", label: "None" },
+                      { value: "H", label: "Schedule H" },
+                      { value: "H1", label: "Schedule H1" },
+                      { value: "X", label: "Schedule X" },
+                      { value: "G", label: "Schedule G" },
+                    ]}
+                    placeholder="None"
+                  />
                 </div>
 
                 {/* Category */}
@@ -405,7 +421,9 @@ const CreateMedicineModal = ({ isOpen, item, onClose, onConfirm }) => {
                   <input
                     type="text"
                     value={formData.subCategory}
-                    onChange={(e) => handleChange("subCategory", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("subCategory", e.target.value)
+                    }
                     placeholder="e.g., Antipyretics"
                     className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm
                               focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
@@ -420,7 +438,8 @@ const CreateMedicineModal = ({ isOpen, item, onClose, onConfirm }) => {
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between">
             <p className="text-xs text-gray-500">
-              Fields marked with <span className="text-red-500">*</span> are required
+              Fields marked with <span className="text-red-500">*</span> are
+              required
             </p>
             <div className="flex items-center gap-3">
               <button

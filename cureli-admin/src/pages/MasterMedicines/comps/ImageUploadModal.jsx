@@ -1,6 +1,6 @@
 // cadmin/src/pages/MasterMedicines/comps/ImageUploadModal.jsx
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   Upload,
@@ -14,10 +14,16 @@ import {
   Plus,
   ImageOff,
 } from "lucide-react";
-import { IMAGE_STATUS, getImageStatusInfo } from "../mockMasterMedicineDataV3";
+import {
+  IMAGE_STATUS,
+  getImageStatusInfo,
+  uploadImage,
+  deleteImage,
+  getImageUrl,
+} from "../../../api/cadminMasterMedicines";
 
 const ImageUploadModal = ({ isOpen, medicine, onClose, onImageUploaded }) => {
-  const [activeTab, setActiveTab] = useState("upload"); // 'upload' | 'url' | 'existing'
+  const [activeTab, setActiveTab] = useState("upload"); // 'upload' | 'url'
   const [images, setImages] = useState([]);
   const [urlInput, setUrlInput] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -28,11 +34,20 @@ const ImageUploadModal = ({ isOpen, medicine, onClose, onImageUploaded }) => {
   // Initialize with existing images
   useEffect(() => {
     if (isOpen && medicine) {
+      // Load images from medicine.images if available
       const existingImages = (medicine.images || []).map((img) => ({
-        ...img,
+        id: img.id || img.image_id,
+        url: getImageUrl(img.url),
+        type: img.type,
+        source: img.source,
+        isPrimary: img.type === "PRIMARY",
+        status: img.source === "UPLOADED" ? "VERIFIED" : "RAW",
         isNew: false,
         file: null,
+        uploadedBy: img.uploadedBy || img.uploaded_by,
+        uploadedAt: img.createdAt || img.created_at,
       }));
+
       setImages(existingImages);
       setUrlInput("");
       setError("");
@@ -200,33 +215,52 @@ const ImageUploadModal = ({ isOpen, medicine, onClose, onImageUploaded }) => {
     setIsUploading(true);
     setError("");
 
-    // Simulate upload delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Upload new images
+      const newImages = activeImages.filter((img) => img.isNew && img.file);
 
-    // Prepare final images
-    const finalImages = images.map((img) => ({
-      id: img.id,
-      url: img.url,
-      isPrimary: img.isPrimary,
-      status: img.status,
-      uploadedAt: img.uploadedAt,
-      uploadedBy: img.uploadedBy,
-    }));
+      for (const img of newImages) {
+        const type = img.isPrimary ? "PRIMARY" : "GALLERY";
+        const skuId = medicine.previewVariants?.[0]?.skuId || null;
+        await uploadImage(medicine.id, img.file, type, skuId);
+      }
 
-    // Determine new status
-    const hasVerified = finalImages.some((img) => img.status === "VERIFIED");
-    const newStatus = hasVerified ? IMAGE_STATUS.VERIFIED : IMAGE_STATUS.NONE;
+      // Delete removed images
+      const removedImages = (medicine.images || []).filter(
+        (orig) => !images.some((current) => current.id === orig.id)
+      );
 
-    onImageUploaded(medicine.id, finalImages, newStatus);
-    setIsUploading(false);
-    onClose();
+      for (const img of removedImages) {
+        try {
+          await deleteImage(img.id);
+        } catch (err) {
+          console.warn("Failed to delete image:", err);
+        }
+      }
+
+      onImageUploaded();
+      onClose();
+    } catch (err) {
+      console.error("Upload failed:", err);
+      setError("Failed to upload images. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const activeImages = images.filter((img) => img.status !== "DEPRECATED");
   const deprecatedImages = images.filter((img) => img.status === "DEPRECATED");
   const rawImages = images.filter((img) => img.status === "RAW");
 
-  const statusInfo = getImageStatusInfo(medicine.imageStatus);
+  // Compute status info
+  const computeCurrentStatus = () => {
+    if (activeImages.length === 0) return IMAGE_STATUS.NONE;
+    const hasVerified = activeImages.some((img) => img.status === "VERIFIED");
+    if (hasVerified) return IMAGE_STATUS.VERIFIED;
+    return IMAGE_STATUS.RAW;
+  };
+
+  const statusInfo = getImageStatusInfo(medicine.imageStatus || computeCurrentStatus());
 
   return (
     <div
@@ -240,8 +274,8 @@ const ImageUploadModal = ({ isOpen, medicine, onClose, onImageUploaded }) => {
                    animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex-shrink-0">
+        {/* Header - Blue Theme */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 flex-shrink-0">
           <div className="flex justify-between items-start">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
@@ -327,7 +361,7 @@ const ImageUploadModal = ({ isOpen, medicine, onClose, onImageUploaded }) => {
               onDrop={handleDrop}
               className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
                 dragActive
-                  ? "border-green-500 bg-green-50"
+                  ? "border-blue-500 bg-blue-50"
                   : "border-gray-300 bg-gray-50 hover:border-gray-400"
               }`}
             >
@@ -340,8 +374,8 @@ const ImageUploadModal = ({ isOpen, medicine, onClose, onImageUploaded }) => {
                 className="hidden"
               />
               <div className="flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                  <Upload size={28} className="text-green-600" />
+                <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+                  <Upload size={28} className="text-blue-600" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                   {dragActive ? "Drop images here" : "Drag & drop images"}
@@ -351,8 +385,8 @@ const ImageUploadModal = ({ isOpen, medicine, onClose, onImageUploaded }) => {
                 </p>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium
-                             hover:bg-green-700 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
+                             hover:bg-blue-700 transition-colors flex items-center gap-2"
                 >
                   <Plus size={16} />
                   Select Files
@@ -372,13 +406,13 @@ const ImageUploadModal = ({ isOpen, medicine, onClose, onImageUploaded }) => {
                   onChange={(e) => setUrlInput(e.target.value)}
                   placeholder="https://example.com/image.jpg"
                   className="flex-1 h-10 px-4 border border-gray-300 rounded-lg text-sm
-                             focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                             focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   onKeyDown={(e) => e.key === "Enter" && handleUrlAdd()}
                 />
                 <button
                   onClick={handleUrlAdd}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium
-                             hover:bg-green-700 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
+                             hover:bg-blue-700 transition-colors flex items-center gap-2"
                 >
                   <Plus size={16} />
                   Add
@@ -456,8 +490,8 @@ const ImageUploadModal = ({ isOpen, medicine, onClose, onImageUploaded }) => {
               <button
                 onClick={handleSave}
                 disabled={isUploading || activeImages.length === 0}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-medium
-                           flex items-center gap-2 hover:bg-green-700 transition-colors
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
+                           flex items-center gap-2 hover:bg-blue-700 transition-colors
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUploading ? (
@@ -492,16 +526,31 @@ const ImageCard = ({ image, onSetPrimary, onRemove, onDeprecate, isDeprecated = 
     <div
       className={`relative rounded-xl overflow-hidden border-2 ${
         image.isPrimary
-          ? "border-green-500 ring-2 ring-green-500/20"
+          ? "border-blue-500 ring-2 ring-blue-500/20"
           : "border-gray-200"
       }`}
     >
       {/* Image */}
       <div className="aspect-square bg-gray-100 flex items-center justify-center">
-        <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+        {image.url ? (
+          <img
+            src={image.url}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.style.display = "none";
+              if (e.target.nextSibling) {
+                e.target.nextSibling.style.display = "flex";
+              }
+            }}
+          />
+        ) : null}
+        <div
+          className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center"
+          style={{ display: image.url ? "none" : "flex" }}
+        >
           <ImageIcon size={32} className="text-gray-400" />
         </div>
-        {/* Would show actual image: <img src={image.url} alt="" className="w-full h-full object-cover" /> */}
       </div>
 
       {/* Status Badge */}
@@ -518,7 +567,7 @@ const ImageCard = ({ image, onSetPrimary, onRemove, onDeprecate, isDeprecated = 
       {/* Primary Badge */}
       {image.isPrimary && (
         <div className="absolute top-2 right-2">
-          <span className="px-1.5 py-0.5 rounded bg-green-500 text-[10px] font-bold text-white flex items-center gap-1">
+          <span className="px-1.5 py-0.5 rounded bg-blue-500 text-[10px] font-bold text-white flex items-center gap-1">
             <Star size={10} fill="currentColor" />
             PRIMARY
           </span>

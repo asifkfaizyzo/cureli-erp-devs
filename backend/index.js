@@ -36,6 +36,7 @@ import enquiriesRoutes from "./src/modules/enquiries/enquiries.routes.js";
 import maintenanceRoutes from "./src/modules/maintenance/maintenance.routes.js";
 import userNotificationRoutes from "./src/modules/notifications/user/userNotifications.routes.js";
 import filesRoutes from './src/modules/files/files.routes.js';
+import linkingRoutes from "./src/modules/medicines/linking.routes.js";
 // ═══════════════════════════════════════════════════════════
 // ROUTE IMPORTS - Pharmacy ERP (NEW)
 // ═══════════════════════════════════════════════════════════
@@ -278,6 +279,7 @@ app.use('/api/public', publicUnsubscribeRoutes);
 // API Routes - Pharmacy ERP (NEW ✅)
 // ============================================
 app.use("/api/medicines", medicineRoutes);
+app.use("/api/medicines/linking", linkingRoutes);
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/purchase", purchaseRoutes);
 app.use("/api/inventory", inventoryRoutes);

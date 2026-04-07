@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import Pagination from "../../../components/common/Pagination";
 import TableEmptyState from "../../../components/common/TableEmptyState";
-
+import StyledSelect from "../../../components/common/StyledSelect";
 const UnmappedTable = ({
   data = [],
   selectedIds = [],
@@ -34,7 +34,10 @@ const UnmappedTable = ({
   const [searchText, setSearchText] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({ key: "occurrenceCount", order: "desc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "occurrenceCount",
+    order: "desc",
+  });
   const rowsPerPage = 10;
 
   // Filter & Sort
@@ -47,7 +50,7 @@ const UnmappedTable = ({
       result = result.filter(
         (item) =>
           item.normalizedName.toLowerCase().includes(search) ||
-          item.sampleNames.some((name) => name.toLowerCase().includes(search))
+          item.sampleNames.some((name) => name.toLowerCase().includes(search)),
       );
     }
 
@@ -76,14 +79,24 @@ const UnmappedTable = ({
   const totalItems = filteredData.length;
 
   // Selection
-  const allSelected = paginatedData.length > 0 && paginatedData.every((item) => selectedIds.includes(item.id));
-  const someSelected = paginatedData.some((item) => selectedIds.includes(item.id));
+  const allSelected =
+    paginatedData.length > 0 &&
+    paginatedData.every((item) => selectedIds.includes(item.id));
+  const someSelected = paginatedData.some((item) =>
+    selectedIds.includes(item.id),
+  );
 
   const toggleSelectAll = () => {
     if (allSelected) {
-      onSelectionChange(selectedIds.filter((id) => !paginatedData.some((item) => item.id === id)));
+      onSelectionChange(
+        selectedIds.filter(
+          (id) => !paginatedData.some((item) => item.id === id),
+        ),
+      );
     } else {
-      const newIds = [...new Set([...selectedIds, ...paginatedData.map((item) => item.id)])];
+      const newIds = [
+        ...new Set([...selectedIds, ...paginatedData.map((item) => item.id)]),
+      ];
       onSelectionChange(newIds);
     }
   };
@@ -105,7 +118,8 @@ const UnmappedTable = ({
   };
 
   const SortIcon = ({ column }) => {
-    if (sortConfig.key !== column) return <ChevronDown size={14} className="text-gray-300" />;
+    if (sortConfig.key !== column)
+      return <ChevronDown size={14} className="text-gray-300" />;
     return sortConfig.order === "asc" ? (
       <ChevronUp size={14} className="text-indigo-600" />
     ) : (
@@ -120,7 +134,10 @@ const UnmappedTable = ({
         {/* Search & Filters */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
             <input
               type="text"
               placeholder="Search by name..."
@@ -139,15 +156,18 @@ const UnmappedTable = ({
             )}
           </div>
 
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="h-9 px-3 border border-gray-300 rounded-lg text-sm bg-white"
-          >
-            <option value="">All Types</option>
-            <option value="DRUG">Drug</option>
-            <option value="OTC">OTC</option>
-          </select>
+          <div className="w-40">
+            <StyledSelect
+              value={typeFilter}
+              onChange={setTypeFilter}
+              options={[
+                { value: "", label: "All Types" },
+                { value: "DRUG", label: "Drug" },
+                { value: "OTC", label: "OTC" },
+              ]}
+              placeholder="All Types"
+            />
+          </div>
 
           {selectedIds.length > 0 && (
             <button
@@ -175,7 +195,10 @@ const UnmappedTable = ({
             <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="w-12 px-4 py-3">
-                  <button onClick={toggleSelectAll} className="text-gray-400 hover:text-gray-600">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
                     {allSelected ? (
                       <CheckSquare size={18} className="text-indigo-600" />
                     ) : someSelected ? (
@@ -194,8 +217,12 @@ const UnmappedTable = ({
                     <SortIcon column="normalizedName" />
                   </button>
                 </th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600">Sample Names</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-600">Type</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                  Sample Names
+                </th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-600">
+                  Type
+                </th>
                 <th className="px-4 py-3 text-center font-semibold text-gray-600">
                   <button
                     onClick={() => handleSort("occurrenceCount")}
@@ -216,8 +243,12 @@ const UnmappedTable = ({
                     <SortIcon column="shopCount" />
                   </button>
                 </th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-600">Image</th>
-                <th className="px-4 py-3 text-right font-semibold text-gray-600">Actions</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-600">
+                  Image
+                </th>
+                <th className="px-4 py-3 text-right font-semibold text-gray-600">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -249,7 +280,10 @@ const UnmappedTable = ({
                     </button>
                   </td>
                   <td className="px-4 py-3">
-                    <SampleNamesCell names={item.sampleNames} onClick={() => onViewDetail(item)} />
+                    <SampleNamesCell
+                      names={item.sampleNames}
+                      onClick={() => onViewDetail(item)}
+                    />
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span
@@ -339,8 +373,13 @@ const SampleNamesCell = ({ names, onClick }) => {
   const remaining = names.length - 1;
 
   return (
-    <button onClick={onClick} className="flex items-center gap-2 text-left hover:text-indigo-600">
-      <span className="text-gray-700 truncate max-w-[200px]">{displayName}</span>
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2 text-left hover:text-indigo-600"
+    >
+      <span className="text-gray-700 truncate max-w-[200px]">
+        {displayName}
+      </span>
       {remaining > 0 && (
         <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full flex-shrink-0">
           +{remaining} more

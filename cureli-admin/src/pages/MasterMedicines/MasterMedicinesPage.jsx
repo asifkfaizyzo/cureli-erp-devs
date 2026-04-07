@@ -1,6 +1,6 @@
 // cadmin/src/pages/MasterMedicines/MasterMedicinesPage.jsx
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Pill,
   RefreshCw,
@@ -11,10 +11,13 @@ import {
   ImageOff,
   Image,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Components
+import MasterMedicineDetailModal from "./comps/MasterMedicineDetailModal";
+import VariantLinkedModal from "./comps/VariantLinkedModal";
 import MasterCatalogTable from "./comps/MasterCatalogTable";
 import UnmappedTable from "./comps/UnmappedTable";
 import ReviewTable from "./comps/ReviewTable";
@@ -26,14 +29,21 @@ import UnmappedDetailModal from "./comps/UnmappedDetailModal";
 import LinkedMedicinesModal from "./comps/LinkedMedicinesModal";
 import ImageUploadModal from "./comps/ImageUploadModal";
 
-// Mock Data
+// API
 import {
-  MOCK_MASTER_MEDICINES,
-  MOCK_UNMAPPED_MEDICINES,
-  MOCK_NEEDS_REVIEW,
+  getMasterMedicines,
+  getMasterMedicineById,
+  getMasterMedicineStats,
+  getUnmappedMedicines,
+  getNeedsReview,
+  getLinkedMedicines as fetchLinkedMedicines,
+  acceptReviewMatch,
+  rejectReviewMatch,
+  matchToMaster,
+  ignoreUnmapped,
+  unlinkMedicine as apiUnlinkMedicine,
   IMAGE_STATUS,
-  calculateStats,
-} from "./mockMasterMedicineDataV3";
+} from "../../api/cadminMasterMedicines";
 
 // Toast
 import { useToast } from "../../components/common/Toast";
@@ -47,17 +57,11 @@ const MAIN_SECTIONS = [
   { id: "images", label: "Images", icon: Image },
 ];
 
-// ═══════════════════════════════════════════════════════════════
-// SUB TABS FOR MAPPING SECTION
-// ═══════════════════════════════════════════════════════════════
 const MAPPING_TABS = [
   { id: "unmapped", label: "Unmapped", icon: LinkIcon },
   { id: "review", label: "Needs Review", icon: HelpCircle },
 ];
 
-// ═══════════════════════════════════════════════════════════════
-// SUB TABS FOR IMAGES SECTION
-// ═══════════════════════════════════════════════════════════════
 const IMAGE_TABS = [
   { id: "raw", label: "Raw Images", icon: AlertTriangle },
   { id: "none", label: "No Images", icon: ImageOff },
@@ -77,11 +81,58 @@ const MasterMedicinesPage = () => {
   const [activeImageTab, setActiveImageTab] = useState("raw");
 
   // ═══════════════════════════════════════════════════════════
-  // STATE - Data
+  // STATE - Loading
   // ═══════════════════════════════════════════════════════════
-  const [masterData, setMasterData] = useState(MOCK_MASTER_MEDICINES);
-  const [unmappedData, setUnmappedData] = useState(MOCK_UNMAPPED_MEDICINES);
-  const [reviewData, setReviewData] = useState(MOCK_NEEDS_REVIEW);
+  const [loading, setLoading] = useState({
+    stats: true,
+    catalog: false,
+    unmapped: false,
+    review: false,
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // STATE - Stats (from backend)
+  // ═══════════════════════════════════════════════════════════
+  const [stats, setStats] = useState({
+    totalMasters: 0,
+    totalVariants: 0,
+    verified: 0,
+    raw: 0,
+    none: 0,
+    totalLinked: 0,
+    unmapped: 0,
+    needsReview: 0,
+    drugs: 0,
+    otc: 0,
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // STATE - Catalog Data
+  // ═══════════════════════════════════════════════════════════
+  const [catalogData, setCatalogData] = useState([]);
+  const [catalogMeta, setCatalogMeta] = useState({ total: 0, page: 1, limit: 20, totalPages: 0 });
+  const [catalogFilters, setCatalogFilters] = useState({
+    search: "",
+    type: "",
+    form: "",
+    category: "",
+    page: 1,
+    limit: 20,
+    sort: "generic_name",
+    order: "asc",
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // STATE - Unmapped Data
+  // ═══════════════════════════════════════════════════════════
+  const [unmappedData, setUnmappedData] = useState([]);
+  const [unmappedMeta, setUnmappedMeta] = useState({ total: 0, page: 1, limit: 20, totalPages: 0 });
+
+  // ═══════════════════════════════════════════════════════════
+  // STATE - Review Data
+  // ═══════════════════════════════════════════════════════════
+  const [reviewData, setReviewData] = useState([]);
+  const [reviewMeta, setReviewMeta] = useState({ total: 0, page: 1, limit: 20, totalPages: 0 });
 
   // ═══════════════════════════════════════════════════════════
   // STATE - Modals
@@ -89,8 +140,10 @@ const MasterMedicinesPage = () => {
   const [matchModal, setMatchModal] = useState({ open: false, item: null, source: null });
   const [createModal, setCreateModal] = useState({ open: false, item: null });
   const [detailModal, setDetailModal] = useState({ open: false, item: null });
-  const [linkedModal, setLinkedModal] = useState({ open: false, medicine: null });
+  const [linkedModal, setLinkedModal] = useState({ open: false, medicine: null, linkedData: [] });
   const [imageModal, setImageModal] = useState({ open: false, medicine: null });
+  const [masterDetailModal, setMasterDetailModal] = useState({ open: false, medicine: null, linkedData: [] });
+  const [variantLinkedModal, setVariantLinkedModal] = useState({ open: false, variant: null, linkedData: [] });
 
   // ═══════════════════════════════════════════════════════════
   // STATE - Selection for Bulk Actions
@@ -101,22 +154,145 @@ const MasterMedicinesPage = () => {
   const [selectedNone, setSelectedNone] = useState([]);
 
   // ═══════════════════════════════════════════════════════════
-  // COMPUTED - Stats
-  // ═══════════════════════════════════════════════════════════
-  const stats = useMemo(() => {
-    return calculateStats(masterData, unmappedData, reviewData);
-  }, [masterData, unmappedData, reviewData]);
-
-  // ═══════════════════════════════════════════════════════════
-  // COMPUTED - Filtered Data for Image Tabs
+  // COMPUTED - Image-filtered catalog data
   // ═══════════════════════════════════════════════════════════
   const rawImageMedicines = useMemo(() => {
-    return masterData.filter((m) => m.imageStatus === IMAGE_STATUS.RAW);
-  }, [masterData]);
+    return catalogData.filter((m) => m.imageStatus === IMAGE_STATUS.RAW);
+  }, [catalogData]);
 
   const noImageMedicines = useMemo(() => {
-    return masterData.filter((m) => m.imageStatus === IMAGE_STATUS.NONE);
-  }, [masterData]);
+    return catalogData.filter((m) => m.imageStatus === IMAGE_STATUS.NONE);
+  }, [catalogData]);
+
+  // ═══════════════════════════════════════════════════════════
+  // DATA LOADING - Stats
+  // ═══════════════════════════════════════════════════════════
+  const loadStats = useCallback(async () => {
+    try {
+      setLoading((prev) => ({ ...prev, stats: true }));
+      const res = await getMasterMedicineStats();
+      const data = res.data?.data;
+
+      if (data) {
+        setStats({
+          totalMasters: data.overview?.totalMasters || 0,
+          totalVariants: data.overview?.totalVariants || 0,
+          verified: data.byImageStatus?.verified || 0,
+          raw: data.byImageStatus?.raw || 0,
+          none: data.byImageStatus?.none || 0,
+          totalLinked: 0,
+          unmapped: 0,
+          needsReview: 0,
+          drugs: data.byType?.drug || 0,
+          otc: data.byType?.otc || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load stats:", error);
+    } finally {
+      setLoading((prev) => ({ ...prev, stats: false }));
+    }
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════
+  // DATA LOADING - Catalog
+  // ═══════════════════════════════════════════════════════════
+  const loadCatalog = useCallback(async (filters = catalogFilters) => {
+    try {
+      setLoading((prev) => ({ ...prev, catalog: true }));
+      const res = await getMasterMedicines(filters);
+      const data = res.data?.data;
+
+      if (data) {
+        const transformed = data.medicines.map((med) => ({
+          id: med.id,
+          masterKey: med.masterKey,
+          name: med.genericName,
+          genericName: med.genericName,
+          normalizedName: med.masterKey,
+          composition: Array.isArray(med.composition)
+            ? med.composition.map((c) => c.name).join(" + ")
+            : med.composition || "N/A",
+          type: med.type,
+          form: med.form,
+          manufacturer: med.previewVariants?.[0]?.manufacturer || med.previewVariants?.[0]?.marketer || "N/A",
+          marketer: med.previewVariants?.[0]?.marketer || null,
+          packSize: med.previewVariants?.[0]?.packSize || "N/A",
+          prescriptionRequired: med.prescriptionRequired,
+          primaryCategory: med.primaryCategory,
+          isActive: true,
+          variantCount: med.variantCount,
+          priceRange: med.priceRange,
+          imageStatus: med.imageStatus,
+          primaryImage: med.primaryImage,
+          previewVariants: med.previewVariants || [],
+          linkedMedicines: [],
+          createdAt: med.createdAt,
+          updatedAt: med.updatedAt,
+        }));
+
+        setCatalogData(transformed);
+        setCatalogMeta(data.meta);
+      }
+    } catch (error) {
+      console.error("Failed to load catalog:", error);
+      toast.error("Load Failed", "Failed to fetch master catalog");
+    } finally {
+      setLoading((prev) => ({ ...prev, catalog: false }));
+    }
+  }, [catalogFilters, toast]);
+
+  // ═══════════════════════════════════════════════════════════
+  // DATA LOADING - Unmapped
+  // ═══════════════════════════════════════════════════════════
+  const loadUnmapped = useCallback(async () => {
+    try {
+      setLoading((prev) => ({ ...prev, unmapped: true }));
+      const res = await getUnmappedMedicines({ page: 1, limit: 100 });
+      const data = res.data?.data;
+
+      if (data) {
+        setUnmappedData(data.unmapped || []);
+        setUnmappedMeta(data.meta || { total: 0, page: 1, limit: 20, totalPages: 0 });
+        setStats((prev) => ({ ...prev, unmapped: data.meta?.total || 0 }));
+      }
+    } catch (error) {
+      console.error("Failed to load unmapped:", error);
+    } finally {
+      setLoading((prev) => ({ ...prev, unmapped: false }));
+    }
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════
+  // DATA LOADING - Review
+  // ═══════════════════════════════════════════════════════════
+  const loadReview = useCallback(async () => {
+    try {
+      setLoading((prev) => ({ ...prev, review: true }));
+      const res = await getNeedsReview({ page: 1, limit: 100 });
+      const data = res.data?.data;
+
+      if (data) {
+        setReviewData(data.reviewItems || []);
+        setReviewMeta(data.meta || { total: 0, page: 1, limit: 20, totalPages: 0 });
+        setStats((prev) => ({ ...prev, needsReview: data.meta?.total || 0 }));
+      }
+    } catch (error) {
+      console.error("Failed to load review:", error);
+    } finally {
+      setLoading((prev) => ({ ...prev, review: false }));
+    }
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════
+  // INITIAL DATA LOAD
+  // ═══════════════════════════════════════════════════════════
+  useEffect(() => {
+    loadStats();
+    loadCatalog();
+    loadUnmapped();
+    loadReview();
+  }, []); // eslint-disable-line
 
   // ═══════════════════════════════════════════════════════════
   // HANDLERS - Unmapped Actions
@@ -130,9 +306,16 @@ const MasterMedicinesPage = () => {
   }, []);
 
   const handleIgnoreUnmapped = useCallback(
-    (item) => {
-      setUnmappedData((prev) => prev.filter((u) => u.id !== item.id));
-      toast.success("Item Ignored", `"${item.normalizedName}" has been ignored.`);
+    async (item) => {
+      try {
+        await ignoreUnmapped(item.medicineIds || []);
+        setUnmappedData((prev) => prev.filter((u) => u.id !== item.id));
+        setStats((prev) => ({ ...prev, unmapped: Math.max(0, prev.unmapped - 1) }));
+        toast.success("Item Ignored", `"${item.normalizedName}" has been ignored.`);
+      } catch (error) {
+        console.error("Failed to ignore:", error);
+        toast.error("Failed", "Could not ignore item");
+      }
     },
     [toast]
   );
@@ -145,36 +328,22 @@ const MasterMedicinesPage = () => {
   // HANDLERS - Review Actions
   // ═══════════════════════════════════════════════════════════
   const handleAcceptMatch = useCallback(
-    (item) => {
-      // Find the suggested master and add this as a linked medicine
-      const masterIndex = masterData.findIndex((m) => m.id === item.suggestedMaster.id);
-      
-      if (masterIndex !== -1) {
-        const updatedMasters = [...masterData];
-        const newLinked = {
-          id: `lm-new-${Date.now()}`,
-          originalName: item.rawName,
-          normalizedName: item.normalizedRaw,
-          shopId: item.shopId,
-          shopName: item.shopName,
-          occurrenceCount: item.occurrenceCount,
-          linkedAt: new Date().toISOString(),
-          linkedBy: "Admin User",
-        };
-        
-        updatedMasters[masterIndex] = {
-          ...updatedMasters[masterIndex],
-          linkedMedicines: [...(updatedMasters[masterIndex].linkedMedicines || []), newLinked],
-          updatedAt: new Date().toISOString(),
-        };
-        
-        setMasterData(updatedMasters);
+    async (item) => {
+      try {
+        await acceptReviewMatch(item.id);
+        setReviewData((prev) => prev.filter((r) => r.id !== item.id));
+        setStats((prev) => ({
+          ...prev,
+          needsReview: Math.max(0, prev.needsReview - 1),
+          totalLinked: prev.totalLinked + 1,
+        }));
+        toast.success("Match Accepted", `"${item.rawName}" linked to "${item.suggestedMaster.name}"`);
+      } catch (error) {
+        console.error("Failed to accept match:", error);
+        toast.error("Failed", "Could not accept match");
       }
-
-      setReviewData((prev) => prev.filter((r) => r.id !== item.id));
-      toast.success("Match Accepted", `"${item.rawName}" linked to "${item.suggestedMaster.name}"`);
     },
-    [masterData, toast]
+    [toast]
   );
 
   const handleChangeMatch = useCallback((item) => {
@@ -182,25 +351,23 @@ const MasterMedicinesPage = () => {
   }, []);
 
   const handleRejectMatch = useCallback(
-    (item) => {
-      const newUnmapped = {
-        id: `um-new-${Date.now()}`,
-        normalizedName: item.normalizedRaw,
-        sampleNames: [item.rawName],
-        occurrenceCount: item.occurrenceCount,
-        shopCount: 1,
-        type: item.suggestedMaster.type,
-        hasImageSuggestion: false,
-        firstSeenAt: item.firstSeenAt,
-        lastSeenAt: new Date().toISOString(),
-        shops: [{ id: item.shopId, name: item.shopName, count: item.occurrenceCount }],
-      };
-
-      setUnmappedData((prev) => [newUnmapped, ...prev]);
-      setReviewData((prev) => prev.filter((r) => r.id !== item.id));
-      toast.info("Match Rejected", `"${item.rawName}" moved to Unmapped`);
+    async (item) => {
+      try {
+        await rejectReviewMatch(item.id);
+        setReviewData((prev) => prev.filter((r) => r.id !== item.id));
+        setStats((prev) => ({
+          ...prev,
+          needsReview: Math.max(0, prev.needsReview - 1),
+          unmapped: prev.unmapped + 1,
+        }));
+        loadUnmapped();
+        toast.info("Match Rejected", `"${item.rawName}" moved to Unmapped`);
+      } catch (error) {
+        console.error("Failed to reject match:", error);
+        toast.error("Failed", "Could not reject match");
+      }
     },
-    [toast]
+    [toast, loadUnmapped]
   );
 
   // ═══════════════════════════════════════════════════════════
@@ -208,214 +375,240 @@ const MasterMedicinesPage = () => {
   // ═══════════════════════════════════════════════════════════
   const handleUploadImage = useCallback((medicine) => {
     setImageModal({ open: true, medicine });
-  }, []);
+    // Close master detail modal if open
+    if (masterDetailModal.open) {
+      setMasterDetailModal((prev) => ({ ...prev, open: false }));
+    }
+  }, [masterDetailModal.open]);
 
-  const handleImageUploaded = useCallback(
-    (medicineId, newImages, newStatus) => {
-      setMasterData((prev) =>
-        prev.map((m) =>
-          m.id === medicineId
-            ? {
-                ...m,
-                images: newImages,
-                imageStatus: newStatus,
-                updatedAt: new Date().toISOString(),
-              }
-            : m
-        )
-      );
-      toast.success("Image Updated", "Medicine image has been updated successfully");
+  const handleImageUploaded = useCallback(() => {
+    loadCatalog();
+    loadStats();
+    toast.success("Image Updated", "Medicine image has been updated successfully");
+
+    // Refresh detail modal if it was open
+    if (masterDetailModal.medicine) {
+      handleViewMasterDetail(masterDetailModal.medicine);
+    }
+  }, [loadCatalog, loadStats, toast, masterDetailModal.medicine]); // eslint-disable-line
+
+  // ═══════════════════════════════════════════════════════════
+  // HANDLERS - Linked Medicines
+  // ═══════════════════════════════════════════════════════════
+  const handleViewLinked = useCallback(
+    async (medicine) => {
+      try {
+        const res = await fetchLinkedMedicines(medicine.id);
+        const linked = res.data?.data || [];
+        setLinkedModal({ open: true, medicine, linkedData: linked });
+      } catch (error) {
+        console.error("Failed to load linked:", error);
+        toast.error("Failed", "Could not load linked medicines");
+      }
+    },
+    [toast]
+  );
+
+  const handleUnlinkMedicine = useCallback(
+    async (masterId, linkedId) => {
+      try {
+        await apiUnlinkMedicine(linkedId);
+        setLinkedModal((prev) => ({
+          ...prev,
+          linkedData: prev.linkedData.filter((lm) => lm.id !== linkedId),
+        }));
+        setStats((prev) => ({ ...prev, totalLinked: Math.max(0, prev.totalLinked - 1) }));
+        toast.success("Medicine Unlinked", "Shop medicine has been unlinked");
+      } catch (error) {
+        console.error("Failed to unlink:", error);
+        toast.error("Failed", "Could not unlink medicine");
+      }
     },
     [toast]
   );
 
   // ═══════════════════════════════════════════════════════════
-  // HANDLERS - Linked Medicines
+  // HANDLERS - Master Detail Modal
   // ═══════════════════════════════════════════════════════════
-  const handleViewLinked = useCallback((medicine) => {
-    setLinkedModal({ open: true, medicine });
-  }, []);
+  const handleViewMasterDetail = useCallback(
+    async (medicine) => {
+      try {
+        // Fetch full details
+        const res = await getMasterMedicineById(medicine.id);
+        const fullMedicine = res.data?.data;
 
-  const handleUnlinkMedicine = useCallback(
-    (masterId, linkedId) => {
-      setMasterData((prev) =>
-        prev.map((m) =>
-          m.id === masterId
-            ? {
-                ...m,
-                linkedMedicines: m.linkedMedicines.filter((lm) => lm.id !== linkedId),
-                updatedAt: new Date().toISOString(),
-              }
-            : m
-        )
-      );
-      toast.success("Medicine Unlinked", "Shop medicine has been unlinked");
+        if (!fullMedicine) {
+          toast.error("Not Found", "Medicine details not found");
+          return;
+        }
+
+        // Fetch linked medicines
+        const linkedRes = await fetchLinkedMedicines(medicine.id);
+        const linked = linkedRes.data?.data || [];
+
+        setMasterDetailModal({ open: true, medicine: fullMedicine, linkedData: linked });
+      } catch (error) {
+        console.error("Failed to load medicine details:", error);
+        toast.error("Failed", "Could not load medicine details");
+      }
     },
     [toast]
+  );
+
+  const handleViewVariantLinked = useCallback(
+    async (variant) => {
+      try {
+        // Filter from master's linked data for this variant
+        const variantLinked = masterDetailModal.linkedData.filter(
+          (linked) => linked.skuId === variant.skuId
+        );
+
+        setVariantLinkedModal({ open: true, variant, linkedData: variantLinked });
+      } catch (error) {
+        console.error("Failed to load variant linked:", error);
+        toast.error("Failed", "Could not load linked medicines");
+      }
+    },
+    [masterDetailModal.linkedData, toast]
   );
 
   // ═══════════════════════════════════════════════════════════
   // HANDLERS - Modal Confirmations
   // ═══════════════════════════════════════════════════════════
   const handleConfirmMatch = useCallback(
-    (selectedMaster) => {
+    async (selectedMaster) => {
       const { item, source } = matchModal;
 
-      const newLinked = {
-        id: `lm-new-${Date.now()}`,
-        originalName: source === "unmapped" ? item.sampleNames[0] : item.rawName,
-        normalizedName: source === "unmapped" ? item.normalizedName : item.normalizedRaw,
-        shopId: source === "unmapped" ? item.shops[0]?.id : item.shopId,
-        shopName: source === "unmapped" ? item.shops[0]?.name : item.shopName,
-        occurrenceCount: item.occurrenceCount,
-        linkedAt: new Date().toISOString(),
-        linkedBy: "Admin User",
-      };
+      try {
+        const medicineIds =
+          source === "unmapped"
+            ? item.medicineIds || []
+            : [item.id];
 
-      setMasterData((prev) =>
-        prev.map((m) =>
-          m.id === selectedMaster.id
-            ? {
-                ...m,
-                linkedMedicines: [...(m.linkedMedicines || []), newLinked],
-                updatedAt: new Date().toISOString(),
-              }
-            : m
-        )
-      );
+        await matchToMaster(medicineIds, selectedMaster.id);
 
-      if (source === "unmapped") {
-        setUnmappedData((prev) => prev.filter((u) => u.id !== item.id));
-      } else {
-        setReviewData((prev) => prev.filter((r) => r.id !== item.id));
+        if (source === "unmapped") {
+          setUnmappedData((prev) => prev.filter((u) => u.id !== item.id));
+          setStats((prev) => ({ ...prev, unmapped: Math.max(0, prev.unmapped - 1) }));
+        } else {
+          setReviewData((prev) => prev.filter((r) => r.id !== item.id));
+          setStats((prev) => ({ ...prev, needsReview: Math.max(0, prev.needsReview - 1) }));
+        }
+
+        setStats((prev) => ({ ...prev, totalLinked: prev.totalLinked + medicineIds.length }));
+        setMatchModal({ open: false, item: null, source: null });
+        toast.success("Medicine Mapped", `Successfully mapped to "${selectedMaster.genericName || selectedMaster.name}"`);
+      } catch (error) {
+        console.error("Failed to match:", error);
+        toast.error("Failed", "Could not complete the match");
       }
-
-      setMatchModal({ open: false, item: null, source: null });
-      toast.success("Medicine Mapped", `Successfully mapped to "${selectedMaster.name}"`);
     },
     [matchModal, toast]
   );
 
   const handleConfirmCreate = useCallback(
     (newMedicine) => {
-      const { item } = createModal;
-
-      const created = {
-        id: `mm-new-${Date.now()}`,
-        name: newMedicine.name,
-        normalizedName: newMedicine.name.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim(),
-        composition: newMedicine.composition || "N/A",
-        type: newMedicine.type,
-        manufacturer: newMedicine.manufacturer,
-        marketer: newMedicine.marketer || newMedicine.manufacturer,
-        packSize: newMedicine.packSize || "N/A",
-        prescriptionRequired: newMedicine.prescriptionRequired || false,
-        isActive: true,
-        imageStatus: IMAGE_STATUS.NONE,
-        images: [],
-        linkedMedicines: [
-          {
-            id: `lm-new-${Date.now()}`,
-            originalName: item.sampleNames[0],
-            normalizedName: item.normalizedName,
-            shopId: item.shops[0]?.id,
-            shopName: item.shops[0]?.name,
-            occurrenceCount: item.occurrenceCount,
-            linkedAt: new Date().toISOString(),
-            linkedBy: "Admin User",
-          },
-        ],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setMasterData((prev) => [created, ...prev]);
-      setUnmappedData((prev) => prev.filter((u) => u.id !== item.id));
-
       setCreateModal({ open: false, item: null });
+      loadCatalog();
+      loadUnmapped();
       toast.success("Medicine Created", `"${newMedicine.name}" added to Master Catalog`);
     },
-    [createModal, toast]
+    [loadCatalog, loadUnmapped, toast]
   );
 
   // ═══════════════════════════════════════════════════════════
   // HANDLERS - Bulk Actions
   // ═══════════════════════════════════════════════════════════
-  const handleBulkIgnoreUnmapped = useCallback(() => {
+  const handleBulkIgnoreUnmapped = useCallback(async () => {
     if (selectedUnmapped.length === 0) return;
-    setUnmappedData((prev) => prev.filter((u) => !selectedUnmapped.includes(u.id)));
-    setSelectedUnmapped([]);
-    toast.success("Bulk Ignore", `${selectedUnmapped.length} item(s) have been ignored`);
-  }, [selectedUnmapped, toast]);
 
-  const handleBulkAcceptReview = useCallback(() => {
+    try {
+      const allMedicineIds = unmappedData
+        .filter((u) => selectedUnmapped.includes(u.id))
+        .flatMap((u) => u.medicineIds || []);
+
+      await ignoreUnmapped(allMedicineIds);
+      setUnmappedData((prev) => prev.filter((u) => !selectedUnmapped.includes(u.id)));
+      setStats((prev) => ({ ...prev, unmapped: Math.max(0, prev.unmapped - selectedUnmapped.length) }));
+      setSelectedUnmapped([]);
+      toast.success("Bulk Ignore", `${selectedUnmapped.length} item(s) have been ignored`);
+    } catch (error) {
+      console.error("Failed to bulk ignore:", error);
+      toast.error("Failed", "Could not ignore selected items");
+    }
+  }, [selectedUnmapped, unmappedData, toast]);
+
+  const handleBulkAcceptReview = useCallback(async () => {
     if (selectedReview.length === 0) return;
 
-    const itemsToAccept = reviewData.filter((r) => selectedReview.includes(r.id));
-    
-    const updatedMasters = [...masterData];
-    itemsToAccept.forEach((item) => {
-      const masterIndex = updatedMasters.findIndex((m) => m.id === item.suggestedMaster.id);
-      if (masterIndex !== -1) {
-        const newLinked = {
-          id: `lm-new-${Date.now()}-${item.id}`,
-          originalName: item.rawName,
-          normalizedName: item.normalizedRaw,
-          shopId: item.shopId,
-          shopName: item.shopName,
-          occurrenceCount: item.occurrenceCount,
-          linkedAt: new Date().toISOString(),
-          linkedBy: "Admin User",
-        };
-        updatedMasters[masterIndex].linkedMedicines = [
-          ...(updatedMasters[masterIndex].linkedMedicines || []),
-          newLinked,
-        ];
+    try {
+      let successCount = 0;
+      for (const id of selectedReview) {
+        try {
+          await acceptReviewMatch(id);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to accept ${id}:`, err);
+        }
       }
-    });
 
-    setMasterData(updatedMasters);
-    setReviewData((prev) => prev.filter((r) => !selectedReview.includes(r.id)));
-    setSelectedReview([]);
-    toast.success("Bulk Accept", `${itemsToAccept.length} match(es) have been accepted`);
-  }, [selectedReview, reviewData, masterData, toast]);
+      setReviewData((prev) => prev.filter((r) => !selectedReview.includes(r.id)));
+      setStats((prev) => ({
+        ...prev,
+        needsReview: Math.max(0, prev.needsReview - successCount),
+        totalLinked: prev.totalLinked + successCount,
+      }));
+      setSelectedReview([]);
+      toast.success("Bulk Accept", `${successCount} match(es) have been accepted`);
+    } catch (error) {
+      console.error("Failed to bulk accept:", error);
+      toast.error("Failed", "Could not accept selected items");
+    }
+  }, [selectedReview, toast]);
 
-  const handleBulkRejectReview = useCallback(() => {
+  const handleBulkRejectReview = useCallback(async () => {
     if (selectedReview.length === 0) return;
 
-    const itemsToReject = reviewData.filter((r) => selectedReview.includes(r.id));
-    const newUnmapped = itemsToReject.map((item) => ({
-      id: `um-new-${Date.now()}-${item.id}`,
-      normalizedName: item.normalizedRaw,
-      sampleNames: [item.rawName],
-      occurrenceCount: item.occurrenceCount,
-      shopCount: 1,
-      type: item.suggestedMaster.type,
-      hasImageSuggestion: false,
-      firstSeenAt: item.firstSeenAt,
-      lastSeenAt: new Date().toISOString(),
-      shops: [{ id: item.shopId, name: item.shopName, count: item.occurrenceCount }],
-    }));
+    try {
+      let successCount = 0;
+      for (const id of selectedReview) {
+        try {
+          await rejectReviewMatch(id);
+          successCount++;
+        } catch (err) {
+          console.error(`Failed to reject ${id}:`, err);
+        }
+      }
 
-    setUnmappedData((prev) => [...newUnmapped, ...prev]);
-    setReviewData((prev) => prev.filter((r) => !selectedReview.includes(r.id)));
-    setSelectedReview([]);
-    toast.info("Bulk Reject", `${itemsToReject.length} item(s) moved to Unmapped`);
-  }, [selectedReview, reviewData, toast]);
+      setReviewData((prev) => prev.filter((r) => !selectedReview.includes(r.id)));
+      setStats((prev) => ({
+        ...prev,
+        needsReview: Math.max(0, prev.needsReview - successCount),
+        unmapped: prev.unmapped + successCount,
+      }));
+      setSelectedReview([]);
+      loadUnmapped();
+      toast.info("Bulk Reject", `${successCount} item(s) moved to Unmapped`);
+    } catch (error) {
+      console.error("Failed to bulk reject:", error);
+      toast.error("Failed", "Could not reject selected items");
+    }
+  }, [selectedReview, toast, loadUnmapped]);
 
   // ═══════════════════════════════════════════════════════════
   // HANDLERS - Refresh
   // ═══════════════════════════════════════════════════════════
   const handleRefresh = useCallback(() => {
-    setMasterData(MOCK_MASTER_MEDICINES);
-    setUnmappedData(MOCK_UNMAPPED_MEDICINES);
-    setReviewData(MOCK_NEEDS_REVIEW);
     setSelectedUnmapped([]);
     setSelectedReview([]);
     setSelectedRaw([]);
     setSelectedNone([]);
-    toast.info("Data Refreshed", "All data has been reset to original state");
-  }, [toast]);
+    loadStats();
+    loadCatalog();
+    loadUnmapped();
+    loadReview();
+    toast.info("Data Refreshed", "All data has been reloaded from server");
+  }, [loadStats, loadCatalog, loadUnmapped, loadReview, toast]);
 
   // ═══════════════════════════════════════════════════════════
   // RENDER - Current Active Content
@@ -424,10 +617,16 @@ const MasterMedicinesPage = () => {
     if (activeSection === "catalog") {
       return (
         <MasterCatalogTable
-          medicines={masterData}
+          medicines={catalogData}
+          meta={catalogMeta}
           onViewLinked={handleViewLinked}
           onUploadImage={handleUploadImage}
-          loading={false}
+          loading={loading.catalog}
+          onFiltersChange={(newFilters) => {
+            setCatalogFilters(newFilters);
+            loadCatalog(newFilters);
+          }}
+          onRowClick={handleViewMasterDetail}
         />
       );
     }
@@ -444,6 +643,7 @@ const MasterMedicinesPage = () => {
             onIgnore={handleIgnoreUnmapped}
             onViewDetail={handleViewUnmappedDetail}
             onBulkIgnore={handleBulkIgnoreUnmapped}
+            loading={loading.unmapped}
           />
         );
       } else {
@@ -457,6 +657,7 @@ const MasterMedicinesPage = () => {
             onReject={handleRejectMatch}
             onBulkAccept={handleBulkAcceptReview}
             onBulkReject={handleBulkRejectReview}
+            loading={loading.review}
           />
         );
       }
@@ -492,9 +693,7 @@ const MasterMedicinesPage = () => {
   // ═══════════════════════════════════════════════════════════
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
-      {/* ═══════════════════════════════════════════════════════
-          HEADER
-      ═══════════════════════════════════════════════════════ */}
+      {/* HEADER */}
       <div className="flex-shrink-0 flex flex-col gap-3">
         {/* Title Row */}
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -504,44 +703,47 @@ const MasterMedicinesPage = () => {
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-gray-900 truncate">
-                Master Medicine Catalog V3
+                Master Medicine Catalog
               </h1>
               <p className="text-sm text-gray-500">
-                Comprehensive medicine data management with image control
+                Global medicine database with image and mapping management
               </p>
             </div>
           </div>
 
           <button
             onClick={handleRefresh}
+            disabled={loading.stats || loading.catalog}
             className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
-                       hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2"
+                       hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
+                       disabled:opacity-50"
           >
-            <RefreshCw size={16} />
-            <span className="hidden sm:inline">Reset Data</span>
+            {loading.stats || loading.catalog ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <RefreshCw size={16} />
+            )}
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
 
         {/* Stats Row */}
         <div className="flex items-center gap-3 flex-wrap">
-          <StatBadge icon={Package} label="Total Masters" value={stats.totalMasters} color="gray" />
+          <StatBadge icon={Package} label="Masters" value={stats.totalMasters} color="gray" />
           <StatBadge icon={CheckCircle2} label="Verified" value={stats.verified} color="green" />
           <StatBadge icon={AlertTriangle} label="Raw" value={stats.raw} color="amber" />
           <StatBadge icon={ImageOff} label="No Image" value={stats.none} color="red" />
           <div className="h-6 w-px bg-gray-300 hidden md:block" />
-          <StatBadge icon={LinkIcon} label="Linked" value={stats.totalLinked} color="blue" />
           <StatBadge icon={LinkIcon} label="Unmapped" value={stats.unmapped} color="orange" />
           <StatBadge icon={HelpCircle} label="Review" value={stats.needsReview} color="yellow" />
         </div>
 
-        {/* ═══════════════════════════════════════════════════════
-            MAIN SECTION TABS
-        ═══════════════════════════════════════════════════════ */}
+        {/* MAIN SECTION TABS */}
         <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl w-fit">
           {MAIN_SECTIONS.map((section) => {
             const Icon = section.icon;
             const isActive = activeSection === section.id;
-            
+
             let count = 0;
             if (section.id === "catalog") count = stats.totalMasters;
             if (section.id === "mapping") count = stats.unmapped + stats.needsReview;
@@ -554,25 +756,17 @@ const MasterMedicinesPage = () => {
                 className={`
                   relative px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2
                   transition-all duration-200
-                  ${
-                    isActive
-                      ? "bg-white text-[#000060] shadow-sm"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                  ${isActive
+                    ? "bg-white text-[#000060] shadow-sm"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
                   }
                 `}
               >
                 <Icon size={16} />
                 {section.label}
-                <span
-                  className={`
-                    px-2 py-0.5 rounded-full text-xs font-semibold
-                    ${
-                      isActive
-                        ? "bg-[#000060] text-white"
-                        : "bg-gray-200 text-gray-600"
-                    }
-                  `}
-                >
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  isActive ? "bg-[#000060] text-white" : "bg-gray-200 text-gray-600"
+                }`}>
                   {count}
                 </span>
                 {section.id === "mapping" && count > 0 && (
@@ -586,9 +780,7 @@ const MasterMedicinesPage = () => {
           })}
         </div>
 
-        {/* ═══════════════════════════════════════════════════════
-            SUB TABS (Conditional)
-        ═══════════════════════════════════════════════════════ */}
+        {/* SUB TABS */}
         {activeSection === "mapping" && (
           <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-lg w-fit border border-gray-200">
             {MAPPING_TABS.map((tab) => {
@@ -600,24 +792,16 @@ const MasterMedicinesPage = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveMappingTab(tab.id)}
-                  className={`
-                    px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2
-                    transition-all duration-200
-                    ${
-                      isActive
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }
-                  `}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2
+                    transition-all duration-200 ${
+                    isActive ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                  }`}
                 >
                   <Icon size={14} />
                   {tab.label}
-                  <span
-                    className={`
-                      px-1.5 py-0.5 rounded-full text-xs font-bold
-                      ${isActive ? "bg-indigo-100 text-indigo-700" : "bg-gray-200 text-gray-600"}
-                    `}
-                  >
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                    isActive ? "bg-indigo-100 text-indigo-700" : "bg-gray-200 text-gray-600"
+                  }`}>
                     {count}
                   </span>
                 </button>
@@ -637,24 +821,16 @@ const MasterMedicinesPage = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveImageTab(tab.id)}
-                  className={`
-                    px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2
-                    transition-all duration-200
-                    ${
-                      isActive
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }
-                  `}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2
+                    transition-all duration-200 ${
+                    isActive ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                  }`}
                 >
                   <Icon size={14} />
                   {tab.label}
-                  <span
-                    className={`
-                      px-1.5 py-0.5 rounded-full text-xs font-bold
-                      ${isActive ? "bg-indigo-100 text-indigo-700" : "bg-gray-200 text-gray-600"}
-                    `}
-                  >
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                    isActive ? "bg-indigo-100 text-indigo-700" : "bg-gray-200 text-gray-600"
+                  }`}>
                     {count}
                   </span>
                 </button>
@@ -664,9 +840,7 @@ const MasterMedicinesPage = () => {
         )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════
-          CONTENT AREA
-      ═══════════════════════════════════════════════════════ */}
+      {/* CONTENT AREA */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
@@ -682,14 +856,11 @@ const MasterMedicinesPage = () => {
         </AnimatePresence>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════
-          MODALS
-      ═══════════════════════════════════════════════════════ */}
+      {/* MODALS */}
       <MatchMedicineModal
         isOpen={matchModal.open}
         item={matchModal.item}
         source={matchModal.source}
-        masterMedicines={masterData}
         onClose={() => setMatchModal({ open: false, item: null, source: null })}
         onConfirm={handleConfirmMatch}
       />
@@ -718,7 +889,8 @@ const MasterMedicinesPage = () => {
       <LinkedMedicinesModal
         isOpen={linkedModal.open}
         medicine={linkedModal.medicine}
-        onClose={() => setLinkedModal({ open: false, medicine: null })}
+        linkedData={linkedModal.linkedData}
+        onClose={() => setLinkedModal({ open: false, medicine: null, linkedData: [] })}
         onUnlink={handleUnlinkMedicine}
       />
 
@@ -727,6 +899,30 @@ const MasterMedicinesPage = () => {
         medicine={imageModal.medicine}
         onClose={() => setImageModal({ open: false, medicine: null })}
         onImageUploaded={handleImageUploaded}
+      />
+
+      <MasterMedicineDetailModal
+        isOpen={masterDetailModal.open}
+        medicine={masterDetailModal.medicine}
+        linkedData={masterDetailModal.linkedData}
+        onClose={() => setMasterDetailModal({ open: false, medicine: null, linkedData: [] })}
+        onUploadImage={handleUploadImage}
+        onViewVariantLinked={handleViewVariantLinked}
+        onEdit={(medicine) => {
+          // TODO: Implement edit functionality
+          console.log("Edit medicine:", medicine);
+        }}
+        onDelete={(medicine) => {
+          // TODO: Implement delete functionality
+          console.log("Delete medicine:", medicine);
+        }}
+      />
+
+      <VariantLinkedModal
+        isOpen={variantLinkedModal.open}
+        variant={variantLinkedModal.variant}
+        linkedData={variantLinkedModal.linkedData}
+        onClose={() => setVariantLinkedModal({ open: false, variant: null, linkedData: [] })}
       />
     </div>
   );
@@ -747,9 +943,7 @@ const StatBadge = ({ icon: Icon, label, value, color }) => {
   };
 
   return (
-    <div
-      className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 ${colorClasses[color]}`}
-    >
+    <div className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 ${colorClasses[color]}`}>
       <Icon size={14} />
       <span>{label}:</span>
       <span className="font-bold">{value}</span>

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import Pagination from "../../../components/common/Pagination";
 import TableEmptyState from "../../../components/common/TableEmptyState";
-
+import StyledSelect from "../../../components/common/StyledSelect";
 const NoImagesTable = ({
   medicines = [],
   selectedIds = [],
@@ -27,7 +27,10 @@ const NoImagesTable = ({
   const [searchText, setSearchText] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({ key: "updatedAt", order: "desc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "updatedAt",
+    order: "desc",
+  });
   const rowsPerPage = 10;
 
   // Filter & Sort
@@ -39,7 +42,7 @@ const NoImagesTable = ({
       result = result.filter(
         (med) =>
           med.name?.toLowerCase().includes(search) ||
-          med.manufacturer?.toLowerCase().includes(search)
+          med.manufacturer?.toLowerCase().includes(search),
       );
     }
 
@@ -78,14 +81,23 @@ const NoImagesTable = ({
 
   // Selection
   const allSelected =
-    paginatedData.length > 0 && paginatedData.every((item) => selectedIds.includes(item.id));
-  const someSelected = paginatedData.some((item) => selectedIds.includes(item.id));
+    paginatedData.length > 0 &&
+    paginatedData.every((item) => selectedIds.includes(item.id));
+  const someSelected = paginatedData.some((item) =>
+    selectedIds.includes(item.id),
+  );
 
   const toggleSelectAll = () => {
     if (allSelected) {
-      onSelectionChange(selectedIds.filter((id) => !paginatedData.some((item) => item.id === id)));
+      onSelectionChange(
+        selectedIds.filter(
+          (id) => !paginatedData.some((item) => item.id === id),
+        ),
+      );
     } else {
-      const newIds = [...new Set([...selectedIds, ...paginatedData.map((item) => item.id)])];
+      const newIds = [
+        ...new Set([...selectedIds, ...paginatedData.map((item) => item.id)]),
+      ];
       onSelectionChange(newIds);
     }
   };
@@ -106,7 +118,8 @@ const NoImagesTable = ({
   };
 
   const SortIcon = ({ column }) => {
-    if (sortConfig.key !== column) return <ChevronDown size={14} className="text-gray-300" />;
+    if (sortConfig.key !== column)
+      return <ChevronDown size={14} className="text-gray-300" />;
     return sortConfig.order === "asc" ? (
       <ChevronUp size={14} className="text-indigo-600" />
     ) : (
@@ -128,7 +141,10 @@ const NoImagesTable = ({
       <div className="flex-shrink-0 p-4 border-b border-gray-200 space-y-3">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
             <input
               type="text"
               placeholder="Search medicines without images..."
@@ -147,15 +163,18 @@ const NoImagesTable = ({
             )}
           </div>
 
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="h-9 px-3 border border-gray-300 rounded-lg text-sm bg-white"
-          >
-            <option value="">All Types</option>
-            <option value="DRUG">Drug</option>
-            <option value="OTC">OTC</option>
-          </select>
+          <div className="w-40">
+            <StyledSelect
+              value={typeFilter}
+              onChange={setTypeFilter}
+              options={[
+                { value: "", label: "All Types" },
+                { value: "DRUG", label: "Drug" },
+                { value: "OTC", label: "OTC" },
+              ]}
+              placeholder="All Types"
+            />
+          </div>
 
           {selectedIds.length > 0 && (
             <div className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-medium">
@@ -167,8 +186,8 @@ const NoImagesTable = ({
         <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg border border-red-200">
           <AlertCircle size={16} className="text-red-600" />
           <p className="text-sm text-red-700">
-            <strong>High priority:</strong> These medicines have no images and are using
-            placeholders. Upload images immediately.
+            <strong>High priority:</strong> These medicines have no images and
+            are using placeholders. Upload images immediately.
           </p>
         </div>
       </div>
@@ -186,7 +205,10 @@ const NoImagesTable = ({
             <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="w-12 px-4 py-3">
-                  <button onClick={toggleSelectAll} className="text-gray-400 hover:text-gray-600">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
                     {allSelected ? (
                       <CheckSquare size={18} className="text-indigo-600" />
                     ) : someSelected ? (
@@ -196,7 +218,9 @@ const NoImagesTable = ({
                     )}
                   </button>
                 </th>
-                <th className="w-12 px-4 py-3 text-left text-xs font-semibold text-gray-600">#</th>
+                <th className="w-12 px-4 py-3 text-left text-xs font-semibold text-gray-600">
+                  #
+                </th>
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSort("name")}
@@ -266,8 +290,12 @@ const NoImagesTable = ({
                     </td>
                     <td className="px-4 py-3">
                       <div className="max-w-[220px]">
-                        <p className="font-medium text-gray-900 truncate">{med.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{med.composition || "—"}</p>
+                        <p className="font-medium text-gray-900 truncate">
+                          {med.name}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {med.composition || "—"}
+                        </p>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">

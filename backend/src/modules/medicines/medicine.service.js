@@ -1,7 +1,7 @@
 // backend/src/modules/medicines/medicine.service.js
 
 import prisma from "../../config/prisma.js";
-
+import { autoLinkToMasterCatalog } from "./linking.service.js";
 class ApiError extends Error {
   constructor(message, statusCode = 400, code = "MEDICINE_ERROR") {
     super(message);
@@ -96,49 +96,88 @@ async createMedicine(data, shopId, branchId, userId) {
     throw new ApiError("Min stock must be less than max stock", 400, "INVALID_STOCK_LEVELS");
   }
 
-  // Create
-  const medicine = await prisma.medicine.create({
-    data: {
-      name: data.name,
-      generic_name: data.generic_name || null,
-      manufacturer: data.manufacturer,
-      category: data.category || null,
-      sub_category: data.sub_category || null,
-      schedule: data.schedule || null,
-      hsn_code: data.hsn_code || null,
-      pack_size: data.pack_size || null,
-      unit_of_measure: data.unit_of_measure || "UNIT",
-      gst_percentage: this._toNumber(data.gst_percentage) ?? 12,
-      cgst_percentage: this._toNumber(data.cgst_percentage) ?? 6,
-      sgst_percentage: this._toNumber(data.sgst_percentage) ?? 6,
-      rack_no: data.rack_no || null,
-      
-      // ✅ Ensure these are saved
-      min_stock_level: minStock,
-      max_stock_level: maxStock,
-      reorder_point: reorderPt,
-      
-      shop_id: shopId,
-      branch_id: branchId,
-      created_by: userId,
-    },
-    // ✅ Include stock fields in the return
-    include: {
-      branch: {
-        select: { branch_id: true, branch_name: true }
-      }
+// Create
+const medicine = await prisma.medicine.create({
+  data: {
+    name: data.name,
+    generic_name: data.generic_name || null,
+    manufacturer: data.manufacturer,
+    category: data.category || null,
+    sub_category: data.sub_category || null,
+    schedule: data.schedule || null,
+    hsn_code: data.hsn_code || null,
+    pack_size: data.pack_size || null,
+    unit_of_measure: data.unit_of_measure || "UNIT",
+    gst_percentage: this._toNumber(data.gst_percentage) ?? 12,
+    cgst_percentage: this._toNumber(data.cgst_percentage) ?? 6,
+    sgst_percentage: this._toNumber(data.sgst_percentage) ?? 6,
+    rack_no: data.rack_no || null,
+    
+    min_stock_level: minStock,
+    max_stock_level: maxStock,
+    reorder_point: reorderPt,
+    
+    shop_id: shopId,
+    branch_id: branchId,
+    created_by: userId,
+    
+    // ✅ NEW: Default link status
+    link_status: "PENDING",
+  },
+  include: {
+    branch: {
+      select: { branch_id: true, branch_name: true }
     }
-  });
+  }
+});
 
-  console.log('✅ Medicine created:', {
-    id: medicine.medicine_id,
+console.log('✅ Medicine created:', {
+  id: medicine.medicine_id,
+  name: medicine.name,
+  min_stock_level: medicine.min_stock_level,
+  max_stock_level: medicine.max_stock_level,
+  reorder_point: medicine.reorder_point,
+});
+
+// ✅ NEW: Try to auto-link to master catalog
+try {
+  const linkResult = await autoLinkToMasterCatalog({
     name: medicine.name,
-    min_stock_level: medicine.min_stock_level,
-    max_stock_level: medicine.max_stock_level,
-    reorder_point: medicine.reorder_point,
+    manufacturer: medicine.manufacturer,
+    generic_name: medicine.generic_name,
   });
+  
+  if (linkResult.type === "EXACT" || linkResult.type === "AUTO_LINKED") {
+    // Auto-link with high confidence
+    await prisma.medicine.update({
+      where: { medicine_id: medicine.medicine_id },
+      data: {
+        master_medicine_id: linkResult.master_id,
+        link_status: "AUTO_LINKED",
+        link_confidence_score: linkResult.confidence,
+        linked_at: new Date(),
+      },
+    });
+    
+    console.log(`✅ Auto-linked to master: ${linkResult.master_key} (${linkResult.confidence}%)`);
+  } else if (linkResult.type === "SUGGESTED") {
+    // Mark as having suggestions
+    await prisma.medicine.update({
+      where: { medicine_id: medicine.medicine_id },
+      data: {
+        link_status: "SUGGESTED",
+        link_confidence_score: linkResult.suggestions[0]?.confidence || null,
+      },
+    });
+    
+    console.log(`📋 Link suggestions available (${linkResult.suggestions.length})`);
+  }
+} catch (linkError) {
+  // Don't fail medicine creation if linking fails
+  console.warn("⚠️ Auto-link failed:", linkError.message);
+}
 
-  return medicine;
+return medicine;
 }
 
   /* ============================================

@@ -20,8 +20,8 @@ import {
 } from "lucide-react";
 import Pagination from "../../../components/common/Pagination";
 import TableEmptyState from "../../../components/common/TableEmptyState";
-import { getConfidenceColorClasses } from "../mockMasterMedicineData";
-
+import { getConfidenceColorClasses } from "../../../api/cadminMasterMedicines";
+import StyledSelect from "../../../components/common/StyledSelect";
 const ReviewTable = ({
   data = [],
   selectedIds = [],
@@ -35,7 +35,10 @@ const ReviewTable = ({
   const [searchText, setSearchText] = useState("");
   const [confidenceFilter, setConfidenceFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({ key: "confidenceScore", order: "desc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "confidenceScore",
+    order: "desc",
+  });
   const rowsPerPage = 10;
 
   // Filter & Sort
@@ -48,7 +51,7 @@ const ReviewTable = ({
       result = result.filter(
         (item) =>
           item.rawName.toLowerCase().includes(search) ||
-          item.suggestedMaster.name.toLowerCase().includes(search)
+          item.suggestedMaster.name.toLowerCase().includes(search),
       );
     }
 
@@ -56,7 +59,8 @@ const ReviewTable = ({
     if (confidenceFilter) {
       result = result.filter((item) => {
         if (confidenceFilter === "high") return item.confidenceScore >= 90;
-        if (confidenceFilter === "medium") return item.confidenceScore >= 70 && item.confidenceScore < 90;
+        if (confidenceFilter === "medium")
+          return item.confidenceScore >= 70 && item.confidenceScore < 90;
         if (confidenceFilter === "low") return item.confidenceScore < 70;
         return true;
       });
@@ -86,14 +90,24 @@ const ReviewTable = ({
   const totalItems = filteredData.length;
 
   // Selection
-  const allSelected = paginatedData.length > 0 && paginatedData.every((item) => selectedIds.includes(item.id));
-  const someSelected = paginatedData.some((item) => selectedIds.includes(item.id));
+  const allSelected =
+    paginatedData.length > 0 &&
+    paginatedData.every((item) => selectedIds.includes(item.id));
+  const someSelected = paginatedData.some((item) =>
+    selectedIds.includes(item.id),
+  );
 
   const toggleSelectAll = () => {
     if (allSelected) {
-      onSelectionChange(selectedIds.filter((id) => !paginatedData.some((item) => item.id === id)));
+      onSelectionChange(
+        selectedIds.filter(
+          (id) => !paginatedData.some((item) => item.id === id),
+        ),
+      );
     } else {
-      const newIds = [...new Set([...selectedIds, ...paginatedData.map((item) => item.id)])];
+      const newIds = [
+        ...new Set([...selectedIds, ...paginatedData.map((item) => item.id)]),
+      ];
       onSelectionChange(newIds);
     }
   };
@@ -115,7 +129,8 @@ const ReviewTable = ({
   };
 
   const SortIcon = ({ column }) => {
-    if (sortConfig.key !== column) return <ChevronDown size={14} className="text-gray-300" />;
+    if (sortConfig.key !== column)
+      return <ChevronDown size={14} className="text-gray-300" />;
     return sortConfig.order === "asc" ? (
       <ChevronUp size={14} className="text-indigo-600" />
     ) : (
@@ -129,7 +144,10 @@ const ReviewTable = ({
       <div className="flex-shrink-0 p-4 border-b border-gray-200 space-y-3">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
             <input
               type="text"
               placeholder="Search by raw or suggested name..."
@@ -148,16 +166,19 @@ const ReviewTable = ({
             )}
           </div>
 
-          <select
-            value={confidenceFilter}
-            onChange={(e) => setConfidenceFilter(e.target.value)}
-            className="h-9 px-3 border border-gray-300 rounded-lg text-sm bg-white"
-          >
-            <option value="">All Confidence</option>
-            <option value="high">High (90%+)</option>
-            <option value="medium">Medium (70-89%)</option>
-            <option value="low">Low (&lt;70%)</option>
-          </select>
+          <div className="w-56">
+            <StyledSelect
+              value={confidenceFilter}
+              onChange={setConfidenceFilter}
+              options={[
+                { value: "", label: "All Confidence" },
+                { value: "high", label: "High (90%+)" },
+                { value: "medium", label: "Medium (70-89%)" },
+                { value: "low", label: "Low (<70%)" },
+              ]}
+              placeholder="All Confidence"
+            />
+          </div>
 
           {selectedIds.length > 0 && (
             <>
@@ -195,7 +216,10 @@ const ReviewTable = ({
             <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="w-12 px-4 py-3">
-                  <button onClick={toggleSelectAll} className="text-gray-400 hover:text-gray-600">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
                     {allSelected ? (
                       <CheckSquare size={18} className="text-indigo-600" />
                     ) : someSelected ? (
@@ -237,7 +261,9 @@ const ReviewTable = ({
                   <Store size={14} className="inline mr-1" />
                   Source
                 </th>
-                <th className="px-4 py-3 text-right font-semibold text-gray-600">Actions</th>
+                <th className="px-4 py-3 text-right font-semibold text-gray-600">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -264,7 +290,9 @@ const ReviewTable = ({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{item.rawName}</span>
+                        <span className="font-medium text-gray-900">
+                          {item.rawName}
+                        </span>
                         <span
                           className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                             item.suggestedMaster.type === "DRUG"
@@ -294,13 +322,17 @@ const ReviewTable = ({
                           <p className="font-medium text-gray-900 truncate max-w-[200px]">
                             {item.suggestedMaster.name}
                           </p>
-                          <p className="text-xs text-gray-500">{item.suggestedMaster.manufacturer}</p>
+                          <p className="text-xs text-gray-500">
+                            {item.suggestedMaster.manufacturer}
+                          </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col items-center gap-1">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${colors.badge}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-bold ${colors.badge}`}
+                        >
                           {item.confidenceScore}%
                         </span>
                         <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -309,15 +341,22 @@ const ReviewTable = ({
                             style={{ width: `${item.confidenceScore}%` }}
                           />
                         </div>
-                        <span className="text-[10px] text-gray-400 truncate max-w-[100px]" title={item.confidenceReason}>
+                        <span
+                          className="text-[10px] text-gray-400 truncate max-w-[100px]"
+                          title={item.confidenceReason}
+                        >
                           {item.confidenceReason}
                         </span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="text-sm">
-                        <p className="font-medium text-gray-700">{item.shopName}</p>
-                        <p className="text-xs text-gray-400">{item.occurrenceCount} occurrences</p>
+                        <p className="font-medium text-gray-700">
+                          {item.shopName}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {item.occurrenceCount} occurrences
+                        </p>
                       </div>
                     </td>
                     <td className="px-4 py-3">

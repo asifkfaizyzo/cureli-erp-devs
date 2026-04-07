@@ -1,6 +1,6 @@
 // cadmin/src/pages/MasterMedicines/comps/MatchMedicineModal.jsx
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Search,
@@ -12,12 +12,12 @@ import {
   AlertCircle,
   ArrowRight,
 } from "lucide-react";
+import { getMasterMedicines } from "../../../api/cadminMasterMedicines";
 
 const MatchMedicineModal = ({
   isOpen,
   item,
   source,
-  masterMedicines = [],
   onClose,
   onConfirm,
 }) => {
@@ -25,6 +25,45 @@ const MatchMedicineModal = ({
   const [typeFilter, setTypeFilter] = useState("");
   const [selectedMedicine, setSelectedMedicine] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Transform API response to component format
+  function transformMaster(med) {
+    return {
+      id: med.id,
+      name: med.genericName,
+      genericName: med.genericName,
+      masterKey: med.masterKey,
+      normalizedName: med.masterKey,
+      composition: Array.isArray(med.composition)
+        ? med.composition.map((c) => c.name).join(" + ")
+        : "N/A",
+      type: med.type,
+      form: med.form,
+      manufacturer: med.previewVariants?.[0]?.manufacturer || "N/A",
+      packSize: med.previewVariants?.[0]?.packSize || "N/A",
+      prescriptionRequired: med.prescriptionRequired,
+      hasImage: !!med.primaryImage,
+      variantCount: med.variantCount,
+    };
+  }
+
+  // Load initial results when modal opens
+  const loadInitialResults = async () => {
+    try {
+      setIsSearching(true);
+      const res = await getMasterMedicines({ limit: 20, sort: "generic_name", order: "asc" });
+      const data = res.data?.data;
+      if (data) {
+        setSearchResults(data.medicines.map(transformMaster));
+      }
+    } catch (err) {
+      console.error("Failed to load results:", err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   // Reset state when modal opens
   useEffect(() => {
@@ -33,30 +72,38 @@ const MatchMedicineModal = ({
       setTypeFilter("");
       setSelectedMedicine(null);
       setIsConfirming(false);
+      setSearchResults([]);
+
+      // Load initial results
+      loadInitialResults();
     }
   }, [isOpen]);
 
-  // Filter medicines
-  const filteredMedicines = useMemo(() => {
-    let result = [...masterMedicines];
+  // Search with debounce
+  useEffect(() => {
+    if (!isOpen) return;
 
-    if (searchText.trim()) {
-      const search = searchText.toLowerCase();
-      result = result.filter(
-        (med) =>
-          med.name.toLowerCase().includes(search) ||
-          med.normalizedName?.toLowerCase().includes(search) ||
-          med.composition?.toLowerCase().includes(search) ||
-          med.manufacturer?.toLowerCase().includes(search)
-      );
-    }
+    const timer = setTimeout(async () => {
+      try {
+        setIsSearching(true);
+        const params = { limit: 20, sort: "generic_name", order: "asc" };
+        if (searchText.trim()) params.search = searchText.trim();
+        if (typeFilter) params.type = typeFilter;
 
-    if (typeFilter) {
-      result = result.filter((med) => med.type === typeFilter);
-    }
+        const res = await getMasterMedicines(params);
+        const data = res.data?.data;
+        if (data) {
+          setSearchResults(data.medicines.map(transformMaster));
+        }
+      } catch (err) {
+        console.error("Search failed:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
 
-    return result;
-  }, [masterMedicines, searchText, typeFilter]);
+    return () => clearTimeout(timer);
+  }, [searchText, typeFilter, isOpen]);
 
   // ESC key handler
   useEffect(() => {
@@ -169,7 +216,12 @@ const MatchMedicineModal = ({
 
         {/* Medicine List */}
         <div className="flex-1 overflow-auto px-6 py-4 min-h-[300px] max-h-[400px]">
-          {filteredMedicines.length === 0 ? (
+          {isSearching ? (
+            <div className="flex items-center justify-center h-full text-gray-400">
+              <Loader2 size={32} className="animate-spin mr-3" />
+              <p>Searching...</p>
+            </div>
+          ) : searchResults.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <AlertCircle size={48} className="mb-3" />
               <p className="text-lg font-medium">No medicines found</p>
@@ -177,7 +229,7 @@ const MatchMedicineModal = ({
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredMedicines.map((med) => {
+              {searchResults.map((med) => {
                 const isSelected = selectedMedicine?.id === med.id;
                 return (
                   <button
@@ -254,7 +306,7 @@ const MatchMedicineModal = ({
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-500">
-              {filteredMedicines.length} medicine(s) found
+              {searchResults.length} medicine(s) found
             </div>
             <div className="flex items-center gap-3">
               <button

@@ -16,7 +16,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 
-const LinkedMedicinesModal = ({ isOpen, medicine, onClose, onUnlink }) => {
+const LinkedMedicinesModal = ({ isOpen, medicine, linkedData = [], onClose, onUnlink }) => {
   // ═══════════════════════════════════════════════════════════
   // ALL HOOKS MUST BE AT THE TOP - BEFORE ANY CONDITIONAL RETURNS
   // ═══════════════════════════════════════════════════════════
@@ -24,8 +24,8 @@ const LinkedMedicinesModal = ({ isOpen, medicine, onClose, onUnlink }) => {
   const [sortConfig, setSortConfig] = useState({ key: "occurrenceCount", order: "desc" });
   const [confirmUnlink, setConfirmUnlink] = useState(null);
 
-  // Get linked medicines safely (empty array if medicine is null)
-  const linkedMedicines = medicine?.linkedMedicines || [];
+  // Get linked medicines from prop
+  const linkedMedicines = linkedData;
 
   // Filter & Sort - MUST be called unconditionally
   const filteredLinked = useMemo(() => {
