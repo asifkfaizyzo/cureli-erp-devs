@@ -67,9 +67,9 @@ FogParticle.displayName = "FogParticle";
 // ============================================
 const HeroContent = memo(() => (
   <div className="text-center lg:text-left" data-aos="fade-right">
-    <div className="inline-block px-3 py-1 xs:px-4 xs:py-1.5 mb-4 sm:mb-5 md:mb-6 text-xs xs:text-sm sm:text-base bg-white/10 border border-white/20 rounded-full backdrop-blur-sm">
+    {/* <div className="inline-block px-3 py-1 xs:px-4 xs:py-1.5 mb-4 sm:mb-5 md:mb-6 text-xs xs:text-sm sm:text-base bg-white/10 border border-white/20 rounded-full backdrop-blur-sm">
       Decentralized App &amp; Platform
-    </div>
+    </div> */}
 
     <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-7xl font-semibold leading-tight mb-4 sm:mb-5 md:mb-6">
       Built Around Your{" "}

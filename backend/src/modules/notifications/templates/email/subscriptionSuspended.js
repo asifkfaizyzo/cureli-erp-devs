@@ -1,108 +1,99 @@
+// backend/src/modules/notifications/templates/email/subscriptionSuspended.js
 // ============================================
-// SUBSCRIPTION SUSPENDED EMAIL TEMPLATE
+// SUBSCRIPTION SUSPENDED EMAIL TEMPLATE - DARK MODE FIXED
 // ============================================
 
-const FRONTEND_URL = process.env.USER_FRONTEND_URL || 'http://localhost:5173';
+import { EMAIL_CONFIG, getBaseHeadContent, renderLogo, renderFooter, renderButton, getSupportLink } from './_helpers.js';
 
 export function subscriptionSuspendedTemplate(context) {
   const { recipientName, shop_name } = context;
 
-  const subject = ' Your account has been suspended';
+  const subject = '🔒 Your account has been suspended';
 
   const html = `
-   <!DOCTYPE html>
-<html lang="en">
+    <!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Account Suspended - Cureli Health</title>
+  ${getBaseHeadContent(`Account Suspended - ${EMAIL_CONFIG.COMPANY.NAME}`)}
 </head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
-  <div style="max-width:560px;margin:0 auto;padding:20px;">
+<body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;">
+  <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
     
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#6b7280 0%,#4b5563 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:70px;margin-bottom:12px;"/>
-      <h1 style="margin:0;font-size:22px;font-weight:600;"> Account Suspended</h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;">Action Required to Restore Access</p>
+    <div class="header-suspended" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.GRAY} 0%,${EMAIL_CONFIG.COLORS.GRAY_DARK} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">🔒 Account Suspended</h1>
+      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e5e7eb;">Action Required to Restore Access</p>
     </div>
 
     <!-- Content -->
-    <div style="background:white;padding:32px;border:1px solid #e5e7eb;border-top:none;">
+    <div class="content-bg content" style="background-color:#ffffff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
       
-      <p style="font-size:15px;color:#333;margin:0 0 16px;">
+      <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 16px;background-color:#ffffff;">
         Hello <strong style="color:#374151;">${recipientName}</strong>,
       </p>
       
       <!-- Suspension Notice -->
-      <div style="background:#f3f4f6;border-left:4px solid #6b7280;padding:16px 20px;margin:20px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0;color:#374151;font-weight:600;font-size:14px;">
-          Your <strong>Cureli Health</strong> account for <strong>${shop_name || 'your shop'}</strong> has been suspended due to non-payment.
+      <div class="suspended-box" style="background-color:#f3f4f6;border-left:4px solid ${EMAIL_CONFIG.COLORS.GRAY};padding:16px 20px;margin:20px 0;border-radius:0 10px 10px 0;">
+        <p class="suspended-text" style="margin:0;color:#374151;font-weight:600;font-size:14px;background-color:#f3f4f6;">
+          Your <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> account for <strong>${shop_name || 'your shop'}</strong> has been suspended due to non-payment.
         </p>
       </div>
 
-      <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 20px;">
+      <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:0 0 20px;background-color:#ffffff;">
         Your subscription has expired and the grace period has ended. As a result, your account is now suspended and access to all services has been temporarily disabled.
       </p>
 
       <!-- Impact Box -->
-      <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0 0 8px;color:#991b1b;font-size:13px;font-weight:600;"> Currently Unavailable:</p>
-        <ul style="margin:0;padding-left:20px;color:#7f1d1d;font-size:12px;line-height:1.6;">
-          <li>Access to Cureli Health dashboard and all features</li>
-          <li>Staff login and operations</li>
-          <li>Inventory management and sales tracking</li>
-          <li>Reports and analytics</li>
+      <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="error-text" style="margin:0 0 8px;color:#991b1b;font-size:13px;font-weight:600;background-color:#fef2f2;">🚫 Currently Unavailable:</p>
+        <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
+          <li class="error-text" style="color:#7f1d1d;">Access to ${EMAIL_CONFIG.COMPANY.NAME} dashboard and all features</li>
+          <li class="error-text" style="color:#7f1d1d;">Staff login and operations</li>
+          <li class="error-text" style="color:#7f1d1d;">Inventory management and sales tracking</li>
+          <li class="error-text" style="color:#7f1d1d;">Reports and analytics</li>
         </ul>
       </div>
 
       <!-- Restoration Steps -->
-      <div style="background:#f0f9ff;border-left:4px solid #05015A;padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0 0 10px;color:#05015A;font-size:14px;font-weight:600;"> To Restore Access:</p>
-        <ol style="margin:0;padding-left:20px;color:#374151;font-size:13px;line-height:1.7;">
-          <li>Log in to your Cureli Health account</li>
-          <li>Navigate to Subscription settings</li>
-          <li>Complete the payment to reactivate</li>
-          <li>Access will be restored immediately</li>
+      <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="info-text" style="margin:0 0 10px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:14px;font-weight:600;background-color:#e0f2fe;">🔓 To Restore Access:</p>
+        <ol style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;">
+          <li class="info-text" style="color:#0c4a6e;">Log in to your ${EMAIL_CONFIG.COMPANY.NAME} account</li>
+          <li class="info-text" style="color:#0c4a6e;">Navigate to Subscription settings</li>
+          <li class="info-text" style="color:#0c4a6e;">Complete the payment to reactivate</li>
+          <li class="info-text" style="color:#0c4a6e;">Access will be restored immediately</li>
         </ol>
       </div>
 
       <!-- Data Safety -->
-      <div style="background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);border:2px solid #10b981;border-radius:10px;padding:16px 20px;margin:24px 0;text-align:center;">
-        <p style="margin:0;color:#065f46;font-size:14px;font-weight:600;">
-           <strong>Good News:</strong> Your data is completely safe!
+      <div class="success-box" style="background-color:#d1fae5;border:2px solid ${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};border-radius:10px;padding:16px 20px;margin:24px 0;text-align:center;">
+        <p class="success-text" style="margin:0;color:#065f46;font-size:14px;font-weight:600;background-color:#d1fae5;">
+          ✅ <strong>Good News:</strong> Your data is completely safe!
         </p>
-        <p style="margin:6px 0 0;color:#047857;font-size:12px;">
+        <p class="success-text" style="margin:6px 0 0;color:#047857;font-size:12px;background-color:#d1fae5;">
           Once you renew, everything will be restored exactly as it was.
         </p>
       </div>
 
       <!-- CTA Button -->
-      <div style="text-align:center;margin:28px 0;">
-        <a href="${FRONTEND_URL}/subscription" style="display:inline-block;background:linear-gradient(135deg,#05015A,#0a0280);color:white;padding:14px 40px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 3px 10px rgba(5,1,90,0.2);">
-           Reactivate Account Now
-        </a>
-      </div>
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Reactivate Account Now', emoji: '🔓' })}
 
       <!-- Support -->
-      <div style="background:#fef9e7;border-left:4px solid #f59e0b;padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
-        <p style="margin:0;color:#92400e;font-size:13px;">
-           <strong>Need Help?</strong> Contact our support team for assistance with reactivation.
+      <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
+        <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef9e7;">
+          💡 <strong>Need Help?</strong> Contact our support team for assistance with reactivation.
         </p>
       </div>
 
-      <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-        Support: <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
+      <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
+        Support: ${getSupportLink()}
       </p>
 
     </div>
 
     <!-- Footer -->
-    <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> Health</p>
-      <p style="margin:0;">All rights reserved</p>
-    </div>
+    ${renderFooter()}
 
   </div>
 </body>

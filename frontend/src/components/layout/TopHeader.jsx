@@ -9,6 +9,7 @@ import {
   Calendar,
   User,
   Ticket,
+  Headphones ,
   Shield,
   Building2,
   Store,
@@ -732,8 +733,8 @@ const TopHeader = () => {
                         className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 
                flex items-center gap-3 transition-colors"
                       >
-                        <Ticket size={16} className="text-gray-500" />
-                        <span>Tickets</span>
+                        <Headphones  size={16} className="text-gray-500" />
+                        <span>contact & support</span>
                       </button>
                     )}
                   </div>

@@ -1,4 +1,9 @@
 // backend/src/modules/notifications/templates/email/returnApprovalToSupplier.js
+// ============================================
+// RETURN APPROVAL TO SUPPLIER EMAIL TEMPLATE - DARK MODE FIXED
+// ============================================
+
+import { EMAIL_CONFIG, getBaseHeadContent, renderLogo, renderFooter } from './_helpers.js';
 
 export const returnApprovalToSupplier = ({
   supplierName,
@@ -35,163 +40,161 @@ export const returnApprovalToSupplier = ({
     .map(
       (item, index) => `
     <tr style="border-bottom: 1px solid #e5e7eb;">
-      <td style="padding: 12px 8px; text-align: center; color: #6b7280;">${index + 1}</td>
-      <td style="padding: 12px 8px;">
-        <div style="font-weight: 600; color: #111827;">${item.name}</div>
-        ${item.manufacturer ? `<div style="font-size: 12px; color: #9ca3af;">Mfr: ${item.manufacturer}</div>` : ""}
+      <td class="table-value" style="padding: 12px 8px; text-align: center; color: #6b7280; background-color: #ffffff;">${index + 1}</td>
+      <td style="padding: 12px 8px; background-color: #ffffff;">
+        <div class="table-value" style="font-weight: 600; color: #111827;">${item.name}</div>
+        ${item.manufacturer ? `<div class="text-muted" style="font-size: 12px; color: #9ca3af;">Mfr: ${item.manufacturer}</div>` : ""}
       </td>
-      <td style="padding: 12px 8px; text-align: center; font-family: monospace; font-size: 13px;">${item.batch_number}</td>
-      <td style="padding: 12px 8px; text-align: center; font-weight: 600; color: #dc2626;">${item.quantity}</td>
-      <td style="padding: 12px 8px; text-align: right; color: #374151;">₹${parseFloat(item.purchase_rate).toFixed(2)}</td>
-      <td style="padding: 12px 8px; text-align: right; font-weight: 600; color: #05015A;">₹${parseFloat(item.line_total).toFixed(2)}</td>
+      <td class="table-value" style="padding: 12px 8px; text-align: center; font-family: monospace; font-size: 13px; color: #374151; background-color: #ffffff;">${item.batch_number}</td>
+      <td class="qty-text" style="padding: 12px 8px; text-align: center; font-weight: 600; color: ${EMAIL_CONFIG.COLORS.ERROR}; background-color: #ffffff;">${item.quantity}</td>
+      <td class="table-value" style="padding: 12px 8px; text-align: right; color: #374151; background-color: #ffffff;">₹${parseFloat(item.purchase_rate).toFixed(2)}</td>
+      <td class="amount-text" style="padding: 12px 8px; text-align: right; font-weight: 600; color: ${EMAIL_CONFIG.COLORS.PRIMARY}; background-color: #ffffff;">₹${parseFloat(item.line_total).toFixed(2)}</td>
     </tr>
   `
     )
     .join("");
 
   return {
-    subject: `Return Approved - ${returnInvoiceNumber} | ${shopName} - Cureli`,
+    subject: `Return Approved - ${returnInvoiceNumber} | ${shopName} - ${EMAIL_CONFIG.COMPANY.NAME}`,
     html: `
       <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Purchase Return Approved - Cureli Health</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6fb;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            
-            <!-- Header -->
-            <div style="background: linear-gradient(135deg, #05015A 0%, #0a0280 100%); border-radius: 12px 12px 0 0; padding: 32px; text-align: center;">
-              <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width: 70px; margin-bottom: 12px;"/>
-              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 600;"> Purchase Return Approved</h1>
-              <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 13px;">
-                Action Required • Return #${returnInvoiceNumber}
-              </p>
-            </div>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  ${getBaseHeadContent(`Purchase Return Approved - ${EMAIL_CONFIG.COMPANY.NAME}`)}
+</head>
+<body class="email-bg" style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6fb;">
+  <div class="container" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    
+    <!-- Header -->
+    <div class="header-primary" style="background: linear-gradient(135deg, ${EMAIL_CONFIG.COLORS.PRIMARY} 0%, ${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%); border-radius: 12px 12px 0 0; padding: 32px; text-align: center;">
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 600;">📦 Purchase Return Approved</h1>
+      <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 13px;">
+        Action Required • Return #${returnInvoiceNumber}
+      </p>
+    </div>
 
-            <!-- Main Content -->
-            <div style="background: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none;">
-              
-              <!-- Greeting -->
-              <p style="margin: 0 0 12px; font-size: 15px; color: #333;">
-                Dear <strong style="color: #05015A;">${supplierName}</strong>,
-              </p>
-              
-              <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: #555;">
-                This is to inform you that a purchase return has been <strong style="color: #059669;">approved</strong> by <strong>${shopName}</strong>.
-                <br><br>
-                <strong>Please arrange to collect the returned medicines</strong> from the shop at the earliest.
-              </p>
+    <!-- Main Content -->
+    <div class="content-bg content" style="background-color: #ffffff; padding: 32px; border: 1px solid #e5e7eb; border-top: none;">
+      
+      <!-- Greeting -->
+      <p class="text-primary" style="margin: 0 0 12px; font-size: 15px; color: #333333; background-color: #ffffff;">
+        Dear <strong class="brand-text" style="color: ${EMAIL_CONFIG.COLORS.PRIMARY};">${supplierName}</strong>,
+      </p>
+      
+      <p class="text-secondary" style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: #555555; background-color: #ffffff;">
+        This is to inform you that a purchase return has been <strong class="success-text" style="color: ${EMAIL_CONFIG.COLORS.SUCCESS};">approved</strong> by <strong>${shopName}</strong>.
+        <br><br>
+        <strong>Please arrange to collect the returned medicines</strong> from the shop at the earliest.
+      </p>
 
-              <!-- Return Summary Card -->
-              <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin-bottom: 24px;">
-                <h3 style="margin: 0 0 16px; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">Return Summary</h3>
-                
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 8px 0; color: #6b7280; font-size: 13px; width: 140px;">Return Number</td>
-                    <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #111827; font-family: 'Courier New', monospace; font-size: 13px;">${returnInvoiceNumber}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Original Invoice</td>
-                    <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #111827; font-family: 'Courier New', monospace; font-size: 13px;">${parentInvoiceNumber}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Return Date</td>
-                    <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #111827; font-size: 13px;">${returnDate}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Return Reason</td>
-                    <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #dc2626; font-size: 13px;">${returnReasonLabels[returnReason] || returnReason}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #6b7280; font-size: 13px;">Items Returned</td>
-                    <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #111827; font-size: 13px;">${itemCount}</td>
-                  </tr>
-                  <tr style="border-top: 2px solid #e5e7eb;">
-                    <td style="padding: 12px 0 0; color: #111827; font-size: 14px; font-weight: 600;">Total Amount</td>
-                    <td style="padding: 12px 0 0; text-align: right; font-size: 18px; font-weight: 700; color: #05015A;">₹${parseFloat(totalAmount).toFixed(2)}</td>
-                  </tr>
-                </table>
-              </div>
+      <!-- Return Summary Card -->
+      <div class="card-bg" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+        <h3 style="margin: 0 0 16px; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; background-color: #f9fafb;">Return Summary</h3>
+        
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td class="table-label" style="padding: 8px 0; color: #6b7280; font-size: 13px; width: 140px; background-color: #f9fafb;">Return Number</td>
+            <td class="table-value" style="padding: 8px 0; text-align: right; font-weight: 600; color: #111827; font-family: 'Courier New', monospace; font-size: 13px; background-color: #f9fafb;">${returnInvoiceNumber}</td>
+          </tr>
+          <tr>
+            <td class="table-label" style="padding: 8px 0; color: #6b7280; font-size: 13px; background-color: #f9fafb;">Original Invoice</td>
+            <td class="table-value" style="padding: 8px 0; text-align: right; font-weight: 600; color: #111827; font-family: 'Courier New', monospace; font-size: 13px; background-color: #f9fafb;">${parentInvoiceNumber}</td>
+          </tr>
+          <tr>
+            <td class="table-label" style="padding: 8px 0; color: #6b7280; font-size: 13px; background-color: #f9fafb;">Return Date</td>
+            <td class="table-value" style="padding: 8px 0; text-align: right; font-weight: 600; color: #111827; font-size: 13px; background-color: #f9fafb;">${returnDate}</td>
+          </tr>
+          <tr>
+            <td class="table-label" style="padding: 8px 0; color: #6b7280; font-size: 13px; background-color: #f9fafb;">Return Reason</td>
+            <td class="reason-text" style="padding: 8px 0; text-align: right; font-weight: 600; color: ${EMAIL_CONFIG.COLORS.ERROR}; font-size: 13px; background-color: #f9fafb;">${returnReasonLabels[returnReason] || returnReason}</td>
+          </tr>
+          <tr>
+            <td class="table-label" style="padding: 8px 0; color: #6b7280; font-size: 13px; background-color: #f9fafb;">Items Returned</td>
+            <td class="table-value" style="padding: 8px 0; text-align: right; font-weight: 600; color: #111827; font-size: 13px; background-color: #f9fafb;">${itemCount}</td>
+          </tr>
+          <tr style="border-top: 2px solid #e5e7eb;">
+            <td class="table-label" style="padding: 12px 0 0; color: #111827; font-size: 14px; font-weight: 600; background-color: #f9fafb;">Total Amount</td>
+            <td class="total-amount" style="padding: 12px 0 0; text-align: right; font-size: 18px; font-weight: 700; color: ${EMAIL_CONFIG.COLORS.PRIMARY}; background-color: #f9fafb; -webkit-text-fill-color: ${EMAIL_CONFIG.COLORS.PRIMARY};">₹${parseFloat(totalAmount).toFixed(2)}</td>
+          </tr>
+        </table>
+      </div>
 
-              <!-- Payment Adjustment -->
-              <div style="background: ${adjustmentType === "CREDIT_NOTE" ? "#dbeafe" : adjustmentType === "CASH_REFUND" ? "#dcfce7" : "#e0e7ff"}; border-left: 4px solid ${adjustmentType === "CREDIT_NOTE" ? "#3b82f6" : adjustmentType === "CASH_REFUND" ? "#10b981" : "#6366f1"}; border-radius: 0 8px 8px 0; padding: 14px 16px; margin-bottom: 24px;">
-                <h4 style="margin: 0 0 6px; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Payment Adjustment</h4>
-                <p style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">${adjustmentTypeLabels[adjustmentType]}</p>
-                
-                ${
-                  creditNoteNumber
-                    ? `<p style="margin: 8px 0 0; font-size: 13px; color: #4b5563;">Credit Note: <strong style="font-family: 'Courier New', monospace; color: #059669;">${creditNoteNumber}</strong></p>
-                       <p style="margin: 4px 0 0; font-size: 12px; color: #6b7280;">Valid for 1 year from issue date</p>`
-                    : ""
-                }
-                
-                ${
-                  refundAmount
-                    ? `<p style="margin: 8px 0 0; font-size: 13px; color: #4b5563;">Refund Amount: <strong style="color: #059669;">₹${parseFloat(refundAmount).toFixed(2)}</strong></p>`
-                    : ""
-                }
-              </div>
+      <!-- Payment Adjustment -->
+      <div class="adjustment-box" style="background-color: ${adjustmentType === "CREDIT_NOTE" ? "#dbeafe" : adjustmentType === "CASH_REFUND" ? "#dcfce7" : "#e0e7ff"}; border-left: 4px solid ${adjustmentType === "CREDIT_NOTE" ? "#3b82f6" : adjustmentType === "CASH_REFUND" ? "#10b981" : "#6366f1"}; border-radius: 0 8px 8px 0; padding: 14px 16px; margin-bottom: 24px;">
+        <h4 style="margin: 0 0 6px; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; background-color: transparent;">Payment Adjustment</h4>
+        <p class="table-value" style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">${adjustmentTypeLabels[adjustmentType]}</p>
+        
+        ${
+          creditNoteNumber
+            ? `<p class="text-secondary" style="margin: 8px 0 0; font-size: 13px; color: #4b5563;">Credit Note: <strong class="success-text" style="font-family: 'Courier New', monospace; color: ${EMAIL_CONFIG.COLORS.SUCCESS};">${creditNoteNumber}</strong></p>
+               <p class="text-muted" style="margin: 4px 0 0; font-size: 12px; color: #6b7280;">Valid for 1 year from issue date</p>`
+            : ""
+        }
+        
+        ${
+          refundAmount
+            ? `<p class="text-secondary" style="margin: 8px 0 0; font-size: 13px; color: #4b5563;">Refund Amount: <strong class="success-text" style="color: ${EMAIL_CONFIG.COLORS.SUCCESS};">₹${parseFloat(refundAmount).toFixed(2)}</strong></p>`
+            : ""
+        }
+      </div>
 
-              <!-- Next Steps -->
-              <div style="background: #f0f9ff; border-left: 4px solid #05015A; border-radius: 0 8px 8px 0; padding: 14px 16px; margin-bottom: 24px;">
-                <h4 style="margin: 0 0 8px; font-size: 12px; color: #05015A; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
-                   Next Steps
-                </h4>
-                <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #374151; line-height: 1.7;">
-                  <li>The returned medicines listed below are ready for pickup</li>
-                  <li>Please coordinate with <strong>${shopName}</strong> to collect the items</li>
-                  <li>Payment adjustments have been handled as mentioned above</li>
-                </ul>
-              </div>
+      <!-- Next Steps -->
+      <div class="info-box" style="background-color: #e0f2fe; border-left: 4px solid ${EMAIL_CONFIG.COLORS.PRIMARY}; border-radius: 0 8px 8px 0; padding: 14px 16px; margin-bottom: 24px;">
+        <h4 class="info-text" style="margin: 0 0 8px; font-size: 12px; color: ${EMAIL_CONFIG.COLORS.PRIMARY}; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; background-color: #e0f2fe;">
+          📋 Next Steps
+        </h4>
+        <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.7;">
+          <li class="info-text" style="color: #0c4a6e;">The returned medicines listed below are ready for pickup</li>
+          <li class="info-text" style="color: #0c4a6e;">Please coordinate with <strong>${shopName}</strong> to collect the items</li>
+          <li class="info-text" style="color: #0c4a6e;">Payment adjustments have been handled as mentioned above</li>
+        </ul>
+      </div>
 
-              <!-- Items Table -->
-              <h3 style="margin: 0 0 16px; font-size: 15px; color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Returned Items</h3>
-              
-              <div style="overflow-x: auto; margin-bottom: 24px;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-                  <thead>
-                    <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-                      <th style="padding: 10px 8px; text-align: center; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase;">#</th>
-                      <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase;">Product</th>
-                      <th style="padding: 10px 8px; text-align: center; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase;">Batch</th>
-                      <th style="padding: 10px 8px; text-align: center; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase;">Qty</th>
-                      <th style="padding: 10px 8px; text-align: right; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase;">Rate</th>
-                      <th style="padding: 10px 8px; text-align: right; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase;">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${itemsTable}
-                  </tbody>
-                </table>
-              </div>
+      <!-- Items Table -->
+      <h3 class="text-primary" style="margin: 0 0 16px; font-size: 15px; color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; background-color: #ffffff;">Returned Items</h3>
+      
+      <div style="overflow-x: auto; margin-bottom: 24px;">
+        <table class="items-table table-bg" style="width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background-color: #ffffff;">
+          <thead>
+            <tr class="table-header" style="background-color: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+              <th style="padding: 10px 8px; text-align: center; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase; background-color: #f9fafb;">#</th>
+              <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase; background-color: #f9fafb;">Product</th>
+              <th style="padding: 10px 8px; text-align: center; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase; background-color: #f9fafb;">Batch</th>
+              <th style="padding: 10px 8px; text-align: center; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase; background-color: #f9fafb;">Qty</th>
+              <th style="padding: 10px 8px; text-align: right; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase; background-color: #f9fafb;">Rate</th>
+              <th style="padding: 10px 8px; text-align: right; font-weight: 600; color: #6b7280; font-size: 11px; text-transform: uppercase; background-color: #f9fafb;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsTable}
+          </tbody>
+        </table>
+      </div>
 
-              <!-- Contact Info -->
-              <div style="background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 12px 16px;">
-                <p style="margin: 0 0 6px; font-size: 12px; color: #92400e; font-weight: 600;"> Need Clarification?</p>
-                <p style="margin: 0; font-size: 13px; color: #78350f; line-height: 1.5;">
-                  Contact: <strong>${shopName}</strong><br>
-                  ${shopContact ? `Phone: <strong>${shopContact}</strong>` : ""}
-                </p>
-              </div>
+      <!-- Contact Info -->
+      <div class="warning-box" style="background-color: #fef3c7; border-left: 4px solid ${EMAIL_CONFIG.COLORS.WARNING}; border-radius: 0 8px 8px 0; padding: 12px 16px;">
+        <p class="warning-text" style="margin: 0 0 6px; font-size: 12px; color: #92400e; font-weight: 600; background-color: #fef3c7;">💬 Need Clarification?</p>
+        <p class="warning-text" style="margin: 0; font-size: 13px; color: #78350f; line-height: 1.5; background-color: #fef3c7;">
+          Contact: <strong>${shopName}</strong><br>
+          ${shopContact ? `Phone: <strong>${shopContact}</strong>` : ""}
+        </p>
+      </div>
 
-            </div>
+    </div>
 
-            <!-- Footer -->
-            <div style="background: #1f2937; color: #9ca3af; padding: 24px; text-align: center; font-size: 12px; border-radius: 0 0 12px 12px;">
-              <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width: 40px; opacity: 0.5; margin-bottom: 10px;"/>
-              <p style="margin: 0 0 6px; color: #d1d5db;">
-                Automated notification from <strong>${shopName}</strong>
-              </p>
-              <p style="margin: 0;">Powered by <strong>Cureli</strong> Health System</p>
-            </div>
+    <!-- Footer -->
+    <div class="footer-bg" style="background-color: #1f2937; color: #9ca3af; padding: 24px; text-align: center; font-size: 12px; border-radius: 0 0 12px 12px;">
+      ${renderLogo('WHITE', 'footer')}
+      <p style="margin: 0 0 6px; color: #d1d5db;">
+        Automated notification from <strong>${shopName}</strong>
+      </p>
+      <p style="margin: 0; color: #9ca3af;">Powered by <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> System</p>
+    </div>
 
-          </div>
-        </body>
-      </html>
+  </div>
+</body>
+</html>
     `,
     text: `
 Dear ${supplierName},
@@ -217,7 +220,9 @@ ${shopContact ? `Phone: ${shopContact}` : ""}
 
 ---
 This is an automated notification from ${shopName}
-Powered by Cureli Health System
+Powered by ${EMAIL_CONFIG.COMPANY.NAME} System
     `,
   };
 };
+
+export default returnApprovalToSupplier;
