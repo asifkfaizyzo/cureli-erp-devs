@@ -1,8 +1,9 @@
+// backend/src/modules/notifications/templates/email/paymentSuccess.js
 // ============================================
-// PAYMENT SUCCESS EMAIL TEMPLATE
+// PAYMENT SUCCESS EMAIL TEMPLATE - DARK MODE FIXED
 // ============================================
 
-const FRONTEND_URL = process.env.USER_FRONTEND_URL || 'http://localhost:5173';
+import { EMAIL_CONFIG, getBaseHeadContent, renderLogo, renderFooter, renderButton } from './_helpers.js';
 
 export function paymentSuccessTemplate(context) {
   const {
@@ -14,7 +15,7 @@ export function paymentSuccessTemplate(context) {
     payment_date,
   } = context;
 
-  const subject = ' Payment Successful - Cureli';
+  const subject = `✅ Payment Successful - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
   const formattedAmount = amount
     ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount)
@@ -22,60 +23,58 @@ export function paymentSuccessTemplate(context) {
 
   const html = `
     <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Payment Successful - Cureli Health</title>
+  ${getBaseHeadContent(`Payment Successful - ${EMAIL_CONFIG.COMPANY.NAME}`)}
 </head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
-  <div style="max-width:560px;margin:0 auto;padding:20px;">
+<body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;">
+  <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
     
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#059669 0%,#047857 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:70px;margin-bottom:12px;"/>
-      <h1 style="margin:0;font-size:22px;font-weight:600;"> Payment Successful</h1>
-      <p style="margin:12px 0 0;font-size:32px;font-weight:700;letter-spacing:-1px;">${formattedAmount}</p>
-      <p style="margin:4px 0 0;opacity:0.9;font-size:13px;">Thank you for your payment</p>
+    <div class="header-success" style="background:linear-gradient(135deg,#059669 0%,#047857 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">✅ Payment Successful</h1>
+      <p style="margin:12px 0 0;font-size:32px;font-weight:700;letter-spacing:-1px;color:#ffffff;">${formattedAmount}</p>
+      <p style="margin:4px 0 0;opacity:0.9;font-size:13px;color:#d1fae5;">Thank you for your payment</p>
     </div>
 
     <!-- Content -->
-    <div style="background:white;padding:32px;border:1px solid #e5e7eb;border-top:none;">
+    <div class="content-bg content" style="background-color:#ffffff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
       
-      <p style="font-size:15px;color:#333;margin:0 0 12px;">
-        Hello <strong style="color:#05015A;">${recipientName}</strong>,
+      <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 12px;background-color:#ffffff;">
+        Hello <strong class="brand-text" style="color:#05015A;">${recipientName}</strong>,
       </p>
       
-      <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 20px;">
+      <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:0 0 20px;background-color:#ffffff;">
         Your payment has been processed successfully! Here are your transaction details:
       </p>
 
       <!-- Payment Details -->
-      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:24px 0;">
+      <div class="card-bg" style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:24px 0;">
         <table style="width:100%;border-collapse:collapse;">
           <tr>
-            <td style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;width:120px;">Shop</td>
-            <td style="padding:12px 16px;font-weight:600;font-size:14px;color:#1f2937;border-bottom:1px solid #e5e7eb;">${shop_name || 'N/A'}</td>
+            <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;width:120px;background-color:#f9fafb;">Shop</td>
+            <td class="table-value" style="padding:12px 16px;font-weight:600;font-size:14px;color:#1f2937;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">${shop_name || 'N/A'}</td>
           </tr>
           <tr>
-            <td style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;">Amount Paid</td>
-            <td style="padding:12px 16px;font-weight:700;font-size:16px;color:#059669;border-bottom:1px solid #e5e7eb;">${formattedAmount}</td>
+            <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">Amount Paid</td>
+            <td class="success-text" style="padding:12px 16px;font-weight:700;font-size:16px;color:#059669;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">${formattedAmount}</td>
           </tr>
           ${plan_name ? `
           <tr>
-            <td style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;">Plan</td>
-            <td style="padding:12px 16px;font-weight:600;font-size:14px;color:#1f2937;border-bottom:1px solid #e5e7eb;">${plan_name}</td>
+            <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">Plan</td>
+            <td class="table-value" style="padding:12px 16px;font-weight:600;font-size:14px;color:#1f2937;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">${plan_name}</td>
           </tr>
           ` : ''}
           ${transaction_id ? `
           <tr>
-            <td style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;">Transaction ID</td>
-            <td style="padding:12px 16px;font-family:'Courier New',monospace;font-size:12px;color:#374151;border-bottom:1px solid #e5e7eb;">${transaction_id}</td>
+            <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">Transaction ID</td>
+            <td class="table-value" style="padding:12px 16px;font-family:'Courier New',monospace;font-size:12px;color:#374151;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">${transaction_id}</td>
           </tr>
           ` : ''}
           <tr>
-            <td style="padding:12px 16px;color:#6b7280;font-size:13px;">Payment Date</td>
-            <td style="padding:12px 16px;font-size:13px;color:#374151;">${payment_date ? new Date(payment_date).toLocaleDateString('en-IN', {
+            <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;background-color:#f9fafb;">Payment Date</td>
+            <td class="table-value" style="padding:12px 16px;font-size:13px;color:#374151;background-color:#f9fafb;">${payment_date ? new Date(payment_date).toLocaleDateString('en-IN', {
               year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
             }) : new Date().toLocaleDateString('en-IN')}</td>
           </tr>
@@ -83,38 +82,35 @@ export function paymentSuccessTemplate(context) {
       </div>
 
       <!-- Success Note -->
-      <div style="background:#f0fdf4;border-left:4px solid #059669;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0;color:#065f46;font-size:13px;">
-           <strong>Receipt Generated:</strong> A receipt has been sent to your email for your records.
+      <div class="success-box" style="background-color:#f0fdf4;border-left:4px solid #059669;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="success-text" style="margin:0;color:#065f46;font-size:13px;background-color:#f0fdf4;">
+          🧾 <strong>Receipt Generated:</strong> A receipt has been sent to your email for your records.
         </p>
       </div>
 
       <!-- Info Box -->
-      <div style="background:#f0f9ff;border-left:4px solid #05015A;padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0;color:#05015A;font-size:13px;">
-           You can view your complete payment history and subscription details in your dashboard.
+      <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid #05015A;padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
+        <p class="info-text" style="margin:0;color:#05015A;font-size:13px;background-color:#e0f2fe;">
+          📊 You can view your complete payment history and subscription details in your dashboard.
         </p>
       </div>
 
       <!-- CTA Button -->
-      <div style="text-align:center;margin:28px 0;">
-        <a href="${FRONTEND_URL}/subscription" style="display:inline-block;background:linear-gradient(135deg,#05015A,#0a0280);color:white;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 3px 10px rgba(5,1,90,0.2);">
-           View Subscription
-        </a>
-      </div>
+      ${renderButton({ 
+        href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, 
+        text: 'View Subscription', 
+        emoji: '📋', 
+        color: 'primary' 
+      })}
 
-      <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-        Questions about your payment? Contact us at <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
+      <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
+        Questions about your payment? Contact us at <a href="mailto:${EMAIL_CONFIG.COMPANY.SUPPORT_EMAIL}" style="color:#05015A;text-decoration:none;font-weight:500;">${EMAIL_CONFIG.COMPANY.SUPPORT_EMAIL}</a>
       </p>
 
     </div>
 
     <!-- Footer -->
-    <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> Health</p>
-      <p style="margin:0;">All rights reserved</p>
-    </div>
+    ${renderFooter()}
 
   </div>
 </body>

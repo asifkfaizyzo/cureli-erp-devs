@@ -1,8 +1,9 @@
+// backend/src/modules/notifications/templates/email/subscriptionGraceEnding.js
 // ============================================
-// SUBSCRIPTION GRACE ENDING EMAIL TEMPLATE
+// SUBSCRIPTION GRACE ENDING EMAIL TEMPLATE - DARK MODE FIXED
 // ============================================
 
-const FRONTEND_URL = process.env.USER_FRONTEND_URL || 'http://localhost:5173';
+import { EMAIL_CONFIG, getBaseHeadContent, renderLogo, renderFooter, renderButton, getSupportLink } from './_helpers.js';
 
 export function subscriptionGraceEndingTemplate(context) {
   const {
@@ -11,90 +12,80 @@ export function subscriptionGraceEndingTemplate(context) {
     grace_period_until,
   } = context;
 
-  const subject = ' URGENT: Your account will be suspended tomorrow';
+  const subject = '🚨 URGENT: Your account will be suspended tomorrow';
 
   const html = `
     <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Final Warning - Cureli Health</title>
+  ${getBaseHeadContent(`Final Warning - ${EMAIL_CONFIG.COMPANY.NAME}`)}
 </head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
-  <div style="max-width:560px;margin:0 auto;padding:20px;">
+<body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;">
+  <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
     
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:70px;margin-bottom:12px;"/>
-      <h1 style="margin:0;font-size:22px;font-weight:700;"> FINAL WARNING</h1>
-      <p style="margin:8px 0 0;font-size:15px;opacity:0.95;font-weight:600;">Account Suspension Imminent</p>
+    <div class="header-error" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.ERROR} 0%,${EMAIL_CONFIG.COLORS.ERROR_DARK} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">🚨 FINAL WARNING</h1>
+      <p style="margin:8px 0 0;font-size:15px;opacity:0.95;font-weight:600;color:#fee2e2;">Account Suspension Imminent</p>
     </div>
 
     <!-- Content -->
-    <div style="background:white;padding:32px;border:1px solid #e5e7eb;border-top:none;">
+    <div class="content-bg content" style="background-color:#ffffff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
       
-      <p style="font-size:15px;color:#333;margin:0 0 16px;">
-        Hello <strong style="color:#dc2626;">${recipientName}</strong>,
+      <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 16px;background-color:#ffffff;">
+        Hello <strong style="color:${EMAIL_CONFIG.COLORS.ERROR};">${recipientName}</strong>,
       </p>
       
       <!-- Critical Alert -->
-      <div style="background:#fef2f2;border:3px solid #dc2626;border-radius:10px;padding:20px;margin:20px 0;text-align:center;">
-        <p style="margin:0;color:#991b1b;font-size:18px;font-weight:700;">
-           Your grace period ends TOMORROW!
+      <div class="critical-box" style="background-color:#fef2f2;border:3px solid ${EMAIL_CONFIG.COLORS.ERROR};border-radius:10px;padding:20px;margin:20px 0;text-align:center;">
+        <p class="critical-text" style="margin:0;color:#991b1b;font-size:18px;font-weight:700;background-color:#fef2f2;-webkit-text-fill-color:#991b1b;">
+          🚨 Your grace period ends TOMORROW!
         </p>
-        <p style="margin:12px 0 0;color:#7f1d1d;font-size:14px;font-weight:600;">
+        <p class="critical-text" style="margin:12px 0 0;color:#7f1d1d;font-size:14px;font-weight:600;background-color:#fef2f2;">
           Grace Period Ends: ${grace_period_until ? new Date(grace_period_until).toLocaleDateString('en-IN', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
           }) : 'Tomorrow'}
         </p>
       </div>
 
-      <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 20px;">
-        This is your <strong style="color:#dc2626;">FINAL WARNING</strong>. Your shop <strong style="color:#05015A;">${shop_name || 'your shop'}</strong> will be <strong style="color:#dc2626;">SUSPENDED</strong> if you don't renew your <strong>Cureli Health</strong> subscription immediately.
+      <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:0 0 20px;background-color:#ffffff;">
+        This is your <strong style="color:${EMAIL_CONFIG.COLORS.ERROR};">FINAL WARNING</strong>. Your shop <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${shop_name || 'your shop'}</strong> will be <strong style="color:${EMAIL_CONFIG.COLORS.ERROR};">SUSPENDED</strong> if you don't renew your <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> subscription immediately.
       </p>
 
       <!-- Consequences Box -->
-      <div style="background:#fff7ed;border-left:4px solid #f59e0b;padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0 0 10px;color:#92400e;font-size:14px;font-weight:700;">
+      <div class="warning-box" style="background-color:#fff7ed;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="warning-text" style="margin:0 0 10px;color:#92400e;font-size:14px;font-weight:700;background-color:#fff7ed;">
           ⚡ What Happens When Suspended:
         </p>
-        <ul style="margin:0;padding-left:20px;color:#78350f;font-size:13px;line-height:1.7;">
-          <li><strong>Your shop and all branches will be inaccessible</strong></li>
-          <li>Your staff cannot log in to Cureli Health</li>
-          <li>All business operations will be halted</li>
-          <li>No access to inventory, sales, or reports</li>
-          <li>Data remains safe but locked until renewal</li>
+        <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;">
+          <li class="warning-text" style="color:#78350f;"><strong>Your shop and all branches will be inaccessible</strong></li>
+          <li class="warning-text" style="color:#78350f;">Your staff cannot log in to ${EMAIL_CONFIG.COMPANY.NAME}</li>
+          <li class="warning-text" style="color:#78350f;">All business operations will be halted</li>
+          <li class="warning-text" style="color:#78350f;">No access to inventory, sales, or reports</li>
+          <li class="warning-text" style="color:#78350f;">Data remains safe but locked until renewal</li>
         </ul>
       </div>
 
       <!-- Urgent CTA -->
-      <div style="text-align:center;margin:32px 0;">
-        <a href="${FRONTEND_URL}/subscription" style="display:inline-block;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;padding:16px 44px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;box-shadow:0 4px 14px rgba(220,38,38,0.4);text-transform:uppercase;letter-spacing:0.5px;">
-           RENEW NOW - Avoid Suspension
-        </a>
-      </div>
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'RENEW NOW - Avoid Suspension', emoji: '🔄', color: 'error' })}
 
       <!-- Help Section -->
-      <div style="background:#f0f9ff;border-left:4px solid #05015A;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0;color:#05015A;font-size:13px;line-height:1.6;">
+      <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="info-text" style="margin:0;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;line-height:1.6;background-color:#e0f2fe;">
           💡 <strong>Need Immediate Help?</strong><br>
           Contact our support team right away. We're here to help you avoid suspension.
         </p>
       </div>
 
-      <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-        <strong>Emergency Support:</strong> <a href="mailto:support@curelihealth.com" style="color:#dc2626;text-decoration:none;font-weight:600;">support@curelihealth.com</a>
+      <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
+        <strong>Emergency Support:</strong> <a href="mailto:${EMAIL_CONFIG.COMPANY.SUPPORT_EMAIL}" style="color:${EMAIL_CONFIG.COLORS.ERROR};text-decoration:none;font-weight:600;">${EMAIL_CONFIG.COMPANY.SUPPORT_EMAIL}</a>
       </p>
 
     </div>
 
     <!-- Footer -->
-    <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> Health</p>
-      <p style="margin:0;">All rights reserved</p>
-    </div>
+    ${renderFooter()}
 
   </div>
 </body>

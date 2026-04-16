@@ -75,7 +75,7 @@ const UploadBPan = ({ onContinue }) => {
             </h2>
 
             <p className="text-gray-500 text-xs mt-1 mb-4">
-                Eg: <span className="font-bold">PDF, JPEG, EPS, PNG</span> — Max <span className="font-bold">5MB</span>
+                Eg: <span className="font-bold">PDF, JPEG, PNG</span> — Max <span className="font-bold">5MB</span>
             </p>
 
             <div

@@ -1,8 +1,9 @@
+// backend/src/modules/notifications/templates/email/subscriptionGraceExtended.js
 // ============================================
-// SUBSCRIPTION GRACE EXTENDED EMAIL TEMPLATE
+// SUBSCRIPTION GRACE EXTENDED EMAIL TEMPLATE - DARK MODE FIXED
 // ============================================
 
-const FRONTEND_URL = process.env.USER_FRONTEND_URL || 'http://localhost:5173';
+import { EMAIL_CONFIG, getBaseHeadContent, renderLogo, renderFooter, renderButton, getSupportLink } from './_helpers.js';
 
 export function subscriptionGraceExtendedTemplate(context) {
   const {
@@ -15,56 +16,54 @@ export function subscriptionGraceExtendedTemplate(context) {
     reason,
   } = context;
 
-  const subject = ` Good News: Your grace period has been extended`;
+  const subject = '✅ Good News: Your grace period has been extended';
 
   const html = `
     <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grace Period Extended - Cureli Health</title>
+  ${getBaseHeadContent(`Grace Period Extended - ${EMAIL_CONFIG.COMPANY.NAME}`)}
 </head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
-  <div style="max-width:560px;margin:0 auto;padding:20px;">
+<body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;">
+  <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
     
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#059669 0%,#10b981 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:70px;margin-bottom:12px;"/>
-      <h1 style="margin:0;font-size:22px;font-weight:600;"> Grace Period Extended</h1>
-      <p style="margin:12px 0 0;font-size:36px;font-weight:700;letter-spacing:-1px;">+${days_extended} days</p>
-      <p style="margin:4px 0 0;font-size:13px;opacity:0.9;">Additional Time Granted</p>
+    <div class="header-success" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.SUCCESS} 0%,${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">✅ Grace Period Extended</h1>
+      <p class="days-display days-extended" style="margin:12px 0 0;font-size:36px;font-weight:700;letter-spacing:-1px;color:#ffffff;-webkit-text-fill-color:#ffffff;">+${days_extended} days</p>
+      <p style="margin:4px 0 0;font-size:13px;opacity:0.9;color:#d1fae5;">Additional Time Granted</p>
     </div>
 
     <!-- Content -->
-    <div style="background:white;padding:32px;border:1px solid #e5e7eb;border-top:none;">
+    <div class="content-bg content" style="background-color:#ffffff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
       
-      <p style="font-size:15px;color:#333;margin:0 0 12px;">
-        Hello <strong style="color:#05015A;">${recipientName}</strong>,
+      <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 12px;background-color:#ffffff;">
+        Hello <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${recipientName}</strong>,
       </p>
       
-      <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 20px;">
-        Great news! Your grace period for <strong style="color:#05015A;">${shop_name || 'your shop'}</strong> has been extended by the <strong>Cureli Health</strong> support team.
+      <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:0 0 20px;background-color:#ffffff;">
+        Great news! Your grace period for <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${shop_name || 'your shop'}</strong> has been extended by the <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> support team.
       </p>
 
       <!-- Extension Details -->
-      <div style="background:linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%);border:1px solid #6ee7b7;border-radius:10px;padding:20px;margin:24px 0;">
-        <h3 style="margin:0 0 14px;font-size:13px;color:#065f46;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #a7f3d0;padding-bottom:8px;">Extension Details</h3>
+      <div class="success-box" style="background-color:#ecfdf5;border:1px solid #6ee7b7;border-radius:10px;padding:20px;margin:24px 0;">
+        <h3 style="margin:0 0 14px;font-size:13px;color:#065f46;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #a7f3d0;padding-bottom:8px;background-color:#ecfdf5;">Extension Details</h3>
         <table style="width:100%;border-collapse:collapse;">
           ${plan_name ? `
           <tr>
-            <td style="padding:8px 0;color:#065f46;font-size:13px;width:130px;">Plan</td>
-            <td style="padding:8px 0;font-weight:600;font-size:14px;text-align:right;color:#065f46;">${plan_name}</td>
+            <td class="table-label" style="padding:8px 0;color:#065f46;font-size:13px;width:130px;background-color:#ecfdf5;">Plan</td>
+            <td class="success-text" style="padding:8px 0;font-weight:600;font-size:14px;text-align:right;color:#065f46;background-color:#ecfdf5;">${plan_name}</td>
           </tr>
           ` : ''}
           <tr>
-            <td style="padding:8px 0;color:#065f46;font-size:13px;">Extended By</td>
-            <td style="padding:8px 0;font-weight:700;font-size:16px;text-align:right;color:#059669;">+${days_extended} days</td>
+            <td class="table-label" style="padding:8px 0;color:#065f46;font-size:13px;background-color:#ecfdf5;">Extended By</td>
+            <td class="days-extended" style="padding:8px 0;font-weight:700;font-size:16px;text-align:right;color:${EMAIL_CONFIG.COLORS.SUCCESS};background-color:#ecfdf5;-webkit-text-fill-color:${EMAIL_CONFIG.COLORS.SUCCESS};">+${days_extended} days</td>
           </tr>
           ${previous_grace_end ? `
           <tr>
-            <td style="padding:8px 0;color:#065f46;font-size:13px;">Old Deadline</td>
-            <td style="padding:8px 0;font-size:13px;text-align:right;text-decoration:line-through;color:#9ca3af;">
+            <td class="table-label" style="padding:8px 0;color:#065f46;font-size:13px;background-color:#ecfdf5;">Old Deadline</td>
+            <td style="padding:8px 0;font-size:13px;text-align:right;text-decoration:line-through;color:#9ca3af;background-color:#ecfdf5;">
               ${new Date(previous_grace_end).toLocaleDateString('en-IN', { 
                 year: 'numeric', month: 'short', day: 'numeric' 
               })}
@@ -72,11 +71,11 @@ export function subscriptionGraceExtendedTemplate(context) {
           </tr>
           ` : ''}
           <tr>
-            <td style="padding:8px 0;color:#065f46;font-size:13px;">New Deadline</td>
-            <td style="padding:8px 0;font-weight:700;font-size:15px;text-align:right;color:#059669;">
+            <td class="table-label" style="padding:8px 0;color:#065f46;font-size:13px;background-color:#ecfdf5;">New Deadline</td>
+            <td class="success-text" style="padding:8px 0;font-weight:700;font-size:15px;text-align:right;color:${EMAIL_CONFIG.COLORS.SUCCESS};background-color:#ecfdf5;">
               ${new_grace_end ? new Date(new_grace_end).toLocaleDateString('en-IN', { 
                 weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
-              }) : 'Extended'} 
+              }) : 'Extended'} ✅
             </td>
           </tr>
         </table>
@@ -84,44 +83,36 @@ export function subscriptionGraceExtendedTemplate(context) {
 
       ${reason ? `
       <!-- Support Note -->
-      <div style="background:#f0f9ff;border-left:4px solid #05015A;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0 0 6px;color:#05015A;font-size:13px;font-weight:600;"> Note from Cureli Health Support:</p>
-        <p style="margin:0;color:#374151;font-size:13px;line-height:1.6;font-style:italic;">
+      <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="info-text" style="margin:0 0 6px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;">📝 Note from ${EMAIL_CONFIG.COMPANY.NAME} Support:</p>
+        <p class="info-text" style="margin:0;color:#374151;font-size:13px;line-height:1.6;font-style:italic;background-color:#e0f2fe;">
           "${reason}"
         </p>
       </div>
       ` : ''}
 
-      <p style="font-size:14px;color:#555;line-height:1.6;margin:20px 0;">
-        Please use this additional time to complete your payment and maintain uninterrupted access to <strong>Cureli Health</strong>.
+      <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:20px 0;background-color:#ffffff;">
+        Please use this additional time to complete your payment and maintain uninterrupted access to <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong>.
       </p>
 
       <!-- CTA Button -->
-      <div style="text-align:center;margin:28px 0;">
-        <a href="${FRONTEND_URL}/settings/upgrade" style="display:inline-block;background:linear-gradient(135deg,#05015A,#0a0280);color:white;padding:14px 40px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 3px 10px rgba(5,1,90,0.2);">
-           Complete Payment Now
-        </a>
-      </div>
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/settings/upgrade`, text: 'Complete Payment Now', emoji: '💳' })}
 
       <!-- Reminder Warning -->
-      <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0;color:#92400e;font-size:13px;line-height:1.6;">
-           <strong>Important Reminder:</strong> This extension is a one-time courtesy. Please ensure payment is completed before the new deadline to maintain your Cureli Health subscription.
+      <div class="warning-box" style="background-color:#fef3c7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;line-height:1.6;background-color:#fef3c7;">
+          ⚠️ <strong>Important Reminder:</strong> This extension is a one-time courtesy. Please ensure payment is completed before the new deadline to maintain your ${EMAIL_CONFIG.COMPANY.NAME} subscription.
         </p>
       </div>
 
-      <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-        Need help? Contact us at <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
+      <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
+        Need help? Contact us at ${getSupportLink()}
       </p>
 
     </div>
 
     <!-- Footer -->
-    <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> Health</p>
-      <p style="margin:0;">All rights reserved</p>
-    </div>
+    ${renderFooter()}
 
   </div>
 </body>
