@@ -1,3 +1,4 @@
+//backend\src\modules\inventory\inventory.schema.js
 import { z } from "zod";
 
 export const createAdjustmentSchema = z.object({

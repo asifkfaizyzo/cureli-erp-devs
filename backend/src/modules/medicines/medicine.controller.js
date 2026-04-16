@@ -1,6 +1,7 @@
 // backend/src/modules/medicines/medicine.controller.js
 
 import { success, fail } from "../../utils/response.js";
+import prisma from "../../config/prisma.js"; // ✅ FIX: Add missing prisma import
 import medicineService from "./medicine.service.js";
 
 /**
@@ -10,7 +11,7 @@ import medicineService from "./medicine.service.js";
 function extractBranchContext(req) {
   const branchMode = req.headers["x-branch-mode"] || "BRANCH";
   const headerBranchId = req.headers["x-branch-id"] || null;
-  
+
   // For super_admin: use header branch context
   // For others: use their assigned branch_id from JWT
   if (req.user.role === "super_admin") {
@@ -19,7 +20,7 @@ function extractBranchContext(req) {
       branchMode,
     };
   }
-  
+
   // branch_admin/staff: always use their assigned branch
   return {
     branchId: req.user.branch_id,
@@ -40,7 +41,7 @@ export async function createMedicineController(req, res) {
     const medicine = await medicineService.createMedicine(
       req.validated,
       shopId,
-      branchId,  // ✅ NEW: Pass branch
+      branchId,
       userId
     );
 
@@ -71,13 +72,13 @@ export async function getMedicinesController(req, res) {
     };
 
     const result = await medicineService.getMedicines(
-      shopId, 
-      branchId,      // ✅ NEW
-      role,          // ✅ NEW
-      branchMode,    // ✅ NEW
+      shopId,
+      branchId,
+      role,
+      branchMode,
       filters
     );
-    
+
     return success(res, result, "Medicines retrieved successfully");
   } catch (error) {
     console.error("medicine.getAll ERROR:", error);
@@ -151,7 +152,7 @@ export async function bulkCreateMedicinesController(req, res) {
     const result = await medicineService.bulkCreateMedicines(
       req.validated.medicines,
       shopId,
-      branchId,  // ✅ NEW
+      branchId,
       userId
     );
 
@@ -162,7 +163,7 @@ export async function bulkCreateMedicinesController(req, res) {
   }
 }
 
-// ✅ NEW: Search endpoint for autocomplete
+// ✅ Search endpoint for autocomplete
 export async function searchMedicinesController(req, res) {
   try {
     const shopId = req.user.shop_id;
@@ -189,3 +190,62 @@ export async function searchMedicinesController(req, res) {
     return fail(res, error.message, error.statusCode || 500);
   }
 }
+
+/**
+ * GET /api/medicines/catalog-link-status
+ * Get catalog link status for medicines
+ *
+ * ✅ FIX: Now uses the prisma import at the top of this file
+ */
+export const getCatalogLinkStatusController = async (req, res) => {
+  try {
+    const shopId = req.user.shop_id;
+    const { branchId } = extractBranchContext(req); // ✅ FIX: Use extractBranchContext instead of raw header
+    const { ids } = req.query;
+
+    if (!shopId) {
+      return fail(res, "No shop associated with your account", 400);
+    }
+
+    // Parse medicine IDs if provided
+    const medicineIds = ids ? ids.split(",").filter(Boolean) : null;
+
+    // Build query
+    const where = {
+      shop_id: shopId,
+      ...(branchId && { branch_id: branchId }),
+      ...(medicineIds && { medicine_id: { in: medicineIds } }),
+    };
+
+    // Get medicines with their link status
+    const medicines = await prisma.medicine.findMany({
+      where,
+      select: {
+        medicine_id: true,
+        name: true,
+        link_status: true,
+        master_medicine_id: true,
+        link_confidence_score: true,
+        suggested_master_id: true,
+      },
+    });
+
+    // Map to response format
+    const statusData = medicines.map((med) => ({
+      medicine_id: med.medicine_id,
+      status: med.master_medicine_id
+        ? "LINKED"
+        : med.link_status === "PENDING" || med.link_status === "SUGGESTED"
+          ? "PENDING"
+          : "NOT_LINKED",
+      master_medicine_id: med.master_medicine_id,
+      confidence: med.link_confidence_score || 0,
+      pending_link_id: med.suggested_master_id,
+    }));
+
+    return success(res, statusData, "Catalog link status retrieved");
+  } catch (error) {
+    console.error("getCatalogLinkStatus error:", error);
+    return fail(res, error.message, 500);
+  }
+};

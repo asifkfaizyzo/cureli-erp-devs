@@ -15,13 +15,15 @@ import {
   getUnmappedMedicinesAggregated,
   getNeedsReviewMedicines,
   getLinkedMedicines,
+  getLinkedMedicinesByVariant,   // ✅ NEW
   acceptReviewMatch,
   rejectReviewMatch,
-  matchUnmappedToMaster,
+  matchUnmappedToVariant,        // ✅ NEW (replaces matchUnmappedToMaster)
   ignoreUnmappedMedicines,
   unlinkShopMedicine,
   uploadMasterImage,
   deleteMasterImage,
+  createMasterMedicine,
 } from "./cadminMasterMedicines.service.js";
 
 
@@ -40,6 +42,7 @@ export async function listMasterMedicines(req, res) {
       type,
       form,
       category,
+      imageStatus,
       prescriptionRequired,
       minVariants,
       maxVariants,
@@ -54,6 +57,7 @@ export async function listMasterMedicines(req, res) {
       type,
       form,
       category,
+      imageStatus,
       prescriptionRequired,
       minVariants,
       maxVariants,
@@ -62,8 +66,6 @@ export async function listMasterMedicines(req, res) {
       sort,
       order,
     });
-    // console.log(result);
-    
 
     return res.status(200).json({
       success: true,
@@ -279,6 +281,21 @@ export async function listLinkedMedicines(req, res) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// ✅ NEW: LINKED MEDICINES BY VARIANT
+// ══════════════════════════════════════════════════════════════
+
+export async function listLinkedByVariant(req, res) {
+  try {
+    const { variantId } = req.params;
+    const result = await getLinkedMedicinesByVariant(variantId);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error("Error listing linked medicines by variant:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // ACCEPT REVIEW
 // ══════════════════════════════════════════════════════════════
 
@@ -310,9 +327,36 @@ export async function rejectMatch(req, res) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// MATCH UNMAPPED TO MASTER
+// ✅ REWRITTEN: MATCH UNMAPPED TO VARIANT (was matchToMaster)
 // ══════════════════════════════════════════════════════════════
 
+export async function matchToVariant(req, res) {
+  try {
+    const { medicineIds, variantId } = req.body;
+    const cadminId = req.cadmin?.cadmin_id;
+
+    if (!medicineIds || !Array.isArray(medicineIds) || medicineIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "medicineIds array is required",
+      });
+    }
+    if (!variantId) {
+      return res.status(400).json({
+        success: false,
+        message: "variantId is required",
+      });
+    }
+
+    const result = await matchUnmappedToVariant(medicineIds, variantId, cadminId);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error("Error matching to variant:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// Keep old function name as alias for backward compatibility
 export async function matchToMaster(req, res) {
   try {
     const { medicineIds, masterMedicineId } = req.body;
@@ -325,6 +369,8 @@ export async function matchToMaster(req, res) {
       return res.status(400).json({ success: false, message: "masterMedicineId is required" });
     }
 
+    // Import the transition alias from service
+    const { matchUnmappedToMaster } = await import("./cadminMasterMedicines.service.js");
     const result = await matchUnmappedToMaster(medicineIds, masterMedicineId, cadminId);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
@@ -406,5 +452,25 @@ export async function handleImageDelete(req, res) {
   } catch (error) {
     console.error("Error deleting image:", error);
     return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// CREATE MASTER MEDICINE
+// ══════════════════════════════════════════════════════════════
+
+export async function createMasterMed(req, res) {
+  try {
+    const cadminId = req.cadmin?.cadmin_id;
+    const result = await createMasterMedicine(req.body, cadminId);
+    return res.status(201).json({ success: true, data: result });
+  } catch (error) {
+    console.error("Error creating master medicine:", error);
+    const status = error.message.includes("already exists") ? 409 : 500;
+    return res.status(status).json({
+      success: false,
+      message: error.message,
+    });
   }
 }

@@ -21,6 +21,7 @@ import PurchaseInvoicePrint from "./components/PurchaseInvoicePrint";
 import SupplierModal from "../../suppliers/components/SupplierModal";
 import ProductMasterModal from "../../../components/common/ProductMasterModal";
 import BatchProductModal from "../../../components/common/BatchProductModal";
+import ImportResultModal from "../../../components/common/ImportResultModal";
 
 // Hooks
 import { usePurchaseCalculation, calculateRow } from "../../../hooks/purchase/usePurchaseCalculation";
@@ -109,6 +110,9 @@ const PurchasePage = () => {
   const [batchProductModalOpen, setBatchProductModalOpen] = useState(false);
   const [pendingProductData, setPendingProductData] = useState(null);
   const [newProductsFromImport, setNewProductsFromImport] = useState([]);
+  const [importResultModalOpen, setImportResultModalOpen] = useState(false);
+  const [importCatalogResults, setImportCatalogResults] = useState(null);
+  const [importNewProducts, setImportNewProducts] = useState([]);
 
   // ============================================
   // LOADING STATES
@@ -136,7 +140,7 @@ const PurchasePage = () => {
   const { visibleRows, rowHeight } = useResponsiveRowCount();
 
   // ============================================
-  // CUSTOM HOOKS - ✅ Updated with free row handlers
+  // CUSTOM HOOKS
   // ============================================
   const { 
     rows, 
@@ -167,17 +171,32 @@ const PurchasePage = () => {
     isInitialized: supplierInitialized,
   } = usePurchaseSupplier(summary.total);
 
+  // ============================================
+  // CATALOG CHECK HANDLER
+  // ============================================
+  const handleCatalogCheckComplete = useCallback((newProducts, catalogResults) => {
+    // Store results for the ImportResultModal
+    setImportNewProducts(newProducts);
+    setImportCatalogResults(catalogResults);
+    setImportResultModalOpen(true);
+  }, []);
+
   const { handleImportFile, handleExportExcel } = usePurchaseImportExport(
     (importedRows, newProducts = []) => {
-      if (newProducts.length > 0) {
-        setNewProductsFromImport(newProducts);
+      // If we have catalog results, the ImportResultModal will handle new products
+      // Only show BatchProductModal for products WITHOUT catalog data
+      const productsWithoutCatalog = newProducts.filter(p => !p.catalogMatch);
+      
+      if (productsWithoutCatalog.length > 0 && !importResultModalOpen) {
+        setNewProductsFromImport(productsWithoutCatalog);
         setBatchProductModalOpen(true);
       }
       importRows(importedRows);
     },
     supplier,
     toast,
-    medicines
+    medicines,
+    handleCatalogCheckComplete  // NEW: Pass catalog check callback
   );
 
   // ============================================
@@ -278,7 +297,6 @@ const PurchasePage = () => {
     if (suppliers.length > 0) {
       setSuppliersList(suppliers);
     } else {
-      // ✅ Also update when suppliers become empty
       setSuppliersList([]);
     }
   }, [suppliers, setSuppliersList]);
@@ -543,17 +561,15 @@ const PurchasePage = () => {
   }, [hasUnsavedData, navigate, closeConfirmDialog]);
 
   // ============================================
-  // SAVE HANDLER (DRAFT) - ✅ Updated for free items
+  // SAVE HANDLER (DRAFT)
   // ============================================
   const handleSave = useCallback(async () => {
-    // ✅ Check if suppliers exist first
     if (suppliers.length === 0) {
       toast.warning("No Suppliers", "Please add a supplier before creating an invoice.");
       setSupplierModalOpen(true);
       return false;
     }
 
-    // ✅ Get billable rows only (exclude free items for validation)
     const billableRows = getBillableRows();
     const freeRows = getFreeRows();
     const allFilledRows = getFilledRows();
@@ -678,7 +694,6 @@ const PurchasePage = () => {
       return;
     }
 
-    // ✅ Check if suppliers exist first
     if (suppliers.length === 0) {
       toast.warning("No Suppliers", "Please add a supplier before creating an invoice.");
       setSupplierModalOpen(true);
@@ -777,7 +792,6 @@ const PurchasePage = () => {
         });
 
         if (createdSupplier) {
-          // ✅ Update suppliers list immediately
           setSuppliersList(prev => [...prev, {
             ...createdSupplier,
             name: createdSupplier.name,
@@ -786,7 +800,6 @@ const PurchasePage = () => {
             address: createdSupplier.address_line_1 || createdSupplier.address,
           }]);
 
-          // ✅ Auto-select the newly created supplier
           setSupplier((prev) => ({
             ...prev,
             supplier_id: createdSupplier.supplier_id,
@@ -943,6 +956,33 @@ const PurchasePage = () => {
   }, [toast]);
 
   // ============================================
+  // IMPORT RESULT MODAL HANDLERS
+  // ============================================
+  const handleImportResultProceed = useCallback((unmatchedProducts) => {
+    // Close the import result modal
+    setImportResultModalOpen(false);
+    
+    // Open BatchProductModal for unmatched products that need creation
+    if (unmatchedProducts.length > 0) {
+      setNewProductsFromImport(unmatchedProducts);
+      setBatchProductModalOpen(true);
+    }
+  }, []);
+
+  const handleImportResultSkip = useCallback(() => {
+    setImportResultModalOpen(false);
+    setImportNewProducts([]);
+    setImportCatalogResults(null);
+    toast.info("Import Complete", "Unmatched products were skipped. They can be added later.");
+  }, [toast]);
+
+  const handleImportResultClose = useCallback(() => {
+    setImportResultModalOpen(false);
+    setImportNewProducts([]);
+    setImportCatalogResults(null);
+  }, []);
+
+  // ============================================
   // AUTO-FILL FROM EXISTING INVENTORY
   // ============================================
   const handleProductSelect = useCallback(
@@ -1013,7 +1053,6 @@ const PurchasePage = () => {
 
   const hasData = hasUnsavedData();
 
-  // ✅ Check if no suppliers and not loading
   const showNoSuppliersWarning = !isEditingConfirmed && 
                                   suppliers.length === 0 && 
                                   !loadingStates.supplier;
@@ -1021,7 +1060,7 @@ const PurchasePage = () => {
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
       
-      {/* ✅ SUPER ADMIN EDITING CONFIRMED WARNING BANNER */}
+      {/* SUPER ADMIN EDITING CONFIRMED WARNING BANNER */}
       {isEditingConfirmed && (
         <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-lg overflow-hidden shadow-sm">
           <div className="px-4 py-3 flex items-start gap-4">
@@ -1070,7 +1109,7 @@ const PurchasePage = () => {
         </div>
       )}
 
-      {/* ✅ NO SUPPLIERS WARNING BANNER */}
+      {/* NO SUPPLIERS WARNING BANNER */}
       {showNoSuppliersWarning && (
         <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg overflow-hidden shadow-sm">
           <div className="px-4 py-3 flex items-start gap-4">
@@ -1094,14 +1133,6 @@ const PurchasePage = () => {
                 Suppliers are filtered by the selected branch. Make sure to add suppliers for this branch.
               </p>
             </div>
-            
-            {/* <button
-              onClick={() => handleAddNewSupplier("")}
-              className="shrink-0 flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors shadow-sm"
-            >
-              <Plus size={16} />
-              Add Supplier
-            </button> */}
           </div>
         </div>
       )}
@@ -1128,7 +1159,7 @@ const PurchasePage = () => {
         />
       </div>
 
-      {/* TABLE - ✅ Pass free row handlers */}
+      {/* TABLE */}
       <div className={`
         flex-1 flex flex-col overflow-hidden bg-white rounded-lg border border-gray-200 shadow-sm
         transition-all duration-300 ease-out delay-75
@@ -1206,7 +1237,7 @@ const PurchasePage = () => {
           setNewSupplierName("");
         }}
         onSave={handleSupplierSave}
-        existingSuppliers={suppliers}  // ✅ Pass real suppliers from backend
+        existingSuppliers={suppliers}
       />
 
       <ProductMasterModal
@@ -1238,6 +1269,15 @@ const PurchasePage = () => {
         newProducts={newProductsFromImport}
         onSaveAll={handleBatchProductSave}
         onSkipAll={handleBatchProductSkip}
+      />
+
+      <ImportResultModal
+        open={importResultModalOpen}
+        onClose={handleImportResultClose}
+        newProducts={importNewProducts}
+        catalogResults={importCatalogResults}
+        onProceedWithUnmatched={handleImportResultProceed}
+        onSkipUnmatched={handleImportResultSkip}
       />
 
       <ConfirmDialog

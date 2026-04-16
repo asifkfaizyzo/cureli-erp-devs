@@ -47,12 +47,16 @@ export function rejectReviewMatch(medicineId) {
   return CAdminAPI.post(`/master-medicines/review/${medicineId}/reject`);
 }
 
-export function matchToMaster(medicineIds, masterMedicineId) {
+// ✅ RENAMED + updated to send variantId
+export function matchToVariant(medicineIds, variantId) {
   return CAdminAPI.post("/master-medicines/match", {
     medicineIds,
-    masterMedicineId,
+    variantId,           // ✅ was masterMedicineId
   });
 }
+
+// Keep old name as alias during transition so nothing breaks immediately
+export const matchToMaster = matchToVariant;
 
 export function ignoreUnmapped(medicineIds) {
   return CAdminAPI.post("/master-medicines/ignore", { medicineIds });
@@ -66,10 +70,17 @@ export function getLinkedMedicines(masterMedicineId) {
   return CAdminAPI.get(`/master-medicines/${masterMedicineId}/linked`);
 }
 
+// ✅ NEW: get linked medicines by specific variant
+export function getLinkedByVariant(variantId) {
+  return CAdminAPI.get(`/master-medicines/variants/${variantId}/linked`);
+}
+
 export function unlinkMedicine(medicineId) {
   return CAdminAPI.post(`/master-medicines/unlink/${medicineId}`);
 }
-
+export function createMasterMedicine(data) {
+  return CAdminAPI.post("/master-medicines", data);
+}
 // ══════════════════════════════════════════════════════════════
 // IMAGE APIs
 // ══════════════════════════════════════════════════════════════

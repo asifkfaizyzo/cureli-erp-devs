@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * MASTER CATALOG - SEED SCRIPT
+ * MASTER CATALOG - SEED SCRIPT backend\scripts\masterCatalog.seed.js
  * ═══════════════════════════════════════════════════════════════
  * 
  * Reads CCSP transformed data and populates master catalog

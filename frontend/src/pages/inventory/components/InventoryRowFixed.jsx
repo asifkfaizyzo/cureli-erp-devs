@@ -1,7 +1,94 @@
 // src/pages/inventory/components/InventoryRowFixed.jsx
 
 import { memo, forwardRef, useImperativeHandle, useRef } from "react";
-import { Eye, Pencil, Trash2, RefreshCw, Building2, Lock } from "lucide-react";
+import { Eye, Pencil, Trash2, RefreshCw, Building2, Lock, Link2, CheckCircle, Clock, AlertCircle } from "lucide-react";
+
+// ══════════════════════════════════════════════════════════════
+// CATALOG STATUS BADGE COMPONENT (Imported from InventoryTable)
+// ══════════════════════════════════════════════════════════════
+const CatalogStatusBadge = ({ status, confidence, loading }) => {
+  if (loading) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500">
+        <div className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" />
+        Loading...
+      </span>
+    );
+  }
+
+  const config = {
+    LINKED: {
+      label: "Linked",
+      icon: CheckCircle,
+      bg: "bg-emerald-50",
+      border: "border-emerald-200",
+      text: "text-emerald-700",
+      iconColor: "text-emerald-500",
+    },
+    AUTO_LINKED: {
+      label: "Linked",
+      icon: CheckCircle,
+      bg: "bg-emerald-50",
+      border: "border-emerald-200",
+      text: "text-emerald-700",
+      iconColor: "text-emerald-500",
+    },
+    PENDING: {
+      label: "Pending",
+      icon: Clock,
+      bg: "bg-amber-50",
+      border: "border-amber-200",
+      text: "text-amber-700",
+      iconColor: "text-amber-500",
+    },
+    SUGGESTED: {
+      label: "Review",
+      icon: AlertCircle,
+      bg: "bg-blue-50",
+      border: "border-blue-200",
+      text: "text-blue-700",
+      iconColor: "text-blue-500",
+    },
+    NOT_LINKED: {
+      label: "Not Linked",
+      icon: AlertCircle,
+      bg: "bg-slate-50",
+      border: "border-slate-200",
+      text: "text-slate-600",
+      iconColor: "text-slate-400",
+    },
+  };
+
+  const c = config[status] || config.NOT_LINKED;
+  const Icon = c.icon;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${c.bg} ${c.border} ${c.text}`}
+      title={confidence > 0 ? `Confidence: ${confidence}%` : undefined}
+    >
+      <Icon size={12} className={c.iconColor} />
+      {c.label}
+      {confidence > 0 && status !== "NOT_LINKED" && (
+        <span className="text-[10px] opacity-70">({confidence}%)</span>
+      )}
+    </span>
+  );
+};
+
+// ✅ ENHANCED: Safely extract string from any value
+const display = (value) => {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "object") {
+    // Handle nested objects like {branch_id, branch_name}, {supplier_id, supplier_name}
+    return value.branch_name || 
+           value.name || 
+           value.supplier_name || 
+           value.medicine_name ||
+           "-";
+  }
+  return String(value) || "-";
+};
 
 const InventoryRowFixed = memo(forwardRef(({
   index,
@@ -15,6 +102,9 @@ const InventoryRowFixed = memo(forwardRef(({
   rowHeight = 36,
   showBranchColumn = false,
   canAdjustStock = true,
+  catalogStatus = "NOT_LINKED",
+  catalogConfidence = 0,
+  catalogStatusLoading = false,
 }, ref) => {
   const rowRef = useRef(null);
 
@@ -112,11 +202,11 @@ const InventoryRowFixed = memo(forwardRef(({
       <td className={`${cellBase} bg-blue-50/30`}>
         <div className="px-1.5 py-1 h-full flex flex-col justify-center">
           <span className="font-semibold text-[9px] 2xl:text-[10px] text-slate-800 truncate leading-tight">
-            {item.name}
+            {display(item.name || item.medicine_name)}
           </span>
-          {item.hsn && item.hsn !== '-' && (
+          {(item.hsn || item.hsn_code || item.medicine_hsn_code) && display(item.hsn || item.hsn_code || item.medicine_hsn_code) !== '-' && (
             <span className="text-[7px] 2xl:text-[8px] text-slate-400 truncate">
-              HSN: {item.hsn}
+              HSN: {display(item.hsn || item.hsn_code || item.medicine_hsn_code)}
             </span>
           )}
         </div>
@@ -126,74 +216,85 @@ const InventoryRowFixed = memo(forwardRef(({
       <td className={`${cellBase}`}>
         <div className="px-1.5 py-1 h-full flex items-center">
           <span className="text-[9px] 2xl:text-[10px] text-slate-600 truncate">
-            {item.category || '-'}
+            {display(item.category || item.medicine_category)}
           </span>
         </div>
       </td>
 
-      {/* 4. MANUFACTURER */}
+      {/* ✅ 4. CATALOG STATUS - NEW CELL */}
+      <td className={`${cellBase} bg-purple-50/20`}>
+        <div className="px-1 py-1 h-full flex items-center justify-center">
+          <CatalogStatusBadge 
+            status={catalogStatus} 
+            confidence={catalogConfidence}
+            loading={catalogStatusLoading}
+          />
+        </div>
+      </td>
+
+      {/* 5. MANUFACTURER (was #4, now #5) */}
       <td className={`${cellBase} bg-violet-50/20`}>
         <div className="px-1.5 py-1 h-full flex items-center">
           <span className="text-[9px] 2xl:text-[10px] text-slate-600 truncate">
-            {item.manufacturer || item.mfac || '-'}
+            {display(item.manufacturer || item.mfac || item.medicine_manufacturer)}
           </span>
         </div>
       </td>
 
-      {/* 5. BATCH */}
+      {/* 6. BATCH */}
       <td className={`${cellBase} bg-cyan-50/30`}>
         <div className="px-1 py-1 h-full flex items-center justify-center">
           <span className="text-[8px] 2xl:text-[9px] text-slate-700 font-mono">
-            {item.batch || item.batch_number || '-'}
+            {display(item.batch || item.batch_number)}
           </span>
         </div>
       </td>
 
-      {/* 6. EXPIRY */}
+      {/* 7. EXPIRY */}
       <td className={`${cellBase} bg-cyan-50/30`}>
         <div className="px-1 py-1 h-full flex items-center justify-center">
           <span className={`text-[8px] 2xl:text-[9px] font-mono ${getExpiryColor(item.status)}`}>
-            {item.expiry || '-'}
+            {display(item.expiry || item.expiry_date)}
           </span>
         </div>
       </td>
 
-      {/* 7. BRANCH - CONDITIONAL */}
+      {/* 8. BRANCH - CONDITIONAL */}
       {showBranchColumn && (
         <td className={`${cellBase} bg-indigo-50/30`}>
           <div className="px-1 py-1 h-full flex items-center justify-center">
             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[8px] 2xl:text-[9px] font-medium truncate max-w-full">
               <Building2 size={9} className="flex-shrink-0" />
               <span className="truncate">
-                {item.branch || item.branch_name || '-'}
+                {display(item.branch || item.branch_name)}
               </span>
             </span>
           </div>
         </td>
       )}
 
-      {/* 8. SUPPLIER */}
+      {/* 9. SUPPLIER */}
       <td className={`${cellBase} bg-purple-50/20`}>
-        <div className="px-1.5 py-1 h-full flex  items-center justify-center">
-          <span className="text-[9px] 2xl:text-[10px] text-slate-600  truncate">
-            {item.supplier || item.supplier_name || '-'}
+        <div className="px-1.5 py-1 h-full flex items-center justify-center">
+          <span className="text-[9px] 2xl:text-[10px] text-slate-600 truncate">
+            {display(item.supplier || item.supplier_name)}
           </span>
         </div>
       </td>
 
-      {/* 9. QTY */}
+      {/* 10. QTY */}
       <td className={`${cellBase} bg-emerald-50/60`}>
         <div className="px-1 py-1 h-full flex items-center justify-center">
           <span className={`text-[9px] 2xl:text-[10px] font-bold ${
-            Number(item.qty || item.current_stock) > 10 ? 'text-emerald-700' : 
-            Number(item.qty || item.current_stock) > 0 ? 'text-yellow-600' : 'text-red-600'
+            Number(item.qty || item.current_stock || 0) > 10 ? 'text-emerald-700' : 
+            Number(item.qty || item.current_stock || 0) > 0 ? 'text-yellow-600' : 'text-red-600'
           }`}>
             {item.qty ?? item.current_stock ?? 0}
           </span>
         </div>
       </td>
 
-      {/* 10. MRP */}
+      {/* 11. MRP */}
       <td className={`${cellBase}`}>
         <div className="px-1 py-1 h-full flex items-center justify-end">
           <span className="text-[9px] 2xl:text-[10px] text-slate-600 font-medium">
@@ -202,16 +303,16 @@ const InventoryRowFixed = memo(forwardRef(({
         </div>
       </td>
 
-      {/* 11. RACK */}
+      {/* 12. RACK */}
       <td className={`${cellBase} bg-slate-50`}>
         <div className="px-1 py-1 h-full flex items-center justify-center">
           <span className="text-[8px] 2xl:text-[9px] text-slate-600 font-mono">
-            {item.rack || item.rack_no || '-'}
+            {display(item.rack || item.rack_no || item.medicine_rack_no)}
           </span>
         </div>
       </td>
 
-      {/* 12. STATUS */}
+      {/* 13. STATUS */}
       <td className={`${cellBase}`}>
         <div className="px-1 py-1 h-full flex items-center justify-center">
           <span className={`
@@ -223,17 +324,17 @@ const InventoryRowFixed = memo(forwardRef(({
         </div>
       </td>
 
-      {/* 13. ACTIONS */}
+      {/* 14. ACTIONS */}
       <td className={`${cellBase} bg-slate-50`}>
         <div className="px-1 py-1 h-full flex items-center justify-center gap-0.5">
-          {/* View - Always enabled */}
+          {/* View - Always enabled
           <button
             onClick={handleViewClick}
             className="p-0.5 hover:bg-blue-100 rounded transition-colors"
             title="View details"
           >
             <Eye size={11} className="text-blue-600" />
-          </button>
+          </button> */}
 
           {/* Edit - Conditional based on canAdjustStock */}
           <button

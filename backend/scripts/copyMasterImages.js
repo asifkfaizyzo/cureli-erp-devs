@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * MASTER CATALOG - IMAGE COPY SCRIPT
+ * MASTER CATALOG - IMAGE COPY SCRIPT Q:\YourZeroesAndOnes\cureli\curely_erp\backend\scripts\copyMasterImages.js
  * ═══════════════════════════════════════════════════════════════
  * 
  * Copies CCSP images to backend static folder

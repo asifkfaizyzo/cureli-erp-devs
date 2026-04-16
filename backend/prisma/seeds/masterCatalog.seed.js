@@ -1,5 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════
+ * Q:\YourZeroesAndOnes\cureli\curely_erp\backend\prisma\seeds\masterCatalog.seed.js
  * MASTER CATALOG - SEED SCRIPT
  * ═══════════════════════════════════════════════════════════════
  * 

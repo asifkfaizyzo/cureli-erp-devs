@@ -18,6 +18,18 @@ function getBranchHeaders() {
 
 const inventoryAPI = {
   /**
+   * ✅ NEW: Get all inventory (alias for getAll)
+   * This is what useInventoryData.js expects
+   */
+  getInventory: async (filters = {}) => {
+    const response = await api.get("/inventory", { 
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  /**
    * Get inventory for a specific medicine
    */
   getByMedicine: async (medicineId, filters = {}) => {
@@ -29,7 +41,7 @@ const inventoryAPI = {
   },
 
   /**
-   * Get all inventory
+   * Get all inventory (alternative method name)
    */
   getAll: async (filters = {}) => {
     const response = await api.get("/inventory", { 
@@ -60,7 +72,9 @@ const inventoryAPI = {
     return response.data;
   },
 
-  // ✅ NEW: Update inventory item
+  /**
+   * Update inventory item
+   */
   update: async (inventoryId, data) => {
     const response = await api.put(`/inventory/${inventoryId}`, data, {
       headers: getBranchHeaders(),
@@ -68,7 +82,9 @@ const inventoryAPI = {
     return response.data;
   },
 
-  // ✅ NEW: Delete inventory item (soft delete)
+  /**
+   * Delete inventory item (soft delete)
+   */
   delete: async (inventoryId) => {
     const response = await api.delete(`/inventory/${inventoryId}`, {
       headers: getBranchHeaders(),
@@ -76,7 +92,9 @@ const inventoryAPI = {
     return response.data;
   },
 
-  // ✅ NEW: Get low stock items
+  /**
+   * Get low stock items
+   */
   getLowStock: async (filters = {}) => {
     const response = await api.get("/inventory/low-stock", {
       params: filters,
@@ -85,7 +103,9 @@ const inventoryAPI = {
     return response.data;
   },
 
-  // ✅ NEW: Get expiring soon items
+  /**
+   * Get expiring soon items
+   */
   getExpiringSoon: async (daysAhead = 90) => {
     const response = await api.get("/inventory/expiring-soon", {
       params: { daysAhead },
@@ -94,7 +114,9 @@ const inventoryAPI = {
     return response.data;
   },
 
-  // ✅ NEW: Get stock ledger
+  /**
+   * Get stock ledger
+   */
   getLedger: async (filters = {}) => {
     const response = await api.get("/inventory/ledger", {
       params: filters,

@@ -2,8 +2,9 @@
 
 import { useState, useCallback } from "react";
 import ExcelJS from "exceljs";
-import * as XLSX from "xlsx";  // ✅ SheetJS for reading .xls (BIFF2-8)
+import * as XLSX from "xlsx";
 import { makeEmptyPurchaseRow, calculateRow } from "./usePurchaseCalculation";
+import medicinesAPI from "../../api/medicines";
 
 // ─── Generate unique row ID ───
 const generateRowId = () =>
@@ -23,66 +24,38 @@ const mapHeaderToKey = (h) => {
     .replace(/[^a-z0-9%_]/g, "");
 
   const map = {
-    // === Manufacturer/Company ===
     mfac: "mfac", manufacturer: "mfac", mfr: "mfac", company: "mfac",
     mfgcomp: "mfac", mktgcomp: "mfac", manfacturer: "mfac",
-
-    // === Rack/Location ===
     rack: "rack", location: "rack", shelf: "rack", rackno: "rack",
-
-    // === Product Name ===
     description: "name", product: "name", name: "name",
     itemname: "name", itemdescription: "name",
     itemname2: "name2",
     particulars: "name", productname: "name",
     item: "name", productdesc: "name", desc: "name",
-
-    // === HSN Code ===
     hsn: "hsn", hsnsac: "hsn", hsncode: "hsn", hsnsaccode: "hsn",
     saccode: "hsn", hsnno: "hsn",
-
-    // === Pack/Packing ===
     pack: "pack", packing: "pack", unit: "pack", packname: "pack",
     packsize: "pack", uom: "pack",
-
-    // === Batch ===
     batch: "batch", batchno: "batch", lot: "batch", lotno: "batch",
     batchnumber: "batch",
-
-    // === Expiry ===
     exp: "exp", expiry: "exp", expirydate: "exp", expdate: "exp",
     expirydt: "exp",
-
-    // === Quantities ===
     qty: "qty", quantity: "qty", units: "qty", invqty: "qty",
     pqty: "pQty", prevqty: "pQty", previousqty: "pQty", purchaseqty: "pQty",
-
-    // === Scheme/Free ===
     sch: "sch", scheme: "sch", free: "sch", bonus: "sch",
     invscqty: "sch", scqty: "sch", freeqty: "sch", schqty: "sch",
     freescheme: "sch",
     invscdis: "schemePercent", schper: "schemePercent",
-
-    // === Free Item Flag ===
     isfreeitem: "isFreeItem", freeitem: "isFreeItem", isfree: "isFreeItem",
-
-    // === Pricing ===
     mrp: "mrp", itemmrp: "mrp", maximumretailprice: "mrp", vatmrp: "mrp",
     price: "price", rate: "price", purchaserate: "price",
     ptr: "price", purrate: "price",
-
     srate: "sRate", sellingrate: "sRate", selrate: "sRate", salerate: "sRate",
-
-    // === Net Rate ===
     netrate: "netRate", net: "netRate", nrate: "netRate",
-
-    // === Discount Percentages ===
     "sch%": "schemePercent", schemepercent: "schemePercent", schpercent: "schemePercent",
     "disc%": "discountPercent", "dis%": "discountPercent",
     discountpercent: "discountPercent", discount: "discountPercent",
     invdisc: "discountPercent", tradedisc: "discountPercent",
-
-    // === Tax ===
     "cgst%": "cgstPercent", cgstpercent: "cgstPercent", cgst: "cgstPercent",
     cgstper: "cgstPercent", cgstrate: "cgstPercent",
     "sgst%": "sgstPercent", sgstpercent: "sgstPercent", sgst: "sgstPercent",
@@ -90,18 +63,10 @@ const mapHeaderToKey = (h) => {
     "igst%": "igstPercent", igstpercent: "igstPercent", igst: "igstPercent",
     igstper: "igstPercent",
     vatper: "cgstPercent", vat: "cgstPercent",
-
-    // === Amount/Total ===
     amount: "amount", total: "amount", invamt: "amount",
     lineamt: "amount", value: "amount", netamt: "amount",
-
-    // === Credit Days ===
     crdays: "creditDays", creditdays: "creditDays",
-
-    // === Conversion Factor ===
     convfact: "conversionFactor", cf: "conversionFactor",
-
-    // === Local Sale Flag ===
     loclsale: "localSaleFlag",
   };
 
@@ -134,7 +99,6 @@ const parseExpiryFromData = (row, headers, values) => {
   if (row.exp) {
     const exp = String(row.exp).trim();
 
-    // Handle Date objects (SheetJS may return JS Date objects)
     if (row.exp instanceof Date) {
       const month = String(row.exp.getMonth() + 1).padStart(2, "0");
       const year = String(row.exp.getFullYear()).slice(-2);
@@ -242,7 +206,7 @@ const parseRowData = (headers, values, debugMode = false) => {
 };
 
 // ═══════════════════════════════════════════
-// ExcelJS CELL EXTRACTOR (UNCHANGED — used for export & .xlsx import)
+// ExcelJS CELL EXTRACTOR (UNCHANGED)
 // ═══════════════════════════════════════════
 
 const extractCellValue = (cell) => {
@@ -263,34 +227,26 @@ const extractCellValue = (cell) => {
 };
 
 // ═══════════════════════════════════════════
-// ✅ NEW: SHEETJS .xls READER
+// SHEETJS .xls READER (UNCHANGED)
 // ═══════════════════════════════════════════
 
-/**
- * Read any .xls file (BIFF2-8) using SheetJS and return
- * the same { headers, dataRows } format as ExcelJS path.
- *
- * SheetJS reads directly from ArrayBuffer — no server needed.
- */
 const readXlsWithSheetJS = (arrayBuffer, filename) => {
   console.log(`   📖 Reading with SheetJS: ${filename}`);
 
   const workbook = XLSX.read(arrayBuffer, {
-    type: "array",          // Accept ArrayBuffer / Uint8Array
-    cellDates: true,        // Parse dates as JS Date objects
-    cellFormula: true,      // Preserve formulas
-    cellNF: true,           // Preserve number formats
-    cellStyles: false,      // Skip styles (not needed for import)
-    sheetStubs: true,       // Include blank cells to preserve column alignment
-    WTF: false,             // Don't throw on non-critical errors
-    codepage: undefined,    // Auto-detect codepage
-    raw: false,             // Apply number formatting
+    type: "array",
+    cellDates: true,
+    cellFormula: true,
+    cellNF: true,
+    cellStyles: false,
+    sheetStubs: true,
+    WTF: false,
+    codepage: undefined,
+    raw: false,
   });
 
-  // Log what we found
   console.log(`   📋 Sheets: ${workbook.SheetNames.join(", ")}`);
 
-  // Use first sheet
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
 
@@ -304,20 +260,18 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
     `(${range.e.r - range.s.r + 1} rows × ${range.e.c - range.s.c + 1} cols)`
   );
 
-  // Convert to array-of-arrays (raw values)
   const data = XLSX.utils.sheet_to_json(sheet, {
-    header: 1,       // Return array of arrays (not objects)
-    defval: "",      // Default value for empty cells
-    blankrows: false, // Skip completely blank rows
-    rawNumbers: false, // Return formatted strings for numbers
-    dateNF: undefined, // Use default date format
+    header: 1,
+    defval: "",
+    blankrows: false,
+    rawNumbers: false,
+    dateNF: undefined,
   });
 
   if (data.length < 2) {
     throw new Error("File has less than 2 rows. Need at least a header + 1 data row.");
   }
 
-  // Find the header row (row with most non-empty cells in first 10 rows)
   let headerRowIndex = 0;
   let maxNonEmpty = 0;
 
@@ -335,25 +289,21 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
     }
   }
 
-  // Extract headers
   const headers = data[headerRowIndex].map((h) => {
     if (h instanceof Date) return h.toLocaleDateString();
     return String(h || "").trim();
   });
 
-  // Extract data rows (everything after header)
   const dataRows = [];
   for (let i = headerRowIndex + 1; i < data.length; i++) {
     const row = data[i];
     if (!row) continue;
 
-    // Skip completely empty rows
     const hasData = row.some(
       (cell) => cell !== null && cell !== undefined && String(cell).trim() !== ""
     );
     if (!hasData) continue;
 
-    // Convert all cell values to strings (matching ExcelJS output format)
     const values = row.map((cell) => {
       if (cell === null || cell === undefined) return "";
       if (cell instanceof Date) return cell.toLocaleDateString();
@@ -369,7 +319,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
 };
 
 // ═══════════════════════════════════════════
-// ✅ NEW: ExcelJS .xlsx READER (extracted from old handleImportExcel)
+// ExcelJS .xlsx READER (UNCHANGED)
 // ═══════════════════════════════════════════
 
 const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
@@ -383,7 +333,6 @@ const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
     throw new Error("Excel file is empty or has no data rows.");
   }
 
-  // Extract all rows
   const data = [];
   const colCount = worksheet.columnCount;
 
@@ -400,7 +349,6 @@ const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
     throw new Error("No data found in Excel file.");
   }
 
-  // Find header row
   let headerRowIndex = 0;
   let maxNonEmpty = 0;
 
@@ -438,17 +386,17 @@ const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
 // MAIN HOOK
 // ═══════════════════════════════════════════
 
-export const usePurchaseImportExport = (onImport, supplier, toast, productMaster = []) => {
+export const usePurchaseImportExport = (onImport, supplier, toast, productMaster = [], onCatalogCheckComplete = null) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  // ─── Product detection (UNCHANGED) ───
+  // ─── Product detection + Master Catalog Check ───
   const detectNewProducts = useCallback(
-    (parsedRows) => {
+    async (parsedRows) => {
       const newProducts = [];
       const processedRows = [];
       const matchedProductCache = new Map();
 
-      console.group("🔍 Product Detection & Matching");
+      console.group("🔍 Product Detection & Master Catalog Matching");
       console.log("Product Master Count:", productMaster.length);
       console.log("Parsed Rows Count:", parsedRows.length);
 
@@ -457,6 +405,10 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       let cacheHits = 0;
       let newCount = 0;
       let freeItemCount = 0;
+
+      // ═══════════════════════════════════════════════════════
+      // STEP 1: Match against LOCAL shop medicines (existing logic)
+      // ═══════════════════════════════════════════════════════
 
       parsedRows.forEach((row) => {
         if (!row.name || !row.name.trim()) {
@@ -553,25 +505,72 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         }
       });
 
-      console.log(`\n📊 Detection Summary:`);
+      console.log(`\n📊 Local Match Summary:`);
       console.log(`  Total Rows: ${parsedRows.length}`);
       console.log(`  Skipped (no name): ${skippedNoName}`);
-      console.log(`  Matched: ${matchedCount} (cache hits: ${cacheHits})`);
+      console.log(`  Matched locally: ${matchedCount} (cache hits: ${cacheHits})`);
       console.log(`  New Products: ${newCount}`);
       console.log(`  Free Items: ${freeItemCount}`);
+
+      // ═══════════════════════════════════════════════════════
+      // STEP 2: Check NEW products against Master Catalog
+      // ═══════════════════════════════════════════════════════
+
+      let catalogResults = null;
+
+      if (newProducts.length > 0) {
+        console.log(`\n🔗 Checking ${newProducts.length} new products against master catalog...`);
+
+        // 🔥 DEBUG LOG: Confirm exactly what we're sending to backend
+        console.log("📤 Sending to master catalog:", newProducts.map(p => ({
+          name: p.name,
+          manufacturer: p.manufacturer,
+          generic_name: p.genericName || "",
+        })));
+
+        try {
+          const catalogResponse = await medicinesAPI.checkMasterCatalog(
+            newProducts.map((p) => ({
+              name: p.name,
+              manufacturer: p.manufacturer,
+              generic_name: p.genericName || "",
+            }))
+          );
+
+          catalogResults = catalogResponse.data;
+
+          console.log(`✅ Master Catalog Results:`, catalogResults.stats);
+
+          // Attach catalog results to new products
+          if (catalogResults.results) {
+            catalogResults.results.forEach((result) => {
+              if (result.rowIndex !== undefined && newProducts[result.rowIndex]) {
+                newProducts[result.rowIndex].catalogMatch = result;
+              }
+            });
+          }
+        } catch (error) {
+          console.warn("⚠️ Master catalog check failed (non-blocking):", error.message);
+        }
+      }
+
       console.groupEnd();
 
-      return { existingRows: processedRows, newProducts };
+      return {
+        existingRows: processedRows,
+        newProducts,
+        catalogResults,
+      };
     },
     [productMaster]
   );
 
-  // ─── CSV Import (UNCHANGED) ───
+  // ─── CSV Import ───
   const handleImportCSV = useCallback(
     (file) => {
       setIsLoading(true);
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const content = e.target.result;
           const firstLine = content.split("\n")[0];
@@ -598,7 +597,12 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
             }
           }
 
-          const { existingRows, newProducts } = detectNewProducts(parsed);
+          const { existingRows, newProducts, catalogResults } = await detectNewProducts(parsed);
+
+          if (onCatalogCheckComplete && catalogResults) {
+            onCatalogCheckComplete(newProducts, catalogResults);
+          }
+
           onImport(existingRows, newProducts);
 
           const matchedCount = existingRows.filter((r) => r.medicine_id).length;
@@ -616,11 +620,11 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       };
       reader.readAsText(file);
     },
-    [onImport, toast, detectNewProducts]
+    [onImport, toast, detectNewProducts, onCatalogCheckComplete]
   );
 
   // ═══════════════════════════════════════════
-  // ✅ REWRITTEN: Excel Import — .xls via SheetJS, .xlsx via ExcelJS
+  // Excel Import
   // ═══════════════════════════════════════════
 
   const handleImportExcel = useCallback(
@@ -638,31 +642,17 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         let headers;
         let dataRows;
 
-        // ═══════════════════════════════════════
-        // ROUTE: .xls → SheetJS (client-side, no server)
-        // ROUTE: .xlsx → ExcelJS (client-side, no server)
-        // ═══════════════════════════════════════
-
         if (extension === "xls") {
-          // ✅ SheetJS reads ALL legacy formats natively:
-          // BIFF2 (Excel 2.0), BIFF3, BIFF4, BIFF5 (Excel 95), BIFF8 (Excel 97-2003)
           const result = readXlsWithSheetJS(arrayBuffer, file.name);
           headers = result.headers;
           dataRows = result.dataRows;
-
         } else if (extension === "xlsx") {
-          // ExcelJS for modern .xlsx (better style support for round-tripping)
           const result = await readXlsxWithExcelJS(arrayBuffer, file.name);
           headers = result.headers;
           dataRows = result.dataRows;
-
         } else {
           throw new Error("Unsupported file format. Please use .xls or .xlsx files.");
         }
-
-        // ═══════════════════════════════════════
-        // COMMON: Parse rows (same for both formats)
-        // ═══════════════════════════════════════
 
         console.group("📋 Import Analysis");
         console.log("Format:", extension.toUpperCase());
@@ -677,7 +667,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           const values = dataRows[i];
           const parsedRow = parseRowData(headers, values, parsed.length < 2);
 
-          // Only add rows with meaningful data
           if (parsedRow.name || parsedRow.mfac || parsedRow.hsn || parsedRow.qty || parsedRow.price) {
             parsed.push(parsedRow);
           }
@@ -689,11 +678,14 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           return;
         }
 
-        // Detect new products and match existing ones
-        const { existingRows, newProducts } = detectNewProducts(parsed);
+        const { existingRows, newProducts, catalogResults } = await detectNewProducts(parsed);
+
+        if (onCatalogCheckComplete && catalogResults) {
+          onCatalogCheckComplete(newProducts, catalogResults);
+        }
+
         onImport(existingRows, newProducts);
 
-        // Success message
         const matchedCount = existingRows.filter((r) => r.medicine_id).length;
         const freeCount = existingRows.filter((r) => r.isFreeItem).length;
 
@@ -701,7 +693,6 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           "Import Successful",
           `${matchedCount} matched, ${newProducts.length} new, ${freeCount} free items`
         );
-
       } catch (error) {
         console.error("❌ Excel import error:", error);
 
@@ -724,10 +715,10 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         setIsLoading(false);
       }
     },
-    [onImport, toast, detectNewProducts]
+    [onImport, toast, detectNewProducts, onCatalogCheckComplete]
   );
 
-  // ─── Export (UNCHANGED — still uses ExcelJS) ───
+  // ─── Export (UNCHANGED) ───
   const handleExportExcel = useCallback(
     async (rows) => {
       setIsLoading(true);

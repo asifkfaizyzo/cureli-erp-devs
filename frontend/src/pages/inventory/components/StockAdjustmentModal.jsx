@@ -2,7 +2,16 @@
 
 import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Save, Package, AlertTriangle, Plus, Minus, Building2 } from "lucide-react";
+import {
+  X,
+  Save,
+  Package,
+  AlertTriangle,
+  Plus,
+  Minus,
+  Building2,
+  AlertCircle,
+} from "lucide-react";
 import StyledSelect from "../../../components/common/StyledSelect";
 
 const backdropVariants = {
@@ -26,7 +35,7 @@ const panelVariants = {
   },
 };
 
-// ✅ FIXED: Match Prisma enum values exactly
+// ✅ Match Prisma enum values exactly
 const ADJUSTMENT_REASONS = [
   { value: "PHYSICAL_COUNT_VARIANCE", label: "Physical Count Variance" },
   { value: "DAMAGED_GOODS", label: "Damaged Goods" },
@@ -42,6 +51,8 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
   const [reasonNotes, setReasonNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  // ✅ NEW: Inline error state for API failures
+  const [submitError, setSubmitError] = useState(null);
 
   // Reset state when item changes
   useEffect(() => {
@@ -50,6 +61,7 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
       setReason("");
       setReasonNotes("");
       setErrors({});
+      setSubmitError(null);
     }
   }, [item]);
 
@@ -58,46 +70,76 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
   const currentStock = Number(item.current_stock || item.qty || 0);
   const variance = Number(newQuantity) - currentStock;
 
+  // ✅ Helper to safely extract branch name from object or string
+  const getBranchName = () => {
+    if (item.branch_name && typeof item.branch_name === "string") {
+      return item.branch_name;
+    }
+    if (item.branch) {
+      if (typeof item.branch === "object") {
+        return item.branch?.branch_name || item.branch?.name || "";
+      }
+      return String(item.branch);
+    }
+    return "";
+  };
+
+  const branchDisplayName = getBranchName();
+
   const validate = () => {
     const newErrors = {};
-    
+
     if (newQuantity === "" || Number(newQuantity) < 0) {
       newErrors.newQuantity = "Quantity must be 0 or greater";
     }
-    
+
     if (!reason) {
       newErrors.reason = "Please select a reason";
     }
-    
+
     if (reason === "OTHER" && !reasonNotes.trim()) {
       newErrors.reasonNotes = "Please provide details for 'Other' reason";
     }
-    
+
     if (variance === 0) {
-      newErrors.newQuantity = "New quantity must be different from current stock";
+      newErrors.newQuantity =
+        "New quantity must be different from current stock";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // ✅ FIX: Handle errors properly — don't auto-close on failure
   const handleSubmit = async () => {
     if (!validate()) return;
 
     setLoading(true);
+    setSubmitError(null);
+
     try {
       await onSubmit({
         newQuantity: Number(newQuantity),
         reason,
         reasonNotes: reasonNotes.trim(),
       });
+      // ✅ If onSubmit succeeds (no throw), parent handles closing
+    } catch (error) {
+      // ✅ Show error inside modal — don't close
+      console.error("Adjustment submit error:", error);
+      setSubmitError(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to save adjustment. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const incrementQty = () => setNewQuantity(prev => Number(prev) + 1);
-  const decrementQty = () => setNewQuantity(prev => Math.max(0, Number(prev) - 1));
+  const incrementQty = () => setNewQuantity((prev) => Number(prev) + 1);
+  const decrementQty = () =>
+    setNewQuantity((prev) => Math.max(0, Number(prev) - 1));
 
   return (
     <AnimatePresence>
@@ -125,7 +167,9 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
             <div className="flex justify-between items-center px-5 py-4 bg-gradient-to-r from-amber-500 to-orange-500">
               <div className="flex items-center gap-2">
                 <Package className="text-white" size={20} />
-                <h2 className="text-lg font-bold text-white">Stock Adjustment</h2>
+                <h2 className="text-lg font-bold text-white">
+                  Stock Adjustment
+                </h2>
               </div>
               <button
                 onClick={onClose}
@@ -135,18 +179,39 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
               </button>
             </div>
 
+            {/* ✅ NEW: Error banner inside modal */}
+            {submitError && (
+              <div className="px-5 py-2.5 bg-red-50 border-b border-red-200 flex items-center gap-2">
+                <AlertCircle size={14} className="text-red-600 shrink-0" />
+                <span className="text-xs text-red-700 font-medium">
+                  {submitError}
+                </span>
+                <button
+                  onClick={() => setSubmitError(null)}
+                  className="ml-auto text-red-400 hover:text-red-600"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+
             {/* Content */}
             <div className="p-5 space-y-4">
               {/* Item Info */}
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                <p className="text-sm font-semibold text-slate-800">{item.name}</p>
+                <p className="text-sm font-semibold text-slate-800">
+                  {item.name}
+                </p>
                 <div className="flex flex-wrap gap-3 mt-1 text-xs text-slate-500">
-                  <span>Batch: {item.batch || item.batch_number || "-"}</span>
+                  <span>
+                    Batch: {item.batch || item.batch_number || "-"}
+                  </span>
                   <span>Expiry: {item.expiry || "-"}</span>
-                  {(item.branch || item.branch_name) && (
+                  {/* ✅ FIXED: Safely extract branch name */}
+                  {branchDisplayName && (
                     <span className="flex items-center gap-1">
                       <Building2 size={10} />
-                      {item.branch || item.branch_name}
+                      {branchDisplayName}
                     </span>
                   )}
                 </div>
@@ -155,7 +220,9 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
               {/* Current Stock */}
               <div className="flex justify-between items-center py-2 border-b border-slate-200">
                 <span className="text-sm text-slate-600">Current Stock</span>
-                <span className="text-lg font-bold text-slate-800">{currentStock} units</span>
+                <span className="text-lg font-bold text-slate-800">
+                  {currentStock} units
+                </span>
               </div>
 
               {/* New Quantity */}
@@ -167,42 +234,65 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
                   <button
                     type="button"
                     onClick={decrementQty}
-                    className="p-2.5 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-colors"
+                    disabled={loading}
+                    className="p-2.5 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-colors disabled:opacity-50"
                   >
                     <Minus size={18} />
                   </button>
                   <input
                     type="number"
                     value={newQuantity}
-                    onChange={(e) => setNewQuantity(e.target.value)}
+                    onChange={(e) => {
+                      setNewQuantity(e.target.value);
+                      setSubmitError(null);
+                    }}
                     min="0"
-                    className={`flex-1 px-4 py-2.5 text-center text-lg font-bold border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 ${
-                      errors.newQuantity ? "border-red-300 bg-red-50" : "border-slate-300"
+                    disabled={loading}
+                    className={`flex-1 px-4 py-2.5 text-center text-lg font-bold border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 ${
+                      errors.newQuantity
+                        ? "border-red-300 bg-red-50"
+                        : "border-slate-300"
                     }`}
                   />
                   <button
                     type="button"
                     onClick={incrementQty}
-                    className="p-2.5 rounded-lg bg-slate-100 hover:bg-green-100 text-slate-600 hover:text-green-600 transition-colors"
+                    disabled={loading}
+                    className="p-2.5 rounded-lg bg-slate-100 hover:bg-green-100 text-slate-600 hover:text-green-600 transition-colors disabled:opacity-50"
                   >
                     <Plus size={18} />
                   </button>
                 </div>
                 {errors.newQuantity && (
-                  <p className="mt-1 text-xs text-red-500">{errors.newQuantity}</p>
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.newQuantity}
+                  </p>
                 )}
               </div>
 
               {/* Variance Display */}
               {variance !== 0 && (
-                <div className={`flex items-center gap-2 p-3 rounded-lg ${
-                  variance > 0 
-                    ? "bg-green-50 border border-green-200" 
-                    : "bg-red-50 border border-red-200"
-                }`}>
-                  <AlertTriangle size={16} className={variance > 0 ? "text-green-600" : "text-red-600"} />
-                  <span className={`text-sm font-medium ${variance > 0 ? "text-green-700" : "text-red-700"}`}>
-                    {variance > 0 ? "+" : ""}{variance} units ({variance > 0 ? "Stock Increase" : "Stock Decrease"})
+                <div
+                  className={`flex items-center gap-2 p-3 rounded-lg ${
+                    variance > 0
+                      ? "bg-green-50 border border-green-200"
+                      : "bg-red-50 border border-red-200"
+                  }`}
+                >
+                  <AlertTriangle
+                    size={16}
+                    className={
+                      variance > 0 ? "text-green-600" : "text-red-600"
+                    }
+                  />
+                  <span
+                    className={`text-sm font-medium ${
+                      variance > 0 ? "text-green-700" : "text-red-700"
+                    }`}
+                  >
+                    {variance > 0 ? "+" : ""}
+                    {variance} units (
+                    {variance > 0 ? "Stock Increase" : "Stock Decrease"})
                   </span>
                 </div>
               )}
@@ -212,29 +302,44 @@ const StockAdjustmentModal = ({ open, item, onClose, onSubmit }) => {
                 <StyledSelect
                   label="Reason *"
                   value={reason}
-                  onChange={setReason}
+                  onChange={(val) => {
+                    setReason(val);
+                    setSubmitError(null);
+                  }}
                   options={ADJUSTMENT_REASONS}
                   placeholder="Select a reason"
                   error={errors.reason}
+                  disabled={loading}
                 />
               </div>
 
               {/* Reason Notes */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
-                  Notes {reason === "OTHER" && <span className="text-red-500">*</span>}
+                  Notes{" "}
+                  {reason === "OTHER" && (
+                    <span className="text-red-500">*</span>
+                  )}
                 </label>
                 <textarea
                   value={reasonNotes}
-                  onChange={(e) => setReasonNotes(e.target.value)}
+                  onChange={(e) => {
+                    setReasonNotes(e.target.value);
+                    setSubmitError(null);
+                  }}
                   rows={3}
+                  disabled={loading}
                   placeholder="Additional details about this adjustment..."
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none text-sm ${
-                    errors.reasonNotes ? "border-red-300 bg-red-50" : "border-slate-300"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none text-sm disabled:opacity-50 ${
+                    errors.reasonNotes
+                      ? "border-red-300 bg-red-50"
+                      : "border-slate-300"
                   }`}
                 />
                 {errors.reasonNotes && (
-                  <p className="mt-1 text-xs text-red-500">{errors.reasonNotes}</p>
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.reasonNotes}
+                  </p>
                 )}
               </div>
             </div>

@@ -33,6 +33,8 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+
+
 model CAdmin {
   cadmin_id           String              @id @default(uuid()) @db.Uuid
   username            String              @unique
@@ -561,33 +563,166 @@ model EnquiryReply {
   @@index([replied_by_id])
   @@map("enquiry_replies")
 }
+// ══════════════════════════════════════════════════════════════
+// MASTER MEDICINE CATALOG (Global Medicine Database)
+// ══════════════════════════════════════════════════════════════
+
+model MasterMedicine {
+  master_medicine_id String   @id @default(uuid()) @db.Uuid
+  
+  // Core identifiers
+  master_key         String   @unique @db.VarChar(100)  // ✅ NEW: "fluoxetine_capsule"
+  generic_name       String   @db.VarChar(300)          // ✅ NEW: "Fluoxetine Capsule"
+  
+  // Medicine properties
+  type               MedicineType
+  form               String?  @db.VarChar(50)           // ✅ NEW: "Capsule", "Tablet"
+  composition        Json                                // ✅ CHANGED: String → Json (structured)
+  
+  // Regulatory
+  prescription_required Boolean @default(false)
+  primary_category   String?  @db.VarChar(100)          // ✅ NEW: "DERMA", "CARDIO"
+  
+  // Metadata
+  variant_count      Int      @default(0)                // ✅ NEW: Number of variants
+  is_active          Boolean  @default(true)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  variants           MasterMedicineVariant[]             // ✅ NEW: One-to-many
+  images             MasterMedicineImage[]
+  linkedMedicines    Medicine[]              @relation("MedicineMasterLink")
+  // Indexes
+  @@index([master_key])
+  @@index([generic_name])
+  @@index([type])
+  @@index([form])
+  @@index([is_active])
+  @@index([primary_category])
+  @@map("master_medicines")
+}
+
+// ✅ NEW TABLE
+model MasterMedicineVariant {
+  variant_id         String   @id @default(uuid()) @db.Uuid
+  master_medicine_id String   @db.Uuid
+  
+  // CCSP identifiers
+  sku_id             String   @unique @db.VarChar(50)    // "10005", "10010"
+  
+  // Product details
+  name               String   @db.VarChar(300)           // "Topinate Cream"
+  brand              String?  @db.VarChar(150)           // "Topinate"
+  
+  // Composition (with strengths)
+  composition        Json                                 // [{ name, strength }]
+  
+  // Strength (parsed)
+  strength_value     Float?
+  strength_unit      String?  @db.VarChar(20)            // "mg", "%"
+  
+  // Business info
+  manufacturer       String?  @db.VarChar(200)
+  marketer           String?  @db.VarChar(200)
+  pack_size          String?  @db.VarChar(100)
+  
+  // Pricing
+  mrp                Decimal? @db.Decimal(10, 2)
+  selling_price      Decimal? @db.Decimal(10, 2)
+  discount_percent   Float?
+  
+  // Additional
+  description        String?  @db.Text
+  
+  // Images (JSON array of URLs)
+  images             Json     @default("[]")             // ["img_00_high.jpg", ...]
+  
+  // Metadata
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  master             MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
+  linkedMedicines  Medicine[] @relation("MedicineVariantLink")
+  // Indexes
+  @@index([master_medicine_id])
+  @@index([sku_id])
+  @@index([brand])
+  @@index([name])
+  @@map("master_medicine_variants")
+}
+
+model MasterMedicineImage {
+  image_id           String   @id @default(uuid()) @db.Uuid
+  master_medicine_id String   @db.Uuid
+  
+  // Image info
+  sku_id             String   @db.VarChar(50)           // ✅ NEW: Which variant this belongs to
+  url                String   @db.VarChar(500)          // "/static/medicine_images/10005/img_00_high.jpg"
+  type               ImageType                          // PRIMARY or GALLERY
+  sequence           Int      @default(0)               // ✅ NEW: Display order
+  source             ImageSource @default(SCRAPED)
+  uploaded_by        String?     @db.VarChar(100)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  medicine           MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
+  
+  // Indexes
+  @@index([master_medicine_id])
+  @@index([sku_id])
+  @@index([type])
+  @@map("master_medicine_images")
+}
 
 model Medicine {
-  medicine_id      String                @id @default(uuid()) @db.Uuid
-  name             String                @db.VarChar(200)
-  generic_name     String?               @db.VarChar(200)
-  master_medicine_id String?             @db.Uuid
-  manufacturer     String                @db.VarChar(150)
-  category         String?               @db.VarChar(100)
-  sub_category     String?               @db.VarChar(100)
-  schedule         String?               @db.VarChar(50)
-  hsn_code         String?               @db.VarChar(20)
-  pack_size        String?               @db.VarChar(50)
-  unit_of_measure  String                @default("UNIT")
-  gst_percentage   Decimal               @default(12) @db.Decimal(5, 2)
-  cgst_percentage  Decimal               @default(6) @db.Decimal(5, 2)
-  sgst_percentage  Decimal               @default(6) @db.Decimal(5, 2)
-  rack_no          String?               @db.VarChar(20)
-  is_active        Boolean               @default(true)
-  is_discontinued  Boolean               @default(false)
-  shop_id          String                @db.Uuid
-  created_by       String                @db.Uuid
-  created_at       DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime              @updatedAt @db.Timestamptz(6)
-  branch_id        String?               @db.Uuid
-  max_stock_level  Decimal?              @db.Decimal(10, 2)
-  min_stock_level  Decimal?              @db.Decimal(10, 2)
-  reorder_point    Decimal?              @db.Decimal(10, 2)
+  // ═══════════════════════════════════════════════════════
+  // SCALAR FIELDS - ALL FIRST
+  // ═══════════════════════════════════════════════════════
+  medicine_id            String    @id @default(uuid()) @db.Uuid
+  name                   String    @db.VarChar(200)
+  generic_name           String?   @db.VarChar(200)
+  manufacturer           String    @db.VarChar(150)
+  category               String?   @db.VarChar(100)
+  sub_category           String?   @db.VarChar(100)
+  schedule               String?   @db.VarChar(50)
+  hsn_code               String?   @db.VarChar(20)
+  pack_size              String?   @db.VarChar(50)
+  unit_of_measure        String    @default("UNIT")
+  gst_percentage         Decimal   @default(12) @db.Decimal(5, 2)
+  cgst_percentage        Decimal   @default(6) @db.Decimal(5, 2)
+  sgst_percentage        Decimal   @default(6) @db.Decimal(5, 2)
+  rack_no                String?   @db.VarChar(20)
+  is_active              Boolean   @default(true)
+  is_discontinued        Boolean   @default(false)
+  shop_id                String    @db.Uuid
+  created_by             String    @db.Uuid
+  created_at             DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime  @updatedAt @db.Timestamptz(6)
+  branch_id              String?   @db.Uuid
+  max_stock_level        Decimal?  @db.Decimal(10, 2)
+  min_stock_level        Decimal?  @db.Decimal(10, 2)
+  reorder_point          Decimal?  @db.Decimal(10, 2)
+  master_medicine_id     String?   @db.Uuid
+  // ── VARIANT LINKING (the correct link target) ──
+  linked_variant_id      String?   @db.Uuid          // ✅ NEW: links to specific variant
+  linked_variant_sku     String?   @db.VarChar(50)   // ✅ NEW: denormalized for fast lookup
+  link_status            LinkStatus @default(PENDING)
+  link_confidence_score  Float?
+  link_rejected          Boolean   @default(false)
+  linked_at              DateTime? @db.Timestamptz(6)
+  linked_by_id           String?   @db.Uuid
+  linked_by_type         String?   @db.VarChar(20)
+  suggested_master_id    String?   @db.Uuid
+  suggested_variant_id   String?   @db.Uuid
+  suggestion_reason      String?   @db.VarChar(200)
+  normalized_name        String?   @db.VarChar(200)
+
+  // ═══════════════════════════════════════════════════════
+  // RELATIONS - ALL AFTER SCALARS
+  // ═══════════════════════════════════════════════════════
+  masterMedicine   MasterMedicine?       @relation("MedicineMasterLink", fields: [master_medicine_id], references: [master_medicine_id])
   inventory        Inventory[]           @relation("MedicineInventory")
   branch           Branch?               @relation("BranchMedicines", fields: [branch_id], references: [branch_id])
   creator          User                  @relation("MedicineCreator", fields: [created_by], references: [user_id])
@@ -596,21 +731,11 @@ model Medicine {
   salesItems       SalesInvoiceItem[]    @relation("SalesMedicineItems")
   stockAdjustments StockAdjustment[]     @relation("MedicineStockAdjustments")
   stockLedger      StockLedger[]         @relation("MedicineStockLedger")
+   linkedVariant    MasterMedicineVariant? @relation("MedicineVariantLink", fields: [linked_variant_id], references: [variant_id])
 
-   // Master catalog linking
-  link_status           LinkStatus @default(PENDING)     // ✅ NEW
-  link_confidence_score Float?                           // ✅ NEW (0-100)
-  link_rejected         Boolean    @default(false)       // ✅ NEW
-  linked_at             DateTime?  @db.Timestamptz(6)    // ✅ NEW
-
-   
-  // ✅ NEW: Linking metadata
-  linked_by_id            String?    @db.Uuid
-  linked_by_type          String?    @db.VarChar(20)       // "USER" | "SYSTEM" | "CADMIN"
-  suggested_master_id     String?    @db.Uuid              // Which master was suggested
-  suggestion_reason       String?    @db.VarChar(200)      // "Name match", etc.
-  normalized_name         String?    @db.VarChar(200)      // For aggregation
-
+  // ═══════════════════════════════════════════════════════
+  // INDEXES & CONSTRAINTS - LAST
+  // ═══════════════════════════════════════════════════════
   @@unique([shop_id, branch_id, name, manufacturer])
   @@index([shop_id, branch_id, is_active])
   @@index([shop_id, is_active])
@@ -1518,118 +1643,7 @@ model OtpDailyLimit {
   @@map("otp_daily_limits")
 }
 
-// ══════════════════════════════════════════════════════════════
-// MASTER MEDICINE CATALOG (Global Medicine Database)
-// ══════════════════════════════════════════════════════════════
 
-model MasterMedicine {
-  master_medicine_id String   @id @default(uuid()) @db.Uuid
-  
-  // Core identifiers
-  master_key         String   @unique @db.VarChar(100)  // ✅ NEW: "fluoxetine_capsule"
-  generic_name       String   @db.VarChar(300)          // ✅ NEW: "Fluoxetine Capsule"
-  
-  // Medicine properties
-  type               MedicineType
-  form               String?  @db.VarChar(50)           // ✅ NEW: "Capsule", "Tablet"
-  composition        Json                                // ✅ CHANGED: String → Json (structured)
-  
-  // Regulatory
-  prescription_required Boolean @default(false)
-  primary_category   String?  @db.VarChar(100)          // ✅ NEW: "DERMA", "CARDIO"
-  
-  // Metadata
-  variant_count      Int      @default(0)                // ✅ NEW: Number of variants
-  is_active          Boolean  @default(true)
-  created_at         DateTime @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime @updatedAt @db.Timestamptz(6)
-  
-  // Relations
-  variants           MasterMedicineVariant[]             // ✅ NEW: One-to-many
-  images             MasterMedicineImage[]
-  
-  // Indexes
-  @@index([master_key])
-  @@index([generic_name])
-  @@index([type])
-  @@index([form])
-  @@index([is_active])
-  @@index([primary_category])
-  @@map("master_medicines")
-}
-
-// ✅ NEW TABLE
-model MasterMedicineVariant {
-  variant_id         String   @id @default(uuid()) @db.Uuid
-  master_medicine_id String   @db.Uuid
-  
-  // CCSP identifiers
-  sku_id             String   @unique @db.VarChar(50)    // "10005", "10010"
-  
-  // Product details
-  name               String   @db.VarChar(300)           // "Topinate Cream"
-  brand              String?  @db.VarChar(150)           // "Topinate"
-  
-  // Composition (with strengths)
-  composition        Json                                 // [{ name, strength }]
-  
-  // Strength (parsed)
-  strength_value     Float?
-  strength_unit      String?  @db.VarChar(20)            // "mg", "%"
-  
-  // Business info
-  manufacturer       String?  @db.VarChar(200)
-  marketer           String?  @db.VarChar(200)
-  pack_size          String?  @db.VarChar(100)
-  
-  // Pricing
-  mrp                Decimal? @db.Decimal(10, 2)
-  selling_price      Decimal? @db.Decimal(10, 2)
-  discount_percent   Float?
-  
-  // Additional
-  description        String?  @db.Text
-  
-  // Images (JSON array of URLs)
-  images             Json     @default("[]")             // ["img_00_high.jpg", ...]
-  
-  // Metadata
-  created_at         DateTime @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime @updatedAt @db.Timestamptz(6)
-  
-  // Relations
-  master             MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
-  
-  // Indexes
-  @@index([master_medicine_id])
-  @@index([sku_id])
-  @@index([brand])
-  @@index([name])
-  @@map("master_medicine_variants")
-}
-
-model MasterMedicineImage {
-  image_id           String   @id @default(uuid()) @db.Uuid
-  master_medicine_id String   @db.Uuid
-  
-  // Image info
-  sku_id             String   @db.VarChar(50)           // ✅ NEW: Which variant this belongs to
-  url                String   @db.VarChar(500)          // "/static/medicine_images/10005/img_00_high.jpg"
-  type               ImageType                          // PRIMARY or GALLERY
-  sequence           Int      @default(0)               // ✅ NEW: Display order
-  source             ImageSource @default(SCRAPED)
-  uploaded_by        String?     @db.VarChar(100)
-  created_at         DateTime @default(now()) @db.Timestamptz(6)
-  
-  // Relations
-  medicine           MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
-  
-  // Indexes
-  @@index([master_medicine_id])
-  @@index([sku_id])
-  @@index([type])
-  @@map("master_medicine_images")
-}
 
 
 // ══════════════════════════════════════════════════════════════

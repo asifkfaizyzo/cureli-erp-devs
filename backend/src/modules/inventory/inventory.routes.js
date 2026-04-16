@@ -1,3 +1,4 @@
+//backend\src\modules\inventory\inventory.routes.js
 import express from "express";
 import inventoryController from "./inventory.controller.js";
 import { requireAuth } from "../../middleware/auth.js";
