@@ -1,6 +1,6 @@
 // src/hooks/inventory/useInventoryData.js
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import medicinesAPI from "../../api/medicines";
 import inventoryAPI from "../../api/inventory";
 
@@ -10,59 +10,80 @@ export const useInventoryData = () => {
   const [catalogLinkStatus, setCatalogLinkStatus] = useState({});
   const [catalogStatusLoading, setCatalogStatusLoading] = useState(false);
 
-  // ============================================
-  // FETCH INVENTORY
-  // ============================================
+  const abortControllerRef = useRef(null);
+  const requestIdRef = useRef(0);
+
   const fetchInventory = useCallback(async (filters = {}) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const thisRequestId = ++requestIdRef.current;
+
     setLoading(true);
+
     try {
-      const response = await inventoryAPI.getInventory(filters);
-      
+      const response = await inventoryAPI.getInventory(filters, {
+        signal: controller.signal,
+      });
+
+      if (thisRequestId !== requestIdRef.current) return;
+
       console.log("📦 Raw inventory response:", response);
-      
-      // ✅ Handle different response formats
+
+      let items = [];
       if (response?.success && response?.data) {
-        const inventories = response.data.inventories || response.data || [];
-        console.log("📦 Extracted inventories:", inventories);
-        setMedicines(Array.isArray(inventories) ? inventories : []);
+        items = response.data.inventories || response.data || [];
+        console.log("📦 Extracted inventories:", items);
       } else if (Array.isArray(response?.data)) {
-        setMedicines(response.data);
+        items = response.data;
       } else if (Array.isArray(response)) {
-        setMedicines(response);
+        items = response;
       } else {
         console.warn("⚠️ Unexpected inventory response format:", response);
-        setMedicines([]);
+      }
+
+      const normalized = Array.isArray(items) ? items : [];
+      setMedicines(normalized);
+
+      if (normalized.length > 0) {
+        fetchCatalogStatusForItems(normalized);
+      } else {
+        setCatalogLinkStatus({});
+        setCatalogStatusLoading(false);
       }
     } catch (error) {
-      console.error("❌ Error fetching inventory:", error);
-      setMedicines([]);
-      // Don't throw - let the UI handle empty state
+      if (error.name === "AbortError" || error.name === "CanceledError") {
+        return;
+      }
+
+      if (thisRequestId === requestIdRef.current) {
+        console.error("❌ Error fetching inventory:", error);
+        setMedicines([]);
+      }
     } finally {
-      setLoading(false);
+      if (thisRequestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
-  // ============================================
-  // FETCH CATALOG LINK STATUS
-  // ============================================
-  const fetchCatalogLinkStatus = useCallback(async () => {
-    if (!Array.isArray(medicines) || medicines.length === 0) return;
+  const fetchCatalogStatusForItems = async (items) => {
+    if (!items || items.length === 0) return;
 
     setCatalogStatusLoading(true);
     try {
-      const medicineIds = medicines
+      const medicineIds = items
         .map((m) => m.medicine_id || m.id)
         .filter(Boolean);
-      
-      if (medicineIds.length === 0) {
-        setCatalogStatusLoading(false);
-        return;
-      }
+
+      if (medicineIds.length === 0) return;
 
       const response = await medicinesAPI.getCatalogLinkStatus(medicineIds);
 
       if (response?.success && Array.isArray(response.data)) {
-        // Convert array to map for O(1) lookup
         const statusMap = {};
         response.data.forEach((item) => {
           if (item.medicine_id) {
@@ -77,23 +98,26 @@ export const useInventoryData = () => {
         setCatalogLinkStatus(statusMap);
       }
     } catch (error) {
-      // ✅ Don't crash - catalog status is optional
       console.warn("⚠️ Catalog link status not available:", error.message);
       setCatalogLinkStatus({});
     } finally {
       setCatalogStatusLoading(false);
     }
-  }, [medicines]);
+  };
 
-  // ============================================
-  // DELETE MEDICINE
-  // ============================================
+  const refreshCatalogStatus = useCallback(async () => {
+    setMedicines((current) => {
+      fetchCatalogStatusForItems(current);
+      return current;
+    });
+  }, []);
+
   const deleteMedicine = useCallback(async (inventoryId) => {
     try {
       await inventoryAPI.delete(inventoryId);
-      setMedicines((prev) => 
-        prev.filter((m) => 
-          m.inventory_id !== inventoryId && m.id !== inventoryId
+      setMedicines((prev) =>
+        prev.filter(
+          (m) => m.inventory_id !== inventoryId && m.id !== inventoryId
         )
       );
     } catch (error) {
@@ -102,20 +126,6 @@ export const useInventoryData = () => {
     }
   }, []);
 
-  // ============================================
-  // AUTO-FETCH ON LOAD
-  // ============================================
-  useEffect(() => {
-    fetchInventory();
-  }, [fetchInventory]);
-
-  // Fetch catalog link status when medicines change
-  useEffect(() => {
-    if (Array.isArray(medicines) && medicines.length > 0) {
-      fetchCatalogLinkStatus();
-    }
-  }, [medicines.length]); // Only trigger when length changes
-
   return {
     medicines,
     loading,
@@ -123,6 +133,6 @@ export const useInventoryData = () => {
     deleteMedicine,
     catalogLinkStatus,
     catalogStatusLoading,
-    refreshCatalogStatus: fetchCatalogLinkStatus,
+    refreshCatalogStatus,
   };
 };

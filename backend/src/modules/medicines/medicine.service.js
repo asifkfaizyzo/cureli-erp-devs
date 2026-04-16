@@ -12,17 +12,16 @@ class ApiError extends Error {
 }
 
 class MedicineService {
-  
   // ✅ Helper to parse any value to number or null
   _toNumber(value) {
     if (value === null || value === undefined) return null;
-    if (typeof value === 'number') return isNaN(value) ? null : value;
-    if (typeof value === 'string') {
-      if (value.trim() === '') return null;
+    if (typeof value === "number") return isNaN(value) ? null : value;
+    if (typeof value === "string") {
+      if (value.trim() === "") return null;
       const num = Number(value);
       return isNaN(num) ? null : num;
     }
-    if (typeof value === 'object' && value.toString) {
+    if (typeof value === "object" && value.toString) {
       const num = Number(value.toString());
       return isNaN(num) ? null : num;
     }
@@ -44,17 +43,17 @@ class MedicineService {
      CREATE MEDICINE
      Updated to accept pre-computed linking data
   ============================================ */
-  
+
   async createMedicine(data, shopId, branchId, userId, linkingData = null) {
-    console.log('=== MEDICINE SERVICE: CREATE ===');
-    console.log('📥 Raw data received:', JSON.stringify(data, null, 2));
-    console.log('📎 Linking data:', linkingData);
-    
+    console.log("=== MEDICINE SERVICE: CREATE ===");
+    console.log("📥 Raw data received:", JSON.stringify(data, null, 2));
+    console.log("📎 Linking data:", linkingData);
+
     if (!branchId) {
       throw new ApiError(
         "Branch selection is required to create medicines.",
         400,
-        "BRANCH_REQUIRED"
+        "BRANCH_REQUIRED",
       );
     }
 
@@ -72,7 +71,7 @@ class MedicineService {
       throw new ApiError(
         `Medicine "${data.name}" by ${data.manufacturer} already exists`,
         409,
-        "DUPLICATE_MEDICINE"
+        "DUPLICATE_MEDICINE",
       );
     }
 
@@ -83,7 +82,11 @@ class MedicineService {
 
     // Validate stock levels
     if (minStock !== null && maxStock !== null && minStock >= maxStock) {
-      throw new ApiError("Min stock must be less than max stock", 400, "INVALID_STOCK_LEVELS");
+      throw new ApiError(
+        "Min stock must be less than max stock",
+        400,
+        "INVALID_STOCK_LEVELS",
+      );
     }
 
     // Determine linking status
@@ -97,14 +100,19 @@ class MedicineService {
 
     // If linking data provided (from import flow), use it
     if (linkingData) {
-      if (linkingData.status === "AUTO_LINKED" && linkingData.master_medicine_id) {
+      if (
+        linkingData.status === "AUTO_LINKED" &&
+        linkingData.master_medicine_id
+      ) {
         linkStatus = "AUTO_LINKED";
         masterMedicineId = linkingData.master_medicine_id;
         linkConfidenceScore = linkingData.confidence;
         linkedAt = new Date();
         linkedByType = "SYSTEM";
         suggestionReason = linkingData.reason;
-        console.log(`✅ Pre-linked to master: ${linkingData.master_medicine_id} (${linkingData.confidence}%)`);
+        console.log(
+          `✅ Pre-linked to master: ${linkingData.master_medicine_id} (${linkingData.confidence}%)`,
+        );
       } else if (linkingData.status === "PENDING") {
         linkStatus = "SUGGESTED";
         linkConfidenceScore = linkingData.confidence;
@@ -133,15 +141,15 @@ class MedicineService {
         cgst_percentage: this._toNumber(data.cgst_percentage) ?? 6,
         sgst_percentage: this._toNumber(data.sgst_percentage) ?? 6,
         rack_no: data.rack_no || null,
-        
+
         min_stock_level: minStock,
         max_stock_level: maxStock,
         reorder_point: reorderPt,
-        
+
         shop_id: shopId,
         branch_id: branchId,
         created_by: userId,
-        
+
         // Linking fields
         master_medicine_id: masterMedicineId,
         link_status: linkStatus,
@@ -154,19 +162,19 @@ class MedicineService {
       },
       include: {
         branch: {
-          select: { branch_id: true, branch_name: true }
+          select: { branch_id: true, branch_name: true },
         },
         masterMedicine: {
-          select: { 
-            master_medicine_id: true, 
-            master_key: true, 
-            generic_name: true 
-          }
-        }
-      }
+          select: {
+            master_medicine_id: true,
+            master_key: true,
+            generic_name: true,
+          },
+        },
+      },
     });
 
-    console.log('✅ Medicine created:', {
+    console.log("✅ Medicine created:", {
       id: medicine.medicine_id,
       name: medicine.name,
       link_status: medicine.link_status,
@@ -181,7 +189,7 @@ class MedicineService {
           manufacturer: medicine.manufacturer,
           generic_name: medicine.generic_name,
         });
-        
+
         if (linkResult.status === "AUTO_LINKED") {
           await prisma.medicine.update({
             where: { medicine_id: medicine.medicine_id },
@@ -194,8 +202,10 @@ class MedicineService {
               suggestion_reason: linkResult.reason,
             },
           });
-          
-          console.log(`✅ Auto-linked after creation: ${linkResult.master_key} (${linkResult.confidence}%)`);
+
+          console.log(
+            `✅ Auto-linked after creation: ${linkResult.master_key} (${linkResult.confidence}%)`,
+          );
         } else if (linkResult.status === "PENDING") {
           await prisma.medicine.update({
             where: { medicine_id: medicine.medicine_id },
@@ -206,8 +216,10 @@ class MedicineService {
               suggestion_reason: linkResult.reason,
             },
           });
-          
-          console.log(`📋 Suggestions available (${linkResult.suggestions?.length || 0})`);
+
+          console.log(
+            `📋 Suggestions available (${linkResult.suggestions?.length || 0})`,
+          );
         }
       } catch (linkError) {
         console.warn("⚠️ Auto-link failed:", linkError.message);
@@ -221,8 +233,20 @@ class MedicineService {
      GET MEDICINES
   ============================================ */
   async getMedicines(shopId, branchId, role, branchMode, filters = {}) {
-    const { search, isActive, manufacturer, category, limit = 100, offset = 0 } = filters;
-    const baseFilter = this._buildBranchFilter(shopId, branchId, role, branchMode);
+    const {
+      search,
+      isActive,
+      manufacturer,
+      category,
+      limit = 100,
+      offset = 0,
+    } = filters;
+    const baseFilter = this._buildBranchFilter(
+      shopId,
+      branchId,
+      role,
+      branchMode,
+    );
 
     const where = {
       ...baseFilter,
@@ -256,7 +280,12 @@ class MedicineService {
      GET MEDICINE BY ID
   ============================================ */
   async getMedicineById(medicineId, shopId, branchId, role, branchMode) {
-    const baseFilter = this._buildBranchFilter(shopId, branchId, role, branchMode);
+    const baseFilter = this._buildBranchFilter(
+      shopId,
+      branchId,
+      role,
+      branchMode,
+    );
 
     const medicine = await prisma.medicine.findFirst({
       where: { medicine_id: medicineId, ...baseFilter },
@@ -287,7 +316,12 @@ class MedicineService {
      UPDATE MEDICINE
   ============================================ */
   async updateMedicine(medicineId, shopId, branchId, role, branchMode, data) {
-    const baseFilter = this._buildBranchFilter(shopId, branchId, role, branchMode);
+    const baseFilter = this._buildBranchFilter(
+      shopId,
+      branchId,
+      role,
+      branchMode,
+    );
 
     const medicine = await prisma.medicine.findFirst({
       where: { medicine_id: medicineId, ...baseFilter },
@@ -299,13 +333,22 @@ class MedicineService {
 
     // Build update data
     const updateData = {};
-    
+
     const fields = [
-      'name', 'generic_name', 'manufacturer', 'category', 'sub_category',
-      'schedule', 'hsn_code', 'pack_size', 'rack_no', 'is_active', 'is_discontinued'
+      "name",
+      "generic_name",
+      "manufacturer",
+      "category",
+      "sub_category",
+      "schedule",
+      "hsn_code",
+      "pack_size",
+      "rack_no",
+      "is_active",
+      "is_discontinued",
     ];
-    
-    fields.forEach(field => {
+
+    fields.forEach((field) => {
       if (data[field] !== undefined) {
         updateData[field] = data[field];
       }
@@ -332,17 +375,31 @@ class MedicineService {
      BULK CREATE MEDICINES
      Updated to accept linking data per medicine
   ============================================ */
-  async bulkCreateMedicines(medicinesData, shopId, branchId, userId, linkingResults = null) {
+
+  async bulkCreateMedicines(
+    medicinesData,
+    shopId,
+    branchId,
+    userId,
+    linkingResults = null,
+  ) {
     if (!branchId) {
-      throw new ApiError("Branch required for bulk import", 400, "BRANCH_REQUIRED");
+      throw new ApiError(
+        "Branch required for bulk import",
+        400,
+        "BRANCH_REQUIRED",
+      );
     }
 
-    // Build a map of linking results by index if provided
-    const linkingMap = new Map();
+    // ✅ FIX: linkingResults is now the LEGACY path (kept for backward compat)
+    // The NEW path is _linkingData embedded directly in each medicine object
+
+    // Legacy: Build linking map by index (old callers that still pass separate array)
+    const legacyLinkingMap = new Map();
     if (linkingResults && Array.isArray(linkingResults)) {
-      linkingResults.forEach(result => {
+      linkingResults.forEach((result) => {
         if (result.rowIndex !== undefined) {
-          linkingMap.set(result.rowIndex, result);
+          legacyLinkingMap.set(result.rowIndex, result);
         }
       });
     }
@@ -351,25 +408,37 @@ class MedicineService {
 
     for (let i = 0; i < medicinesData.length; i++) {
       const data = medicinesData[i];
-      
-      // Get linking data for this medicine
-      const linkingData = linkingMap.get(i) || linkingMap.get(data.rowIndex) || null;
-      
+
+      // ✅ Priority 1: Linking data embedded directly in this product (new path)
+      // Priority 2: Legacy index-based lookup (old path)
+      // Priority 3: null (createMedicine will do its own catalog check)
+      const linkingData = data._linkingData || legacyLinkingMap.get(i) || null;
+
+      // Remove _linkingData from the data before passing to createMedicine
+      // so it doesn't end up in the Prisma create call
+      const { _linkingData, ...cleanData } = data;
+
       try {
-        const medicine = await this.createMedicine(data, shopId, branchId, userId, linkingData);
+        const medicine = await this.createMedicine(
+          cleanData,
+          shopId,
+          branchId,
+          userId,
+          linkingData,
+        );
         results.created.push(medicine);
       } catch (error) {
         if (error.statusCode === 409) {
-          results.skipped.push({ 
-            name: data.name, 
-            manufacturer: data.manufacturer, 
+          results.skipped.push({
+            name: data.name,
+            manufacturer: data.manufacturer,
             reason: "Duplicate",
             rowIndex: i,
           });
         } else {
-          results.errors.push({ 
-            name: data.name, 
-            manufacturer: data.manufacturer, 
+          results.errors.push({
+            name: data.name,
+            manufacturer: data.manufacturer,
             error: error.message,
             rowIndex: i,
           });
@@ -377,13 +446,15 @@ class MedicineService {
       }
     }
 
-    // Log summary
     console.log(`📊 Bulk create complete:`, {
       created: results.created.length,
       skipped: results.skipped.length,
       errors: results.errors.length,
-      autoLinked: results.created.filter(m => m.link_status === "AUTO_LINKED").length,
-      pending: results.created.filter(m => m.link_status === "SUGGESTED" || m.link_status === "PENDING").length,
+      autoLinked: results.created.filter((m) => m.link_status === "AUTO_LINKED")
+        .length,
+      pending: results.created.filter(
+        (m) => m.link_status === "SUGGESTED" || m.link_status === "PENDING",
+      ).length,
     });
 
     return results;
@@ -392,8 +463,20 @@ class MedicineService {
   /* ============================================
      SEARCH
   ============================================ */
-  async searchMedicines(shopId, branchId, role, branchMode, searchTerm, limit = 20) {
-    const baseFilter = this._buildBranchFilter(shopId, branchId, role, branchMode);
+  async searchMedicines(
+    shopId,
+    branchId,
+    role,
+    branchMode,
+    searchTerm,
+    limit = 20,
+  ) {
+    const baseFilter = this._buildBranchFilter(
+      shopId,
+      branchId,
+      role,
+      branchMode,
+    );
 
     return prisma.medicine.findMany({
       where: {

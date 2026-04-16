@@ -50,6 +50,11 @@ export const EntityType = Object.freeze({
   INVENTORY: "inventory",
   STOCK_ADJUSTMENT: "stock_adjustment",
   STOCK_LEDGER: "stock_ledger",
+
+  MASTER_MEDICINE: "master_medicine",
+  MASTER_MEDICINE_VARIANT: "master_medicine_variant",
+  MASTER_MEDICINE_IMAGE: "master_medicine_image",
+
 });
 
 export const VALID_ENTITY_TYPES = new Set(Object.values(EntityType));

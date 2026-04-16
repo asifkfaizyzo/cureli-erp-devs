@@ -1,9 +1,19 @@
 // src/pages/inventory/InventoryPage.jsx
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { useToast } from "../../components/common/Toast";
 import { useInventoryData } from "../../hooks/inventory/useInventoryData";
-import { useAuthStore, selectBranchContext, selectIsSuperAdmin } from "../../store/useAuthStore";
+import {
+  useAuthStore,
+  selectBranchContext,
+  selectIsSuperAdmin,
+} from "../../store/useAuthStore";
 import InventoryFilters from "./components/InventoryFilters";
 import InventoryTable from "./components/InventoryTable";
 import ViewInventoryModal from "./components/ViewInventoryModal";
@@ -24,9 +34,6 @@ import {
   Link2,
 } from "lucide-react";
 
-// ════════════════════════════════════════════════════════════
-// ✅ ENHANCED HELPER: Safely get string value from any field
-// ════════════════════════════════════════════════════════════
 const safeString = (value) => {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
@@ -42,9 +49,6 @@ const safeString = (value) => {
   return String(value);
 };
 
-// ════════════════════════════════════════════════════════════
-// Skeleton Summary Card
-// ════════════════════════════════════════════════════════════
 const SkeletonSummaryCard = ({ delay = 0 }) => (
   <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50">
     <div
@@ -66,9 +70,6 @@ const SkeletonSummaryCard = ({ delay = 0 }) => (
   </div>
 );
 
-// ════════════════════════════════════════════════════════════
-// Summary Card Component
-// ════════════════════════════════════════════════════════════
 const SummaryCard = ({ icon: Icon, label, value, color, suffix }) => {
   const colorClasses = {
     blue: "bg-blue-50 border-blue-200 text-blue-700",
@@ -79,7 +80,9 @@ const SummaryCard = ({ icon: Icon, label, value, color, suffix }) => {
   };
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-lg border ${colorClasses[color]}`}>
+    <div
+      className={`flex items-center gap-3 p-3 rounded-lg border ${colorClasses[color]}`}
+    >
       <div className="p-2 rounded-lg bg-white/60">
         <Icon size={18} />
       </div>
@@ -96,9 +99,6 @@ const SummaryCard = ({ icon: Icon, label, value, color, suffix }) => {
   );
 };
 
-// ════════════════════════════════════════════════════════════
-// Branch Context Banner Component
-// ════════════════════════════════════════════════════════════
 const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
   if (isGlobalMode) {
     return (
@@ -138,20 +138,15 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
   );
 };
 
-// ════════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ════════════════════════════════════════════════════════════
 const InventoryPage = () => {
   const toast = useToast();
 
-  // Branch context from store
   const branchContext = useAuthStore(selectBranchContext);
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
   const isGlobalMode = branchContext.mode === "GLOBAL";
   const canAdjustStock =
     branchContext.mode === "BRANCH" && !!branchContext.branch_id;
 
-  // Hook with catalog status support
   const {
     medicines,
     loading,
@@ -162,15 +157,9 @@ const InventoryPage = () => {
     refreshCatalogStatus,
   } = useInventoryData();
 
-  // Track if this is the initial load
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const hasLoadedOnce = useRef(false);
 
-  // ✅ FIX 3: Track previous branch context to detect switches
-  const prevBranchRef = useRef(branchContext.branch_id);
-  const prevModeRef = useRef(branchContext.mode);
-
-  // Local state
   const [filters, setFilters] = useState({
     search: "",
     status: "",
@@ -183,6 +172,12 @@ const InventoryPage = () => {
     lowStock: false,
   });
 
+  // Sort state — sent to API
+  const [sortConfig, setSortConfig] = useState({
+    sortBy: null,
+    order: null,
+  });
+
   const [openModal, setOpenModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [modalMode, setModalMode] = useState("view");
@@ -191,23 +186,19 @@ const InventoryPage = () => {
   const [adjustmentItem, setAdjustmentItem] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  // Add Medicine Modal State
   const [productModalOpen, setProductModalOpen] = useState(false);
 
-  // Handler to open Add Medicine modal
   const handleAddMedicine = useCallback(() => {
     if (isGlobalMode) {
       toast.warning(
         "Branch Required",
-        "Please select a specific branch to add medicines"
+        "Please select a specific branch to add medicines",
       );
       return;
     }
     setProductModalOpen(true);
   }, [isGlobalMode, toast]);
 
-  // Handler to save new medicine
   const handleMedicineSave = useCallback(
     async (medicineData) => {
       try {
@@ -240,7 +231,7 @@ const InventoryPage = () => {
 
         toast.success(
           "Medicine Added",
-          `${medicineData.name} has been added to the master list.`
+          `${medicineData.name} has been added to the master list.`,
         );
 
         setProductModalOpen(false);
@@ -249,20 +240,33 @@ const InventoryPage = () => {
         console.error("Create medicine error:", error);
         toast.error(
           "Failed to add medicine",
-          error.response?.data?.message || error.message
+          error.response?.data?.message || error.message,
         );
         throw error;
       }
     },
-    [toast, fetchInventory]
+    [toast, fetchInventory],
   );
 
-  // Filter change handler
   const handleFilterChange = useCallback((field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  // ✅ FIX 1: Apply API filters INCLUDING branch context from auth store
+  // Sort handler — cycles: none → asc → desc → none
+  const handleSortChange = useCallback((column) => {
+    setSortConfig((prev) => {
+      if (prev.sortBy !== column) {
+        return { sortBy: column, order: "asc" };
+      }
+      if (prev.order === "asc") {
+        return { sortBy: column, order: "desc" };
+      }
+      // Was desc → clear sort
+      return { sortBy: null, order: null };
+    });
+  }, []);
+
+  // Single consolidated fetch effect — now includes sort params
   useEffect(() => {
     const apiFilters = {};
 
@@ -270,16 +274,21 @@ const InventoryPage = () => {
     if (filters.includeExpired) apiFilters.includeExpired = true;
     if (filters.lowStock) apiFilters.lowStock = true;
 
-    // ✅ KEY FIX: Use branch from AUTH STORE, not just local filter
-    // When super_admin selects a specific branch, pass it to API
     if (!isGlobalMode && branchContext.branch_id) {
       apiFilters.branchId = branchContext.branch_id;
     }
 
-    // Also support manual branch filter (for global mode dropdown)
     if (filters.branchId) {
       apiFilters.branchId = filters.branchId;
     }
+
+    // Add sort params
+    if (sortConfig.sortBy) {
+      apiFilters.sortBy = sortConfig.sortBy;
+      apiFilters.sortOrder = sortConfig.order;
+    }
+
+    const delay = filters.search ? 300 : 0;
 
     const timeoutId = setTimeout(() => {
       fetchInventory(apiFilters)
@@ -295,7 +304,7 @@ const InventoryPage = () => {
             setIsInitialLoad(false);
           }
         });
-    }, 300);
+    }, delay);
 
     return () => clearTimeout(timeoutId);
   }, [
@@ -303,14 +312,14 @@ const InventoryPage = () => {
     filters.branchId,
     filters.includeExpired,
     filters.lowStock,
+    sortConfig.sortBy,
+    sortConfig.order,
     fetchInventory,
-    // ✅ KEY FIX: Re-fetch when branch context changes
     branchContext.branch_id,
     branchContext.mode,
     isGlobalMode,
   ]);
 
-  // Mark initial load complete when items arrive
   useEffect(() => {
     if (Array.isArray(medicines) && medicines.length > 0 && isInitialLoad) {
       setIsInitialLoad(false);
@@ -318,32 +327,6 @@ const InventoryPage = () => {
     }
   }, [medicines, isInitialLoad]);
 
-  // ✅ FIX 3: Re-fetch when user switches branch from navbar
-  useEffect(() => {
-    const branchChanged = prevBranchRef.current !== branchContext.branch_id;
-    const modeChanged = prevModeRef.current !== branchContext.mode;
-
-    if (branchChanged || modeChanged) {
-      prevBranchRef.current = branchContext.branch_id;
-      prevModeRef.current = branchContext.mode;
-
-      console.log("🏢 Branch context changed, refreshing inventory:", {
-        mode: branchContext.mode,
-        branch_id: branchContext.branch_id,
-      });
-
-      // Reset pagination/filters and refetch
-      const apiFilters = {};
-      if (!isGlobalMode && branchContext.branch_id) {
-        apiFilters.branchId = branchContext.branch_id;
-      }
-      fetchInventory(apiFilters);
-    }
-  }, [branchContext.branch_id, branchContext.mode, isGlobalMode, fetchInventory]);
-
-  // ════════════════════════════════════════════════════════════
-  // FILTERED DATA with type-safe checks
-  // ════════════════════════════════════════════════════════════
   const filteredData = useMemo(() => {
     if (!Array.isArray(medicines) || medicines.length === 0) return [];
 
@@ -358,7 +341,6 @@ const InventoryPage = () => {
         return String(val).toLowerCase();
       };
 
-      // Search filter
       let matchesSearch = true;
       if (filters.search && filters.search.trim()) {
         const searchTerm = filters.search.toLowerCase().trim();
@@ -380,11 +362,10 @@ const InventoryPage = () => {
           getVal(item.branch_name),
         ];
         matchesSearch = searchableFields.some((field) =>
-          field.includes(searchTerm)
+          field.includes(searchTerm),
         );
       }
 
-      // Status filter
       let matchesStatus = true;
       if (filters.status) {
         const itemStatus = getVal(item.status).toLowerCase().trim();
@@ -392,34 +373,30 @@ const InventoryPage = () => {
         matchesStatus = itemStatus === filterStatus;
       }
 
-      // Supplier filter
       let matchesSupplier = true;
       if (filters.supplier) {
         const itemSupplier = getVal(
-          item.supplier || item.supplier_name
+          item.supplier || item.supplier_name,
         ).toLowerCase();
         matchesSupplier = itemSupplier === filters.supplier.toLowerCase();
       }
 
-      // Category filter
       let matchesCategory = true;
       if (filters.category) {
         const itemCategory = getVal(
-          item.category || item.medicine_category
+          item.category || item.medicine_category,
         ).toLowerCase();
         matchesCategory = itemCategory === filters.category.toLowerCase();
       }
 
-      // Branch filter
       let matchesBranch = true;
       if (filters.branch) {
         const itemBranch = getVal(
-          item.branch || item.branch_name
+          item.branch || item.branch_name,
         ).toLowerCase();
         matchesBranch = itemBranch === filters.branch.toLowerCase();
       }
 
-      // Expiry filter
       let matchesExpiry = true;
       if (filters.expiry) {
         const today = new Date();
@@ -448,28 +425,27 @@ const InventoryPage = () => {
 
         if (expiryDate && !isNaN(expiryDate.getTime())) {
           expiryDate.setHours(0, 0, 0, 0);
-
           switch (filters.expiry) {
             case "expired":
               matchesExpiry = expiryDate < today;
               break;
             case "30days": {
               const thirtyDays = new Date(
-                today.getTime() + 30 * 24 * 60 * 60 * 1000
+                today.getTime() + 30 * 24 * 60 * 60 * 1000,
               );
               matchesExpiry = expiryDate >= today && expiryDate <= thirtyDays;
               break;
             }
             case "90days": {
               const ninetyDays = new Date(
-                today.getTime() + 90 * 24 * 60 * 60 * 1000
+                today.getTime() + 90 * 24 * 60 * 60 * 1000,
               );
               matchesExpiry = expiryDate >= today && expiryDate <= ninetyDays;
               break;
             }
             case "valid": {
               const ninetyDays = new Date(
-                today.getTime() + 90 * 24 * 60 * 60 * 1000
+                today.getTime() + 90 * 24 * 60 * 60 * 1000,
               );
               matchesExpiry = expiryDate > ninetyDays;
               break;
@@ -482,7 +458,6 @@ const InventoryPage = () => {
         }
       }
 
-      // Low stock quick filter
       let matchesLowStock = true;
       if (filters.lowStock) {
         const status = getVal(item.status).toLowerCase();
@@ -501,12 +476,8 @@ const InventoryPage = () => {
     });
   }, [medicines, filters]);
 
-  // ════════════════════════════════════════════════════════════
-  // EXTRACT UNIQUE VALUES FOR FILTER DROPDOWNS
-  // ════════════════════════════════════════════════════════════
   const uniqueSuppliers = useMemo(() => {
     if (!Array.isArray(medicines)) return [];
-
     const suppliers = medicines
       .map((item) => {
         if (item.supplier && typeof item.supplier === "object") {
@@ -515,13 +486,11 @@ const InventoryPage = () => {
         return safeString(item.supplier_name || item.supplier);
       })
       .filter((s) => s && s !== "-" && s.trim() !== "");
-
     return [...new Set(suppliers)].sort();
   }, [medicines]);
 
   const uniqueCategories = useMemo(() => {
     if (!Array.isArray(medicines)) return [];
-
     const categories = medicines
       .map((item) => {
         if (item.category && typeof item.category === "object") {
@@ -530,13 +499,11 @@ const InventoryPage = () => {
         return safeString(item.category || item.medicine_category);
       })
       .filter((c) => c && c !== "-" && c.trim() !== "");
-
     return [...new Set(categories)].sort();
   }, [medicines]);
 
   const uniqueBranches = useMemo(() => {
     if (!Array.isArray(medicines)) return [];
-
     const branches = medicines
       .map((item) => {
         if (item.branch && typeof item.branch === "object") {
@@ -545,13 +512,9 @@ const InventoryPage = () => {
         return safeString(item.branch_name || item.branch);
       })
       .filter((b) => b && b !== "-" && b.trim() !== "");
-
     return [...new Set(branches)].sort();
   }, [medicines]);
 
-  // ════════════════════════════════════════════════════════════
-  // CALCULATE STATS FROM DATA (TYPE-SAFE)
-  // ════════════════════════════════════════════════════════════
   const calculatedStats = useMemo(() => {
     if (!Array.isArray(medicines)) {
       return {
@@ -563,31 +526,26 @@ const InventoryPage = () => {
         expiringSoon: 0,
       };
     }
-
     return {
       totalItems: medicines.length,
       totalStock: medicines.reduce(
         (sum, i) => sum + Number(i?.qty || i?.current_stock || 0),
-        0
+        0,
       ),
       lowStock: medicines.filter(
-        (i) => safeString(i?.status).toLowerCase() === "low stock"
+        (i) => safeString(i?.status).toLowerCase() === "low stock",
       ).length,
       outOfStock: medicines.filter(
-        (i) => safeString(i?.status).toLowerCase() === "out of stock"
+        (i) => safeString(i?.status).toLowerCase() === "out of stock",
       ).length,
       expired: medicines.filter(
-        (i) => safeString(i?.status).toLowerCase() === "expired"
+        (i) => safeString(i?.status).toLowerCase() === "expired",
       ).length,
       expiringSoon: medicines.filter(
-        (i) => safeString(i?.status).toLowerCase() === "expiring soon"
+        (i) => safeString(i?.status).toLowerCase() === "expiring soon",
       ).length,
     };
   }, [medicines]);
-
-  // ════════════════════════════════════════════════════════════
-  // HANDLERS
-  // ════════════════════════════════════════════════════════════
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -596,10 +554,7 @@ const InventoryPage = () => {
       await refreshCatalogStatus();
       toast.success("Refreshed", "Inventory data updated");
     } catch (error) {
-      toast.error(
-        "Refresh Failed",
-        error.message || "Failed to refresh data"
-      );
+      toast.error("Refresh Failed", error.message || "Failed to refresh data");
     } finally {
       setRefreshing(false);
     }
@@ -615,7 +570,7 @@ const InventoryPage = () => {
     if (!canAdjustStock) {
       toast.warning(
         "Branch Required",
-        "Please select a specific branch to edit items"
+        "Please select a specific branch to edit items",
       );
       return;
     }
@@ -628,7 +583,7 @@ const InventoryPage = () => {
     if (!canAdjustStock) {
       toast.warning(
         "Branch Required",
-        "Please select a specific branch to delete items"
+        "Please select a specific branch to delete items",
       );
       return;
     }
@@ -639,7 +594,7 @@ const InventoryPage = () => {
     if (!canAdjustStock) {
       toast.warning(
         "Branch Required",
-        "Please select a specific branch to make stock adjustments"
+        "Please select a specific branch to make stock adjustments",
       );
       return;
     }
@@ -650,9 +605,10 @@ const InventoryPage = () => {
 
   const handleEditSave = async (editedItem) => {
     try {
+      await inventoryAPI.update(editedItem.inventory_id, editedItem);
       toast.success(
         "Item Updated",
-        "All changes have been saved successfully."
+        "All changes have been saved successfully.",
       );
       setOpenModal(false);
       setSelectedItem(null);
@@ -661,7 +617,9 @@ const InventoryPage = () => {
       console.error("Failed to save inventory item:", error);
       toast.error(
         "Save Failed",
-        error.message || "Failed to update inventory item"
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to update inventory item",
       );
       throw error;
     }
@@ -669,13 +627,12 @@ const InventoryPage = () => {
 
   const handleDeleteConfirm = async () => {
     if (!confirmDelete) return;
-
     setDeleting(true);
     try {
       await deleteMedicine(confirmDelete.inventory_id);
       toast.success(
         "Item Deleted",
-        `${confirmDelete.name || confirmDelete.medicine_name} has been removed from inventory.`
+        `${confirmDelete.name || confirmDelete.medicine_name} has been removed from inventory.`,
       );
       setConfirmDelete(null);
       await fetchInventory();
@@ -683,7 +640,7 @@ const InventoryPage = () => {
       console.error("Delete error:", error);
       toast.error(
         "Delete Failed",
-        error.message || "An unexpected error occurred"
+        error.message || "An unexpected error occurred",
       );
     } finally {
       setDeleting(false);
@@ -713,14 +670,10 @@ const InventoryPage = () => {
         reasonNotes: adjustmentData.reasonNotes,
       });
 
-      toast.success(
-        "Stock Adjusted",
-        "Stock adjustment created successfully."
-      );
+      toast.success("Stock Adjusted", "Stock adjustment created successfully.");
       setAdjustmentModal(false);
       setAdjustmentItem(null);
       setSelectedItem(null);
-
       await fetchInventory();
     } catch (error) {
       console.error("Adjustment error:", error);
@@ -728,19 +681,17 @@ const InventoryPage = () => {
         "Adjustment Failed",
         error.response?.data?.message ||
           error.message ||
-          "Failed to adjust stock"
+          "Failed to adjust stock",
       );
       throw error;
     }
   };
 
-  // Determine loading states
   const isTableLoading = loading && !isInitialLoad;
   const isSummaryLoading = isInitialLoad && loading;
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden bg-slate-50">
-      {/* BRANCH CONTEXT BANNER */}
       {isSuperAdmin && (
         <BranchContextBanner
           isGlobalMode={isGlobalMode}
@@ -749,7 +700,6 @@ const InventoryPage = () => {
         />
       )}
 
-      {/* SUMMARY CARDS */}
       <div className="shrink-0 p-4 pb-3">
         <div className="grid grid-cols-5 gap-3">
           {isSummaryLoading ? (
@@ -798,7 +748,6 @@ const InventoryPage = () => {
         </div>
       </div>
 
-      {/* FILTER BAR */}
       <div className="shrink-0 px-4 pb-3">
         <InventoryFilters
           filters={filters}
@@ -814,7 +763,6 @@ const InventoryPage = () => {
         />
       </div>
 
-      {/* TABLE */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden px-4 pb-4">
         <InventoryTable
           items={filteredData}
@@ -828,10 +776,11 @@ const InventoryPage = () => {
           canAdjustStock={canAdjustStock}
           catalogLinkStatus={catalogLinkStatus}
           catalogStatusLoading={catalogStatusLoading}
+          sortConfig={sortConfig}
+          onSortChange={handleSortChange}
         />
       </div>
 
-      {/* VIEW/EDIT MODAL */}
       <ViewInventoryModal
         open={openModal}
         item={selectedItem}
@@ -842,11 +791,41 @@ const InventoryPage = () => {
         }}
         onSave={handleEditSave}
         onDelete={handleDelete}
-        onAdjust={handleStockAdjustment}
+        onAdjust={async (item, adjustmentData) => {
+          if (adjustmentData) {
+            try {
+              await inventoryAPI.createAdjustment({
+                inventoryId: item.inventory_id,
+                medicineId: item.medicine_id,
+                shopId: item.shop_id,
+                branchId:
+                  item.branch_id ||
+                  (typeof item.branch === "object"
+                    ? item.branch?.branch_id
+                    : null),
+                batchNumber: item.batch_number || item.batch || null,
+                newQuantity: adjustmentData.newQuantity,
+                reason: adjustmentData.reason,
+                reasonNotes: adjustmentData.reasonNotes,
+              });
+              toast.success(
+                "Stock Adjusted",
+                "Stock adjustment saved successfully.",
+              );
+              setOpenModal(false);
+              setSelectedItem(null);
+              await fetchInventory();
+            } catch (error) {
+              console.error("Inline adjustment error:", error);
+              throw error;
+            }
+          } else {
+            handleStockAdjustment(item);
+          }
+        }}
         canAdjustStock={canAdjustStock}
       />
 
-      {/* STOCK ADJUSTMENT MODAL */}
       {adjustmentModal && adjustmentItem && (
         <StockAdjustmentModal
           open={adjustmentModal}
@@ -860,7 +839,6 @@ const InventoryPage = () => {
         />
       )}
 
-      {/* CONFIRM DELETE */}
       <ConfirmDialog
         isOpen={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
@@ -884,9 +862,8 @@ const InventoryPage = () => {
                   {confirmDelete.qty || confirmDelete.current_stock || 0} units
                 </p>
               </div>
-              {Number(
-                confirmDelete.qty || confirmDelete.current_stock || 0
-              ) > 0 && (
+              {Number(confirmDelete.qty || confirmDelete.current_stock || 0) >
+                0 && (
                 <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs">
                   <AlertTriangle size={14} />
                   <span>
@@ -903,14 +880,11 @@ const InventoryPage = () => {
         confirmText={deleting ? "Deleting..." : "Delete"}
         confirmDisabled={
           deleting ||
-          Number(
-            confirmDelete?.qty || confirmDelete?.current_stock || 0
-          ) > 0
+          Number(confirmDelete?.qty || confirmDelete?.current_stock || 0) > 0
         }
         type="danger"
       />
 
-      {/* ADD MEDICINE MODAL */}
       <ProductMasterModal
         open={productModalOpen}
         onClose={() => setProductModalOpen(false)}

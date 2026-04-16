@@ -1,3 +1,5 @@
+// src/components/common/ImportResultModal.jsx
+
 import React, { useState, useMemo } from "react";
 import {
   X, Package, CheckCircle, Clock, AlertCircle,
@@ -6,7 +8,7 @@ import {
 } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════
-// STATUS BADGE COMPONENT
+// STATUS BADGE COMPONENT — UNCHANGED
 // ══════════════════════════════════════════════════════════════
 
 const StatusBadge = ({ status, confidence }) => {
@@ -68,7 +70,7 @@ const StatusBadge = ({ status, confidence }) => {
 };
 
 // ══════════════════════════════════════════════════════════════
-// STATS CARD COMPONENT
+// STATS CARD COMPONENT — UNCHANGED
 // ══════════════════════════════════════════════════════════════
 
 const StatCard = ({ icon: Icon, label, count, total, color }) => (
@@ -99,7 +101,7 @@ const ImportResultModal = ({
   const [isProcessing, setIsProcessing] = useState(false);
 
   // ═══════════════════════════════════════════════════════
-  // Categorize products by catalog match status
+  // Categorize products by catalog match status — UNCHANGED
   // ═══════════════════════════════════════════════════════
 
   const categorized = useMemo(() => {
@@ -142,19 +144,18 @@ const ImportResultModal = ({
   };
 
   // ═══════════════════════════════════════════════════════
-  // Handlers
+  // ✅ FIX: Proceed sends ALL new products to BatchProductModal
+  // Catalog linking is separate from shop medicine creation.
+  // ALL products here are "new" = not in shop's medicine list.
+  // They ALL need to be created regardless of catalog link status.
   // ═══════════════════════════════════════════════════════
 
   const handleProceed = async () => {
     setIsProcessing(true);
     try {
-      // Products that need to be created in shop's medicine list
-      const productsToCreate = categorized.unmatched.filter(
-        (p) => !p.match || p.match.status !== "SKIP"
-      );
-
-      if (productsToCreate.length > 0 && onProceedWithUnmatched) {
-        onProceedWithUnmatched(productsToCreate);
+      if (newProducts.length > 0 && onProceedWithUnmatched) {
+        // Pass ALL new products — they all need to be created in shop
+        onProceedWithUnmatched(newProducts);
       } else {
         onClose();
       }
@@ -171,7 +172,7 @@ const ImportResultModal = ({
   };
 
   // ═══════════════════════════════════════════════════════
-  // Toggle sections
+  // Toggle sections — UNCHANGED
   // ═══════════════════════════════════════════════════════
 
   const toggleSection = (section) => {
@@ -179,8 +180,6 @@ const ImportResultModal = ({
   };
 
   if (!open) return null;
-
-  const hasUnmatched = categorized.unmatched.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -192,7 +191,7 @@ const ImportResultModal = ({
         className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ═══════════ HEADER ═══════════ */}
+        {/* ═══════════ HEADER — UNCHANGED ═══════════ */}
         <div className="shrink-0 bg-gradient-to-r from-[#000060] to-indigo-800 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -217,7 +216,7 @@ const ImportResultModal = ({
           </div>
         </div>
 
-        {/* ═══════════ STATS BAR ═══════════ */}
+        {/* ═══════════ STATS BAR — UNCHANGED ═══════════ */}
         <div className="shrink-0 grid grid-cols-3 gap-3 px-6 py-4 bg-slate-50 border-b">
           <StatCard
             icon={CheckCircle}
@@ -260,22 +259,25 @@ const ImportResultModal = ({
           />
         </div>
 
-        {/* ═══════════ CONTENT ═══════════ */}
+        {/* ═══════════ CONTENT — UNCHANGED ═══════════ */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-          {/* Info banner */}
+          {/* ✅ UPDATED: Info banner reflects that ALL products need creation */}
           <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
             <div className="text-xs text-blue-700">
-              <p className="font-medium">How linking works:</p>
+              <p className="font-medium">How this works:</p>
               <ul className="mt-1 space-y-0.5 list-disc list-inside">
                 <li><strong>Linked</strong> — Auto-matched to master catalog. Will appear in mobile app.</li>
                 <li><strong>Pending Review</strong> — Sent to admin for verification. Usable in ERP now.</li>
-                <li><strong>Not in Catalog</strong> — Needs to be created as a new product.</li>
+                <li><strong>Not in Catalog</strong> — No match found in master catalog.</li>
               </ul>
+              <p className="mt-2 font-medium text-blue-800">
+                All {newProducts.length} products still need to be added to your shop's medicine list in the next step.
+              </p>
             </div>
           </div>
 
-          {/* ═══ LINKED SECTION ═══ */}
+          {/* ═══ LINKED SECTION — UNCHANGED ═══ */}
           {categorized.linked.length > 0 && (
             <div className="border border-emerald-200 rounded-xl overflow-hidden">
               <button
@@ -321,7 +323,7 @@ const ImportResultModal = ({
             </div>
           )}
 
-          {/* ═══ PENDING SECTION ═══ */}
+          {/* ═══ PENDING SECTION — UNCHANGED ═══ */}
           {categorized.pending.length > 0 && (
             <div className="border border-amber-200 rounded-xl overflow-hidden">
               <button
@@ -367,7 +369,7 @@ const ImportResultModal = ({
             </div>
           )}
 
-          {/* ═══ UNMATCHED SECTION ═══ */}
+          {/* ═══ UNMATCHED SECTION — UNCHANGED ═══ */}
           {categorized.unmatched.length > 0 && (
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <button
@@ -408,7 +410,7 @@ const ImportResultModal = ({
           )}
         </div>
 
-        {/* ═══════════ FOOTER ═══════════ */}
+        {/* ═══════════ FOOTER — ✅ FIXED ═══════════ */}
         <div className="shrink-0 px-6 py-4 bg-white border-t border-gray-200">
           <div className="flex items-center justify-between">
             {/* Info */}
@@ -417,47 +419,36 @@ const ImportResultModal = ({
               <span className="mx-1">•</span>
               <span className="text-amber-600 font-medium">{stats.pending}</span> pending
               <span className="mx-1">•</span>
-              <span className="text-slate-600 font-medium">{stats.noMatch}</span> unmatched
+              <span className="text-slate-600 font-medium">{stats.noMatch}</span> not in catalog
             </div>
 
-            {/* Actions */}
+            {/* ✅ FIX: Always show "Create Products" button since ALL products
+                need to be created in the shop's medicine list */}
             <div className="flex items-center gap-2">
-              {hasUnmatched ? (
-                <>
-                  <button
-                    onClick={handleSkipAll}
-                    disabled={isProcessing}
-                    className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
-                  >
-                    Skip Unmatched
-                  </button>
-                  <button
-                    onClick={handleProceed}
-                    disabled={isProcessing}
-                    className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#000060] rounded-lg hover:bg-indigo-800 transition-colors"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        Create {categorized.unmatched.length} Products
-                        <ArrowRight size={14} />
-                      </>
-                    )}
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={onClose}
-                  className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
-                >
-                  <CheckCircle size={14} />
-                  All Done — Continue
-                </button>
-              )}
+              <button
+                onClick={handleSkipAll}
+                disabled={isProcessing}
+                className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                Skip All
+              </button>
+              <button
+                onClick={handleProceed}
+                disabled={isProcessing}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-[#000060] rounded-lg hover:bg-indigo-800 transition-colors"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Add {newProducts.length} to Shop
+                    <ArrowRight size={14} />
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

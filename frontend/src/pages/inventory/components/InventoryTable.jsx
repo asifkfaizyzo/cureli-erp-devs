@@ -3,6 +3,7 @@
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import InventoryRowFixed from "./InventoryRowFixed";
 import InventoryPagination from "../../../components/common/Pagination";
+import { PortalTooltip } from "../../../components/common/Tooltip";
 import {
   ChevronUp,
   ChevronDown,
@@ -18,7 +19,7 @@ import {
 import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 
 // ══════════════════════════════════════════════════════════════
-// CATALOG STATUS BADGE COMPONENT
+// CATALOG STATUS BADGE (kept for reference — actual rendering in InventoryRowFixed)
 // ══════════════════════════════════════════════════════════════
 
 const CatalogStatusBadge = ({ status, confidence, loading }) => {
@@ -35,7 +36,7 @@ const CatalogStatusBadge = ({ status, confidence, loading }) => {
     LINKED: {
       label: "Linked",
       icon: CheckCircle,
-      bg: "bg-emerald-50",
+      bg: "bg-emerald-100",
       border: "border-emerald-200",
       text: "text-emerald-700",
       iconColor: "text-emerald-500",
@@ -43,7 +44,7 @@ const CatalogStatusBadge = ({ status, confidence, loading }) => {
     PENDING: {
       label: "Pending",
       icon: Clock,
-      bg: "bg-amber-50",
+      bg: "bg-amber-100",
       border: "border-amber-200",
       text: "text-amber-700",
       iconColor: "text-amber-500",
@@ -51,165 +52,225 @@ const CatalogStatusBadge = ({ status, confidence, loading }) => {
     NOT_LINKED: {
       label: "Not Linked",
       icon: AlertCircle,
-      bg: "bg-slate-50",
-      border: "border-slate-200",
-      text: "text-slate-600",
-      iconColor: "text-slate-400",
+      bg: "bg-gray-100",
+      border: "border-gray-200",
+      text: "text-gray-700",
+      iconColor: "text-gray-400",
     },
   };
 
   const c = config[status] || config.NOT_LINKED;
   const Icon = c.icon;
 
+  const getTooltipContent = () => {
+    switch (status) {
+      case "LINKED":
+        return "This product is available on the mobile app";
+      case "PENDING":
+        return (
+          <span>
+            Pending admin approval for mobile app
+            {confidence > 0 && (
+              <>
+                <br />
+                <span className="text-gray-400 text-[10px]">
+                  Match confidence: {confidence}%
+                </span>
+              </>
+            )}
+          </span>
+        );
+      default:
+        return "Not yet available on the mobile app";
+    }
+  };
+
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${c.bg} ${c.border} ${c.text}`}
-      title={confidence > 0 ? `Confidence: ${confidence}%` : undefined}
-    >
-      <Icon size={12} className={c.iconColor} />
-      {c.label}
-      {confidence > 0 && status !== "NOT_LINKED" && (
-        <span className="text-[10px] opacity-70">({confidence}%)</span>
-      )}
-    </span>
+    <PortalTooltip content={getTooltipContent()} position="top" delay={300}>
+      <span
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border cursor-default ${c.bg} ${c.border} ${c.text}`}
+      >
+        <Icon size={12} className={c.iconColor} />
+        {c.label}
+      </span>
+    </PortalTooltip>
   );
 };
 
 // ══════════════════════════════════════════════════════════════
-// SKELETON ROW COMPONENT
+// COLUMN CONFIG — sortable flag, alignment, default widths
+// ══════════════════════════════════════════════════════════════
+
+const COLUMNS = {
+  rowNum: { key: "rowNum", label: "#", sortable: false, align: "center" },
+  name: { key: "name", label: "Item Name", sortable: true, align: "left" },
+  category: {
+    key: "category",
+    label: "Category",
+    sortable: true,
+    align: "center",
+  },
+  catalogStatus: {
+    key: "catalogStatus",
+    label: "Catalog",
+    sortable: false,
+    align: "center",
+    icon: Link2,
+  },
+  manufacturer: {
+    key: "manufacturer",
+    label: "Manufacturer",
+    sortable: true,
+    align: "center",
+  },
+  batch: { key: "batch", label: "Batch", sortable: true, align: "center" },
+  expiry: { key: "expiry", label: "Expiry", sortable: true, align: "center" },
+  branch: {
+    key: "branch",
+    label: "Branch",
+    sortable: true,
+    align: "center",
+    icon: Building2,
+  },
+  supplier: {
+    key: "supplier",
+    label: "Supplier",
+    sortable: true,
+    align: "center",
+  },
+  qty: { key: "qty", label: "Qty", sortable: true, align: "center" },
+  mrp: { key: "mrp", label: "MRP", sortable: true, align: "center" },
+  rack: { key: "rack", label: "Rack", sortable: true, align: "center" },
+  status: { key: "status", label: "Status", sortable: true, align: "center" },
+  actions: {
+    key: "actions",
+    label: "Actions",
+    sortable: false,
+    align: "center",
+  },
+};
+
+// ══════════════════════════════════════════════════════════════
+// SKELETON ROW
 // ══════════════════════════════════════════════════════════════
 
 const SkeletonRow = ({ rowHeight, isEven, index, showBranchColumn }) => (
   <tr
     style={{ height: `${rowHeight}px` }}
-    className={`${isEven ? "bg-white" : "bg-slate-50/50"}`}
+    className={isEven ? "bg-gray-50" : "bg-white"}
   >
-    {/* Row number */}
-    <td className="border-b border-r border-slate-200 p-1">
+    <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
         <div
-          className="w-5 h-5 bg-slate-200 rounded animate-pulse"
+          className="w-4 h-4 bg-gray-200 rounded animate-pulse"
           style={{ animationDelay: `${index * 30}ms` }}
         />
       </div>
     </td>
-    {/* Item name */}
-    <td className="border-b border-r border-slate-200 p-1.5">
+    <td className="border-b border-r border-gray-100 p-1.5">
       <div className="space-y-1">
         <div
-          className="h-3.5 bg-slate-200 rounded animate-pulse w-[85%]"
+          className="h-3.5 bg-gray-200 rounded animate-pulse w-[85%]"
           style={{ animationDelay: `${index * 30 + 50}ms` }}
         />
         <div
-          className="h-2.5 bg-slate-100 rounded animate-pulse w-[60%]"
+          className="h-2.5 bg-gray-100 rounded animate-pulse w-[60%]"
           style={{ animationDelay: `${index * 30 + 80}ms` }}
         />
       </div>
     </td>
-    {/* Category */}
-    <td className="border-b border-r border-slate-200 p-1">
+    <td className="border-b border-r border-gray-100 p-1">
       <div
-        className="h-3 bg-slate-200 rounded animate-pulse w-[70%]"
+        className="h-3 bg-gray-200 rounded animate-pulse w-[70%]"
         style={{ animationDelay: `${index * 30 + 100}ms` }}
       />
     </td>
-    {/* Catalog Status */}
-    <td className="border-b border-r border-slate-200 p-1">
+    <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
         <div
-          className="h-5 bg-slate-200 rounded-full animate-pulse w-20"
+          className="h-5 bg-gray-200 rounded-full animate-pulse w-16"
           style={{ animationDelay: `${index * 30 + 110}ms` }}
         />
       </div>
     </td>
-    {/* Manufacturer */}
-    <td className="border-b border-r border-slate-200 p-1">
+    <td className="border-b border-r border-gray-100 p-1">
       <div
-        className="h-3 bg-slate-200 rounded animate-pulse w-[75%]"
+        className="h-3 bg-gray-200 rounded animate-pulse w-[75%]"
         style={{ animationDelay: `${index * 30 + 120}ms` }}
       />
     </td>
-    {/* Batch */}
-    <td className="border-b border-r border-slate-200 p-1">
+    <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
         <div
-          className="h-3 bg-slate-200 rounded animate-pulse w-16"
+          className="h-3 bg-gray-200 rounded animate-pulse w-16"
           style={{ animationDelay: `${index * 30 + 140}ms` }}
         />
       </div>
     </td>
-    {/* Expiry */}
-    <td className="border-b border-r border-slate-200 p-1">
+    <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
         <div
-          className="h-3 bg-slate-200 rounded animate-pulse w-14"
+          className="h-3 bg-gray-200 rounded animate-pulse w-16"
           style={{ animationDelay: `${index * 30 + 160}ms` }}
         />
       </div>
     </td>
-    {/* Branch - Conditional */}
     {showBranchColumn && (
-      <td className="border-b border-r border-slate-200 p-1">
+      <td className="border-b border-r border-gray-100 p-1">
         <div className="flex justify-center">
           <div
-            className="h-5 bg-slate-200 rounded-full animate-pulse w-20"
+            className="h-5 bg-gray-200 rounded-full animate-pulse w-20"
             style={{ animationDelay: `${index * 30 + 170}ms` }}
           />
         </div>
       </td>
     )}
-    {/* Supplier */}
-    <td className="border-b border-r border-slate-200 p-1">
+    <td className="border-b border-r border-gray-100 p-1">
       <div
-        className="h-3 bg-slate-200 rounded animate-pulse w-[80%]"
+        className="h-3 bg-gray-200 rounded animate-pulse w-[80%]"
         style={{ animationDelay: `${index * 30 + 180}ms` }}
       />
     </td>
-    {/* Qty */}
-    <td className="border-b border-r border-slate-200 p-1">
-      <div className="flex justify-center">
+    <td className="border-b border-r border-gray-100 p-1">
+      <div className="flex justify-end pr-1">
         <div
-          className="h-3 bg-slate-200 rounded animate-pulse w-10"
+          className="h-3 bg-gray-200 rounded animate-pulse w-8"
           style={{ animationDelay: `${index * 30 + 200}ms` }}
         />
       </div>
     </td>
-    {/* MRP */}
-    <td className="border-b border-r border-slate-200 p-1">
+    <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-end pr-1">
         <div
-          className="h-3 bg-slate-200 rounded animate-pulse w-14"
+          className="h-3 bg-gray-200 rounded animate-pulse w-14"
           style={{ animationDelay: `${index * 30 + 220}ms` }}
         />
       </div>
     </td>
-    {/* Rack */}
-    <td className="border-b border-r border-slate-200 p-1">
+    <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
         <div
-          className="h-3 bg-slate-200 rounded animate-pulse w-8"
+          className="h-3 bg-gray-200 rounded animate-pulse w-8"
           style={{ animationDelay: `${index * 30 + 240}ms` }}
         />
       </div>
     </td>
-    {/* Status */}
-    <td className="border-b border-r border-slate-200 p-1">
+    <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
         <div
-          className="h-5 bg-slate-200 rounded-full animate-pulse w-16"
+          className="h-5 bg-gray-200 rounded-full animate-pulse w-16"
           style={{ animationDelay: `${index * 30 + 260}ms` }}
         />
       </div>
     </td>
-    {/* Actions */}
-    <td className="border-b border-slate-200 p-1">
+    <td className="border-b border-gray-100 p-1">
       <div className="flex justify-center gap-1">
         <div
-          className="h-6 w-6 bg-slate-200 rounded animate-pulse"
+          className="h-6 w-6 bg-gray-200 rounded animate-pulse"
           style={{ animationDelay: `${index * 30 + 280}ms` }}
         />
         <div
-          className="h-6 w-6 bg-slate-200 rounded animate-pulse"
+          className="h-6 w-6 bg-gray-200 rounded animate-pulse"
           style={{ animationDelay: `${index * 30 + 300}ms` }}
         />
       </div>
@@ -217,24 +278,9 @@ const SkeletonRow = ({ rowHeight, isEven, index, showBranchColumn }) => (
   </tr>
 );
 
-// Skeleton Header Stats
-const SkeletonHeaderStats = () => (
-  <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1 flex items-center justify-between">
-    <div className="flex items-center gap-3">
-      <div className="w-20 h-4 bg-slate-200 rounded animate-pulse" />
-      <div
-        className="w-16 h-4 bg-slate-200 rounded animate-pulse"
-        style={{ animationDelay: "50ms" }}
-      />
-    </div>
-    <div className="flex items-center gap-2">
-      <div
-        className="w-8 h-4 bg-slate-200 rounded animate-pulse"
-        style={{ animationDelay: "100ms" }}
-      />
-    </div>
-  </div>
-);
+// ══════════════════════════════════════════════════════════════
+// MAIN TABLE COMPONENT
+// ══════════════════════════════════════════════════════════════
 
 const InventoryTable = ({
   items = [],
@@ -248,427 +294,255 @@ const InventoryTable = ({
   canAdjustStock = true,
   catalogLinkStatus = {},
   catalogStatusLoading = false,
+  sortConfig = { sortBy: null, order: null },
+  onSortChange,
 }) => {
   const tableContainerRef = useRef(null);
   const tableBodyRef = useRef(null);
   const headerRef = useRef(null);
   const rowRefs = useRef([]);
-  const [scrollbarWidth, setScrollbarWidth] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [scrollInfo, setScrollInfo] = useState({
-    canScrollUp: false,
-    canScrollDown: false,
-    currentTopRow: 1,
-    currentBottomRow: 1,
-  });
 
-  // Use dynamic row count hook
+  const prevItemCountRef = useRef(items.length);
   const visibleRows = useDynamicRowCount();
   const rowHeight = 36;
   const viewportHeight = visibleRows * rowHeight;
 
-  // Define column widths
-  const columnWidths = showBranchColumn
-    ? {
-        rowNum: "3%",
-        itemName: "13%",
-        category: "7%",
-        catalogStatus: "8%",
-        manufacturer: "8%",
-        batch: "6%",
-        expiry: "6%",
-        branch: "7%",
-        supplier: "9%",
-        qty: "5%",
-        mrp: "6%",
-        rack: "4%",
-        status: "7%",
-        actions: "7%",
-      }
-    : {
-        rowNum: "3%",
-        itemName: "16%",
-        category: "9%",
-        catalogStatus: "9%",
-        manufacturer: "9%",
-        batch: "7%",
-        expiry: "6%",
-        supplier: "11%",
-        qty: "6%",
-        mrp: "7%",
-        rack: "5%",
-        status: "7%",
-        actions: "5%",
+  // Column widths — resizable state
+  const getDefaultWidths = useCallback(() => {
+    if (showBranchColumn) {
+      return {
+        rowNum: 32,
+        itemName: 160,
+        category: 100,
+        catalogStatus: 95,
+        manufacturer: 100,
+        batch: 88,
+        expiry: 100,
+        branch: 88,
+        supplier: 100,
+        qty: 62,
+        mrp: 75,
+        rack: 62,
+        status: 88,
+        actions: 88,
       };
+    }
+    return {
+      rowNum: 32,
+      itemName: 190,
+      category: 100,
+      catalogStatus: 100,
+      manufacturer: 110,
+      batch: 88,
+      expiry: 100,
+      supplier: 120,
+      qty: 68,
+      mrp: 88,
+      rack: 62,
+      status: 88,
+      actions: 68,
+    };
+  }, [showBranchColumn]);
 
-  // Pagination logic
+  const [colWidths, setColWidths] = useState(getDefaultWidths);
+  const [resizing, setResizing] = useState(null);
+
+  // Reset widths when branch column toggles
+  useEffect(() => {
+    setColWidths(getDefaultWidths());
+  }, [showBranchColumn, getDefaultWidths]);
+
+  // Resize handlers
+  const handleResizeStart = useCallback(
+    (colKey, e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setResizing({
+        column: colKey,
+        startX: e.clientX,
+        startWidth: colWidths[colKey],
+      });
+    },
+    [colWidths],
+  );
+
+  useEffect(() => {
+    if (!resizing) return;
+    const handleMouseMove = (e) => {
+      const diff = e.clientX - resizing.startX;
+      const newWidth = Math.max(40, resizing.startWidth + diff);
+      setColWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
+    };
+    const handleMouseUp = () => setResizing(null);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizing]);
+
   const totalItems = items.length;
   const totalPages = Math.ceil(totalItems / visibleRows);
 
   useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
-    }
+    if (currentPage > totalPages && totalPages > 0) setCurrentPage(totalPages);
   }, [totalItems, currentPage, totalPages]);
 
-  // Reset to page 1 when items change significantly
   useEffect(() => {
     setCurrentPage(1);
   }, [showBranchColumn]);
+
+  useEffect(() => {
+    if (prevItemCountRef.current !== items.length) {
+      setCurrentPage(1);
+      prevItemCountRef.current = items.length;
+    }
+  }, [items.length]);
 
   const startIndex = (currentPage - 1) * visibleRows;
   const paginatedItems = items.slice(startIndex, startIndex + visibleRows);
 
   useEffect(() => {
     rowRefs.current = rowRefs.current.slice(0, paginatedItems.length);
-    while (rowRefs.current.length < paginatedItems.length) {
+    while (rowRefs.current.length < paginatedItems.length)
       rowRefs.current.push(null);
-    }
   }, [paginatedItems.length]);
 
-  // Calculate scrollbar width
-  useEffect(() => {
-    const container = tableBodyRef.current;
-    if (!container) return;
-
-    const width = container.offsetWidth - container.clientWidth;
-    setScrollbarWidth(width);
-  }, [paginatedItems.length, visibleRows]);
-
-  const updateScrollInfo = useCallback(() => {
-    const container = tableBodyRef.current;
-    if (!container) return;
-
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    const canScrollUp = scrollTop > 0;
-    const canScrollDown = scrollTop + clientHeight < scrollHeight - 5;
-
-    const topRowIndex = Math.floor(scrollTop / rowHeight);
-    const bottomRowIndex = Math.min(
-      topRowIndex + visibleRows - 1,
-      paginatedItems.length - 1
-    );
-
-    setScrollInfo({
-      canScrollUp,
-      canScrollDown,
-      currentTopRow: topRowIndex + 1,
-      currentBottomRow: bottomRowIndex + 1,
-    });
-  }, [rowHeight, visibleRows, paginatedItems.length]);
-
-  useEffect(() => {
-    const container = tableBodyRef.current;
-    if (!container) return;
-    container.addEventListener("scroll", updateScrollInfo);
-    updateScrollInfo();
-    return () => container.removeEventListener("scroll", updateScrollInfo);
-  }, [updateScrollInfo]);
-
-  const scrollToTop = useCallback(() => {
-    const container = tableBodyRef.current;
-    if (!container) return;
-    container.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-
-  const scrollToBottom = useCallback(() => {
-    const container = tableBodyRef.current;
-    if (!container) return;
-    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-  }, []);
-
-  const lowStockItems = items.filter(
-    (item) => item.status === "Low Stock"
-  ).length;
-  const outOfStockItems = items.filter(
-    (item) => item.status === "Out of Stock"
-  ).length;
-  const expiredItems = items.filter(
-    (item) => item.status === "Expired"
-  ).length;
   const hasOverflow = paginatedItems.length > visibleRows;
 
-  // ✅ FIX 2: Extract branch_name STRING before deduplicating
-  const uniqueBranches = showBranchColumn
+  // Ordered column keys for rendering
+  const columnKeys = showBranchColumn
     ? [
-        ...new Set(
-          items
-            .map((item) => {
-              // Handle object format {branch_id, branch_name}
-              if (item.branch && typeof item.branch === "object") {
-                return item.branch.branch_name || "";
-              }
-              // Handle string format
-              return item.branch_name || item.branch || "";
-            })
-            .filter(Boolean)
-            .filter((b) => b !== "-" && b.trim() !== "")
-        ),
+        "rowNum",
+        "itemName",
+        "category",
+        "catalogStatus",
+        "manufacturer",
+        "batch",
+        "expiry",
+        "branch",
+        "supplier",
+        "qty",
+        "mrp",
+        "rack",
+        "status",
+        "actions",
       ]
-    : [];
+    : [
+        "rowNum",
+        "itemName",
+        "category",
+        "catalogStatus",
+        "manufacturer",
+        "batch",
+        "expiry",
+        "supplier",
+        "qty",
+        "mrp",
+        "rack",
+        "status",
+        "actions",
+      ];
+
+  // Map column keys to sort API keys
+  const colToSortKey = {
+    itemName: "name",
+    category: "category",
+    manufacturer: "manufacturer",
+    batch: "batch",
+    expiry: "expiry",
+    branch: "branch",
+    supplier: "supplier",
+    qty: "qty",
+    mrp: "mrp",
+    rack: "rack",
+    status: "status",
+  };
+
+  // ── Sortable header cell ──
+  const SortableHeader = ({ colKey }) => {
+    const col = COLUMNS[colKey === "itemName" ? "name" : colKey];
+    if (!col) return null;
+    const sortKey = colToSortKey[colKey];
+    const isActive = sortConfig?.sortBy === sortKey;
+    const isAsc = isActive && sortConfig?.order === "asc";
+    const isDesc = isActive && sortConfig?.order === "desc";
+    const Icon = col.icon;
+
+    return (
+      <th
+        style={{ width: colWidths[colKey], minWidth: 40 }}
+        className="relative group px-0.5 py-1 text-[11px] font-semibold text-center border-r border-white/10"
+      >
+        <div
+          className={`flex items-center justify-center gap-1 ${col.sortable ? "cursor-pointer select-none" : ""}`}
+          onClick={() => col.sortable && sortKey && onSortChange?.(sortKey)}
+        >
+          {Icon && <Icon size={9} />}
+          <span>{col.label}</span>
+          {col.sortable && (
+            <div className="flex flex-col -space-y-0.5 ml-0.5">
+              <ChevronUp
+                size={10}
+                className={`transition-colors ${isAsc ? "text-yellow-300" : "text-white/30"}`}
+              />
+              <ChevronDown
+                size={10}
+                className={`transition-colors ${isDesc ? "text-yellow-300" : "text-white/30"}`}
+              />
+            </div>
+          )}
+        </div>
+        {/* Resize handle */}
+        <div
+          onMouseDown={(e) => handleResizeStart(colKey, e)}
+          className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-white/30 transition-colors"
+        />
+      </th>
+    );
+  };
+
+  // Colgroup from widths
+  const renderColgroup = () => (
+    <colgroup>
+      {columnKeys.map((key) => (
+        <col key={key} style={{ width: colWidths[key] }} />
+      ))}
+    </colgroup>
+  );
 
   return (
     <div
-      className="h-full w-full flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden"
+      className="h-full w-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden"
       ref={tableContainerRef}
     >
-      {/* Table Header Stats */}
-      {isLoading ? (
-        <SkeletonHeaderStats />
-      ) : (
-        <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <Package size={12} className="text-indigo-500" />
-              <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">
-                Total:
-              </span>
-              <span className="text-[10px] font-bold text-indigo-600">
-                {totalItems}
-              </span>
-            </div>
-
-            {/* Searching indicator */}
-            {isSearching && (
-              <>
-                <div className="h-3 w-px bg-slate-300" />
-                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 rounded border border-indigo-200">
-                  <Loader2
-                    size={10}
-                    className="animate-spin text-indigo-500"
-                  />
-                  <span className="text-[8px] text-indigo-600 font-medium">
-                    Searching...
-                  </span>
-                </div>
-              </>
-            )}
-
-            {/* Global mode indicator */}
-            {!isSearching &&
-              showBranchColumn &&
-              uniqueBranches.length > 0 && (
-                <>
-                  <div className="h-3 w-px bg-slate-300" />
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded border border-blue-200 text-[8px]">
-                    <Layers size={10} className="text-blue-500" />
-                    <span className="text-blue-700 font-medium">
-                      {uniqueBranches.length} branches
-                    </span>
-                  </div>
-                </>
-              )}
-
-            {!isSearching && lowStockItems > 0 && (
-              <>
-                <div className="h-3 w-px bg-slate-300" />
-                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-100 rounded border border-yellow-300 text-[8px]">
-                  <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
-                  <span className="text-yellow-700 font-medium">
-                    {lowStockItems} low stock
-                  </span>
-                </div>
-              </>
-            )}
-
-            {!isSearching && outOfStockItems > 0 && (
-              <>
-                <div className="h-3 w-px bg-slate-300" />
-                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-100 rounded border border-red-300 text-[8px]">
-                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
-                  <span className="text-red-700 font-medium">
-                    {outOfStockItems} out of stock
-                  </span>
-                </div>
-              </>
-            )}
-
-            {!isSearching && expiredItems > 0 && (
-              <>
-                <div className="h-3 w-px bg-slate-300" />
-                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 rounded border border-gray-300 text-[8px]">
-                  <div className="w-1.5 h-1.5 bg-gray-500 rounded-full"></div>
-                  <span className="text-gray-700 font-medium">
-                    {expiredItems} expired
-                  </span>
-                </div>
-              </>
-            )}
-
-            {totalPages > 1 && !isSearching && (
-              <>
-                <div className="h-3 w-px bg-slate-300" />
-                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-white rounded border border-slate-200 text-[8px]">
-                  <span className="text-slate-500">Page</span>
-                  <span className="font-bold text-slate-700">
-                    {currentPage}/{totalPages}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1">
-            {/* Adjustment mode indicator */}
-            {!canAdjustStock && !isSearching && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded border border-amber-200 text-[8px] mr-2">
-                <span className="text-amber-700 font-medium">
-                  Read-only mode
-                </span>
-              </div>
-            )}
-
-            {hasOverflow && !isSearching && (
-              <div className="flex items-center gap-0.5">
-                <button
-                  onClick={scrollToTop}
-                  disabled={!scrollInfo.canScrollUp}
-                  className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="Scroll to top"
-                >
-                  <ChevronUp size={10} />
-                </button>
-                <button
-                  onClick={scrollToBottom}
-                  disabled={!scrollInfo.canScrollDown}
-                  className="p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="Scroll to bottom"
-                >
-                  <ChevronDown size={10} />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Table Container */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Fixed Header with scrollbar compensation */}
+        {/* Header */}
         <div
           ref={headerRef}
-          className="shrink-0 overflow-hidden border-b-2 border-slate-300"
-          style={{ paddingRight: `${scrollbarWidth}px` }}
+          className="shrink-0 overflow-hidden border-b-2 border-gray-200"
         >
           <table
             className="w-full border-collapse"
             style={{ tableLayout: "fixed" }}
           >
-            <colgroup>
-              <col style={{ width: columnWidths.rowNum }} />
-              <col style={{ width: columnWidths.itemName }} />
-              <col style={{ width: columnWidths.category }} />
-              <col style={{ width: columnWidths.catalogStatus }} />
-              <col style={{ width: columnWidths.manufacturer }} />
-              <col style={{ width: columnWidths.batch }} />
-              <col style={{ width: columnWidths.expiry }} />
-              {showBranchColumn && (
-                <col style={{ width: columnWidths.branch }} />
-              )}
-              <col style={{ width: columnWidths.supplier }} />
-              <col style={{ width: columnWidths.qty }} />
-              <col style={{ width: columnWidths.mrp }} />
-              <col style={{ width: columnWidths.rack }} />
-              <col style={{ width: columnWidths.status }} />
-              <col style={{ width: columnWidths.actions }} />
-            </colgroup>
+            {renderColgroup()}
             <thead>
-              {/* Group Header Row */}
-              <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white h-5">
-                <th className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-slate-800/20"></th>
-                <th
-                  colSpan="4"
-                  className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-blue-900/30"
-                >
-                  Product Details
-                </th>
-                <th
-                  colSpan="2"
-                  className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-cyan-900/30"
-                >
-                  Batch Info
-                </th>
-                {showBranchColumn && (
-                  <th className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-indigo-900/30">
-                    Location
-                  </th>
-                )}
-                <th className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-purple-900/30">
-                  Supplier
-                </th>
-                <th
-                  colSpan="3"
-                  className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-emerald-900/30"
-                >
-                  Stock Details
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-orange-900/30">
-                  Status
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] font-bold text-center bg-slate-800/20"></th>
-              </tr>
-
-              {/* Individual Column Headers */}
-              <tr className="bg-gradient-to-r from-[#070170] to-[#0c03a0] text-white h-6">
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
-                  #
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left pl-1 border-r border-slate-600/30">
-                  Item Name
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">
-                  Category
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
-                  <div className="flex items-center justify-center gap-1">
-                    <Link2 size={9} />
-                    <span>Catalog</span>
-                  </div>
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">
-                  Manufacturer
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
-                  Batch
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
-                  Expiry
-                </th>
-                {showBranchColumn && (
-                  <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
-                    <div className="flex items-center justify-center gap-1">
-                      <Building2 size={9} />
-                      <span>Branch</span>
-                    </div>
-                  </th>
-                )}
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
-                  Supplier
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
-                  Qty
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-right pr-1 border-r border-slate-600/30">
-                  MRP
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
-                  Rack
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
-                  Status
-                </th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center">
-                  Actions
-                </th>
+              <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white h-7">
+                {columnKeys.map((colKey) => (
+                  <SortableHeader key={colKey} colKey={colKey} />
+                ))}
               </tr>
             </thead>
           </table>
         </div>
 
-        {/* Scrollable Body */}
+        {/* Body */}
         <div
           ref={tableBodyRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden"
+          className="flex-1 inventory-scroll-overlay relative"
           style={{
             height: `${viewportHeight}px`,
             maxHeight: `${viewportHeight}px`,
@@ -678,28 +552,10 @@ const InventoryTable = ({
             className="w-full border-collapse"
             style={{ tableLayout: "fixed" }}
           >
-            <colgroup>
-              <col style={{ width: columnWidths.rowNum }} />
-              <col style={{ width: columnWidths.itemName }} />
-              <col style={{ width: columnWidths.category }} />
-              <col style={{ width: columnWidths.catalogStatus }} />
-              <col style={{ width: columnWidths.manufacturer }} />
-              <col style={{ width: columnWidths.batch }} />
-              <col style={{ width: columnWidths.expiry }} />
-              {showBranchColumn && (
-                <col style={{ width: columnWidths.branch }} />
-              )}
-              <col style={{ width: columnWidths.supplier }} />
-              <col style={{ width: columnWidths.qty }} />
-              <col style={{ width: columnWidths.mrp }} />
-              <col style={{ width: columnWidths.rack }} />
-              <col style={{ width: columnWidths.status }} />
-              <col style={{ width: columnWidths.actions }} />
-            </colgroup>
+            {renderColgroup()}
             <tbody>
               {isLoading
-                ? // Skeleton loading rows
-                  Array.from({ length: visibleRows }).map((_, index) => (
+                ? Array.from({ length: visibleRows }).map((_, index) => (
                     <SkeletonRow
                       key={`skeleton-${index}`}
                       rowHeight={rowHeight}
@@ -738,16 +594,16 @@ const InventoryTable = ({
 
           {!isLoading && items.length === 0 && (
             <div
-              className="flex flex-col items-center justify-center text-slate-400"
+              className="flex flex-col items-center justify-center text-gray-400"
               style={{ height: `${viewportHeight}px` }}
             >
-              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                <Package size={20} className="text-slate-400" />
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <Package size={28} className="text-gray-300" />
               </div>
-              <p className="text-sm font-medium text-slate-600">
+              <p className="text-lg font-medium text-gray-500 mb-1">
                 No inventory items found
               </p>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-sm text-gray-400">
                 {showBranchColumn
                   ? "No items found across all branches"
                   : "Try adjusting your search or filters"}
@@ -757,13 +613,13 @@ const InventoryTable = ({
         </div>
 
         {hasOverflow && !isLoading && (
-          <div className="shrink-0 h-0.5 bg-slate-100 relative" />
+          <div className="shrink-0 h-0.5 bg-gray-100 relative" />
         )}
       </div>
 
       {/* Pagination */}
       {!isLoading && totalPages > 0 && (
-        <div className="shrink-0 border-t border-slate-200">
+        <div className="shrink-0 border-t border-gray-100 bg-gray-50/50">
           <InventoryPagination
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}

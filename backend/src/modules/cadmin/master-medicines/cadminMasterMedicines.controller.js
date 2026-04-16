@@ -1,3 +1,5 @@
+// backend/src/modules/cadmin/master-medicines/cadminMasterMedicines.controller.js
+
 /**
  * ═══════════════════════════════════════════════════════════════
  * CADMIN MASTER MEDICINES CONTROLLER
@@ -15,10 +17,10 @@ import {
   getUnmappedMedicinesAggregated,
   getNeedsReviewMedicines,
   getLinkedMedicines,
-  getLinkedMedicinesByVariant,   // ✅ NEW
+  getLinkedMedicinesByVariant,
   acceptReviewMatch,
   rejectReviewMatch,
-  matchUnmappedToVariant,        // ✅ NEW (replaces matchUnmappedToMaster)
+  matchUnmappedToVariant,
   ignoreUnmappedMedicines,
   unlinkShopMedicine,
   uploadMasterImage,
@@ -26,6 +28,15 @@ import {
   createMasterMedicine,
 } from "./cadminMasterMedicines.service.js";
 
+import { extractRequestContext } from "../../audit/audit.utils.js";
+
+// ══════════════════════════════════════════════════════════════
+// HELPER: Build audit context from cadmin request
+// ══════════════════════════════════════════════════════════════
+
+function buildAuditCtx(req) {
+  return extractRequestContext(req);
+}
 
 // ══════════════════════════════════════════════════════════════
 // LIST MASTER MEDICINES
@@ -281,7 +292,7 @@ export async function listLinkedMedicines(req, res) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ✅ NEW: LINKED MEDICINES BY VARIANT
+// LINKED MEDICINES BY VARIANT
 // ══════════════════════════════════════════════════════════════
 
 export async function listLinkedByVariant(req, res) {
@@ -302,8 +313,8 @@ export async function listLinkedByVariant(req, res) {
 export async function acceptMatch(req, res) {
   try {
     const { medicineId } = req.params;
-    const cadminId = req.cadmin?.cadmin_id;
-    const result = await acceptReviewMatch(medicineId, cadminId);
+    const auditContext = buildAuditCtx(req);
+    const result = await acceptReviewMatch(medicineId, auditContext.actor_id, auditContext);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     console.error("Error accepting match:", error);
@@ -318,7 +329,8 @@ export async function acceptMatch(req, res) {
 export async function rejectMatch(req, res) {
   try {
     const { medicineId } = req.params;
-    const result = await rejectReviewMatch(medicineId);
+    const auditContext = buildAuditCtx(req);
+    const result = await rejectReviewMatch(medicineId, auditContext);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     console.error("Error rejecting match:", error);
@@ -327,13 +339,13 @@ export async function rejectMatch(req, res) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ✅ REWRITTEN: MATCH UNMAPPED TO VARIANT (was matchToMaster)
+// MATCH UNMAPPED TO VARIANT
 // ══════════════════════════════════════════════════════════════
 
 export async function matchToVariant(req, res) {
   try {
     const { medicineIds, variantId } = req.body;
-    const cadminId = req.cadmin?.cadmin_id;
+    const auditContext = buildAuditCtx(req);
 
     if (!medicineIds || !Array.isArray(medicineIds) || medicineIds.length === 0) {
       return res.status(400).json({
@@ -348,7 +360,7 @@ export async function matchToVariant(req, res) {
       });
     }
 
-    const result = await matchUnmappedToVariant(medicineIds, variantId, cadminId);
+    const result = await matchUnmappedToVariant(medicineIds, variantId, auditContext.actor_id, auditContext);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     console.error("Error matching to variant:", error);
@@ -360,7 +372,7 @@ export async function matchToVariant(req, res) {
 export async function matchToMaster(req, res) {
   try {
     const { medicineIds, masterMedicineId } = req.body;
-    const cadminId = req.cadmin?.cadmin_id;
+    const auditContext = buildAuditCtx(req);
 
     if (!medicineIds || !Array.isArray(medicineIds) || medicineIds.length === 0) {
       return res.status(400).json({ success: false, message: "medicineIds array is required" });
@@ -371,7 +383,7 @@ export async function matchToMaster(req, res) {
 
     // Import the transition alias from service
     const { matchUnmappedToMaster } = await import("./cadminMasterMedicines.service.js");
-    const result = await matchUnmappedToMaster(medicineIds, masterMedicineId, cadminId);
+    const result = await matchUnmappedToMaster(medicineIds, masterMedicineId, auditContext.actor_id, auditContext);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     console.error("Error matching to master:", error);
@@ -386,12 +398,13 @@ export async function matchToMaster(req, res) {
 export async function ignoreUnmapped(req, res) {
   try {
     const { medicineIds } = req.body;
+    const auditContext = buildAuditCtx(req);
 
     if (!medicineIds || !Array.isArray(medicineIds) || medicineIds.length === 0) {
       return res.status(400).json({ success: false, message: "medicineIds array is required" });
     }
 
-    const result = await ignoreUnmappedMedicines(medicineIds);
+    const result = await ignoreUnmappedMedicines(medicineIds, auditContext.actor_id, auditContext);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     console.error("Error ignoring unmapped:", error);
@@ -406,7 +419,8 @@ export async function ignoreUnmapped(req, res) {
 export async function unlinkMedicine(req, res) {
   try {
     const { medicineId } = req.params;
-    const result = await unlinkShopMedicine(medicineId);
+    const auditContext = buildAuditCtx(req);
+    const result = await unlinkShopMedicine(medicineId, auditContext);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     console.error("Error unlinking medicine:", error);
@@ -421,6 +435,7 @@ export async function unlinkMedicine(req, res) {
 export async function handleImageUpload(req, res) {
   try {
     const { id } = req.params;
+    const auditContext = buildAuditCtx(req);
     const cadminName = req.cadmin?.name || "CAdmin";
 
     if (!req.file) {
@@ -431,7 +446,7 @@ export async function handleImageUpload(req, res) {
       filename: req.file.filename,
       type: req.body.type || "PRIMARY",
       skuId: req.body.skuId,
-    }, cadminName);
+    }, cadminName, auditContext);
 
     return res.status(200).json({ success: true, data: image });
   } catch (error) {
@@ -447,7 +462,8 @@ export async function handleImageUpload(req, res) {
 export async function handleImageDelete(req, res) {
   try {
     const { imageId } = req.params;
-    const result = await deleteMasterImage(imageId);
+    const auditContext = buildAuditCtx(req);
+    const result = await deleteMasterImage(imageId, auditContext);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     console.error("Error deleting image:", error);
@@ -455,15 +471,14 @@ export async function handleImageDelete(req, res) {
   }
 }
 
-
 // ══════════════════════════════════════════════════════════════
 // CREATE MASTER MEDICINE
 // ══════════════════════════════════════════════════════════════
 
 export async function createMasterMed(req, res) {
   try {
-    const cadminId = req.cadmin?.cadmin_id;
-    const result = await createMasterMedicine(req.body, cadminId);
+    const auditContext = buildAuditCtx(req);
+    const result = await createMasterMedicine(req.body, auditContext.actor_id, auditContext);
     return res.status(201).json({ success: true, data: result });
   } catch (error) {
     console.error("Error creating master medicine:", error);

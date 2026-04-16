@@ -1,5 +1,4 @@
 // cadmin/src/pages/MasterMedicines/MasterMedicinesPage.jsx
-// Full updated file
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import {
@@ -31,6 +30,8 @@ import LinkedMedicinesModal from "./comps/LinkedMedicinesModal";
 import ImageUploadModal from "./comps/ImageUploadModal";
 import ReviewDetailModal from "./comps/ReviewDetailModal";
 import MasterCatalogGrid from "./comps/MasterCatalogGrid";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+
 // API
 import {
   getMasterMedicines,
@@ -165,6 +166,13 @@ const MasterMedicinesPage = () => {
     item: null,
   });
 
+  // Ignore confirmation
+  const [confirmIgnore, setConfirmIgnore] = useState({
+    open: false,
+    item: null,
+    bulk: false,
+  });
+
   // Selection
   const [selectedUnmapped, setSelectedUnmapped] = useState([]);
   const [selectedReview, setSelectedReview] = useState([]);
@@ -290,6 +298,7 @@ const MasterMedicinesPage = () => {
       setLoading((prev) => ({ ...prev, review: false }));
     }
   }, []);
+
   const loadRawImages = useCallback(async () => {
     try {
       const res = await getMasterMedicines({
@@ -402,26 +411,10 @@ const MasterMedicinesPage = () => {
     [bringToFront],
   );
 
-  const handleIgnoreUnmapped = useCallback(
-    async (item) => {
-      try {
-        await ignoreUnmapped(item.medicineIds || []);
-        setUnmappedData((prev) => prev.filter((u) => u.id !== item.id));
-        setStats((prev) => ({
-          ...prev,
-          unmapped: Math.max(0, prev.unmapped - 1),
-        }));
-        toast.success(
-          "Item Ignored",
-          `"${item.normalizedName}" has been ignored.`,
-        );
-      } catch (error) {
-        console.error("Failed to ignore:", error);
-        toast.error("Failed", "Could not ignore item");
-      }
-    },
-    [toast],
-  );
+  // ── Ignore: open confirmation dialog instead of executing directly ──
+  const handleIgnoreUnmapped = useCallback((item) => {
+    setConfirmIgnore({ open: true, item, bulk: false });
+  }, []);
 
   const handleViewUnmappedDetail = useCallback(
     (item) => {
@@ -497,11 +490,10 @@ const MasterMedicinesPage = () => {
   // HANDLERS - Images
   // ═══════════════════════════════════════════════════════════
 
-  // ── KEY: bringToFront("imageUpload") whenever the image modal opens ──
   const handleUploadImage = useCallback(
     (medicine) => {
       setImageModal({ open: true, medicine });
-      bringToFront("imageUpload"); // ← this modal jumps to top
+      bringToFront("imageUpload");
     },
     [bringToFront],
   );
@@ -586,7 +578,6 @@ const MasterMedicinesPage = () => {
   // HANDLERS - Master Detail Modal
   // ═══════════════════════════════════════════════════════════
 
-  // ── KEY: bringToFront("masterDetail") whenever master detail opens ──
   const handleViewMasterDetail = useCallback(
     async (medicine) => {
       try {
@@ -604,7 +595,7 @@ const MasterMedicinesPage = () => {
           medicine: fullMedicine,
           linkedData: linked,
         });
-        bringToFront("masterDetail"); // ← this modal jumps to top
+        bringToFront("masterDetail");
       } catch (error) {
         console.error("Failed to load medicine details:", error);
         toast.error("Failed", "Could not load medicine details");
@@ -774,32 +765,60 @@ const MasterMedicinesPage = () => {
   );
 
   // ═══════════════════════════════════════════════════════════
+  // HANDLERS - Ignore Execution (called from ConfirmDialog)
+  // ═══════════════════════════════════════════════════════════
+  const executeIgnore = useCallback(async () => {
+    const { item, bulk } = confirmIgnore;
+
+    try {
+      if (bulk) {
+        // Bulk ignore
+        const allMedicineIds = unmappedData
+          .filter((u) => selectedUnmapped.includes(u.id))
+          .flatMap((u) => u.medicineIds || []);
+        await ignoreUnmapped(allMedicineIds);
+        setUnmappedData((prev) =>
+          prev.filter((u) => !selectedUnmapped.includes(u.id)),
+        );
+        setStats((prev) => ({
+          ...prev,
+          unmapped: Math.max(0, prev.unmapped - selectedUnmapped.length),
+        }));
+        setSelectedUnmapped([]);
+        toast.success(
+          "Bulk Ignore",
+          `${selectedUnmapped.length} item(s) have been ignored`,
+        );
+      } else if (item) {
+        // Single ignore
+        await ignoreUnmapped(item.medicineIds || []);
+        setUnmappedData((prev) => prev.filter((u) => u.id !== item.id));
+        setStats((prev) => ({
+          ...prev,
+          unmapped: Math.max(0, prev.unmapped - 1),
+        }));
+        toast.success(
+          "Item Ignored",
+          `"${item.normalizedName}" has been ignored.`,
+        );
+      }
+    } catch (error) {
+      console.error("Failed to ignore:", error);
+      toast.error("Failed", "Could not ignore item(s)");
+    } finally {
+      setConfirmIgnore({ open: false, item: null, bulk: false });
+    }
+  }, [confirmIgnore, unmappedData, selectedUnmapped, toast]);
+
+  // ═══════════════════════════════════════════════════════════
   // HANDLERS - Bulk Actions
   // ═══════════════════════════════════════════════════════════
-  const handleBulkIgnoreUnmapped = useCallback(async () => {
+
+  // ── Bulk ignore: open confirmation dialog instead of executing directly ──
+  const handleBulkIgnoreUnmapped = useCallback(() => {
     if (selectedUnmapped.length === 0) return;
-    try {
-      const allMedicineIds = unmappedData
-        .filter((u) => selectedUnmapped.includes(u.id))
-        .flatMap((u) => u.medicineIds || []);
-      await ignoreUnmapped(allMedicineIds);
-      setUnmappedData((prev) =>
-        prev.filter((u) => !selectedUnmapped.includes(u.id)),
-      );
-      setStats((prev) => ({
-        ...prev,
-        unmapped: Math.max(0, prev.unmapped - selectedUnmapped.length),
-      }));
-      setSelectedUnmapped([]);
-      toast.success(
-        "Bulk Ignore",
-        `${selectedUnmapped.length} item(s) have been ignored`,
-      );
-    } catch (error) {
-      console.error("Failed to bulk ignore:", error);
-      toast.error("Failed", "Could not ignore selected items");
-    }
-  }, [selectedUnmapped, unmappedData, toast]);
+    setConfirmIgnore({ open: true, item: null, bulk: true });
+  }, [selectedUnmapped]);
 
   const handleBulkAcceptReview = useCallback(async () => {
     if (selectedReview.length === 0) return;
@@ -1199,7 +1218,7 @@ const MasterMedicinesPage = () => {
       </div>
 
       {/* ═══════════════════════════════════════════════════════ */}
-      {/* MODALS — each gets its z-index from the stack          */}
+      {/* MODALS                                                 */}
       {/* ═══════════════════════════════════════════════════════ */}
 
       <MatchMedicineModal
@@ -1245,7 +1264,6 @@ const MasterMedicinesPage = () => {
         zIndex={getZ("linked")}
       />
 
-      {/* ── Image Upload Modal ── */}
       <ImageUploadModal
         isOpen={imageModal.open}
         medicine={imageModal.medicine}
@@ -1255,7 +1273,6 @@ const MasterMedicinesPage = () => {
         zIndex={getZ("imageUpload")}
       />
 
-      {/* ── Master Detail Modal ── */}
       <MasterMedicineDetailModal
         isOpen={masterDetailModal.open}
         medicine={masterDetailModal.medicine}
@@ -1288,6 +1305,92 @@ const MasterMedicinesPage = () => {
         onChange={handleChangeMatch}
         onReject={handleRejectMatch}
         zIndex={getZ("reviewDetail")}
+      />
+
+      {/* ── Ignore Confirmation Dialog ── */}
+      <ConfirmDialog
+        isOpen={confirmIgnore.open}
+        onClose={() => setConfirmIgnore({ open: false, item: null, bulk: false })}
+        onConfirm={executeIgnore}
+        title={
+          confirmIgnore.bulk
+            ? "Ignore Selected Medicines?"
+            : "Ignore Medicine Group?"
+        }
+        message={
+          confirmIgnore.bulk ? (
+            <div className="space-y-3">
+              <p>
+                Are you sure you want to ignore{" "}
+                <strong>{selectedUnmapped.length}</strong> medicine group
+                {selectedUnmapped.length !== 1 ? "s" : ""}?
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle size={14} />
+                  <span className="font-semibold">What this means:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>
+                    These medicines will be hidden from the mapping workflow
+                  </li>
+                  <li>
+                    Shop inventories will NOT be affected — medicines remain
+                    functional
+                  </li>
+                  <li>
+                    Ignored medicines will remain unlinked to the master catalog
+                  </li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p>
+                Are you sure you want to ignore{" "}
+                <strong>"{confirmIgnore.item?.normalizedName}"</strong>?
+              </p>
+              <div className="bg-slate-50 rounded-lg p-3 text-sm space-y-1">
+                <p>
+                  <strong>Entries:</strong>{" "}
+                  {confirmIgnore.item?.occurrenceCount} medicine record
+                  {confirmIgnore.item?.occurrenceCount !== 1 ? "s" : ""}
+                </p>
+                <p>
+                  <strong>Shops affected:</strong>{" "}
+                  {confirmIgnore.item?.shopCount}
+                </p>
+                {confirmIgnore.item?.manufacturers?.length > 0 && (
+                  <p>
+                    <strong>Manufacturers:</strong>{" "}
+                    {confirmIgnore.item.manufacturers.slice(0, 3).join(", ")}
+                  </p>
+                )}
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle size={14} />
+                  <span className="font-semibold">What this means:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>
+                    This group will be hidden from the unmapped queue
+                  </li>
+                  <li>Shop inventories will NOT be affected</li>
+                  <li>
+                    These medicines will remain unlinked to the master catalog
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )
+        }
+        confirmText={
+          confirmIgnore.bulk
+            ? `Ignore ${selectedUnmapped.length} Group${selectedUnmapped.length !== 1 ? "s" : ""}`
+            : "Ignore"
+        }
+        type="danger"
       />
     </div>
   );
