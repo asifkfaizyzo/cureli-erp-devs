@@ -1,9 +1,10 @@
-// src/modules/cadmin/shops/cadminShops.routes.js
+// backend/src/modules/cadmin/shops/cadminShops.routes.js
 
 import express from "express";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
-import { upload } from "../../../config/multer.js"; // ✅ Import existing multer config
-
+import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
+import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
+import { upload } from "../../../config/multer.js";
 import {
   listShopsController,
   getShopByIdController,
@@ -18,27 +19,46 @@ const router = express.Router();
 
 router.use(requireCAdmin);
 
-// Stats route MUST be before :shop_id route (order matters!)
-router.get("/shops/stats", getShopStatsController);
+// stats MUST be before /:shop_id
+router.get(
+  "/shops/stats",
+  requireCAdminPermission(CADMIN_PERMISSIONS.SHOPS_VIEW_STATS),
+  getShopStatsController
+);
 
-// List shops with filters & pagination
-router.get("/shops", listShopsController);
+router.get(
+  "/shops",
+  requireCAdminPermission(CADMIN_PERMISSIONS.SHOPS_VIEW),
+  listShopsController
+);
 
-// Get single shop with full details
-router.get("/shops/:shop_id", getShopByIdController);
+router.get(
+  "/shops/:shop_id",
+  requireCAdminPermission(CADMIN_PERMISSIONS.SHOPS_VIEW_DETAIL),
+  getShopByIdController
+);
 
-// Update shop details
-router.patch("/shops/:shop_id", updateShopController);
+router.patch(
+  "/shops/:shop_id",
+  requireCAdminPermission(CADMIN_PERMISSIONS.SHOPS_EDIT),
+  updateShopController
+);
 
-// Toggle shop active status
-router.patch("/shops/:shop_id/toggle-active", toggleShopActiveController);
+router.patch(
+  "/shops/:shop_id/toggle-active",
+  requireCAdminPermission(CADMIN_PERMISSIONS.SHOPS_TOGGLE_ACTIVE),
+  toggleShopActiveController
+);
 
-// Update shop subscription
-router.patch("/shops/:shop_id/subscription", updateShopSubscriptionController);
+router.patch(
+  "/shops/:shop_id/subscription",
+  requireCAdminPermission(CADMIN_PERMISSIONS.SHOPS_UPDATE_SUBSCRIPTION),
+  updateShopSubscriptionController
+);
 
-// Upload document on behalf of shop
 router.post(
   "/shops/:shop_id/documents",
+  requireCAdminPermission(CADMIN_PERMISSIONS.SHOPS_UPLOAD_DOCUMENTS),
   upload.single("file"),
   uploadShopDocumentController
 );

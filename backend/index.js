@@ -2,23 +2,21 @@
 
 import "./env.js";
 import express from "express";
-
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
 import path from "path";
-import fs from "fs";
 import { fileURLToPath } from "url";
 import { initializeCronJobs } from "./src/cron/jobs.js";
 
-// ═══════════════════════════════════════════════════════════
+// ============================================
 // MIDDLEWARE IMPORTS
-// ═══════════════════════════════════════════════════════════
+// ============================================
 import maintenanceMiddleware from "./src/middleware/maintenance.js";
-import { globalLimiter, authLimiter } from "./src/middleware/rateLimiter.js";
-import publicUnsubscribeRoutes from './src/modules/public/unsubscribe/unsubscribe.routes.js';
+import { globalLimiter } from "./src/middleware/rateLimiter.js";
+import publicUnsubscribeRoutes from "./src/modules/public/unsubscribe/unsubscribe.routes.js";
 
-// ROUTES (unchanged)
+// ROUTES
 import authRoutes from "./src/modules/auth/auth.routes.js";
 import shopRoutes from "./src/modules/shop/shop.routes.js";
 import pendingRoutes from "./src/modules/pending/pending.routes.js";
@@ -33,9 +31,8 @@ import ticketRoutes from "./src/modules/tickets/tickets.routes.js";
 import enquiriesRoutes from "./src/modules/enquiries/enquiries.routes.js";
 import maintenanceRoutes from "./src/modules/maintenance/maintenance.routes.js";
 import userNotificationRoutes from "./src/modules/notifications/user/userNotifications.routes.js";
-import filesRoutes from './src/modules/files/files.routes.js';
+import filesRoutes from "./src/modules/files/files.routes.js";
 import linkingRoutes from "./src/modules/medicines/linking.routes.js";
-
 import medicineRoutes from "./src/modules/medicines/medicine.routes.js";
 import supplierRoutes from "./src/modules/suppliers/supplier.routes.js";
 import purchaseRoutes from "./src/modules/purchase/purchase.routes.js";
@@ -56,11 +53,14 @@ import cadminSubscriptionsRoutes from "./src/modules/cadmin/subscriptions/cadmin
 import cadminAuditRoutes from "./src/modules/cadmin/audit/cadminAudit.routes.js";
 import cadminBroadcastInAppRoutes from "./src/modules/cadmin/broadcast/inapp/cadminInAppBroadcast.routes.js";
 import cadminNotificationRoutes from "./src/modules/notifications/cadmin/cadminNotifications.routes.js";
-import cadminEmailBroadcastRoutes from './src/modules/cadmin/broadcast/email/cadminEmailBroadcast.routes.js';
+import cadminEmailBroadcastRoutes from "./src/modules/cadmin/broadcast/email/cadminEmailBroadcast.routes.js";
 import cadminDashboardRoutes from "./src/modules/cadmin/dashboard/cadminDashboard.routes.js";
 import cadminMasterMedicinesRoutes from "./src/modules/cadmin/master-medicines/cadminMasterMedicines.routes.js";
+import cadminRolesRoutes from "./src/modules/cadmin/roles/cadminRoles.routes.js";
 
+// ============================================
 // APP SETUP
+// ============================================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -72,7 +72,6 @@ const allowedOrigins = [
   process.env.LANDING_FRONTEND_ORIGIN || "http://localhost:5175",
 ].filter(Boolean);
 
-// CORS
 app.use(
   cors({
     origin: allowedOrigins,
@@ -81,7 +80,6 @@ app.use(
   })
 );
 
-// Helmet
 app.use(
   helmet({
     crossOriginResourcePolicy: false,
@@ -90,7 +88,6 @@ app.use(
   })
 );
 
-// Body parser
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
@@ -102,7 +99,7 @@ app.use("/api", globalLimiter);
 app.use("/cadmin", globalLimiter);
 
 // ============================================
-// FILE SERVING (Uploads)
+// FILE SERVING
 // ============================================
 app.use(
   "/uploads",
@@ -119,19 +116,15 @@ app.use(
   express.static(path.join(__dirname, "uploads"))
 );
 
-// ============================================
-// STATIC MEDICINE IMAGES
-// ============================================
 app.use(
-  '/static/medicine_images',
-  express.static(path.join(__dirname, 'static/medicine_images'))
+  "/static/medicine_images",
+  express.static(path.join(__dirname, "static/medicine_images"))
 );
 
 // ============================================
 // ROUTES
 // ============================================
-app.use('/api/files', filesRoutes);
-
+app.use("/api/files", filesRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/shop", shopRoutes);
 app.use("/api/pending", pendingRoutes);
@@ -144,9 +137,8 @@ app.use("/api/users", usersRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/enquiries", enquiriesRoutes);
-app.use('/api/notifications', userNotificationRoutes);
-app.use('/api/public', publicUnsubscribeRoutes);
-
+app.use("/api/notifications", userNotificationRoutes);
+app.use("/api/public", publicUnsubscribeRoutes);
 app.use("/api/medicines", medicineRoutes);
 app.use("/api/medicines/linking", linkingRoutes);
 app.use("/api/suppliers", supplierRoutes);
@@ -157,6 +149,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/excel", excelRoutes);
 
 app.use("/cadmin", cadminAuthRoutes);
+app.use("/cadmin", cadminRolesRoutes);
 app.use("/cadmin", cadminDocsRoutes);
 app.use("/cadmin", cadminUserRoutes);
 app.use("/cadmin", cadminShopsRoutes);
@@ -169,9 +162,9 @@ app.use("/cadmin", cadminSubscriptionsRoutes);
 app.use("/cadmin", cadminAuditRoutes);
 app.use("/cadmin", cadminBroadcastInAppRoutes);
 app.use("/cadmin", cadminNotificationRoutes);
-app.use('/cadmin', cadminEmailBroadcastRoutes);
-app.use('/cadmin', cadminDashboardRoutes);
-app.use('/cadmin', cadminMasterMedicinesRoutes);
+app.use("/cadmin", cadminEmailBroadcastRoutes);
+app.use("/cadmin", cadminDashboardRoutes);
+app.use("/cadmin", cadminMasterMedicinesRoutes);
 
 // ============================================
 // HEALTH CHECK
@@ -200,8 +193,27 @@ app.use((err, req, res, next) => {
 // ============================================
 const PORT = process.env.PORT || 5000;
 
+function printStartupBanner(port) {
+  const env = process.env.NODE_ENV || "development";
+  const time = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+  const lines = [
+    "",
+    "-----------------------------------------------",
+    "  SERVER STARTED",
+    "-----------------------------------------------",
+    `  Port        : ${port}`,
+    `  Environment : ${env}`,
+    `  Time (IST)  : ${time}`,
+    `  Origins     : ${allowedOrigins.join(", ")}`,
+    "-----------------------------------------------",
+    "",
+  ];
+
+  lines.forEach((line) => process.stdout.write(line + "\n"));
+}
+
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  printStartupBanner(PORT);
   initializeCronJobs();
 });
-

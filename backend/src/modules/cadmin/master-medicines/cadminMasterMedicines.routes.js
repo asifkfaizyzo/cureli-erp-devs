@@ -1,5 +1,4 @@
 // backend/src/modules/cadmin/master-medicines/cadminMasterMedicines.routes.js
-// REPLACE the entire multer config section
 
 import { Router } from "express";
 import multer from "multer";
@@ -7,6 +6,8 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
+import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
+import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
 import {
   listMasterMedicines,
   getMasterMedicine,
@@ -30,17 +31,13 @@ import {
 } from "./cadminMasterMedicines.controller.js";
 
 const router = Router();
-router.use(requireCAdmin);
 
-// ── MULTER CONFIG ──
+// ── MULTER CONFIG ────────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use memory storage first, then save in the controller where we know the skuId
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // At this point req.body may or may not have skuId parsed yet
-    // Use a temp directory, the controller will handle final placement
     const tempPath = path.join(__dirname, "../../../../static/medicine_images/uploads");
     fs.mkdirSync(tempPath, { recursive: true });
     cb(null, tempPath);
@@ -65,36 +62,123 @@ const upload = multer({
   },
 });
 
-// ── ROUTES ──
+// ── ALL ROUTES REQUIRE AUTH ──────────────────────────────────────────────────
+router.use(requireCAdmin);
 
-// Stats (before parameterized routes)
-router.get("/master-medicines/stats", getMasterMedicinesStats);
-router.get("/master-medicines/filters", getFilters);
-router.get("/master-medicines/autocomplete", autocomplete);
-router.get("/master-medicines/variants/:skuId", getVariant);
-router.get("/master-medicines/variants/:variantId/linked", listLinkedByVariant);
+// ── READ ROUTES (master_medicines.view) ──────────────────────────────────────
+router.get(
+  "/master-medicines/stats",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  getMasterMedicinesStats
+);
 
-// Mapping
-router.get("/master-medicines/unmapped", listUnmappedMedicines);
-router.get("/master-medicines/review", listNeedsReview);
-router.post("/master-medicines/review/:medicineId/accept", acceptMatch);
-router.post("/master-medicines/review/:medicineId/reject", rejectMatch);
-router.post("/master-medicines/match", matchToVariant);
-router.post("/master-medicines/ignore", ignoreUnmapped);
+router.get(
+  "/master-medicines/filters",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  getFilters
+);
 
-// Linked
-router.get("/master-medicines/:id/linked", listLinkedMedicines);
-router.post("/master-medicines/unlink/:medicineId", unlinkMedicine);
+router.get(
+  "/master-medicines/autocomplete",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  autocomplete
+);
 
-// Images
-router.post("/master-medicines/:id/images", upload.single("image"), handleImageUpload);
-router.delete("/master-medicines/images/:imageId", handleImageDelete);
+router.get(
+  "/master-medicines/variants/:skuId",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  getVariant
+);
 
-// Create (before parameterized :id)
-router.post("/master-medicines", createMasterMed);
+router.get(
+  "/master-medicines/variants/:variantId/linked",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  listLinkedByVariant
+);
 
-// Main CRUD (must be last)
-router.get("/master-medicines", listMasterMedicines);
-router.get("/master-medicines/:id", getMasterMedicine);
+// ── MAPPING READ ROUTES (view permission sufficient to read unmapped/review) ─
+router.get(
+  "/master-medicines/unmapped",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  listUnmappedMedicines
+);
+
+router.get(
+  "/master-medicines/review",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  listNeedsReview
+);
+
+// ── MAPPING ACTION ROUTES (master_medicines.manage_mapping) ──────────────────
+router.post(
+  "/master-medicines/review/:medicineId/accept",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING),
+  acceptMatch
+);
+
+router.post(
+  "/master-medicines/review/:medicineId/reject",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING),
+  rejectMatch
+);
+
+router.post(
+  "/master-medicines/match",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING),
+  matchToVariant
+);
+
+router.post(
+  "/master-medicines/ignore",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING),
+  ignoreUnmapped
+);
+
+router.post(
+  "/master-medicines/unlink/:medicineId",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING),
+  unlinkMedicine
+);
+
+// ── LINKED READ ROUTES (view permission) ─────────────────────────────────────
+router.get(
+  "/master-medicines/:id/linked",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  listLinkedMedicines
+);
+
+// ── IMAGE ROUTES (master_medicines.manage_images) ────────────────────────────
+router.post(
+  "/master-medicines/:id/images",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_IMAGES),
+  upload.single("image"),
+  handleImageUpload
+);
+
+router.delete(
+  "/master-medicines/images/:imageId",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_IMAGES),
+  handleImageDelete
+);
+
+// ── CREATE ROUTE (master_medicines.create) ───────────────────────────────────
+router.post(
+  "/master-medicines",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_CREATE),
+  createMasterMed
+);
+
+// ── MAIN READ ROUTES (must be last — catches parameterized :id) ──────────────
+router.get(
+  "/master-medicines",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  listMasterMedicines
+);
+
+router.get(
+  "/master-medicines/:id",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  getMasterMedicine
+);
 
 export default router;

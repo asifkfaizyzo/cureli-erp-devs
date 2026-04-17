@@ -122,7 +122,7 @@ export async function loginCAdminDirectService({
       entity_id: cadmin.cadmin_id,
       actor_type: audit.ActorType.CADMIN,
       actor_id: cadmin.cadmin_id,
-      actor_role: cadmin.role,
+      actor_role: cadmin.is_super_cadmin ? "SUPER_CADMIN" : "CUSTOM_ROLE",
       ...auditContext,
       reason_code: audit.AuditReasonCode.SECURITY_ACTION,
       metadata: {
@@ -227,7 +227,7 @@ export async function verifyCAdminOtpService({
       entity_id: cadmin.cadmin_id,
       actor_type: audit.ActorType.CADMIN,
       actor_id: cadmin.cadmin_id,
-      actor_role: cadmin.role,
+      actor_role: cadmin.is_super_cadmin ? "SUPER_CADMIN" : "CUSTOM_ROLE",
       ...auditContext,
       reason_code: audit.AuditReasonCode.SECURITY_ACTION,
       metadata: {

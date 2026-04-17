@@ -1,49 +1,64 @@
-// ============================================
-// backend\src\modules\cadmin\profile\cadminProfile.service.js
-// ============================================
+// backend/src/modules/cadmin/profile/cadminProfile.service.js
 
 import prisma from "../../../config/prisma.js";
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-/**
- * Format role for display
- */
-function formatRole(role) {
-  const roleMap = {
-    SUPER_ADMIN: "Super cAdmin",
-    ANALYST: "Analyst",
-    ACCOUNTING: "Accounting",
-  };
-  return roleMap[role] || role;
-}
-
-// ============================================
+// ─────────────────────────────────────────────────────────────────────────────
 // GET MY PROFILE
-// ============================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Get current admin's profile with pending notification counts
- * 
- * @param {string} cadminId - Current admin's ID
- * @returns {Promise<Object>} Profile data with pending counts
- * @throws {Error} If admin not found
+ * Returns the full profile shape the frontend needs to:
+ * 1. Display the admin's identity (name, username, email, phone)
+ * 2. Know if they are a super admin (is_super_cadmin)
+ * 3. Load their effective permissions[] into AuthContext
+ * 4. Show their primary role label in the navbar
+ * 5. Show pending action counts for dashboard badges
+ *
+ * Shape returned:
+ * {
+ *   profile: {
+ *     id, name, username, email, phone,
+ *     is_super_cadmin,
+ *     primary_role,        ← display label (e.g. "Operations")
+ *     roles[],             ← all assigned roles with is_primary flag
+ *     permissions[],       ← flat union of all role permissions
+ *                            empty array if is_super_cadmin (frontend checks flag instead)
+ *     isActive,
+ *     lastLogin,
+ *     createdAt,
+ *   },
+ *   pendingCounts: { ... }
+ * }
  */
 export async function getMyProfileService(cadminId) {
   const cadmin = await prisma.cAdmin.findUnique({
     where: { cadmin_id: cadminId },
     select: {
-      cadmin_id: true,
-      name: true,
-      username: true,
-      email: true,
-      phone_number: true,
-      role: true,
-      is_active: true,
-      last_login_at: true,
-      created_at: true,
+      cadmin_id:       true,
+      name:            true,
+      username:        true,
+      email:           true,
+      phone_number:    true,
+      is_active:       true,
+      is_super_cadmin: true,
+      last_login_at:   true,
+      created_at:      true,
+      roleAssignments: {
+        where: {
+          role: { is_deleted: false },
+        },
+        select: {
+          is_primary: true,
+          role: {
+            select: {
+              role_id:     true,
+              name:        true,
+              permissions: true,
+            },
+          },
+        },
+        orderBy: { assigned_at: "desc" },
+      },
     },
   });
 
@@ -53,41 +68,72 @@ export async function getMyProfileService(cadminId) {
     throw err;
   }
 
-  // Get pending counts in parallel
+  // ── Compute effective permissions ─────────────────────────────────────────
+  // SUPER_CADMIN: return empty array — frontend uses is_super_cadmin flag
+  // to bypass all permission checks, so the array is never read
+  let permissions = [];
+
+  if (!cadmin.is_super_cadmin) {
+    const permissionSet = new Set();
+    for (const assignment of cadmin.roleAssignments) {
+      for (const perm of assignment.role.permissions) {
+        permissionSet.add(perm);
+      }
+    }
+    permissions = Array.from(permissionSet);
+  }
+
+  // ── Derive primary role label ─────────────────────────────────────────────
+  let primary_role = "Super Admin";
+
+  if (!cadmin.is_super_cadmin) {
+    const primaryAssignment = cadmin.roleAssignments.find((a) => a.is_primary);
+    if (primaryAssignment) {
+      primary_role = primaryAssignment.role.name;
+    } else if (cadmin.roleAssignments.length > 0) {
+      primary_role = cadmin.roleAssignments[0].role.name;
+    } else {
+      primary_role = "No Role";
+    }
+  }
+
+  // ── Build roles list ──────────────────────────────────────────────────────
+  const roles = cadmin.roleAssignments.map((a) => ({
+    role_id:    a.role.role_id,
+    name:       a.role.name,
+    is_primary: a.is_primary,
+  }));
+
+  // ── Pending counts ────────────────────────────────────────────────────────
   const pendingCounts = await getPendingCountsService();
 
   return {
     profile: {
-      id: cadmin.cadmin_id,
-      name: cadmin.name,
-      username: cadmin.username,
-      email: cadmin.email,
-      phone: cadmin.phone_number,
-      role: formatRole(cadmin.role),
-      rawRole: cadmin.role,
-      isActive: cadmin.is_active,
-      lastLogin: cadmin.last_login_at,
-      createdAt: cadmin.created_at,
+      id:              cadmin.cadmin_id,
+      name:            cadmin.name,
+      username:        cadmin.username,
+      email:           cadmin.email,
+      phone:           cadmin.phone_number,
+      is_super_cadmin: cadmin.is_super_cadmin,
+      primary_role,
+      roles,
+      permissions,
+      isActive:        cadmin.is_active,
+      lastLogin:       cadmin.last_login_at,
+      createdAt:       cadmin.created_at,
     },
     pendingCounts,
   };
 }
 
-// ============================================
+// ─────────────────────────────────────────────────────────────────────────────
 // GET PENDING COUNTS
-// ============================================
+// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Get counts of items needing attention (computed notifications)
- * Used for dashboard badges and notification UI
- * 
- * @returns {Promise<Object>} Pending counts by category
- */
 export async function getPendingCountsService() {
-  const now = new Date();
+  const now             = new Date();
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  // Run all queries in parallel for better performance
   const [
     pendingDocuments,
     rejectedDocuments,
@@ -95,70 +141,32 @@ export async function getPendingCountsService() {
     pendingShops,
     overduePayments,
   ] = await Promise.all([
-    // Documents waiting for admin verification
-    prisma.shopFile.count({
-      where: {
-        status: "uploaded",
-      },
-    }),
-
-    // Rejected documents awaiting owner resubmission
-    prisma.shopFile.count({
-      where: {
-        status: "rejected",
-      },
-    }),
-
-    // Subscriptions expiring in next 7 days
+    prisma.shopFile.count({ where: { status: "uploaded" } }),
+    prisma.shopFile.count({ where: { status: "rejected" } }),
     prisma.shopSubscription.count({
       where: {
         is_active: true,
-        end_date: {
-          gte: now,
-          lte: sevenDaysFromNow,
-        },
+        end_date:  { gte: now, lte: sevenDaysFromNow },
       },
     }),
-
-    // Shops pending verification (never verified)
-    prisma.shop.count({
-      where: {
-        verification_status: "pending_review",
-      },
-    }),
-
-    // Payment transactions that failed or are pending
+    prisma.shop.count({ where: { verification_status: "pending_review" } }),
     prisma.paymentTransaction.count({
-      where: {
-        status: {
-          in: ["failed", "pending"],
-        },
-      },
+      where: { status: { in: ["failed", "pending"] } },
     }),
   ]);
 
-  // Calculate total actionable items
-  const totalPending = pendingDocuments + expiringSubscriptions + pendingShops + overduePayments;
+  const totalPending =
+    pendingDocuments + expiringSubscriptions + pendingShops + overduePayments;
 
   return {
     total: totalPending,
-    
     documents: {
-      pending: pendingDocuments,
+      pending:  pendingDocuments,
       rejected: rejectedDocuments,
-      total: pendingDocuments + rejectedDocuments,
+      total:    pendingDocuments + rejectedDocuments,
     },
-    
-    subscriptions: {
-      expiringSoon: expiringSubscriptions,
-    },
-    
-    shops: {
-      pendingVerification: pendingShops,
-    },
-    
-    payments: {
-      overdue: overduePayments,
-    },
+    subscriptions: { expiringSoon: expiringSubscriptions },
+    shops:         { pendingVerification: pendingShops },
+    payments:      { overdue: overduePayments },
   };
 }

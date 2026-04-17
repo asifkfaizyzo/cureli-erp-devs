@@ -88,6 +88,12 @@ CAdminAPI.interceptors.request.use(
 CAdminAPI.interceptors.response.use(
   (response) => response,
   async (error) => {
+    console.error("🔴 [Axios] Response error:", {
+      url: error.config?.url,
+      status: error.response?.status,
+      data: error.response?.data,
+      _retry: error.config?._retry,
+    });
     const originalRequest = error.config;
 
     // Skip for auth endpoints

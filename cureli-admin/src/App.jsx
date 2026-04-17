@@ -1,4 +1,4 @@
-// src/App.jsx
+// frontend/src/App.jsx
 
 import {
   BrowserRouter as Router,
@@ -8,7 +8,7 @@ import {
 } from "react-router-dom";
 import { useEffect } from "react";
 
-// Admin Pages
+// Pages
 import AdminLoginPage from "./pages/Cadmin-Login/AdminLoginPage";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import UserPage from "./pages/Users-management/UserPage";
@@ -19,66 +19,43 @@ import ShopsPage from "./pages/shops-management/ShopsPage";
 import AdminsPage from "./pages/Cadmin-management/AdminsPage";
 import OrdersPage from "./pages/orders/OrdersPage";
 import MasterMedicinesPage from "./pages/MasterMedicines/MasterMedicinesPage";
-// Subscription Management
 import RiskMonitorPage from "./pages/Subscription-management/RiskMonitorPage";
 import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
-
-// Communications Pages
 import CommunicationsPage from "./pages/Communications/CommunicationsPage";
 import TicketsPage from "./pages/Communications/pages/Tickets/TicketsPage";
 import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage";
 import BroadcastPage from "./pages/Communications/pages/Broadcast/BroadcastPage";
 import InAppBroadcastPage from "./pages/Communications/pages/Broadcast/InApp/InAppBroadcastPage";
 import EmailBroadcastPage from "./pages/Communications/pages/Broadcast/Email/EmailBroadcastPage";
-
-// Notifications Page
 import NotificationsPage from "./pages/Notifications/NotificationsPage";
-
-// Audit Page
 import AuditPage from "./pages/Audit/AuditPage";
 
-// Layout
+// Layout + Auth
 import AppLayout from "./components/layout/AppLayout";
-
-// Auth Provider
 import { AuthProvider } from "./context/AuthContext";
-
-// Permission Guard
 import { PermissionGuard } from "./components/common/PermissionGuard";
 import { CADMIN_PERMISSIONS } from "./config/cadminPermissions";
 
-// ══════════════════════════════════════════════════════════════
-// Protected Layout - Wraps AppLayout with AuthProvider
-// ══════════════════════════════════════════════════════════════
-const ProtectedLayout = () => {
-  return (
-    <AuthProvider>
-      <AppLayout />
-    </AuthProvider>
-  );
-};
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ══════════════════════════════════════════════════════════════
-// App Component
-// ══════════════════════════════════════════════════════════════
+const ProtectedLayout = () => (
+  <AuthProvider>
+    <AppLayout />
+  </AuthProvider>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function App() {
+  // Disable browser zoom shortcuts
   useEffect(() => {
     const disableZoomScroll = (e) => {
       if (e.ctrlKey) e.preventDefault();
     };
-
     const disableKeyZoom = (e) => {
-      if (
-        e.ctrlKey &&
-        (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")
-      ) {
-        e.preventDefault();
-      }
+      if (e.ctrlKey && ["+", "-", "=", "0"].includes(e.key)) e.preventDefault();
     };
-
-    const disablePinch = (e) => {
-      e.preventDefault();
-    };
+    const disablePinch = (e) => e.preventDefault();
 
     window.addEventListener("wheel", disableZoomScroll, { passive: false });
     window.addEventListener("keydown", disableKeyZoom);
@@ -98,9 +75,8 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* ════════════════════════════════════════════════════════════
-            PUBLIC ROUTES - No authentication required
-        ════════════════════════════════════════════════════════════ */}
+        {/* ── Public ────────────────────────────────────────────────────── */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<AdminLoginPage />} />
         <Route
           path="/admin-forgot-password"
@@ -108,13 +84,9 @@ function App() {
         />
         <Route path="/reset-password" element={<CAdminResetPassword />} />
 
-        {/* ════════════════════════════════════════════════════════════
-            PROTECTED ROUTES - Wrapped with AuthProvider + Permission Guards
-        ════════════════════════════════════════════════════════════ */}
+        {/* ── Protected ─────────────────────────────────────────────────── */}
         <Route element={<ProtectedLayout />}>
-          {/* ──────────────────────────────────────────────────────────
-              DASHBOARD - All roles can access
-          ────────────────────────────────────────────────────────── */}
+          {/* Dashboard — visible to all authenticated admins */}
           <Route
             path="/dashboard"
             element={
@@ -124,9 +96,7 @@ function App() {
             }
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              SHOPS - SUPER_CADMIN, ANALYST, ACCOUNTANT, SALESMAN
-          ────────────────────────────────────────────────────────── */}
+          {/* Shops */}
           <Route
             path="/shops"
             element={
@@ -136,9 +106,7 @@ function App() {
             }
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              USERS - SUPER_CADMIN, ANALYST only
-          ────────────────────────────────────────────────────────── */}
+          {/* Users */}
           <Route
             path="/users"
             element={
@@ -148,57 +116,51 @@ function App() {
             }
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              VERIFICATIONS - SUPER_CADMIN, SALESMAN only
-          ────────────────────────────────────────────────────────── */}
+          {/* Document Verification */}
           <Route
             path="/verification"
             element={
-              <PermissionGuard
-                permission={CADMIN_PERMISSIONS.VERIFICATIONS_VIEW}
-              >
+              <PermissionGuard permission={CADMIN_PERMISSIONS.DOCUMENTS_VIEW}>
                 <VerificationPage />
               </PermissionGuard>
             }
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              SUBSCRIPTIONS - SUPER_CADMIN, ANALYST, ACCOUNTANT
-          ────────────────────────────────────────────────────────── */}
+          {/* Subscriptions — Risk Monitor */}
           <Route
             path="/subscriptions"
             element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.RISK_VIEW}>
+              <PermissionGuard
+                permission={CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_AT_RISK}
+              >
                 <RiskMonitorPage />
               </PermissionGuard>
             }
           />
+
+          {/* Subscriptions — Manage */}
           <Route
             path="/subscriptions/manage"
             element={
               <PermissionGuard
-                permission={CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW}
+                permission={CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_DETAIL}
               >
                 <SubscriptionPage />
               </PermissionGuard>
             }
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              ORDERS - All roles can view
-          ────────────────────────────────────────────────────────── */}
+          {/* Orders — no dedicated permission yet, use dashboard.view as gate */}
           <Route
             path="/orders"
             element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.ORDERS_VIEW}>
+              <PermissionGuard permission={CADMIN_PERMISSIONS.DASHBOARD_VIEW}>
                 <OrdersPage />
               </PermissionGuard>
             }
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              AUDIT LOGS - SUPER_CADMIN, ANALYST, ACCOUNTANT
-          ────────────────────────────────────────────────────────── */}
+          {/* Audit */}
           <Route
             path="/audits"
             element={
@@ -208,67 +170,47 @@ function App() {
             }
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              ADMIN MANAGEMENT - SUPER_CADMIN only
-          ────────────────────────────────────────────────────────── */}
+          {/* Admin Management — Super Admin only */}
           <Route
             path="/admins"
             element={
-              <PermissionGuard
-                permission={CADMIN_PERMISSIONS.ADMINS_VIEW}
-                roles={["SUPER_CADMIN"]}
-              >
+              <PermissionGuard superAdminOnly>
                 <AdminsPage />
               </PermissionGuard>
             }
           />
-          {/* ──────────────────────────────────────────────────────────
-              MASTER MEDICINES CATALOG - All roles can view
-            ────────────────────────────────────────────────────────── */}
+
+          {/* Master Medicines */}
           <Route
             path="/master-medicines"
             element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.DASHBOARD_VIEW}>
+              <PermissionGuard
+                permission={CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW}
+              >
                 <MasterMedicinesPage />
               </PermissionGuard>
             }
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              NOTIFICATIONS - All authenticated admins
-          ────────────────────────────────────────────────────────── */}
-          <Route
-            path="/notifications"
-            element={
-              <PermissionGuard
-                permission={CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW}
-              >
-                <NotificationsPage />
-              </PermissionGuard>
-            }
-          />
+          {/* Notifications — all authenticated admins */}
+          <Route path="/notifications" element={<NotificationsPage />} />
 
-          {/* ──────────────────────────────────────────────────────────
-              COMMUNICATIONS - Hub page (accessible if any comm permission)
-          ────────────────────────────────────────────────────────── */}
+          {/* Communications — hub, visible if tickets permission exists
+              (broadcast + enquiries not in permission system yet) */}
           <Route
             path="/communications"
             element={
               <PermissionGuard
-                permissions={[
-                  CADMIN_PERMISSIONS.BROADCAST_VIEW,
-                  CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
-                  CADMIN_PERMISSIONS.TICKETS_VIEW,
-                ]}
+                permissions={[CADMIN_PERMISSIONS.TICKETS_VIEW]}
+                showForbidden={false}
+                fallback="/dashboard"
               >
                 <CommunicationsPage />
               </PermissionGuard>
             }
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              TICKETS - SUPER_CADMIN, ANALYST (view), SALESMAN (full)
-          ────────────────────────────────────────────────────────── */}
+          {/* Tickets */}
           <Route
             path="/communications/tickets"
             element={
@@ -278,66 +220,35 @@ function App() {
             }
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              ENQUIRIES - SUPER_CADMIN, ANALYST, SALESMAN
-          ────────────────────────────────────────────────────────── */}
-          <Route
-            path="/communications/enquiries"
-            element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.ENQUIRIES_VIEW}>
-                <EnquiriesPage />
-              </PermissionGuard>
-            }
-          />
+          {/* Enquiries — not in permission system yet, allow all authenticated */}
+          <Route path="/communications/enquiries" element={<EnquiriesPage />} />
 
-          {/* ──────────────────────────────────────────────────────────
-              BROADCAST - SUPER_CADMIN, ANALYST only
-          ────────────────────────────────────────────────────────── */}
-          <Route
-            path="/communications/broadcast"
-            element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.BROADCAST_VIEW}>
-                <BroadcastPage />
-              </PermissionGuard>
-            }
-          />
+          {/* Broadcast — not in permission system yet, allow all authenticated */}
+          <Route path="/communications/broadcast" element={<BroadcastPage />} />
           <Route
             path="/communications/broadcast/in-app"
-            element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.BROADCAST_VIEW}>
-                <InAppBroadcastPage />
-              </PermissionGuard>
-            }
+            element={<InAppBroadcastPage />}
           />
           <Route
             path="/communications/broadcast/email"
-            element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.BROADCAST_VIEW}>
-                <EmailBroadcastPage />
-              </PermissionGuard>
-            }
+            element={<EmailBroadcastPage />}
           />
 
-          {/* ──────────────────────────────────────────────────────────
-              SETTINGS (placeholder)
-          ────────────────────────────────────────────────────────── */}
+          {/* Settings — Super Admin only */}
           <Route
             path="/settings"
             element={
-              <PermissionGuard roles={["SUPER_CADMIN"]}>
+              <PermissionGuard superAdminOnly>
                 <div className="p-6">
-                  <h1 className="text-2xl font-bold">Settings Page</h1>
-                  <p className="text-gray-600 mt-2">Coming soon...</p>
+                  <h1 className="text-2xl font-bold">Settings</h1>
+                  <p className="text-gray-500 mt-2">Coming soon…</p>
                 </div>
               </PermissionGuard>
             }
           />
         </Route>
 
-        {/* ════════════════════════════════════════════════════════════
-            REDIRECTS
-        ════════════════════════════════════════════════════════════ */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* ── Catch-all ─────────────────────────────────────────────────── */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>

@@ -19,6 +19,7 @@ import { withCronLock } from "./cronLock.js";
 import * as fileStorage from "../services/fileStorage.service.js";
 import s3Client, { S3_BUCKET } from "../config/s3.js";
 import { ListObjectsV2Command } from "@aws-sdk/client-s3";
+import cronLogger from "../utils/cronLogger.js";
 
 // ============================================
 // CONFIGURATION
@@ -51,10 +52,7 @@ async function listFolderObjects(folder) {
 
     if (response.Contents) {
       for (const obj of response.Contents) {
-        // Extract filename from key (remove folder prefix)
         const filename = obj.Key.substring(prefix.length);
-
-        // Skip empty keys (the folder "object" itself)
         if (!filename) continue;
 
         objects.push({
@@ -84,41 +82,29 @@ async function listFolderObjects(folder) {
  */
 async function cleanupOrphanedFiles() {
   try {
-    // 1. List all objects in S3 folder
     const s3Objects = await listFolderObjects(FOLDER);
 
     if (s3Objects.length === 0) {
       return { cleaned: 0, message: "No files in S3 folder" };
     }
 
-    // 2. Get all referenced storage_keys from DB
-    const referencedAttachments =
-      await prisma.emailBroadcastAttachment.findMany({
-        select: { storage_key: true },
-      });
+    const referencedAttachments = await prisma.emailBroadcastAttachment.findMany({
+      select: { storage_key: true },
+    });
 
     const referencedFiles = new Set(
       referencedAttachments.map((att) => att.storage_key)
     );
 
-    // 3. Find orphaned files older than threshold
-    const orphanThreshold =
-      Date.now() - ORPHAN_FILE_AGE_HOURS * 60 * 60 * 1000;
+    const orphanThreshold = Date.now() - ORPHAN_FILE_AGE_HOURS * 60 * 60 * 1000;
     let cleaned = 0;
 
     for (const obj of s3Objects) {
-      // Skip if file is referenced in DB
-      if (referencedFiles.has(obj.filename)) {
-        continue;
-      }
+      if (referencedFiles.has(obj.filename)) continue;
 
-      // Skip if file is too new (might be mid-upload)
       const fileAge = obj.lastModified ? obj.lastModified.getTime() : Date.now();
-      if (fileAge >= orphanThreshold) {
-        continue;
-      }
+      if (fileAge >= orphanThreshold) continue;
 
-      // Delete orphaned file
       try {
         const deleted = await fileStorage.deleteFile({
           folder: FOLDER,
@@ -127,25 +113,20 @@ async function cleanupOrphanedFiles() {
 
         if (deleted) {
           cleaned++;
-          console.log(
-            `[File Cleanup] Deleted orphaned file: ${obj.filename}`
-          );
+          cronLogger.info(`[File Cleanup] Deleted orphaned file: ${obj.filename}`);
         }
       } catch (err) {
-        console.error(
-          `[File Cleanup] Failed to delete orphaned file ${obj.filename}:`,
-          err.message
-        );
+        cronLogger.error(`[File Cleanup] Failed to delete orphaned file ${obj.filename}`, err);
       }
     }
 
     if (cleaned > 0) {
-      console.log(`[File Cleanup] Cleaned ${cleaned} orphaned file(s)`);
+      cronLogger.info(`[File Cleanup] Cleaned ${cleaned} orphaned file(s)`);
     }
 
     return { cleaned, message: `Cleaned ${cleaned} orphaned files` };
   } catch (err) {
-    console.error("[File Cleanup] Orphan cleanup failed:", err);
+    cronLogger.error("[File Cleanup] Orphan cleanup failed", err);
     return { cleaned: 0, error: err.message };
   }
 }
@@ -155,15 +136,10 @@ async function cleanupOrphanedFiles() {
  */
 async function cleanupCancelledCampaignFiles() {
   try {
-    const cancelledCampaigns =
-      await prisma.emailBroadcastCampaign.findMany({
-        where: {
-          status: "CANCELLED",
-        },
-        include: {
-          attachmentFiles: true,
-        },
-      });
+    const cancelledCampaigns = await prisma.emailBroadcastCampaign.findMany({
+      where: { status: "CANCELLED" },
+      include: { attachmentFiles: true },
+    });
 
     let cleaned = 0;
 
@@ -186,17 +162,12 @@ async function cleanupCancelledCampaignFiles() {
     }
 
     if (cleaned > 0) {
-      console.log(
-        `[File Cleanup] Cleaned ${cleaned} file(s) from cancelled campaigns`
-      );
+      cronLogger.info(`[File Cleanup] Cleaned ${cleaned} file(s) from cancelled campaigns`);
     }
 
     return { cleaned };
   } catch (err) {
-    console.error(
-      "[File Cleanup] Cancelled campaign cleanup failed:",
-      err
-    );
+    cronLogger.error("[File Cleanup] Cancelled campaign cleanup failed", err);
     return { cleaned: 0, error: err.message };
   }
 }
@@ -208,7 +179,7 @@ async function getStorageStats() {
   try {
     return await fileStorage.getFolderStats(FOLDER);
   } catch (err) {
-    console.error("[File Cleanup] Get storage stats failed:", err);
+    cronLogger.error("[File Cleanup] Get storage stats failed", err);
     return { error: err.message };
   }
 }
@@ -218,7 +189,7 @@ async function getStorageStats() {
 // ============================================
 
 async function runFileCleanup() {
-  console.log("[File Cleanup] Starting email attachment cleanup...");
+  cronLogger.info("[File Cleanup] Starting email attachment cleanup...");
 
   try {
     const cancelledResult = await cleanupCancelledCampaignFiles();
@@ -228,9 +199,7 @@ async function runFileCleanup() {
       (cancelledResult.cleaned || 0) + (orphanedResult.cleaned || 0);
 
     if (totalCleaned > 0) {
-      console.log(
-        `[File Cleanup] Completed - cleaned ${totalCleaned} total file(s)`
-      );
+      cronLogger.success(`[File Cleanup] Completed - cleaned ${totalCleaned} total file(s)`);
     }
 
     return {
@@ -239,22 +208,20 @@ async function runFileCleanup() {
       total_cleaned: totalCleaned,
     };
   } catch (err) {
-    console.error("[File Cleanup] Cleanup failed:", err);
+    cronLogger.error("[File Cleanup] Cleanup failed", err);
     return { error: err.message };
   }
 }
 
 // ============================================
-// INITIALIZE CRON JOB — UNCHANGED
+// INITIALIZE CRON JOB
 // ============================================
 
 export function initializeFileCleanupWorker() {
   cron.schedule("0 4 * * *", () =>
     withCronLock("file-cleanup", 30, runFileCleanup)
   );
-  console.log(
-    "[File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)"
-  );
+  cronLogger.info("[File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)");
 }
 
 export {

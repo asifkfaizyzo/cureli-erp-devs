@@ -32,7 +32,6 @@ function getPeriodDates(period) {
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   }
   
-  // Don't set hours - keep full datetime for accurate filtering
   return { startDate, endDate: now };
 }
 
@@ -59,12 +58,6 @@ export async function getDashboardOverview(period = "30d", role = "SUPER_CADMIN"
   const { startDate, endDate } = getPeriodDates(period);
   const { startDate: prevStartDate, endDate: prevEndDate } = getPreviousPeriodDates(period);
   
-  console.log("[DASHBOARD SVC] ========================================");
-  console.log("[DASHBOARD SVC] getDashboardOverview called");
-  console.log("[DASHBOARD SVC] Role:", role);
-  console.log("[DASHBOARD SVC] Period:", period);
-  console.log("[DASHBOARD SVC] Date range:", { startDate, endDate });
-  
   try {
     const now = new Date();
 
@@ -86,8 +79,6 @@ export async function getDashboardOverview(period = "30d", role = "SUPER_CADMIN"
       prisma.shop.count({ where: { created_at: { gte: startDate, lte: endDate } } }),
       prisma.shop.count({ where: { created_at: { gte: prevStartDate, lte: prevEndDate } } }),
     ]);
-    
-    console.log("[DASHBOARD SVC] Shop stats:", { totalShops, activeShops, verifiedShops, pendingVerification });
 
     // ============================================
     // USER STATISTICS
@@ -98,8 +89,6 @@ export async function getDashboardOverview(period = "30d", role = "SUPER_CADMIN"
       prisma.user.count({ where: { created_at: { gte: startDate, lte: endDate } } }),
       prisma.user.count({ where: { created_at: { gte: prevStartDate, lte: prevEndDate } } }),
     ]);
-
-    console.log("[DASHBOARD SVC] User stats:", { totalUsers, activeUsers, newUsersInPeriod, newUsersPrevPeriod });
 
     // ============================================
     // SUBSCRIPTION STATISTICS
@@ -123,7 +112,7 @@ export async function getDashboardOverview(period = "30d", role = "SUPER_CADMIN"
     ]);
 
     // ============================================
-    // TICKET STATISTICS (PENDING + IN_PROGRESS)
+    // TICKET STATISTICS
     // ============================================
     const [pendingTickets, inProgressTickets, resolvedTicketsInPeriod] = await Promise.all([
       prisma.ticket.count({ where: { status: "PENDING" } }),
@@ -140,23 +129,13 @@ export async function getDashboardOverview(period = "30d", role = "SUPER_CADMIN"
     ]);
 
     // ============================================
-    // REVENUE STATISTICS - FIXED WITH CAPTURED STATUS
+    // REVENUE STATISTICS
     // ============================================
-    console.log("[DASHBOARD SVC] Fetching revenue...");
-    
-    // First, check what statuses exist
-    const statusCounts = await prisma.paymentTransaction.groupBy({
-      by: ["status"],
-      _count: true,
-    });
-    console.log("[DASHBOARD SVC] Payment status distribution:", statusCounts);
-    
-    // Include ALL common Razorpay statuses
     const validStatuses = [
       "success", "SUCCESS", 
       "completed", "COMPLETED", 
       "paid", "PAID",
-      "captured", "CAPTURED",  // ✅ RAZORPAY USES THIS
+      "captured", "CAPTURED",
       "authorized", "AUTHORIZED"
     ];
     
@@ -179,16 +158,8 @@ export async function getDashboardOverview(period = "30d", role = "SUPER_CADMIN"
       }),
     ]);
     
-    // Amount is in paise (100 paise = 1 rupee) - stored as BigInt
     const currentRevenue = Number(currentPeriodPayments._sum.amount || 0);
     const previousRevenue = Number(previousPeriodPayments._sum.amount || 0);
-    
-    console.log("[DASHBOARD SVC] Revenue stats:", { 
-      currentRevenue, 
-      previousRevenue, 
-      currentCount: currentPeriodPayments._count,
-      previousCount: previousPeriodPayments._count,
-    });
 
     // ============================================
     // CALCULATE GROWTH
@@ -241,9 +212,6 @@ export async function getDashboardOverview(period = "30d", role = "SUPER_CADMIN"
       response.users = { total: totalUsers, active: activeUsers };
     }
 
-    console.log("[DASHBOARD SVC] Response prepared successfully");
-    console.log("[DASHBOARD SVC] ========================================");
-    
     return response;
   } catch (error) {
     console.error("[DASHBOARD SVC] getDashboardOverview error:", error);
@@ -252,19 +220,13 @@ export async function getDashboardOverview(period = "30d", role = "SUPER_CADMIN"
 }
 
 // ============================================
-// GET REVENUE DATA - FIXED WITH CAPTURED
+// GET REVENUE DATA
 // ============================================
 
 export async function getRevenueData(period = "30d") {
   const { startDate, endDate } = getPeriodDates(period);
   
-  console.log("[DASHBOARD SVC] ========================================");
-  console.log("[DASHBOARD SVC] getRevenueData called");
-  console.log("[DASHBOARD SVC] Period:", period);
-  console.log("[DASHBOARD SVC] Date range:", { startDate, endDate });
-  
   try {
-    // Include captured status
     const validStatuses = [
       "success", "SUCCESS", 
       "completed", "COMPLETED", 
@@ -286,12 +248,6 @@ export async function getRevenueData(period = "30d") {
       orderBy: { created_at: "asc" },
     });
     
-    console.log("[DASHBOARD SVC] Payments found:", payments.length);
-    if (payments.length > 0) {
-      console.log("[DASHBOARD SVC] First payment:", payments[0]);
-      console.log("[DASHBOARD SVC] Total amount:", payments.reduce((sum, p) => sum + Number(p.amount), 0));
-    }
-    
     // Group by day
     const dailyRevenue = {};
     payments.forEach((payment) => {
@@ -299,9 +255,6 @@ export async function getRevenueData(period = "30d") {
       const amount = Number(payment.amount || 0);
       dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + amount;
     });
-    
-    console.log("[DASHBOARD SVC] Daily revenue entries:", Object.keys(dailyRevenue).length);
-    console.log("[DASHBOARD SVC] Sample daily revenue:", Object.entries(dailyRevenue).slice(0, 3));
     
     // Fill all days in range
     const data = [];
@@ -324,15 +277,6 @@ export async function getRevenueData(period = "30d") {
     const avgRevenue = data.length > 0 ? Math.round(totalRevenue / data.length) : 0;
     const maxValue = Math.max(...data.map((d) => d.value), 1);
     
-    console.log("[DASHBOARD SVC] Revenue processed:", { 
-      dataPoints: data.length, 
-      totalRevenue, 
-      avgRevenue,
-      maxValue,
-      transactionCount: payments.length,
-    });
-    console.log("[DASHBOARD SVC] ========================================");
-    
     return {
       data,
       summary: {
@@ -350,27 +294,18 @@ export async function getRevenueData(period = "30d") {
 }
 
 // ============================================
-// GET USER GROWTH DATA - FIXED TIMEZONE
+// GET USER GROWTH DATA
 // ============================================
 
 export async function getUserGrowthData(period = "30d") {
   const { startDate, endDate } = getPeriodDates(period);
   
-  console.log("[DASHBOARD SVC] ========================================");
-  console.log("[DASHBOARD SVC] getUserGrowthData called");
-  console.log("[DASHBOARD SVC] Period:", period);
-  console.log("[DASHBOARD SVC] Date range:", { startDate, endDate });
-  
   try {
-    // Get counts before the period
     const [usersBeforePeriod, shopsBeforePeriod] = await Promise.all([
       prisma.user.count({ where: { created_at: { lt: startDate } } }),
       prisma.shop.count({ where: { created_at: { lt: startDate } } }),
     ]);
     
-    console.log("[DASHBOARD SVC] Before period:", { usersBeforePeriod, shopsBeforePeriod });
-    
-    // Get all users and shops in the period
     const [newUsers, newShops] = await Promise.all([
       prisma.user.findMany({
         where: { created_at: { gte: startDate, lte: endDate } },
@@ -384,12 +319,7 @@ export async function getUserGrowthData(period = "30d") {
       }),
     ]);
     
-    console.log("[DASHBOARD SVC] New in period:", { 
-      newUsers: newUsers.length, 
-      newShops: newShops.length 
-    });
-    
-    // Group by date (ignore time)
+    // Group by date
     const dailyUsers = {};
     const dailyShops = {};
     
@@ -402,9 +332,6 @@ export async function getUserGrowthData(period = "30d") {
       const dateKey = s.created_at.toISOString().split("T")[0];
       dailyShops[dateKey] = (dailyShops[dateKey] || 0) + 1;
     });
-    
-    console.log("[DASHBOARD SVC] Daily users entries:", Object.keys(dailyUsers).length);
-    console.log("[DASHBOARD SVC] Daily shops entries:", Object.keys(dailyShops).length);
     
     // Build cumulative data
     const data = [];
@@ -435,15 +362,6 @@ export async function getUserGrowthData(period = "30d") {
     const firstData = data[0] || { users: 0, shops: 0 };
     const lastData = data[data.length - 1] || { users: 0, shops: 0 };
     
-    console.log("[DASHBOARD SVC] User growth summary:", { 
-      dataPoints: data.length,
-      startUsers: firstData.users,
-      endUsers: lastData.users,
-      startShops: firstData.shops,
-      endShops: lastData.shops,
-    });
-    console.log("[DASHBOARD SVC] ========================================");
-    
     return {
       data,
       summary: {
@@ -462,24 +380,17 @@ export async function getUserGrowthData(period = "30d") {
   }
 }
 
-
-
 // ============================================
-// GET TOP SHOPS - WITH BRANCHES & PAGINATION
+// GET TOP SHOPS
 // ============================================
 
 export async function getTopShops(period = "30d", page = 1, limit = 5) {
   const { startDate, endDate } = getPeriodDates(period);
   const skip = (page - 1) * limit;
   
-  console.log("[DASHBOARD SVC] getTopShops called");
-  console.log("[DASHBOARD SVC] Page:", page, "Limit:", limit, "Skip:", skip);
-  
   try {
-    // Get total count for pagination
     const totalCount = await prisma.shop.count({ where: { is_active: true } });
     
-    // Get shops with branch count and subscription info
     const shops = await prisma.shop.findMany({
       where: { is_active: true },
       select: {
@@ -507,14 +418,10 @@ export async function getTopShops(period = "30d", page = 1, limit = 5) {
           },
         },
       },
-      orderBy: [
-        { created_at: "desc" }, // For now, order by creation date
-      ],
+      orderBy: [{ created_at: "desc" }],
       skip,
       take: limit,
     });
-    
-    console.log("[DASHBOARD SVC] Shops fetched:", shops.length);
     
     const result = shops.map((shop) => ({
       id: shop.shop_id,
@@ -532,8 +439,6 @@ export async function getTopShops(period = "30d", page = 1, limit = 5) {
     }));
     
     const totalPages = Math.ceil(totalCount / limit);
-    
-    console.log("[DASHBOARD SVC] Top shops result:", { count: result.length, totalCount, totalPages });
     
     return {
       shops: result,
@@ -557,8 +462,6 @@ export async function getTopShops(period = "30d", page = 1, limit = 5) {
 // ============================================
 
 export async function getSubscriptionDistribution() {
-  console.log("[DASHBOARD SVC] getSubscriptionDistribution called");
-  
   try {
     const now = new Date();
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -571,8 +474,6 @@ export async function getSubscriptionDistribution() {
     ]);
     
     const total = activeCount + expiringCount + graceCount + suspendedCount;
-    
-    console.log("[DASHBOARD SVC] Subscription distribution:", { active: activeCount, expiring: expiringCount, grace: graceCount, suspended: suspendedCount, total });
     
     return {
       active: activeCount,
@@ -588,17 +489,13 @@ export async function getSubscriptionDistribution() {
 }
 
 // ============================================
-// GET RECENT ONBOARDING - WITH LIMITS & PAGINATION
+// GET RECENT ONBOARDING
 // ============================================
 
 export async function getRecentOnboarding(page = 1, limit = 5) {
   const skip = (page - 1) * limit;
   
-  console.log("[DASHBOARD SVC] getRecentOnboarding called");
-  console.log("[DASHBOARD SVC] Page:", page, "Limit:", limit);
-  
   try {
-    // Get total count
     const totalCount = await prisma.user.count({
       where: {
         role: "super_admin",
@@ -838,5 +735,3 @@ export async function getDashboardAlerts(role = "SUPER_CADMIN") {
     throw error;
   }
 }
-
-

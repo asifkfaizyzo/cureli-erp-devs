@@ -42,6 +42,7 @@ model CAdmin {
   phone_number        String
   password_hash       String
   is_active           Boolean             @default(true)
+  is_super_cadmin     Boolean             @default(false)    // ✅ NEW
   verification_id     String?
   otp_expires         DateTime?
   last_login_at       DateTime?
@@ -50,7 +51,10 @@ model CAdmin {
   reset_token         String?             @db.VarChar(500)
   reset_token_expires DateTime?           @db.Timestamptz(6)
   name                String
-  role                CAdminRole          @default(SUPER_CADMIN)
+  
+  // Relations
+  roleAssignments     CAdminRoleAssignment[]               // ✅ NEW
+  
   broadcastCampaigns  BroadcastCampaign[] @relation("BroadcastCampaigns")
   broadcastSegments   BroadcastSegment[]  @relation("BroadcastSegments")
   broadcastTemplates  BroadcastTemplate[] @relation("BroadcastTemplates")
@@ -62,6 +66,35 @@ model CAdmin {
   emailBroadcastCampaigns EmailBroadcastCampaign[] @relation("EmailBroadcastCampaigns")
 
   @@map("cadmins")
+}
+
+model CAdminCustomRole {
+  role_id      String   @id @default(uuid()) @db.Uuid
+  name         String   @unique
+  description  String?
+  permissions  String[] // Array of strings e.g. ["shops.view"]
+  is_deleted   Boolean  @default(false)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @updatedAt @db.Timestamptz(6)
+
+  assignments  CAdminRoleAssignment[]
+
+  @@map("cadmin_custom_roles")
+}
+
+model CAdminRoleAssignment {
+  id          String           @id @default(uuid()) @db.Uuid
+  cadmin_id   String           @db.Uuid
+  role_id     String           @db.Uuid
+  is_primary  Boolean          @default(false)
+  assigned_at DateTime         @default(now()) @db.Timestamptz(6)
+  assigned_by String?          @db.Uuid
+
+  cadmin      CAdmin           @relation(fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
+  role        CAdminCustomRole @relation(fields: [role_id], references: [role_id], onDelete: Restrict)
+
+  @@unique([cadmin_id, role_id])
+  @@map("cadmin_role_assignments")
 }
 
 model CAdminActivityLog {
@@ -1672,12 +1705,6 @@ enum ImageSource {
   UPLOADED
 }
 
-enum CAdminRole {
-SUPER_CADMIN
-ANALYST
-ACCOUNTANT
-SALESMAN
-}
 
 enum PlanStatus {
   DRAFT

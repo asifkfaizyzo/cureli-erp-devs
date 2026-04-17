@@ -1,492 +1,260 @@
-// src/config/cadminPermissions.js
+// frontend/src/config/cadminPermissions.js
 
 /**
- * ============================================
- * CADMIN PERMISSION CONSTANTS
- * ============================================
+ * =============================================================================
+ * CADMIN PERMISSION REGISTRY — FRONTEND
+ * =============================================================================
  *
- * Roles: SUPER_CADMIN, ANALYST, ACCOUNTANT, SALESMAN
+ * This file is a mirror of backend/src/config/cadminPermissions.js
+ * The permission STRING VALUES must stay identical to the backend.
+ * The backend is the source of truth — if you add a permission there,
+ * add it here too and update CADMIN_PERMISSION_GROUPS.
  *
- * Permission Matrix:
- * ┌─────────────────┬──────────────┬─────────┬────────────┬──────────┐
- * │ Feature         │ SUPER_CADMIN │ ANALYST │ ACCOUNTANT │ SALESMAN │
- * ├─────────────────┼──────────────┼─────────┼────────────┼──────────┤
- * │ Dashboard       │ ✅ Full      │ ✅ View │ ✅ Finance │ ✅ View  │
- * │ Shops           │ ✅ Full      │ ✅ View │ ✅ View    │ ✅ Edit  │
- * │ Users           │ ✅ Full      │ ✅ View │ ❌         │ ❌       │
- * │ Subscriptions   │ ✅ Full      │ ✅ View │ ✅ Full    │ ❌       │
- * │ Plans           │ ✅ Full      │ ✅ View │ ✅ Edit    │ ❌       │
- * │ Risk Monitor    │ ✅ Full      │ ✅ View │ ✅ Full    │ ❌       │
- * │ Verifications   │ ✅ Full      │ ❌      │ ❌         │ ✅ Full  │
- * │ Broadcast       │ ✅ Full      │ ✅ Full │ ❌         │ ❌       │
- * │ Enquiries       │ ✅ Full      │ ✅ Full │ ❌         │ ✅ Full  │
- * │ Tickets         │ ✅ Full      │ ✅ View │ ❌         │ ✅ Full  │
- * │ Admin Mgmt      │ ✅ Full      │ ❌      │ ❌         │ ❌       │
- * │ Audit           │ ✅ Full      │ ✅ Full │ ✅ View    │ ❌       │
- * │ Orders          │ ✅ Full      │ ✅ View │ ✅ Full    │ ✅ View  │
- * └─────────────────┴──────────────┴─────────┴────────────┴──────────┘
+ * HOW PERMISSIONS WORK IN THE FRONTEND:
+ * ─────────────────────────────────────
+ * 1. On login, the frontend calls GET /cadmin/me
+ * 2. The response includes admin.permissions[] (flat string array)
+ *    and admin.is_super_cadmin (boolean)
+ * 3. These are stored in AuthContext
+ * 4. useCAdminPermission() reads from AuthContext
+ * 5. hasPermission("shops.view") checks admin.permissions.includes(...)
+ * 6. If is_super_cadmin === true, ALL permission checks return true
+ *
+ * HOW TO ADD A NEW PERMISSION:
+ * ─────────────────────────────
+ * Step 1: Add to CADMIN_PERMISSIONS object (match backend value exactly)
+ * Step 2: Add to correct group in CADMIN_PERMISSION_GROUPS (for role UI checklist)
+ * Step 3: Use in components via useCAdminPermission().hasPermission(CADMIN_PERMISSIONS.YOUR_NEW_KEY)
+ * Step 4: Add to sidebar visibility in useCAdminMenuPermissions() if it gates a menu item
+ * =============================================================================
  */
+
+// =============================================================================
+// PERMISSION CONSTANTS
+// Values MUST match backend/src/config/cadminPermissions.js exactly
+// =============================================================================
 
 export const CADMIN_PERMISSIONS = {
-  // ============================================
-  // DASHBOARD
-  // ============================================
-  DASHBOARD_VIEW: "dashboard:view",
-  DASHBOARD_ANALYTICS: "dashboard:analytics",
-  DASHBOARD_FINANCIAL: "dashboard:financial",
 
-  // ============================================
-  // SHOPS MANAGEMENT
-  // ============================================
-  SHOPS_VIEW: "shops:view",
-  SHOPS_EDIT: "shops:edit",
-  SHOPS_DELETE: "shops:delete",
-  SHOPS_VERIFY: "shops:verify",
-  SHOPS_SUSPEND: "shops:suspend",
+  // ── ADMIN MANAGEMENT ──────────────────────────────────────────────────────
+  ADMINS_VIEW:           "admins.view",
+  ADMINS_VIEW_DETAIL:    "admins.view_detail",
+  ADMINS_VIEW_ACTIVITY:  "admins.view_activity",
+  ADMINS_CREATE:         "admins.create",
+  ADMINS_EDIT:           "admins.edit",
+  ADMINS_TOGGLE_ACCESS:  "admins.toggle_access",
 
-  // ============================================
-  // USERS MANAGEMENT
-  // ============================================
-  USERS_VIEW: "users:view",
-  USERS_EDIT: "users:edit",
-  USERS_DELETE: "users:delete",
-  USERS_BLOCK: "users:block",
+  // ── USER MANAGEMENT ───────────────────────────────────────────────────────
+  USERS_VIEW:            "users.view",
+  USERS_VIEW_DETAIL:     "users.view_detail",
+  USERS_EDIT:            "users.edit",
+  USERS_TOGGLE_ACCESS:   "users.toggle_access",
+  USERS_RESET_PASSWORD:  "users.reset_password",
 
-  // ============================================
-  // SUBSCRIPTIONS
-  // ============================================
-  SUBSCRIPTIONS_VIEW: "subscriptions:view",
-  SUBSCRIPTIONS_MANAGE: "subscriptions:manage",
-  SUBSCRIPTIONS_EXTEND: "subscriptions:extend",
-  SUBSCRIPTIONS_CANCEL: "subscriptions:cancel",
+  // ── SHOP MANAGEMENT ───────────────────────────────────────────────────────
+  SHOPS_VIEW:                "shops.view",
+  SHOPS_VIEW_DETAIL:         "shops.view_detail",
+  SHOPS_VIEW_STATS:          "shops.view_stats",
+  SHOPS_EDIT:                "shops.edit",
+  SHOPS_TOGGLE_ACTIVE:       "shops.toggle_active",
+  SHOPS_UPDATE_SUBSCRIPTION: "shops.update_subscription",
+  SHOPS_UPLOAD_DOCUMENTS:    "shops.upload_documents",
 
-  // ============================================
-  // PLANS
-  // ============================================
-  PLANS_VIEW: "plans:view",
-  PLANS_CREATE: "plans:create",
-  PLANS_EDIT: "plans:edit",
-  PLANS_DELETE: "plans:delete",
+  // ── PLAN MANAGEMENT ───────────────────────────────────────────────────────
+  PLANS_VIEW:        "plans.view",
+  PLANS_VIEW_DETAIL: "plans.view_detail",
+  PLANS_VIEW_STATS:  "plans.view_stats",
+  PLANS_CREATE:      "plans.create",
+  PLANS_EDIT:        "plans.edit",
+  PLANS_ACTIVATE:    "plans.activate",
+  PLANS_SUSPEND:     "plans.suspend",
+  PLANS_REACTIVATE:  "plans.reactivate",
+  PLANS_CLONE:       "plans.clone",
+  PLANS_DELETE:      "plans.delete",
 
-  // ============================================
-  // RISK MONITOR
-  // ============================================
-  RISK_VIEW: "risk:view",
-  RISK_ACTION: "risk:action",
+  // ── SUBSCRIPTION MANAGEMENT ───────────────────────────────────────────────
+  SUBSCRIPTIONS_VIEW_AT_RISK:  "subscriptions.view_at_risk",
+  SUBSCRIPTIONS_VIEW_DETAIL:   "subscriptions.view_detail",
+  SUBSCRIPTIONS_SEND_REMINDER: "subscriptions.send_reminder",
+  SUBSCRIPTIONS_EXTEND_GRACE:  "subscriptions.extend_grace",
+  SUBSCRIPTIONS_FORCE_SUSPEND: "subscriptions.force_suspend",
+  SUBSCRIPTIONS_REACTIVATE:    "subscriptions.reactivate",
 
-  // ============================================
-  // VERIFICATIONS
-  // ============================================
-  VERIFICATIONS_VIEW: "verifications:view",
-  VERIFICATIONS_APPROVE: "verifications:approve",
-  VERIFICATIONS_REJECT: "verifications:reject",
+  // ── TICKETS ───────────────────────────────────────────────────────────────
+  TICKETS_VIEW:          "tickets.view",
+  TICKETS_VIEW_DETAIL:   "tickets.view_detail",
+  TICKETS_VIEW_STATS:    "tickets.view_stats",
+  TICKETS_VIEW_HISTORY:  "tickets.view_history",
+  TICKETS_UPDATE_STATUS: "tickets.update_status",
 
-  // ============================================
-  // COMMUNICATIONS - BROADCAST
-  // ============================================
-  BROADCAST_VIEW: "broadcast:view",
-  BROADCAST_CREATE: "broadcast:create",
-  BROADCAST_SEND: "broadcast:send",
-  BROADCAST_DELETE: "broadcast:delete",
+  // ── MASTER MEDICINES ──────────────────────────────────────────────────────
+  MASTER_MEDICINES_VIEW:           "master_medicines.view",
+  MASTER_MEDICINES_CREATE:         "master_medicines.create",
+  MASTER_MEDICINES_MANAGE_MAPPING: "master_medicines.manage_mapping",
+  MASTER_MEDICINES_MANAGE_IMAGES:  "master_medicines.manage_images",
 
-  // ============================================
-  // COMMUNICATIONS - ENQUIRIES
-  // ============================================
-  ENQUIRIES_VIEW: "enquiries:view",
-  ENQUIRIES_REPLY: "enquiries:reply",
-  ENQUIRIES_CLOSE: "enquiries:close",
+  // ── DASHBOARD ─────────────────────────────────────────────────────────────
+  DASHBOARD_VIEW: "dashboard.view",
 
-  // ============================================
-  // COMMUNICATIONS - TICKETS
-  // ============================================
-  TICKETS_VIEW: "tickets:view",
-  TICKETS_REPLY: "tickets:reply",
-  TICKETS_CLOSE: "tickets:close",
-  TICKETS_ESCALATE: "tickets:escalate",
+  // ── DOCUMENT VERIFICATION ─────────────────────────────────────────────────
+  DOCUMENTS_VIEW:             "documents.view",
+  DOCUMENTS_VIEW_SHOP_DETAIL: "documents.view_shop_detail",
+  DOCUMENTS_VIEW_FILE:        "documents.view_file",
+  DOCUMENTS_VERIFY:           "documents.verify",
+  DOCUMENTS_REJECT:           "documents.reject",
+  DOCUMENTS_BATCH_UPDATE:     "documents.batch_update",
 
-  // ============================================
-  // ADMIN MANAGEMENT
-  // ============================================
-  ADMINS_VIEW: "admins:view",
-  ADMINS_CREATE: "admins:create",
-  ADMINS_EDIT: "admins:edit",
-  ADMINS_DELETE: "admins:delete",
-
-  // ============================================
-  // AUDIT
-  // ============================================
-  AUDIT_VIEW: "audit:view",
-  AUDIT_EXPORT: "audit:export",
-
-  // ============================================
-  // ORDERS
-  // ============================================
-  ORDERS_VIEW: "orders:view",
-  ORDERS_MANAGE: "orders:manage",
-  ORDERS_REFUND: "orders:refund",
-
-  // ============================================
-  // MASTER MEDICINES CATALOG
-  // ============================================
-  MASTER_MEDICINES_VIEW: "master_medicines:view",
-  MASTER_MEDICINES_EDIT: "master_medicines:edit",
-
-  // ============================================
-  // NOTIFICATIONS
-  // ============================================
-  NOTIFICATIONS_VIEW: "notifications:view",
+  // ── AUDIT ─────────────────────────────────────────────────────────────────
+  AUDIT_VIEW:        "audit.view",
+  AUDIT_VIEW_DETAIL: "audit.view_detail",
+  AUDIT_VIEW_STATS:  "audit.view_stats",
+  AUDIT_EXPORT:      "audit.export",
 };
 
-/**
- * ============================================
- * ROLE → PERMISSIONS MAPPING
- * ============================================
- */
-export const CADMIN_ROLE_PERMISSIONS = {
-  // ════════════════════════════════════════════
-  // SUPER_CADMIN - Full access to everything
-  // ════════════════════════════════════════════
-  SUPER_CADMIN: ["*"],
+// =============================================================================
+// PERMISSION GROUPS
+// Used by the role creation/edit UI to render the permission checklist.
+// Each module is one collapsible section. Each permission is one checkbox.
+// =============================================================================
 
-  // ════════════════════════════════════════════
-  // ANALYST - Analytics, monitoring, communications
-  // Dashboard: View
-  // Shops: View
-  // Users: View
-  // Subscriptions: View
-  // Plans: View
-  // Risk Monitor: View
-  // Verifications: ❌
-  // Broadcast: Full
-  // Enquiries: Full
-  // Tickets: View
-  // Admin Mgmt: ❌
-  // Audit: Full
-  // Orders: View
-  // ════════════════════════════════════════════
-  ANALYST: [
-    // Dashboard (view + analytics)
-    CADMIN_PERMISSIONS.DASHBOARD_VIEW,
-    CADMIN_PERMISSIONS.DASHBOARD_ANALYTICS,
+export const CADMIN_PERMISSION_GROUPS = [
+  {
+    module: "Admin Management",
+    key: "admins",
+    permissions: [
+      { key: CADMIN_PERMISSIONS.ADMINS_VIEW,          label: "View Admins",             description: "List all admin accounts" },
+      { key: CADMIN_PERMISSIONS.ADMINS_VIEW_DETAIL,   label: "View Admin Detail",       description: "Open individual admin profiles" },
+      { key: CADMIN_PERMISSIONS.ADMINS_VIEW_ACTIVITY, label: "View Admin Activity",     description: "See per-admin activity logs" },
+      { key: CADMIN_PERMISSIONS.ADMINS_CREATE,        label: "Create Admin",            description: "Add new admin accounts" },
+      { key: CADMIN_PERMISSIONS.ADMINS_EDIT,          label: "Edit Admin & Roles",      description: "Update admin profile and manage role assignments" },
+      { key: CADMIN_PERMISSIONS.ADMINS_TOGGLE_ACCESS, label: "Disable / Enable Admin",  description: "Activate or deactivate admin accounts" },
+    ],
+  },
+  {
+    module: "User Management",
+    key: "users",
+    permissions: [
+      { key: CADMIN_PERMISSIONS.USERS_VIEW,           label: "View Users",              description: "List all ERP users" },
+      { key: CADMIN_PERMISSIONS.USERS_VIEW_DETAIL,    label: "View User Detail",        description: "Open individual user profiles" },
+      { key: CADMIN_PERMISSIONS.USERS_EDIT,           label: "Edit User",               description: "Update user profile fields" },
+      { key: CADMIN_PERMISSIONS.USERS_TOGGLE_ACCESS,  label: "Disable / Enable User",   description: "Activate or deactivate user accounts" },
+      { key: CADMIN_PERMISSIONS.USERS_RESET_PASSWORD, label: "Reset User Password",     description: "Send password reset link to user" },
+    ],
+  },
+  {
+    module: "Shop Management",
+    key: "shops",
+    permissions: [
+      { key: CADMIN_PERMISSIONS.SHOPS_VIEW,                label: "View Shops",               description: "List all registered shops" },
+      { key: CADMIN_PERMISSIONS.SHOPS_VIEW_DETAIL,         label: "View Shop Detail",         description: "Open full shop profile" },
+      { key: CADMIN_PERMISSIONS.SHOPS_VIEW_STATS,          label: "View Shop Stats",          description: "View aggregate shop statistics" },
+      { key: CADMIN_PERMISSIONS.SHOPS_EDIT,                label: "Edit Shop",                description: "Modify shop details" },
+      { key: CADMIN_PERMISSIONS.SHOPS_TOGGLE_ACTIVE,       label: "Suspend / Activate Shop",  description: "Control shop access to the platform" },
+      { key: CADMIN_PERMISSIONS.SHOPS_UPDATE_SUBSCRIPTION, label: "Update Subscription",      description: "Modify a shop's subscription details" },
+      { key: CADMIN_PERMISSIONS.SHOPS_UPLOAD_DOCUMENTS,    label: "Upload Documents",         description: "Upload documents on behalf of a shop" },
+    ],
+  },
+  {
+    module: "Plan Management",
+    key: "plans",
+    permissions: [
+      { key: CADMIN_PERMISSIONS.PLANS_VIEW,        label: "View Plans",        description: "List all subscription plans" },
+      { key: CADMIN_PERMISSIONS.PLANS_VIEW_DETAIL, label: "View Plan Detail",  description: "Open individual plan details" },
+      { key: CADMIN_PERMISSIONS.PLANS_VIEW_STATS,  label: "View Plan Stats",   description: "See subscriber counts and plan metrics" },
+      { key: CADMIN_PERMISSIONS.PLANS_CREATE,      label: "Create Plan",       description: "Create a new plan (starts as Draft)" },
+      { key: CADMIN_PERMISSIONS.PLANS_EDIT,        label: "Edit Plan",         description: "Edit Draft plan fields" },
+      { key: CADMIN_PERMISSIONS.PLANS_ACTIVATE,    label: "Activate Plan",     description: "Make a Draft plan live" },
+      { key: CADMIN_PERMISSIONS.PLANS_SUSPEND,     label: "Suspend Plan",      description: "Stop new subscriptions to a plan" },
+      { key: CADMIN_PERMISSIONS.PLANS_REACTIVATE,  label: "Reactivate Plan",   description: "Re-enable a suspended plan" },
+      { key: CADMIN_PERMISSIONS.PLANS_CLONE,       label: "Clone Plan",        description: "Duplicate any plan into a new Draft" },
+      { key: CADMIN_PERMISSIONS.PLANS_DELETE,      label: "Delete Plan",       description: "Permanently remove a Draft plan" },
+    ],
+  },
+  {
+    module: "Subscription Management",
+    key: "subscriptions",
+    permissions: [
+      { key: CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_AT_RISK,  label: "View At-Risk Subscriptions", description: "See expiring, grace period, and suspended subscriptions" },
+      { key: CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_DETAIL,   label: "View Subscription Detail",   description: "Open individual subscription details" },
+      { key: CADMIN_PERMISSIONS.SUBSCRIPTIONS_SEND_REMINDER, label: "Send Payment Reminder",      description: "Trigger reminder to shop" },
+      { key: CADMIN_PERMISSIONS.SUBSCRIPTIONS_EXTEND_GRACE,  label: "Extend Grace Period",        description: "Give a shop more time before suspension" },
+      { key: CADMIN_PERMISSIONS.SUBSCRIPTIONS_FORCE_SUSPEND, label: "Force Suspend",              description: "Immediately suspend a subscription" },
+      { key: CADMIN_PERMISSIONS.SUBSCRIPTIONS_REACTIVATE,    label: "Reactivate Subscription",   description: "Restore a suspended subscription" },
+    ],
+  },
+  {
+    module: "Tickets",
+    key: "tickets",
+    permissions: [
+      { key: CADMIN_PERMISSIONS.TICKETS_VIEW,          label: "View Tickets",         description: "List all support tickets" },
+      { key: CADMIN_PERMISSIONS.TICKETS_VIEW_DETAIL,   label: "View Ticket Detail",   description: "Open individual ticket" },
+      { key: CADMIN_PERMISSIONS.TICKETS_VIEW_STATS,    label: "View Ticket Stats",    description: "See ticket counts and status breakdown" },
+      { key: CADMIN_PERMISSIONS.TICKETS_VIEW_HISTORY,  label: "View Ticket History",  description: "See status change history for a ticket" },
+      { key: CADMIN_PERMISSIONS.TICKETS_UPDATE_STATUS, label: "Update Ticket Status", description: "Resolve, close, or reopen tickets" },
+    ],
+  },
+  {
+    module: "Master Medicines",
+    key: "master_medicines",
+    permissions: [
+      { key: CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW,           label: "View Catalog",    description: "Browse master medicine catalog, variants, and linked medicines" },
+      { key: CADMIN_PERMISSIONS.MASTER_MEDICINES_CREATE,         label: "Create Medicine", description: "Add new entries to the master catalog" },
+      { key: CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING, label: "Manage Mapping",  description: "Accept, reject, match, ignore, and unlink medicine mappings" },
+      { key: CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_IMAGES,  label: "Manage Images",   description: "Upload and delete medicine images" },
+    ],
+  },
+  {
+    module: "Dashboard",
+    key: "dashboard",
+    permissions: [
+      { key: CADMIN_PERMISSIONS.DASHBOARD_VIEW, label: "View Dashboard", description: "Access platform overview, KPIs, charts, and activity feed" },
+    ],
+  },
+  {
+    module: "Document Verification",
+    key: "documents",
+    permissions: [
+      { key: CADMIN_PERMISSIONS.DOCUMENTS_VIEW,             label: "View Verification Queue",  description: "List shops pending document verification" },
+      { key: CADMIN_PERMISSIONS.DOCUMENTS_VIEW_SHOP_DETAIL, label: "View Shop Documents",      description: "See all documents for a specific shop" },
+      { key: CADMIN_PERMISSIONS.DOCUMENTS_VIEW_FILE,        label: "View File",                description: "Open and preview individual document files" },
+      { key: CADMIN_PERMISSIONS.DOCUMENTS_VERIFY,           label: "Verify Document",          description: "Mark a document as verified" },
+      { key: CADMIN_PERMISSIONS.DOCUMENTS_REJECT,           label: "Reject Document",          description: "Reject a document with a reason" },
+      { key: CADMIN_PERMISSIONS.DOCUMENTS_BATCH_UPDATE,     label: "Batch Update",             description: "Verify or reject multiple documents at once" },
+    ],
+  },
+  {
+    module: "Audit Logs",
+    key: "audit",
+    permissions: [
+      { key: CADMIN_PERMISSIONS.AUDIT_VIEW,        label: "View Audit Logs",   description: "Browse the system audit trail" },
+      { key: CADMIN_PERMISSIONS.AUDIT_VIEW_DETAIL, label: "View Log Detail",   description: "Open individual audit log entries" },
+      { key: CADMIN_PERMISSIONS.AUDIT_VIEW_STATS,  label: "View Audit Stats",  description: "See audit activity statistics" },
+      { key: CADMIN_PERMISSIONS.AUDIT_EXPORT,      label: "Export Audit Logs", description: "Download audit logs as CSV" },
+    ],
+  },
+];
 
-    // Shops (view only)
-    CADMIN_PERMISSIONS.SHOPS_VIEW,
+// =============================================================================
+// ROUTE → PERMISSION MAPPING
+// Used for sidebar visibility. Maps frontend routes to required permissions.
+// If a route requires ANY of the listed permissions, it is visible.
+// Empty array = accessible to all authenticated admins.
+// =============================================================================
 
-    // Users (view only)
-    CADMIN_PERMISSIONS.USERS_VIEW,
-
-    // Subscriptions (view only)
-    CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW,
-
-    // Plans (view only)
-    CADMIN_PERMISSIONS.PLANS_VIEW,
-
-    // Master Medicines (view only)
-    CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW,
-    // Risk Monitor (view only)
-    CADMIN_PERMISSIONS.RISK_VIEW,
-
-    // Broadcast (full access)
-    CADMIN_PERMISSIONS.BROADCAST_VIEW,
-    CADMIN_PERMISSIONS.BROADCAST_CREATE,
-    CADMIN_PERMISSIONS.BROADCAST_SEND,
-    CADMIN_PERMISSIONS.BROADCAST_DELETE,
-
-    // Enquiries (full access)
-    CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
-    CADMIN_PERMISSIONS.ENQUIRIES_REPLY,
-    CADMIN_PERMISSIONS.ENQUIRIES_CLOSE,
-
-    // Tickets (view only)
-    CADMIN_PERMISSIONS.TICKETS_VIEW,
-
-    // Audit (full access)
-    CADMIN_PERMISSIONS.AUDIT_VIEW,
-    CADMIN_PERMISSIONS.AUDIT_EXPORT,
-
-    // Orders (view only)
-    CADMIN_PERMISSIONS.ORDERS_VIEW,
-
-    // Notifications
-    CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW,
-  ],
-
-  // ════════════════════════════════════════════
-  // ACCOUNTANT - Finance and subscriptions focus
-  // Dashboard: Financial
-  // Shops: View
-  // Users: ❌
-  // Subscriptions: Full
-  // Plans: View/Edit
-  // Risk Monitor: Full
-  // Verifications: ❌
-  // Broadcast: ❌
-  // Enquiries: ❌
-  // Tickets: ❌
-  // Admin Mgmt: ❌
-  // Audit: View
-  // Orders: Full
-  // ════════════════════════════════════════════
-  ACCOUNTANT: [
-    // Dashboard (financial focus)
-    CADMIN_PERMISSIONS.DASHBOARD_VIEW,
-    CADMIN_PERMISSIONS.DASHBOARD_FINANCIAL,
-
-    // Shops (view only - for financial context)
-    CADMIN_PERMISSIONS.SHOPS_VIEW,
-
-    // Subscriptions (full access)
-    CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW,
-    CADMIN_PERMISSIONS.SUBSCRIPTIONS_MANAGE,
-    CADMIN_PERMISSIONS.SUBSCRIPTIONS_EXTEND,
-    CADMIN_PERMISSIONS.SUBSCRIPTIONS_CANCEL,
-
-    // Plans (view and edit)
-    CADMIN_PERMISSIONS.PLANS_VIEW,
-    CADMIN_PERMISSIONS.PLANS_EDIT,
-
-    // Risk Monitor (full access)
-    CADMIN_PERMISSIONS.RISK_VIEW,
-    CADMIN_PERMISSIONS.RISK_ACTION,
-
-    // Orders (full access for payments/refunds)
-    CADMIN_PERMISSIONS.ORDERS_VIEW,
-    CADMIN_PERMISSIONS.ORDERS_MANAGE,
-    CADMIN_PERMISSIONS.ORDERS_REFUND,
-
-    // Audit (view only)
-    CADMIN_PERMISSIONS.AUDIT_VIEW,
-
-    // Notifications
-    CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW,
-  ],
-
-  // ════════════════════════════════════════════
-  // SALESMAN - Sales and customer support focus
-  // Dashboard: View
-  // Shops: View/Edit
-  // Users: ❌
-  // Subscriptions: ❌
-  // Plans: ❌
-  // Risk Monitor: ❌
-  // Verifications: Full
-  // Broadcast: ❌
-  // Enquiries: Full
-  // Tickets: Full
-  // Admin Mgmt: ❌
-  // Audit: ❌
-  // Orders: View
-  // ════════════════════════════════════════════
-  SALESMAN: [
-    // Dashboard (basic view)
-    CADMIN_PERMISSIONS.DASHBOARD_VIEW,
-
-    // Shops (view + edit for onboarding)
-    CADMIN_PERMISSIONS.SHOPS_VIEW,
-    CADMIN_PERMISSIONS.SHOPS_EDIT,
-
-    // Verifications (full access)
-    CADMIN_PERMISSIONS.VERIFICATIONS_VIEW,
-    CADMIN_PERMISSIONS.VERIFICATIONS_APPROVE,
-    CADMIN_PERMISSIONS.VERIFICATIONS_REJECT,
-
-    // Enquiries (full access)
-    CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
-    CADMIN_PERMISSIONS.ENQUIRIES_REPLY,
-    CADMIN_PERMISSIONS.ENQUIRIES_CLOSE,
-
-    // Tickets (full access)
-    CADMIN_PERMISSIONS.TICKETS_VIEW,
-    CADMIN_PERMISSIONS.TICKETS_REPLY,
-    CADMIN_PERMISSIONS.TICKETS_CLOSE,
-    CADMIN_PERMISSIONS.TICKETS_ESCALATE,
-
-    // Orders (view only)
-    CADMIN_PERMISSIONS.ORDERS_VIEW,
-
-    // Notifications
-    CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW,
-  ],
-};
-
-/**
- * ============================================
- * HELPER FUNCTIONS
- * ============================================
- */
-
-/**
- * Check if a role has a specific permission
- * @param {string} role - CAdmin role (SUPER_CADMIN, ANALYST, ACCOUNTANT, SALESMAN)
- * @param {string} permission - Permission to check
- * @returns {boolean}
- */
-export function cadminRoleHasPermission(role, permission) {
-  if (!role) return false;
-
-  const normalizedRole = role.toUpperCase();
-  const permissions = CADMIN_ROLE_PERMISSIONS[normalizedRole];
-
-  if (!permissions) {
-    return false;
-  }
-
-  // Wildcard check (SUPER_CADMIN)
-  if (permissions.includes("*")) {
-    return true;
-  }
-
-  return permissions.includes(permission);
-}
-
-/**
- * Check if a role has ANY of the specified permissions
- * @param {string} role - CAdmin role
- * @param {string[]} permissions - Array of permissions to check
- * @returns {boolean}
- */
-export function cadminRoleHasAnyPermission(role, permissions) {
-  if (!role || !permissions?.length) return false;
-  return permissions.some((perm) => cadminRoleHasPermission(role, perm));
-}
-
-/**
- * Check if a role has ALL of the specified permissions
- * @param {string} role - CAdmin role
- * @param {string[]} permissions - Array of permissions to check
- * @returns {boolean}
- */
-export function cadminRoleHasAllPermissions(role, permissions) {
-  if (!role || !permissions?.length) return false;
-  return permissions.every((perm) => cadminRoleHasPermission(role, perm));
-}
-
-/**
- * Get all permissions for a role
- * @param {string} role - CAdmin role
- * @returns {string[]} Array of permission strings
- */
-export function getCAdminPermissionsForRole(role) {
-  if (!role) return [];
-
-  const normalizedRole = role.toUpperCase();
-  const permissions = CADMIN_ROLE_PERMISSIONS[normalizedRole];
-
-  if (!permissions) {
-    return [];
-  }
-
-  if (permissions.includes("*")) {
-    return Object.values(CADMIN_PERMISSIONS);
-  }
-
-  return permissions;
-}
-
-/**
- * ============================================
- * ROUTE → PERMISSION MAPPING
- * ============================================
- */
 export const CADMIN_ROUTE_PERMISSIONS = {
-  // Dashboard
-  "/dashboard": [CADMIN_PERMISSIONS.DASHBOARD_VIEW],
-
-  // Shops
-  "/shops": [CADMIN_PERMISSIONS.SHOPS_VIEW],
-
-  // Users
-  "/users": [CADMIN_PERMISSIONS.USERS_VIEW],
-
-  // Subscriptions
-  "/subscriptions": [CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW],
-  "/subscriptions/plans": [CADMIN_PERMISSIONS.PLANS_VIEW],
-  "/risk-monitor": [CADMIN_PERMISSIONS.RISK_VIEW],
-
-  // Verifications
-  "/verifications": [CADMIN_PERMISSIONS.VERIFICATIONS_VIEW],
-
-  // Communications
-  "/communications": [], // Parent route - no specific permission
-  "/communications/broadcast": [CADMIN_PERMISSIONS.BROADCAST_VIEW],
-  "/communications/enquiries": [CADMIN_PERMISSIONS.ENQUIRIES_VIEW],
-  "/communications/tickets": [CADMIN_PERMISSIONS.TICKETS_VIEW],
-
-  // Admin Management
-  "/admins": [CADMIN_PERMISSIONS.ADMINS_VIEW],
-
-  // Audit
-  "/audit": [CADMIN_PERMISSIONS.AUDIT_VIEW],
-
-  // Orders
-  "/orders": [CADMIN_PERMISSIONS.ORDERS_VIEW],
-
-  // Notifications
-  "/notifications": [CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW],
+  "/dashboard":                     [CADMIN_PERMISSIONS.DASHBOARD_VIEW],
+  "/shops":                         [CADMIN_PERMISSIONS.SHOPS_VIEW],
+  "/users":                         [CADMIN_PERMISSIONS.USERS_VIEW],
+  "/subscriptions":                 [CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_AT_RISK, CADMIN_PERMISSIONS.PLANS_VIEW],
+  "/subscriptions/list":            [CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_AT_RISK],
+  "/subscriptions/plans":           [CADMIN_PERMISSIONS.PLANS_VIEW],
+  "/subscriptions/risk":            [CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_AT_RISK],
+  "/verifications":                 [CADMIN_PERMISSIONS.DOCUMENTS_VIEW],
+  "/communications":                [],
+  "/communications/broadcast":      [],   // broadcast handled separately — not in current permission scope
+  "/communications/enquiries":      [],   // enquiries have their own route permission
+  "/communications/tickets":        [CADMIN_PERMISSIONS.TICKETS_VIEW],
+  "/admins":                        [CADMIN_PERMISSIONS.ADMINS_VIEW],
+  "/audit":                         [CADMIN_PERMISSIONS.AUDIT_VIEW],
+  "/master-medicines":              [CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW],
 };
-
-/**
- * Get required permissions for a route
- * @param {string} route - Route path
- * @returns {string[]} Required permissions
- */
-export function getCAdminRoutePermissions(route) {
-  return CADMIN_ROUTE_PERMISSIONS[route] || [];
-}
-
-/**
- * Check if a role can access a specific route
- * @param {string} role - CAdmin role
- * @param {string} route - Route path
- * @returns {boolean}
- */
-export function canAccessCAdminRoute(role, route) {
-  const requiredPermissions = getCAdminRoutePermissions(route);
-
-  // No permissions required = accessible to all authenticated admins
-  if (requiredPermissions.length === 0) {
-    return true;
-  }
-
-  return cadminRoleHasAnyPermission(role, requiredPermissions);
-}
-
-/**
- * ============================================
- * ROLE DISPLAY HELPERS
- * ============================================
- */
-
-export const CADMIN_ROLE_LABELS = {
-  SUPER_CADMIN: "Super Admin",
-  ANALYST: "Analyst",
-  ACCOUNTANT: "Accountant",
-  SALESMAN: "Salesman",
-};
-
-export const CADMIN_ROLE_COLORS = {
-  SUPER_CADMIN: {
-    bg: "bg-purple-100",
-    text: "text-purple-700",
-    dot: "bg-purple-500",
-  },
-  ANALYST: { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500" },
-  ACCOUNTANT: {
-    bg: "bg-green-100",
-    text: "text-green-700",
-    dot: "bg-green-500",
-  },
-  SALESMAN: {
-    bg: "bg-orange-100",
-    text: "text-orange-700",
-    dot: "bg-orange-500",
-  },
-};
-
-export function getCAdminRoleLabel(role) {
-  return CADMIN_ROLE_LABELS[role?.toUpperCase()] || role;
-}
-
-export function getCAdminRoleColor(role) {
-  return CADMIN_ROLE_COLORS[role?.toUpperCase()] || CADMIN_ROLE_COLORS.SALESMAN;
-}

@@ -1,4 +1,5 @@
-//cureli-admin\src\pages\Cadmin-management\comps\AdminHeader.jsx
+// cureli-admin/src/pages/Cadmin-management/comps/AdminHeader.jsx
+
 import { Search, Plus, X, Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import StyledSelect from "../../../components/common/StyledSelect";
@@ -11,6 +12,7 @@ const AdminHeader = ({
   setStatusFilter,
   roleFilter,
   setRoleFilter,
+  roleOptions = [],       // ← dynamic role options from parent
   admins = [],
   totalItems = 0,
   onAddAdmin,
@@ -40,7 +42,9 @@ const AdminHeader = ({
     toast.info("Filters Cleared", "All filters have been reset.");
   };
 
+  // ============================================
   // CSV EXPORT
+  // ============================================
   const generateCSV = (data) => {
     if (!data || data.length === 0) return null;
 
@@ -70,7 +74,9 @@ const AdminHeader = ({
 
     const csv = [
       headers.join(","),
-      ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")),
+      ...rows.map((r) =>
+        r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")
+      ),
     ].join("\n");
 
     return new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -86,16 +92,24 @@ const AdminHeader = ({
 
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `admins_export_${new Date().toISOString().split("T")[0]}.csv`;
+      link.download = `admins_export_${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
       link.click();
       setShowExportMenu(false);
-      toast.success("Export Successful", `${admins.length} admin(s) exported to CSV.`);
+      toast.success(
+        "Export Successful",
+        `${admins.length} admin(s) exported to CSV.`
+      );
     } catch (error) {
       console.error("Export failed:", error);
       toast.error("Export Failed", "Could not export admins. Please try again.");
     }
   };
 
+  // ============================================
+  // RENDER
+  // ============================================
   return (
     <div className="flex justify-between bg-white shadow-sm rounded-xl border border-gray-100 p-2">
       {/* LEFT — FILTERS */}
@@ -113,9 +127,9 @@ const AdminHeader = ({
               placeholder="Name, username or email..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              className="w-full h-10 pl-9 pr-8 border border-gray-200 rounded-lg text-sm 
+              className="w-full h-10 pl-9 pr-8 border border-gray-200 rounded-lg text-sm
                          bg-gray-50 focus:bg-white
-                         focus:outline-none focus:ring-2 focus:ring-indigo-500/20 
+                         focus:outline-none focus:ring-2 focus:ring-indigo-500/20
                          focus:border-indigo-500 placeholder:text-gray-400 transition-all"
             />
             {searchText && (
@@ -143,7 +157,7 @@ const AdminHeader = ({
           ]}
         />
 
-        {/* ROLE FILTER (NEW) */}
+        {/* ROLE FILTER — driven by roleOptions prop */}
         <StyledSelect
           label="Role"
           value={roleFilter}
@@ -151,9 +165,7 @@ const AdminHeader = ({
           placeholder="All Roles"
           options={[
             { value: "", label: "All Roles" },
-            { value: "Super Admin", label: "Super Admin" },
-            { value: "Analyst", label: "Analyst" },
-            { value: "Accounting", label: "Accounting" },
+            ...roleOptions,   // ← dynamic from parent
           ]}
         />
 
@@ -161,7 +173,7 @@ const AdminHeader = ({
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
-            className="h-10 px-3 text-sm text-gray-500 hover:text-red-600 
+            className="h-10 px-3 text-sm text-gray-500 hover:text-red-600
                        hover:bg-red-50 rounded-lg
                        flex items-center gap-1.5 transition-colors"
           >
@@ -182,7 +194,9 @@ const AdminHeader = ({
       <div className="flex items-center gap-2 self-center">
         {/* TOTAL COUNT */}
         <span className="text-sm text-gray-500 mr-2">
-          {loading ? "..." : `${totalItems} admin${totalItems !== 1 ? "s" : ""}`}
+          {loading
+            ? "..."
+            : `${totalItems} admin${totalItems !== 1 ? "s" : ""}`}
         </span>
 
         {/* EXPORT */}
@@ -190,7 +204,7 @@ const AdminHeader = ({
           <button
             onClick={() => setShowExportMenu(!showExportMenu)}
             disabled={loading || admins.length === 0}
-            className="h-10 px-4 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium 
+            className="h-10 px-4 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium
                        flex items-center gap-2 hover:bg-gray-200 transition-all
                        disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -200,19 +214,21 @@ const AdminHeader = ({
 
           {showExportMenu && (
             <div
-              className="absolute right-0 top-full mt-2 w-56 bg-white 
-                            border border-gray-200 rounded-xl shadow-xl 
-                            z-50 overflow-hidden"
+              className="absolute right-0 top-full mt-2 w-56 bg-white
+                         border border-gray-200 rounded-xl shadow-xl
+                         z-50 overflow-hidden"
             >
               <button
                 onClick={exportVisibleAdmins}
-                className="w-full px-4 py-3 text-left text-sm text-gray-700 
+                className="w-full px-4 py-3 text-left text-sm text-gray-700
                            hover:bg-gray-50 flex items-center gap-3 transition-colors"
               >
                 <FileSpreadsheet size={16} className="text-blue-600" />
                 <div>
                   <div className="font-medium">Export Visible</div>
-                  <div className="text-xs text-gray-400">{admins.length} admins</div>
+                  <div className="text-xs text-gray-400">
+                    {admins.length} admins
+                  </div>
                 </div>
               </button>
             </div>
@@ -222,7 +238,7 @@ const AdminHeader = ({
         {/* ADD ADMIN */}
         <button
           onClick={onAddAdmin}
-          className="h-10 px-4 bg-[#05015A] text-white rounded-lg text-sm font-medium 
+          className="h-10 px-4 bg-[#05015A] text-white rounded-lg text-sm font-medium
                      flex items-center gap-2 hover:bg-[#06027a] transition-all"
         >
           <Plus size={16} />
@@ -234,4 +250,3 @@ const AdminHeader = ({
 };
 
 export default AdminHeader;
-

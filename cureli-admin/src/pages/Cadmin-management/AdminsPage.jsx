@@ -2,16 +2,18 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
-  UserStar,
   RefreshCw,
   Search,
   X,
   Filter,
   AlertCircle,
   UserPlus,
+  Shield,
+  Users,
 } from "lucide-react";
 import AdminTable from "./comps/AdminTable";
 import AddAdminModal from "./comps/AddAdminModal";
+import RolesTab from "./comps/RolesTab";
 import StyledSelect from "../../components/common/StyledSelect";
 import { getAdmins } from "../../api/cadminAdmins";
 import { useToast } from "../../components/common/Toast";
@@ -20,7 +22,7 @@ import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
   { value: "active", label: "Active" },
-  { value: "inactive", label: "Suspended" }, // ✅ Changed from "suspended" to "inactive"
+  { value: "inactive", label: "Suspended" },
 ];
 
 const ROLE_OPTIONS = [
@@ -34,6 +36,9 @@ const ROLE_OPTIONS = [
 const AdminsPage = () => {
   const toast = useToast();
   const rowsPerPage = useDynamicRowCount();
+
+  // TAB STATE
+  const [activeTab, setActiveTab] = useState("admins"); // "admins" | "roles"
 
   // DATA STATE
   const [admins, setAdmins] = useState([]);
@@ -72,8 +77,10 @@ const AdminsPage = () => {
     return activeFiltersCount > 0 || searchText.trim().length > 0;
   }, [activeFiltersCount, searchText]);
 
-  // FETCH ADMINS FROM SERVER
+  // FETCH ADMINS FROM SERVER — only runs when on admins tab
   const fetchAdmins = useCallback(async () => {
+    if (activeTab !== "admins") return;
+
     setLoading(true);
     setError(null);
 
@@ -111,6 +118,7 @@ const AdminsPage = () => {
       setLoading(false);
     }
   }, [
+    activeTab,
     currentPage,
     rowsPerPage,
     searchText,
@@ -137,16 +145,14 @@ const AdminsPage = () => {
     setCurrentPage(1);
   }, [searchText, statusFilter, roleFilter, sortConfig]);
 
-  // ✅ FIXED: Handle sort change with column mapping
+  // Handle sort change with column mapping
   const handleSortChange = useCallback((column) => {
-    // Map frontend column names to backend sort fields
     const columnMapping = {
       name: "name",
       role: "role",
-      lastLogin: "last_login_at", // ✅ Map to backend field
+      lastLogin: "last_login_at",
     };
 
-    // Get the backend field name
     const backendColumn = columnMapping[column] || column;
 
     setSortConfig((prev) => ({
@@ -233,135 +239,177 @@ const AdminsPage = () => {
       {/* Header */}
       <div className="flex-shrink-0 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
+
+          {/* Title */}
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
-              <UserStar size={20} className="text-white" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#05015A] to-[#0a0280] flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-900/20">
+              <Shield size={20} className="text-white" />
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-gray-900 truncate">
-                Admin Management
+                Platform Access Control
               </h1>
               <p className="text-sm text-gray-500">
-                {totalItems} total admin{totalItems !== 1 ? "s" : ""}
+                Manage admin users and custom permission roles
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleOpenAddModal}
-              className="px-4 py-2 bg-[#000060] text-white rounded-lg
-                         hover:shadow-lg hover:shadow-[#000060]/25 transition-all flex items-center gap-2 flex-shrink-0"
-            >
-              <UserPlus size={16} />
-              <span className="hidden sm:inline">Add Admin</span>
-            </button>
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
-                         hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
-                         disabled:opacity-50 flex-shrink-0"
-            >
-              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            </button>
+          {/* Right side: Tab switcher + action buttons */}
+          <div className="flex items-center gap-2 flex-wrap">
+
+            {/* Add Admin button — only visible on admins tab */}
+            {activeTab === "admins" && (
+              <>
+                <button
+                  onClick={handleOpenAddModal}
+                  className="px-4 py-2 bg-[#000060] text-white rounded-lg
+                             hover:shadow-lg hover:shadow-[#000060]/25 transition-all
+                             flex items-center gap-2 flex-shrink-0"
+                >
+                  <UserPlus size={16} />
+                  <span className="hidden sm:inline">Add Admin</span>
+                </button>
+                <button
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
+                             hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
+                             disabled:opacity-50 flex-shrink-0"
+                >
+                  <RefreshCw
+                    size={16}
+                    className={loading ? "animate-spin" : ""}
+                  />
+                </button>
+              </>
+            )}
+
+            {/* Tab Switcher */}
+            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200">
+              <button
+                onClick={() => setActiveTab("admins")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                  ${
+                    activeTab === "admins"
+                      ? "bg-white text-indigo-700 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+              >
+                <Users size={16} />
+                Admins
+              </button>
+              <button
+                onClick={() => setActiveTab("roles")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                  ${
+                    activeTab === "roles"
+                      ? "bg-white text-indigo-700 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+              >
+                <Shield size={16} />
+                Roles
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Search & Filters */}
-        <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {/* Search Input */}
-            <div className="relative flex-1 min-w-[200px]">
-              <Search
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-              <input
-                type="text"
-                placeholder="Search by name, username, or email..."
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
-                           bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20 
-                           focus:border-[#000060] transition-all"
-              />
-              {searchText && (
-                <button
-                  type="button"
-                  onClick={() => setSearchText("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded
-                             text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-
-            {/* Filter Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setShowFilters(!showFilters)}
-              className={`px-3 sm:px-4 h-10 sm:h-11 rounded-lg text-sm font-medium flex items-center gap-2
-                         transition-all shadow-sm relative flex-shrink-0
-                         ${
-                           showFilters || activeFiltersCount > 0
-                             ? "bg-indigo-50 text-indigo-700 border-2 border-indigo-200"
-                             : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-                         }`}
-            >
-              <Filter size={18} />
-              <span className="hidden sm:inline">Filters</span>
-              {activeFiltersCount > 0 && (
-                <span
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
-                                 text-xs font-bold rounded-full flex items-center justify-center"
-                >
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Filter Options */}
-          {showFilters && (
-            <div className="pt-3 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <StyledSelect
-                  label="Status"
-                  value={statusFilter}
-                  onChange={(value) => setStatusFilter(value)}
-                  options={STATUS_OPTIONS}
-                  placeholder="All Status"
+        {/* Search & Filters — only on admins tab */}
+        {activeTab === "admins" && (
+          <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              {/* Search Input */}
+              <div className="relative flex-1 min-w-[200px]">
+                <Search
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 />
-
-                <StyledSelect
-                  label="Role"
-                  value={roleFilter}
-                  onChange={(value) => setRoleFilter(value)}
-                  options={ROLE_OPTIONS}
-                  placeholder="All Roles"
+                <input
+                  type="text"
+                  placeholder="Search by name, username, or email..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
+                             bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20 
+                             focus:border-[#000060] transition-all"
                 />
-              </div>
-
-              {hasActiveFilters && (
-                <div className="mt-3 flex items-center justify-end">
+                {searchText && (
                   <button
-                    onClick={handleClearFilters}
-                    className="px-4 py-2 text-sm text-red-600 hover:text-red-700 
-                               hover:bg-red-50 rounded-lg transition-all flex items-center gap-2"
+                    type="button"
+                    onClick={() => setSearchText("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded
+                               text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
                   >
                     <X size={16} />
-                    Clear all filters
                   </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                )}
+              </div>
 
-        {/* Error State */}
-        {error && (
+              {/* Filter Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setShowFilters(!showFilters)}
+                className={`px-3 sm:px-4 h-10 sm:h-11 rounded-lg text-sm font-medium flex items-center gap-2
+                           transition-all shadow-sm relative flex-shrink-0
+                           ${
+                             showFilters || activeFiltersCount > 0
+                               ? "bg-indigo-50 text-indigo-700 border-2 border-indigo-200"
+                               : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                           }`}
+              >
+                <Filter size={18} />
+                <span className="hidden sm:inline">Filters</span>
+                {activeFiltersCount > 0 && (
+                  <span
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
+                                   text-xs font-bold rounded-full flex items-center justify-center"
+                  >
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Filter Options */}
+            {showFilters && (
+              <div className="pt-3 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <StyledSelect
+                    label="Status"
+                    value={statusFilter}
+                    onChange={(value) => setStatusFilter(value)}
+                    options={STATUS_OPTIONS}
+                    placeholder="All Status"
+                  />
+                  <StyledSelect
+                    label="Role"
+                    value={roleFilter}
+                    onChange={(value) => setRoleFilter(value)}
+                    options={ROLE_OPTIONS}
+                    placeholder="All Roles"
+                  />
+                </div>
+
+                {hasActiveFilters && (
+                  <div className="mt-3 flex items-center justify-end">
+                    <button
+                      onClick={handleClearFilters}
+                      className="px-4 py-2 text-sm text-red-600 hover:text-red-700 
+                                 hover:bg-red-50 rounded-lg transition-all flex items-center gap-2"
+                    >
+                      <X size={16} />
+                      Clear all filters
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Error State — only on admins tab */}
+        {activeTab === "admins" && error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertCircle size={18} />
@@ -377,20 +425,24 @@ const AdminsPage = () => {
         )}
       </div>
 
-      {/* Table */}
+      {/* Tab Content */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <AdminTable
-          admins={admins}
-          loading={loading}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          rowsPerPage={rowsPerPage}
-          totalItems={totalItems}
-          sortConfig={sortConfig}
-          onSortChange={handleSortChange}
-          onAdminUpdate={handleAdminUpdate}
-          onRefresh={handleRefresh}
-        />
+        {activeTab === "admins" ? (
+          <AdminTable
+            admins={admins}
+            loading={loading}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            rowsPerPage={rowsPerPage}
+            totalItems={totalItems}
+            sortConfig={sortConfig}
+            onSortChange={handleSortChange}
+            onAdminUpdate={handleAdminUpdate}
+            onRefresh={handleRefresh}
+          />
+        ) : (
+          <RolesTab />
+        )}
       </div>
 
       {/* Add Admin Modal */}

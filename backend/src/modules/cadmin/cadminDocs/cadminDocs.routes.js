@@ -2,6 +2,8 @@
 
 import express from "express";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
+import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
+import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
 import { validateBody } from "../../../middleware/validate.js";
 import {
   listFilesController,
@@ -9,30 +11,61 @@ import {
   getFileController,
   verifyFileController,
   rejectFileController,
-  batchUpdateFilesController,  // ✅ ADD THIS IMPORT
+  batchUpdateFilesController,
 } from "./cadminDocs.controller.js";
 import { rejectSchema, validateVerificationQuery } from "./cadminDocs.schema.js";
 
 const router = express.Router();
 
-router.use(requireCAdmin);
+// NOTE: batch route MUST be before /:file_id to avoid route conflict
+// POST /cadmin/files/batch
+router.post(
+  "/files/batch",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.DOCUMENTS_BATCH_UPDATE),
+  batchUpdateFilesController
+);
 
-// List shops for verification
-router.get("/files", validateVerificationQuery, listFilesController);
+// GET /cadmin/files — list shops pending verification
+router.get(
+  "/files",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.DOCUMENTS_VIEW),
+  validateVerificationQuery,
+  listFilesController
+);
 
-// Get shop verification detail
-router.get("/files/shop/:shop_id", getShopDetailController);
+// GET /cadmin/files/shop/:shop_id
+router.get(
+  "/files/shop/:shop_id",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.DOCUMENTS_VIEW_SHOP_DETAIL),
+  getShopDetailController
+);
 
-// Get single file details
-router.get("/files/:file_id", getFileController);
+// GET /cadmin/files/:file_id
+router.get(
+  "/files/:file_id",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.DOCUMENTS_VIEW_FILE),
+  getFileController
+);
 
-// Verify a document
-router.patch("/files/:file_id/verify", verifyFileController);
+// PATCH /cadmin/files/:file_id/verify
+router.patch(
+  "/files/:file_id/verify",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.DOCUMENTS_VERIFY),
+  verifyFileController
+);
 
-// Reject a document
-router.patch("/files/:file_id/reject", validateBody(rejectSchema), rejectFileController);
-
-// ✅ Batch update files (NEW)
-router.post("/files/batch", batchUpdateFilesController);
+// PATCH /cadmin/files/:file_id/reject
+router.patch(
+  "/files/:file_id/reject",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.DOCUMENTS_REJECT),
+  validateBody(rejectSchema),
+  rejectFileController
+);
 
 export default router;

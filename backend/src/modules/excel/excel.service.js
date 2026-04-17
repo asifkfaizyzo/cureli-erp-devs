@@ -53,11 +53,9 @@ if (LIBREOFFICE_PATH) {
     // Set LIBREOFFICE_PATH env var (used by libreoffice-convert)
     process.env.LIBREOFFICE_PATH = LIBREOFFICE_PATH;
     
-    console.log(`✅ LibreOffice configured: ${LIBREOFFICE_PATH}`);
+    
   }
-} else {
-  console.warn('⚠️  LibreOffice not found. Excel conversion will not work.');
-}
+} 
 
 // ============================================
 // FILE VALIDATION

@@ -15,29 +15,24 @@ import {
 } from "lucide-react";
 import logo from "../../assets/icons/curelinew.svg";
 import { useAuth } from "../../context/AuthContext";
-
-// ✅ Import NotificationDropdown
 import { NotificationDropdown } from "../common/notifications";
 
 const AdminHeader = () => {
   const navigate = useNavigate();
   const { admin, pendingCounts, loading, logout, refreshProfile } = useAuth();
 
-  // Time & Date
-  const [dateTime, setDateTime] = useState({
-    time: "",
-    date: "",
-    day: "",
-  });
-
-  // Dropdowns
+  // ============================================
+  // STATE
+  // ============================================
+  const [dateTime, setDateTime] = useState({ time: "", date: "", day: "" });
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Refs for click outside
   const profileRef = useRef(null);
 
-  // Update clock every second
+  // ============================================
+  // CLOCK — update every second
+  // ============================================
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
@@ -61,26 +56,33 @@ const AdminHeader = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Close dropdowns on outside click
+  // ============================================
+  // CLOSE DROPDOWN ON OUTSIDE CLICK
+  // ============================================
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setShowProfileMenu(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Handle refresh
+  // ============================================
+  // HANDLERS
+  // ============================================
   const handleRefresh = async () => {
     setRefreshing(true);
     await refreshProfile();
     setTimeout(() => setRefreshing(false), 500);
   };
 
-  // Get initials for avatar
+  // ============================================
+  // HELPERS
+  // ============================================
+
+  /** Derive initials from admin name */
   const getInitials = (name) => {
     if (!name) return "AD";
     const parts = name.split(" ");
@@ -90,42 +92,27 @@ const AdminHeader = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
-  // Get role badge color
-  const getRoleBadgeColor = (role) => {
-    switch (role) {
-      case "SUPER_ADMIN":
-        return "bg-purple-100 text-purple-700";
-      case "ANALYST":
-        return "bg-blue-100 text-blue-700";
-      case "ACCOUNTING":
-        return "bg-amber-100 text-amber-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
+  /**
+   * Role badge color:
+   * - Super admin → purple (brand constant)
+   * - All other / custom roles → indigo (consistent with dynamic badge system)
+   */
+  const getRoleBadgeColor = () => {
+    if (admin?.is_super_cadmin) return "bg-purple-100 text-purple-700";
+    return "bg-indigo-100 text-indigo-700";
   };
 
-  // Format role for display
-  const formatRole = (role) => {
-    const roleMap = {
-      SUPER_ADMIN: "Super Admin",
-      ANALYST: "Analyst",
-      ACCOUNTING: "Accounting",
-    };
-    return roleMap[role] || role;
-  };
-
+  // ============================================
+  // RENDER
+  // ============================================
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 shadow-sm">
       <div className="h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        
-        {/* LEFT SECTION - Logo & Brand */}
+
+        {/* ── LEFT — Logo & Date/Time ── */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <img
-              src={logo}
-              alt="Cureli"
-              className="h-9 w-auto"
-            />
+            <img src={logo} alt="Cureli" className="h-9 w-auto" />
             <div className="hidden sm:flex flex-col">
               <span className="text-xl font-bold text-[#000060] leading-tight">
                 Cureli
@@ -147,15 +134,17 @@ const AdminHeader = () => {
             </div>
             <div className="flex items-center gap-1.5 text-gray-500">
               <Clock size={14} />
-              <span className="text-sm font-medium tabular-nums">{dateTime.time}</span>
+              <span className="text-sm font-medium tabular-nums">
+                {dateTime.time}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* RIGHT SECTION */}
+        {/* ── RIGHT — Actions & Profile ── */}
         <div className="flex items-center gap-2 sm:gap-4">
-          
-          {/* Refresh Button */}
+
+          {/* Refresh */}
           <button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -168,13 +157,13 @@ const AdminHeader = () => {
             />
           </button>
 
-          {/* ✅ NEW: Notifications Dropdown */}
+          {/* Notifications */}
           <NotificationDropdown />
 
           {/* Divider */}
           <div className="w-px h-8 bg-gray-200" />
 
-          {/* Profile Section */}
+          {/* Profile */}
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -189,7 +178,7 @@ const AdminHeader = () => {
                 )}
               </div>
 
-              {/* Name & Role */}
+              {/* Name & Role badge */}
               <div className="hidden sm:flex flex-col items-start">
                 {loading ? (
                   <>
@@ -201,8 +190,11 @@ const AdminHeader = () => {
                     <span className="text-sm font-semibold text-gray-800 leading-tight">
                       {admin?.name || "Admin"}
                     </span>
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${getRoleBadgeColor(admin?.role)}`}>
-                      {formatRole(admin?.role) || "Admin"}
+                    {/* ← primary_role from profile API, no more formatRole/hardcoded map */}
+                    <span
+                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${getRoleBadgeColor()}`}
+                    >
+                      {admin?.primary_role ?? "Admin"}
                     </span>
                   </>
                 )}
@@ -216,16 +208,23 @@ const AdminHeader = () => {
               />
             </button>
 
-            {/* Profile Dropdown */}
+            {/* ── Profile Dropdown ── */}
             {showProfileMenu && (
               <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden z-50">
-                {/* Profile Info */}
+
+                {/* Info block */}
                 <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
                   <p className="font-semibold text-gray-800">{admin?.name}</p>
                   <p className="text-xs text-gray-500">@{admin?.username}</p>
+                  {/* ← primary_role replaces old role display */}
+                  {admin?.primary_role && (
+                    <p className="text-xs text-indigo-600 font-medium mt-0.5">
+                      {admin.primary_role}
+                    </p>
+                  )}
                 </div>
 
-                {/* Menu Items */}
+                {/* Menu items */}
                 <div className="py-1">
                   <button
                     onClick={() => {

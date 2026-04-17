@@ -8,10 +8,10 @@ import {
   ChevronDown,
   UserCog,
 } from "lucide-react";
-import { 
-  TABLE_CONFIG, 
-  getClickableRowClass, // ✅ Changed from getRowBgClass
-  getRoleBadgeStyle 
+import {
+  TABLE_CONFIG,
+  getClickableRowClass,
+  getRoleBadgeStyle,
 } from "../../../config/tableConfig";
 import TableSkeleton from "../../../components/common/TableSkeleton";
 import TableEmptyState from "../../../components/common/TableEmptyState";
@@ -20,16 +20,16 @@ import AdminDetailsModal from "./AdminDetailsModal";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import { toggleAdminAccess } from "../../../api/cadminAdmins";
 
-// ✅ Define COLUMNS configuration - Reduced actions width
+// ✅ COLUMNS — role is no longer sortable (derived from relations, not a DB column)
 const COLUMNS = {
-  slNo: { key: 'slNo', label: '#', width: 50, sortable: false, align: 'left' },
-  name: { key: 'name', label: 'Name', width: 160, sortable: true, align: 'left' },
-  username: { key: 'username', label: 'Username', width: 120, sortable: false, align: 'left' },
-  contact: { key: 'contact', label: 'Contact', width: 180, sortable: false, align: 'left' },
-  role: { key: 'role', label: 'Role', width: 110, sortable: true, align: 'center' },
-  status: { key: 'status', label: 'Status', width: 100, sortable: false, align: 'center' },
-  lastLogin: { key: 'last_login_at', label: 'Last Login', width: 110, sortable: true, align: 'left' },
-  actions: { key: 'actions', label: 'Actions', width: 60, sortable: false, align: 'center' }, // ✅ Reduced from 90
+  slNo:      { key: 'slNo',          label: '#',          width: 50,  sortable: false, align: 'left' },
+  name:      { key: 'name',          label: 'Name',       width: 160, sortable: true,  align: 'left' },
+  username:  { key: 'username',      label: 'Username',   width: 120, sortable: false, align: 'left' },
+  contact:   { key: 'contact',       label: 'Contact',    width: 180, sortable: false, align: 'left' },
+  role:      { key: 'role',          label: 'Role',       width: 130, sortable: false, align: 'center' }, // ← not sortable
+  status:    { key: 'status',        label: 'Status',     width: 100, sortable: false, align: 'center' },
+  lastLogin: { key: 'last_login_at', label: 'Last Login', width: 110, sortable: true,  align: 'left' },
+  actions:   { key: 'actions',       label: 'Actions',    width: 60,  sortable: false, align: 'center' },
 };
 
 const AdminTable = ({
@@ -47,7 +47,9 @@ const AdminTable = ({
   const { styles, heights } = TABLE_CONFIG;
   const startIndex = (currentPage - 1) * rowsPerPage;
 
-  // Column widths for resizing
+  // ============================================
+  // COLUMN RESIZING
+  // ============================================
   const [columnWidths, setColumnWidths] = useState(() => {
     const widths = {};
     Object.entries(COLUMNS).forEach(([key, col]) => {
@@ -91,12 +93,16 @@ const AdminTable = ({
     };
   }, [resizing, handleMouseMove, handleMouseUp]);
 
-  // Modal states
+  // ============================================
+  // MODAL STATE
+  // ============================================
   const [selectedAdminId, setSelectedAdminId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("view");
 
-  // Suspend/Activate confirmation
+  // ============================================
+  // SUSPEND / ACTIVATE CONFIRMATION STATE
+  // ============================================
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
   const [adminToToggle, setAdminToToggle] = useState(null);
   const [toggleLoading, setToggleLoading] = useState(false);
@@ -111,7 +117,7 @@ const AdminTable = ({
   const showPagination = !loading && hasData;
 
   // ============================================
-  // ROW CLICK HANDLER (Opens View Modal)
+  // HANDLERS
   // ============================================
   const handleRowClick = (admin) => {
     setSelectedAdminId(admin.id);
@@ -119,11 +125,8 @@ const AdminTable = ({
     setIsModalOpen(true);
   };
 
-  // ============================================
-  // ACTION HANDLERS (Must stop propagation!)
-  // ============================================
   const handleToggleClick = (e, admin) => {
-    e.stopPropagation(); // ⚠️ CRITICAL: Prevent row click
+    e.stopPropagation(); // ⚠️ CRITICAL: Prevent row click from firing
     setAdminToToggle(admin);
     setShowStatusConfirm(true);
   };
@@ -167,35 +170,40 @@ const AdminTable = ({
   };
 
   // ============================================
-  // BADGE COMPONENTS
+  // BADGE RENDERERS
   // ============================================
   const getStatusBadge = (status) => {
     const isActive = status === "Active";
     return (
-      <span className={isActive ? styles.badges.status.active : styles.badges.status.inactive}>
+      <span
+        className={
+          isActive
+            ? styles.badges.status.active
+            : styles.badges.status.inactive
+        }
+      >
         {isActive ? <CheckCircle size={12} /> : <Ban size={12} />}
         {status}
       </span>
     );
   };
 
-  const getRoleBadge = (role) => {
-    return <span className={getRoleBadgeStyle(role)}>{role}</span>;
-  };
+  const getRoleBadge = (role) => (
+    <span className={getRoleBadgeStyle(role)}>{role}</span>
+  );
 
   // ============================================
-  // SORTABLE HEADER COMPONENT
+  // SORTABLE HEADER
   // ============================================
   const SortableHeader = ({ column }) => {
     const config = COLUMNS[column];
-    
-    // Map frontend column to backend field for comparison
+
+    // Map frontend column key → backend field name
     const columnToBackendMap = {
-      'name': 'name',
-      'role': 'role',
-      'lastLogin': 'last_login_at',
+      name: 'name',
+      lastLogin: 'last_login_at',
     };
-    
+
     const backendColumn = columnToBackendMap[column] || column;
     const isActive = sortConfig?.sortBy === backendColumn;
     const isAsc = isActive && sortConfig?.order === "asc";
@@ -215,11 +223,19 @@ const AdminTable = ({
             <div className="flex flex-col gap-0.5">
               <ChevronUp
                 size={12}
-                className={isAsc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive}
+                className={
+                  isAsc
+                    ? styles.header.sortIcon.active
+                    : styles.header.sortIcon.inactive
+                }
               />
               <ChevronDown
                 size={12}
-                className={`-mt-1 ${isDesc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive}`}
+                className={`-mt-1 ${
+                  isDesc
+                    ? styles.header.sortIcon.active
+                    : styles.header.sortIcon.inactive
+                }`}
               />
             </div>
           )}
@@ -233,11 +249,12 @@ const AdminTable = ({
   };
 
   // ============================================
-  // NON-SORTABLE HEADER COMPONENT
+  // NON-SORTABLE HEADER
   // ============================================
   const TableHeader = ({ column }) => {
     const config = COLUMNS[column];
 
+    // Delegate to SortableHeader if somehow miscalled with sortable col
     if (config.sortable) {
       return <SortableHeader column={column} />;
     }
@@ -245,10 +262,12 @@ const AdminTable = ({
     return (
       <th
         style={{ width: columnWidths[column], height: `${heights.headerRow}px` }}
-        className={`relative group ${config.align === 'center' ? 'text-center' : ''}`}
+        className={`relative group ${
+          config.align === "center" ? "text-center" : ""
+        }`}
       >
         <div className={styles.header.cell}>{config.label}</div>
-        {column !== 'slNo' && (
+        {column !== "slNo" && (
           <div
             onMouseDown={(e) => handleMouseDown(column, e)}
             className={styles.header.resizeHandle}
@@ -263,25 +282,28 @@ const AdminTable = ({
   // ============================================
   return (
     <div className={styles.container.wrapper}>
-      {/* Table - Show when loading OR has data */}
+      {/* Table — visible when loading OR has data */}
       {showTable && (
         <div className="flex-1 min-h-0 overflow-auto">
-          <table className="w-full border-collapse text-sm" style={{ minWidth: "800px" }}>
-            {/* Table Header */}
+          <table
+            className="w-full border-collapse text-sm"
+            style={{ minWidth: "800px" }}
+          >
+            {/* ── Header ── */}
             <thead className="sticky top-0 z-10">
               <tr className={styles.header.row}>
                 <TableHeader column="slNo" />
                 <SortableHeader column="name" />
                 <TableHeader column="username" />
                 <TableHeader column="contact" />
-                <SortableHeader column="role" />
+                <TableHeader column="role" />        {/* ← was SortableHeader */}
                 <TableHeader column="status" />
                 <SortableHeader column="lastLogin" />
                 <TableHeader column="actions" />
               </tr>
             </thead>
 
-            {/* Table Body */}
+            {/* ── Body ── */}
             <tbody>
               {loading ? (
                 <TableSkeleton columns={8} rows={rowsPerPage} />
@@ -289,49 +311,70 @@ const AdminTable = ({
                 admins.map((admin, index) => (
                   <tr
                     key={admin.id}
-                    onClick={() => handleRowClick(admin)} // 👈 Row click opens view modal
+                    onClick={() => handleRowClick(admin)}
                     style={{ height: `${heights.bodyRow}px` }}
-                    className={getClickableRowClass(index, admin.status !== "Active")} // ✅ Changed
+                    className={getClickableRowClass(
+                      index,
+                      admin.status !== "Active"
+                    )}
                   >
-                    {/* Serial Number */}
-                    <td className={`${styles.cell.base} ${styles.cell.muted} font-medium`}>
+                    {/* # */}
+                    <td
+                      className={`${styles.cell.base} ${styles.cell.muted} font-medium`}
+                    >
                       {startIndex + index + 1}
                     </td>
 
                     {/* Name */}
-                    <td className={`${styles.cell.base} ${styles.cell.primary}`}>
+                    <td
+                      className={`${styles.cell.base} ${styles.cell.primary}`}
+                    >
                       <div className="flex items-center gap-2">
                         {admin.name}
                         {admin.status !== "Active" && (
-                          <Ban size={14} className="text-red-400 flex-shrink-0" />
+                          <Ban
+                            size={14}
+                            className="text-red-400 flex-shrink-0"
+                          />
                         )}
                       </div>
                     </td>
 
                     {/* Username */}
-                    <td className={`${styles.cell.base} ${styles.cell.secondary}`}>
+                    <td
+                      className={`${styles.cell.base} ${styles.cell.secondary}`}
+                    >
                       <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">
                         @{admin.username}
                       </span>
                     </td>
 
-                    {/* Contact (Phone + Email) */}
+                    {/* Contact */}
                     <td className={styles.cell.base}>
                       <div className="flex flex-col gap-0.5">
-                        <span className={`text-sm ${styles.cell.primary}`}>{admin.phone}</span>
-                        <span className={`text-xs ${styles.cell.muted} truncate max-w-[160px]`} title={admin.email}>
+                        <span className={`text-sm ${styles.cell.primary}`}>
+                          {admin.phone}
+                        </span>
+                        <span
+                          className={`text-xs ${styles.cell.muted} truncate max-w-[160px]`}
+                          title={admin.email}
+                        >
                           {admin.email}
                         </span>
                       </div>
                     </td>
 
                     {/* Role */}
-                    <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                    <td
+                      className={`${styles.cell.base} ${styles.cell.center}`}
+                    >
                       {getRoleBadge(admin.role)}
                     </td>
 
                     {/* Status */}
-                    <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                    <td
+                      className={`${styles.cell.base} ${styles.cell.center}`}
+                    >
                       {getStatusBadge(admin.status)}
                     </td>
 
@@ -340,10 +383,9 @@ const AdminTable = ({
                       {admin.lastLogin || "Never"}
                     </td>
 
-                    {/* Actions - ONLY Suspend/Activate Button */}
+                    {/* Actions */}
                     <td className={styles.cell.base}>
                       <div className={styles.actions.container}>
-                        {/* Suspend/Activate Button */}
                         <button
                           onClick={(e) => handleToggleClick(e, admin)}
                           className={`${styles.actions.button.base} ${
@@ -351,9 +393,17 @@ const AdminTable = ({
                               ? styles.actions.button.suspend
                               : styles.actions.button.activate
                           }`}
-                          title={admin.status === "Active" ? "Suspend Admin" : "Activate Admin"}
+                          title={
+                            admin.status === "Active"
+                              ? "Suspend Admin"
+                              : "Activate Admin"
+                          }
                         >
-                          {admin.status === "Active" ? <Ban size={15} /> : <CheckCircle size={15} />}
+                          {admin.status === "Active" ? (
+                            <Ban size={15} />
+                          ) : (
+                            <CheckCircle size={15} />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -374,7 +424,7 @@ const AdminTable = ({
         />
       )}
 
-      {/* Pagination - only when has data */}
+      {/* Pagination */}
       {showPagination && (
         <Pagination
           currentPage={currentPage}
@@ -395,7 +445,7 @@ const AdminTable = ({
         />
       )}
 
-      {/* Suspend/Activate Confirmation Dialog */}
+      {/* Suspend / Activate Confirm Dialog */}
       <ConfirmDialog
         isOpen={showStatusConfirm}
         onClose={handleCloseStatusConfirm}

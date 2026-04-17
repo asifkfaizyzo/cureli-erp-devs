@@ -2,6 +2,8 @@
 
 import express from "express";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
+import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
+import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
 import {
   getDashboardOverviewController,
   getRevenueDataController,
@@ -15,31 +17,34 @@ import {
 
 const router = express.Router();
 
-// All routes require CAdmin authentication
+// All dashboard routes require a single permission: dashboard.view
+// One permission covers all dashboard data endpoints —
+// you either have access to the dashboard or you don't.
 router.use(requireCAdmin);
+router.use(requireCAdminPermission(CADMIN_PERMISSIONS.DASHBOARD_VIEW));
 
-// GET /cadmin/dashboard/overview - Main KPIs and stats
+// GET /cadmin/dashboard/overview
 router.get("/dashboard/overview", getDashboardOverviewController);
 
-// GET /cadmin/dashboard/revenue - Revenue chart data
+// GET /cadmin/dashboard/revenue
 router.get("/dashboard/revenue", getRevenueDataController);
 
-// GET /cadmin/dashboard/user-growth - User/shop growth data
+// GET /cadmin/dashboard/user-growth
 router.get("/dashboard/user-growth", getUserGrowthController);
 
-// GET /cadmin/dashboard/subscriptions - Subscription distribution for donut
+// GET /cadmin/dashboard/subscriptions
 router.get("/dashboard/subscriptions", getSubscriptionDistributionController);
 
-// GET /cadmin/dashboard/onboarding - Recent onboarding users
+// GET /cadmin/dashboard/onboarding
 router.get("/dashboard/onboarding", getRecentOnboardingController);
 
-// GET /cadmin/dashboard/top-shops - Top performing shops
+// GET /cadmin/dashboard/top-shops
 router.get("/dashboard/top-shops", getTopShopsController);
 
-// GET /cadmin/dashboard/activity - Recent activity feed
+// GET /cadmin/dashboard/activity
 router.get("/dashboard/activity", getRecentActivityController);
 
-// GET /cadmin/dashboard/alerts - System alerts
+// GET /cadmin/dashboard/alerts
 router.get("/dashboard/alerts", getDashboardAlertsController);
 
 export default router;

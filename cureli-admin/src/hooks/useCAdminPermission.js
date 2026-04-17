@@ -1,247 +1,176 @@
-// src/hooks/useCAdminPermission.js
+// frontend/src/hooks/useCAdminPermission.js
 
 import { useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
-import {
-  cadminRoleHasPermission,
-  cadminRoleHasAnyPermission,
-  CADMIN_PERMISSIONS,
-} from "../config/cadminPermissions";
+import { CADMIN_PERMISSIONS } from "../config/cadminPermissions";
 
 /**
- * ============================================
- * USE CADMIN PERMISSION HOOK
- * ============================================
+ * =============================================================================
+ * useCAdminPermission
+ * =============================================================================
+ *
+ * Reads the admin's permission state from AuthContext and exposes
+ * clean helper functions for components to use.
+ *
+ * SOURCE OF TRUTH:
+ * - admin.is_super_cadmin → if true, all permission checks return true
+ * - admin.permissions[]   → flat array of permission strings from backend
+ *
+ * These come from GET /cadmin/me which is called on mount in AuthContext.
+ *
+ * USAGE:
+ * const { hasPermission, isSuperCAdmin } = useCAdminPermission();
+ * if (hasPermission(CADMIN_PERMISSIONS.SHOPS_EDIT)) { ... }
+ * =============================================================================
  */
 export function useCAdminPermission() {
   const { admin } = useAuth();
 
-  const helpers = useMemo(() => {
-    const role = admin?.role?.toUpperCase();
+  return useMemo(() => {
+    const isSuperCAdmin  = admin?.is_super_cadmin === true;
+    const permissions    = admin?.permissions ?? [];   // string[]
+    const primary_role   = admin?.primary_role ?? null;
 
     return {
       /**
-       * Check if admin has a specific permission
+       * Check if the admin has a specific permission string.
+       * SUPER_CADMIN always returns true.
+       *
+       * @param {string} permission - e.g. CADMIN_PERMISSIONS.SHOPS_VIEW
        */
       hasPermission: (permission) => {
-        if (!role) return false;
-        return cadminRoleHasPermission(role, permission);
+        if (!admin)        return false;
+        if (isSuperCAdmin) return true;
+        return permissions.includes(permission);
       },
 
       /**
-       * Check if admin has ANY of the specified permissions
+       * Check if the admin has ANY of the provided permissions.
+       * SUPER_CADMIN always returns true.
+       *
+       * @param {...string} perms
        */
       hasAnyPermission: (...perms) => {
-        if (!role) return false;
-        return cadminRoleHasAnyPermission(role, perms);
+        if (!admin)        return false;
+        if (isSuperCAdmin) return true;
+        return perms.some((p) => permissions.includes(p));
       },
 
       /**
-       * Check if admin has a specific role
+       * Check if the admin has ALL of the provided permissions.
+       * SUPER_CADMIN always returns true.
+       *
+       * @param {...string} perms
        */
-      hasRole: (...roles) => {
-        if (!role) return false;
-        return roles.map((r) => r.toUpperCase()).includes(role);
+      hasAllPermissions: (...perms) => {
+        if (!admin)        return false;
+        if (isSuperCAdmin) return true;
+        return perms.every((p) => permissions.includes(p));
       },
 
-      /**
-       * Role checks
-       */
-      isSuperCAdmin: role === "SUPER_CADMIN",
-      isAnalyst: role === "ANALYST",
-      isAccountant: role === "ACCOUNTANT",
-      isSalesman: role === "SALESMAN",
+      // ── Identity helpers ────────────────────────────────────────────────
+      isSuperCAdmin,
+      primary_role,          // display label e.g. "Operations"
+      permissions,           // raw array — use hasPermission() instead where possible
 
-      /**
-       * Get current admin's role
-       */
-      role,
+      // ── Convenience checks (commonly used in multiple places) ───────────
+      canManageAdmins: isSuperCAdmin,
 
-      /**
-       * Check if admin can manage other admins
-       */
-      canManageAdmins: role === "SUPER_CADMIN",
+      canManageFinance: isSuperCAdmin || [
+        CADMIN_PERMISSIONS.SUBSCRIPTIONS_EXTEND_GRACE,
+        CADMIN_PERMISSIONS.SUBSCRIPTIONS_FORCE_SUSPEND,
+        CADMIN_PERMISSIONS.SUBSCRIPTIONS_REACTIVATE,
+        CADMIN_PERMISSIONS.PLANS_CREATE,
+        CADMIN_PERMISSIONS.PLANS_EDIT,
+      ].some((p) => permissions.includes(p)),
 
-      /**
-       * Check if admin can manage financial operations
-       */
-      canManageFinance: cadminRoleHasAnyPermission(role, [
-        CADMIN_PERMISSIONS.SUBSCRIPTIONS_MANAGE,
-        CADMIN_PERMISSIONS.ORDERS_REFUND,
-        CADMIN_PERMISSIONS.DASHBOARD_FINANCIAL,
-      ]),
-
-      /**
-       * Check if admin can handle communications
-       */
-      canHandleCommunications: cadminRoleHasAnyPermission(role, [
-        CADMIN_PERMISSIONS.BROADCAST_VIEW,
-        CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
+      canHandleCommunications: isSuperCAdmin || [
         CADMIN_PERMISSIONS.TICKETS_VIEW,
-      ]),
+        CADMIN_PERMISSIONS.TICKETS_UPDATE_STATUS,
+      ].some((p) => permissions.includes(p)),
     };
   }, [admin]);
-
-  return helpers;
 }
 
 /**
- * ============================================
- * USE CADMIN MENU PERMISSIONS HOOK
- * ============================================
+ * =============================================================================
+ * useCAdminMenuPermissions
+ * =============================================================================
  *
- * Returns visibility/disabled state for sidebar menu items.
+ * Returns sidebar visibility state for each menu item.
+ * Each entry: { visible: boolean, disabled: boolean }
  *
- * Permission Matrix Reference:
- * ┌─────────────────┬──────────────┬─────────┬────────────┬──────────┐
- * │ Feature         │ SUPER_CADMIN │ ANALYST │ ACCOUNTANT │ SALESMAN │
- * ├─────────────────┼──────────────┼─────────┼────────────┼──────────┤
- * │ Dashboard       │ ✅           │ ✅      │ ✅         │ ✅       │
- * │ Shops           │ ✅           │ ✅      │ ✅         │ ✅       │
- * │ Users           │ ✅           │ ✅      │ ❌         │ ❌       │
- * │ Subscriptions   │ ✅           │ ✅      │ ✅         │ ❌       │
- * │ Plans           │ ✅           │ ✅      │ ✅         │ ❌       │
- * │ Risk Monitor    │ ✅           │ ✅      │ ✅         │ ❌       │
- * │ Verifications   │ ✅           │ ❌      │ ❌         │ ✅       │
- * │ Broadcast       │ ✅           │ ✅      │ ❌         │ ❌       │
- * │ Enquiries       │ ✅           │ ✅      │ ❌         │ ✅       │
- * │ Tickets         │ ✅           │ ✅      │ ❌         │ ✅       │
- * │ Admin Mgmt      │ ✅           │ ❌      │ ❌         │ ❌       │
- * │ Audit           │ ✅           │ ✅      │ ✅         │ ❌       │
- * │ Orders          │ ✅           │ ✅      │ ✅         │ ✅       │
- * └─────────────────┴──────────────┴─────────┴────────────┴──────────┘
+ * visible  = whether to show the menu item at all
+ * disabled = whether to grey it out (currently unused but kept for future use)
+ *
+ * Rule: if the admin has no permission for a section, hide it entirely.
+ * SUPER_CADMIN sees everything.
+ * =============================================================================
  */
 export function useCAdminMenuPermissions() {
-  const { hasPermission, isSuperCAdmin } = useCAdminPermission();
+  const { hasPermission, hasAnyPermission, isSuperCAdmin } = useCAdminPermission();
 
-  return useMemo(
-    () => ({
-      // ════════════════════════════════════════════════════════════
-      // DASHBOARD - All roles can view
-      // ════════════════════════════════════════════════════════════
-      dashboard: {
-        visible: true,
-        disabled: !hasPermission(CADMIN_PERMISSIONS.DASHBOARD_VIEW),
-      },
+  return useMemo(() => {
+    const show = (permission) => ({
+      visible:  hasPermission(permission),
+      disabled: false,
+    });
 
-      // ════════════════════════════════════════════════════════════
-      // SHOPS - All roles can view
-      // ════════════════════════════════════════════════════════════
-      shops: {
-        visible: hasPermission(CADMIN_PERMISSIONS.SHOPS_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.SHOPS_VIEW),
-      },
+    const showAny = (...perms) => ({
+      visible:  hasAnyPermission(...perms),
+      disabled: false,
+    });
 
-      // ════════════════════════════════════════════════════════════
-      // USERS - SUPER_CADMIN and ANALYST only
-      // ════════════════════════════════════════════════════════════
-      users: {
-        visible: hasPermission(CADMIN_PERMISSIONS.USERS_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.USERS_VIEW),
-      },
+    return {
+      // ── Top-level items ──────────────────────────────────────────────────
+      dashboard: show(CADMIN_PERMISSIONS.DASHBOARD_VIEW),
 
-      // ════════════════════════════════════════════════════════════
-      // SUBSCRIPTIONS (Parent) - SUPER_CADMIN, ANALYST, ACCOUNTANT
-      // ════════════════════════════════════════════════════════════
-      subscriptions: {
-        visible:
-          hasPermission(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW) ||
-          hasPermission(CADMIN_PERMISSIONS.PLANS_VIEW) ||
-          hasPermission(CADMIN_PERMISSIONS.RISK_VIEW),
-        disabled: false,
-      },
+      shops:     show(CADMIN_PERMISSIONS.SHOPS_VIEW),
 
-      // Subscriptions submenu
-      subscriptionsList: {
-        visible: hasPermission(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW),
-      },
-      plans: {
-        visible: hasPermission(CADMIN_PERMISSIONS.PLANS_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.PLANS_VIEW),
-      },
-      riskMonitor: {
-        visible: hasPermission(CADMIN_PERMISSIONS.RISK_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.RISK_VIEW),
-      },
+      users:     show(CADMIN_PERMISSIONS.USERS_VIEW),
 
-      // ════════════════════════════════════════════════════════════
-      // VERIFICATIONS - SUPER_CADMIN and SALESMAN only
-      // ════════════════════════════════════════════════════════════
-      verifications: {
-        visible: hasPermission(CADMIN_PERMISSIONS.VERIFICATIONS_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.VERIFICATIONS_VIEW),
-      },
+      // ── Subscriptions parent + children ─────────────────────────────────
+      subscriptions: showAny(
+        CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_AT_RISK,
+        CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_DETAIL,
+        CADMIN_PERMISSIONS.PLANS_VIEW,
+      ),
+      subscriptionsList: show(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_AT_RISK),
+      plans:             show(CADMIN_PERMISSIONS.PLANS_VIEW),
+      riskMonitor:       show(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_AT_RISK),
 
-      // ════════════════════════════════════════════════════════════
-      // COMMUNICATIONS (Parent) - Based on submenu visibility
-      // ════════════════════════════════════════════════════════════
-      communications: {
-        visible:
-          hasPermission(CADMIN_PERMISSIONS.BROADCAST_VIEW) ||
-          hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW) ||
-          hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
-        disabled: false,
-      },
+      // ── Verifications ────────────────────────────────────────────────────
+      verifications: show(CADMIN_PERMISSIONS.DOCUMENTS_VIEW),
 
-      // Broadcast - SUPER_CADMIN and ANALYST
-      broadcast: {
-        visible: hasPermission(CADMIN_PERMISSIONS.BROADCAST_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.BROADCAST_VIEW),
-      },
+      // ── Communications parent + children ────────────────────────────────
+      // Parent visible if any child is visible
+      communications: showAny(
+        CADMIN_PERMISSIONS.TICKETS_VIEW,
+      ),
+      // Broadcast: not in permission system yet — show to all authenticated
+      broadcast: { visible: true, disabled: false },
+      // Enquiries: not in permission system yet — show to all authenticated
+      enquiries: { visible: true, disabled: false },
+      tickets:   show(CADMIN_PERMISSIONS.TICKETS_VIEW),
 
-      // Enquiries - SUPER_CADMIN, ANALYST, SALESMAN
-      enquiries: {
-        visible: hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
-      },
-
-      // Tickets - SUPER_CADMIN, ANALYST (view), SALESMAN (full)
-      tickets: {
-        visible: hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
-      },
-
-      // ════════════════════════════════════════════════════════════
-      // ADMIN MANAGEMENT - SUPER_CADMIN only
-      // ════════════════════════════════════════════════════════════
+      // ── Admin management ─────────────────────────────────────────────────
+      // Only SUPER_CADMIN can see admin management
       admins: {
-        visible: isSuperCAdmin,
-        disabled: !isSuperCAdmin,
+        visible:  isSuperCAdmin,
+        disabled: false,
       },
 
-      // ════════════════════════════════════════════════════════════
-      // AUDIT - SUPER_CADMIN, ANALYST, ACCOUNTANT
-      // ════════════════════════════════════════════════════════════
-      audit: {
-        visible: hasPermission(CADMIN_PERMISSIONS.AUDIT_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.AUDIT_VIEW),
-      },
+      // ── Audit ────────────────────────────────────────────────────────────
+      audit: show(CADMIN_PERMISSIONS.AUDIT_VIEW),
 
-      // ════════════════════════════════════════════════════════════
-      // ORDERS - All roles can view
-      // ════════════════════════════════════════════════════════════
-      orders: {
-        visible: hasPermission(CADMIN_PERMISSIONS.ORDERS_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.ORDERS_VIEW),
-      },
-      // ════════════════════════════════════════════════════════════
-      // MASTER MEDICINES - All roles can view
-      // ════════════════════════════════════════════════════════════
-      masterMedicines: {
-        visible: hasPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
-      },
-      // ════════════════════════════════════════════════════════════
-      // NOTIFICATIONS - All roles
-      // ════════════════════════════════════════════════════════════
-      notifications: {
-        visible: hasPermission(CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW),
-        disabled: !hasPermission(CADMIN_PERMISSIONS.NOTIFICATIONS_VIEW),
-      },
-    }),
-    [hasPermission, isSuperCAdmin],
-  );
+      // ── Master medicines ─────────────────────────────────────────────────
+      masterMedicines: show(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+
+      // ── Notifications ────────────────────────────────────────────────────
+      // Self-notifications — visible to all authenticated admins
+      notifications: { visible: true, disabled: false },
+    };
+  }, [hasPermission, hasAnyPermission, isSuperCAdmin]);
 }
 
 export default useCAdminPermission;
