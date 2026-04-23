@@ -3,14 +3,14 @@
 // PASSWORD CHANGED NOTIFICATION TEMPLATE
 // ============================================
 
-import { 
-  EMAIL_CONFIG, 
-  getBaseHeadContent, 
-  renderLogo, 
-  renderFooter, 
-  getSupportLink 
-} from './_helpers.js';
-import { ICONS } from './_icons.js';
+import {
+  EMAIL_CONFIG,
+  getBaseHeadContent,
+  renderLogo,
+  renderFooter,
+  getSupportLink,
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
 
 export function passwordChangedTemplate(context) {
   const { recipientName, changed_at } = context;
@@ -28,7 +28,7 @@ export function passwordChangedTemplate(context) {
     
     <!-- Header: LOCK_KEY icon replaces 🔐 -->
     <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo('WHITE', 'header')}
+      ${renderLogo("WHITE", "header")}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
         ${ICONS.LOCK_KEY}
         <span style="vertical-align:middle;">Password Changed</span>
@@ -43,7 +43,7 @@ export function passwordChangedTemplate(context) {
       
       <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 12px;background-color:#ffffff;">
         Hi <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">
-          ${recipientName || 'there'}
+          ${recipientName || "there"}
         </strong>,
       </p>
       
@@ -52,7 +52,7 @@ export function passwordChangedTemplate(context) {
         for your <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> account.
       </p>
 
-      <!-- Success Box: CHECK_CIRCLE icon replaces ✅ -->
+      <!-- Success Box: CHECK_CIRCLE icon replaces  -->
       <div class="success-box" style="background-color:#f0fdf4;border-left:4px solid ${EMAIL_CONFIG.COLORS.SUCCESS};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="success-text" style="margin:0 0 6px;color:#065f46;font-size:13px;font-weight:600;background-color:#f0fdf4;">
           ${ICONS.CHECK_CIRCLE}

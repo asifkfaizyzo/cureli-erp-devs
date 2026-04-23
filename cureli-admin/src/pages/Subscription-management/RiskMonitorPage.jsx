@@ -131,7 +131,7 @@ export default function RiskMonitorPage() {
         setLoading(false);
       }
     },
-    [timeRange, activeTab, sortConfigs, toast]
+    [timeRange, activeTab, sortConfigs, toast],
   );
 
   useEffect(() => {
@@ -160,10 +160,10 @@ export default function RiskMonitorPage() {
       setTimeRange(newRange);
       toast.info(
         "Filter Updated",
-        `Viewing subscriptions expiring within ${newRange} days.`
+        `Viewing subscriptions expiring within ${newRange} days.`,
       );
     },
-    [toast]
+    [toast],
   );
 
   const handleSortChange = useCallback(
@@ -181,7 +181,7 @@ export default function RiskMonitorPage() {
         };
       });
     },
-    [activeTab]
+    [activeTab],
   );
 
   const handleTabChange = useCallback(
@@ -198,7 +198,7 @@ export default function RiskMonitorPage() {
         }, 50);
       }, 150);
     },
-    [activeTab, isTabTransitioning]
+    [activeTab, isTabTransitioning],
   );
 
   const handlePageChange = useCallback(
@@ -208,7 +208,7 @@ export default function RiskMonitorPage() {
         [activeTab]: page,
       }));
     },
-    [activeTab]
+    [activeTab],
   );
 
   const handleViewDetails = useCallback((subscription) => {
@@ -224,7 +224,7 @@ export default function RiskMonitorPage() {
         fetchData();
       }
     },
-    [fetchData]
+    [fetchData],
   );
 
   const handleActionComplete = useCallback(
@@ -236,34 +236,37 @@ export default function RiskMonitorPage() {
         case "reminder":
           toast.success(
             "Reminder Sent",
-            `Payment reminder sent to ${shopName} successfully.`
+            `Payment reminder sent to ${shopName} successfully.`,
           );
           break;
         case "grace_extended":
           toast.success(
             "Grace Period Extended",
-            `Grace period extended for ${shopName}.`
+            `Grace period extended for ${shopName}.`,
           );
           break;
         case "suspended":
           toast.warning(
             "Subscription Suspended",
-            `${shopName}'s subscription has been suspended.`
+            `${shopName}'s subscription has been suspended.`,
           );
           break;
         case "reactivated":
           toast.success(
             "Subscription Reactivated",
-            `${shopName}'s subscription has been reactivated.`
+            `${shopName}'s subscription has been reactivated.`,
           );
           break;
         default:
-          toast.success("Action Completed", "Operation completed successfully.");
+          toast.success(
+            "Action Completed",
+            "Operation completed successfully.",
+          );
       }
 
       fetchData();
     },
-    [fetchData, selectedSubscription, toast]
+    [fetchData, selectedSubscription, toast],
   );
 
   // ============================================
@@ -287,12 +290,12 @@ export default function RiskMonitorPage() {
           return [];
       }
     },
-    [data]
+    [data],
   );
 
   const currentTabData = useMemo(
     () => getCurrentTabData(displayedTab),
-    [displayedTab, getCurrentTabData]
+    [displayedTab, getCurrentTabData],
   );
 
   const currentPage = currentPages[activeTab] || 1;
@@ -378,7 +381,7 @@ export default function RiskMonitorPage() {
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
       {/* ========== HEADER ========== */}
       <div className="flex-shrink-0 flex flex-col gap-3">
-        {/* Title Row - ✅ FIXED: Now matches UserPage exactly */}
+        {/* Title Row -  FIXED: Now matches UserPage exactly */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
@@ -395,7 +398,7 @@ export default function RiskMonitorPage() {
             </div>
           </div>
 
-          {/* Actions - ✅ FIXED: Button sizes now match */}
+          {/* Actions -  FIXED: Button sizes now match */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => navigate("/subscriptions/manage")}
@@ -418,7 +421,7 @@ export default function RiskMonitorPage() {
           </div>
         </div>
 
-        {/* ========== COMPACT TABS & FILTERS - ✅ FIXED: Container styling */}
+        {/* ========== COMPACT TABS & FILTERS -  FIXED: Container styling */}
         <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             {/* Compact Tab Pills */}
@@ -505,7 +508,7 @@ export default function RiskMonitorPage() {
             {/* Divider */}
             <div className="h-6 w-px bg-gray-200 hidden sm:block" />
 
-            {/* Time Range Filter Toggle - ✅ FIXED: Sizing to match filter button style */}
+            {/* Time Range Filter Toggle -  FIXED: Sizing to match filter button style */}
             {!isTimeFilterDisabled && (
               <button
                 type="button"
@@ -521,7 +524,11 @@ export default function RiskMonitorPage() {
                 <Filter size={18} />
                 <span className="hidden sm:inline">Time: {timeRange}d</span>
                 <span className="sm:hidden">{timeRange}d</span>
-                {showFilters ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                {showFilters ? (
+                  <ChevronUp size={16} />
+                ) : (
+                  <ChevronDown size={16} />
+                )}
               </button>
             )}
 
@@ -563,7 +570,7 @@ export default function RiskMonitorPage() {
           )}
         </div>
 
-        {/* ========== ERROR STATE - ✅ FIXED: Matches UserPage */}
+        {/* ========== ERROR STATE -  FIXED: Matches UserPage */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-2">

@@ -80,8 +80,10 @@ async function isNameAvailable(name, excludeId = null) {
 }
 
 async function generateCloneName(originalName) {
-  const baseName = originalName.replace(/\s*\(Copy(?:\s*\d+)?\)\s*$/, "").trim();
-  
+  const baseName = originalName
+    .replace(/\s*\(Copy(?:\s*\d+)?\)\s*$/, "")
+    .trim();
+
   const existingPlans = await prisma.plan.findMany({
     where: {
       name: { startsWith: baseName },
@@ -106,17 +108,20 @@ async function generateCloneName(originalName) {
 /**
  * Legacy activity log (kept for backward compatibility with UI)
  */
-async function logPlanActivity({
-  plan_id,
-  cadmin_id,
-  action,
-  from_status = null,
-  to_status = null,
-  changes = null,
-  meta = null,
-}, tx = null) {
+async function logPlanActivity(
+  {
+    plan_id,
+    cadmin_id,
+    action,
+    from_status = null,
+    to_status = null,
+    changes = null,
+    meta = null,
+  },
+  tx = null,
+) {
   const db = tx || prisma;
-  
+
   await db.planActivityLog.create({
     data: {
       plan_id,
@@ -136,39 +141,44 @@ async function logPlanActivity({
  */
 function formatPlan(plan, subscriberCount = 0) {
   const promoActive = isPromoActive(plan.promo_free_until);
-  const totalDuration = getTotalDurationMonths(plan.billing_cycle_months, plan.bonus_months);
-  
+  const totalDuration = getTotalDurationMonths(
+    plan.billing_cycle_months,
+    plan.bonus_months,
+  );
+
   return {
     plan_id: plan.plan_id,
     name: plan.name,
     description: plan.description,
     type: plan.type,
-    
+
     // Pricing
     price: Number(plan.price),
-    compare_at_price: plan.compare_at_price ? Number(plan.compare_at_price) : null,
-    
+    compare_at_price: plan.compare_at_price
+      ? Number(plan.compare_at_price)
+      : null,
+
     // Limits
     max_users: plan.max_users,
     max_branches: plan.max_branches,
-    
+
     // Billing duration
     billing_cycle_months: plan.billing_cycle_months,
     bonus_months: plan.bonus_months,
     total_duration_months: totalDuration,
-    
+
     // Promotional access
     promo_free_until: plan.promo_free_until,
     is_promo_active: promoActive,
-    
+
     // Flags
     is_featured: plan.is_featured,
     is_customizable: plan.is_customizable,
-    
+
     // Status & counts
     status: plan.status,
     subscriber_count: subscriberCount,
-    
+
     // Custom plan shop info
     created_for_shop_id: plan.created_for_shop_id,
     created_for_shop: plan.createdForShop
@@ -177,7 +187,7 @@ function formatPlan(plan, subscriberCount = 0) {
           business_name: plan.createdForShop.business_name,
         }
       : null,
-    
+
     // Metadata
     created_by: plan.created_by,
     created_at: plan.created_at,
@@ -185,7 +195,7 @@ function formatPlan(plan, subscriberCount = 0) {
     activated_at: plan.activated_at,
     suspended_at: plan.suspended_at,
     deleted_at: plan.deleted_at,
-    
+
     // Creator info
     creator: plan.creator
       ? {
@@ -276,22 +286,27 @@ export async function listPlans({
   const plansWithCounts = await Promise.all(
     plans.map(async (plan) => {
       let subscriberCount = 0;
-      if (plan.status === PLAN_STATUS.ACTIVE || plan.status === PLAN_STATUS.DEPRECATED) {
+      if (
+        plan.status === PLAN_STATUS.ACTIVE ||
+        plan.status === PLAN_STATUS.DEPRECATED
+      ) {
         subscriberCount = await getSubscriberCount(plan.plan_id);
       }
       return formatPlan(plan, subscriberCount);
-    })
+    }),
   );
 
   if (sort_by === "status") {
     plansWithCounts.sort((a, b) => {
       const priorityA = STATUS_PRIORITY[a.status] || 99;
       const priorityB = STATUS_PRIORITY[b.status] || 99;
-      
+
       if (priorityA !== priorityB) {
-        return sort_order === "asc" ? priorityA - priorityB : priorityB - priorityA;
+        return sort_order === "asc"
+          ? priorityA - priorityB
+          : priorityB - priorityA;
       }
-      
+
       return sort_order === "asc"
         ? new Date(a.created_at) - new Date(b.created_at)
         : new Date(b.created_at) - new Date(a.created_at);
@@ -315,20 +330,27 @@ export async function listPlans({
 
 export async function getPlanStats() {
   const baseWhere = { deleted_at: null, type: PLAN_TYPE.PRE_MADE };
-  
-  const [total, draft, active, deprecated, suspended, withActivePromo] = await Promise.all([
-    prisma.plan.count({ where: baseWhere }),
-    prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.DRAFT } }),
-    prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.ACTIVE } }),
-    prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.DEPRECATED } }),
-    prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.SUSPENDED } }),
-    prisma.plan.count({ 
-      where: { 
-        ...baseWhere, 
-        promo_free_until: { gt: new Date() } 
-      } 
-    }),
-  ]);
+
+  const [total, draft, active, deprecated, suspended, withActivePromo] =
+    await Promise.all([
+      prisma.plan.count({ where: baseWhere }),
+      prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.DRAFT } }),
+      prisma.plan.count({
+        where: { ...baseWhere, status: PLAN_STATUS.ACTIVE },
+      }),
+      prisma.plan.count({
+        where: { ...baseWhere, status: PLAN_STATUS.DEPRECATED },
+      }),
+      prisma.plan.count({
+        where: { ...baseWhere, status: PLAN_STATUS.SUSPENDED },
+      }),
+      prisma.plan.count({
+        where: {
+          ...baseWhere,
+          promo_free_until: { gt: new Date() },
+        },
+      }),
+    ]);
 
   return {
     total,
@@ -377,12 +399,12 @@ export async function getPlanById(plan_id) {
 // ============================================
 
 export async function createPlan(data, cadmin_id, auditContext = {}) {
-  const { 
-    name, 
-    description, 
-    price, 
+  const {
+    name,
+    description,
+    price,
     compare_at_price,
-    max_users, 
+    max_users,
     max_branches,
     billing_cycle_months = 12,
     bonus_months = 0,
@@ -397,7 +419,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
     if (compare_at_price <= price) {
       throw createError(
         "Compare-at price must be greater than the actual price",
-        "VALIDATION_ERROR"
+        "VALIDATION_ERROR",
       );
     }
   }
@@ -408,7 +430,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
     if (promoDate <= new Date()) {
       throw createError(
         "Promo free until date must be in the future",
-        "VALIDATION_ERROR"
+        "VALIDATION_ERROR",
       );
     }
   }
@@ -418,7 +440,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
     const shop = await prisma.shop.findUnique({
       where: { shop_id: created_for_shop_id },
     });
-    
+
     if (!shop) {
       throw createError("Shop not found", "SHOP_NOT_FOUND");
     }
@@ -430,28 +452,29 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
         name: name.trim(),
         description: description?.trim() || null,
         type,
-        
+
         // Pricing
         price: BigInt(price),
         compare_at_price: compare_at_price ? BigInt(compare_at_price) : null,
-        
+
         // Limits
         max_users,
         max_branches,
-        
+
         // Billing duration
         billing_cycle_months,
         bonus_months,
-        
+
         // Promotional access
         promo_free_until: promo_free_until ? new Date(promo_free_until) : null,
-        
+
         // Flags
         is_featured: is_featured || false,
-        
+
         // Custom plan link
-        created_for_shop_id: type === PLAN_TYPE.CUSTOM ? created_for_shop_id : null,
-        
+        created_for_shop_id:
+          type === PLAN_TYPE.CUSTOM ? created_for_shop_id : null,
+
         // Lifecycle
         status: PLAN_STATUS.DRAFT,
         created_by: cadmin_id,
@@ -473,42 +496,48 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
     });
 
     // Legacy activity log
-    await logPlanActivity({
-      plan_id: plan.plan_id,
-      cadmin_id,
-      action: "created",
-      to_status: PLAN_STATUS.DRAFT,
-      meta: { 
-        name: plan.name,
-        type: plan.type,
-        shop_id: plan.created_for_shop_id,
-        has_promo: !!promo_free_until,
-        has_compare_price: !!compare_at_price,
-        bonus_months: bonus_months,
+    await logPlanActivity(
+      {
+        plan_id: plan.plan_id,
+        cadmin_id,
+        action: "created",
+        to_status: PLAN_STATUS.DRAFT,
+        meta: {
+          name: plan.name,
+          type: plan.type,
+          shop_id: plan.created_for_shop_id,
+          has_promo: !!promo_free_until,
+          has_compare_price: !!compare_at_price,
+          bonus_months: bonus_months,
+        },
       },
-    }, tx);
+      tx,
+    );
 
-    // ✅ AUDIT: Plan created
-    await audit.log({
-      action: audit.AuditAction.PLAN_CREATED,
-      entity_type: audit.EntityType.PLAN,
-      entity_id: plan.plan_id,
-      shop_id: plan.created_for_shop_id, // null for PRE_MADE plans
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        name: plan.name,
-        price: Number(plan.price),
-        max_users: plan.max_users,
-        max_branches: plan.max_branches,
-        type: plan.type,
-        billing_cycle_months: plan.billing_cycle_months,
-        bonus_months: plan.bonus_months,
-        has_promo: !!promo_free_until,
-        promo_free_until: promo_free_until,
-        has_compare_price: !!compare_at_price,
+    //  AUDIT: Plan created
+    await audit.log(
+      {
+        action: audit.AuditAction.PLAN_CREATED,
+        entity_type: audit.EntityType.PLAN,
+        entity_id: plan.plan_id,
+        shop_id: plan.created_for_shop_id, // null for PRE_MADE plans
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          name: plan.name,
+          price: Number(plan.price),
+          max_users: plan.max_users,
+          max_branches: plan.max_branches,
+          type: plan.type,
+          billing_cycle_months: plan.billing_cycle_months,
+          bonus_months: plan.bonus_months,
+          has_promo: !!promo_free_until,
+          promo_free_until: promo_free_until,
+          has_compare_price: !!compare_at_price,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return plan;
   });
@@ -520,7 +549,12 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
 // UPDATE PLAN
 // ============================================
 
-export async function updatePlan(plan_id, updates, cadmin_id, auditContext = {}) {
+export async function updatePlan(
+  plan_id,
+  updates,
+  cadmin_id,
+  auditContext = {},
+) {
   const existingPlan = await prisma.plan.findUnique({
     where: { plan_id },
   });
@@ -536,41 +570,48 @@ export async function updatePlan(plan_id, updates, cadmin_id, auditContext = {})
   if (existingPlan.status !== PLAN_STATUS.DRAFT) {
     throw createError(
       "Only draft plans can be edited. Clone this plan to make changes.",
-      "NOT_DRAFT"
+      "NOT_DRAFT",
     );
   }
 
   // Validate compare_at_price > price
-  const newPrice = updates.price !== undefined ? updates.price : Number(existingPlan.price);
-  const newCompareAtPrice = updates.compare_at_price !== undefined 
-    ? updates.compare_at_price 
-    : (existingPlan.compare_at_price ? Number(existingPlan.compare_at_price) : null);
+  const newPrice =
+    updates.price !== undefined ? updates.price : Number(existingPlan.price);
+  const newCompareAtPrice =
+    updates.compare_at_price !== undefined
+      ? updates.compare_at_price
+      : existingPlan.compare_at_price
+        ? Number(existingPlan.compare_at_price)
+        : null;
 
   if (newCompareAtPrice !== null && newCompareAtPrice <= newPrice) {
     throw createError(
       "Compare-at price must be greater than the actual price",
-      "VALIDATION_ERROR"
+      "VALIDATION_ERROR",
     );
   }
 
   // Validate promo_free_until is in the future
-  if (updates.promo_free_until !== undefined && updates.promo_free_until !== null) {
+  if (
+    updates.promo_free_until !== undefined &&
+    updates.promo_free_until !== null
+  ) {
     const promoDate = new Date(updates.promo_free_until);
     if (promoDate <= new Date()) {
       throw createError(
         "Promo free until date must be in the future",
-        "VALIDATION_ERROR"
+        "VALIDATION_ERROR",
       );
     }
   }
 
   const changes = {};
   const allowedFields = [
-    "name", 
-    "description", 
-    "price", 
+    "name",
+    "description",
+    "price",
     "compare_at_price",
-    "max_users", 
+    "max_users",
     "max_branches",
     "billing_cycle_months",
     "bonus_months",
@@ -588,19 +629,23 @@ export async function updatePlan(plan_id, updates, cadmin_id, auditContext = {})
         oldValue = existingPlan[field] ? Number(existingPlan[field]) : null;
         newValue = updates[field];
       } else if (field === "promo_free_until") {
-        oldValue = existingPlan[field] ? existingPlan[field].toISOString() : null;
-        newValue = updates[field] ? new Date(updates[field]).toISOString() : null;
+        oldValue = existingPlan[field]
+          ? existingPlan[field].toISOString()
+          : null;
+        newValue = updates[field]
+          ? new Date(updates[field]).toISOString()
+          : null;
       } else {
         oldValue = existingPlan[field];
         newValue = updates[field];
       }
 
-      const hasChanged = oldValue !== newValue && 
-        !(oldValue === null && newValue === null);
+      const hasChanged =
+        oldValue !== newValue && !(oldValue === null && newValue === null);
 
       if (hasChanged) {
         changes[field] = { old: oldValue, new: newValue };
-        
+
         if (field === "price") {
           updateData[field] = BigInt(newValue);
         } else if (field === "compare_at_price") {
@@ -608,7 +653,8 @@ export async function updatePlan(plan_id, updates, cadmin_id, auditContext = {})
         } else if (field === "promo_free_until") {
           updateData[field] = newValue ? new Date(newValue) : null;
         } else if (field === "name" || field === "description") {
-          updateData[field] = typeof newValue === "string" ? newValue.trim() : newValue;
+          updateData[field] =
+            typeof newValue === "string" ? newValue.trim() : newValue;
         } else {
           updateData[field] = newValue;
         }
@@ -641,31 +687,37 @@ export async function updatePlan(plan_id, updates, cadmin_id, auditContext = {})
     });
 
     // Legacy activity log
-    await logPlanActivity({
-      plan_id,
-      cadmin_id,
-      action: "updated",
-      changes,
-    }, tx);
-
-    // ✅ AUDIT: Plan updated
-    await audit.log({
-      action: audit.AuditAction.PLAN_UPDATED,
-      entity_type: audit.EntityType.PLAN,
-      entity_id: plan_id,
-      shop_id: updatedPlan.created_for_shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        changed_fields: Object.keys(changes),
-        before: Object.fromEntries(
-          Object.entries(changes).map(([k, v]) => [k, v.old])
-        ),
-        after: Object.fromEntries(
-          Object.entries(changes).map(([k, v]) => [k, v.new])
-        ),
+    await logPlanActivity(
+      {
+        plan_id,
+        cadmin_id,
+        action: "updated",
+        changes,
       },
-    }, { tx });
+      tx,
+    );
+
+    //  AUDIT: Plan updated
+    await audit.log(
+      {
+        action: audit.AuditAction.PLAN_UPDATED,
+        entity_type: audit.EntityType.PLAN,
+        entity_id: plan_id,
+        shop_id: updatedPlan.created_for_shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          changed_fields: Object.keys(changes),
+          before: Object.fromEntries(
+            Object.entries(changes).map(([k, v]) => [k, v.old]),
+          ),
+          after: Object.fromEntries(
+            Object.entries(changes).map(([k, v]) => [k, v.new]),
+          ),
+        },
+      },
+      { tx },
+    );
 
     return updatedPlan;
   });
@@ -698,7 +750,7 @@ export async function activatePlan(plan_id, cadmin_id, auditContext = {}) {
   if (!nameAvailable) {
     throw createError(
       `An active plan named "${plan.name}" already exists. Please rename before activating.`,
-      "NAME_CONFLICT"
+      "NAME_CONFLICT",
     );
   }
 
@@ -726,34 +778,40 @@ export async function activatePlan(plan_id, cadmin_id, auditContext = {}) {
     });
 
     // Legacy activity log
-    await logPlanActivity({
-      plan_id,
-      cadmin_id,
-      action: "activated",
-      from_status: PLAN_STATUS.DRAFT,
-      to_status: PLAN_STATUS.ACTIVE,
-      meta: {
-        has_promo: isPromoActive(activatedPlan.promo_free_until),
-        bonus_months: activatedPlan.bonus_months,
+    await logPlanActivity(
+      {
+        plan_id,
+        cadmin_id,
+        action: "activated",
+        from_status: PLAN_STATUS.DRAFT,
+        to_status: PLAN_STATUS.ACTIVE,
+        meta: {
+          has_promo: isPromoActive(activatedPlan.promo_free_until),
+          bonus_months: activatedPlan.bonus_months,
+        },
       },
-    }, tx);
+      tx,
+    );
 
-    // ✅ AUDIT: Plan activated
-    await audit.log({
-      action: audit.AuditAction.PLAN_ACTIVATED,
-      entity_type: audit.EntityType.PLAN,
-      entity_id: plan_id,
-      shop_id: activatedPlan.created_for_shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        activated_by_cadmin_id: cadmin_id,
-        name: activatedPlan.name,
-        price: Number(activatedPlan.price),
-        has_promo: isPromoActive(activatedPlan.promo_free_until),
-        promo_free_until: activatedPlan.promo_free_until,
+    //  AUDIT: Plan activated
+    await audit.log(
+      {
+        action: audit.AuditAction.PLAN_ACTIVATED,
+        entity_type: audit.EntityType.PLAN,
+        entity_id: plan_id,
+        shop_id: activatedPlan.created_for_shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          activated_by_cadmin_id: cadmin_id,
+          name: activatedPlan.name,
+          price: Number(activatedPlan.price),
+          has_promo: isPromoActive(activatedPlan.promo_free_until),
+          promo_free_until: activatedPlan.promo_free_until,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return activatedPlan;
   });
@@ -779,7 +837,8 @@ export async function suspendPlan(plan_id, cadmin_id, auditContext = {}) {
   }
 
   const subscriberCount = await getSubscriberCount(plan_id);
-  const newStatus = subscriberCount > 0 ? PLAN_STATUS.DEPRECATED : PLAN_STATUS.SUSPENDED;
+  const newStatus =
+    subscriberCount > 0 ? PLAN_STATUS.DEPRECATED : PLAN_STATUS.SUSPENDED;
 
   const result = await prisma.$transaction(async (tx) => {
     const updatedPlan = await tx.plan.update({
@@ -805,32 +864,39 @@ export async function suspendPlan(plan_id, cadmin_id, auditContext = {}) {
     });
 
     // Legacy activity log
-    await logPlanActivity({
-      plan_id,
-      cadmin_id,
-      action: "suspended",
-      from_status: PLAN_STATUS.ACTIVE,
-      to_status: newStatus,
-      meta: { subscriber_count: subscriberCount },
-    }, tx);
-
-    // ✅ AUDIT: Plan suspended
-    await audit.log({
-      action: audit.AuditAction.PLAN_SUSPENDED,
-      entity_type: audit.EntityType.PLAN,
-      entity_id: plan_id,
-      shop_id: updatedPlan.created_for_shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        reason: subscriberCount > 0 
-          ? `Plan has ${subscriberCount} active subscribers` 
-          : "Admin action",
-        suspended_by_cadmin_id: cadmin_id,
-        new_status: newStatus,
-        active_subscriptions_count: subscriberCount,
+    await logPlanActivity(
+      {
+        plan_id,
+        cadmin_id,
+        action: "suspended",
+        from_status: PLAN_STATUS.ACTIVE,
+        to_status: newStatus,
+        meta: { subscriber_count: subscriberCount },
       },
-    }, { tx });
+      tx,
+    );
+
+    //  AUDIT: Plan suspended
+    await audit.log(
+      {
+        action: audit.AuditAction.PLAN_SUSPENDED,
+        entity_type: audit.EntityType.PLAN,
+        entity_id: plan_id,
+        shop_id: updatedPlan.created_for_shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          reason:
+            subscriberCount > 0
+              ? `Plan has ${subscriberCount} active subscribers`
+              : "Admin action",
+          suspended_by_cadmin_id: cadmin_id,
+          new_status: newStatus,
+          active_subscriptions_count: subscriberCount,
+        },
+      },
+      { tx },
+    );
 
     return updatedPlan;
   });
@@ -857,7 +923,7 @@ export async function reactivatePlan(plan_id, cadmin_id, auditContext = {}) {
   if (plan.status !== PLAN_STATUS.SUSPENDED) {
     throw createError(
       "Only suspended plans can be reactivated. Deprecated plans must wait until all subscribers finish their term.",
-      "NOT_SUSPENDED"
+      "NOT_SUSPENDED",
     );
   }
 
@@ -865,7 +931,7 @@ export async function reactivatePlan(plan_id, cadmin_id, auditContext = {}) {
   if (subscriberCount > 0) {
     throw createError(
       "Cannot reactivate plan with active subscribers",
-      "HAS_SUBSCRIBERS"
+      "HAS_SUBSCRIBERS",
     );
   }
 
@@ -873,7 +939,7 @@ export async function reactivatePlan(plan_id, cadmin_id, auditContext = {}) {
   if (!nameAvailable) {
     throw createError(
       `An active plan named "${plan.name}" already exists. Clone this plan with a different name instead.`,
-      "NAME_CONFLICT"
+      "NAME_CONFLICT",
     );
   }
 
@@ -902,27 +968,33 @@ export async function reactivatePlan(plan_id, cadmin_id, auditContext = {}) {
     });
 
     // Legacy activity log
-    await logPlanActivity({
-      plan_id,
-      cadmin_id,
-      action: "reactivated",
-      from_status: PLAN_STATUS.SUSPENDED,
-      to_status: PLAN_STATUS.ACTIVE,
-    }, tx);
-
-    // ✅ AUDIT: Plan reactivated
-    await audit.log({
-      action: audit.AuditAction.PLAN_REACTIVATED,
-      entity_type: audit.EntityType.PLAN,
-      entity_id: plan_id,
-      shop_id: reactivatedPlan.created_for_shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        reactivated_by_cadmin_id: cadmin_id,
-        name: reactivatedPlan.name,
+    await logPlanActivity(
+      {
+        plan_id,
+        cadmin_id,
+        action: "reactivated",
+        from_status: PLAN_STATUS.SUSPENDED,
+        to_status: PLAN_STATUS.ACTIVE,
       },
-    }, { tx });
+      tx,
+    );
+
+    //  AUDIT: Plan reactivated
+    await audit.log(
+      {
+        action: audit.AuditAction.PLAN_REACTIVATED,
+        entity_type: audit.EntityType.PLAN,
+        entity_id: plan_id,
+        shop_id: reactivatedPlan.created_for_shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          reactivated_by_cadmin_id: cadmin_id,
+          name: reactivatedPlan.name,
+        },
+      },
+      { tx },
+    );
 
     return reactivatedPlan;
   });
@@ -934,7 +1006,12 @@ export async function reactivatePlan(plan_id, cadmin_id, auditContext = {}) {
 // CLONE PLAN
 // ============================================
 
-export async function clonePlan(plan_id, cadmin_id, customName = null, auditContext = {}) {
+export async function clonePlan(
+  plan_id,
+  cadmin_id,
+  customName = null,
+  auditContext = {},
+) {
   const originalPlan = await prisma.plan.findUnique({
     where: { plan_id },
   });
@@ -947,7 +1024,8 @@ export async function clonePlan(plan_id, cadmin_id, customName = null, auditCont
     throw createError("Cannot clone a deleted plan", "DELETED");
   }
 
-  const cloneName = customName?.trim() || (await generateCloneName(originalPlan.name));
+  const cloneName =
+    customName?.trim() || (await generateCloneName(originalPlan.name));
 
   const result = await prisma.$transaction(async (tx) => {
     const clonedPlan = await tx.plan.create({
@@ -955,28 +1033,28 @@ export async function clonePlan(plan_id, cadmin_id, customName = null, auditCont
         name: cloneName,
         description: originalPlan.description,
         type: PLAN_TYPE.PRE_MADE,
-        
+
         // Pricing
         price: originalPlan.price,
         compare_at_price: originalPlan.compare_at_price,
-        
+
         // Limits
         max_users: originalPlan.max_users,
         max_branches: originalPlan.max_branches,
-        
+
         // Billing duration
         billing_cycle_months: originalPlan.billing_cycle_months,
         bonus_months: originalPlan.bonus_months,
-        
+
         // Promotional access - reset
         promo_free_until: null,
-        
+
         // Flags
         is_featured: false,
-        
+
         // Custom plan link - never copy
         created_for_shop_id: null,
-        
+
         // Lifecycle
         status: PLAN_STATUS.DRAFT,
         created_by: cadmin_id,
@@ -998,42 +1076,57 @@ export async function clonePlan(plan_id, cadmin_id, customName = null, auditCont
     });
 
     // Legacy activity log
-    await logPlanActivity({
-      plan_id: clonedPlan.plan_id,
-      cadmin_id,
-      action: "cloned",
-      to_status: PLAN_STATUS.DRAFT,
-      meta: {
-        cloned_from: originalPlan.plan_id,
-        original_name: originalPlan.name,
-        copied_fields: ["price", "compare_at_price", "billing_cycle_months", "bonus_months"],
-        reset_fields: ["promo_free_until", "is_featured"],
+    await logPlanActivity(
+      {
+        plan_id: clonedPlan.plan_id,
+        cadmin_id,
+        action: "cloned",
+        to_status: PLAN_STATUS.DRAFT,
+        meta: {
+          cloned_from: originalPlan.plan_id,
+          original_name: originalPlan.name,
+          copied_fields: [
+            "price",
+            "compare_at_price",
+            "billing_cycle_months",
+            "bonus_months",
+          ],
+          reset_fields: ["promo_free_until", "is_featured"],
+        },
       },
-    }, tx);
+      tx,
+    );
 
-    // ✅ AUDIT: Plan cloned
-    await audit.log({
-      action: audit.AuditAction.PLAN_CLONED,
-      entity_type: audit.EntityType.PLAN,
-      entity_id: clonedPlan.plan_id,
-      shop_id: null,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        source_plan_id: originalPlan.plan_id,
-        source_plan_name: originalPlan.name,
-        new_plan_name: clonedPlan.name,
-        copied_fields: [
-          "price", 
-          "compare_at_price", 
-          "billing_cycle_months", 
-          "bonus_months",
-          "max_users",
-          "max_branches",
-        ],
-        reset_fields: ["promo_free_until", "is_featured", "created_for_shop_id"],
+    //  AUDIT: Plan cloned
+    await audit.log(
+      {
+        action: audit.AuditAction.PLAN_CLONED,
+        entity_type: audit.EntityType.PLAN,
+        entity_id: clonedPlan.plan_id,
+        shop_id: null,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          source_plan_id: originalPlan.plan_id,
+          source_plan_name: originalPlan.name,
+          new_plan_name: clonedPlan.name,
+          copied_fields: [
+            "price",
+            "compare_at_price",
+            "billing_cycle_months",
+            "bonus_months",
+            "max_users",
+            "max_branches",
+          ],
+          reset_fields: [
+            "promo_free_until",
+            "is_featured",
+            "created_for_shop_id",
+          ],
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return clonedPlan;
   });
@@ -1061,7 +1154,7 @@ export async function softDeletePlan(plan_id, cadmin_id, auditContext = {}) {
   if (plan.status !== PLAN_STATUS.DRAFT) {
     throw createError(
       "Only draft plans can be deleted. Active, deprecated, and suspended plans must be retained for billing records.",
-      "NOT_DRAFT"
+      "NOT_DRAFT",
     );
   }
 
@@ -1088,27 +1181,33 @@ export async function softDeletePlan(plan_id, cadmin_id, auditContext = {}) {
     });
 
     // Legacy activity log
-    await logPlanActivity({
-      plan_id,
-      cadmin_id,
-      action: "deleted",
-      from_status: PLAN_STATUS.DRAFT,
-    }, tx);
-
-    // ✅ AUDIT: Plan deleted
-    await audit.log({
-      action: audit.AuditAction.PLAN_DELETED,
-      entity_type: audit.EntityType.PLAN,
-      entity_id: plan_id,
-      shop_id: deletedPlan.created_for_shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        deleted_by_cadmin_id: cadmin_id,
-        reason: "Draft plan deleted",
-        name: deletedPlan.name,
+    await logPlanActivity(
+      {
+        plan_id,
+        cadmin_id,
+        action: "deleted",
+        from_status: PLAN_STATUS.DRAFT,
       },
-    }, { tx });
+      tx,
+    );
+
+    //  AUDIT: Plan deleted
+    await audit.log(
+      {
+        action: audit.AuditAction.PLAN_DELETED,
+        entity_type: audit.EntityType.PLAN,
+        entity_id: plan_id,
+        shop_id: deletedPlan.created_for_shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          deleted_by_cadmin_id: cadmin_id,
+          reason: "Draft plan deleted",
+          name: deletedPlan.name,
+        },
+      },
+      { tx },
+    );
 
     return deletedPlan;
   });
@@ -1158,20 +1257,23 @@ export async function transitionDeprecatedPlans() {
           },
         });
 
-        // ✅ AUDIT: Plan auto-suspended by cron
-        await audit.log({
-          action: audit.AuditAction.PLAN_AUTO_SUSPENDED_BY_CRON,
-          entity_type: audit.EntityType.PLAN,
-          entity_id: plan.plan_id,
-          shop_id: plan.created_for_shop_id,
-          ...systemContext,
-          reason_code: audit.AuditReasonCode.AUTOMATION,
-          metadata: {
-            reason: "All subscriptions ended",
-            active_subscriptions_count: 0,
-            plan_name: plan.name,
+        //  AUDIT: Plan auto-suspended by cron
+        await audit.log(
+          {
+            action: audit.AuditAction.PLAN_AUTO_SUSPENDED_BY_CRON,
+            entity_type: audit.EntityType.PLAN,
+            entity_id: plan.plan_id,
+            shop_id: plan.created_for_shop_id,
+            ...systemContext,
+            reason_code: audit.AuditReasonCode.AUTOMATION,
+            metadata: {
+              reason: "All subscriptions ended",
+              active_subscriptions_count: 0,
+              plan_name: plan.name,
+            },
           },
-        }, { tx });
+          { tx },
+        );
       });
 
       transitioned.push({
@@ -1179,7 +1281,9 @@ export async function transitionDeprecatedPlans() {
         name: plan.name,
       });
 
-      console.log(`[CRON] Plan "${plan.name}" transitioned from DEPRECATED to SUSPENDED`);
+      console.log(
+        `[CRON] Plan "${plan.name}" transitioned from DEPRECATED to SUSPENDED`,
+      );
     }
   }
 

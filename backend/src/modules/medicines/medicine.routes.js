@@ -11,7 +11,7 @@ import {
   updateMedicineController,
   bulkCreateMedicinesController,
   searchMedicinesController,
-  getCatalogLinkStatusController,  // ✅ NEW
+  getCatalogLinkStatusController, //  NEW
 } from "./medicine.controller.js";
 
 import {
@@ -27,14 +27,22 @@ router.use(requireAuth);
 // Search (autocomplete) - must be before /:medicineId to avoid conflict
 router.get("/search", searchMedicinesController);
 
-// ✅ NEW: Catalog link status endpoint
+//  NEW: Catalog link status endpoint
 router.get("/catalog-link-status", getCatalogLinkStatusController);
 
 // CRUD
 router.post("/", validateBody(createMedicineSchema), createMedicineController);
-router.post("/bulk", validateBody(bulkCreateSchema), bulkCreateMedicinesController);
+router.post(
+  "/bulk",
+  validateBody(bulkCreateSchema),
+  bulkCreateMedicinesController,
+);
 router.get("/", getMedicinesController);
 router.get("/:medicineId", getMedicineByIdController);
-router.put("/:medicineId", validateBody(updateMedicineSchema), updateMedicineController);
+router.put(
+  "/:medicineId",
+  validateBody(updateMedicineSchema),
+  updateMedicineController,
+);
 
 export default router;

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, AlertTriangle, RotateCcw, Info } from "lucide-react";
 
-const MIN_REASON_LENGTH = 10; // ✅ Match backend schema requirement
+const MIN_REASON_LENGTH = 10; //  Match backend schema requirement
 
 const RevertSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
   const [revertReason, setRevertReason] = useState("");
@@ -15,7 +15,7 @@ const RevertSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
   if (!open || !returnData) return null;
 
   const handleSubmit = async () => {
-    // ✅ Validate minimum length
+    //  Validate minimum length
     if (revertReason.trim().length < MIN_REASON_LENGTH) {
       setError(`Reason must be at least ${MIN_REASON_LENGTH} characters`);
       return;
@@ -71,7 +71,9 @@ const RevertSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">Revert to Pending</h3>
-                  <p className="text-sm text-white/80">Send return back for re-approval</p>
+                  <p className="text-sm text-white/80">
+                    Send return back for re-approval
+                  </p>
                 </div>
               </div>
               <button
@@ -90,7 +92,9 @@ const RevertSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                 <div className="flex items-start gap-3">
                   <Info size={20} className="text-amber-600 mt-0.5 shrink-0" />
                   <div className="flex-1">
-                    <h4 className="font-semibold text-amber-900 mb-2">Revert Effects:</h4>
+                    <h4 className="font-semibold text-amber-900 mb-2">
+                      Revert Effects:
+                    </h4>
                     <ul className="text-sm text-amber-800 space-y-1">
                       <li>• Stock changes will be reversed</li>
                       <li>• Customer credits will be cancelled</li>
@@ -111,7 +115,10 @@ const RevertSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                 <div className="flex justify-between text-sm mt-2">
                   <span className="text-gray-600">Amount:</span>
                   <span className="font-bold text-[#000060]">
-                    ₹{Math.abs(parseFloat(returnData.net_amount)).toLocaleString("en-IN")}
+                    ₹
+                    {Math.abs(parseFloat(returnData.net_amount)).toLocaleString(
+                      "en-IN",
+                    )}
                   </span>
                 </div>
               </div>
@@ -134,9 +141,9 @@ const RevertSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                   rows={3}
                   disabled={isSubmitting}
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 resize-none disabled:bg-gray-50 transition-colors ${
-                    error 
-                      ? "border-red-300 focus:ring-red-500 focus:border-red-500" 
-                      : isReasonValid 
+                    error
+                      ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                      : isReasonValid
                         ? "border-green-300 focus:ring-green-500 focus:border-green-500"
                         : "border-gray-300 focus:ring-amber-500 focus:border-amber-500"
                   }`}
@@ -146,10 +153,13 @@ const RevertSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                     <p className="text-xs text-red-600">{error}</p>
                   ) : charactersRemaining > 0 ? (
                     <p className="text-xs text-amber-600">
-                      {charactersRemaining} more character{charactersRemaining !== 1 ? "s" : ""} needed
+                      {charactersRemaining} more character
+                      {charactersRemaining !== 1 ? "s" : ""} needed
                     </p>
                   ) : (
-                    <p className="text-xs text-green-600">✓ Minimum length reached</p>
+                    <p className="text-xs text-green-600">
+                      ✓ Minimum length reached
+                    </p>
                   )}
                   <p className="text-xs text-gray-400">
                     {revertReason.length} / {MIN_REASON_LENGTH}+ characters
@@ -189,7 +199,7 @@ const RevertSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
         </div>
       )}
     </AnimatePresence>,
-    document.body
+    document.body,
   );
 };
 

@@ -64,7 +64,10 @@ const UnmappedTable = ({
     if (!resizing) return;
     setColumnWidths((p) => ({
       ...p,
-      [resizing.col]: Math.max(50, resizing.startWidth + (e.clientX - resizing.startX)),
+      [resizing.col]: Math.max(
+        50,
+        resizing.startWidth + (e.clientX - resizing.startX),
+      ),
     }));
   };
 
@@ -91,7 +94,7 @@ const UnmappedTable = ({
         (item) =>
           item.normalizedName.toLowerCase().includes(s) ||
           item.sampleNames?.some((n) => n.toLowerCase().includes(s)) ||
-          item.manufacturers?.some((m) => m.toLowerCase().includes(s))
+          item.manufacturers?.some((m) => m.toLowerCase().includes(s)),
       );
     }
 
@@ -127,13 +130,13 @@ const UnmappedTable = ({
     paginatedData.length > 0 &&
     paginatedData.every((item) => selectedIds.includes(item.id));
   const someSelected = paginatedData.some((item) =>
-    selectedIds.includes(item.id)
+    selectedIds.includes(item.id),
   );
 
   const toggleSelectAll = () => {
     if (allSelected) {
       onSelectionChange(
-        selectedIds.filter((id) => !paginatedData.find((i) => i.id === id))
+        selectedIds.filter((id) => !paginatedData.find((i) => i.id === id)),
       );
     } else {
       onSelectionChange([
@@ -158,25 +161,34 @@ const UnmappedTable = ({
     setCurrentPage(1);
   };
 
-  // ✅ Uses config sortIcon colors
+  //  Uses config sortIcon colors
   const SortIcon = ({ sortKey }) => {
     if (!sortKey) return null;
     const isActive = sortConfig.key === sortKey;
 
     if (isActive) {
       return sortConfig.order === "asc" ? (
-        <ChevronUp size={14} className={`${styles.header.sortIcon.active} flex-shrink-0`} />
+        <ChevronUp
+          size={14}
+          className={`${styles.header.sortIcon.active} flex-shrink-0`}
+        />
       ) : (
-        <ChevronDown size={14} className={`${styles.header.sortIcon.active} flex-shrink-0`} />
+        <ChevronDown
+          size={14}
+          className={`${styles.header.sortIcon.active} flex-shrink-0`}
+        />
       );
     }
 
     return (
-      <ChevronsUpDown size={14} className={`${styles.header.sortIcon.inactive} flex-shrink-0`} />
+      <ChevronsUpDown
+        size={14}
+        className={`${styles.header.sortIcon.inactive} flex-shrink-0`}
+      />
     );
   };
 
-  // ✅ Uses config heights.headerRow + config header.cell styles
+  //  Uses config heights.headerRow + config header.cell styles
   const ResizableTh = ({ col, children, align = "left", sortKey }) => (
     <th
       style={{
@@ -363,9 +375,7 @@ const UnmappedTable = ({
                       key={item.id}
                       onClick={() => onViewDetail(item)}
                       className={`${
-                        isSelected
-                          ? "bg-indigo-50/80"
-                          : getRowBgClass(index)
+                        isSelected ? "bg-indigo-50/80" : getRowBgClass(index)
                       } ${styles.row.clickable}`}
                       style={{ height: `${heights.bodyRow}px` }}
                     >
@@ -379,7 +389,10 @@ const UnmappedTable = ({
                           className="text-gray-400 hover:text-gray-600"
                         >
                           {isSelected ? (
-                            <CheckSquare size={17} className="text-indigo-600" />
+                            <CheckSquare
+                              size={17}
+                              className="text-indigo-600"
+                            />
                           ) : (
                             <Square size={17} />
                           )}
@@ -410,13 +423,17 @@ const UnmappedTable = ({
                               {topManufacturer}
                             </span>
                             {extraManufacturers > 0 && (
-                              <span className={`text-[10px] ${styles.cell.muted}`}>
+                              <span
+                                className={`text-[10px] ${styles.cell.muted}`}
+                              >
                                 +{extraManufacturers} more
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className={`text-xs italic ${styles.cell.muted}`}>
+                          <span
+                            className={`text-xs italic ${styles.cell.muted}`}
+                          >
                             Unknown
                           </span>
                         )}
@@ -488,7 +505,7 @@ const UnmappedTable = ({
           )}
         </div>
 
-        {/* ✅ Uses config pagination wrapper */}
+        {/*  Uses config pagination wrapper */}
         {totalItems > 0 && !loading && (
           <div className={styles.pagination.wrapper}>
             <Pagination
@@ -509,7 +526,9 @@ const SampleNamesCell = ({ names }) => {
   const remaining = (names?.length ?? 0) - 1;
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`${styles.cell.secondary} truncate max-w-[170px] text-sm`}>
+      <span
+        className={`${styles.cell.secondary} truncate max-w-[170px] text-sm`}
+      >
         {displayName}
       </span>
       {remaining > 0 && (

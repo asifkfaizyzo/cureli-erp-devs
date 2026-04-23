@@ -1,7 +1,7 @@
 // frontend/src/pages/notifications/components/NotificationSidePanel.jsx
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   X,
   ExternalLink,
@@ -15,45 +15,48 @@ import {
   Play,
   Download,
   Maximize2,
-} from 'lucide-react';
-import { NotificationIcon } from '../../../components/common/notifications';
+} from "lucide-react";
+import { NotificationIcon } from "../../../components/common/notifications";
 import {
   formatNotificationTime,
   formatNotificationFullDate,
   getPriorityConfig,
   getNotificationRoute,
   isBroadcastNotification,
-} from '../../../config/notifications';
+} from "../../../config/notifications";
 
-// ✅ UPDATED: Helper function to get file URL with new format
+//  UPDATED: Helper function to get file URL with new format
 const getAttachmentUrl = (attachment) => {
   if (!attachment?.url) return null;
-  
+
   // If already a full URL, return as-is
-  if (attachment.url.startsWith('http://') || attachment.url.startsWith('https://')) {
+  if (
+    attachment.url.startsWith("http://") ||
+    attachment.url.startsWith("https://")
+  ) {
     return attachment.url;
   }
-  
+
   // If it starts with /api/files/, it's already in the new format
-  if (attachment.url.startsWith('/api/files/')) {
+  if (attachment.url.startsWith("/api/files/")) {
     const baseURL = import.meta.env.VITE_API_URL;
     return `${baseURL}${attachment.url}`;
   }
-  
+
   // Legacy format: /uploads/folder/filename
   // Convert to new format: /api/files/folder/filename
-  if (attachment.url.startsWith('/uploads/')) {
+  if (attachment.url.startsWith("/uploads/")) {
     const baseURL = import.meta.env.VITE_API_URL;
-    const urlWithoutUploads = attachment.url.replace('/uploads/', '');
-    const parts = urlWithoutUploads.split('/');
-    
+    const urlWithoutUploads = attachment.url.replace("/uploads/", "");
+    const parts = urlWithoutUploads.split("/");
+
     if (parts.length >= 2) {
       const folder = parts[0]; // e.g., 'broadcast_attachments'
-      const filename = parts.slice(1).join('/');
+      const filename = parts.slice(1).join("/");
       return `${baseURL}/api/files/${folder}/${filename}`;
     }
   }
-  
+
   // Fallback: assume it's just a filename from broadcast_attachments
   const baseURL = import.meta.env.VITE_API_URL;
   return `${baseURL}/api/files/broadcast_attachments/${attachment.url}`;
@@ -88,10 +91,10 @@ const NotificationSidePanel = ({
   const priorityConfig = getPriorityConfig(priority);
   const isBroadcast = isBroadcastNotification(event_type);
   const route = getNotificationRoute(event_type, context);
-  
+
   const attachments = context?.attachments || [];
   const actionUrl = context?.action_url;
-  const actionLabel = context?.action_label || 'View Details';
+  const actionLabel = context?.action_label || "View Details";
   const expiresAt = context?.expires_at;
   const attachment = attachments.length > 0 ? attachments[0] : null;
 
@@ -99,20 +102,21 @@ const NotificationSidePanel = ({
 
   const handleNavigate = () => {
     if (route) navigate(route);
-    else if (actionUrl) window.open(actionUrl, '_blank', 'noopener,noreferrer');
+    else if (actionUrl) window.open(actionUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleAttachmentClick = (att) => {
-    if (att.type === 'image' && !imageError) setShowFullImage(true);
-    else if (att.url) window.open(getAttachmentUrl(att), '_blank', 'noopener,noreferrer');
+    if (att.type === "image" && !imageError) setShowFullImage(true);
+    else if (att.url)
+      window.open(getAttachmentUrl(att), "_blank", "noopener,noreferrer");
   };
 
   const handleDownload = (att) => {
     if (att.url) {
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = getAttachmentUrl(att);
-      link.download = att.original_name || att.label || 'attachment';
-      link.target = '_blank';
+      link.download = att.original_name || att.label || "attachment";
+      link.target = "_blank";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -122,9 +126,11 @@ const NotificationSidePanel = ({
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className={`px-4 py-3 border-b flex items-start justify-between gap-3 ${
-        isBroadcast ? 'bg-[#000060]/5 border-[#000060]/10' : 'border-gray-100'
-      }`}>
+      <div
+        className={`px-4 py-3 border-b flex items-start justify-between gap-3 ${
+          isBroadcast ? "bg-[#000060]/5 border-[#000060]/10" : "border-gray-100"
+        }`}
+      >
         <div className="flex items-start gap-3 flex-1 min-w-0">
           {/* Icon */}
           {isBroadcast ? (
@@ -134,7 +140,7 @@ const NotificationSidePanel = ({
           ) : (
             <NotificationIcon eventType={event_type} size="md" />
           )}
-          
+
           <div className="flex-1 min-w-0">
             {/* Title with time */}
             <div className="flex items-center gap-2">
@@ -146,7 +152,7 @@ const NotificationSidePanel = ({
                 {formatNotificationTime(created_at)}
               </span>
             </div>
-            
+
             {/* Badges row */}
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               {isBroadcast && (
@@ -155,11 +161,13 @@ const NotificationSidePanel = ({
                   ANNOUNCEMENT
                 </span>
               )}
-              
-              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${priorityConfig.badgeBg} ${priorityConfig.badgeText}`}>
+
+              <span
+                className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${priorityConfig.badgeBg} ${priorityConfig.badgeText}`}
+              >
                 {priorityConfig.label}
               </span>
-              
+
               {!is_read && (
                 <span className="text-[9px] text-[#000060] font-medium flex items-center gap-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#000060]" />
@@ -174,13 +182,18 @@ const NotificationSidePanel = ({
               )}
 
               {attachment && (
-                <span className={`text-[9px] flex items-center gap-0.5 px-1.5 py-0.5 rounded ${
-                  attachment.type === 'image' ? 'bg-green-100 text-green-700' : 
-                  attachment.type === 'video' ? 'bg-purple-100 text-purple-700' : 'bg-[#000060]/10 text-[#000060]'
-                }`}>
-                  {attachment.type === 'image' && <Image size={8} />}
-                  {attachment.type === 'video' && <Video size={8} />}
-                  {attachment.type === 'link' && <Link2 size={8} />}
+                <span
+                  className={`text-[9px] flex items-center gap-0.5 px-1.5 py-0.5 rounded ${
+                    attachment.type === "image"
+                      ? "bg-green-100 text-green-700"
+                      : attachment.type === "video"
+                        ? "bg-purple-100 text-purple-700"
+                        : "bg-[#000060]/10 text-[#000060]"
+                  }`}
+                >
+                  {attachment.type === "image" && <Image size={8} />}
+                  {attachment.type === "video" && <Video size={8} />}
+                  {attachment.type === "link" && <Link2 size={8} />}
                 </span>
               )}
             </div>
@@ -203,30 +216,36 @@ const NotificationSidePanel = ({
         </p>
 
         {/* Image Attachment */}
-        {attachment && attachment.type === 'image' && (
+        {attachment && attachment.type === "image" && (
           <div className="mt-4">
             {!imageError ? (
-              <div 
+              <div
                 className="relative rounded-lg overflow-hidden bg-gray-100 cursor-pointer group"
                 onClick={() => handleAttachmentClick(attachment)}
               >
                 <img
                   src={getAttachmentUrl(attachment)}
-                  alt={attachment.label || 'Attachment'}
+                  alt={attachment.label || "Attachment"}
                   className="w-full h-auto max-h-48 object-contain"
                   onError={() => setImageError(true)}
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
                     <button
-                      onClick={(e) => { e.stopPropagation(); setShowFullImage(true); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowFullImage(true);
+                      }}
                       className="p-1.5 bg-white/90 rounded-full shadow hover:bg-white"
                       title="View full size"
                     >
                       <Maximize2 size={14} className="text-gray-700" />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleDownload(attachment); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(attachment);
+                      }}
                       className="p-1.5 bg-white/90 rounded-full shadow hover:bg-white"
                       title="Download"
                     >
@@ -238,7 +257,9 @@ const NotificationSidePanel = ({
             ) : (
               <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
                 <Image size={16} className="text-gray-400" />
-                <span className="text-xs text-gray-500">Failed to load image</span>
+                <span className="text-xs text-gray-500">
+                  Failed to load image
+                </span>
               </div>
             )}
             {attachment.original_name && (
@@ -251,9 +272,9 @@ const NotificationSidePanel = ({
         )}
 
         {/* Video Attachment */}
-        {attachment && attachment.type === 'video' && (
+        {attachment && attachment.type === "video" && (
           <div className="mt-4">
-            <div 
+            <div
               className="relative rounded-lg overflow-hidden bg-gray-900 cursor-pointer group"
               onClick={() => handleAttachmentClick(attachment)}
             >
@@ -276,7 +297,7 @@ const NotificationSidePanel = ({
         )}
 
         {/* Link Attachment */}
-        {attachment && attachment.type === 'link' && (
+        {attachment && attachment.type === "link" && (
           <button
             onClick={() => handleAttachmentClick(attachment)}
             className="mt-4 w-full flex items-center gap-2 p-2.5 bg-[#000060]/5 border border-[#000060]/10 rounded-lg hover:border-[#000060]/30 hover:bg-[#000060]/10 transition-all group text-left"
@@ -286,7 +307,7 @@ const NotificationSidePanel = ({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-gray-700 truncate">
-                {attachment.label || 'External Link'}
+                {attachment.label || "External Link"}
               </p>
               <p className="text-[10px] text-gray-400 truncate">
                 {(() => {
@@ -298,28 +319,60 @@ const NotificationSidePanel = ({
                 })()}
               </p>
             </div>
-            <ExternalLink size={12} className="text-gray-400 group-hover:text-[#000060] flex-shrink-0" />
+            <ExternalLink
+              size={12}
+              className="text-gray-400 group-hover:text-[#000060] flex-shrink-0"
+            />
           </button>
         )}
 
         {/* Context Details (non-broadcast) */}
-        {!isBroadcast && context && Object.keys(context).filter(k => 
-          !['shop_id', 'branch_id', 'user_id', 'attachments', 'action_url', 'action_label', 'expires_at'].includes(k)
-        ).length > 0 && (
-          <div className="mt-4 pt-3 border-t border-gray-100">
-            <div className="space-y-1.5">
-              {Object.entries(context)
-                .filter(([k]) => !['shop_id', 'branch_id', 'user_id', 'attachments', 'action_url', 'action_label', 'expires_at'].includes(k))
-                .slice(0, 4)
-                .map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500 capitalize">{key.replace(/_/g, ' ')}</span>
-                    <span className="text-gray-700 font-medium truncate max-w-[150px]">{String(value)}</span>
-                  </div>
-                ))}
+        {!isBroadcast &&
+          context &&
+          Object.keys(context).filter(
+            (k) =>
+              ![
+                "shop_id",
+                "branch_id",
+                "user_id",
+                "attachments",
+                "action_url",
+                "action_label",
+                "expires_at",
+              ].includes(k),
+          ).length > 0 && (
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <div className="space-y-1.5">
+                {Object.entries(context)
+                  .filter(
+                    ([k]) =>
+                      ![
+                        "shop_id",
+                        "branch_id",
+                        "user_id",
+                        "attachments",
+                        "action_url",
+                        "action_label",
+                        "expires_at",
+                      ].includes(k),
+                  )
+                  .slice(0, 4)
+                  .map(([key, value]) => (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between text-xs"
+                    >
+                      <span className="text-gray-500 capitalize">
+                        {key.replace(/_/g, " ")}
+                      </span>
+                      <span className="text-gray-700 font-medium truncate max-w-[150px]">
+                        {String(value)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Timestamps */}
         <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5">
@@ -345,7 +398,7 @@ const NotificationSidePanel = ({
               onClick={handleNavigate}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors bg-[#000060] text-white hover:bg-[#000080]"
             >
-              {actionUrl ? actionLabel : 'View Details'}
+              {actionUrl ? actionLabel : "View Details"}
               <ExternalLink size={12} />
             </button>
           )}
@@ -354,7 +407,7 @@ const NotificationSidePanel = ({
           {!is_read && (
             <button
               onClick={() => onMarkAsRead?.(notification_id)}
-              className={`${(route || actionUrl) ? '' : 'flex-1'} flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors`}
+              className={`${route || actionUrl ? "" : "flex-1"} flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors`}
             >
               <CheckCircle size={14} />
               <span>Mark as read</span>
@@ -364,8 +417,8 @@ const NotificationSidePanel = ({
       </div>
 
       {/* Full Image Modal */}
-      {showFullImage && attachment?.type === 'image' && (
-        <div 
+      {showFullImage && attachment?.type === "image" && (
+        <div
           className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
           onClick={() => setShowFullImage(false)}
         >
@@ -383,7 +436,10 @@ const NotificationSidePanel = ({
           />
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
             <button
-              onClick={(e) => { e.stopPropagation(); handleDownload(attachment); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownload(attachment);
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs rounded-lg transition-colors"
             >
               <Download size={12} />

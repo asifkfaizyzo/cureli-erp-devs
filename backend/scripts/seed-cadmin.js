@@ -9,7 +9,7 @@ async function seed() {
     const password = process.env.CADMIN_DEFAULT_PASSWORD;
     const email = process.env.CADMIN_DEFAULT_EMAIL;
     const phone = process.env.CADMIN_DEFAULT_PHONE;
-    const name = process.env.CADMIN_DEFAULT_NAME || "Super Admin"; // ✅ Add this
+    const name = process.env.CADMIN_DEFAULT_NAME || "Super Admin"; //  Add this
 
     const hash = await hashPassword(password);
 
@@ -26,12 +26,15 @@ async function seed() {
         phone_number: phone,
         password_hash: hash,
         is_active: true,
-        name, // ✅ Add this
+        name, //  Add this
       },
     });
 
     console.log("CAdmin created:", created.username);
-    console.log("Default credentials (change immediately):", { username, password });
+    console.log("Default credentials (change immediately):", {
+      username,
+      password,
+    });
     process.exit(0);
   } catch (err) {
     console.error(err);

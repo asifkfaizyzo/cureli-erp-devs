@@ -54,6 +54,7 @@ import * as audit from "../../../../modules/audit/index.js";
 ```
 
 The import gives you access to:
+
 - `audit.log(payload, options)` — write a single audit entry
 - `audit.logMany(payloads, options)` — write multiple entries in batch
 - `audit.AuditAction.*` — all valid action constants
@@ -81,6 +82,7 @@ export async function createSomething(data, cadminId, auditContext = {}) {
 Read-only functions (list, getById, stats, search, preview) do NOT need this.
 
 **How to identify mutating functions:**
+
 - Uses `prisma.*.create()`, `prisma.*.update()`, `prisma.*.delete()`,
   `prisma.*.updateMany()`, `prisma.*.deleteMany()`, `prisma.*.createMany()`
 - Changes state that affects users, shops, subscriptions, or admins
@@ -99,7 +101,7 @@ same transaction if one exists.
 const result = await prisma.$transaction(async (tx) => {
   const created = await tx.something.create({ data: { ... } });
 
-  // ✅ Audit inside the transaction — rolls back if transaction fails
+  //  Audit inside the transaction — rolls back if transaction fails
   await audit.log({
     action:      audit.AuditAction.SOMETHING_CREATED,
     entity_type: audit.EntityType.SOMETHING,
@@ -124,7 +126,7 @@ const updated = await prisma.something.update({
   data: { ... },
 });
 
-// ✅ Audit after the mutation
+//  Audit after the mutation
 await audit.log({
   action:      audit.AuditAction.SOMETHING_UPDATED,
   entity_type: audit.EntityType.SOMETHING,
@@ -138,7 +140,7 @@ await audit.log({
 #### Pattern C — Non-blocking (for non-critical operations like broadcasts):
 
 ```js
-// ✅ Fire-and-forget — log failure does not fail the operation
+//  Fire-and-forget — log failure does not fail the operation
 audit.log({
   action:      audit.AuditAction.BROADCAST_SENT,
   entity_type: audit.EntityType.SYSTEM,
@@ -155,9 +157,9 @@ audit.log({
 const systemContext = audit.buildSystemContext("my-cron-job-name");
 
 await audit.log({
-  action:      audit.AuditAction.SOMETHING_AUTO_PROCESSED,
+  action: audit.AuditAction.SOMETHING_AUTO_PROCESSED,
   entity_type: audit.EntityType.SOMETHING,
-  entity_id:   entityId,
+  entity_id: entityId,
   ...systemContext,
   reason_code: audit.AuditReasonCode.AUTOMATION,
   metadata: {
@@ -208,26 +210,27 @@ export async function createSomethingController(req, res) {
 
 Every `audit.log()` call MUST have these fields:
 
-| Field | Type | Required | Source |
-|---|---|---|---|
-| `action` | string | ✅ YES | `audit.AuditAction.SOME_ACTION` |
-| `entity_type` | string | ✅ YES | `audit.EntityType.SOME_TYPE` |
-| `entity_id` | string/null | ✅ YES | UUID of affected entity, or null for bulk |
-| `actor_type` | string | ✅ YES | From `...auditContext` spread |
-| `actor_id` | string/null | ✅ YES | From `...auditContext` spread |
-| `reason_code` | string | Optional | `audit.AuditReasonCode.SOME_CODE` |
-| `metadata` | object/null | Optional | Plain object, no BigInt |
-| `ip_address` | string/null | Optional | From `...auditContext` spread |
-| `user_agent` | string/null | Optional | From `...auditContext` spread |
-| `shop_id` | string/null | Optional | UUID if action is shop-scoped |
-| `branch_id` | string/null | Optional | UUID if action is branch-scoped |
-| `correlation_id` | string/null | Optional | For grouping related events |
+| Field            | Type        | Required | Source                                    |
+| ---------------- | ----------- | -------- | ----------------------------------------- |
+| `action`         | string      | YES      | `audit.AuditAction.SOME_ACTION`           |
+| `entity_type`    | string      | YES      | `audit.EntityType.SOME_TYPE`              |
+| `entity_id`      | string/null | YES      | UUID of affected entity, or null for bulk |
+| `actor_type`     | string      | YES      | From `...auditContext` spread             |
+| `actor_id`       | string/null | YES      | From `...auditContext` spread             |
+| `reason_code`    | string      | Optional | `audit.AuditReasonCode.SOME_CODE`         |
+| `metadata`       | object/null | Optional | Plain object, no BigInt                   |
+| `ip_address`     | string/null | Optional | From `...auditContext` spread             |
+| `user_agent`     | string/null | Optional | From `...auditContext` spread             |
+| `shop_id`        | string/null | Optional | UUID if action is shop-scoped             |
+| `branch_id`      | string/null | Optional | UUID if action is branch-scoped           |
+| `correlation_id` | string/null | Optional | For grouping related events               |
 
 ---
 
 ## Choosing the Right AuditAction
 
 ### Naming convention:
+
 ```
 ENTITY_VERB                    e.g. SHOP_ACTIVATED
 ENTITY_VERB_BY_ACTOR           e.g. USER_SUSPENDED_BY_ADMIN
@@ -268,6 +271,7 @@ Is it a BROADCAST?
 ### If no action exists for your use case:
 
 1. Add it to `backend/src/modules/audit/audit.actions.js`:
+
 ```js
 // In the AuditAction object:
 MY_NEW_ACTION: "MY_NEW_ACTION",
@@ -278,6 +282,7 @@ MY_NEW_ACTION: "MY_NEW_ACTION",
 
 3. If you also need a new EntityType, add it to
    `backend/src/modules/audit/audit.constants.js`:
+
 ```js
 // In the EntityType object:
 MY_NEW_ENTITY: "my_new_entity",
@@ -287,51 +292,52 @@ MY_NEW_ENTITY: "my_new_entity",
 
 ## Choosing the Right EntityType
 
-| Entity | Use for |
-|---|---|
-| `USER` | ERP user accounts |
-| `SHOP` | Shop accounts |
-| `BRANCH` | Shop branches |
-| `SUBSCRIPTION` | Shop subscriptions |
-| `PLAN` | Subscription plans |
-| `TICKET` | Support tickets |
-| `DOCUMENT` | Shop verification files |
-| `ENQUIRY` | Enquiry responses |
-| `PAYMENT` | Payment transactions |
-| `CADMIN` | CAdmin accounts AND roles |
-| `SYSTEM` | Broadcasts, system events |
-| `MEDICINE` | Shop medicines (linked/unlinked) |
-| `MASTER_MEDICINE` | Master medicine catalog entries |
-| `MASTER_MEDICINE_VARIANT` | Variants under a master |
-| `MASTER_MEDICINE_IMAGE` | Images for master medicines |
-| `CUSTOMER` | Shop customers |
-| `SUPPLIER` | Shop suppliers |
-| `INVENTORY` | Stock/inventory |
-| `PURCHASE_INVOICE` | Purchase invoices |
-| `SALES_INVOICE` | Sales invoices |
+| Entity                    | Use for                          |
+| ------------------------- | -------------------------------- |
+| `USER`                    | ERP user accounts                |
+| `SHOP`                    | Shop accounts                    |
+| `BRANCH`                  | Shop branches                    |
+| `SUBSCRIPTION`            | Shop subscriptions               |
+| `PLAN`                    | Subscription plans               |
+| `TICKET`                  | Support tickets                  |
+| `DOCUMENT`                | Shop verification files          |
+| `ENQUIRY`                 | Enquiry responses                |
+| `PAYMENT`                 | Payment transactions             |
+| `CADMIN`                  | CAdmin accounts AND roles        |
+| `SYSTEM`                  | Broadcasts, system events        |
+| `MEDICINE`                | Shop medicines (linked/unlinked) |
+| `MASTER_MEDICINE`         | Master medicine catalog entries  |
+| `MASTER_MEDICINE_VARIANT` | Variants under a master          |
+| `MASTER_MEDICINE_IMAGE`   | Images for master medicines      |
+| `CUSTOMER`                | Shop customers                   |
+| `SUPPLIER`                | Shop suppliers                   |
+| `INVENTORY`               | Stock/inventory                  |
+| `PURCHASE_INVOICE`        | Purchase invoices                |
+| `SALES_INVOICE`           | Sales invoices                   |
 
 ---
 
 ## Choosing the Right ReasonCode
 
-| Code | When to use |
-|---|---|
-| `ADMIN_ACTION` | CAdmin performed the action through the UI |
-| `USER_REQUEST` | Admin acting on their OWN account (self-update) |
-| `SECURITY_ACTION` | Password changes, login, logout, account lock |
-| `PAYMENT_ISSUE` | Suspension due to non-payment |
-| `SYSTEM_ENFORCEMENT` | Plan limit exceeded, policy violation |
-| `PLAN_LIMIT_ENFORCEMENT` | User/branch disabled due to plan downgrade |
-| `DATA_CORRECTION` | Admin fixing incorrect data |
-| `AUTOMATION` | Cron jobs, scheduled tasks |
-| `SUPER_ADMIN_OVERRIDE` | Action that bypasses normal restrictions |
-| `UNKNOWN` | Fallback (avoid using) |
+| Code                     | When to use                                     |
+| ------------------------ | ----------------------------------------------- |
+| `ADMIN_ACTION`           | CAdmin performed the action through the UI      |
+| `USER_REQUEST`           | Admin acting on their OWN account (self-update) |
+| `SECURITY_ACTION`        | Password changes, login, logout, account lock   |
+| `PAYMENT_ISSUE`          | Suspension due to non-payment                   |
+| `SYSTEM_ENFORCEMENT`     | Plan limit exceeded, policy violation           |
+| `PLAN_LIMIT_ENFORCEMENT` | User/branch disabled due to plan downgrade      |
+| `DATA_CORRECTION`        | Admin fixing incorrect data                     |
+| `AUTOMATION`             | Cron jobs, scheduled tasks                      |
+| `SUPER_ADMIN_OVERRIDE`   | Action that bypasses normal restrictions        |
+| `UNKNOWN`                | Fallback (avoid using)                          |
 
 ---
 
 ## Metadata Best Practices
 
 ### Always include:
+
 ```js
 metadata: {
   // WHO triggered it (if not obvious from actor_id)
@@ -348,8 +354,9 @@ metadata: {
 ```
 
 ### Never include:
+
 ```js
-// ❌ NEVER LOG THESE
+//  NEVER LOG THESE
 metadata: {
   password: "...",           // ← secret
   password_hash: "...",      // ← secret
@@ -361,29 +368,34 @@ metadata: {
 ```
 
 ### BigInt handling:
-```js
-// ❌ WRONG — BigInt is not JSON-serializable
-metadata: { price: plan.price }
 
-// ✅ CORRECT — convert to Number first
-metadata: { price: Number(plan.price) }
+```js
+//  WRONG — BigInt is not JSON-serializable
+metadata: {
+  price: plan.price;
+}
+
+//  CORRECT — convert to Number first
+metadata: {
+  price: Number(plan.price);
+}
 ```
 
 ---
 
 ## When to Use Transaction vs Non-blocking
 
-| Scenario | Pattern | Why |
-|---|---|---|
-| User created/updated/deleted | Transaction (`{ tx }`) | Data + audit must succeed together |
-| Role assigned/changed | Transaction | Security-critical |
-| Password changed | Transaction | Security-critical (throws on failure) |
-| Login/logout | Transaction | Security-critical |
-| Shop suspended | Transaction | Important business event |
-| Subscription changed | Transaction | Billing-critical |
-| Broadcast sent | Non-blocking (`.catch()`) | Broadcast already succeeded, audit is secondary |
-| Notification sent | Non-blocking | Same reason |
-| Cron job processed | Non-blocking | Don't fail the batch |
+| Scenario                     | Pattern                   | Why                                             |
+| ---------------------------- | ------------------------- | ----------------------------------------------- |
+| User created/updated/deleted | Transaction (`{ tx }`)    | Data + audit must succeed together              |
+| Role assigned/changed        | Transaction               | Security-critical                               |
+| Password changed             | Transaction               | Security-critical (throws on failure)           |
+| Login/logout                 | Transaction               | Security-critical                               |
+| Shop suspended               | Transaction               | Important business event                        |
+| Subscription changed         | Transaction               | Billing-critical                                |
+| Broadcast sent               | Non-blocking (`.catch()`) | Broadcast already succeeded, audit is secondary |
+| Notification sent            | Non-blocking              | Same reason                                     |
+| Cron job processed           | Non-blocking              | Don't fail the batch                            |
 
 ---
 
@@ -393,76 +405,98 @@ metadata: { price: Number(plan.price) }
 
 ```js
 // CREATE
-await audit.log({
-  action:      audit.AuditAction.ENTITY_CREATED,
-  entity_type: audit.EntityType.ENTITY,
-  entity_id:   created.id,
-  ...auditContext,
-  reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-  metadata: {
-    name: created.name,
-    created_by_cadmin_id: auditContext.actor_id,
+await audit.log(
+  {
+    action: audit.AuditAction.ENTITY_CREATED,
+    entity_type: audit.EntityType.ENTITY,
+    entity_id: created.id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      name: created.name,
+      created_by_cadmin_id: auditContext.actor_id,
+    },
   },
-}, { tx });
+  { tx },
+);
 
 // UPDATE
-await audit.log({
-  action:      audit.AuditAction.ENTITY_UPDATED,
-  entity_type: audit.EntityType.ENTITY,
-  entity_id:   id,
-  ...auditContext,
-  reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-  metadata: {
-    changed_fields: Object.keys(changes),
-    before: Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v.old])),
-    after:  Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v.new])),
-    updated_by_cadmin_id: auditContext.actor_id,
+await audit.log(
+  {
+    action: audit.AuditAction.ENTITY_UPDATED,
+    entity_type: audit.EntityType.ENTITY,
+    entity_id: id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      changed_fields: Object.keys(changes),
+      before: Object.fromEntries(
+        Object.entries(changes).map(([k, v]) => [k, v.old]),
+      ),
+      after: Object.fromEntries(
+        Object.entries(changes).map(([k, v]) => [k, v.new]),
+      ),
+      updated_by_cadmin_id: auditContext.actor_id,
+    },
   },
-}, { tx });
+  { tx },
+);
 
 // TOGGLE STATUS
-await audit.log({
-  action:      isActive ? audit.AuditAction.ENTITY_ACTIVATED : audit.AuditAction.ENTITY_SUSPENDED,
-  entity_type: audit.EntityType.ENTITY,
-  entity_id:   id,
-  ...auditContext,
-  reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-  metadata: {
-    previous_status: existing.is_active ? "active" : "suspended",
-    reason: isActive ? "Activated by admin" : "Suspended by admin",
+await audit.log(
+  {
+    action: isActive
+      ? audit.AuditAction.ENTITY_ACTIVATED
+      : audit.AuditAction.ENTITY_SUSPENDED,
+    entity_type: audit.EntityType.ENTITY,
+    entity_id: id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      previous_status: existing.is_active ? "active" : "suspended",
+      reason: isActive ? "Activated by admin" : "Suspended by admin",
+    },
   },
-}, { tx });
+  { tx },
+);
 
 // SOFT DELETE
-await audit.log({
-  action:      audit.AuditAction.ENTITY_DELETED,
-  entity_type: audit.EntityType.ENTITY,
-  entity_id:   id,
-  ...auditContext,
-  reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-  metadata: {
-    deleted_by_cadmin_id: auditContext.actor_id,
-    name: existing.name,
+await audit.log(
+  {
+    action: audit.AuditAction.ENTITY_DELETED,
+    entity_type: audit.EntityType.ENTITY,
+    entity_id: id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      deleted_by_cadmin_id: auditContext.actor_id,
+      name: existing.name,
+    },
   },
-}, { tx });
+  { tx },
+);
 ```
 
 ### Broadcast/Notification Service
 
 ```js
 // Always non-blocking
-audit.log({
-  action:      audit.AuditAction.BROADCAST_SENT,
-  entity_type: audit.EntityType.SYSTEM,
-  entity_id:   campaign.id,
-  ...auditContext,
-  reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-  metadata: {
-    title:           campaign.title,
-    recipient_count: recipients.length,
-    broadcast_type:  "inapp",   // or "email"
-  },
-}).catch(err => console.error("[AUDIT] Broadcast audit failed:", err.message));
+audit
+  .log({
+    action: audit.AuditAction.BROADCAST_SENT,
+    entity_type: audit.EntityType.SYSTEM,
+    entity_id: campaign.id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      title: campaign.title,
+      recipient_count: recipients.length,
+      broadcast_type: "inapp", // or "email"
+    },
+  })
+  .catch((err) =>
+    console.error("[AUDIT] Broadcast audit failed:", err.message),
+  );
 ```
 
 ### Self-Service (profile, password)
@@ -470,14 +504,14 @@ audit.log({
 ```js
 // actor_id === entity_id (admin acting on themselves)
 await audit.log({
-  action:      audit.AuditAction.CADMIN_PROFILE_UPDATED,
+  action: audit.AuditAction.CADMIN_PROFILE_UPDATED,
   entity_type: audit.EntityType.CADMIN,
-  entity_id:   cadminId,
-  actor_type:  "cadmin",
-  actor_id:    cadminId,
+  entity_id: cadminId,
+  actor_type: "cadmin",
+  actor_id: cadminId,
   reason_code: audit.AuditReasonCode.USER_REQUEST,
-  ip_address:  meta.ip ?? null,
-  user_agent:  meta.ua ?? null,
+  ip_address: meta.ip ?? null,
+  user_agent: meta.ua ?? null,
   metadata: {
     changed_fields: Object.keys(changes),
     self_update: true,
@@ -489,18 +523,21 @@ await audit.log({
 
 ```js
 // entity_id is null for bulk — list IDs in metadata instead
-await audit.log({
-  action:      audit.AuditAction.MEDICINES_MATCHED,
-  entity_type: audit.EntityType.MEDICINE,
-  entity_id:   null,
-  ...auditContext,
-  reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-  metadata: {
-    medicine_ids:  medicineIds,
-    count:         result.count,
-    matched_to:    variant.name,
+await audit.log(
+  {
+    action: audit.AuditAction.MEDICINES_MATCHED,
+    entity_type: audit.EntityType.MEDICINE,
+    entity_id: null,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      medicine_ids: medicineIds,
+      count: result.count,
+      matched_to: variant.name,
+    },
   },
-}, { tx });
+  { tx },
+);
 ```
 
 ---
@@ -542,21 +579,22 @@ await audit.log({
 
 ## Files Reference
 
-| File | Purpose |
-|---|---|
-| `backend/src/modules/audit/index.js` | Public API — import this |
-| `backend/src/modules/audit/audit.service.js` | Core log() and logMany() |
-| `backend/src/modules/audit/audit.actions.js` | All valid AuditAction constants |
-| `backend/src/modules/audit/audit.constants.js` | ActorType, EntityType, SecurityActions |
-| `backend/src/modules/audit/audit.reasons.js` | All valid AuditReasonCode constants |
-| `backend/src/modules/audit/audit.validators.js` | Payload validation + normalization |
-| `backend/src/modules/audit/audit.utils.js` | extractRequestContext, buildSystemContext |
+| File                                            | Purpose                                   |
+| ----------------------------------------------- | ----------------------------------------- |
+| `backend/src/modules/audit/index.js`            | Public API — import this                  |
+| `backend/src/modules/audit/audit.service.js`    | Core log() and logMany()                  |
+| `backend/src/modules/audit/audit.actions.js`    | All valid AuditAction constants           |
+| `backend/src/modules/audit/audit.constants.js`  | ActorType, EntityType, SecurityActions    |
+| `backend/src/modules/audit/audit.reasons.js`    | All valid AuditReasonCode constants       |
+| `backend/src/modules/audit/audit.validators.js` | Payload validation + normalization        |
+| `backend/src/modules/audit/audit.utils.js`      | extractRequestContext, buildSystemContext |
 
 ---
 
 ## Anti-Patterns — What NOT to Do
 
-### ❌ Don't audit reads
+### Don't audit reads
+
 ```js
 // WRONG — listing is not a business event
 export async function listUsers() {
@@ -566,23 +604,26 @@ export async function listUsers() {
 }
 ```
 
-### ❌ Don't audit before the mutation
+### Don't audit before the mutation
+
 ```js
 // WRONG — if the DB operation fails, you have a false audit entry
 await audit.log({ action: "USER_CREATED", ... });  // ← audit BEFORE create
 const user = await prisma.user.create({ ... });     // ← this might fail
 ```
 
-### ❌ Don't use uppercase actor_type
+### Don't use uppercase actor_type
+
 ```js
 // WRONG
-actor_type: "CADMIN"    // ← validator rejects this
+actor_type: "CADMIN"; // ← validator rejects this
 
 // CORRECT
-actor_type: "cadmin"    // ← always lowercase
+actor_type: "cadmin"; // ← always lowercase
 ```
 
-### ❌ Don't pass arrays as entity_id
+### Don't pass arrays as entity_id
+
 ```js
 // WRONG
 entity_id: medicineIds  // ← array, validator rejects
@@ -592,7 +633,8 @@ entity_id: null,        // ← null for bulk ops
 metadata: { medicine_ids: medicineIds }  // ← list in metadata
 ```
 
-### ❌ Don't swallow audit errors for security actions
+### Don't swallow audit errors for security actions
+
 ```js
 // WRONG — security actions MUST throw on audit failure
 await audit.log({
@@ -608,13 +650,14 @@ await audit.log({
 }, { tx });
 ```
 
-### ❌ Don't create new AuditAction constants with generic names
+### Don't create new AuditAction constants with generic names
+
 ```js
 // WRONG
-MANAGE_USERS: "MANAGE_USERS"        // ← too vague
-ADMIN_ACTION: "ADMIN_ACTION"        // ← meaningless
+MANAGE_USERS: "MANAGE_USERS"; // ← too vague
+ADMIN_ACTION: "ADMIN_ACTION"; // ← meaningless
 
 // CORRECT
-USER_PROFILE_UPDATED_BY_ADMIN: "USER_PROFILE_UPDATED_BY_ADMIN"
-SHOP_SUSPENDED_DUE_TO_NON_PAYMENT: "SHOP_SUSPENDED_DUE_TO_NON_PAYMENT"
+USER_PROFILE_UPDATED_BY_ADMIN: "USER_PROFILE_UPDATED_BY_ADMIN";
+SHOP_SUSPENDED_DUE_TO_NON_PAYMENT: "SHOP_SUSPENDED_DUE_TO_NON_PAYMENT";
 ```

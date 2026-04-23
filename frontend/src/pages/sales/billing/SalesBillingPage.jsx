@@ -14,9 +14,15 @@ import SalesInvoicePrint from "./components/SalesInvoicePrint";
 import CustomerSearchModal from "./components/CustomerSearchModal";
 
 // Hooks & API
-import { useSalesCalculation, calculateSalesRow } from "../../../hooks/sales/useSalesCalculation";
+import {
+  useSalesCalculation,
+  calculateSalesRow,
+} from "../../../hooks/sales/useSalesCalculation";
 import { useResponsiveRowCount } from "../../../hooks/purchase/useResponsiveRowCount";
-import { useSalesRows, useSalesCustomer } from "../../../hooks/sales/useSalesRows";
+import {
+  useSalesRows,
+  useSalesCustomer,
+} from "../../../hooks/sales/useSalesRows";
 import { useSalesAPI } from "../../../hooks/sales/useSalesAPI";
 import { useToast } from "../../../components/common/Toast";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
@@ -39,9 +45,9 @@ const SalesBillingPage = () => {
   const navigate = useNavigate();
   const { invoiceId } = useParams();
   const [searchParams] = useSearchParams();
-  
-  const editMode = searchParams.get('mode');
-  const isEditingConfirmed = editMode === 'edit-confirmed';
+
+  const editMode = searchParams.get("mode");
+  const isEditingConfirmed = editMode === "edit-confirmed";
   const isEditMode = !!invoiceId;
 
   const printRef = useRef(null);
@@ -51,29 +57,29 @@ const SalesBillingPage = () => {
   // ============================================
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
-    type: 'danger',
-    title: '',
-    message: '',
-    confirmText: '',
+    type: "danger",
+    title: "",
+    message: "",
+    confirmText: "",
     onConfirm: () => {},
   });
 
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
 
   const closeConfirmDialog = useCallback(() => {
-    setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+    setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
   }, []);
 
   // ============================================
   // AUTH & BRANCH CONTEXT
   // ============================================
   const branchContext = useAuthStore(selectBranchContext);
-  const user = useAuthStore(state => state.user);
+  const user = useAuthStore((state) => state.user);
   const isSuperAdmin = user?.role === "super_admin";
-  
-  // ✅ FIX: Check `name` property first (that's what auth store uses)
+
+  //  FIX: Check `name` property first (that's what auth store uses)
   // Also added debugging to help trace the issue
-  
+
   // 🔍 DEBUG: Log the entire user object to see its structure
   useEffect(() => {
     console.log("🔍 DEBUG - Full user object from auth store:", user);
@@ -85,12 +91,20 @@ const SalesBillingPage = () => {
       user_id: user?.user_id,
       role: user?.role,
     });
-    console.log("🔍 DEBUG - localStorage user_name:", localStorage.getItem("user_name"));
+    console.log(
+      "🔍 DEBUG - localStorage user_name:",
+      localStorage.getItem("user_name"),
+    );
   }, [user]);
 
-  // ✅ FIXED: Correct property order - `name` is the correct property
-  const billedByName = user?.name || user?.full_name || user?.first_name || user?.username || "Staff";
-  
+  //  FIXED: Correct property order - `name` is the correct property
+  const billedByName =
+    user?.name ||
+    user?.full_name ||
+    user?.first_name ||
+    user?.username ||
+    "Staff";
+
   // 🔍 DEBUG: Log the resolved billedByName
   useEffect(() => {
     console.log("🔍 DEBUG - Resolved billedByName:", billedByName);
@@ -128,14 +142,14 @@ const SalesBillingPage = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  // ✅ NEW: Preview invoice number state
+  //  NEW: Preview invoice number state
   const [previewInvoiceNumber, setPreviewInvoiceNumber] = useState(null);
 
   // ============================================
   // INVOICE METADATA
   // ============================================
   const [invoiceData, setInvoiceData] = useState({
-    invoice_date: new Date().toISOString().split('T')[0],
+    invoice_date: new Date().toISOString().split("T")[0],
     branch_id: branchContext.branch_id || null,
     prescription_number: "",
     remarks: "",
@@ -149,10 +163,10 @@ const SalesBillingPage = () => {
   // ============================================
   // ROWS MANAGEMENT (WITH PERSISTENCE)
   // ============================================
-  const { 
-    rows, 
-    setRows, 
-    getFilledRows, 
+  const {
+    rows,
+    setRows,
+    getFilledRows,
     clearAllRows,
     hasUnsavedData,
     isInitialized: rowsInitialized,
@@ -162,11 +176,7 @@ const SalesBillingPage = () => {
   // ============================================
   // CUSTOMER STATE (WITH PERSISTENCE)
   // ============================================
-  const {
-    customer,
-    setCustomer,
-    clearCustomer,
-  } = useSalesCustomer();
+  const { customer, setCustomer, clearCustomer } = useSalesCustomer();
 
   // ============================================
   // CALCULATE SUMMARY
@@ -178,21 +188,29 @@ const SalesBillingPage = () => {
   // ============================================
   useEffect(() => {
     if (isEditingConfirmed && !isSuperAdmin) {
-      toast.error("Access Denied", "Only Super Admin can edit confirmed invoices.");
-      navigate('/sales/invoice');
+      toast.error(
+        "Access Denied",
+        "Only Super Admin can edit confirmed invoices.",
+      );
+      navigate("/sales/invoice");
     }
   }, [isEditingConfirmed, isSuperAdmin, navigate, toast]);
 
   // ============================================
-  // ✅ FIX 1: GENERATE PREVIEW INVOICE NUMBER
+  //  FIX 1: GENERATE PREVIEW INVOICE NUMBER
   // ============================================
   useEffect(() => {
-    if (!currentInvoice && branchContext.branch_id && branchContext.branch_name) {
-      const branchCode = branchContext.branch_name
-        .substring(0, 3)
-        .toUpperCase()
-        .replace(/\s/g, '') || 'BR1';
-      
+    if (
+      !currentInvoice &&
+      branchContext.branch_id &&
+      branchContext.branch_name
+    ) {
+      const branchCode =
+        branchContext.branch_name
+          .substring(0, 3)
+          .toUpperCase()
+          .replace(/\s/g, "") || "BR1";
+
       const timestamp = Date.now().toString().slice(-6);
       setPreviewInvoiceNumber(`SALE-${branchCode}-DRAFT-${timestamp}`);
     }
@@ -203,9 +221,9 @@ const SalesBillingPage = () => {
   // ============================================
   useEffect(() => {
     if (branchContext.branch_id) {
-      setInvoiceData(prev => ({
+      setInvoiceData((prev) => ({
         ...prev,
-        branch_id: branchContext.branch_id
+        branch_id: branchContext.branch_id,
       }));
     }
   }, [branchContext.branch_id]);
@@ -218,13 +236,14 @@ const SalesBillingPage = () => {
       if (hasUnsavedData()) {
         forceSave();
         e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        e.returnValue =
+          "You have unsaved changes. Are you sure you want to leave?";
         return e.returnValue;
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedData, forceSave]);
 
   // ============================================
@@ -232,35 +251,35 @@ const SalesBillingPage = () => {
   // ============================================
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'F5') {
+      if (e.key === "F5") {
         e.preventDefault();
-        if (!isSaving && currentInvoice?.status !== 'CONFIRMED') {
+        if (!isSaving && currentInvoice?.status !== "CONFIRMED") {
           handleConfirmAndPrint();
         }
       }
-      
-      if (e.ctrlKey && e.key === 'n') {
+
+      if (e.ctrlKey && e.key === "n") {
         e.preventDefault();
         handleNewBill();
       }
-      
-      if (e.ctrlKey && e.key === 's') {
+
+      if (e.ctrlKey && e.key === "s") {
         e.preventDefault();
-        if (!isSaving && currentInvoice?.status !== 'CONFIRMED') {
+        if (!isSaving && currentInvoice?.status !== "CONFIRMED") {
           handleSave();
         }
       }
-      
-      if (e.ctrlKey && e.key === 'p') {
-        if (currentInvoice?.status === 'CONFIRMED') {
+
+      if (e.ctrlKey && e.key === "p") {
+        if (currentInvoice?.status === "CONFIRMED") {
           e.preventDefault();
           handlePrint();
         }
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isSaving, currentInvoice]); // eslint-disable-line
 
   // ============================================
@@ -277,24 +296,33 @@ const SalesBillingPage = () => {
 
       try {
         setTimeout(() => {
-          setLoadingStates(prev => ({ ...prev, header: false }));
+          setLoadingStates((prev) => ({ ...prev, header: false }));
         }, 200);
 
         await loadMedicines();
-        setLoadingStates(prev => ({ ...prev, table: false, summary: false }));
+        setLoadingStates((prev) => ({ ...prev, table: false, summary: false }));
 
         await loadCustomers();
-        setLoadingStates(prev => ({ ...prev, customer: false }));
+        setLoadingStates((prev) => ({ ...prev, customer: false }));
 
         if (invoiceId) {
-          setLoadingStates(prev => ({ ...prev, table: true, customer: true, summary: true }));
+          setLoadingStates((prev) => ({
+            ...prev,
+            table: true,
+            customer: true,
+            summary: true,
+          }));
           const invoice = await loadInvoiceForEdit(invoiceId);
           if (invoice) {
             populateInvoiceData(invoice);
           }
-          setLoadingStates(prev => ({ ...prev, table: false, customer: false, summary: false }));
+          setLoadingStates((prev) => ({
+            ...prev,
+            table: false,
+            customer: false,
+            summary: false,
+          }));
         }
-
       } catch (error) {
         console.error("Init error:", error);
         setLoadingStates({
@@ -303,10 +331,13 @@ const SalesBillingPage = () => {
           customer: false,
           summary: false,
         });
-        
+
         if (isEditingConfirmed) {
-          toast.error("Load Failed", "Failed to load confirmed invoice for editing.");
-          navigate('/sales/invoice');
+          toast.error(
+            "Load Failed",
+            "Failed to load confirmed invoice for editing.",
+          );
+          navigate("/sales/invoice");
         }
       }
     };
@@ -317,116 +348,174 @@ const SalesBillingPage = () => {
   // ============================================
   // POPULATE INVOICE DATA (EDIT MODE)
   // ============================================
-  const populateInvoiceData = useCallback((invoice) => {
-    if (!invoice) return;
+  const populateInvoiceData = useCallback(
+    (invoice) => {
+      if (!invoice) return;
 
-    if (invoice.customer) {
-      setCustomer({
-        customer_id: invoice.customer.customer_id,
-        name: invoice.customer.name,
-        phone: invoice.customer.phone || "",
-        address: [
-          invoice.customer.address_line_1,
-          invoice.customer.city,
-          invoice.customer.state,
-        ].filter(Boolean).join(", "),
-        doctorName: invoice.doctor_name || "",
-        patientName: invoice.walkin_name || invoice.customer.name || "",
-        paymentType: invoice.is_credit_sale ? "CREDIT" : "CASH",
-        cashReceived: invoice.paid_amount?.toString() || "",
-        gstNumber: invoice.customer.gst_number || "",
-        discountPercent: invoice.customer_discount_percent || 0,
-        eWayBillNo: "",
-        sameAsCustomer: invoice.walkin_name === invoice.customer.name,
-      });
-    } else {
-      setCustomer(prev => ({
-        ...prev,
-        customer_id: null,
-        name: "",
-        patientName: invoice.walkin_name || "",
-        phone: invoice.walkin_phone || "",
-        doctorName: invoice.doctor_name || "",
-        paymentType: "CASH",
-        cashReceived: invoice.paid_amount?.toString() || "",
-        eWayBillNo: "",
-        sameAsCustomer: false,
-      }));
-    }
-
-    setInvoiceData({
-      invoice_date: invoice.invoice_date,
-      branch_id: invoice.branch_id,
-      prescription_number: invoice.prescription_number || "",
-      remarks: invoice.remarks || "",
-    });
-
-    const populatedRows = invoice.lineItems.map((item) => {
-      let expiry = "";
-      if (item.expiry_date) {
-        const expDate = new Date(item.expiry_date);
-        const month = String(expDate.getMonth() + 1).padStart(2, "0");
-        const year = String(expDate.getFullYear()).slice(-2);
-        expiry = `${month}/${year}`;
+      if (invoice.customer) {
+        setCustomer({
+          customer_id: invoice.customer.customer_id,
+          name: invoice.customer.name,
+          phone: invoice.customer.phone || "",
+          address: [
+            invoice.customer.address_line_1,
+            invoice.customer.city,
+            invoice.customer.state,
+          ]
+            .filter(Boolean)
+            .join(", "),
+          doctorName: invoice.doctor_name || "",
+          patientName: invoice.walkin_name || invoice.customer.name || "",
+          paymentType: invoice.is_credit_sale ? "CREDIT" : "CASH",
+          cashReceived: invoice.paid_amount?.toString() || "",
+          gstNumber: invoice.customer.gst_number || "",
+          discountPercent: invoice.customer_discount_percent || 0,
+          eWayBillNo: "",
+          sameAsCustomer: invoice.walkin_name === invoice.customer.name,
+        });
+      } else {
+        setCustomer((prev) => ({
+          ...prev,
+          customer_id: null,
+          name: "",
+          patientName: invoice.walkin_name || "",
+          phone: invoice.walkin_phone || "",
+          doctorName: invoice.doctor_name || "",
+          paymentType: "CASH",
+          cashReceived: invoice.paid_amount?.toString() || "",
+          eWayBillNo: "",
+          sameAsCustomer: false,
+        }));
       }
 
-      return {
-        medicine_id: item.medicine_id,
-        inventory_id: item.inventory_id,
-        name: item.medicine?.name || "",
-        manufacturer: item.medicine?.manufacturer || "",
-        batch: item.batch_number,
-        exp: expiry,
-        qty: item.quantity?.toString() || "",
-        mrp: item.mrp?.toString() || "",
-        rate: item.selling_rate?.toString() || item.mrp?.toString() || "",
-        rack: item.inventory?.rack_no || "",
-        discountPercent: item.discount_percent?.toString() || "0",
-        cgstPercent: item.cgst_percent?.toString() || "6",
-        sgstPercent: item.sgst_percent?.toString() || "6",
-        stock: item.inventory?.available_stock?.toString() || "",
-        amount: item.line_total?.toString() || "",
-        availableBatches: [],
-      };
-    });
+      setInvoiceData({
+        invoice_date: invoice.invoice_date,
+        branch_id: invoice.branch_id,
+        prescription_number: invoice.prescription_number || "",
+        remarks: invoice.remarks || "",
+      });
 
-    setRows(populatedRows);
-  }, [setRows, setCustomer]);
+      const populatedRows = invoice.lineItems.map((item) => {
+        let expiry = "";
+        if (item.expiry_date) {
+          const expDate = new Date(item.expiry_date);
+          const month = String(expDate.getMonth() + 1).padStart(2, "0");
+          const year = String(expDate.getFullYear()).slice(-2);
+          expiry = `${month}/${year}`;
+        }
+
+        return {
+          medicine_id: item.medicine_id,
+          inventory_id: item.inventory_id,
+          name: item.medicine?.name || "",
+          manufacturer: item.medicine?.manufacturer || "",
+          batch: item.batch_number,
+          exp: expiry,
+          qty: item.quantity?.toString() || "",
+          mrp: item.mrp?.toString() || "",
+          rate: item.selling_rate?.toString() || item.mrp?.toString() || "",
+          rack: item.inventory?.rack_no || "",
+          discountPercent: item.discount_percent?.toString() || "0",
+          cgstPercent: item.cgst_percent?.toString() || "6",
+          sgstPercent: item.sgst_percent?.toString() || "6",
+          stock: item.inventory?.available_stock?.toString() || "",
+          amount: item.line_total?.toString() || "",
+          availableBatches: [],
+        };
+      });
+
+      setRows(populatedRows);
+    },
+    [setRows, setCustomer],
+  );
 
   // ============================================
   // CUSTOMER SELECTION FROM MODAL
   // ============================================
-  const handleCustomerSelect = useCallback((selectedCustomer) => {
-    if (selectedCustomer) {
-      setCustomer(prev => ({
-        ...prev,
-        customer_id: selectedCustomer.customer_id,
-        name: selectedCustomer.name,
-        phone: selectedCustomer.phone || "",
-        address: selectedCustomer.address_line_1 || "",
-        gstNumber: selectedCustomer.gst_number || "",
-        discountPercent: selectedCustomer.discount_percent || 0,
-        patientName: prev.sameAsCustomer ? selectedCustomer.name : prev.patientName,
-      }));
-      toast.success("Customer Selected", `${selectedCustomer.name} selected`);
-    }
-    setCustomerSearchOpen(false);
-  }, [toast, setCustomer]);
+  const handleCustomerSelect = useCallback(
+    (selectedCustomer) => {
+      if (selectedCustomer) {
+        setCustomer((prev) => ({
+          ...prev,
+          customer_id: selectedCustomer.customer_id,
+          name: selectedCustomer.name,
+          phone: selectedCustomer.phone || "",
+          address: selectedCustomer.address_line_1 || "",
+          gstNumber: selectedCustomer.gst_number || "",
+          discountPercent: selectedCustomer.discount_percent || 0,
+          patientName: prev.sameAsCustomer
+            ? selectedCustomer.name
+            : prev.patientName,
+        }));
+        toast.success("Customer Selected", `${selectedCustomer.name} selected`);
+      }
+      setCustomerSearchOpen(false);
+    },
+    [toast, setCustomer],
+  );
 
   // ============================================
   // PRODUCT SELECTION (WITH BATCH AUTO-SELECT)
   // ============================================
-  const handleProductSelect = useCallback(async (rowIndex, product, batch = null) => {
-    try {
-      const batches = await getAvailableBatches(product.medicine_id);
-      const selectedBatch = batch || (batches.length > 0 ? batches[0] : null);
+  const handleProductSelect = useCallback(
+    async (rowIndex, product, batch = null) => {
+      try {
+        const batches = await getAvailableBatches(product.medicine_id);
+        const selectedBatch = batch || (batches.length > 0 ? batches[0] : null);
 
+        setRows((prev) => {
+          const newRows = [...prev];
+
+          let expiry = "";
+          if (selectedBatch?.expiry_date) {
+            const expDate = new Date(selectedBatch.expiry_date);
+            const month = String(expDate.getMonth() + 1).padStart(2, "0");
+            const year = String(expDate.getFullYear()).slice(-2);
+            expiry = `${month}/${year}`;
+          }
+
+          newRows[rowIndex] = {
+            ...newRows[rowIndex],
+            medicine_id: product.medicine_id,
+            inventory_id: selectedBatch?.inventory_id || null,
+            name: product.name,
+            manufacturer: product.manufacturer || "",
+            batch: selectedBatch?.batch_number || "",
+            exp: expiry,
+            mrp: selectedBatch?.mrp?.toString() || "",
+            rate:
+              selectedBatch?.selling_rate?.toString() ||
+              selectedBatch?.mrp?.toString() ||
+              "",
+            rack: selectedBatch?.rack_no || product.rack_no || "",
+            stock: selectedBatch?.available_stock?.toString() || "",
+            cgstPercent: product.cgst_percentage?.toString() || "6",
+            sgstPercent: product.sgst_percentage?.toString() || "6",
+            availableBatches: batches,
+          };
+
+          newRows[rowIndex] = calculateSalesRow(newRows[rowIndex]);
+          return newRows;
+        });
+      } catch (error) {
+        console.error("Error selecting product:", error);
+        toast.error("Error", "Failed to load product batches");
+      }
+    },
+    [getAvailableBatches, setRows, toast],
+  );
+
+  // ============================================
+  // BATCH SELECTION FROM DROPDOWN
+  // ============================================
+  const handleBatchSelect = useCallback(
+    (rowIndex, batch) => {
       setRows((prev) => {
         const newRows = [...prev];
-        
+
         let expiry = "";
-        if (selectedBatch?.expiry_date) {
-          const expDate = new Date(selectedBatch.expiry_date);
+        if (batch.expiry_date) {
+          const expDate = new Date(batch.expiry_date);
           const month = String(expDate.getMonth() + 1).padStart(2, "0");
           const year = String(expDate.getFullYear()).slice(-2);
           expiry = `${month}/${year}`;
@@ -434,68 +523,30 @@ const SalesBillingPage = () => {
 
         newRows[rowIndex] = {
           ...newRows[rowIndex],
-          medicine_id: product.medicine_id,
-          inventory_id: selectedBatch?.inventory_id || null,
-          name: product.name,
-          manufacturer: product.manufacturer || "",
-          batch: selectedBatch?.batch_number || "",
+          inventory_id: batch.inventory_id,
+          batch: batch.batch_number,
           exp: expiry,
-          mrp: selectedBatch?.mrp?.toString() || "",
-          rate: selectedBatch?.selling_rate?.toString() || selectedBatch?.mrp?.toString() || "",
-          rack: selectedBatch?.rack_no || product.rack_no || "",
-          stock: selectedBatch?.available_stock?.toString() || "",
-          cgstPercent: product.cgst_percentage?.toString() || "6",
-          sgstPercent: product.sgst_percentage?.toString() || "6",
-          availableBatches: batches,
+          mrp: batch.mrp?.toString() || "",
+          rate: batch.selling_rate?.toString() || batch.mrp?.toString() || "",
+          rack: batch.rack_no || "",
+          stock: batch.available_stock?.toString() || "",
         };
 
         newRows[rowIndex] = calculateSalesRow(newRows[rowIndex]);
         return newRows;
       });
-    } catch (error) {
-      console.error("Error selecting product:", error);
-      toast.error("Error", "Failed to load product batches");
-    }
-  }, [getAvailableBatches, setRows, toast]);
-
-  // ============================================
-  // BATCH SELECTION FROM DROPDOWN
-  // ============================================
-  const handleBatchSelect = useCallback((rowIndex, batch) => {
-    setRows((prev) => {
-      const newRows = [...prev];
-      
-      let expiry = "";
-      if (batch.expiry_date) {
-        const expDate = new Date(batch.expiry_date);
-        const month = String(expDate.getMonth() + 1).padStart(2, "0");
-        const year = String(expDate.getFullYear()).slice(-2);
-        expiry = `${month}/${year}`;
-      }
-
-      newRows[rowIndex] = {
-        ...newRows[rowIndex],
-        inventory_id: batch.inventory_id,
-        batch: batch.batch_number,
-        exp: expiry,
-        mrp: batch.mrp?.toString() || "",
-        rate: batch.selling_rate?.toString() || batch.mrp?.toString() || "",
-        rack: batch.rack_no || "",
-        stock: batch.available_stock?.toString() || "",
-      };
-
-      newRows[rowIndex] = calculateSalesRow(newRows[rowIndex]);
-      return newRows;
-    });
-  }, [setRows]);
+    },
+    [setRows],
+  );
 
   // ============================================
   // PRINT HANDLER
   // ============================================
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `Sales_Invoice_${currentInvoice?.invoice_number || previewInvoiceNumber || 'NEW'}`,
-    onAfterPrint: () => toast.success("Print Complete", "Invoice printed successfully."),
+    documentTitle: `Sales_Invoice_${currentInvoice?.invoice_number || previewInvoiceNumber || "NEW"}`,
+    onAfterPrint: () =>
+      toast.success("Print Complete", "Invoice printed successfully."),
     onPrintError: () => toast.error("Print Failed", "Failed to print invoice."),
     pageStyle: `
       @page { size: A4; margin: 10mm; }
@@ -510,12 +561,12 @@ const SalesBillingPage = () => {
   // ============================================
   const handleClearTable = useCallback(() => {
     const hasData = hasUnsavedData();
-    
+
     if (hasData) {
       setConfirmDialog({
         isOpen: true,
-        type: 'danger',
-        title: 'Clear All Items?',
+        type: "danger",
+        title: "Clear All Items?",
         message: (
           <div className="space-y-2">
             <p>Are you sure you want to clear all items from the bill?</p>
@@ -524,7 +575,7 @@ const SalesBillingPage = () => {
             </p>
           </div>
         ),
-        confirmText: 'Clear All',
+        confirmText: "Clear All",
         onConfirm: () => {
           clearAllRows();
           closeConfirmDialog();
@@ -542,12 +593,12 @@ const SalesBillingPage = () => {
   // ============================================
   const handleNewBill = useCallback(() => {
     const hasData = hasUnsavedData();
-    
+
     if (hasData || currentInvoice?.invoice_number) {
       setConfirmDialog({
         isOpen: true,
-        type: 'warning',
-        title: 'Start New Bill?',
+        type: "warning",
+        title: "Start New Bill?",
         message: (
           <div className="space-y-2">
             <p>Are you sure you want to start a new bill?</p>
@@ -558,31 +609,34 @@ const SalesBillingPage = () => {
             )}
             {currentInvoice?.invoice_number && (
               <p className="text-sm text-gray-500">
-                Current Bill: <span className="font-mono font-semibold">{currentInvoice.invoice_number}</span>
+                Current Bill:{" "}
+                <span className="font-mono font-semibold">
+                  {currentInvoice.invoice_number}
+                </span>
               </p>
             )}
           </div>
         ),
-        confirmText: 'Start New',
+        confirmText: "Start New",
         onConfirm: () => {
           clearAllRows();
           clearCustomer();
           resetInvoice();
           setPreviewInvoiceNumber(null);
-          
+
           setInvoiceData({
-            invoice_date: new Date().toISOString().split('T')[0],
+            invoice_date: new Date().toISOString().split("T")[0],
             branch_id: branchContext.branch_id || null,
             prescription_number: "",
             remarks: "",
           });
-          
+
           closeConfirmDialog();
-          
+
           if (invoiceId) {
-            navigate('/sales/billing');
+            navigate("/sales/billing");
           }
-          
+
           toast.success("New Bill", "Ready to create a new sales bill.");
         },
       });
@@ -591,31 +645,31 @@ const SalesBillingPage = () => {
       clearCustomer();
       resetInvoice();
       setPreviewInvoiceNumber(null);
-      
+
       setInvoiceData({
-        invoice_date: new Date().toISOString().split('T')[0],
+        invoice_date: new Date().toISOString().split("T")[0],
         branch_id: branchContext.branch_id || null,
         prescription_number: "",
         remarks: "",
       });
-      
+
       if (invoiceId) {
-        navigate('/sales/billing');
+        navigate("/sales/billing");
       }
-      
+
       toast.success("New Bill", "Ready to create a new sales bill.");
     }
   }, [
-    hasUnsavedData, 
-    currentInvoice, 
-    clearAllRows, 
-    clearCustomer, 
-    resetInvoice, 
-    branchContext.branch_id, 
-    invoiceId, 
-    navigate, 
-    toast, 
-    closeConfirmDialog
+    hasUnsavedData,
+    currentInvoice,
+    clearAllRows,
+    clearCustomer,
+    resetInvoice,
+    branchContext.branch_id,
+    invoiceId,
+    navigate,
+    toast,
+    closeConfirmDialog,
   ]);
 
   // ============================================
@@ -623,24 +677,28 @@ const SalesBillingPage = () => {
   // ============================================
   const validateCustomerData = useCallback(() => {
     const errors = [];
-    
+
     if (!customer.customer_id && customer.phone) {
-      const phoneDigits = customer.phone.replace(/\D/g, '');
+      const phoneDigits = customer.phone.replace(/\D/g, "");
       if (phoneDigits && !/^\d{10}$/.test(phoneDigits)) {
         errors.push("Invalid phone number (must be 10 digits)");
       }
     }
-    
+
     if (customer.gstNumber) {
-      if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(customer.gstNumber)) {
+      if (
+        !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(
+          customer.gstNumber,
+        )
+      ) {
         errors.push("Invalid GSTIN format");
       }
     }
-    
+
     if (customer.paymentType === "CREDIT" && !customer.customer_id) {
       errors.push("Credit sales require a registered customer");
     }
-    
+
     return errors;
   }, [customer]);
 
@@ -650,26 +708,31 @@ const SalesBillingPage = () => {
   const validateNoDuplicateBatches = useCallback(() => {
     const inventoryUsage = new Map();
     const dataRows = getFilledRows();
-    
+
     for (const row of dataRows) {
       const key = `${row.medicine_id}_${row.inventory_id}`;
-      const current = inventoryUsage.get(key) || { qty: 0, name: row.name, batch: row.batch, stock: row.stock };
+      const current = inventoryUsage.get(key) || {
+        qty: 0,
+        name: row.name,
+        batch: row.batch,
+        stock: row.stock,
+      };
       current.qty += parseFloat(row.qty) || 0;
       inventoryUsage.set(key, current);
     }
-    
+
     for (const [key, data] of inventoryUsage) {
       const totalUsed = data.qty;
       const stock = parseFloat(data.stock) || 0;
-      
+
       if (totalUsed > stock) {
         return {
           isValid: false,
-          error: `${data.name} (Batch: ${data.batch}): Total ${totalUsed} units used across rows, only ${stock} available`
+          error: `${data.name} (Batch: ${data.batch}): Total ${totalUsed} units used across rows, only ${stock} available`,
         };
       }
     }
-    
+
     return { isValid: true };
   }, [getFilledRows]);
 
@@ -678,14 +741,17 @@ const SalesBillingPage = () => {
   // ============================================
   const handleSave = useCallback(async () => {
     const dataRows = getFilledRows();
-    
+
     if (dataRows.length === 0) {
       toast.warning("Missing Items", "Please add at least one item.");
       return false;
     }
 
     if (!invoiceData.branch_id) {
-      toast.warning("Branch Required", "Please select a branch to create sales invoice");
+      toast.warning(
+        "Branch Required",
+        "Please select a branch to create sales invoice",
+      );
       return false;
     }
 
@@ -707,7 +773,7 @@ const SalesBillingPage = () => {
       if (qty > stock) {
         toast.error(
           "Insufficient Stock",
-          `${row.name} (Batch: ${row.batch}) - Available: ${stock}, Requested: ${qty}`
+          `${row.name} (Batch: ${row.batch}) - Available: ${stock}, Requested: ${qty}`,
         );
         return false;
       }
@@ -715,9 +781,16 @@ const SalesBillingPage = () => {
 
     setIsSaving(true);
     try {
-      const savedInvoice = await saveSalesInvoice(invoiceData, dataRows, customer);
+      const savedInvoice = await saveSalesInvoice(
+        invoiceData,
+        dataRows,
+        customer,
+      );
       if (savedInvoice) {
-        toast.success("Saved", `Bill ${savedInvoice.invoice_number} saved as draft`);
+        toast.success(
+          "Saved",
+          `Bill ${savedInvoice.invoice_number} saved as draft`,
+        );
         return true;
       }
       return false;
@@ -727,7 +800,15 @@ const SalesBillingPage = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [getFilledRows, invoiceData, customer, saveSalesInvoice, toast, validateCustomerData, validateNoDuplicateBatches]);
+  }, [
+    getFilledRows,
+    invoiceData,
+    customer,
+    saveSalesInvoice,
+    toast,
+    validateCustomerData,
+    validateNoDuplicateBatches,
+  ]);
 
   // ============================================
   // CONFIRM & PRINT HANDLER
@@ -735,14 +816,17 @@ const SalesBillingPage = () => {
   const handleConfirmAndPrint = useCallback(async () => {
     const dataRows = getFilledRows();
 
-    console.log("🔍 Rows being saved:", dataRows.map(r => ({
-      name: r.name,
-      qty: r.qty,
-      mrp: r.mrp,
-      rate: r.rate,
-      amount: r.amount,
-    })));
-    
+    console.log(
+      "🔍 Rows being saved:",
+      dataRows.map((r) => ({
+        name: r.name,
+        qty: r.qty,
+        mrp: r.mrp,
+        rate: r.rate,
+        amount: r.amount,
+      })),
+    );
+
     if (dataRows.length === 0) {
       toast.warning("Missing Items", "Please add at least one item.");
       return;
@@ -771,7 +855,7 @@ const SalesBillingPage = () => {
       if (qty > stock) {
         toast.error(
           "Insufficient Stock",
-          `${row.name} (Batch: ${row.batch}) - Available: ${stock}, Requested: ${qty}`
+          `${row.name} (Batch: ${row.batch}) - Available: ${stock}, Requested: ${qty}`,
         );
         return;
       }
@@ -782,7 +866,7 @@ const SalesBillingPage = () => {
       if (cashReceived < summary.netAmount) {
         toast.warning(
           "Insufficient Payment",
-          `Net Amount: ₹${summary.netAmount.toFixed(2)}, Received: ₹${cashReceived.toFixed(2)}`
+          `Net Amount: ₹${summary.netAmount.toFixed(2)}, Received: ₹${cashReceived.toFixed(2)}`,
         );
         return;
       }
@@ -791,9 +875,13 @@ const SalesBillingPage = () => {
     setIsSaving(true);
     try {
       let invoiceToConfirm = currentInvoice;
-      
+
       if (!currentInvoice) {
-        const savedInvoice = await saveSalesInvoice(invoiceData, dataRows, customer);
+        const savedInvoice = await saveSalesInvoice(
+          invoiceData,
+          dataRows,
+          customer,
+        );
         if (!savedInvoice) {
           setIsSaving(false);
           return;
@@ -802,12 +890,16 @@ const SalesBillingPage = () => {
       }
 
       const payments = [];
-      
+
       if (customer.paymentType !== "CREDIT") {
-        const paymentAmount = customer.paymentType === "CASH" 
-          ? Math.min(parseFloat(customer.cashReceived) || 0, summary.netAmount)
-          : summary.netAmount;
-        
+        const paymentAmount =
+          customer.paymentType === "CASH"
+            ? Math.min(
+                parseFloat(customer.cashReceived) || 0,
+                summary.netAmount,
+              )
+            : summary.netAmount;
+
         if (paymentAmount > 0) {
           payments.push({
             amount: paymentAmount,
@@ -824,14 +916,20 @@ const SalesBillingPage = () => {
         });
       }
 
-      const confirmedInvoice = await confirmSalesInvoice(invoiceToConfirm.invoice_id, { payments });
-      
+      const confirmedInvoice = await confirmSalesInvoice(
+        invoiceToConfirm.invoice_id,
+        { payments },
+      );
+
       if (confirmedInvoice) {
-        toast.success("Confirmed", `Bill ${confirmedInvoice.invoice_number} confirmed. Stock deducted.`);
-        
+        toast.success(
+          "Confirmed",
+          `Bill ${confirmedInvoice.invoice_number} confirmed. Stock deducted.`,
+        );
+
         setTimeout(() => {
           handlePrint();
-          
+
           setTimeout(() => {
             clearAllRows();
             clearCustomer();
@@ -846,20 +944,20 @@ const SalesBillingPage = () => {
       setIsSaving(false);
     }
   }, [
-    getFilledRows, 
-    invoiceData, 
-    customer, 
-    summary, 
-    currentInvoice, 
-    saveSalesInvoice, 
-    confirmSalesInvoice, 
-    handlePrint, 
+    getFilledRows,
+    invoiceData,
+    customer,
+    summary,
+    currentInvoice,
+    saveSalesInvoice,
+    confirmSalesInvoice,
+    handlePrint,
     toast,
     clearAllRows,
     clearCustomer,
     resetInvoice,
     validateCustomerData,
-    validateNoDuplicateBatches
+    validateNoDuplicateBatches,
   ]);
 
   // ============================================
@@ -877,14 +975,13 @@ const SalesBillingPage = () => {
   // DERIVED STATE
   // ============================================
   const hasData = hasUnsavedData();
-  const isConfirmed = currentInvoice?.status === 'CONFIRMED';
+  const isConfirmed = currentInvoice?.status === "CONFIRMED";
 
   // ============================================
   // RENDER
   // ============================================
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
-      
       {/* WARNING BANNER FOR EDITING CONFIRMED INVOICE */}
       {isEditingConfirmed && (
         <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-lg overflow-hidden shadow-sm">
@@ -892,7 +989,7 @@ const SalesBillingPage = () => {
             <div className="shrink-0 w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center shadow-sm">
               <Shield size={20} className="text-white" />
             </div>
-            
+
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-amber-900">
@@ -903,10 +1000,13 @@ const SalesBillingPage = () => {
                 </span>
               </div>
               <p className="text-sm text-amber-800 mt-1">
-                Bill <span className="font-mono font-semibold">{currentInvoice?.invoice_number}</span> • 
-                Changes will affect inventory and customer balance.
+                Bill{" "}
+                <span className="font-mono font-semibold">
+                  {currentInvoice?.invoice_number}
+                </span>{" "}
+                • Changes will affect inventory and customer balance.
               </p>
-              
+
               <div className="flex flex-wrap gap-3 mt-2">
                 <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
                   <RefreshCw size={12} />
@@ -918,9 +1018,9 @@ const SalesBillingPage = () => {
                 </span>
               </div>
             </div>
-            
+
             <button
-              onClick={() => navigate('/sales/invoice')}
+              onClick={() => navigate("/sales/invoice")}
               className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
             >
               <ArrowLeft size={16} />
@@ -931,10 +1031,12 @@ const SalesBillingPage = () => {
       )}
 
       {/* HEADER */}
-      <div className={`
+      <div
+        className={`
         shrink-0 transition-all duration-300 ease-out
-        ${!loadingStates.header ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
-      `}>
+        ${!loadingStates.header ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"}
+      `}
+      >
         <SalesHeader
           onSave={handleSave}
           onConfirmPrint={handleConfirmAndPrint}
@@ -951,11 +1053,13 @@ const SalesBillingPage = () => {
       </div>
 
       {/* TABLE */}
-      <div className={`
+      <div
+        className={`
         flex-1 flex flex-col overflow-hidden bg-white rounded-lg border shadow-sm
         transition-all duration-300 ease-out delay-75
-        ${isEditingConfirmed ? 'border-amber-300' : 'border-gray-200'}
-      `}>
+        ${isEditingConfirmed ? "border-amber-300" : "border-gray-200"}
+      `}
+      >
         <SalesTable
           rows={rows}
           setRows={setRows}
@@ -972,25 +1076,31 @@ const SalesBillingPage = () => {
 
       {/* FOOTER: CUSTOMER DETAILS + SUMMARY */}
       <div className="shrink-0 flex gap-2 h-[220px] 2xl:h-[240px]">
-        <div className={`
+        <div
+          className={`
           flex-1 transition-all duration-300 ease-out delay-100
-          ${!loadingStates.customer ? 'opacity-100 translate-y-0' : 'opacity-100'}
-        `}>
+          ${!loadingStates.customer ? "opacity-100 translate-y-0" : "opacity-100"}
+        `}
+        >
           <CustomerDetailsCard
             customer={customer}
             setCustomer={setCustomer}
             onSearchCustomer={() => setCustomerSearchOpen(true)}
             netAmount={summary.netAmount}
             isLoading={loadingStates.customer}
-            billNo={currentInvoice?.invoice_number || previewInvoiceNumber || 'DRAFT'}
+            billNo={
+              currentInvoice?.invoice_number || previewInvoiceNumber || "DRAFT"
+            }
           />
         </div>
-        
-        <div className={`
+
+        <div
+          className={`
           w-72 2xl:w-80 transition-all duration-300 ease-out delay-150
-          ${!loadingStates.summary ? 'opacity-100 translate-y-0' : 'opacity-100'}
-        `}>
-          <SalesSummaryCard 
+          ${!loadingStates.summary ? "opacity-100 translate-y-0" : "opacity-100"}
+        `}
+        >
+          <SalesSummaryCard
             summary={summary}
             customer={customer}
             isLoading={loadingStates.summary}
@@ -1006,8 +1116,12 @@ const SalesBillingPage = () => {
             customer={customer}
             summary={summary}
             companyDetails={COMPANY_DETAILS}
-            invoiceNumber={currentInvoice?.invoice_number || previewInvoiceNumber}
-            invoiceDate={currentInvoice?.invoice_date || invoiceData.invoice_date}
+            invoiceNumber={
+              currentInvoice?.invoice_number || previewInvoiceNumber
+            }
+            invoiceDate={
+              currentInvoice?.invoice_date || invoiceData.invoice_date
+            }
             billedBy={billedByName}
           />
         </div>
@@ -1035,7 +1149,7 @@ const SalesBillingPage = () => {
       />
     </div>
   );
-}
+};
 
 export default SalesBillingPage;
 
@@ -1080,7 +1194,7 @@ export default SalesBillingPage;
 //   const navigate = useNavigate();
 //   const { invoiceId } = useParams();
 //   const [searchParams] = useSearchParams();
-  
+
 //   const editMode = searchParams.get('mode');
 //   const isEditingConfirmed = editMode === 'edit-confirmed';
 //   const isEditMode = !!invoiceId;
@@ -1111,7 +1225,7 @@ export default SalesBillingPage;
 //   const branchContext = useAuthStore(selectBranchContext);
 //   const user = useAuthStore(state => state.user);
 //   const isSuperAdmin = user?.role === "super_admin";
-  
+
 //   const billedByName = user?.full_name || user?.first_name || user?.username || "Staff";
 
 //   // ============================================
@@ -1146,7 +1260,7 @@ export default SalesBillingPage;
 //   });
 //   const [isSaving, setIsSaving] = useState(false);
 
-//   // ✅ NEW: Preview invoice number state
+//   //  NEW: Preview invoice number state
 //   const [previewInvoiceNumber, setPreviewInvoiceNumber] = useState(null);
 
 //   // ============================================
@@ -1167,10 +1281,10 @@ export default SalesBillingPage;
 //   // ============================================
 //   // ROWS MANAGEMENT (WITH PERSISTENCE)
 //   // ============================================
-//   const { 
-//     rows, 
-//     setRows, 
-//     getFilledRows, 
+//   const {
+//     rows,
+//     setRows,
+//     getFilledRows,
 //     clearAllRows,
 //     hasUnsavedData,
 //     isInitialized: rowsInitialized,
@@ -1202,7 +1316,7 @@ export default SalesBillingPage;
 //   }, [isEditingConfirmed, isSuperAdmin, navigate, toast]);
 
 //   // ============================================
-//   // ✅ FIX 1: GENERATE PREVIEW INVOICE NUMBER
+//   //  FIX 1: GENERATE PREVIEW INVOICE NUMBER
 //   // ============================================
 //   useEffect(() => {
 //     if (!currentInvoice && branchContext.branch_id && branchContext.branch_name) {
@@ -1210,7 +1324,7 @@ export default SalesBillingPage;
 //         .substring(0, 3)
 //         .toUpperCase()
 //         .replace(/\s/g, '') || 'BR1';
-      
+
 //       const timestamp = Date.now().toString().slice(-6);
 //       setPreviewInvoiceNumber(`SALE-${branchCode}-DRAFT-${timestamp}`);
 //     }
@@ -1256,19 +1370,19 @@ export default SalesBillingPage;
 //           handleConfirmAndPrint();
 //         }
 //       }
-      
+
 //       if (e.ctrlKey && e.key === 'n') {
 //         e.preventDefault();
 //         handleNewBill();
 //       }
-      
+
 //       if (e.ctrlKey && e.key === 's') {
 //         e.preventDefault();
 //         if (!isSaving && currentInvoice?.status !== 'CONFIRMED') {
 //           handleSave();
 //         }
 //       }
-      
+
 //       if (e.ctrlKey && e.key === 'p') {
 //         if (currentInvoice?.status === 'CONFIRMED') {
 //           e.preventDefault();
@@ -1321,7 +1435,7 @@ export default SalesBillingPage;
 //           customer: false,
 //           summary: false,
 //         });
-        
+
 //         if (isEditingConfirmed) {
 //           toast.error("Load Failed", "Failed to load confirmed invoice for editing.");
 //           navigate('/sales/invoice');
@@ -1334,7 +1448,7 @@ export default SalesBillingPage;
 
 //   // ============================================
 //   // POPULATE INVOICE DATA (EDIT MODE)
-//   // ✅ UPDATED: Use selling_rate for rate field
+//   //  UPDATED: Use selling_rate for rate field
 //   // ============================================
 //   const populateInvoiceData = useCallback((invoice) => {
 //     if (!invoice) return;
@@ -1398,10 +1512,10 @@ export default SalesBillingPage;
 //         exp: expiry,
 //         qty: item.quantity?.toString() || "",
 //         mrp: item.mrp?.toString() || "",
-        
-//         // ✅ FIXED: Use selling_rate from item, fallback to mrp
+
+//         //  FIXED: Use selling_rate from item, fallback to mrp
 //         rate: item.selling_rate?.toString() || item.mrp?.toString() || "",
-        
+
 //         rack: item.inventory?.rack_no || "",
 //         discountPercent: item.discount_percent?.toString() || "0",
 //         cgstPercent: item.cgst_percent?.toString() || "6",
@@ -1445,7 +1559,7 @@ export default SalesBillingPage;
 
 //       setRows((prev) => {
 //         const newRows = [...prev];
-        
+
 //         let expiry = "";
 //         if (selectedBatch?.expiry_date) {
 //           const expDate = new Date(selectedBatch.expiry_date);
@@ -1463,10 +1577,10 @@ export default SalesBillingPage;
 //           batch: selectedBatch?.batch_number || "",
 //           exp: expiry,
 //           mrp: selectedBatch?.mrp?.toString() || "",
-          
-//           // ✅ Default to selling_rate, fallback to MRP
+
+//           //  Default to selling_rate, fallback to MRP
 //           rate: selectedBatch?.selling_rate?.toString() || selectedBatch?.mrp?.toString() || "",
-          
+
 //           rack: selectedBatch?.rack_no || product.rack_no || "",
 //           stock: selectedBatch?.available_stock?.toString() || "",
 //           cgstPercent: product.cgst_percentage?.toString() || "6",
@@ -1489,7 +1603,7 @@ export default SalesBillingPage;
 //   const handleBatchSelect = useCallback((rowIndex, batch) => {
 //     setRows((prev) => {
 //       const newRows = [...prev];
-      
+
 //       let expiry = "";
 //       if (batch.expiry_date) {
 //         const expDate = new Date(batch.expiry_date);
@@ -1504,10 +1618,10 @@ export default SalesBillingPage;
 //         batch: batch.batch_number,
 //         exp: expiry,
 //         mrp: batch.mrp?.toString() || "",
-        
-//         // ✅ Default to selling_rate, fallback to MRP
+
+//         //  Default to selling_rate, fallback to MRP
 //         rate: batch.selling_rate?.toString() || batch.mrp?.toString() || "",
-        
+
 //         rack: batch.rack_no || "",
 //         stock: batch.available_stock?.toString() || "",
 //       };
@@ -1527,8 +1641,8 @@ export default SalesBillingPage;
 //     onPrintError: () => toast.error("Print Failed", "Failed to print invoice."),
 //     pageStyle: `
 //       @page { size: A4; margin: 10mm; }
-//       @media print { 
-//         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+//       @media print {
+//         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 //       }
 //     `,
 //   });
@@ -1538,7 +1652,7 @@ export default SalesBillingPage;
 //   // ============================================
 //   const handleClearTable = useCallback(() => {
 //     const hasData = hasUnsavedData();
-    
+
 //     if (hasData) {
 //       setConfirmDialog({
 //         isOpen: true,
@@ -1570,7 +1684,7 @@ export default SalesBillingPage;
 //   // ============================================
 //   const handleNewBill = useCallback(() => {
 //     const hasData = hasUnsavedData();
-    
+
 //     if (hasData || currentInvoice?.invoice_number) {
 //       setConfirmDialog({
 //         isOpen: true,
@@ -1597,20 +1711,20 @@ export default SalesBillingPage;
 //           clearCustomer();
 //           resetInvoice();
 //           setPreviewInvoiceNumber(null);
-          
+
 //           setInvoiceData({
 //             invoice_date: new Date().toISOString().split('T')[0],
 //             branch_id: branchContext.branch_id || null,
 //             prescription_number: "",
 //             remarks: "",
 //           });
-          
+
 //           closeConfirmDialog();
-          
+
 //           if (invoiceId) {
 //             navigate('/sales/billing');
 //           }
-          
+
 //           toast.success("New Bill", "Ready to create a new sales bill.");
 //         },
 //       });
@@ -1619,30 +1733,30 @@ export default SalesBillingPage;
 //       clearCustomer();
 //       resetInvoice();
 //       setPreviewInvoiceNumber(null);
-      
+
 //       setInvoiceData({
 //         invoice_date: new Date().toISOString().split('T')[0],
 //         branch_id: branchContext.branch_id || null,
 //         prescription_number: "",
 //         remarks: "",
 //       });
-      
+
 //       if (invoiceId) {
 //         navigate('/sales/billing');
 //       }
-      
+
 //       toast.success("New Bill", "Ready to create a new sales bill.");
 //     }
 //   }, [
-//     hasUnsavedData, 
-//     currentInvoice, 
-//     clearAllRows, 
-//     clearCustomer, 
-//     resetInvoice, 
-//     branchContext.branch_id, 
-//     invoiceId, 
-//     navigate, 
-//     toast, 
+//     hasUnsavedData,
+//     currentInvoice,
+//     clearAllRows,
+//     clearCustomer,
+//     resetInvoice,
+//     branchContext.branch_id,
+//     invoiceId,
+//     navigate,
+//     toast,
 //     closeConfirmDialog
 //   ]);
 
@@ -1651,24 +1765,24 @@ export default SalesBillingPage;
 //   // ============================================
 //   const validateCustomerData = useCallback(() => {
 //     const errors = [];
-    
+
 //     if (!customer.customer_id && customer.phone) {
 //       const phoneDigits = customer.phone.replace(/\D/g, '');
 //       if (phoneDigits && !/^\d{10}$/.test(phoneDigits)) {
 //         errors.push("Invalid phone number (must be 10 digits)");
 //       }
 //     }
-    
+
 //     if (customer.gstNumber) {
 //       if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(customer.gstNumber)) {
 //         errors.push("Invalid GSTIN format");
 //       }
 //     }
-    
+
 //     if (customer.paymentType === "CREDIT" && !customer.customer_id) {
 //       errors.push("Credit sales require a registered customer");
 //     }
-    
+
 //     return errors;
 //   }, [customer]);
 
@@ -1678,18 +1792,18 @@ export default SalesBillingPage;
 //   const validateNoDuplicateBatches = useCallback(() => {
 //     const inventoryUsage = new Map();
 //     const dataRows = getFilledRows();
-    
+
 //     for (const row of dataRows) {
 //       const key = `${row.medicine_id}_${row.inventory_id}`;
 //       const current = inventoryUsage.get(key) || { qty: 0, name: row.name, batch: row.batch, stock: row.stock };
 //       current.qty += parseFloat(row.qty) || 0;
 //       inventoryUsage.set(key, current);
 //     }
-    
+
 //     for (const [key, data] of inventoryUsage) {
 //       const totalUsed = data.qty;
 //       const stock = parseFloat(data.stock) || 0;
-      
+
 //       if (totalUsed > stock) {
 //         return {
 //           isValid: false,
@@ -1697,7 +1811,7 @@ export default SalesBillingPage;
 //         };
 //       }
 //     }
-    
+
 //     return { isValid: true };
 //   }, [getFilledRows]);
 
@@ -1706,7 +1820,7 @@ export default SalesBillingPage;
 //   // ============================================
 //   const handleSave = useCallback(async () => {
 //     const dataRows = getFilledRows();
-    
+
 //     if (dataRows.length === 0) {
 //       toast.warning("Missing Items", "Please add at least one item.");
 //       return false;
@@ -1770,7 +1884,7 @@ export default SalesBillingPage;
 //       rate: r.rate,
 //       amount: r.amount,
 //     })));
-    
+
 //     if (dataRows.length === 0) {
 //       toast.warning("Missing Items", "Please add at least one item.");
 //       return;
@@ -1819,7 +1933,7 @@ export default SalesBillingPage;
 //     setIsSaving(true);
 //     try {
 //       let invoiceToConfirm = currentInvoice;
-      
+
 //       if (!currentInvoice) {
 //         const savedInvoice = await saveSalesInvoice(invoiceData, dataRows, customer);
 //         if (!savedInvoice) {
@@ -1830,12 +1944,12 @@ export default SalesBillingPage;
 //       }
 
 //       const payments = [];
-      
+
 //       if (customer.paymentType !== "CREDIT") {
-//         const paymentAmount = customer.paymentType === "CASH" 
+//         const paymentAmount = customer.paymentType === "CASH"
 //           ? Math.min(parseFloat(customer.cashReceived) || 0, summary.netAmount)
 //           : summary.netAmount;
-        
+
 //         if (paymentAmount > 0) {
 //           payments.push({
 //             amount: paymentAmount,
@@ -1853,13 +1967,13 @@ export default SalesBillingPage;
 //       }
 
 //       const confirmedInvoice = await confirmSalesInvoice(invoiceToConfirm.invoice_id, { payments });
-      
+
 //       if (confirmedInvoice) {
 //         toast.success("Confirmed", `Bill ${confirmedInvoice.invoice_number} confirmed. Stock deducted.`);
-        
+
 //         setTimeout(() => {
 //           handlePrint();
-          
+
 //           setTimeout(() => {
 //             clearAllRows();
 //             clearCustomer();
@@ -1874,14 +1988,14 @@ export default SalesBillingPage;
 //       setIsSaving(false);
 //     }
 //   }, [
-//     getFilledRows, 
-//     invoiceData, 
-//     customer, 
-//     summary, 
-//     currentInvoice, 
-//     saveSalesInvoice, 
-//     confirmSalesInvoice, 
-//     handlePrint, 
+//     getFilledRows,
+//     invoiceData,
+//     customer,
+//     summary,
+//     currentInvoice,
+//     saveSalesInvoice,
+//     confirmSalesInvoice,
+//     handlePrint,
 //     toast,
 //     clearAllRows,
 //     clearCustomer,
@@ -1912,7 +2026,7 @@ export default SalesBillingPage;
 //   // ============================================
 //   return (
 //     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
-      
+
 //       {/* WARNING BANNER FOR EDITING CONFIRMED INVOICE */}
 //       {isEditingConfirmed && (
 //         <div className="shrink-0 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-lg overflow-hidden shadow-sm">
@@ -1920,7 +2034,7 @@ export default SalesBillingPage;
 //             <div className="shrink-0 w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center shadow-sm">
 //               <Shield size={20} className="text-white" />
 //             </div>
-            
+
 //             <div className="flex-1 min-w-0">
 //               <div className="flex items-center gap-2">
 //                 <h3 className="font-bold text-amber-900">
@@ -1931,10 +2045,10 @@ export default SalesBillingPage;
 //                 </span>
 //               </div>
 //               <p className="text-sm text-amber-800 mt-1">
-//                 Bill <span className="font-mono font-semibold">{currentInvoice?.invoice_number}</span> • 
+//                 Bill <span className="font-mono font-semibold">{currentInvoice?.invoice_number}</span> •
 //                 Changes will affect inventory and customer balance.
 //               </p>
-              
+
 //               <div className="flex flex-wrap gap-3 mt-2">
 //                 <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
 //                   <RefreshCw size={12} />
@@ -1946,7 +2060,7 @@ export default SalesBillingPage;
 //                 </span>
 //               </div>
 //             </div>
-            
+
 //             <button
 //               onClick={() => navigate('/sales/invoice')}
 //               className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
@@ -2013,12 +2127,12 @@ export default SalesBillingPage;
 //             billNo={currentInvoice?.invoice_number || previewInvoiceNumber || 'DRAFT'}
 //           />
 //         </div>
-        
+
 //         <div className={`
 //           w-72 2xl:w-80 transition-all duration-300 ease-out delay-150
 //           ${!loadingStates.summary ? 'opacity-100 translate-y-0' : 'opacity-100'}
 //         `}>
-//           <SalesSummaryCard 
+//           <SalesSummaryCard
 //             summary={summary}
 //             customer={customer}
 //             isLoading={loadingStates.summary}

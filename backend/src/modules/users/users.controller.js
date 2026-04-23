@@ -15,8 +15,16 @@ export async function getUsersController(req, res) {
       role: requester_role,
       branch_id: requester_branch_id,
     } = req.user;
-    const { branch_id, role, status, search, page, limit, sort_by, sort_order } =
-      req.validated;
+    const {
+      branch_id,
+      role,
+      status,
+      search,
+      page,
+      limit,
+      sort_by,
+      sort_order,
+    } = req.validated;
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
@@ -113,8 +121,15 @@ export async function createUserController(req, res) {
       role: requester_role,
       branch_id: requester_branch_id,
     } = req.user;
-    const { full_name, phone_number, username, password, role, branch_id, email } =
-      req.validated;
+    const {
+      full_name,
+      phone_number,
+      username,
+      password,
+      role,
+      branch_id,
+      email,
+    } = req.validated;
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
@@ -139,7 +154,7 @@ export async function createUserController(req, res) {
       }
     }
 
-    // ✅ Extract audit context
+    //  Extract audit context
     const auditContext = audit.extractRequestContext(req);
 
     // Create user
@@ -152,7 +167,7 @@ export async function createUserController(req, res) {
       password,
       role,
       email,
-      auditContext, // ✅ Pass context
+      auditContext, //  Pass context
     });
 
     return success(res, { user }, "User created successfully", 201);
@@ -241,7 +256,7 @@ export async function updateUserController(req, res) {
       }
     }
 
-    // ✅ Extract audit context
+    //  Extract audit context
     const auditContext = audit.extractRequestContext(req);
 
     // Perform update
@@ -249,7 +264,7 @@ export async function updateUserController(req, res) {
       user_id,
       shop_id,
       updates,
-      auditContext // ✅ Pass context
+      auditContext, //  Pass context
     );
 
     return success(res, { user: updatedUser }, "User updated successfully");
@@ -292,14 +307,14 @@ export async function deleteUserController(req, res) {
       return fail(res, "Shop not found", 400);
     }
 
-    // ✅ Extract audit context
+    //  Extract audit context
     const auditContext = audit.extractRequestContext(req);
 
     await svc.deleteUser(
       user_id,
       shop_id,
       requester_user_id,
-      auditContext // ✅ Pass context
+      auditContext, //  Pass context
     );
 
     return success(res, null, "User deactivated successfully");
@@ -342,13 +357,13 @@ export async function reactivateUserController(req, res) {
       return fail(res, "Only Super Admin can reactivate users", 403);
     }
 
-    // ✅ Extract audit context
+    //  Extract audit context
     const auditContext = audit.extractRequestContext(req);
 
     const user = await svc.reactivateUser(
       user_id,
       shop_id,
-      auditContext // ✅ Pass context
+      auditContext, //  Pass context
     );
 
     return success(res, { user }, "User reactivated successfully");
@@ -408,7 +423,7 @@ export async function resetPasswordController(req, res) {
           res,
           "You cannot reset your own password. Contact super admin.",
           403,
-          { code: "CANNOT_RESET_SELF" }
+          { code: "CANNOT_RESET_SELF" },
         );
       }
 
@@ -418,7 +433,7 @@ export async function resetPasswordController(req, res) {
           res,
           "You can only reset passwords for users in your branch",
           403,
-          { code: "BRANCH_RESTRICTED" }
+          { code: "BRANCH_RESTRICTED" },
         );
       }
 
@@ -430,7 +445,7 @@ export async function resetPasswordController(req, res) {
       }
     }
 
-    // ✅ Extract audit context
+    //  Extract audit context
     const auditContext = audit.extractRequestContext(req);
 
     // Reset password
@@ -438,7 +453,7 @@ export async function resetPasswordController(req, res) {
       user_id,
       shop_id,
       new_password,
-      auditContext // ✅ Pass context
+      auditContext, //  Pass context
     );
 
     return success(res, null, "Password reset successfully");
@@ -464,7 +479,10 @@ export async function checkUsernameController(req, res) {
   try {
     const { username, exclude_user_id } = req.validated;
 
-    const result = await svc.checkUsernameAvailability(username, exclude_user_id);
+    const result = await svc.checkUsernameAvailability(
+      username,
+      exclude_user_id,
+    );
 
     return success(res, result);
   } catch (err) {
@@ -481,7 +499,10 @@ export async function checkPhoneController(req, res) {
   try {
     const { phone_number, exclude_user_id } = req.validated;
 
-    const result = await svc.checkPhoneAvailability(phone_number, exclude_user_id);
+    const result = await svc.checkPhoneAvailability(
+      phone_number,
+      exclude_user_id,
+    );
 
     return success(res, result);
   } catch (err) {

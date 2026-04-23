@@ -2,8 +2,17 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Building2, CreditCard, Calendar, UserCog, Shield,
-  X, Search, ChevronDown, Check, Filter, Loader2,
+  Building2,
+  CreditCard,
+  Calendar,
+  UserCog,
+  Shield,
+  X,
+  Search,
+  ChevronDown,
+  Check,
+  Filter,
+  Loader2,
 } from "lucide-react";
 import StyledDateFilter from "../../../../../../components/common/StyledDateFilter";
 import * as broadcastAPI from "../../../../../../api/cadminBroadcast";
@@ -18,16 +27,16 @@ function AudienceFilterPanel({
   recipientPreview,
 }) {
   // ── Remote data ───────────────────────────────────────────────────────────
-  const [shops, setShops]           = useState([]);
-  const [plans, setPlans]           = useState([]);
-  const [userRoles, setUserRoles]   = useState([]);
+  const [shops, setShops] = useState([]);
+  const [plans, setPlans] = useState([]);
+  const [userRoles, setUserRoles] = useState([]);
   const [cadminRoles, setCAdminRoles] = useState([]);
 
   // ── Loading states ────────────────────────────────────────────────────────
-  const [loadingShops, setLoadingShops]       = useState(false);
-  const [loadingRoles, setLoadingRoles]       = useState(false);
+  const [loadingShops, setLoadingShops] = useState(false);
+  const [loadingRoles, setLoadingRoles] = useState(false);
   const [loadingCAdminRoles, setLoadingCAdminRoles] = useState(false);
-  const [loadingPlans, setLoadingPlans]       = useState(false);
+  const [loadingPlans, setLoadingPlans] = useState(false);
 
   // ── Dropdown visibility ───────────────────────────────────────────────────
   const [showShopDropdown, setShowShopDropdown] = useState(false);
@@ -38,20 +47,24 @@ function AudienceFilterPanel({
   const debouncedShopSearch = useDebounce(shopSearch, 300);
 
   // ── Selected local state ──────────────────────────────────────────────────
-  const [selectedShops,       setSelectedShops]       = useState([]);
-  const [selectedPlans,       setSelectedPlans]       = useState([]);
-  const [selectedRoles,       setSelectedRoles]       = useState([]);
+  const [selectedShops, setSelectedShops] = useState([]);
+  const [selectedPlans, setSelectedPlans] = useState([]);
+  const [selectedRoles, setSelectedRoles] = useState([]);
   const [selectedCAdminRoles, setSelectedCAdminRoles] = useState([]);
   const [dateFrom, setDateFrom] = useState("");
-  const [dateTo,   setDateTo]   = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // ── Stable refs ───────────────────────────────────────────────────────────
   // Keep latest onChange + filters in refs so callbacks are stable
   const onChangeRef = useRef(onChange);
-  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const filtersRef = useRef(filters);
-  useEffect(() => { filtersRef.current = filters; }, [filters]);
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   // Track whether we've done the initial sync from props
   const didSyncRef = useRef(false);
@@ -78,11 +91,13 @@ function AudienceFilterPanel({
 
     didSyncRef.current = true;
 
-    if (Array.isArray(filters.roles))        setSelectedRoles(filters.roles);
-    if (Array.isArray(filters.cadmin_roles)) setSelectedCAdminRoles(filters.cadmin_roles);
-    if (Array.isArray(filters.plan_ids))     setSelectedPlans(filters.plan_ids);
-    if (filters.registration_date_from)      setDateFrom(filters.registration_date_from);
-    if (filters.registration_date_to)        setDateTo(filters.registration_date_to);
+    if (Array.isArray(filters.roles)) setSelectedRoles(filters.roles);
+    if (Array.isArray(filters.cadmin_roles))
+      setSelectedCAdminRoles(filters.cadmin_roles);
+    if (Array.isArray(filters.plan_ids)) setSelectedPlans(filters.plan_ids);
+    if (filters.registration_date_from)
+      setDateFrom(filters.registration_date_from);
+    if (filters.registration_date_to) setDateTo(filters.registration_date_to);
 
     // For shops: we only have IDs — fetch names to reconstruct objects
     if (Array.isArray(filters.shop_ids) && filters.shop_ids.length > 0) {
@@ -92,7 +107,7 @@ function AudienceFilterPanel({
           if (res.data.success) {
             const allShops = res.data.data.shops || [];
             const matched = allShops.filter((s) =>
-              filters.shop_ids.includes(s.shop_id)
+              filters.shop_ids.includes(s.shop_id),
             );
             setSelectedShops(matched);
           }
@@ -182,62 +197,80 @@ function AudienceFilterPanel({
     });
 
     onChangeRef.current(newFilters);
-  }, []); // ✅ Truly stable
+  }, []); //  Truly stable
 
   // ── Filter change handlers ────────────────────────────────────────────────
-  const handleShopToggle = useCallback((shop) => {
-    setSelectedShops((prev) => {
-      const exists = prev.some((s) => s.shop_id === shop.shop_id);
-      const next = exists
-        ? prev.filter((s) => s.shop_id !== shop.shop_id)
-        : [...prev, shop];
-      updateFilters({ shop_ids: next.map((s) => s.shop_id) });
-      return next;
-    });
-  }, [updateFilters]);
+  const handleShopToggle = useCallback(
+    (shop) => {
+      setSelectedShops((prev) => {
+        const exists = prev.some((s) => s.shop_id === shop.shop_id);
+        const next = exists
+          ? prev.filter((s) => s.shop_id !== shop.shop_id)
+          : [...prev, shop];
+        updateFilters({ shop_ids: next.map((s) => s.shop_id) });
+        return next;
+      });
+    },
+    [updateFilters],
+  );
 
-  const handlePlanToggle = useCallback((plan) => {
-    setSelectedPlans((prev) => {
-      const exists = prev.includes(plan.plan_id);
-      const next = exists
-        ? prev.filter((id) => id !== plan.plan_id)
-        : [...prev, plan.plan_id];
-      updateFilters({ plan_ids: next });
-      return next;
-    });
-  }, [updateFilters]);
+  const handlePlanToggle = useCallback(
+    (plan) => {
+      setSelectedPlans((prev) => {
+        const exists = prev.includes(plan.plan_id);
+        const next = exists
+          ? prev.filter((id) => id !== plan.plan_id)
+          : [...prev, plan.plan_id];
+        updateFilters({ plan_ids: next });
+        return next;
+      });
+    },
+    [updateFilters],
+  );
 
-  const handleRoleToggle = useCallback((roleValue) => {
-    setSelectedRoles((prev) => {
-      const exists = prev.includes(roleValue);
-      const next = exists
-        ? prev.filter((r) => r !== roleValue)
-        : [...prev, roleValue];
-      updateFilters({ roles: next });
-      return next;
-    });
-  }, [updateFilters]);
+  const handleRoleToggle = useCallback(
+    (roleValue) => {
+      setSelectedRoles((prev) => {
+        const exists = prev.includes(roleValue);
+        const next = exists
+          ? prev.filter((r) => r !== roleValue)
+          : [...prev, roleValue];
+        updateFilters({ roles: next });
+        return next;
+      });
+    },
+    [updateFilters],
+  );
 
-  const handleCAdminRoleToggle = useCallback((roleValue) => {
-    setSelectedCAdminRoles((prev) => {
-      const exists = prev.includes(roleValue);
-      const next = exists
-        ? prev.filter((r) => r !== roleValue)
-        : [...prev, roleValue];
-      updateFilters({ cadmin_roles: next });
-      return next;
-    });
-  }, [updateFilters]);
+  const handleCAdminRoleToggle = useCallback(
+    (roleValue) => {
+      setSelectedCAdminRoles((prev) => {
+        const exists = prev.includes(roleValue);
+        const next = exists
+          ? prev.filter((r) => r !== roleValue)
+          : [...prev, roleValue];
+        updateFilters({ cadmin_roles: next });
+        return next;
+      });
+    },
+    [updateFilters],
+  );
 
-  const handleDateFromChange = useCallback((value) => {
-    setDateFrom(value);
-    updateFilters({ registration_date_from: value || undefined });
-  }, [updateFilters]);
+  const handleDateFromChange = useCallback(
+    (value) => {
+      setDateFrom(value);
+      updateFilters({ registration_date_from: value || undefined });
+    },
+    [updateFilters],
+  );
 
-  const handleDateToChange = useCallback((value) => {
-    setDateTo(value);
-    updateFilters({ registration_date_to: value || undefined });
-  }, [updateFilters]);
+  const handleDateToChange = useCallback(
+    (value) => {
+      setDateTo(value);
+      updateFilters({ registration_date_to: value || undefined });
+    },
+    [updateFilters],
+  );
 
   const clearAllFilters = useCallback(() => {
     setSelectedShops([]);
@@ -246,7 +279,7 @@ function AudienceFilterPanel({
     setSelectedCAdminRoles([]);
     setDateFrom("");
     setDateTo("");
-    // ✅ Only clear filter keys — audience toggles (includeUsers/includeCAdmins)
+    //  Only clear filter keys — audience toggles (includeUsers/includeCAdmins)
     // are managed by the parent, not here
     onChangeRef.current({});
   }, []);
@@ -264,11 +297,11 @@ function AudienceFilterPanel({
   const getShopName = (shopId, shopData) => {
     if (shopData?.name) return shopData.name;
     const found = selectedShops.find(
-      (s) => s.shop_id === shopId || s.shop_id === parseInt(shopId)
+      (s) => s.shop_id === shopId || s.shop_id === parseInt(shopId),
     );
     if (found) return found.business_name || found.name;
     const loaded = shops.find(
-      (s) => s.shop_id === shopId || s.shop_id === parseInt(shopId)
+      (s) => s.shop_id === shopId || s.shop_id === parseInt(shopId),
     );
     if (loaded) return loaded.business_name;
     return `Shop #${String(shopId).slice(0, 8)}`;
@@ -322,8 +355,14 @@ function AudienceFilterPanel({
               disabled={disabled}
               className="w-full px-3 py-2 text-sm text-left border border-gray-200 rounded-lg bg-white hover:bg-gray-50 flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span className={selectedShops.length ? "text-gray-900" : "text-gray-400"}>
-                {selectedShops.length ? `${selectedShops.length} selected` : "All shops"}
+              <span
+                className={
+                  selectedShops.length ? "text-gray-900" : "text-gray-400"
+                }
+              >
+                {selectedShops.length
+                  ? `${selectedShops.length} selected`
+                  : "All shops"}
               </span>
               <ChevronDown
                 size={14}
@@ -333,11 +372,17 @@ function AudienceFilterPanel({
 
             {showShopDropdown && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowShopDropdown(false)} />
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowShopDropdown(false)}
+                />
                 <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
                   <div className="p-2 border-b border-gray-100">
                     <div className="relative">
-                      <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <Search
+                        size={14}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+                      />
                       <input
                         type="text"
                         value={shopSearch}
@@ -351,13 +396,18 @@ function AudienceFilterPanel({
                   <div className="max-h-48 overflow-y-auto p-1">
                     {loadingShops ? (
                       <div className="p-3 text-center text-xs text-gray-400 flex items-center justify-center gap-1.5">
-                        <Loader2 size={12} className="animate-spin" /> Loading...
+                        <Loader2 size={12} className="animate-spin" />{" "}
+                        Loading...
                       </div>
                     ) : shops.length === 0 ? (
-                      <div className="p-3 text-center text-xs text-gray-400">No shops found</div>
+                      <div className="p-3 text-center text-xs text-gray-400">
+                        No shops found
+                      </div>
                     ) : (
                       shops.map((shop) => {
-                        const isSelected = selectedShops.some((s) => s.shop_id === shop.shop_id);
+                        const isSelected = selectedShops.some(
+                          (s) => s.shop_id === shop.shop_id,
+                        );
                         return (
                           <button
                             key={shop.shop_id}
@@ -371,13 +421,20 @@ function AudienceFilterPanel({
                                 {shop.business_name}
                               </span>
                               {shop.city && (
-                                <span className="text-gray-400">{shop.city}</span>
+                                <span className="text-gray-400">
+                                  {shop.city}
+                                </span>
                               )}
                               <span className="text-gray-400 ml-1">
                                 · {shop.user_count || 0} users
                               </span>
                             </div>
-                            {isSelected && <Check size={14} className="text-[#05015A] flex-shrink-0 ml-2" />}
+                            {isSelected && (
+                              <Check
+                                size={14}
+                                className="text-[#05015A] flex-shrink-0 ml-2"
+                              />
+                            )}
                           </button>
                         );
                       })
@@ -433,8 +490,14 @@ function AudienceFilterPanel({
               disabled={disabled}
               className="w-full px-3 py-2 text-sm text-left border border-gray-200 rounded-lg bg-white hover:bg-gray-50 flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span className={selectedPlans.length ? "text-gray-900" : "text-gray-400"}>
-                {selectedPlans.length ? `${selectedPlans.length} selected` : "All plans"}
+              <span
+                className={
+                  selectedPlans.length ? "text-gray-900" : "text-gray-400"
+                }
+              >
+                {selectedPlans.length
+                  ? `${selectedPlans.length} selected`
+                  : "All plans"}
               </span>
               <ChevronDown
                 size={14}
@@ -444,15 +507,21 @@ function AudienceFilterPanel({
 
             {showPlanDropdown && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowPlanDropdown(false)} />
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowPlanDropdown(false)}
+                />
                 <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
                   <div className="max-h-48 overflow-y-auto p-1">
                     {loadingPlans ? (
                       <div className="p-3 text-center text-xs text-gray-400 flex items-center justify-center gap-1.5">
-                        <Loader2 size={12} className="animate-spin" /> Loading...
+                        <Loader2 size={12} className="animate-spin" />{" "}
+                        Loading...
                       </div>
                     ) : plans.length === 0 ? (
-                      <div className="p-3 text-center text-xs text-gray-400">No plans available</div>
+                      <div className="p-3 text-center text-xs text-gray-400">
+                        No plans available
+                      </div>
                     ) : (
                       plans.map((plan) => {
                         const isSelected = selectedPlans.includes(plan.plan_id);
@@ -465,14 +534,21 @@ function AudienceFilterPanel({
                             }`}
                           >
                             <div className="flex-1 min-w-0">
-                              <span className="font-medium text-gray-900">{plan.name}</span>
+                              <span className="font-medium text-gray-900">
+                                {plan.name}
+                              </span>
                               {plan.price !== undefined && (
                                 <span className="text-gray-400 ml-1">
                                   · ₹{plan.price}
                                 </span>
                               )}
                             </div>
-                            {isSelected && <Check size={14} className="text-[#05015A] flex-shrink-0" />}
+                            {isSelected && (
+                              <Check
+                                size={14}
+                                className="text-[#05015A] flex-shrink-0"
+                              />
+                            )}
                           </button>
                         );
                       })
@@ -542,9 +618,13 @@ function AudienceFilterPanel({
                   >
                     {role.label}
                     {role.count !== undefined && (
-                      <span className={`ml-1 text-[9px] ${
-                        selectedRoles.includes(role.value) ? "text-white/70" : "text-gray-400"
-                      }`}>
+                      <span
+                        className={`ml-1 text-[9px] ${
+                          selectedRoles.includes(role.value)
+                            ? "text-white/70"
+                            : "text-gray-400"
+                        }`}
+                      >
                         ({role.count})
                       </span>
                     )}
@@ -612,46 +692,47 @@ function AudienceFilterPanel({
       )}
 
       {/* ── Recipients by Shop breakdown ──────────────────────────────── */}
-      {recipientPreview && Object.keys(recipientPreview.by_shop || {}).length > 0 && (
-        <div className="pt-4 border-t border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-              <Building2 size={12} />
-              Recipients by Shop
-            </span>
-            <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-              {Object.keys(recipientPreview.by_shop).length} shops
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {Object.entries(recipientPreview.by_shop)
-              .slice(0, 6)
-              .map(([shopId, shopData]) => (
-                <div
-                  key={shopId}
-                  className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-gray-50 to-white border border-gray-100 rounded-lg"
-                >
-                  <span
-                    className="text-xs text-gray-700 truncate max-w-[120px]"
-                    title={getShopName(shopId, shopData)}
-                  >
-                    {getShopName(shopId, shopData)}
-                  </span>
-                  <span className="font-semibold text-xs text-[#05015A] bg-[#05015A]/10 px-2 py-0.5 rounded-full ml-2 flex-shrink-0">
-                    {getShopCount(shopData)}
-                  </span>
-                </div>
-              ))}
-          </div>
-          {Object.keys(recipientPreview.by_shop).length > 6 && (
-            <div className="text-center mt-2">
-              <span className="text-[10px] text-gray-400">
-                +{Object.keys(recipientPreview.by_shop).length - 6} more shops
+      {recipientPreview &&
+        Object.keys(recipientPreview.by_shop || {}).length > 0 && (
+          <div className="pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                <Building2 size={12} />
+                Recipients by Shop
+              </span>
+              <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                {Object.keys(recipientPreview.by_shop).length} shops
               </span>
             </div>
-          )}
-        </div>
-      )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {Object.entries(recipientPreview.by_shop)
+                .slice(0, 6)
+                .map(([shopId, shopData]) => (
+                  <div
+                    key={shopId}
+                    className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-gray-50 to-white border border-gray-100 rounded-lg"
+                  >
+                    <span
+                      className="text-xs text-gray-700 truncate max-w-[120px]"
+                      title={getShopName(shopId, shopData)}
+                    >
+                      {getShopName(shopId, shopData)}
+                    </span>
+                    <span className="font-semibold text-xs text-[#05015A] bg-[#05015A]/10 px-2 py-0.5 rounded-full ml-2 flex-shrink-0">
+                      {getShopCount(shopData)}
+                    </span>
+                  </div>
+                ))}
+            </div>
+            {Object.keys(recipientPreview.by_shop).length > 6 && (
+              <div className="text-center mt-2">
+                <span className="text-[10px] text-gray-400">
+                  +{Object.keys(recipientPreview.by_shop).length - 6} more shops
+                </span>
+              </div>
+            )}
+          </div>
+        )}
     </div>
   );
 }

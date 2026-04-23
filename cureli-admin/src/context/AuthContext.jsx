@@ -11,10 +11,10 @@ import { getMyProfile, logoutAdmin } from "../api/cadminProfile";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [admin, setAdmin]                 = useState(null);
+  const [admin, setAdmin] = useState(null);
   const [pendingCounts, setPendingCounts] = useState(null);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const navigate = useNavigate();
 
@@ -35,12 +35,17 @@ export function AuthProvider({ children }) {
       setError(null);
 
       const currentPath = window.location.pathname;
-      const publicPaths = ["/", "/login", "/admin-forgot-password", "/reset-password"];
+      const publicPaths = [
+        "/",
+        "/login",
+        "/admin-forgot-password",
+        "/reset-password",
+      ];
       if (publicPaths.includes(currentPath)) {
         navigate("/dashboard");
       }
     } catch (err) {
-      console.error("❌ [AuthContext] Profile fetch failed:", err.response?.data);
+      console.error(" [AuthContext] Profile fetch failed:", err.response?.data);
 
       if (err.response?.status === 401 || err.response?.status === 403) {
         localStorage.removeItem("cadmin_access_token");
@@ -60,14 +65,17 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!admin) return;
-    const interval = setInterval(async () => {
-      try {
-        const response = await getMyProfile();
-        setPendingCounts(response.data.data.pendingCounts);
-      } catch (err) {
-        console.error("Failed to refresh pending counts:", err);
-      }
-    }, 2 * 60 * 1000);
+    const interval = setInterval(
+      async () => {
+        try {
+          const response = await getMyProfile();
+          setPendingCounts(response.data.data.pendingCounts);
+        } catch (err) {
+          console.error("Failed to refresh pending counts:", err);
+        }
+      },
+      2 * 60 * 1000,
+    );
     return () => clearInterval(interval);
   }, [admin]);
 

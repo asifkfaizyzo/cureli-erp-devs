@@ -3,21 +3,21 @@
  * Q:\YourZeroesAndOnes\cureli\curely_erp\backend\prisma\seeds\masterCatalog.seed.js
  * MASTER CATALOG - SEED SCRIPT
  * ═══════════════════════════════════════════════════════════════
- * 
+ *
  * Reads CCSP transformed data and populates master catalog
- * 
+ *
  * Source: Q:/YourZeroesAndOnes/cureli/ccsp/transformed/medicines_page_*.json
  * Creates: master_medicines + master_medicine_variants + master_medicine_images
- * 
+ *
  * Run: node prisma/seeds/masterCatalog.seed.js
- * 
+ *
  * ⚠️  IMPORTANT: Run only ONCE or clear tables first
  */
 
-import { PrismaClient } from '@prisma/client';
-import fs from 'fs-extra';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { PrismaClient } from "@prisma/client";
+import fs from "fs-extra";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,8 +28,12 @@ const prisma = new PrismaClient();
 // CONFIGURATION
 // ══════════════════════════════════════════════════════════════
 
-const CCSP_DATA_DIR = 'Q:/YourZeroesAndOnes/cureli/ccsp/transformed';
-const JSON_FILES = ['medicines_page_1.json', 'medicines_page_2.json', 'medicines_page_3.json'];
+const CCSP_DATA_DIR = "Q:/YourZeroesAndOnes/cureli/ccsp/transformed";
+const JSON_FILES = [
+  "medicines_page_1.json",
+  "medicines_page_2.json",
+  "medicines_page_3.json",
+];
 const BATCH_SIZE = 50;
 
 // ══════════════════════════════════════════════════════════════
@@ -40,9 +44,7 @@ function formatDuration(ms) {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  return minutes > 0 
-    ? `${minutes}m ${remainingSeconds}s` 
-    : `${seconds}s`;
+  return minutes > 0 ? `${minutes}m ${remainingSeconds}s` : `${seconds}s`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -50,20 +52,20 @@ function formatDuration(ms) {
 // ══════════════════════════════════════════════════════════════
 
 async function loadAllVariants() {
-  console.log('📂 Loading CCSP data files...\n');
-  
+  console.log("📂 Loading CCSP data files...\n");
+
   const allVariants = [];
-  
+
   for (const jsonFile of JSON_FILES) {
     const filePath = path.join(CCSP_DATA_DIR, jsonFile);
-    
+
     try {
       const exists = await fs.pathExists(filePath);
       if (!exists) {
         console.warn(`⚠️  File not found: ${jsonFile} - Skipping`);
         continue;
       }
-      
+
       const data = await fs.readJson(filePath);
       allVariants.push(...data);
       console.log(`   ✓ Loaded ${jsonFile}: ${data.length} products`);
@@ -71,8 +73,8 @@ async function loadAllVariants() {
       console.warn(`⚠️  Error loading ${jsonFile}: ${err.message}`);
     }
   }
-  
-  console.log(`\n✅ Total variants loaded: ${allVariants.length}\n`);
+
+  console.log(`\n Total variants loaded: ${allVariants.length}\n`);
   return allVariants;
 }
 
@@ -81,68 +83,70 @@ async function loadAllVariants() {
 // ══════════════════════════════════════════════════════════════
 
 function buildMasters(variants) {
-  console.log('🔑 Grouping variants by master_key...\n');
-  
+  console.log("🔑 Grouping variants by master_key...\n");
+
   const masterMap = new Map();
-  
+
   for (const variant of variants) {
     const key = variant.master_key;
-    
+
     if (!key) {
-      console.warn(`⚠️  Variant ${variant.sku_id} has no master_key - Skipping`);
+      console.warn(
+        `⚠️  Variant ${variant.sku_id} has no master_key - Skipping`,
+      );
       continue;
     }
-    
+
     if (!masterMap.has(key)) {
       // Build generic name
       let genericName = null;
-      
+
       if (variant.composition && variant.composition.length > 0) {
-        genericName = variant.composition.map(c => c.name).join(' + ');
+        genericName = variant.composition.map((c) => c.name).join(" + ");
       }
-      
+
       if (!genericName) {
         genericName = variant.brand || variant.name;
       }
-      
+
       if (variant.form) {
         genericName = `${genericName} ${variant.form}`;
       }
-      
+
       // Extract composition data
       const compositionData = variant.composition || [];
-      
+
       masterMap.set(key, {
         master_key: key,
         generic_name: genericName,
-        type: variant.type || 'OTC',
+        type: variant.type || "OTC",
         form: variant.form || null,
         composition: compositionData,
         prescription_required: variant.prescription_required || false,
         primary_category: variant.primary_category || null,
         variant_count: 0,
-        variants: []
+        variants: [],
       });
     }
-    
+
     const master = masterMap.get(key);
     master.variant_count++;
     master.variants.push(variant);
-    
+
     // If any variant requires prescription, master should too
     if (variant.prescription_required) {
       master.prescription_required = true;
     }
-    
+
     // Use DRUG type if any variant is DRUG
-    if (variant.type === 'DRUG') {
-      master.type = 'DRUG';
+    if (variant.type === "DRUG") {
+      master.type = "DRUG";
     }
   }
-  
+
   const masters = Array.from(masterMap.values());
-  console.log(`✅ Grouped into ${masters.length} unique masters\n`);
-  
+  console.log(` Grouped into ${masters.length} unique masters\n`);
+
   return masters;
 }
 
@@ -153,59 +157,60 @@ function buildMasters(variants) {
 function prepareImages(variant, masterMedicineId) {
   const images = [];
   let sequence = 0;
-  
+
   if (!variant.images || variant.images.length === 0) {
     return images;
   }
-  
+
   // Find phase1_main.jpg (primary)
-  const mainImage = variant.images.find(img => 
-    img.url && img.url.includes('phase1_main.jpg')
+  const mainImage = variant.images.find(
+    (img) => img.url && img.url.includes("phase1_main.jpg"),
   );
-  
+
   if (mainImage) {
     images.push({
       master_medicine_id: masterMedicineId,
       sku_id: variant.sku_id,
       url: `/static/medicine_images/${variant.sku_id}/phase1_main.jpg`,
-      type: 'PRIMARY',
-      sequence: sequence++
+      type: "PRIMARY",
+      sequence: sequence++,
     });
   } else {
     // Fallback: use img_00_high.jpg as primary
-    const firstHigh = variant.images.find(img => 
-      img.url && img.url.includes('img_00_high.jpg')
+    const firstHigh = variant.images.find(
+      (img) => img.url && img.url.includes("img_00_high.jpg"),
     );
-    
+
     if (firstHigh) {
       images.push({
         master_medicine_id: masterMedicineId,
         sku_id: variant.sku_id,
         url: `/static/medicine_images/${variant.sku_id}/img_00_high.jpg`,
-        type: 'PRIMARY',
-        sequence: sequence++
+        type: "PRIMARY",
+        sequence: sequence++,
       });
     }
   }
-  
+
   // Add gallery images (img_*_high.jpg)
-  const galleryImages = variant.images.filter(img => 
-    img.url && 
-    img.url.match(/img_\d{2}_high\.jpg$/) && 
-    !img.url.includes('img_00_high.jpg')
+  const galleryImages = variant.images.filter(
+    (img) =>
+      img.url &&
+      img.url.match(/img_\d{2}_high\.jpg$/) &&
+      !img.url.includes("img_00_high.jpg"),
   );
-  
+
   for (const img of galleryImages) {
     const filename = path.basename(img.url);
     images.push({
       master_medicine_id: masterMedicineId,
       sku_id: variant.sku_id,
       url: `/static/medicine_images/${variant.sku_id}/${filename}`,
-      type: 'GALLERY',
-      sequence: sequence++
+      type: "GALLERY",
+      sequence: sequence++,
     });
   }
-  
+
   return images;
 }
 
@@ -214,45 +219,53 @@ function prepareImages(variant, masterMedicineId) {
 // ══════════════════════════════════════════════════════════════
 
 function prepareVariantData(variant, masterMedicineId) {
-
-      let manufacturer = null;
+  let manufacturer = null;
   if (variant.manufacturer) {
-    if (typeof variant.manufacturer === 'string') {
+    if (typeof variant.manufacturer === "string") {
       manufacturer = variant.manufacturer;
-    } else if (typeof variant.manufacturer === 'object' && variant.manufacturer.name) {
+    } else if (
+      typeof variant.manufacturer === "object" &&
+      variant.manufacturer.name
+    ) {
       manufacturer = variant.manufacturer.name;
     }
   }
-  
+
   // Extract marketer (handle object or string)
   let marketer = null;
   if (variant.marketer) {
-    if (typeof variant.marketer === 'string') {
+    if (typeof variant.marketer === "string") {
       marketer = variant.marketer;
-    } else if (typeof variant.marketer === 'object' && variant.marketer.name) {
+    } else if (typeof variant.marketer === "object" && variant.marketer.name) {
       marketer = variant.marketer.name;
     }
   }
   // Prepare images array
   const imageUrls = [];
-  
+
   if (variant.images && variant.images.length > 0) {
     // Add phase1_main.jpg if exists
-    if (variant.images.some(img => img.url && img.url.includes('phase1_main.jpg'))) {
-      imageUrls.push(`/static/medicine_images/${variant.sku_id}/phase1_main.jpg`);
+    if (
+      variant.images.some(
+        (img) => img.url && img.url.includes("phase1_main.jpg"),
+      )
+    ) {
+      imageUrls.push(
+        `/static/medicine_images/${variant.sku_id}/phase1_main.jpg`,
+      );
     }
-    
+
     // Add high-res images
-    const highResImages = variant.images.filter(img => 
-      img.url && img.url.match(/img_\d{2}_high\.jpg$/)
+    const highResImages = variant.images.filter(
+      (img) => img.url && img.url.match(/img_\d{2}_high\.jpg$/),
     );
-    
+
     for (const img of highResImages) {
       const filename = path.basename(img.url);
       imageUrls.push(`/static/medicine_images/${variant.sku_id}/${filename}`);
     }
   }
-  
+
   return {
     master_medicine_id: masterMedicineId,
     sku_id: variant.sku_id,
@@ -268,7 +281,7 @@ function prepareVariantData(variant, masterMedicineId) {
     selling_price: variant.price?.selling_price || null,
     discount_percent: variant.price?.discount_percent || null,
     description: variant.description || null,
-    images: imageUrls
+    images: imageUrls,
   };
 }
 
@@ -277,58 +290,62 @@ function prepareVariantData(variant, masterMedicineId) {
 // ══════════════════════════════════════════════════════════════
 
 async function seed() {
-  console.log('\n╔═══════════════════════════════════════════════════════════╗');
-  console.log('║                                                           ║');
-  console.log('║       🌱 MASTER CATALOG - DATABASE SEED                   ║');
-  console.log('║                                                           ║');
-  console.log('╚═══════════════════════════════════════════════════════════╝\n');
+  console.log(
+    "\n╔═══════════════════════════════════════════════════════════╗",
+  );
+  console.log("║                                                           ║");
+  console.log("║       🌱 MASTER CATALOG - DATABASE SEED                   ║");
+  console.log("║                                                           ║");
+  console.log(
+    "╚═══════════════════════════════════════════════════════════╝\n",
+  );
 
   const startTime = Date.now();
-  
+
   const stats = {
     masters: 0,
     variants: 0,
     images: 0,
-    errors: []
+    errors: [],
   };
 
   try {
     // ── Step 1: Safety Check ─────────────────────────────────
-    console.log('🔒 Safety check...\n');
-    
+    console.log("🔒 Safety check...\n");
+
     const existingMasters = await prisma.masterMedicine.count();
     const existingVariants = await prisma.masterMedicineVariant.count();
-    
+
     if (existingMasters > 0 || existingVariants > 0) {
-      console.error('❌ ERROR: Database already contains master catalog data!\n');
+      console.error(" ERROR: Database already contains master catalog data!\n");
       console.error(`   Masters:  ${existingMasters}`);
       console.error(`   Variants: ${existingVariants}\n`);
-      console.error('⚠️  To re-seed, first clear the tables:\n');
-      console.error('   DELETE FROM master_medicine_images;');
-      console.error('   DELETE FROM master_medicine_variants;');
-      console.error('   DELETE FROM master_medicines;\n');
+      console.error("⚠️  To re-seed, first clear the tables:\n");
+      console.error("   DELETE FROM master_medicine_images;");
+      console.error("   DELETE FROM master_medicine_variants;");
+      console.error("   DELETE FROM master_medicines;\n");
       process.exit(1);
     }
-    
-    console.log('✅ Database is empty - safe to proceed\n');
-    console.log('─'.repeat(60) + '\n');
+
+    console.log(" Database is empty - safe to proceed\n");
+    console.log("─".repeat(60) + "\n");
 
     // ── Step 2: Load CCSP Data ───────────────────────────────
     const variants = await loadAllVariants();
-    
+
     if (variants.length === 0) {
-      throw new Error('No variants loaded from CCSP data. Check file paths.');
+      throw new Error("No variants loaded from CCSP data. Check file paths.");
     }
 
     // ── Step 3: Build Masters ────────────────────────────────
     const masters = buildMasters(variants);
 
     // ── Step 4: Insert Masters ───────────────────────────────
-    console.log('💾 Inserting master records...\n');
-    
+    console.log("💾 Inserting master records...\n");
+
     for (let i = 0; i < masters.length; i += BATCH_SIZE) {
       const batch = masters.slice(i, i + BATCH_SIZE);
-      
+
       for (const master of batch) {
         try {
           await prisma.masterMedicine.create({
@@ -340,107 +357,113 @@ async function seed() {
               composition: master.composition,
               prescription_required: master.prescription_required,
               primary_category: master.primary_category,
-              variant_count: master.variant_count
-            }
+              variant_count: master.variant_count,
+            },
           });
-          
+
           stats.masters++;
         } catch (err) {
           stats.errors.push({
-            type: 'master',
+            type: "master",
             key: master.master_key,
-            error: err.message
+            error: err.message,
           });
         }
       }
-      
-      process.stdout.write(`\r   Progress: ${stats.masters}/${masters.length} masters`);
+
+      process.stdout.write(
+        `\r   Progress: ${stats.masters}/${masters.length} masters`,
+      );
     }
-    
-    console.log('\n\n✅ Masters inserted\n');
+
+    console.log("\n\n Masters inserted\n");
 
     // ── Step 5: Insert Variants & Images ─────────────────────
-    console.log('💾 Inserting variants and images...\n');
-    
+    console.log("💾 Inserting variants and images...\n");
+
     for (let i = 0; i < masters.length; i++) {
       const master = masters[i];
-      
+
       // Get the created master from DB
       const dbMaster = await prisma.masterMedicine.findUnique({
-        where: { master_key: master.master_key }
+        where: { master_key: master.master_key },
       });
-      
+
       if (!dbMaster) continue;
-      
+
       for (const variant of master.variants) {
         try {
           // Prepare variant data
-          const variantData = prepareVariantData(variant, dbMaster.master_medicine_id);
-          
+          const variantData = prepareVariantData(
+            variant,
+            dbMaster.master_medicine_id,
+          );
+
           // Insert variant
           await prisma.masterMedicineVariant.create({
-            data: variantData
+            data: variantData,
           });
-          
+
           stats.variants++;
-          
+
           // Prepare and insert images
           const imageData = prepareImages(variant, dbMaster.master_medicine_id);
-          
+
           for (const img of imageData) {
             try {
               await prisma.masterMedicineImage.create({
-                data: img
+                data: img,
               });
               stats.images++;
             } catch (err) {
               // Ignore duplicate image errors
-              if (!err.message.includes('Unique constraint')) {
+              if (!err.message.includes("Unique constraint")) {
                 stats.errors.push({
-                  type: 'image',
+                  type: "image",
                   sku: variant.sku_id,
-                  error: err.message
+                  error: err.message,
                 });
               }
             }
           }
-          
         } catch (err) {
           stats.errors.push({
-            type: 'variant',
+            type: "variant",
             sku: variant.sku_id,
-            error: err.message
+            error: err.message,
           });
         }
       }
-      
+
       // Progress indicator
       if ((i + 1) % 10 === 0 || i === masters.length - 1) {
-        process.stdout.write(`\r   Progress: ${i + 1}/${masters.length} masters processed (${stats.variants} variants, ${stats.images} images)`);
+        process.stdout.write(
+          `\r   Progress: ${i + 1}/${masters.length} masters processed (${stats.variants} variants, ${stats.images} images)`,
+        );
       }
     }
-    
-    console.log('\n\n✅ Variants and images inserted\n');
-    console.log('─'.repeat(60) + '\n');
+
+    console.log("\n\n Variants and images inserted\n");
+    console.log("─".repeat(60) + "\n");
 
     // ── Step 6: Verify ───────────────────────────────────────
-    console.log('🔍 Verifying database...\n');
-    
+    console.log("🔍 Verifying database...\n");
+
     const finalMasters = await prisma.masterMedicine.count();
     const finalVariants = await prisma.masterMedicineVariant.count();
     const finalImages = await prisma.masterMedicineImage.count();
-    
+
     console.log(`   Masters in DB:  ${finalMasters}`);
     console.log(`   Variants in DB: ${finalVariants}`);
     console.log(`   Images in DB:   ${finalImages}\n`);
 
     // ── Summary ──────────────────────────────────────────────
     const duration = Date.now() - startTime;
-    
-    console.log('═'.repeat(60));
-    console.log('  ✅ SEED COMPLETE');
-    console.log('═'.repeat(60));
-    console.log('\n📊 Summary:\n');
+
+    console.log("═".repeat(60));
+    console.log("   SEED COMPLETE");
+    console.log("═".repeat(60));
+    console.log("\n📊 Summary:\n");
     console.log(`   Masters created:  ${stats.masters}`);
     console.log(`   Variants created: ${stats.variants}`);
     console.log(`   Images created:   ${stats.images}`);
@@ -449,20 +472,20 @@ async function seed() {
 
     // Show errors if any
     if (stats.errors.length > 0) {
-      console.log('⚠️  Errors encountered:');
-      console.log('─'.repeat(60));
-      stats.errors.slice(0, 10).forEach(err => {
+      console.log("⚠️  Errors encountered:");
+      console.log("─".repeat(60));
+      stats.errors.slice(0, 10).forEach((err) => {
         console.log(`   [${err.type}] ${err.key || err.sku}: ${err.error}`);
       });
       if (stats.errors.length > 10) {
         console.log(`   ... and ${stats.errors.length - 10} more errors`);
       }
-      console.log('');
+      console.log("");
     }
 
     // ── Sample Data ──────────────────────────────────────────
-    console.log('🔍 Sample Master with Variants:\n');
-    
+    console.log("🔍 Sample Master with Variants:\n");
+
     const sampleMaster = await prisma.masterMedicine.findFirst({
       where: { variant_count: { gt: 1 } },
       include: {
@@ -474,31 +497,32 @@ async function seed() {
             brand: true,
             strength_value: true,
             strength_unit: true,
-            mrp: true
-          }
-        }
-      }
+            mrp: true,
+          },
+        },
+      },
     });
-    
+
     if (sampleMaster) {
       console.log(`   Master: ${sampleMaster.generic_name}`);
       console.log(`   Key:    ${sampleMaster.master_key}`);
       console.log(`   Type:   ${sampleMaster.type}`);
       console.log(`   Variants (${sampleMaster.variant_count} total):`);
-      
+
       for (const v of sampleMaster.variants) {
-        const strength = v.strength_value 
-          ? `${v.strength_value}${v.strength_unit}` 
-          : 'N/A';
-        const price = v.mrp ? `₹${v.mrp}` : 'N/A';
-        console.log(`     - ${v.name} | ${v.brand || 'N/A'} | ${strength} | ${price}`);
+        const strength = v.strength_value
+          ? `${v.strength_value}${v.strength_unit}`
+          : "N/A";
+        const price = v.mrp ? `₹${v.mrp}` : "N/A";
+        console.log(
+          `     - ${v.name} | ${v.brand || "N/A"} | ${strength} | ${price}`,
+        );
       }
     }
-    
-    console.log('\n🎉 Master catalog seeded successfully!\n');
 
+    console.log("\n🎉 Master catalog seeded successfully!\n");
   } catch (error) {
-    console.error('\n❌ SEED ERROR:\n');
+    console.error("\n SEED ERROR:\n");
     console.error(error);
     process.exit(1);
   } finally {
@@ -512,10 +536,10 @@ async function seed() {
 
 seed()
   .then(() => {
-    console.log('✓ Seed script finished\n');
+    console.log("✓ Seed script finished\n");
     process.exit(0);
   })
-  .catch(err => {
-    console.error('\n❌ Seed script failed:\n', err);
+  .catch((err) => {
+    console.error("\n Seed script failed:\n", err);
     process.exit(1);
   });

@@ -29,11 +29,11 @@ import {
   uploadShopDocument,
 } from "../../../../api/cadminShops";
 
-// ✅ UPDATED: New URL format matching backend fileStorage service
+//  UPDATED: New URL format matching backend fileStorage service
 const getFileUrl = (storageKey) => {
   if (!storageKey) return null;
   if (storageKey.startsWith("http")) return storageKey;
-  
+
   const baseURL = import.meta.env.VITE_API_URL;
   // Backend serves files via /api/files/:folder/:filename
   // storage_key contains just the filename (e.g., "1234567890-abcdef12.jpg")

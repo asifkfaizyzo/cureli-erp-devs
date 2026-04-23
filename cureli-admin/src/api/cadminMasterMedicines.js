@@ -47,11 +47,11 @@ export function rejectReviewMatch(medicineId) {
   return CAdminAPI.post(`/master-medicines/review/${medicineId}/reject`);
 }
 
-// ✅ RENAMED + updated to send variantId
+//  RENAMED + updated to send variantId
 export function matchToVariant(medicineIds, variantId) {
   return CAdminAPI.post("/master-medicines/match", {
     medicineIds,
-    variantId,           // ✅ was masterMedicineId
+    variantId, //  was masterMedicineId
   });
 }
 
@@ -70,7 +70,7 @@ export function getLinkedMedicines(masterMedicineId) {
   return CAdminAPI.get(`/master-medicines/${masterMedicineId}/linked`);
 }
 
-// ✅ NEW: get linked medicines by specific variant
+//  NEW: get linked medicines by specific variant
 export function getLinkedByVariant(variantId) {
   return CAdminAPI.get(`/master-medicines/variants/${variantId}/linked`);
 }
@@ -85,15 +85,24 @@ export function createMasterMedicine(data) {
 // IMAGE APIs
 // ══════════════════════════════════════════════════════════════
 
-export function uploadImage(masterMedicineId, file, type = "PRIMARY", skuId = null) {
+export function uploadImage(
+  masterMedicineId,
+  file,
+  type = "PRIMARY",
+  skuId = null,
+) {
   const formData = new FormData();
   formData.append("image", file);
   formData.append("type", type);
   if (skuId) formData.append("skuId", skuId);
 
-  return CAdminAPI.post(`/master-medicines/${masterMedicineId}/images`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  return CAdminAPI.post(
+    `/master-medicines/${masterMedicineId}/images`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+    },
+  );
 }
 
 export function deleteImage(imageId) {
@@ -109,7 +118,9 @@ export function getImageUrl(relativePath) {
   if (relativePath.startsWith("http")) return relativePath;
   const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
   // Remove leading slash if present to avoid double slash
-  const cleanPath = relativePath.startsWith("/") ? relativePath.slice(1) : relativePath;
+  const cleanPath = relativePath.startsWith("/")
+    ? relativePath.slice(1)
+    : relativePath;
   return `${baseUrl}/${cleanPath}`;
 }
 
@@ -125,9 +136,7 @@ export const IMAGE_STATUS = {
 
 export function computeImageStatus(images) {
   if (!images || images.length === 0) return IMAGE_STATUS.NONE;
-  const hasUploaded = images.some(
-    (img) => img.source === "UPLOADED"
-  );
+  const hasUploaded = images.some((img) => img.source === "UPLOADED");
   if (hasUploaded) return IMAGE_STATUS.VERIFIED;
   return IMAGE_STATUS.RAW;
 }
@@ -166,8 +175,27 @@ export function getImageStatusInfo(status) {
 }
 
 export function getConfidenceColorClasses(score) {
-  if (score >= 90) return { bg: "bg-green-500", text: "text-green-700", badge: "bg-green-100 text-green-800" };
-  if (score >= 70) return { bg: "bg-yellow-500", text: "text-yellow-700", badge: "bg-yellow-100 text-yellow-800" };
-  if (score >= 50) return { bg: "bg-orange-500", text: "text-orange-700", badge: "bg-orange-100 text-orange-800" };
-  return { bg: "bg-red-500", text: "text-red-700", badge: "bg-red-100 text-red-800" };
+  if (score >= 90)
+    return {
+      bg: "bg-green-500",
+      text: "text-green-700",
+      badge: "bg-green-100 text-green-800",
+    };
+  if (score >= 70)
+    return {
+      bg: "bg-yellow-500",
+      text: "text-yellow-700",
+      badge: "bg-yellow-100 text-yellow-800",
+    };
+  if (score >= 50)
+    return {
+      bg: "bg-orange-500",
+      text: "text-orange-700",
+      badge: "bg-orange-100 text-orange-800",
+    };
+  return {
+    bg: "bg-red-500",
+    text: "text-red-700",
+    badge: "bg-red-100 text-red-800",
+  };
 }

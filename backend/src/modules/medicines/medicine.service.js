@@ -12,7 +12,7 @@ class ApiError extends Error {
 }
 
 class MedicineService {
-  // ✅ Helper to parse any value to number or null
+  //  Helper to parse any value to number or null
   _toNumber(value) {
     if (value === null || value === undefined) return null;
     if (typeof value === "number") return isNaN(value) ? null : value;
@@ -111,7 +111,7 @@ class MedicineService {
         linkedByType = "SYSTEM";
         suggestionReason = linkingData.reason;
         console.log(
-          `✅ Pre-linked to master: ${linkingData.master_medicine_id} (${linkingData.confidence}%)`,
+          ` Pre-linked to master: ${linkingData.master_medicine_id} (${linkingData.confidence}%)`,
         );
       } else if (linkingData.status === "PENDING") {
         linkStatus = "SUGGESTED";
@@ -174,7 +174,7 @@ class MedicineService {
       },
     });
 
-    console.log("✅ Medicine created:", {
+    console.log(" Medicine created:", {
       id: medicine.medicine_id,
       name: medicine.name,
       link_status: medicine.link_status,
@@ -204,7 +204,7 @@ class MedicineService {
           });
 
           console.log(
-            `✅ Auto-linked after creation: ${linkResult.master_key} (${linkResult.confidence}%)`,
+            ` Auto-linked after creation: ${linkResult.master_key} (${linkResult.confidence}%)`,
           );
         } else if (linkResult.status === "PENDING") {
           await prisma.medicine.update({
@@ -391,7 +391,7 @@ class MedicineService {
       );
     }
 
-    // ✅ FIX: linkingResults is now the LEGACY path (kept for backward compat)
+    //  FIX: linkingResults is now the LEGACY path (kept for backward compat)
     // The NEW path is _linkingData embedded directly in each medicine object
 
     // Legacy: Build linking map by index (old callers that still pass separate array)
@@ -409,7 +409,7 @@ class MedicineService {
     for (let i = 0; i < medicinesData.length; i++) {
       const data = medicinesData[i];
 
-      // ✅ Priority 1: Linking data embedded directly in this product (new path)
+      //  Priority 1: Linking data embedded directly in this product (new path)
       // Priority 2: Legacy index-based lookup (old path)
       // Priority 3: null (createMedicine will do its own catalog check)
       const linkingData = data._linkingData || legacyLinkingMap.get(i) || null;

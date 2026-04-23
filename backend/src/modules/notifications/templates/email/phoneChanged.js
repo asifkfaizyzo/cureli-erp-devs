@@ -9,8 +9,8 @@ import {
   renderLogo,
   renderFooter,
   getSupportLink,
-} from './_helpers.js';
-import { ICONS } from './_icons.js';
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
 
 export function phoneChangedTemplate(context) {
   const { recipientName, old_phone, new_phone } = context;
@@ -28,7 +28,7 @@ export function phoneChangedTemplate(context) {
 
     <!-- Header: PHONE icon replaces 📱 -->
     <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo('WHITE', 'header')}
+      ${renderLogo("WHITE", "header")}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
         ${ICONS.PHONE}
         <span style="vertical-align:middle;">Phone Number Changed</span>
@@ -42,7 +42,7 @@ export function phoneChangedTemplate(context) {
     <div class="content-bg content" style="background-color:#ffffff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
 
       <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 12px;background-color:#ffffff;">
-        Hi <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${recipientName || 'there'}</strong>,
+        Hi <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${recipientName || "there"}</strong>,
       </p>
 
       <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:0 0 20px;background-color:#ffffff;">
@@ -72,7 +72,7 @@ export function phoneChangedTemplate(context) {
         </table>
       </div>
 
-      <!-- Success Confirmation: CHECK_CIRCLE icon replaces ✅ -->
+      <!-- Success Confirmation: CHECK_CIRCLE icon replaces  -->
       <div class="success-box" style="background-color:#f0fdf4;border-left:4px solid ${EMAIL_CONFIG.COLORS.SUCCESS};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="success-text" style="margin:0;color:#065f46;font-size:13px;background-color:#f0fdf4;">
           ${ICONS.CHECK_CIRCLE}

@@ -45,12 +45,16 @@ const BROADCAST_ANY_PERMISSIONS = [
 // ============================================
 const StatItem = ({ icon: Icon, label, value, color }) => (
   <div className="flex items-center gap-2">
-    <div className={`w-7 h-7 rounded-lg ${color} flex items-center justify-center`}>
+    <div
+      className={`w-7 h-7 rounded-lg ${color} flex items-center justify-center`}
+    >
       <Icon className="w-3.5 h-3.5" />
     </div>
     <div>
       <p className="text-lg font-bold text-gray-900">{value}</p>
-      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-[10px] text-gray-500 uppercase tracking-wide">
+        {label}
+      </p>
     </div>
   </div>
 );
@@ -85,14 +89,17 @@ const CommunicationCard = ({
       className={`
         bg-white rounded-xl border border-gray-200 p-5
         transition-all duration-200
-        ${isComingSoon
-          ? "opacity-60 cursor-not-allowed"
-          : "cursor-pointer hover:border-gray-300 hover:shadow-md"
+        ${
+          isComingSoon
+            ? "opacity-60 cursor-not-allowed"
+            : "cursor-pointer hover:border-gray-300 hover:shadow-md"
         }
       `}
     >
       <div className="flex items-start justify-between mb-4">
-        <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center`}>
+        <div
+          className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center`}
+        >
           <Icon className={`w-5 h-5 ${iconColor}`} />
         </div>
         {isComingSoon && (
@@ -153,7 +160,11 @@ const CommunicationsPage = () => {
       setLoadingTickets(true);
       const totalResponse = await getAllTickets({ page: 1, limit: 1 });
       const total = totalResponse?.data?.data?.pagination?.total || 0;
-      const pendingResponse = await getAllTickets({ page: 1, limit: 1, status: "PENDING" });
+      const pendingResponse = await getAllTickets({
+        page: 1,
+        limit: 1,
+        status: "PENDING",
+      });
       const pending = pendingResponse?.data?.data?.pagination?.total || 0;
       setTicketStats({ total, pending });
     } catch (error) {
@@ -169,11 +180,11 @@ const CommunicationsPage = () => {
       setLoadingEnquiries(true);
       const response = await getEnquiryStats();
       let statsData = null;
-      if (response?.data?.data?.stats)   statsData = response.data.data.stats;
-      else if (response?.data?.stats)    statsData = response.data.stats;
-      else if (response?.stats)          statsData = response.stats;
-      else if (response?.data?.data)     statsData = response.data.data;
-      else if (response?.data)           statsData = response.data;
+      if (response?.data?.data?.stats) statsData = response.data.data.stats;
+      else if (response?.data?.stats) statsData = response.data.stats;
+      else if (response?.stats) statsData = response.stats;
+      else if (response?.data?.data) statsData = response.data.data;
+      else if (response?.data) statsData = response.data;
       setEnquiryStats(statsData);
     } catch (error) {
       console.error("Failed to fetch enquiry stats:", error);
@@ -195,17 +206,20 @@ const CommunicationsPage = () => {
     fetchEnquiryStats();
   }, [toast, fetchTicketStats, fetchEnquiryStats]);
 
-  const totalTickets      = ticketStats?.total  || 0;
-  const pendingTickets    = ticketStats?.pending || 0;
-  const totalEnquiries    = enquiryStats?.total  || enquiryStats?.totalEnquiries   || 0;
-  const pendingEnquiries  = enquiryStats?.pending || enquiryStats?.pendingEnquiries || 0;
+  const totalTickets = ticketStats?.total || 0;
+  const pendingTickets = ticketStats?.pending || 0;
+  const totalEnquiries =
+    enquiryStats?.total || enquiryStats?.totalEnquiries || 0;
+  const pendingEnquiries =
+    enquiryStats?.pending || enquiryStats?.pendingEnquiries || 0;
 
   const channels = useMemo(() => {
     const allChannels = [
       {
         id: "tickets",
         title: "Support Tickets",
-        description: "Manage customer support requests and track resolution progress",
+        description:
+          "Manage customer support requests and track resolution progress",
         icon: Ticket,
         path: "/communications/tickets",
         breadcrumbs: ["Communications", "Tickets"],
@@ -215,15 +229,26 @@ const CommunicationsPage = () => {
         visible: hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
         stats: ticketStats
           ? [
-              { icon: TrendingUp, label: "Total",   value: totalTickets,   color: "bg-blue-50 text-blue-600"  },
-              { icon: Clock,      label: "Pending",  value: pendingTickets, color: "bg-amber-50 text-amber-600" },
+              {
+                icon: TrendingUp,
+                label: "Total",
+                value: totalTickets,
+                color: "bg-blue-50 text-blue-600",
+              },
+              {
+                icon: Clock,
+                label: "Pending",
+                value: pendingTickets,
+                color: "bg-amber-50 text-amber-600",
+              },
             ]
           : null,
       },
       {
         id: "enquiries",
         title: "Enquiries",
-        description: "Handle general inquiries and respond to customer questions and doubts",
+        description:
+          "Handle general inquiries and respond to customer questions and doubts",
         icon: Mail,
         path: "/communications/enquiries",
         breadcrumbs: ["Communications", "Enquiries"],
@@ -233,8 +258,18 @@ const CommunicationsPage = () => {
         visible: hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
         stats: enquiryStats
           ? [
-              { icon: TrendingUp, label: "Total",   value: totalEnquiries,   color: "bg-emerald-50 text-emerald-600" },
-              { icon: Clock,      label: "Pending",  value: pendingEnquiries, color: "bg-amber-50 text-amber-600"    },
+              {
+                icon: TrendingUp,
+                label: "Total",
+                value: totalEnquiries,
+                color: "bg-emerald-50 text-emerald-600",
+              },
+              {
+                icon: Clock,
+                label: "Pending",
+                value: pendingEnquiries,
+                color: "bg-amber-50 text-amber-600",
+              },
             ]
           : null,
       },
@@ -249,7 +284,7 @@ const CommunicationsPage = () => {
         iconColor: "text-violet-600",
         isLoading: false,
         isComingSoon: false,
-        // ✅ THE FIX: spread the array — hook uses rest params (...perms)
+        //  THE FIX: spread the array — hook uses rest params (...perms)
         // Without the spread, the array is passed as a single argument
         // and perms.some() checks if permissions.includes([...array]) → always false
         visible: hasAnyPermission(...BROADCAST_ANY_PERMISSIONS),
@@ -286,7 +321,9 @@ const CommunicationsPage = () => {
               <h1 className="text-xl font-bold text-gray-900 truncate">
                 Communications
               </h1>
-              <p className="text-sm text-gray-500">Manage customer interactions</p>
+              <p className="text-sm text-gray-500">
+                Manage customer interactions
+              </p>
             </div>
           </div>
 
@@ -309,7 +346,9 @@ const CommunicationsPage = () => {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <div className="w-1 h-8 bg-blue-600 rounded-full" />
-              <p className="text-sm font-medium text-gray-700">Quick Overview</p>
+              <p className="text-sm font-medium text-gray-700">
+                Quick Overview
+              </p>
             </div>
 
             <div className="flex items-center gap-6 flex-wrap">

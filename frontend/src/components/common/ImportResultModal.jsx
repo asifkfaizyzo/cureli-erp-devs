@@ -2,9 +2,17 @@
 
 import React, { useState, useMemo } from "react";
 import {
-  X, Package, CheckCircle, Clock, AlertCircle,
-  Link2, ChevronDown, ChevronUp,
-  ArrowRight, Loader2, Info
+  X,
+  Package,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Link2,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
+  Loader2,
+  Info,
 } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════
@@ -59,7 +67,9 @@ const StatusBadge = ({ status, confidence }) => {
   const Icon = c.icon;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${c.bg} ${c.border} ${c.text}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${c.bg} ${c.border} ${c.text}`}
+    >
       <Icon size={12} className={c.iconColor} />
       {c.label}
       {confidence > 0 && (
@@ -74,8 +84,12 @@ const StatusBadge = ({ status, confidence }) => {
 // ══════════════════════════════════════════════════════════════
 
 const StatCard = ({ icon: Icon, label, count, total, color }) => (
-  <div className={`flex items-center gap-3 p-3 rounded-xl border ${color.bg} ${color.border}`}>
-    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color.iconBg}`}>
+  <div
+    className={`flex items-center gap-3 p-3 rounded-xl border ${color.bg} ${color.border}`}
+  >
+    <div
+      className={`w-10 h-10 rounded-lg flex items-center justify-center ${color.iconBg}`}
+    >
       <Icon size={18} className={color.iconColor} />
     </div>
     <div>
@@ -144,7 +158,7 @@ const ImportResultModal = ({
   };
 
   // ═══════════════════════════════════════════════════════
-  // ✅ FIX: Proceed sends ALL new products to BatchProductModal
+  //  FIX: Proceed sends ALL new products to BatchProductModal
   // Catalog linking is separate from shop medicine creation.
   // ALL products here are "new" = not in shop's medicine list.
   // They ALL need to be created regardless of catalog link status.
@@ -182,7 +196,10 @@ const ImportResultModal = ({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
@@ -261,18 +278,28 @@ const ImportResultModal = ({
 
         {/* ═══════════ CONTENT — UNCHANGED ═══════════ */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-          {/* ✅ UPDATED: Info banner reflects that ALL products need creation */}
+          {/*  UPDATED: Info banner reflects that ALL products need creation */}
           <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
             <div className="text-xs text-blue-700">
               <p className="font-medium">How this works:</p>
               <ul className="mt-1 space-y-0.5 list-disc list-inside">
-                <li><strong>Linked</strong> — Auto-matched to master catalog. Will appear in mobile app.</li>
-                <li><strong>Pending Review</strong> — Sent to admin for verification. Usable in ERP now.</li>
-                <li><strong>Not in Catalog</strong> — No match found in master catalog.</li>
+                <li>
+                  <strong>Linked</strong> — Auto-matched to master catalog. Will
+                  appear in mobile app.
+                </li>
+                <li>
+                  <strong>Pending Review</strong> — Sent to admin for
+                  verification. Usable in ERP now.
+                </li>
+                <li>
+                  <strong>Not in Catalog</strong> — No match found in master
+                  catalog.
+                </li>
               </ul>
               <p className="mt-2 font-medium text-blue-800">
-                All {newProducts.length} products still need to be added to your shop's medicine list in the next step.
+                All {newProducts.length} products still need to be added to your
+                shop's medicine list in the next step.
               </p>
             </div>
           </div>
@@ -296,11 +323,14 @@ const ImportResultModal = ({
                   <ChevronDown size={16} className="text-emerald-600" />
                 )}
               </button>
-              
+
               {expandedSection === "linked" && (
                 <div className="divide-y divide-emerald-100">
                   {categorized.linked.map((product, idx) => (
-                    <div key={idx} className="px-4 py-2.5 flex items-center justify-between hover:bg-emerald-50/50">
+                    <div
+                      key={idx}
+                      className="px-4 py-2.5 flex items-center justify-between hover:bg-emerald-50/50"
+                    >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-800 truncate">
                           {product.name}
@@ -308,7 +338,9 @@ const ImportResultModal = ({
                         <p className="text-xs text-slate-500 truncate">
                           {product.manufacturer || "Unknown manufacturer"}
                           {product.match?.reason && (
-                            <span className="ml-2 text-emerald-600">• {product.match.reason}</span>
+                            <span className="ml-2 text-emerald-600">
+                              • {product.match.reason}
+                            </span>
                           )}
                         </p>
                       </div>
@@ -342,11 +374,14 @@ const ImportResultModal = ({
                   <ChevronDown size={16} className="text-amber-600" />
                 )}
               </button>
-              
+
               {expandedSection === "pending" && (
                 <div className="divide-y divide-amber-100">
                   {categorized.pending.map((product, idx) => (
-                    <div key={idx} className="px-4 py-2.5 flex items-center justify-between hover:bg-amber-50/50">
+                    <div
+                      key={idx}
+                      className="px-4 py-2.5 flex items-center justify-between hover:bg-amber-50/50"
+                    >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-800 truncate">
                           {product.name}
@@ -354,7 +389,9 @@ const ImportResultModal = ({
                         <p className="text-xs text-slate-500 truncate">
                           {product.manufacturer || "Unknown manufacturer"}
                           {product.match?.reason && (
-                            <span className="ml-2 text-amber-600">• {product.match.reason}</span>
+                            <span className="ml-2 text-amber-600">
+                              • {product.match.reason}
+                            </span>
                           )}
                         </p>
                       </div>
@@ -388,11 +425,14 @@ const ImportResultModal = ({
                   <ChevronDown size={16} className="text-slate-500" />
                 )}
               </button>
-              
+
               {expandedSection === "unmatched" && (
                 <div className="divide-y divide-slate-100">
                   {categorized.unmatched.map((product, idx) => (
-                    <div key={idx} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-50/50">
+                    <div
+                      key={idx}
+                      className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-50/50"
+                    >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-800 truncate">
                           {product.name}
@@ -410,19 +450,28 @@ const ImportResultModal = ({
           )}
         </div>
 
-        {/* ═══════════ FOOTER — ✅ FIXED ═══════════ */}
+        {/* ═══════════ FOOTER —  FIXED ═══════════ */}
         <div className="shrink-0 px-6 py-4 bg-white border-t border-gray-200">
           <div className="flex items-center justify-between">
             {/* Info */}
             <div className="text-xs text-slate-400">
-              <span className="text-emerald-600 font-medium">{stats.autoLinked}</span> linked
+              <span className="text-emerald-600 font-medium">
+                {stats.autoLinked}
+              </span>{" "}
+              linked
               <span className="mx-1">•</span>
-              <span className="text-amber-600 font-medium">{stats.pending}</span> pending
+              <span className="text-amber-600 font-medium">
+                {stats.pending}
+              </span>{" "}
+              pending
               <span className="mx-1">•</span>
-              <span className="text-slate-600 font-medium">{stats.noMatch}</span> not in catalog
+              <span className="text-slate-600 font-medium">
+                {stats.noMatch}
+              </span>{" "}
+              not in catalog
             </div>
 
-            {/* ✅ FIX: Always show "Create Products" button since ALL products
+            {/*  FIX: Always show "Create Products" button since ALL products
                 need to be created in the shop's medicine list */}
             <div className="flex items-center gap-2">
               <button
@@ -456,10 +505,18 @@ const ImportResultModal = ({
 
       <style jsx>{`
         @keyframes zoom-in-95 {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
-        .animate-in { animation: zoom-in-95 0.2s ease-out; }
+        .animate-in {
+          animation: zoom-in-95 0.2s ease-out;
+        }
       `}</style>
     </div>
   );

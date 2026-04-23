@@ -13,24 +13,24 @@ import ReCaptchaWrapper from "../../components/common/ReCaptchaWrapper";
 
 const LANDING_PAGE_URL = import.meta.env.VITE_LANDING_PAGE;
 
-// ✅ Helper to get initial session message from URL (runs once, outside component)
+//  Helper to get initial session message from URL (runs once, outside component)
 const getInitialSessionMessage = (searchParams) => {
   const reason = searchParams.get("reason");
-  
+
   if (reason === "session_replaced") {
     return {
       type: "warning",
       text: "You were logged out because your account was accessed from another device.",
     };
   }
-  
+
   if (reason === "session_expired") {
     return {
       type: "info",
       text: "Your session has expired. Please log in again.",
     };
   }
-  
+
   return null;
 };
 
@@ -38,19 +38,19 @@ const LoginPage = () => {
   const [showOtp, setShowOtp] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [searchParams] = useSearchParams();
-  
-  // ✅ Initialize state directly from URL params (no effect needed for initial value)
-  const [sessionMessage, setSessionMessage] = useState(() => 
-    getInitialSessionMessage(searchParams)
+
+  //  Initialize state directly from URL params (no effect needed for initial value)
+  const [sessionMessage, setSessionMessage] = useState(() =>
+    getInitialSessionMessage(searchParams),
   );
-  
-  // ✅ Track if we've already cleaned the URL
+
+  //  Track if we've already cleaned the URL
   const hasCleanedUrl = useRef(false);
 
-  // ✅ Only clean URL after mount (no setState, just URL cleanup)
+  //  Only clean URL after mount (no setState, just URL cleanup)
   useEffect(() => {
     const reason = searchParams.get("reason");
-    
+
     if (reason && !hasCleanedUrl.current) {
       hasCleanedUrl.current = true;
       // Use setTimeout to avoid synchronous state-like updates

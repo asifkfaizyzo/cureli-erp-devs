@@ -10,37 +10,41 @@ import {
   getVerificationStatusController,
 } from "./shopFiles.controller.js";
 
-// ✅ NEW: Import from universal multer config
+//  NEW: Import from universal multer config
 import { createUploader, handleMulterError } from "../../config/multer.js";
 
 const router = express.Router();
 
-// ✅ NEW: Use universal uploader for 'shop_files' folder
-const shopFilesUpload = createUploader('shop_files', {
-  fieldName: 'file',
+//  NEW: Use universal uploader for 'shop_files' folder
+const shopFilesUpload = createUploader("shop_files", {
+  fieldName: "file",
   maxFiles: 1,
 });
 
 // Routes
-router.get("/verification-status", requireAuth, getVerificationStatusController);
+router.get(
+  "/verification-status",
+  requireAuth,
+  getVerificationStatusController,
+);
 router.get("/rejected", requireAuth, listRejectedController);
 
-// ✅ UPDATED: Using universal uploader + error handler
+//  UPDATED: Using universal uploader + error handler
 router.post(
   "/upload",
   requireAuth,
   shopFilesUpload,
   handleMulterError,
-  uploadShopFileController
+  uploadShopFileController,
 );
 
-// ✅ UPDATED: Using universal uploader + error handler for resubmit
+//  UPDATED: Using universal uploader + error handler for resubmit
 router.post(
   "/:file_id/resubmit",
   requireAuth,
   shopFilesUpload,
   handleMulterError,
-  resubmitController
+  resubmitController,
 );
 
 router.post("/:file_id/message", requireAuth, messageController);

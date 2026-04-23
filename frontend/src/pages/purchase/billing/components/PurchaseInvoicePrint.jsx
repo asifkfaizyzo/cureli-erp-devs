@@ -1,8 +1,8 @@
 // src/pages/purchase/billing/components/PurchaseInvoicePrint.jsx
 
-const PurchaseInvoicePrint = ({ 
-  rows, 
-  supplier, 
+const PurchaseInvoicePrint = ({
+  rows,
+  supplier,
   summary,
   companyDetails = {
     name: "YOUR COMPANY NAME",
@@ -14,65 +14,100 @@ const PurchaseInvoicePrint = ({
   },
   invoiceNumber,
   invoiceDate,
-  billedBy = "Staff"
+  billedBy = "Staff",
 }) => {
-  
-  // ✅ Filter out FREE items and rows with no name
-  const dataRows = rows.filter(row => 
-    row.name && 
-    row.name.trim() !== "" && 
-    !row.isFreeItem
+  //  Filter out FREE items and rows with no name
+  const dataRows = rows.filter(
+    (row) => row.name && row.name.trim() !== "" && !row.isFreeItem,
   );
-  
-  // ✅ Safe number formatting with fallback to 0
+
+  //  Safe number formatting with fallback to 0
   const safeNumber = (value) => {
     const num = Number(value) || 0;
     return isFinite(num) ? num : 0;
   };
-  
-  // ✅ Safe summary values with proper defaults
+
+  //  Safe summary values with proper defaults
   const safeSummary = {
     subTotal: safeNumber(summary?.subTotal),
     cgst: safeNumber(summary?.cgst),
     sgst: safeNumber(summary?.sgst),
     total: safeNumber(summary?.total),
   };
-  
+
   // Format date
   const formatDate = (dateStr) => {
-    if (!dateStr) return new Date().toLocaleDateString('en-IN');
+    if (!dateStr) return new Date().toLocaleDateString("en-IN");
     try {
-      return new Date(dateStr).toLocaleDateString('en-IN');
+      return new Date(dateStr).toLocaleDateString("en-IN");
     } catch {
-      return new Date().toLocaleDateString('en-IN');
+      return new Date().toLocaleDateString("en-IN");
     }
   };
 
   // Format time
   const formatTime = () => {
-    return new Date().toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
+    return new Date().toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
   };
 
   // Number to words converter
   const numberToWords = (num) => {
-    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-      'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const ones = [
+      "",
+      "One",
+      "Two",
+      "Three",
+      "Four",
+      "Five",
+      "Six",
+      "Seven",
+      "Eight",
+      "Nine",
+      "Ten",
+      "Eleven",
+      "Twelve",
+      "Thirteen",
+      "Fourteen",
+      "Fifteen",
+      "Sixteen",
+      "Seventeen",
+      "Eighteen",
+      "Nineteen",
+    ];
+    const tens = [
+      "",
+      "",
+      "Twenty",
+      "Thirty",
+      "Forty",
+      "Fifty",
+      "Sixty",
+      "Seventy",
+      "Eighty",
+      "Ninety",
+    ];
 
     const convertLessThanThousand = (n) => {
-      if (n === 0) return '';
+      if (n === 0) return "";
       if (n < 20) return ones[n];
-      if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + ones[n % 10] : '');
-      return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' ' + convertLessThanThousand(n % 100) : '');
+      if (n < 100)
+        return (
+          tens[Math.floor(n / 10)] + (n % 10 !== 0 ? " " + ones[n % 10] : "")
+        );
+      return (
+        ones[Math.floor(n / 100)] +
+        " Hundred" +
+        (n % 100 !== 0 ? " " + convertLessThanThousand(n % 100) : "")
+      );
     };
 
     const safeNum = safeNumber(num);
-    if (safeNum === 0) return 'Zero Rupees Only';
-    
+    if (safeNum === 0) return "Zero Rupees Only";
+
     const intPart = Math.floor(safeNum);
     const crore = Math.floor(intPart / 10000000);
     const lakh = Math.floor((intPart % 10000000) / 100000);
@@ -80,26 +115,29 @@ const PurchaseInvoicePrint = ({
     const hundred = Math.floor(intPart % 1000);
     const paise = Math.round((safeNum % 1) * 100);
 
-    let result = '';
-    if (crore > 0) result += convertLessThanThousand(crore) + ' Crore ';
-    if (lakh > 0) result += convertLessThanThousand(lakh) + ' Lakh ';
-    if (thousand > 0) result += convertLessThanThousand(thousand) + ' Thousand ';
+    let result = "";
+    if (crore > 0) result += convertLessThanThousand(crore) + " Crore ";
+    if (lakh > 0) result += convertLessThanThousand(lakh) + " Lakh ";
+    if (thousand > 0)
+      result += convertLessThanThousand(thousand) + " Thousand ";
     if (hundred > 0) result += convertLessThanThousand(hundred);
 
-    result = result.trim() + ' Rupees';
-    if (paise > 0) result += ' and ' + convertLessThanThousand(paise) + ' Paise';
-    result += ' Only';
+    result = result.trim() + " Rupees";
+    if (paise > 0)
+      result += " and " + convertLessThanThousand(paise) + " Paise";
+    result += " Only";
 
     return result;
   };
 
-  const displayInvoiceNumber = invoiceNumber || supplier?.purchaseId || 'DRAFT';
-  const displayInvoiceDate = formatDate(invoiceDate || supplier?.invoiceDate || supplier?.receivedOn);
+  const displayInvoiceNumber = invoiceNumber || supplier?.purchaseId || "DRAFT";
+  const displayInvoiceDate = formatDate(
+    invoiceDate || supplier?.invoiceDate || supplier?.receivedOn,
+  );
 
   return (
     <div className="print-container">
       <div className="a4-page">
-        
         {/* Header Section */}
         <header className="invoice-header">
           <div className="company-info">
@@ -127,15 +165,15 @@ const PurchaseInvoicePrint = ({
                 <tbody>
                   <tr>
                     <td className="label">Supplier Name:</td>
-                    <td className="value">{supplier?.supplierName || '-'}</td>
+                    <td className="value">{supplier?.supplierName || "-"}</td>
                   </tr>
                   <tr>
                     <td className="label">Supplier GSTIN:</td>
-                    <td className="value">{supplier?.supplierGST || '-'}</td>
+                    <td className="value">{supplier?.supplierGST || "-"}</td>
                   </tr>
                   <tr>
                     <td className="label">Address:</td>
-                    <td className="value">{supplier?.address || '-'}</td>
+                    <td className="value">{supplier?.address || "-"}</td>
                   </tr>
                 </tbody>
               </table>
@@ -147,11 +185,13 @@ const PurchaseInvoicePrint = ({
                 <tbody>
                   <tr>
                     <td className="label">Invoice No:</td>
-                    <td className="value"><strong>{displayInvoiceNumber}</strong></td>
+                    <td className="value">
+                      <strong>{displayInvoiceNumber}</strong>
+                    </td>
                   </tr>
                   <tr>
                     <td className="label">Supplier Inv:</td>
-                    <td className="value">{supplier?.invoiceNo || '-'}</td>
+                    <td className="value">{supplier?.invoiceNo || "-"}</td>
                   </tr>
                   <tr>
                     <td className="label">Date:</td>
@@ -163,7 +203,9 @@ const PurchaseInvoicePrint = ({
                   </tr>
                   <tr>
                     <td className="label">Created By:</td>
-                    <td className="value"><strong>{billedBy}</strong></td>
+                    <td className="value">
+                      <strong>{billedBy}</strong>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -194,7 +236,7 @@ const PurchaseInvoicePrint = ({
             <tbody>
               {dataRows.length > 0 ? (
                 dataRows.map((row, index) => {
-                  // ✅ Safe number extraction for each row
+                  //  Safe number extraction for each row
                   const rowMrp = safeNumber(row.mrp);
                   const rowPrice = safeNumber(row.price);
                   const rowDiscount = safeNumber(row.discountPercent);
@@ -205,17 +247,19 @@ const PurchaseInvoicePrint = ({
                   const rowSgstAmount = safeNumber(row.sgstAmount);
                   const rowAmount = safeNumber(row.amount);
                   const rowQty = safeNumber(row.qty);
-                  
+
                   return (
                     <tr key={index}>
                       <td className="col-sno">{index + 1}</td>
                       <td className="col-desc">
-                        <div className="product-name">{row.name || '-'}</div>
-                        <div className="product-pack">Pack: {row.pack || '-'}</div>
+                        <div className="product-name">{row.name || "-"}</div>
+                        <div className="product-pack">
+                          Pack: {row.pack || "-"}
+                        </div>
                       </td>
-                      <td className="col-hsn">{row.hsn || '-'}</td>
-                      <td className="col-batch">{row.batch || '-'}</td>
-                      <td className="col-exp">{row.exp || '-'}</td>
+                      <td className="col-hsn">{row.hsn || "-"}</td>
+                      <td className="col-batch">{row.batch || "-"}</td>
+                      <td className="col-exp">{row.exp || "-"}</td>
                       <td className="col-qty">{rowQty || 0}</td>
                       <td className="col-mrp">{rowMrp.toFixed(2)}</td>
                       <td className="col-rate">{rowPrice.toFixed(2)}</td>
@@ -233,13 +277,21 @@ const PurchaseInvoicePrint = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan="13" style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                  <td
+                    colSpan="13"
+                    style={{
+                      textAlign: "center",
+                      padding: "20px",
+                      color: "#999",
+                    }}
+                  >
                     No items to display
                   </td>
                 </tr>
               )}
-              
-              {dataRows.length > 0 && dataRows.length < 5 && 
+
+              {dataRows.length > 0 &&
+                dataRows.length < 5 &&
                 [...Array(5 - dataRows.length)].map((_, i) => (
                   <tr key={`empty-${i}`} className="empty-row">
                     <td>&nbsp;</td>
@@ -256,8 +308,7 @@ const PurchaseInvoicePrint = ({
                     <td></td>
                     <td></td>
                   </tr>
-                ))
-              }
+                ))}
             </tbody>
           </table>
         </section>
@@ -275,7 +326,9 @@ const PurchaseInvoicePrint = ({
                 <tbody>
                   <tr>
                     <td className="label">Taxable Amount:</td>
-                    <td className="value">₹ {safeSummary.subTotal.toFixed(2)}</td>
+                    <td className="value">
+                      ₹ {safeSummary.subTotal.toFixed(2)}
+                    </td>
                   </tr>
                   <tr>
                     <td className="label">CGST:</td>
@@ -311,11 +364,11 @@ const PurchaseInvoicePrint = ({
             <tbody>
               {(() => {
                 const gstGroups = {};
-                dataRows.forEach(row => {
+                dataRows.forEach((row) => {
                   const cgstRate = safeNumber(row.cgstPercent);
                   const sgstRate = safeNumber(row.sgstPercent);
-                  const rate = (cgstRate + sgstRate);
-                  
+                  const rate = cgstRate + sgstRate;
+
                   if (!gstGroups[rate]) {
                     gstGroups[rate] = { taxable: 0, cgst: 0, sgst: 0 };
                   }
@@ -328,7 +381,12 @@ const PurchaseInvoicePrint = ({
                 if (entries.length === 0) {
                   return (
                     <tr>
-                      <td colSpan="5" style={{ textAlign: 'center', color: '#999' }}>-</td>
+                      <td
+                        colSpan="5"
+                        style={{ textAlign: "center", color: "#999" }}
+                      >
+                        -
+                      </td>
                     </tr>
                   );
                 }
@@ -344,11 +402,23 @@ const PurchaseInvoicePrint = ({
                 ));
               })()}
               <tr className="total-row">
-                <td><strong>Total</strong></td>
-                <td><strong>₹ {safeSummary.subTotal.toFixed(2)}</strong></td>
-                <td><strong>₹ {safeSummary.cgst.toFixed(2)}</strong></td>
-                <td><strong>₹ {safeSummary.sgst.toFixed(2)}</strong></td>
-                <td><strong>₹ {(safeSummary.cgst + safeSummary.sgst).toFixed(2)}</strong></td>
+                <td>
+                  <strong>Total</strong>
+                </td>
+                <td>
+                  <strong>₹ {safeSummary.subTotal.toFixed(2)}</strong>
+                </td>
+                <td>
+                  <strong>₹ {safeSummary.cgst.toFixed(2)}</strong>
+                </td>
+                <td>
+                  <strong>₹ {safeSummary.sgst.toFixed(2)}</strong>
+                </td>
+                <td>
+                  <strong>
+                    ₹ {(safeSummary.cgst + safeSummary.sgst).toFixed(2)}
+                  </strong>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -363,11 +433,18 @@ const PurchaseInvoicePrint = ({
                 <tbody>
                   <tr>
                     <td>Amount Paid:</td>
-                    <td>₹ {safeNumber(supplier?.amountPaid || 0).toFixed(2)}</td>
+                    <td>
+                      ₹ {safeNumber(supplier?.amountPaid || 0).toFixed(2)}
+                    </td>
                   </tr>
                   <tr>
                     <td>Balance:</td>
-                    <td>₹ {safeNumber(supplier?.balance || safeSummary.total).toFixed(2)}</td>
+                    <td>
+                      ₹{" "}
+                      {safeNumber(
+                        supplier?.balance || safeSummary.total,
+                      ).toFixed(2)}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -388,17 +465,22 @@ const PurchaseInvoicePrint = ({
               <h4>Terms & Conditions:</h4>
               <ol>
                 <li>Goods once sold will not be taken back.</li>
-                <li>Interest @ 18% p.a. will be charged on delayed payments.</li>
+                <li>
+                  Interest @ 18% p.a. will be charged on delayed payments.
+                </li>
                 <li>Subject to local jurisdiction only.</li>
               </ol>
             </div>
             <div className="signature-box">
-              <p className="billed-by-footer" style={{ 
-                fontSize: '9pt', 
-                color: '#666', 
-                marginBottom: '8px',
-                fontStyle: 'italic'
-              }}>
+              <p
+                className="billed-by-footer"
+                style={{
+                  fontSize: "9pt",
+                  color: "#666",
+                  marginBottom: "8px",
+                  fontStyle: "italic",
+                }}
+              >
                 Created By: <strong>{billedBy}</strong>
               </p>
               <div className="signature-line"></div>
@@ -409,7 +491,6 @@ const PurchaseInvoicePrint = ({
         </footer>
 
         <div className="page-number">Page 1 of 1</div>
-
       </div>
     </div>
   );

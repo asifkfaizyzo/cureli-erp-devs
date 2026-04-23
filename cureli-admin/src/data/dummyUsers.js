@@ -201,7 +201,7 @@ const dummyUsers = [
     login_provider: "password",
     role: "Super Admin",
     status: "Active", // Onboarding complete
-    is_active: false, // ❌ SUSPENDED - Account disabled
+    is_active: false, //  SUSPENDED - Account disabled
     onboarding_step: 4,
     last_login_at: "2024-01-10T12:00:00Z",
     lastLogin: "10/01/2024",
@@ -413,7 +413,7 @@ const dummyUsers = [
     login_provider: "password",
     role: "Branch Admin",
     status: "Active",
-    is_active: false, // ❌ SUSPENDED
+    is_active: false, //  SUSPENDED
     onboarding_step: 4,
     last_login_at: "2024-01-08T09:00:00Z",
     lastLogin: "08/01/2024",
@@ -620,7 +620,7 @@ const dummyUsers = [
     login_provider: "password",
     role: "Staff",
     status: "Active",
-    is_active: false, // ❌ SUSPENDED
+    is_active: false, //  SUSPENDED
     onboarding_step: 4,
     last_login_at: "2024-01-05T10:00:00Z",
     lastLogin: "05/01/2024",

@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuthStore, selectBranchContext } from "../../store/useAuthStore";
 
-const STORAGE_KEY = 'cureli_purchase_supplier';
+const STORAGE_KEY = "cureli_purchase_supplier";
 const STORAGE_VERSION = 3;
 
 const getDefaultSupplier = () => ({
@@ -28,36 +28,36 @@ const loadFromStorage = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
-    
+
     const parsed = JSON.parse(stored);
-    
+
     // Check version compatibility
     if (parsed.version !== STORAGE_VERSION) {
-      console.log('📦 Storage version mismatch, clearing old data');
+      console.log("📦 Storage version mismatch, clearing old data");
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
-    
+
     // Check expiry (24 hours)
     const savedAt = new Date(parsed.savedAt);
     const now = new Date();
     const hoursDiff = (now - savedAt) / (1000 * 60 * 60);
-    
+
     if (hoursDiff > 24) {
-      console.log('📦 Storage expired, clearing old data');
+      console.log("📦 Storage expired, clearing old data");
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
-    
+
     // Ensure all fields exist with defaults
     const supplier = {
       ...getDefaultSupplier(),
       ...parsed.supplier,
     };
-    
+
     return supplier;
   } catch (error) {
-    console.error('Failed to load supplier from storage:', error);
+    console.error("Failed to load supplier from storage:", error);
     localStorage.removeItem(STORAGE_KEY);
     return null;
   }
@@ -72,25 +72,25 @@ const saveToStorage = (supplier) => {
     if (!supplier.supplierName && !supplier.invoiceNo) {
       return;
     }
-    
+
     const data = {
       version: STORAGE_VERSION,
       savedAt: new Date().toISOString(),
       supplier: supplier,
     };
-    
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (error) {
-    console.error('Failed to save supplier to storage:', error);
+    console.error("Failed to save supplier to storage:", error);
   }
 };
 
 export const usePurchaseSupplier = (total = 0) => {
   const branchContext = useAuthStore(selectBranchContext);
   const previousBranchRef = useRef(branchContext.branch_id);
-  
+
   const [supplier, setSupplier] = useState(getDefaultSupplier);
-  // ✅ Initialize with empty array - suppliers will be loaded from API
+  //  Initialize with empty array - suppliers will be loaded from API
   const [suppliersList, setSuppliersList] = useState([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const saveTimeoutRef = useRef(null);
@@ -98,26 +98,26 @@ export const usePurchaseSupplier = (total = 0) => {
   // Reset supplier when branch changes (except on initial mount)
   useEffect(() => {
     if (!isInitialized) return;
-    
+
     const currentBranchId = branchContext.branch_id;
     const previousBranchId = previousBranchRef.current;
-    
+
     if (previousBranchId !== currentBranchId) {
       console.log("🔄 Branch changed in usePurchaseSupplier:", {
         from: previousBranchId,
         to: currentBranchId,
       });
-      
+
       // Only reset if supplier was actually selected
       if (supplier.supplier_id) {
         console.log("📦 Clearing supplier due to branch change");
         setSupplier(getDefaultSupplier());
         localStorage.removeItem(STORAGE_KEY);
       }
-      
-      // ✅ Also clear suppliers list - will be reloaded from API
+
+      //  Also clear suppliers list - will be reloaded from API
       setSuppliersList([]);
-      
+
       previousBranchRef.current = currentBranchId;
     }
   }, [branchContext.branch_id, isInitialized, supplier.supplier_id]);
@@ -125,14 +125,17 @@ export const usePurchaseSupplier = (total = 0) => {
   // Initialize from localStorage
   useEffect(() => {
     if (isInitialized) return;
-    
+
     const storedSupplier = loadFromStorage();
-    
+
     if (storedSupplier) {
-      console.log('📦 Loaded supplier from storage:', storedSupplier.supplierName);
+      console.log(
+        "📦 Loaded supplier from storage:",
+        storedSupplier.supplierName,
+      );
       setSupplier(storedSupplier);
     }
-    
+
     setIsInitialized(true);
   }, [isInitialized]);
 
@@ -140,7 +143,7 @@ export const usePurchaseSupplier = (total = 0) => {
   useEffect(() => {
     const paid = parseFloat(supplier.amountPaid) || 0;
     const balance = Math.max(0, total - paid).toFixed(2);
-    setSupplier(prev => {
+    setSupplier((prev) => {
       if (prev.balance === balance) return prev;
       return { ...prev, balance };
     });
@@ -150,9 +153,9 @@ export const usePurchaseSupplier = (total = 0) => {
   useEffect(() => {
     const paid = parseFloat(supplier.amountPaid) || 0;
     if (paid > 0 && !supplier.paymentMode) {
-      setSupplier(prev => ({
+      setSupplier((prev) => ({
         ...prev,
-        paymentMode: "CASH"
+        paymentMode: "CASH",
       }));
     }
   }, [supplier.amountPaid, supplier.paymentMode]);
@@ -160,15 +163,15 @@ export const usePurchaseSupplier = (total = 0) => {
   // Debounced save to localStorage
   useEffect(() => {
     if (!isInitialized) return;
-    
+
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    
+
     saveTimeoutRef.current = setTimeout(() => {
       saveToStorage(supplier);
     }, 500);
-    
+
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -178,25 +181,30 @@ export const usePurchaseSupplier = (total = 0) => {
 
   const selectSupplier = useCallback((selected) => {
     if (selected) {
-      setSupplier(prev => ({
+      setSupplier((prev) => ({
         ...prev,
         supplier_id: selected.supplier_id || selected.id,
         supplierName: selected.name,
-        supplierGST: selected.gst || selected.gstNumber || selected.gst_number || "",
-        supplierPhone: selected.phone || selected.officePhone || selected.office_phone || "",
+        supplierGST:
+          selected.gst || selected.gstNumber || selected.gst_number || "",
+        supplierPhone:
+          selected.phone || selected.officePhone || selected.office_phone || "",
         address: selected.address || selected.address_line_1 || "",
-        creditDays: selected.creditDays?.toString() || selected.credit_days?.toString() || prev.creditDays,
+        creditDays:
+          selected.creditDays?.toString() ||
+          selected.credit_days?.toString() ||
+          prev.creditDays,
       }));
     }
   }, []);
 
   const validateSupplier = useCallback(() => {
     const errors = [];
-    
+
     if (!supplier.supplierName?.trim()) {
       errors.push("Supplier name is required");
     }
-    
+
     if (!supplier.supplier_id) {
       errors.push("Please select a valid supplier from the list");
     }
@@ -209,9 +217,11 @@ export const usePurchaseSupplier = (total = 0) => {
 
     // Validate amount paid doesn't exceed total
     if (paid > total) {
-      errors.push(`Amount paid (₹${paid.toFixed(2)}) cannot exceed total amount (₹${total.toFixed(2)})`);
+      errors.push(
+        `Amount paid (₹${paid.toFixed(2)}) cannot exceed total amount (₹${total.toFixed(2)})`,
+      );
     }
-    
+
     return {
       isValid: errors.length === 0,
       errors,
@@ -237,9 +247,9 @@ export const usePurchaseSupplier = (total = 0) => {
    * Update a single field
    */
   const updateField = useCallback((field, value) => {
-    setSupplier(prev => ({
+    setSupplier((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   }, []);
 
@@ -249,27 +259,27 @@ export const usePurchaseSupplier = (total = 0) => {
   const getPaymentStatus = useCallback(() => {
     const paid = parseFloat(supplier.amountPaid) || 0;
     const balance = parseFloat(supplier.balance) || 0;
-    
+
     if (paid === 0) {
       return {
-        status: 'UNPAID',
-        statusText: 'Unpaid',
-        color: 'red',
+        status: "UNPAID",
+        statusText: "Unpaid",
+        color: "red",
       };
     }
-    
+
     if (balance === 0) {
       return {
-        status: 'PAID',
-        statusText: 'Fully Paid',
-        color: 'green',
+        status: "PAID",
+        statusText: "Fully Paid",
+        color: "green",
       };
     }
-    
+
     return {
-      status: 'PARTIALLY_PAID',
-      statusText: 'Partially Paid',
-      color: 'yellow',
+      status: "PARTIALLY_PAID",
+      statusText: "Partially Paid",
+      color: "yellow",
     };
   }, [supplier.amountPaid, supplier.balance]);
 

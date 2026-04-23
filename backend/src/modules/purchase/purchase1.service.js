@@ -3,8 +3,8 @@
 import prisma from "../../config/prisma.js";
 import inventoryService from "../inventory/inventory.service.js";
 import * as audit from "../audit/index.js";
-import { sendMail } from "../../utils/email.js"; // ✅ ADD THIS
-import { returnApprovalToSupplier } from "../notifications/templates/email/returnApprovalToSupplier.js"; // ✅
+import { sendMail } from "../../utils/email.js"; //  ADD THIS
+import { returnApprovalToSupplier } from "../notifications/templates/email/returnApprovalToSupplier.js"; //
 
 // ============================================
 // CONSTANTS
@@ -29,7 +29,11 @@ function buildBranchFilter(shopId, branchId, role, branchMode) {
   return filter;
 }
 
-function calculatePaymentStatus(paidAmount, netAmount, threshold = PAYMENT_BALANCE_THRESHOLD) {
+function calculatePaymentStatus(
+  paidAmount,
+  netAmount,
+  threshold = PAYMENT_BALANCE_THRESHOLD,
+) {
   const paid = parseFloat(paidAmount) || 0;
   const net = parseFloat(netAmount) || 0;
   const balance = net - paid;
@@ -76,8 +80,12 @@ function calculateLineItemForDB(item) {
 }
 
 function calculateInvoiceTotals(lineItems) {
-  let subtotal = 0, discountAmount = 0, taxableAmount = 0;
-  let cgstAmount = 0, sgstAmount = 0, igstAmount = 0;
+  let subtotal = 0,
+    discountAmount = 0,
+    taxableAmount = 0;
+  let cgstAmount = 0,
+    sgstAmount = 0,
+    igstAmount = 0;
 
   lineItems.forEach((item) => {
     const qty = parseFloat(item.quantity || 0);
@@ -210,12 +218,12 @@ async function processApprovedReturn(tx, returnInvoice, lineItems, userId) {
         where: { item_id: item.item_id },
         data: { inventory_id: newInventory.inventory_id },
       });
-
     } else {
       const currentQty = parseFloat(inventory.current_stock) || 0;
       const returnQty = parseFloat(item.quantity) || 0;
       const newCurrentStock = currentQty - returnQty;
-      const newAvailableStock = parseFloat(inventory.available_stock || 0) - returnQty;
+      const newAvailableStock =
+        parseFloat(inventory.available_stock || 0) - returnQty;
 
       await tx.inventory.update({
         where: { inventory_id: inventory.inventory_id },
@@ -287,7 +295,6 @@ async function processApprovedReturn(tx, returnInvoice, lineItems, userId) {
         payment_status: "PAID",
       },
     });
-
   } else if (returnInvoice.adjustment_type === "CASH_REFUND") {
     await tx.purchaseInvoice.update({
       where: { invoice_id: returnInvoice.invoice_id },
@@ -296,7 +303,6 @@ async function processApprovedReturn(tx, returnInvoice, lineItems, userId) {
         payment_status: "UNPAID",
       },
     });
-
   } else if (returnInvoice.adjustment_type === "OFFSET_NEXT_PURCHASE") {
     generatedCreditNoteNumber = await generateCreditNoteNumber(shopId);
 
@@ -329,15 +335,25 @@ async function processApprovedReturn(tx, returnInvoice, lineItems, userId) {
   }
 
   // 3. Update parent invoice balance if applicable
-  if (returnInvoice.parent_invoice_id && returnInvoice.adjustment_type !== "CREDIT_NOTE") {
+  if (
+    returnInvoice.parent_invoice_id &&
+    returnInvoice.adjustment_type !== "CREDIT_NOTE"
+  ) {
     const parentInvoice = await tx.purchaseInvoice.findUnique({
       where: { invoice_id: returnInvoice.parent_invoice_id },
     });
 
     if (parentInvoice && parentInvoice.payment_status !== "PAID") {
-      const newBalance = Math.max(0, parseFloat(parentInvoice.balance_amount) - netAmount);
+      const newBalance = Math.max(
+        0,
+        parseFloat(parentInvoice.balance_amount) - netAmount,
+      );
       const newPaid = parseFloat(parentInvoice.net_amount) - newBalance;
-      const paymentCalc = calculatePaymentStatus(newPaid, parentInvoice.net_amount, PAYMENT_BALANCE_THRESHOLD);
+      const paymentCalc = calculatePaymentStatus(
+        newPaid,
+        parentInvoice.net_amount,
+        PAYMENT_BALANCE_THRESHOLD,
+      );
 
       await tx.purchaseInvoice.update({
         where: { invoice_id: returnInvoice.parent_invoice_id },
@@ -395,7 +411,7 @@ async function processApprovedReturn(tx, returnInvoice, lineItems, userId) {
             purchase_rate: rate,
             line_total: item.line_total || qty * rate,
           };
-        })
+        }),
       );
 
       const emailData = returnApprovalToSupplier({
@@ -403,16 +419,20 @@ async function processApprovedReturn(tx, returnInvoice, lineItems, userId) {
         returnInvoiceNumber: returnInvoice.invoice_number,
         parentInvoiceNumber: parentInvoiceData?.invoice_number || "N/A",
         returnReason: returnInvoice.return_reason,
-        returnDate: new Date(returnInvoice.invoice_date).toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
+        returnDate: new Date(returnInvoice.invoice_date).toLocaleDateString(
+          "en-IN",
+          {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          },
+        ),
         totalAmount: netAmount,
         itemCount: lineItems.length,
         adjustmentType: returnInvoice.adjustment_type,
         creditNoteNumber: generatedCreditNoteNumber,
-        refundAmount: returnInvoice.adjustment_type === "CASH_REFUND" ? netAmount : null,
+        refundAmount:
+          returnInvoice.adjustment_type === "CASH_REFUND" ? netAmount : null,
         shopName: shop?.business_name || "Shop",
         shopContact: owner?.phone_number || null,
         items: itemsWithDetails,
@@ -422,9 +442,14 @@ async function processApprovedReturn(tx, returnInvoice, lineItems, userId) {
       setImmediate(async () => {
         try {
           await sendMail(supplier.email, emailData.subject, emailData.html);
-          console.log(`✅ Return approval email sent to supplier: ${supplier.email}`);
+          console.log(
+            ` Return approval email sent to supplier: ${supplier.email}`,
+          );
         } catch (emailError) {
-          console.error(`❌ Failed to send return approval email to ${supplier.email}:`, emailError.message);
+          console.error(
+            ` Failed to send return approval email to ${supplier.email}:`,
+            emailError.message,
+          );
         }
       });
     } else {
@@ -440,7 +465,16 @@ async function processApprovedReturn(tx, returnInvoice, lineItems, userId) {
 // UPDATE PURCHASE INVOICE
 // ============================================
 
-export async function updatePurchaseInvoice(userId, shopId, branchId, role, branchMode, invoiceId, data, auditContext) {
+export async function updatePurchaseInvoice(
+  userId,
+  shopId,
+  branchId,
+  role,
+  branchMode,
+  invoiceId,
+  data,
+  auditContext,
+) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -455,18 +489,18 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const invoice = await prisma.purchaseInvoice.findFirst({
-    where: { 
-      invoice_id: invoiceId, 
+    where: {
+      invoice_id: invoiceId,
       ...baseFilter,
     },
     include: {
       lineItems: true,
       supplier: true,
-      // ✅ OPTION 1: Check for approved returns
+      //  OPTION 1: Check for approved returns
       returnInvoices: {
         where: {
           is_return: true,
-          return_approval_status: 'APPROVED',
+          return_approval_status: "APPROVED",
         },
         select: {
           invoice_id: true,
@@ -483,15 +517,19 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
     throw err;
   }
 
-  // ✅ OPTION 1: Block editing if approved returns exist
+  //  OPTION 1: Block editing if approved returns exist
   if (invoice.returnInvoices && invoice.returnInvoices.length > 0) {
-    const returnNumbers = invoice.returnInvoices.map(r => r.invoice_number).join(', ');
-    const returnReasons = invoice.returnInvoices.map(r => r.return_reason).join(', ');
-    
+    const returnNumbers = invoice.returnInvoices
+      .map((r) => r.invoice_number)
+      .join(", ");
+    const returnReasons = invoice.returnInvoices
+      .map((r) => r.return_reason)
+      .join(", ");
+
     const err = new Error(
       `Cannot edit invoice ${invoice.invoice_number} because it has ${invoice.returnInvoices.length} approved return(s): ${returnNumbers}. ` +
-      `Reason(s): ${returnReasons}. ` +
-      `\n\nTo edit this invoice, you must first cancel the approved returns, or create a new purchase invoice instead.`
+        `Reason(s): ${returnReasons}. ` +
+        `\n\nTo edit this invoice, you must first cancel the approved returns, or create a new purchase invoice instead.`,
     );
     err.code = "HAS_APPROVED_RETURNS";
     err.statusCode = 400;
@@ -524,30 +562,36 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
   if (lineItems && lineItems.length > 0) {
     const medicineIds = lineItems.map((item) => item.medicine_id);
     const medicines = await prisma.medicine.findMany({
-      where: { 
-        medicine_id: { in: medicineIds }, 
-        shop_id: shopId, 
+      where: {
+        medicine_id: { in: medicineIds },
+        shop_id: shopId,
         branch_id: invoice.branch_id,
-        is_active: true 
+        is_active: true,
       },
     });
 
     if (medicines.length !== medicineIds.length) {
-      const err = new Error("Some medicines are invalid or belong to a different branch");
+      const err = new Error(
+        "Some medicines are invalid or belong to a different branch",
+      );
       err.code = "INVALID_MEDICINE";
       throw err;
     }
   }
 
-  // ✅ OPTION 3: ALL OPERATIONS IN ONE TRANSACTION
+  //  OPTION 3: ALL OPERATIONS IN ONE TRANSACTION
   const result = await prisma.$transaction(async (tx) => {
     let updateData = { ...invoiceData };
-    
+
     if (paid_amount !== undefined) {
       const paidAmt = parseFloat(paid_amount) || 0;
       const netAmt = parseFloat(invoice.net_amount);
-      const paymentCalc = calculatePaymentStatus(paidAmt, netAmt, PAYMENT_BALANCE_THRESHOLD);
-      
+      const paymentCalc = calculatePaymentStatus(
+        paidAmt,
+        netAmt,
+        PAYMENT_BALANCE_THRESHOLD,
+      );
+
       updateData = {
         ...updateData,
         payment_status: paymentCalc.status,
@@ -564,47 +608,57 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
 
     if (lineItems && lineItems.length > 0) {
       if (isConfirmed) {
-  console.log("🔄 Super Admin editing CONFIRMED invoice - reversing stock...");
-  console.log(`📋 Original invoice had ${invoice.lineItems.length} items`);
-  
-  // ✅ FIXED: Reverse stock using SAME transaction, skip free item rows
-  for (const oldItem of invoice.lineItems) {
-    // ✅ Skip free item rows - they weren't added to stock in the first place
-    const isFreeItemRow = parseFloat(oldItem.line_total) === 0 && parseFloat(oldItem.quantity) > 0;
-    
-    if (isFreeItemRow) {
-      console.log(`⏭️ Skipping reversal for free item row: ${oldItem.batch_number}`);
-      continue;
-    }
+        console.log(
+          "🔄 Super Admin editing CONFIRMED invoice - reversing stock...",
+        );
+        console.log(
+          `📋 Original invoice had ${invoice.lineItems.length} items`,
+        );
 
-    if (oldItem.inventory_id) {
-      // ✅ Reverse the total quantity that was originally added
-      const purchasedQty = Number(oldItem.quantity) || 0;
-      const freeQty = Number(oldItem.free_quantity) || 0;
-      const oldTotalQty = purchasedQty + freeQty;
-      
-      console.log(`  ↩️ Reversing ${oldTotalQty} units of ${oldItem.batch_number} (${purchasedQty} purchased + ${freeQty} free)`);
-      
-      // ✅ PASS TRANSACTION TO updateStock
-      await inventoryService.updateStock(
-        {
-          inventoryId: oldItem.inventory_id,
-          shopId: shopId,
-          branchId: invoice.branch_id,
-          medicineId: oldItem.medicine_id,
-          batchNumber: oldItem.batch_number,
-          movementType: "PURCHASE_RETURN",
-          quantityIn: 0,
-          quantityOut: oldTotalQty,
-          rate: oldItem.purchase_rate,
-          referenceType: "PURCHASE_INVOICE_EDIT",
-          referenceId: invoice.invoice_id,
-          referenceNumber: `${invoice.invoice_number}-REV`,
-          transactionDate: new Date(),
-          remarks: `Stock reversal for edit (Super Admin) - Original: ${purchasedQty} + ${freeQty} free = ${oldTotalQty}`,
-        },
-        userId,
-        tx  // ✅ CRITICAL: Pass transaction
+        //  FIXED: Reverse stock using SAME transaction, skip free item rows
+        for (const oldItem of invoice.lineItems) {
+          //  Skip free item rows - they weren't added to stock in the first place
+          const isFreeItemRow =
+            parseFloat(oldItem.line_total) === 0 &&
+            parseFloat(oldItem.quantity) > 0;
+
+          if (isFreeItemRow) {
+            console.log(
+              `⏭️ Skipping reversal for free item row: ${oldItem.batch_number}`,
+            );
+            continue;
+          }
+
+          if (oldItem.inventory_id) {
+            //  Reverse the total quantity that was originally added
+            const purchasedQty = Number(oldItem.quantity) || 0;
+            const freeQty = Number(oldItem.free_quantity) || 0;
+            const oldTotalQty = purchasedQty + freeQty;
+
+            console.log(
+              `  ↩️ Reversing ${oldTotalQty} units of ${oldItem.batch_number} (${purchasedQty} purchased + ${freeQty} free)`,
+            );
+
+            //  PASS TRANSACTION TO updateStock
+            await inventoryService.updateStock(
+              {
+                inventoryId: oldItem.inventory_id,
+                shopId: shopId,
+                branchId: invoice.branch_id,
+                medicineId: oldItem.medicine_id,
+                batchNumber: oldItem.batch_number,
+                movementType: "PURCHASE_RETURN",
+                quantityIn: 0,
+                quantityOut: oldTotalQty,
+                rate: oldItem.purchase_rate,
+                referenceType: "PURCHASE_INVOICE_EDIT",
+                referenceId: invoice.invoice_id,
+                referenceNumber: `${invoice.invoice_number}-REV`,
+                transactionDate: new Date(),
+                remarks: `Stock reversal for edit (Super Admin) - Original: ${purchasedQty} + ${freeQty} free = ${oldTotalQty}`,
+              },
+              userId,
+              tx, //  CRITICAL: Pass transaction
             );
           }
         }
@@ -626,7 +680,9 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
               medicine_id: item.medicine_id,
               batch_number: item.batch_number,
               expiry_date: new Date(item.expiry_date),
-              manufacturing_date: item.manufacturing_date ? new Date(item.manufacturing_date) : null,
+              manufacturing_date: item.manufacturing_date
+                ? new Date(item.manufacturing_date)
+                : null,
               quantity: item.quantity,
               free_quantity: item.free_quantity || 0,
               pack_size: item.pack_size || null,
@@ -649,13 +705,18 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
               line_total: itemCalc.line_total,
             },
           });
-        })
+        }),
       );
 
       const calculations = calculateInvoiceTotals(lineItems);
-      const paidAmt = parseFloat(paid_amount) || parseFloat(invoice.paid_amount) || 0;
+      const paidAmt =
+        parseFloat(paid_amount) || parseFloat(invoice.paid_amount) || 0;
       const newNetAmt = calculations.net_amount;
-      const paymentCalc = calculatePaymentStatus(paidAmt, newNetAmt, PAYMENT_BALANCE_THRESHOLD);
+      const paymentCalc = calculatePaymentStatus(
+        paidAmt,
+        newNetAmt,
+        PAYMENT_BALANCE_THRESHOLD,
+      );
 
       updatedInvoice = await tx.purchaseInvoice.update({
         where: { invoice_id: invoiceId },
@@ -668,92 +729,97 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
       });
 
       if (isConfirmed) {
-  console.log("🔄 Adding new stock for edited CONFIRMED invoice...");
-  console.log(`📋 New invoice has ${newItems.length} items`);
-  
-  // ✅ FIXED: Add stock using SAME transaction, skip free item rows
-  for (const item of newItems) {
-    // ✅ Skip free item rows
-    const isFreeItemRow = parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0;
-    
-    if (isFreeItemRow) {
-      console.log(`⏭️ Skipping stock add for free item row: ${item.batch_number}`);
-      
-      // Still link to inventory for record
-      const existingInventory = await tx.inventory.findFirst({
-        where: {
-          shop_id: shopId,
-          branch_id: invoice.branch_id,
-          medicine_id: item.medicine_id,
-          batch_number: item.batch_number,
-        },
-      });
-      
-      if (existingInventory) {
-        await tx.purchaseInvoiceItem.update({
-          where: { item_id: item.item_id },
-          data: { inventory_id: existingInventory.inventory_id },
-        });
+        console.log("🔄 Adding new stock for edited CONFIRMED invoice...");
+        console.log(`📋 New invoice has ${newItems.length} items`);
+
+        //  FIXED: Add stock using SAME transaction, skip free item rows
+        for (const item of newItems) {
+          //  Skip free item rows
+          const isFreeItemRow =
+            parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0;
+
+          if (isFreeItemRow) {
+            console.log(
+              `⏭️ Skipping stock add for free item row: ${item.batch_number}`,
+            );
+
+            // Still link to inventory for record
+            const existingInventory = await tx.inventory.findFirst({
+              where: {
+                shop_id: shopId,
+                branch_id: invoice.branch_id,
+                medicine_id: item.medicine_id,
+                batch_number: item.batch_number,
+              },
+            });
+
+            if (existingInventory) {
+              await tx.purchaseInvoiceItem.update({
+                where: { item_id: item.item_id },
+                data: { inventory_id: existingInventory.inventory_id },
+              });
+            }
+            continue;
+          }
+
+          const inventory = await inventoryService.getOrCreateInventory(
+            shopId,
+            invoice.branch_id,
+            item.medicine_id,
+            item.batch_number,
+            item.expiry_date,
+            item.mrp,
+          );
+
+          //  Calculate total quantity correctly
+          const purchasedQty = Number(item.quantity) || 0;
+          const freeQty = Number(item.free_quantity) || 0;
+          const totalQuantity = purchasedQty + freeQty;
+
+          console.log(
+            `   Adding ${totalQuantity} units of ${item.batch_number} (${purchasedQty} + ${freeQty} free)`,
+          );
+
+          //  PASS TRANSACTION TO updateStock
+          await inventoryService.updateStock(
+            {
+              inventoryId: inventory.inventory_id,
+              shopId: shopId,
+              branchId: invoice.branch_id,
+              medicineId: item.medicine_id,
+              batchNumber: item.batch_number,
+              movementType: "PURCHASE",
+              quantityIn: totalQuantity,
+              quantityOut: 0,
+              rate: item.purchase_rate,
+              referenceType: "PURCHASE_INVOICE",
+              referenceId: invoice.invoice_id,
+              referenceNumber: invoice.invoice_number,
+              transactionDate: invoice.invoice_date,
+              remarks: `Purchase (edited by super admin): ${purchasedQty} + ${freeQty} free = ${totalQuantity}`,
+            },
+            userId,
+            tx, //  CRITICAL: Pass transaction
+          );
+
+          await tx.inventory.update({
+            where: { inventory_id: inventory.inventory_id },
+            data: {
+              last_purchase_rate: item.purchase_rate,
+              last_purchase_date: invoice.invoice_date,
+              selling_rate: item.selling_rate,
+              rack_no: item.rack_no || inventory.rack_no,
+            },
+          });
+
+          await tx.purchaseInvoiceItem.update({
+            where: { item_id: item.item_id },
+            data: { inventory_id: inventory.inventory_id },
+          });
+        }
+
+        console.log(" Stock reversal and re-addition completed successfully");
       }
-      continue;
-    }
-
-    const inventory = await inventoryService.getOrCreateInventory(
-      shopId,
-      invoice.branch_id,
-      item.medicine_id,
-      item.batch_number,
-      item.expiry_date,
-      item.mrp
-    );
-
-    // ✅ Calculate total quantity correctly
-    const purchasedQty = Number(item.quantity) || 0;
-    const freeQty = Number(item.free_quantity) || 0;
-    const totalQuantity = purchasedQty + freeQty;
-
-    console.log(`  ✅ Adding ${totalQuantity} units of ${item.batch_number} (${purchasedQty} + ${freeQty} free)`);
-
-    // ✅ PASS TRANSACTION TO updateStock
-    await inventoryService.updateStock(
-      {
-        inventoryId: inventory.inventory_id,
-        shopId: shopId,
-        branchId: invoice.branch_id,
-        medicineId: item.medicine_id,
-        batchNumber: item.batch_number,
-        movementType: "PURCHASE",
-        quantityIn: totalQuantity,
-        quantityOut: 0,
-        rate: item.purchase_rate,
-        referenceType: "PURCHASE_INVOICE",
-        referenceId: invoice.invoice_id,
-        referenceNumber: invoice.invoice_number,
-        transactionDate: invoice.invoice_date,
-        remarks: `Purchase (edited by super admin): ${purchasedQty} + ${freeQty} free = ${totalQuantity}`,
-      },
-      userId,
-      tx  // ✅ CRITICAL: Pass transaction
-    );
-
-    await tx.inventory.update({
-      where: { inventory_id: inventory.inventory_id },
-      data: {
-        last_purchase_rate: item.purchase_rate,
-        last_purchase_date: invoice.invoice_date,
-        selling_rate: item.selling_rate,
-        rack_no: item.rack_no || inventory.rack_no,
-      },
-    });
-
-    await tx.purchaseInvoiceItem.update({
-      where: { item_id: item.item_id },
-      data: { inventory_id: inventory.inventory_id },
-    });
-  }
-
-  console.log("✅ Stock reversal and re-addition completed successfully");
-}
 
       return { ...updatedInvoice, lineItems: newItems };
     }
@@ -762,8 +828,8 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
   });
 
   await audit.log({
-    action: isConfirmed 
-      ? audit.AuditAction.PURCHASE_INVOICE_CONFIRMED_EDITED 
+    action: isConfirmed
+      ? audit.AuditAction.PURCHASE_INVOICE_CONFIRMED_EDITED
       : audit.AuditAction.PURCHASE_INVOICE_UPDATED,
     entity_type: audit.EntityType.PURCHASE_INVOICE,
     entity_id: invoiceId,
@@ -773,8 +839,8 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
     actor_id: userId,
     actor_role: user.role,
     ...auditContext,
-    reason_code: isConfirmed 
-      ? audit.AuditReasonCode.SUPER_ADMIN_OVERRIDE 
+    reason_code: isConfirmed
+      ? audit.AuditReasonCode.SUPER_ADMIN_OVERRIDE
       : audit.AuditReasonCode.USER_REQUEST,
     metadata: {
       invoice_number: invoice.invoice_number,
@@ -795,7 +861,16 @@ export async function updatePurchaseInvoice(userId, shopId, branchId, role, bran
 // CANCEL PURCHASE INVOICE
 // ============================================
 
-export async function cancelPurchaseInvoice(userId, shopId, branchId, role, branchMode, invoiceId, reason, auditContext) {
+export async function cancelPurchaseInvoice(
+  userId,
+  shopId,
+  branchId,
+  role,
+  branchMode,
+  invoiceId,
+  reason,
+  auditContext,
+) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -810,8 +885,8 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, role, bran
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const invoice = await prisma.purchaseInvoice.findFirst({
-    where: { 
-      invoice_id: invoiceId, 
+    where: {
+      invoice_id: invoiceId,
       ...baseFilter,
     },
     include: { lineItems: true, supplier: true },
@@ -830,7 +905,9 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, role, bran
   }
 
   if (invoice.status === "CONFIRMED") {
-    const err = new Error("Cannot cancel confirmed invoice. Create a purchase return instead.");
+    const err = new Error(
+      "Cannot cancel confirmed invoice. Create a purchase return instead.",
+    );
     err.code = "INVOICE_CONFIRMED";
     throw err;
   }
@@ -868,7 +945,16 @@ export async function cancelPurchaseInvoice(userId, shopId, branchId, role, bran
 // UPDATE PAYMENT STATUS (Super Admin Only)
 // ============================================
 
-export async function updatePaymentStatus(userId, shopId, branchId, role, branchMode, invoiceId, data, auditContext) {
+export async function updatePaymentStatus(
+  userId,
+  shopId,
+  branchId,
+  role,
+  branchMode,
+  invoiceId,
+  data,
+  auditContext,
+) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -881,7 +967,9 @@ export async function updatePaymentStatus(userId, shopId, branchId, role, branch
   }
 
   if (user.role !== "super_admin") {
-    const err = new Error("Only super admin can change payment status directly");
+    const err = new Error(
+      "Only super admin can change payment status directly",
+    );
     err.code = "PERMISSION_DENIED";
     throw err;
   }
@@ -889,8 +977,8 @@ export async function updatePaymentStatus(userId, shopId, branchId, role, branch
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const invoice = await prisma.purchaseInvoice.findFirst({
-    where: { 
-      invoice_id: invoiceId, 
+    where: {
+      invoice_id: invoiceId,
       ...baseFilter,
     },
     include: { supplier: true },
@@ -910,8 +998,11 @@ export async function updatePaymentStatus(userId, shopId, branchId, role, branch
 
   const { payment_status, paid_amount, payment_mode, remarks } = data;
   const netAmount = parseFloat(invoice.net_amount);
-  
-  let newPaidAmount = paid_amount !== undefined ? parseFloat(paid_amount) : parseFloat(invoice.paid_amount);
+
+  let newPaidAmount =
+    paid_amount !== undefined
+      ? parseFloat(paid_amount)
+      : parseFloat(invoice.paid_amount);
   let newBalanceAmount = netAmount - newPaidAmount;
   let newPaymentStatus = payment_status;
 
@@ -923,11 +1014,13 @@ export async function updatePaymentStatus(userId, shopId, branchId, role, branch
     newBalanceAmount = netAmount;
   } else if (payment_status === "PARTIALLY_PAID") {
     if (newPaidAmount <= 0) {
-      const err = new Error("Partial payment requires a paid amount greater than 0");
+      const err = new Error(
+        "Partial payment requires a paid amount greater than 0",
+      );
       err.code = "INVALID_AMOUNT";
       throw err;
     }
-    
+
     if (newBalanceAmount <= PAYMENT_BALANCE_THRESHOLD) {
       newPaymentStatus = "PAID";
       newPaidAmount = netAmount;
@@ -947,9 +1040,12 @@ export async function updatePaymentStatus(userId, shopId, branchId, role, branch
       },
     });
 
-    if (payment_status === "PAID" && parseFloat(invoice.paid_amount) < netAmount) {
+    if (
+      payment_status === "PAID" &&
+      parseFloat(invoice.paid_amount) < netAmount
+    ) {
       const paymentDiff = netAmount - parseFloat(invoice.paid_amount);
-      
+
       await tx.purchasePayment.create({
         data: {
           invoice_id: invoiceId,
@@ -987,7 +1083,8 @@ export async function updatePaymentStatus(userId, shopId, branchId, role, branch
       old_paid_amount: invoice.paid_amount,
       new_paid_amount: newPaidAmount,
       net_amount: netAmount,
-      threshold_applied: newPaymentStatus === "PAID" && payment_status === "PARTIALLY_PAID",
+      threshold_applied:
+        newPaymentStatus === "PAID" && payment_status === "PARTIALLY_PAID",
     },
   });
 
@@ -998,7 +1095,16 @@ export async function updatePaymentStatus(userId, shopId, branchId, role, branch
 // RECORD PAYMENT
 // ============================================
 
-export async function recordPayment(userId, shopId, branchId, role, branchMode, invoiceId, data, auditContext) {
+export async function recordPayment(
+  userId,
+  shopId,
+  branchId,
+  role,
+  branchMode,
+  invoiceId,
+  data,
+  auditContext,
+) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -1013,8 +1119,8 @@ export async function recordPayment(userId, shopId, branchId, role, branchMode, 
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const invoice = await prisma.purchaseInvoice.findFirst({
-    where: { 
-      invoice_id: invoiceId, 
+    where: {
+      invoice_id: invoiceId,
       ...baseFilter,
     },
     include: { supplier: true },
@@ -1038,19 +1144,32 @@ export async function recordPayment(userId, shopId, branchId, role, branchMode, 
     throw err;
   }
 
-  const { amount, payment_mode, payment_date, reference_number, bank_name, remarks } = data;
+  const {
+    amount,
+    payment_mode,
+    payment_date,
+    reference_number,
+    bank_name,
+    remarks,
+  } = data;
   const paymentAmount = parseFloat(amount);
   const currentPaid = parseFloat(invoice.paid_amount);
   const netAmount = parseFloat(invoice.net_amount);
   const newPaidAmount = currentPaid + paymentAmount;
 
   if (newPaidAmount > netAmount) {
-    const err = new Error(`Payment of ₹${paymentAmount} would exceed balance of ₹${invoice.balance_amount}`);
+    const err = new Error(
+      `Payment of ₹${paymentAmount} would exceed balance of ₹${invoice.balance_amount}`,
+    );
     err.code = "OVERPAYMENT";
     throw err;
   }
 
-  const paymentCalc = calculatePaymentStatus(newPaidAmount, netAmount, PAYMENT_BALANCE_THRESHOLD);
+  const paymentCalc = calculatePaymentStatus(
+    newPaidAmount,
+    netAmount,
+    PAYMENT_BALANCE_THRESHOLD,
+  );
 
   const result = await prisma.$transaction(async (tx) => {
     const payment = await tx.purchasePayment.create({
@@ -1102,7 +1221,8 @@ export async function recordPayment(userId, shopId, branchId, role, branchMode, 
       new_payment_status: paymentCalc.status,
       total_paid: paymentCalc.paidAmount,
       balance_remaining: paymentCalc.balanceAmount,
-      threshold_applied: paymentCalc.status === "PAID" && (netAmount - newPaidAmount) > 0,
+      threshold_applied:
+        paymentCalc.status === "PAID" && netAmount - newPaidAmount > 0,
     },
   });
 
@@ -1113,7 +1233,13 @@ export async function recordPayment(userId, shopId, branchId, role, branchMode, 
 // CREATE PURCHASE RETURN
 // ============================================
 
-export async function createPurchaseReturn(userId, shopId, branchId, data, auditContext) {
+export async function createPurchaseReturn(
+  userId,
+  shopId,
+  branchId,
+  data,
+  auditContext,
+) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -1158,7 +1284,9 @@ export async function createPurchaseReturn(userId, shopId, branchId, data, audit
 
   for (const item of data.lineItems) {
     const parentItem = parentInvoice.lineItems.find(
-      pi => pi.medicine_id === item.medicine_id && pi.batch_number === item.batch_number
+      (pi) =>
+        pi.medicine_id === item.medicine_id &&
+        pi.batch_number === item.batch_number,
     );
 
     if (!parentItem) {
@@ -1174,7 +1302,7 @@ export async function createPurchaseReturn(userId, shopId, branchId, data, audit
       if (!existingInventory) {
         const err = new Error(
           `Batch ${item.batch_number} for medicine not found in inventory. ` +
-          `For returning goods not from this invoice, the batch must exist in inventory.`
+            `For returning goods not from this invoice, the batch must exist in inventory.`,
         );
         err.code = "BATCH_NOT_FOUND";
         throw err;
@@ -1196,25 +1324,28 @@ export async function createPurchaseReturn(userId, shopId, branchId, data, audit
         shop_id: shopId,
         branch_id: branchId,
         supplier_id: data.supplier_id,
-        
+
         is_return: true,
         parent_invoice_id: data.parent_invoice_id,
-        
+
         return_reason: data.return_reason,
         return_reason_notes: data.return_reason_notes || null,
         adjustment_type: data.adjustment_type,
-        refund_amount: data.adjustment_type === "CASH_REFUND" ? calculations.net_amount : null,
+        refund_amount:
+          data.adjustment_type === "CASH_REFUND"
+            ? calculations.net_amount
+            : null,
         refund_notes: data.refund_notes || null,
-        
+
         return_approval_status: approvalStatus,
         ...(isSuperAdmin && {
           approved_by: userId,
           approved_at: new Date(),
         }),
-        
+
         invoice_date: new Date(data.invoice_date),
         created_by: userId,
-        
+
         subtotal: calculations.subtotal,
         discount_amount: calculations.discount_amount,
         taxable_amount: calculations.taxable_amount,
@@ -1225,10 +1356,10 @@ export async function createPurchaseReturn(userId, shopId, branchId, data, audit
         round_off: calculations.round_off,
         net_amount: calculations.net_amount,
         balance_amount: calculations.net_amount,
-        
+
         status: statusValue,
         payment_status: "UNPAID",
-        
+
         remarks: data.remarks || null,
       },
     });
@@ -1255,7 +1386,7 @@ export async function createPurchaseReturn(userId, shopId, branchId, data, audit
             cgst_percent: item.cgst_percent || 0,
             sgst_percent: item.sgst_percent || 0,
             igst_percent: 0,
-            
+
             discount_amount: itemCalc.discount_amount,
             taxable_amount: itemCalc.taxable_amount,
             cgst_amount: itemCalc.cgst_amount,
@@ -1264,7 +1395,7 @@ export async function createPurchaseReturn(userId, shopId, branchId, data, audit
             line_total: itemCalc.line_total,
           },
         });
-      })
+      }),
     );
 
     if (isSuperAdmin) {
@@ -1305,7 +1436,14 @@ export async function createPurchaseReturn(userId, shopId, branchId, data, audit
 // APPROVE/REJECT RETURN
 // ============================================
 
-export async function approveOrRejectReturn(userId, shopId, branchId, returnInvoiceId, data, auditContext) {
+export async function approveOrRejectReturn(
+  userId,
+  shopId,
+  branchId,
+  returnInvoiceId,
+  data,
+  auditContext,
+) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -1373,9 +1511,10 @@ export async function approveOrRejectReturn(userId, shopId, branchId, returnInvo
   });
 
   await audit.log({
-    action: data.action === "APPROVE" 
-      ? audit.AuditAction.PURCHASE_RETURN_APPROVED 
-      : audit.AuditAction.PURCHASE_RETURN_REJECTED,
+    action:
+      data.action === "APPROVE"
+        ? audit.AuditAction.PURCHASE_RETURN_APPROVED
+        : audit.AuditAction.PURCHASE_RETURN_REJECTED,
     entity_type: audit.EntityType.PURCHASE_INVOICE,
     entity_id: returnInvoiceId,
     shop_id: shopId,
@@ -1403,7 +1542,13 @@ export async function approveOrRejectReturn(userId, shopId, branchId, returnInvo
 // GET PURCHASE RETURNS
 // ============================================
 
-export async function getPurchaseReturns(shopId, branchId, role, branchMode, filters = {}) {
+export async function getPurchaseReturns(
+  shopId,
+  branchId,
+  role,
+  branchMode,
+  filters = {},
+) {
   const {
     startDate,
     endDate,
@@ -1420,12 +1565,13 @@ export async function getPurchaseReturns(shopId, branchId, role, branchMode, fil
     is_return: true,
     ...(supplierId && { supplier_id: supplierId }),
     ...(approvalStatus && { return_approval_status: approvalStatus }),
-    ...(startDate && endDate && {
-      invoice_date: {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
-      },
-    }),
+    ...(startDate &&
+      endDate && {
+        invoice_date: {
+          gte: new Date(startDate),
+          lte: new Date(endDate),
+        },
+      }),
   };
 
   const [returns, total] = await Promise.all([
@@ -1473,7 +1619,7 @@ export async function getPurchaseReturns(shopId, branchId, role, branchMode, fil
     prisma.purchaseInvoice.count({ where }),
   ]);
 
-  const transformedReturns = returns.map(ret => ({
+  const transformedReturns = returns.map((ret) => ({
     ...ret,
     _count: {
       lineItems: ret.lineItems?.length || 0,
@@ -1603,7 +1749,9 @@ export async function applyCreditNote(userId, shopId, data, auditContext) {
   const appliedAmount = parseFloat(data.applied_amount);
 
   if (appliedAmount > availableBalance) {
-    const err = new Error(`Insufficient credit balance. Available: ₹${availableBalance.toFixed(2)}`);
+    const err = new Error(
+      `Insufficient credit balance. Available: ₹${availableBalance.toFixed(2)}`,
+    );
     err.code = "INSUFFICIENT_CREDIT";
     throw err;
   }
@@ -1620,14 +1768,18 @@ export async function applyCreditNote(userId, shopId, data, auditContext) {
   });
 
   if (!targetInvoice) {
-    const err = new Error("Target invoice not found, not confirmed, or already fully paid");
+    const err = new Error(
+      "Target invoice not found, not confirmed, or already fully paid",
+    );
     err.code = "INVALID_TARGET_INVOICE";
     throw err;
   }
 
   const invoiceBalance = parseFloat(targetInvoice.balance_amount);
   if (appliedAmount > invoiceBalance) {
-    const err = new Error(`Applied amount exceeds invoice balance. Invoice balance: ₹${invoiceBalance.toFixed(2)}`);
+    const err = new Error(
+      `Applied amount exceeds invoice balance. Invoice balance: ₹${invoiceBalance.toFixed(2)}`,
+    );
     err.code = "EXCEEDS_INVOICE_BALANCE";
     throw err;
   }
@@ -1658,7 +1810,11 @@ export async function applyCreditNote(userId, shopId, data, auditContext) {
     });
 
     const newPaidAmount = parseFloat(targetInvoice.paid_amount) + appliedAmount;
-    const paymentCalc = calculatePaymentStatus(newPaidAmount, targetInvoice.net_amount, PAYMENT_BALANCE_THRESHOLD);
+    const paymentCalc = calculatePaymentStatus(
+      newPaidAmount,
+      targetInvoice.net_amount,
+      PAYMENT_BALANCE_THRESHOLD,
+    );
 
     await tx.purchaseInvoice.update({
       where: { invoice_id: data.applied_to_invoice_id },
@@ -1735,7 +1891,13 @@ export async function expireOldCreditNotes() {
 // GET RETURN INVOICE DETAILS
 // ============================================
 
-export async function getReturnDetails(invoiceId, shopId, branchId, role, branchMode) {
+export async function getReturnDetails(
+  invoiceId,
+  shopId,
+  branchId,
+  role,
+  branchMode,
+) {
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const returnInvoice = await prisma.purchaseInvoice.findFirst({
@@ -1846,7 +2008,14 @@ export async function getReturnDetails(invoiceId, shopId, branchId, role, branch
  * - Handles refund reversal based on refund_action
  * - Super Admin only
  */
-export async function cancelApprovedReturn(userId, shopId, branchId, returnId, data, auditContext) {
+export async function cancelApprovedReturn(
+  userId,
+  shopId,
+  branchId,
+  returnId,
+  data,
+  auditContext,
+) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -1888,7 +2057,9 @@ export async function cancelApprovedReturn(userId, shopId, branchId, returnId, d
   }
 
   if (returnInvoice.return_approval_status !== "APPROVED") {
-    const err = new Error(`Cannot cancel return with status: ${returnInvoice.return_approval_status}. Only APPROVED returns can be cancelled.`);
+    const err = new Error(
+      `Cannot cancel return with status: ${returnInvoice.return_approval_status}. Only APPROVED returns can be cancelled.`,
+    );
     err.code = "INVALID_STATUS";
     throw err;
   }
@@ -1896,7 +2067,7 @@ export async function cancelApprovedReturn(userId, shopId, branchId, returnId, d
   const result = await prisma.$transaction(async (tx) => {
     // 1. REVERSE STOCK DEDUCTION (Add stock back)
     console.log("🔄 Reversing stock deduction for cancelled return...");
-    
+
     for (const item of returnInvoice.lineItems) {
       const inventory = await tx.inventory.findFirst({
         where: {
@@ -1910,7 +2081,8 @@ export async function cancelApprovedReturn(userId, shopId, branchId, returnId, d
       if (inventory) {
         const returnQty = parseFloat(item.quantity) || 0;
         const newCurrentStock = parseFloat(inventory.current_stock) + returnQty;
-        const newAvailableStock = parseFloat(inventory.available_stock) + returnQty;
+        const newAvailableStock =
+          parseFloat(inventory.available_stock) + returnQty;
 
         await tx.inventory.update({
           where: { inventory_id: inventory.inventory_id },
@@ -1944,40 +2116,46 @@ export async function cancelApprovedReturn(userId, shopId, branchId, returnId, d
           },
         });
 
-        console.log(`✅ Added back ${returnQty} units of ${item.batch_number}`);
+        console.log(` Added back ${returnQty} units of ${item.batch_number}`);
       } else {
-        console.warn(`⚠️ Inventory not found for ${item.batch_number}, skipping stock reversal`);
+        console.warn(
+          `⚠️ Inventory not found for ${item.batch_number}, skipping stock reversal`,
+        );
       }
     }
 
     // 2. MARK CREDIT NOTE AS CANCELLED
     if (returnInvoice.supplierCredits.length > 0) {
       console.log("📝 Cancelling credit notes...");
-      
+
       for (const credit of returnInvoice.supplierCredits) {
         await tx.supplierCredit.update({
           where: { credit_id: credit.credit_id },
           data: { status: "CANCELLED" },
         });
-        console.log(`✅ Cancelled credit note: ${credit.credit_note_number}`);
+        console.log(` Cancelled credit note: ${credit.credit_note_number}`);
       }
     }
 
     // 3. HANDLE REFUND REVERSAL (if applicable)
     if (returnInvoice.adjustment_type === "CASH_REFUND" && data.refund_action) {
       console.log(`💰 Handling refund reversal: ${data.refund_action}`);
-      
+
       // Record in remarks what action was taken
-      const refundNote = data.refund_action === "REVERSE_REFUND"
-        ? `Refund amount ₹${returnInvoice.refund_amount} was reversed/collected back`
-        : `Refund amount ₹${returnInvoice.refund_amount} will be adjusted in next purchase from ${returnInvoice.supplier.name}`;
-      
+      const refundNote =
+        data.refund_action === "REVERSE_REFUND"
+          ? `Refund amount ₹${returnInvoice.refund_amount} was reversed/collected back`
+          : `Refund amount ₹${returnInvoice.refund_amount} will be adjusted in next purchase from ${returnInvoice.supplier.name}`;
+
       // You can create a payment record here if needed
       // For now, we'll just add to remarks
     }
 
     // 4. REVERSE PARENT INVOICE ADJUSTMENT (if applicable)
-    if (returnInvoice.parent_invoice_id && returnInvoice.adjustment_type !== "CREDIT_NOTE") {
+    if (
+      returnInvoice.parent_invoice_id &&
+      returnInvoice.adjustment_type !== "CREDIT_NOTE"
+    ) {
       const parentInvoice = await tx.purchaseInvoice.findUnique({
         where: { invoice_id: returnInvoice.parent_invoice_id },
       });
@@ -1986,8 +2164,12 @@ export async function cancelApprovedReturn(userId, shopId, branchId, returnId, d
         const netAmount = Math.abs(parseFloat(returnInvoice.net_amount));
         const newBalance = parseFloat(parentInvoice.balance_amount) + netAmount;
         const newPaid = parseFloat(parentInvoice.net_amount) - newBalance;
-        
-        const paymentCalc = calculatePaymentStatus(newPaid, parentInvoice.net_amount, PAYMENT_BALANCE_THRESHOLD);
+
+        const paymentCalc = calculatePaymentStatus(
+          newPaid,
+          parentInvoice.net_amount,
+          PAYMENT_BALANCE_THRESHOLD,
+        );
 
         await tx.purchaseInvoice.update({
           where: { invoice_id: returnInvoice.parent_invoice_id },
@@ -1998,7 +2180,7 @@ export async function cancelApprovedReturn(userId, shopId, branchId, returnId, d
           },
         });
 
-        console.log(`✅ Reversed parent invoice adjustment`);
+        console.log(` Reversed parent invoice adjustment`);
       }
     }
 
@@ -2008,7 +2190,8 @@ export async function cancelApprovedReturn(userId, shopId, branchId, returnId, d
       data: {
         return_approval_status: "CANCELLED",
         status: "CANCELLED",
-        remarks: `CANCELLED: ${data.cancellation_reason}\n\n${returnInvoice.remarks || ""}`.trim(),
+        remarks:
+          `CANCELLED: ${data.cancellation_reason}\n\n${returnInvoice.remarks || ""}`.trim(),
       },
     });
 
@@ -2038,7 +2221,7 @@ export async function cancelApprovedReturn(userId, shopId, branchId, returnId, d
     },
   });
 
-  console.log("✅ Return cancelled successfully");
+  console.log(" Return cancelled successfully");
   return result;
 }
 
@@ -2049,7 +2232,14 @@ export async function cancelApprovedReturn(userId, shopId, branchId, returnId, d
  * - Reverses payment adjustments
  * - Return can be re-approved or rejected
  */
-export async function revertReturnToPending(userId, shopId, branchId, returnId, data, auditContext) {
+export async function revertReturnToPending(
+  userId,
+  shopId,
+  branchId,
+  returnId,
+  data,
+  auditContext,
+) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -2090,7 +2280,9 @@ export async function revertReturnToPending(userId, shopId, branchId, returnId, 
   }
 
   if (returnInvoice.return_approval_status !== "APPROVED") {
-    const err = new Error(`Cannot revert return with status: ${returnInvoice.return_approval_status}. Only APPROVED returns can be reverted.`);
+    const err = new Error(
+      `Cannot revert return with status: ${returnInvoice.return_approval_status}. Only APPROVED returns can be reverted.`,
+    );
     err.code = "INVALID_STATUS";
     throw err;
   }
@@ -2098,7 +2290,7 @@ export async function revertReturnToPending(userId, shopId, branchId, returnId, 
   const result = await prisma.$transaction(async (tx) => {
     // 1. ADD STOCK BACK (temporary until re-approval)
     console.log("🔄 Adding stock back temporarily...");
-    
+
     for (const item of returnInvoice.lineItems) {
       const inventory = await tx.inventory.findFirst({
         where: {
@@ -2112,7 +2304,8 @@ export async function revertReturnToPending(userId, shopId, branchId, returnId, 
       if (inventory) {
         const returnQty = parseFloat(item.quantity) || 0;
         const newCurrentStock = parseFloat(inventory.current_stock) + returnQty;
-        const newAvailableStock = parseFloat(inventory.available_stock) + returnQty;
+        const newAvailableStock =
+          parseFloat(inventory.available_stock) + returnQty;
 
         await tx.inventory.update({
           where: { inventory_id: inventory.inventory_id },
@@ -2145,25 +2338,28 @@ export async function revertReturnToPending(userId, shopId, branchId, returnId, 
           },
         });
 
-        console.log(`✅ Added back ${returnQty} units of ${item.batch_number}`);
+        console.log(` Added back ${returnQty} units of ${item.batch_number}`);
       }
     }
 
     // 2. CANCEL CREDIT NOTES
     if (returnInvoice.supplierCredits.length > 0) {
       console.log("📝 Cancelling credit notes...");
-      
+
       for (const credit of returnInvoice.supplierCredits) {
         await tx.supplierCredit.update({
           where: { credit_id: credit.credit_id },
           data: { status: "CANCELLED" },
         });
-        console.log(`✅ Cancelled credit note: ${credit.credit_note_number}`);
+        console.log(` Cancelled credit note: ${credit.credit_note_number}`);
       }
     }
 
     // 3. REVERSE PARENT INVOICE ADJUSTMENT
-    if (returnInvoice.parent_invoice_id && returnInvoice.adjustment_type !== "CREDIT_NOTE") {
+    if (
+      returnInvoice.parent_invoice_id &&
+      returnInvoice.adjustment_type !== "CREDIT_NOTE"
+    ) {
       const parentInvoice = await tx.purchaseInvoice.findUnique({
         where: { invoice_id: returnInvoice.parent_invoice_id },
       });
@@ -2172,8 +2368,12 @@ export async function revertReturnToPending(userId, shopId, branchId, returnId, 
         const netAmount = Math.abs(parseFloat(returnInvoice.net_amount));
         const newBalance = parseFloat(parentInvoice.balance_amount) + netAmount;
         const newPaid = parseFloat(parentInvoice.net_amount) - newBalance;
-        
-        const paymentCalc = calculatePaymentStatus(newPaid, parentInvoice.net_amount, PAYMENT_BALANCE_THRESHOLD);
+
+        const paymentCalc = calculatePaymentStatus(
+          newPaid,
+          parentInvoice.net_amount,
+          PAYMENT_BALANCE_THRESHOLD,
+        );
 
         await tx.purchaseInvoice.update({
           where: { invoice_id: returnInvoice.parent_invoice_id },
@@ -2184,7 +2384,7 @@ export async function revertReturnToPending(userId, shopId, branchId, returnId, 
           },
         });
 
-        console.log(`✅ Reversed parent invoice adjustment`);
+        console.log(` Reversed parent invoice adjustment`);
       }
     }
 
@@ -2197,10 +2397,12 @@ export async function revertReturnToPending(userId, shopId, branchId, returnId, 
         approved_by: null,
         approved_at: null,
         credit_note_number: null,
-        refund_amount: returnInvoice.adjustment_type === "CASH_REFUND" 
-          ? Math.abs(parseFloat(returnInvoice.net_amount)) 
-          : null,
-        remarks: `REVERTED TO PENDING: ${data.revert_reason}\n\n${returnInvoice.remarks || ""}`.trim(),
+        refund_amount:
+          returnInvoice.adjustment_type === "CASH_REFUND"
+            ? Math.abs(parseFloat(returnInvoice.net_amount))
+            : null,
+        remarks:
+          `REVERTED TO PENDING: ${data.revert_reason}\n\n${returnInvoice.remarks || ""}`.trim(),
       },
     });
 
@@ -2229,8 +2431,6 @@ export async function revertReturnToPending(userId, shopId, branchId, returnId, 
     },
   });
 
-  console.log("✅ Return reverted to pending successfully");
+  console.log(" Return reverted to pending successfully");
   return result;
 }
-
-

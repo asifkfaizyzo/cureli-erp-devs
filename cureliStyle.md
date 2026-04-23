@@ -2,12 +2,14 @@ Here's the comprehensive color and design system guide for Cureli:
 
 ```md
 # 🎨 Cureli Admin — Design System & Color Guide
+
 > **Version:** 2.0 | **Stack:** React + Tailwind CSS  
 > **Base Gradient:** `from-[#05015A] to-[#0a0280]` | **Tailwind Match:** Indigo scale
 
 ---
 
 ## 📋 TABLE OF CONTENTS
+
 1. [Brand Color Palette](#1-brand-color-palette)
 2. [Semantic Colors](#2-semantic-colors)
 3. [Neutral / Slate Scale](#3-neutral--slate-scale)
@@ -34,9 +36,11 @@ Here's the comprehensive color and design system guide for Cureli:
 
 ### The Core Gradient
 ```
+
 from-[#05015A] → to-[#0a0280]
-```
-Use this on: page headers, table headers, active pagination buttons, 
+
+````
+Use this on: page headers, table headers, active pagination buttons,
 selected calendar days, primary nav.
 
 ### Full Brand Scale
@@ -74,39 +78,40 @@ selected calendar days, primary nav.
 // Tints
 "bg-indigo-50"          // active input, selected row bg
 "bg-indigo-100"         // badge background
-```
+````
 
 ---
 
 ## 2. SEMANTIC COLORS
 
-### ✅ Success / Green
+### Success / Green
+
 > **When to use:** In Stock, saved, approved, active, connected, received, valid expiry
 
-| Role | Tailwind Class | Hex |
-|------|---------------|-----|
-| Text / Badge Text | `text-green-700` | `#15803d` |
-| Solid Button / Icon | `bg-green-600` | `#16a34a` |
-| Status Dot | `bg-green-500` | `#22c55e` |
-| Badge Border | `border-green-200` | `#bbf7d0` |
-| Badge Background | `bg-green-100` | `#dcfce7` |
-| Light Wash / Toast | `bg-green-50` | `#f0fdf4` |
+| Role                | Tailwind Class     | Hex       |
+| ------------------- | ------------------ | --------- |
+| Text / Badge Text   | `text-green-700`   | `#15803d` |
+| Solid Button / Icon | `bg-green-600`     | `#16a34a` |
+| Status Dot          | `bg-green-500`     | `#22c55e` |
+| Badge Border        | `border-green-200` | `#bbf7d0` |
+| Badge Background    | `bg-green-100`     | `#dcfce7` |
+| Light Wash / Toast  | `bg-green-50`      | `#f0fdf4` |
 
 ```jsx
-// ✅ Success badge — copy-paste ready
+//  Success badge — copy-paste ready
 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
                  bg-green-100 text-green-700 border border-green-200">
   <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
   In Stock
 </span>
 
-// ✅ Success alert
+//  Success alert
 <div className="p-4 rounded-xl bg-green-50 border border-green-200">
   <p className="text-sm font-semibold text-green-700">Saved successfully!</p>
   <p className="text-xs text-green-600 mt-1">Changes have been applied.</p>
 </div>
 
-// ✅ Success input state
+//  Success input state
 <input className="border-green-500 bg-green-50 text-green-700
                   ring-2 ring-green-500/10 focus:outline-none" />
 ```
@@ -114,16 +119,17 @@ selected calendar days, primary nav.
 ---
 
 ### 🔴 Danger / Red
+
 > **When to use:** Out of Stock, expired, error, failed, delete, destructive, blocked
 
-| Role | Tailwind Class | Hex |
-|------|---------------|-----|
-| Text / Badge Text | `text-red-700` | `#b91c1c` |
-| Solid Button / Icon | `bg-red-600` | `#dc2626` |
-| Status Dot | `bg-red-500` | `#ef4444` |
-| Badge Border | `border-red-200` | `#fecaca` |
-| Badge Background | `bg-red-100` | `#fee2e2` |
-| Light Wash / Toast | `bg-red-50` | `#fef2f2` |
+| Role                | Tailwind Class   | Hex       |
+| ------------------- | ---------------- | --------- |
+| Text / Badge Text   | `text-red-700`   | `#b91c1c` |
+| Solid Button / Icon | `bg-red-600`     | `#dc2626` |
+| Status Dot          | `bg-red-500`     | `#ef4444` |
+| Badge Border        | `border-red-200` | `#fecaca` |
+| Badge Background    | `bg-red-100`     | `#fee2e2` |
+| Light Wash / Toast  | `bg-red-50`      | `#fef2f2` |
 
 ```jsx
 // 🔴 Danger badge
@@ -155,16 +161,17 @@ selected calendar days, primary nav.
 ---
 
 ### ⚠️ Warning / Amber
+
 > **When to use:** Low stock, expiring soon, pending, caution, needs review
 
-| Role | Tailwind Class | Hex |
-|------|---------------|-----|
-| Text / Badge Text | `text-amber-700` | `#b45309` |
-| Solid Icon | `bg-amber-600` | `#d97706` |
-| Status Dot | `bg-amber-500` | `#f59e0b` |
-| Badge Border | `border-amber-200` | `#fde68a` |
-| Badge Background | `bg-amber-100` | `#fef3c7` |
-| Light Wash / Toast | `bg-amber-50` | `#fffbeb` |
+| Role               | Tailwind Class     | Hex       |
+| ------------------ | ------------------ | --------- |
+| Text / Badge Text  | `text-amber-700`   | `#b45309` |
+| Solid Icon         | `bg-amber-600`     | `#d97706` |
+| Status Dot         | `bg-amber-500`     | `#f59e0b` |
+| Badge Border       | `border-amber-200` | `#fde68a` |
+| Badge Background   | `bg-amber-100`     | `#fef3c7` |
+| Light Wash / Toast | `bg-amber-50`      | `#fffbeb` |
 
 ```jsx
 // ⚠️ Warning badge
@@ -184,21 +191,24 @@ selected calendar days, primary nav.
 ---
 
 ### 🔵 Info / Blue
+
 > **When to use:** Processing, informational notes, help tips, system messages
 
-| Role | Tailwind Class | Hex |
-|------|---------------|-----|
-| Text / Badge Text | `text-blue-700` | `#1d4ed8` |
-| Solid Button | `bg-blue-600` | `#2563eb` |
-| Status Dot | `bg-blue-500` | `#3b82f6` |
-| Badge Border | `border-blue-200` | `#bfdbfe` |
-| Badge Background | `bg-blue-100` | `#dbeafe` |
-| Light Wash | `bg-blue-50` | `#eff6ff` |
+| Role              | Tailwind Class    | Hex       |
+| ----------------- | ----------------- | --------- |
+| Text / Badge Text | `text-blue-700`   | `#1d4ed8` |
+| Solid Button      | `bg-blue-600`     | `#2563eb` |
+| Status Dot        | `bg-blue-500`     | `#3b82f6` |
+| Badge Border      | `border-blue-200` | `#bfdbfe` |
+| Badge Background  | `bg-blue-100`     | `#dbeafe` |
+| Light Wash        | `bg-blue-50`      | `#eff6ff` |
 
 ```jsx
 // 🔵 Info badge
-<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
-                 bg-blue-100 text-blue-700 border border-blue-200">
+<span
+  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                 bg-blue-100 text-blue-700 border border-blue-200"
+>
   <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
   Processing
 </span>
@@ -210,18 +220,18 @@ selected calendar days, primary nav.
 
 > **Prefer `slate` over `gray`** for UI chrome. Use `gray` only where you see it in existing components.
 
-| Token | Tailwind | Hex | Use |
-|-------|----------|-----|-----|
-| Slate 900 | `text-slate-900` | `#0f172a` | Page titles, headings |
-| Slate 800 | `text-slate-800` | `#1e293b` | Strong body, modal titles |
-| Slate 700 | `text-slate-700` | `#334155` | Body text, inputs, table cells |
-| Slate 600 | `text-slate-600` | `#475569` | Secondary labels |
-| Slate 500 | `text-slate-500` | `#64748b` | Descriptions, helpers |
-| Slate 400 | `text-slate-400` | `#94a3b8` | Placeholders, timestamps |
-| Slate 300 | `text-slate-300` | `#cbd5e1` | Disabled text |
-| Slate 200 | `border-slate-200` | `#e2e8f0` | Default borders, dividers |
-| Slate 100 | `bg-slate-100` | `#f1f5f9` | Table header bg, tag bg |
-| Slate 50 | `bg-slate-50` | `#f8fafc` | Page bg, alt row bg |
+| Token     | Tailwind           | Hex       | Use                            |
+| --------- | ------------------ | --------- | ------------------------------ |
+| Slate 900 | `text-slate-900`   | `#0f172a` | Page titles, headings          |
+| Slate 800 | `text-slate-800`   | `#1e293b` | Strong body, modal titles      |
+| Slate 700 | `text-slate-700`   | `#334155` | Body text, inputs, table cells |
+| Slate 600 | `text-slate-600`   | `#475569` | Secondary labels               |
+| Slate 500 | `text-slate-500`   | `#64748b` | Descriptions, helpers          |
+| Slate 400 | `text-slate-400`   | `#94a3b8` | Placeholders, timestamps       |
+| Slate 300 | `text-slate-300`   | `#cbd5e1` | Disabled text                  |
+| Slate 200 | `border-slate-200` | `#e2e8f0` | Default borders, dividers      |
+| Slate 100 | `bg-slate-100`     | `#f1f5f9` | Table header bg, tag bg        |
+| Slate 50  | `bg-slate-50`      | `#f8fafc` | Page bg, alt row bg            |
 
 ---
 
@@ -229,15 +239,15 @@ selected calendar days, primary nav.
 
 Use these for additional status types where green/red/amber/blue are already taken.
 
-| Color | Solid | Bg | Text | Border | Use Cases |
-|-------|-------|----|------|--------|-----------|
-| **Violet** | `bg-violet-600` | `bg-violet-100` | `text-violet-700` | `border-violet-200` | Transfers, unique categories, super admin |
-| **Teal** | `bg-teal-600` | `bg-teal-100` | `text-teal-700` | `border-teal-200` | Stock-in, received, secondary success |
-| **Orange** | `bg-orange-600` | `bg-orange-100` | `text-orange-700` | `border-orange-200` | Urgent, overdue, expiring soon (alt) |
-| **Rose** | `bg-rose-600` | `bg-rose-100` | `text-rose-700` | `border-rose-200` | Critical, blocked, severe errors |
-| **Cyan** | `bg-cyan-600` | `bg-cyan-100` | `text-cyan-700` | `border-cyan-200` | Draft, readonly, info-alt |
-| **Emerald** | `bg-emerald-600` | `bg-emerald-100` | `text-emerald-700` | `border-emerald-200` | Active users, online status |
-| **Purple** | `bg-purple-600` | `bg-purple-100` | `text-purple-700` | `border-purple-200` | Super admin role badges |
+| Color       | Solid            | Bg               | Text               | Border               | Use Cases                                 |
+| ----------- | ---------------- | ---------------- | ------------------ | -------------------- | ----------------------------------------- |
+| **Violet**  | `bg-violet-600`  | `bg-violet-100`  | `text-violet-700`  | `border-violet-200`  | Transfers, unique categories, super admin |
+| **Teal**    | `bg-teal-600`    | `bg-teal-100`    | `text-teal-700`    | `border-teal-200`    | Stock-in, received, secondary success     |
+| **Orange**  | `bg-orange-600`  | `bg-orange-100`  | `text-orange-700`  | `border-orange-200`  | Urgent, overdue, expiring soon (alt)      |
+| **Rose**    | `bg-rose-600`    | `bg-rose-100`    | `text-rose-700`    | `border-rose-200`    | Critical, blocked, severe errors          |
+| **Cyan**    | `bg-cyan-600`    | `bg-cyan-100`    | `text-cyan-700`    | `border-cyan-200`    | Draft, readonly, info-alt                 |
+| **Emerald** | `bg-emerald-600` | `bg-emerald-100` | `text-emerald-700` | `border-emerald-200` | Active users, online status               |
+| **Purple**  | `bg-purple-600`  | `bg-purple-100`  | `text-purple-700`  | `border-purple-200`  | Super admin role badges                   |
 
 ---
 
@@ -335,26 +345,26 @@ disabled: "bg-slate-100"
 
 ```jsx
 // Default borders
-"border border-slate-200"       // cards, inputs default
-"border border-gray-200"        // matches existing table config
-"border border-gray-100"        // subtle row dividers
+"border border-slate-200"; // cards, inputs default
+"border border-gray-200"; // matches existing table config
+"border border-gray-100"; // subtle row dividers
 
 // Brand borders
-"border border-indigo-200"      // active inputs, brand-tinted
-"border border-indigo-500"      // strong focus
+"border border-indigo-200"; // active inputs, brand-tinted
+"border border-indigo-500"; // strong focus
 
 // Focus ring (inputs, selects, buttons)
-"focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+"focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500";
 
 // Semantic borders
-"border border-green-200"       // success input
-"border border-red-200"         // error input  
-"border border-amber-200"       // warning input
-"border border-blue-200"        // info input
+"border border-green-200"; // success input
+"border border-red-200"; // error input
+"border border-amber-200"; // warning input
+"border border-blue-200"; // info input
 
 // Dividers
-"border-t border-gray-100"      // section dividers inside cards
-"border-t border-white/10"      // dividers on dark bg
+"border-t border-gray-100"; // section dividers inside cards
+"border-t border-white/10"; // dividers on dark bg
 ```
 
 ---
@@ -459,6 +469,7 @@ disabled: "bg-slate-100"
 ## 9. BADGES & STATUS PILLS
 
 ### Anatomy of Every Badge
+
 ```jsx
 // Full recipe — dot + label
 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
@@ -481,61 +492,61 @@ disabled: "bg-slate-100"
 ```jsx
 // ─── STOCK STATUS ───────────────────────────────────────────────────────────
 // In Stock
-"bg-green-100  text-green-700  border-green-200   dot:bg-green-500"
+"bg-green-100  text-green-700  border-green-200   dot:bg-green-500";
 // Low Stock
-"bg-amber-100  text-amber-700  border-amber-200   dot:bg-amber-500"
+"bg-amber-100  text-amber-700  border-amber-200   dot:bg-amber-500";
 // Out of Stock
-"bg-red-100    text-red-700    border-red-200     dot:bg-red-500"
+"bg-red-100    text-red-700    border-red-200     dot:bg-red-500";
 // Discontinued
-"bg-slate-100  text-slate-600  border-slate-200   dot:bg-slate-400"
+"bg-slate-100  text-slate-600  border-slate-200   dot:bg-slate-400";
 
 // ─── EXPIRY STATUS ──────────────────────────────────────────────────────────
 // Valid
-"bg-green-100  text-green-700  border-green-200   dot:bg-green-500"
+"bg-green-100  text-green-700  border-green-200   dot:bg-green-500";
 // Expiring Soon (< 90 days)
-"bg-amber-100  text-amber-700  border-amber-200   dot:bg-amber-500"
+"bg-amber-100  text-amber-700  border-amber-200   dot:bg-amber-500";
 // Expiring Very Soon (< 30 days)
-"bg-orange-100 text-orange-700 border-orange-200  dot:bg-orange-500"
+"bg-orange-100 text-orange-700 border-orange-200  dot:bg-orange-500";
 // Expired
-"bg-red-100    text-red-700    border-red-200     dot:bg-red-500"
+"bg-red-100    text-red-700    border-red-200     dot:bg-red-500";
 // Critical Expired (remove immediately)
-"bg-rose-100   text-rose-700   border-rose-200    dot:bg-rose-500"
+"bg-rose-100   text-rose-700   border-rose-200    dot:bg-rose-500";
 
 // ─── USER / ACCOUNT STATUS ──────────────────────────────────────────────────
 // Active (from TABLE_CONFIG)
-"bg-emerald-100 text-emerald-700"
+"bg-emerald-100 text-emerald-700";
 // Inactive
-"bg-red-100     text-red-700"
+"bg-red-100     text-red-700";
 // Suspended
-"bg-orange-100  text-orange-700"
+"bg-orange-100  text-orange-700";
 // Pending
-"bg-yellow-100  text-yellow-700"
+"bg-yellow-100  text-yellow-700";
 
 // ─── VERIFICATION STATUS (from TABLE_CONFIG) ─────────────────────────────────
 // Verified
-"bg-emerald-50 text-emerald-700 border-emerald-200  dot:bg-emerald-500"
+"bg-emerald-50 text-emerald-700 border-emerald-200  dot:bg-emerald-500";
 // Pending Review
-"bg-amber-50   text-amber-700   border-amber-200    dot:bg-amber-500"
+"bg-amber-50   text-amber-700   border-amber-200    dot:bg-amber-500";
 // Partially Rejected
-"bg-orange-50  text-orange-700  border-orange-200   dot:bg-orange-500"
+"bg-orange-50  text-orange-700  border-orange-200   dot:bg-orange-500";
 // Rejected
-"bg-red-50     text-red-700     border-red-200      dot:bg-red-500"
+"bg-red-50     text-red-700     border-red-200      dot:bg-red-500";
 // Unknown / Default
-"bg-gray-50    text-gray-700    border-gray-200     dot:bg-gray-500"
+"bg-gray-50    text-gray-700    border-gray-200     dot:bg-gray-500";
 
 // ─── ORDER / TRANSACTION STATUS ─────────────────────────────────────────────
 // Processing
-"bg-blue-100   text-blue-700   border-blue-200    dot:bg-blue-500"
+"bg-blue-100   text-blue-700   border-blue-200    dot:bg-blue-500";
 // Transferred
-"bg-violet-100 text-violet-700 border-violet-200  dot:bg-violet-500"
+"bg-violet-100 text-violet-700 border-violet-200  dot:bg-violet-500";
 // Received / Completed
-"bg-teal-100   text-teal-700   border-teal-200    dot:bg-teal-500"
+"bg-teal-100   text-teal-700   border-teal-200    dot:bg-teal-500";
 // Urgent
-"bg-orange-100 text-orange-700 border-orange-200  dot:bg-orange-500"
+"bg-orange-100 text-orange-700 border-orange-200  dot:bg-orange-500";
 // Draft
-"bg-cyan-100   text-cyan-700   border-cyan-200    dot:bg-cyan-500"
+"bg-cyan-100   text-cyan-700   border-cyan-200    dot:bg-cyan-500";
 // Approved
-"bg-indigo-100 text-indigo-700 border-indigo-200  dot:bg-indigo-500"
+"bg-indigo-100 text-indigo-700 border-indigo-200  dot:bg-indigo-500";
 
 // ─── ROLE BADGES (from TABLE_CONFIG) ────────────────────────────────────────
 // Base:       "inline-block px-3 py-1 rounded-full text-xs font-medium
@@ -549,16 +560,17 @@ disabled: "bg-slate-100"
 
 // ─── COUNT / NUMBER BADGES ──────────────────────────────────────────────────
 // On dark bg (tab count)
-"bg-white/15 text-white/80 px-1.5 py-0.5 rounded-full text-[11px] font-bold"
+"bg-white/15 text-white/80 px-1.5 py-0.5 rounded-full text-[11px] font-bold";
 // On light bg (filter count)
-"bg-indigo-600 text-white px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+"bg-indigo-600 text-white px-1.5 py-0.5 rounded-full text-[10px] font-bold";
 // Warning count
-"bg-amber-100 text-amber-700 w-6 h-6 rounded-full text-xs font-bold"
+"bg-amber-100 text-amber-700 w-6 h-6 rounded-full text-xs font-bold";
 ```
 
 ### Helper Functions (from tableConfig.js)
+
 ```js
-import { getRoleBadgeStyle, getStatusBadgeStyle, getVerificationStatusConfig } 
+import { getRoleBadgeStyle, getStatusBadgeStyle, getVerificationStatusConfig }
   from '@/config/tableConfig';
 
 // Usage
@@ -577,10 +589,15 @@ const config = getVerificationStatusConfig('verified');
 ## 10. ALERTS & TOASTS
 
 ### Alert Banner (inline)
+
 ```jsx
 // Recipe: bg-{color}-50 border border-{color}-200
-<div className="flex items-start gap-3 p-4 rounded-xl
-                bg-green-50 border border-green-200">          {/* swap color */}
+<div
+  className="flex items-start gap-3 p-4 rounded-xl
+                bg-green-50 border border-green-200"
+>
+  {" "}
+  {/* swap color */}
   <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
     <CheckCircle size={16} className="text-green-600" />
   </div>
@@ -591,24 +608,31 @@ const config = getVerificationStatusConfig('verified');
 </div>
 ```
 
-| Type | bg | border | icon bg | icon | text |
-|------|----|--------|---------|------|------|
-| Success | `bg-green-50` | `border-green-200` | `bg-green-100` | `text-green-600` | `text-green-700` |
-| Error | `bg-red-50` | `border-red-200` | `bg-red-100` | `text-red-600` | `text-red-700` |
-| Warning | `bg-amber-50` | `border-amber-200` | `bg-amber-100` | `text-amber-600` | `text-amber-700` |
-| Info | `bg-blue-50` | `border-blue-200` | `bg-blue-100` | `text-blue-600` | `text-blue-700` |
-| Critical | `bg-rose-50` | `border-rose-200` | `bg-rose-100` | `text-rose-600` | `text-rose-700` |
-| Brand | `bg-indigo-50` | `border-indigo-200` | `bg-indigo-100` | `text-indigo-600` | `text-indigo-700` |
+| Type     | bg             | border              | icon bg         | icon              | text              |
+| -------- | -------------- | ------------------- | --------------- | ----------------- | ----------------- |
+| Success  | `bg-green-50`  | `border-green-200`  | `bg-green-100`  | `text-green-600`  | `text-green-700`  |
+| Error    | `bg-red-50`    | `border-red-200`    | `bg-red-100`    | `text-red-600`    | `text-red-700`    |
+| Warning  | `bg-amber-50`  | `border-amber-200`  | `bg-amber-100`  | `text-amber-600`  | `text-amber-700`  |
+| Info     | `bg-blue-50`   | `border-blue-200`   | `bg-blue-100`   | `text-blue-600`   | `text-blue-700`   |
+| Critical | `bg-rose-50`   | `border-rose-200`   | `bg-rose-100`   | `text-rose-600`   | `text-rose-700`   |
+| Brand    | `bg-indigo-50` | `border-indigo-200` | `bg-indigo-100` | `text-indigo-600` | `text-indigo-700` |
 
 ### Toast Notification
+
 ```jsx
 // Left-bordered toast (used in Cureli)
-<div className="flex items-center gap-3 p-4 rounded-xl bg-white shadow-lg
-                border-l-4 border-green-500">          {/* swap border color */}
+<div
+  className="flex items-center gap-3 p-4 rounded-xl bg-white shadow-lg
+                border-l-4 border-green-500"
+>
+  {" "}
+  {/* swap border color */}
   <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
     <Check size={14} className="text-green-600" />
   </div>
-  <span className="text-sm font-semibold text-green-700">Saved successfully!</span>
+  <span className="text-sm font-semibold text-green-700">
+    Saved successfully!
+  </span>
 </div>
 
 // Border colors for toast types:
@@ -663,17 +687,18 @@ All inputs follow this pattern — swap the color token per state:
 
 ### Dimensions
 
-| Property | Value | Notes |
-|----------|-------|-------|
-| Header row height | `48px` | `h-[48px]` |
-| Body row height | `56px` | `h-[56px]` — fits avatar + 2 lines |
-| Pagination bar | `48px` | `h-[48px]` |
+| Property          | Value  | Notes                              |
+| ----------------- | ------ | ---------------------------------- |
+| Header row height | `48px` | `h-[48px]`                         |
+| Body row height   | `56px` | `h-[56px]` — fits avatar + 2 lines |
+| Pagination bar    | `48px` | `h-[48px]`                         |
 
 ### Table Container Structure
+
 ```jsx
 // Always use this wrapper
 <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
-  
+
   {/* Header */}
   <table>
     <thead>
@@ -702,6 +727,7 @@ All inputs follow this pattern — swap the color token per state:
 ```
 
 ### Row Background Helpers
+
 ```js
 import { getRowBgClass, getClickableRowClass } from '@/config/tableConfig';
 
@@ -716,15 +742,17 @@ import { getRowBgClass, getClickableRowClass } from '@/config/tableConfig';
 ```
 
 ### Sort Icon Colors
+
 ```jsx
 // Active sort column
 <SortIcon className="text-yellow-300" />
 
-// Inactive sort column  
+// Inactive sort column
 <SortIcon className="text-white/50" />
 ```
 
 ### Skeleton Loading
+
 ```jsx
 <tr className="animate-pulse">
   <td className="px-3 py-4">
@@ -734,6 +762,7 @@ import { getRowBgClass, getClickableRowClass } from '@/config/tableConfig';
 ```
 
 ### Empty State
+
 ```jsx
 <div className="flex-1 flex flex-col items-center justify-center py-12">
   <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
@@ -752,36 +781,39 @@ import { getRowBgClass, getClickableRowClass } from '@/config/tableConfig';
 > **Uses:** React Portal for dropdown — always renders above overflow:hidden parents
 
 ### Props
-| Prop | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| `value` | string | ✅ | — | Selected value |
-| `onChange` | function | ✅ | — | `(value: string) => void` |
-| `options` | array | ✅ | — | `[{ value, label }]` |
-| `label` | string | ❌ | — | Label above the select |
-| `placeholder` | string | ❌ | `"Select..."` | Placeholder text |
-| `error` | string | ❌ | — | Error message below |
-| `disabled` | boolean | ❌ | `false` | Disables interaction |
+
+| Prop          | Type     | Required | Default       | Description               |
+| ------------- | -------- | -------- | ------------- | ------------------------- |
+| `value`       | string   |          | —             | Selected value            |
+| `onChange`    | function |          | —             | `(value: string) => void` |
+| `options`     | array    |          | —             | `[{ value, label }]`      |
+| `label`       | string   |          | —             | Label above the select    |
+| `placeholder` | string   |          | `"Select..."` | Placeholder text          |
+| `error`       | string   |          | —             | Error message below       |
+| `disabled`    | boolean  |          | `false`       | Disables interaction      |
 
 ### Usage
+
 ```jsx
-import StyledSelect from '@/components/common/StyledSelect';
+import StyledSelect from "@/components/common/StyledSelect";
 
 <StyledSelect
   label="Stock Status"
   value={filters.status}
-  onChange={(val) => setFilters(prev => ({ ...prev, status: val }))}
+  onChange={(val) => setFilters((prev) => ({ ...prev, status: val }))}
   options={[
-    { value: "",          label: "All Status" },
-    { value: "In Stock",  label: "In Stock" },
+    { value: "", label: "All Status" },
+    { value: "In Stock", label: "In Stock" },
     { value: "Low Stock", label: "Low Stock" },
-    { value: "Expired",   label: "Expired" },
+    { value: "Expired", label: "Expired" },
   ]}
   placeholder="Select status..."
   error={errors.status}
-/>
+/>;
 ```
 
 ### Visual States
+
 ```
 Default:  bg-white border-gray-200 text-gray-700
           → hover: bg-gray-50
@@ -799,27 +831,29 @@ Hovered option in list:   bg-gray-50 text-gray-700
 ```
 
 ### Portal Behavior
+
 - Dropdown renders into `document.body` via `createPortal`
 - Automatically opens **upward** if insufficient space below
 - Closes on: outside click, scroll (outside dropdown), Escape key
 - Max height: `240px` with scroll
 
 ### Build Option Arrays
+
 ```js
 // Standard pattern with "All" option first
 const statusOptions = [
-  { value: "",           label: "All Status" },
-  { value: "In Stock",   label: "In Stock" },
-  { value: "Low Stock",  label: "Low Stock" },
+  { value: "", label: "All Status" },
+  { value: "In Stock", label: "In Stock" },
+  { value: "Low Stock", label: "Low Stock" },
   { value: "Out of Stock", label: "Out of Stock" },
-  { value: "Expired",    label: "Expired" },
+  { value: "Expired", label: "Expired" },
   { value: "Expiring Soon", label: "Expiring Soon" },
 ];
 
 // From API data
 const supplierOptions = [
   { value: "", label: `All Suppliers (${suppliers.length})` },
-  ...suppliers.map(s => ({ value: s, label: s })),
+  ...suppliers.map((s) => ({ value: s, label: s })),
 ];
 ```
 
@@ -831,13 +865,15 @@ const supplierOptions = [
 > **Uses:** React Portal, custom calendar, auto-position above/below
 
 ### Props
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `label` | string | ❌ | Label above the trigger button |
-| `date` | string | ✅ | ISO date string `"YYYY-MM-DD"` or `""` |
-| `setDate` | function | ✅ | `(dateString: string) => void` |
+
+| Prop      | Type     | Required | Description                            |
+| --------- | -------- | -------- | -------------------------------------- |
+| `label`   | string   |          | Label above the trigger button         |
+| `date`    | string   |          | ISO date string `"YYYY-MM-DD"` or `""` |
+| `setDate` | function |          | `(dateString: string) => void`         |
 
 ### Usage
+
 ```jsx
 import StyledDateFilter from '@/components/common/StyledDateFilter';
 
@@ -864,6 +900,7 @@ const [toDate, setToDate]     = useState("");
 ```
 
 ### Visual States
+
 ```
 Default:  bg-white border-gray-200 text-gray-400  (shows placeholder)
 Active:   bg-indigo-50 border-indigo-200 text-indigo-700 font-medium
@@ -871,6 +908,7 @@ Open:     focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
 ```
 
 ### Calendar Styles
+
 ```
 Selected day:   bg-[#05015A] text-white shadow-md scale-105 rounded-full
 Today (ring):   border border-[#05015A] text-[#05015A] font-bold rounded-full
@@ -882,6 +920,7 @@ Quick "Clear":  text-gray-500 hover:text-red-600 font-medium text-xs
 ```
 
 ### Portal Behavior
+
 - Dropdown: `z-[9999]`, `w-64`, `p-4`
 - Opens upward if `spaceBelow < 320px`
 - Closes on: outside click, scroll (non-dropdown), resize triggers reposition
@@ -895,17 +934,19 @@ Quick "Clear":  text-gray-500 hover:text-red-600 font-medium text-xs
 > **Requires:** `TABLE_CONFIG` from `tableConfig.js`
 
 ### Props
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `currentPage` | number | ✅ | Current active page (1-indexed) |
-| `setCurrentPage` | function | ✅ | `(page: number) => void` |
-| `totalItems` | number | ✅ | Total records count |
-| `rowsPerPage` | number | ✅ | From `useDynamicRowCount()` |
+
+| Prop             | Type     | Required | Description                     |
+| ---------------- | -------- | -------- | ------------------------------- |
+| `currentPage`    | number   |          | Current active page (1-indexed) |
+| `setCurrentPage` | function |          | `(page: number) => void`        |
+| `totalItems`     | number   |          | Total records count             |
+| `rowsPerPage`    | number   |          | From `useDynamicRowCount()`     |
 
 ### Usage with Pagination Hook
+
 ```jsx
-import Pagination from '@/components/common/Pagination';
-import usePagination from '@/hooks/usePagination';
+import Pagination from "@/components/common/Pagination";
+import usePagination from "@/hooks/usePagination";
 
 const MyTablePage = () => {
   const {
@@ -914,11 +955,10 @@ const MyTablePage = () => {
     rowsPerPage,
     totalItems,
     paginatedData,
-  } = usePagination(filteredData);   // pass already-filtered data
+  } = usePagination(filteredData); // pass already-filtered data
 
   return (
     <div className="h-full flex flex-col bg-white rounded-xl border border-gray-100 overflow-hidden">
-      
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table>
@@ -945,6 +985,7 @@ const MyTablePage = () => {
 ```
 
 ### Pagination Visual Styles
+
 ```
 Wrapper:          flex-shrink-0 border-t border-gray-100 bg-gray-50/50
 
@@ -967,6 +1008,7 @@ Info text:        "Showing {start}-{end} of {total}"
 ```
 
 ### Window & Jump Logic
+
 ```
 Window size (pages shown): 3
 Jump size (••• click):     3 pages at once
@@ -984,33 +1026,36 @@ Prev/Next buttons:         ChevronLeft / ChevronRight icons
 
 ### Row Count Breakpoints
 
-| Screen Height | Rows Per Page | Monitor Type |
-|---------------|---------------|-------------|
-| ≥ 1440px | 13 | 1440p / 4K / 27"+ |
-| ≥ 1080px | 10 | 1080p Full HD |
-| ≥ 900px | 9 | 900p / small monitors |
-| ≥ 800px | 8 | Tablets / small laptops |
-| < 800px | 5 | Mobile / fallback |
+| Screen Height | Rows Per Page | Monitor Type            |
+| ------------- | ------------- | ----------------------- |
+| ≥ 1440px      | 13            | 1440p / 4K / 27"+       |
+| ≥ 1080px      | 10            | 1080p Full HD           |
+| ≥ 900px       | 9             | 900p / small monitors   |
+| ≥ 800px       | 8             | Tablets / small laptops |
+| < 800px       | 5             | Mobile / fallback       |
 
 ### Usage
+
 ```js
 // Direct hook — just need the count
-import useDynamicRowCount from '@/hooks/useDynamicRowCount';
+import useDynamicRowCount from "@/hooks/useDynamicRowCount";
 const rowsPerPage = useDynamicRowCount();
 
 // Full pagination hook — recommended
-import usePagination from '@/hooks/usePagination';
-const { currentPage, setCurrentPage, rowsPerPage, paginatedData, totalItems }
-  = usePagination(data);
+import usePagination from "@/hooks/usePagination";
+const { currentPage, setCurrentPage, rowsPerPage, paginatedData, totalItems } =
+  usePagination(data);
 ```
 
 ### usePagination Behavior
+
 - **Auto-resets to page 1** when `data.length` changes (new search/filter results)
 - **Adjusts page** when screen resize causes page count to drop
-- **Memoized** — `paginatedData` only recalculates when `data`, `currentPage`, or 
+- **Memoized** — `paginatedData` only recalculates when `data`, `currentPage`, or
   `rowsPerPage` changes
 
 ### usePagination Return Values
+
 ```ts
 {
   currentPage:   number,      // Current page (1-indexed)
@@ -1025,7 +1070,9 @@ const { currentPage, setCurrentPage, rowsPerPage, paginatedData, totalItems }
 ```
 
 ### Modify Breakpoints
+
 Edit `TABLE_CONFIG.rowBreakpoints` in `src/config/tableConfig.js`:
+
 ```js
 rowBreakpoints: {
   1440: 13,
@@ -1041,9 +1088,9 @@ rowBreakpoints: {
 ## 17. DARK BACKGROUND (BANNER/HEADER)
 
 ### Full Page Header Recipe
+
 ```jsx
 <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-6 rounded-xl">
-  
   {/* Title + subtitle */}
   <div className="flex items-start justify-between">
     <div>
@@ -1053,13 +1100,17 @@ rowBreakpoints: {
 
     {/* Actions */}
     <div className="flex gap-2">
-      <button className="px-4 py-2 bg-white/10 text-white/80 text-sm font-medium
+      <button
+        className="px-4 py-2 bg-white/10 text-white/80 text-sm font-medium
                          rounded-lg border border-white/15
-                         hover:bg-white/20 hover:text-white transition-colors">
+                         hover:bg-white/20 hover:text-white transition-colors"
+      >
         Export
       </button>
-      <button className="px-4 py-2 bg-white text-indigo-700 text-sm font-semibold
-                         rounded-lg hover:bg-indigo-50 transition-colors">
+      <button
+        className="px-4 py-2 bg-white text-indigo-700 text-sm font-semibold
+                         rounded-lg hover:bg-indigo-50 transition-colors"
+      >
         + Add Item
       </button>
     </div>
@@ -1099,16 +1150,22 @@ rowBreakpoints: {
   {/* Tab bar */}
   <div className="flex gap-1 mt-5">
     {/* Active tab */}
-    <button className="px-4 py-2.5 bg-white text-indigo-700 text-sm font-semibold
-                       rounded-t-lg">
+    <button
+      className="px-4 py-2.5 bg-white text-indigo-700 text-sm font-semibold
+                       rounded-t-lg"
+    >
       All Medicines
     </button>
     {/* Inactive tabs */}
-    <button className="px-4 py-2.5 text-white/60 text-sm font-medium rounded-t-lg
-                       hover:text-white hover:bg-white/10 transition-colors">
+    <button
+      className="px-4 py-2.5 text-white/60 text-sm font-medium rounded-t-lg
+                       hover:text-white hover:bg-white/10 transition-colors"
+    >
       Low Stock
-      <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[11px] font-bold
-                       bg-white/15 text-white/80">
+      <span
+        className="ml-1.5 px-1.5 py-0.5 rounded-full text-[11px] font-bold
+                       bg-white/15 text-white/80"
+      >
         23
       </span>
     </button>
@@ -1118,29 +1175,30 @@ rowBreakpoints: {
 
 ### Dark Background Color Rules
 
-| Element | Class |
-|---------|-------|
-| Primary text | `text-white` |
-| Secondary text | `text-white/80` |
-| Subtitle / description | `text-white/60` |
-| Disabled / hint | `text-white/40` |
-| Accent icon | `text-indigo-300` |
-| Metric — good (green) | `text-green-400` |
-| Metric — warning | `text-amber-400` |
-| Metric — danger | `text-red-400` |
-| Card bg | `bg-white/8 border border-white/6` |
-| Divider | `border-white/10` |
-| Active tab bg | `bg-white` |
-| Inactive tab | `text-white/60 hover:bg-white/10` |
-| Badge/count on dark | `bg-white/15 text-white/80` |
-| Primary btn on dark | `bg-white text-indigo-700` |
-| Glass btn on dark | `bg-white/10 text-white/80 border-white/15` |
+| Element                | Class                                       |
+| ---------------------- | ------------------------------------------- |
+| Primary text           | `text-white`                                |
+| Secondary text         | `text-white/80`                             |
+| Subtitle / description | `text-white/60`                             |
+| Disabled / hint        | `text-white/40`                             |
+| Accent icon            | `text-indigo-300`                           |
+| Metric — good (green)  | `text-green-400`                            |
+| Metric — warning       | `text-amber-400`                            |
+| Metric — danger        | `text-red-400`                              |
+| Card bg                | `bg-white/8 border border-white/6`          |
+| Divider                | `border-white/10`                           |
+| Active tab bg          | `bg-white`                                  |
+| Inactive tab           | `text-white/60 hover:bg-white/10`           |
+| Badge/count on dark    | `bg-white/15 text-white/80`                 |
+| Primary btn on dark    | `bg-white text-indigo-700`                  |
+| Glass btn on dark      | `bg-white/10 text-white/80 border-white/15` |
 
 ---
 
 ## 18. COMPLETE COMPONENT RECIPES
 
 ### Pharmacy Row — Full Table Cell
+
 ```jsx
 // Medicine name + batch cell
 <td className="px-3 py-2">
@@ -1190,13 +1248,16 @@ rowBreakpoints: {
 ```
 
 ### Filter Bar Pattern
+
 ```jsx
 <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-    
     {/* Search */}
     <div className="relative">
-      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      <Search
+        size={16}
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+      />
       <input
         className="w-full h-10 pl-10 pr-4 border border-slate-200 rounded-lg text-sm
                    bg-slate-50 text-slate-700 placeholder:text-slate-400
@@ -1209,7 +1270,7 @@ rowBreakpoints: {
     {/* StyledSelect */}
     <StyledSelect
       value={filters.status}
-      onChange={(val) => onChange('status', val)}
+      onChange={(val) => onChange("status", val)}
       options={statusOptions}
       placeholder="All Status"
     />
@@ -1218,12 +1279,14 @@ rowBreakpoints: {
     <StyledDateFilter
       label=""
       date={filters.date}
-      setDate={(val) => onChange('date', val)}
+      setDate={(val) => onChange("date", val)}
     />
 
     {/* Action button */}
-    <button className="h-10 px-4 bg-[#05015A] text-white text-sm font-semibold
-                       rounded-lg hover:bg-[#0a0280] transition-colors flex items-center gap-2">
+    <button
+      className="h-10 px-4 bg-[#05015A] text-white text-sm font-semibold
+                       rounded-lg hover:bg-[#0a0280] transition-colors flex items-center gap-2"
+    >
       <Plus size={16} />
       Add Item
     </button>
@@ -1232,19 +1295,30 @@ rowBreakpoints: {
 ```
 
 ### Toggle Switch
+
 ```jsx
 // Amber — low stock toggle (matches existing InventoryFilters)
 <label className="flex items-center gap-2.5 cursor-pointer group select-none">
   <div className="relative">
-    <input type="checkbox" className="sr-only peer"
-           checked={value} onChange={(e) => onChange(e.target.checked)} />
-    <div className={`w-9 h-5 rounded-full transition-all duration-200
-                     ${value ? 'bg-amber-500' : 'bg-slate-200 group-hover:bg-slate-300'}`} />
-    <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm
-                     transition-all duration-200 ${value ? 'translate-x-4' : ''}`} />
+    <input
+      type="checkbox"
+      className="sr-only peer"
+      checked={value}
+      onChange={(e) => onChange(e.target.checked)}
+    />
+    <div
+      className={`w-9 h-5 rounded-full transition-all duration-200
+                     ${value ? "bg-amber-500" : "bg-slate-200 group-hover:bg-slate-300"}`}
+    />
+    <div
+      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm
+                     transition-all duration-200 ${value ? "translate-x-4" : ""}`}
+    />
   </div>
-  <span className={`text-sm font-medium transition-colors flex items-center gap-1.5
-                    ${value ? 'text-amber-600' : 'text-slate-600 group-hover:text-amber-600'}`}>
+  <span
+    className={`text-sm font-medium transition-colors flex items-center gap-1.5
+                    ${value ? "text-amber-600" : "text-slate-600 group-hover:text-amber-600"}`}
+  >
     <AlertTriangle size={14} />
     Low Stock Only
   </span>
@@ -1263,6 +1337,7 @@ rowBreakpoints: {
 ## 19. QUICK REFERENCE CHEAT SHEET
 
 ### 🌙 DARK BG (Banner / Header / Table Header)
+
 ```
 Background:     from-[#05015A] to-[#0a0280]
 h1 text:        text-white
@@ -1284,6 +1359,7 @@ sort icon:      active=text-yellow-300  inactive=text-white/50
 ```
 
 ### ☀️ LIGHT BG (Cards / Pages / Forms)
+
 ```
 Page bg:        bg-slate-50  or  bg-gray-50
 Card bg:        bg-white border border-slate-200 rounded-xl
@@ -1307,6 +1383,7 @@ odd row:        bg-white
 ```
 
 ### 🏷️ SEMANTIC BADGE FORMULA
+
 ```
 {color} = green | amber | red | blue | indigo | violet | teal | orange | rose | cyan
 
@@ -1320,6 +1397,7 @@ Toast border:   border-l-4 border-{color}-500
 ```
 
 ### 🧩 COMPONENT IMPORTS
+
 ```js
 import TABLE_CONFIG, {
   getRoleBadgeStyle,
@@ -1328,16 +1406,17 @@ import TABLE_CONFIG, {
   getRowBgClass,
   getClickableRowClass,
   formatDate,
-} from '@/config/tableConfig';
+} from "@/config/tableConfig";
 
-import StyledSelect     from '@/components/common/StyledSelect';
-import StyledDateFilter from '@/components/common/StyledDateFilter';
-import Pagination       from '@/components/common/Pagination';
-import usePagination    from '@/hooks/usePagination';
-import useDynamicRowCount from '@/hooks/useDynamicRowCount';
+import StyledSelect from "@/components/common/StyledSelect";
+import StyledDateFilter from "@/components/common/StyledDateFilter";
+import Pagination from "@/components/common/Pagination";
+import usePagination from "@/hooks/usePagination";
+import useDynamicRowCount from "@/hooks/useDynamicRowCount";
 ```
 
 ### 📐 SPACING & SHAPE
+
 ```
 Border radius:
   xs:  rounded-lg   (8px)  — buttons, inputs, badges
@@ -1359,8 +1438,9 @@ Transitions:
 
 ---
 
-*Cureli Admin Design System — keep this file open when building any UI.*  
-*When in doubt: indigo for brand, slate for neutral, semantic colors for status.*
+_Cureli Admin Design System — keep this file open when building any UI._  
+_When in doubt: indigo for brand, slate for neutral, semantic colors for status._
+
 ```
 
 This is a comprehensive `colorGuide.md` covering every system in Cureli. Here's what's included:
@@ -1380,3 +1460,4 @@ This is a comprehensive `colorGuide.md` covering every system in Cureli. Here's 
 | **17** | Dark header recipes with stats strip + tab bar |
 | **18** | Copy-paste recipes for table rows, filter bars, toggles |
 | **19** | One-page cheat sheet for everything |
+```

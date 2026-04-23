@@ -22,11 +22,11 @@ import {
   batchUpdateFiles,
 } from "../../../api/cadminDocs";
 
-// ✅ UPDATED: Helper function to generate file URL
+//  UPDATED: Helper function to generate file URL
 const getFileUrl = (storageKey) => {
   if (!storageKey) return null;
   if (storageKey.startsWith("http")) return storageKey;
-  
+
   const baseURL = import.meta.env.VITE_API_URL;
   // Backend serves files via /api/files/:folder/:filename
   // storage_key contains just the filename (e.g., "1234567890-abcdef12.jpg")
@@ -78,7 +78,7 @@ const VerificationModal = ({ shop, onClose }) => {
 
       setShopData(payload.shop);
 
-      // ✅ UPDATED: Use getFileUrl helper for pdfUrl
+      //  UPDATED: Use getFileUrl helper for pdfUrl
       const mappedDocs = (payload.files || []).map((f) => ({
         file_id: f.file_id,
         name: f.original_name || f.file_type || "Document",
@@ -92,14 +92,14 @@ const VerificationModal = ({ shop, onClose }) => {
           f.status === "verified"
             ? "approved"
             : f.status === "rejected"
-            ? "failed"
-            : "normal",
+              ? "failed"
+              : "normal",
         originalStatus: f.status,
         reason: f.verification_notes || "",
         resubmission_count: f.resubmission_count || 0,
         storage_key: f.storage_key,
         mime_type: f.mime_type,
-        // ✅ UPDATED: Use new URL format
+        //  UPDATED: Use new URL format
         pdfUrl: f.storage_key ? getFileUrl(f.storage_key) : null,
       }));
 
@@ -151,13 +151,13 @@ const VerificationModal = ({ shop, onClose }) => {
 
     // Must review ALL documents
     const allReviewed = documents.every(
-      (d) => d.status === "approved" || d.status === "failed"
+      (d) => d.status === "approved" || d.status === "failed",
     );
     if (!allReviewed) return false;
 
     // All rejected must have reasons
     const rejectedWithoutReason = documents.some(
-      (d) => d.status === "failed" && (!d.reason || !d.reason.trim())
+      (d) => d.status === "failed" && (!d.reason || !d.reason.trim()),
     );
     if (rejectedWithoutReason) return false;
 
@@ -172,15 +172,15 @@ const VerificationModal = ({ shop, onClose }) => {
       rejected: documents.filter((d) => d.status === "failed").length,
       pending: documents.filter((d) => d.status === "normal").length,
     }),
-    [documents]
+    [documents],
   );
 
   // Handlers
   const handleApprove = (file_id) => {
     setDocuments((prev) =>
       prev.map((d) =>
-        d.file_id === file_id ? { ...d, status: "approved", reason: "" } : d
-      )
+        d.file_id === file_id ? { ...d, status: "approved", reason: "" } : d,
+      ),
     );
   };
 
@@ -194,7 +194,7 @@ const VerificationModal = ({ shop, onClose }) => {
     if (!rejectionReason.trim()) {
       toast.error(
         "Rejection Reason Required",
-        "Please provide a reason for rejection."
+        "Please provide a reason for rejection.",
       );
       return;
     }
@@ -203,8 +203,8 @@ const VerificationModal = ({ shop, onClose }) => {
       prev.map((d) =>
         d.file_id === rejectingFileId
           ? { ...d, status: "failed", reason: rejectionReason.trim() }
-          : d
-      )
+          : d,
+      ),
     );
 
     setRejectingFileId(null);
@@ -223,8 +223,8 @@ const VerificationModal = ({ shop, onClose }) => {
         prev.map((d) =>
           d.file_id === file_id
             ? { ...d, status: original.status, reason: original.reason }
-            : d
-        )
+            : d,
+        ),
       );
     }
   };
@@ -234,7 +234,7 @@ const VerificationModal = ({ shop, onClose }) => {
     if (!canSave) {
       toast.error(
         "Cannot Save",
-        "Please review all documents and provide rejection reasons."
+        "Please review all documents and provide rejection reasons.",
       );
       return;
     }
@@ -307,7 +307,7 @@ const VerificationModal = ({ shop, onClose }) => {
   const handleClose = () => {
     if (hasUnsavedChanges) {
       const confirm = window.confirm(
-        "You have unsaved changes. Are you sure you want to close?"
+        "You have unsaved changes. Are you sure you want to close?",
       );
       if (!confirm) return;
     }

@@ -3,27 +3,27 @@
 // PAYMENT FAILED EMAIL TEMPLATE
 // ============================================
 
-import { 
-  EMAIL_CONFIG, 
-  getBaseHeadContent, 
-  renderLogo, 
-  renderFooter, 
-  renderButton 
-} from './_helpers.js';
-import { ICONS } from './_icons.js';
+import {
+  EMAIL_CONFIG,
+  getBaseHeadContent,
+  renderLogo,
+  renderFooter,
+  renderButton,
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
 
 export function paymentFailedTemplate(context) {
-  const { 
-    recipientName, 
-    shop_name, 
+  const {
+    recipientName,
+    shop_name,
     business_name,
     plan_name,
     amount,
     error_message,
-    retry_url
+    retry_url,
   } = context;
-  
-  const shopName = shop_name || business_name || 'your shop';
+
+  const shopName = shop_name || business_name || "your shop";
 
   // Note: emoji removed from subject line too
   const subject = `Payment Failed - Action Required - ${EMAIL_CONFIG.COMPANY.NAME}`;
@@ -37,9 +37,9 @@ export function paymentFailedTemplate(context) {
 <body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;">
   <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
     
-    <!-- Header: PAYMENT_FAILED icon replaces ❌ -->
+    <!-- Header: PAYMENT_FAILED icon replaces  -->
     <div class="header-error" style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo('WHITE', 'header')}
+      ${renderLogo("WHITE", "header")}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
         ${ICONS.PAYMENT_FAILED}
         <span style="vertical-align:middle;">Payment Failed</span>
@@ -82,19 +82,23 @@ export function paymentFailedTemplate(context) {
               Plan
             </td>
             <td class="table-value" style="padding:12px 16px;color:#1f2937;font-weight:500;font-size:14px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">
-              ${plan_name || 'Standard'}
+              ${plan_name || "Standard"}
             </td>
           </tr>
-          ${amount ? `
+          ${
+            amount
+              ? `
           <tr>
             <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">
               Amount
             </td>
             <td class="table-value" style="padding:12px 16px;color:#1f2937;font-weight:600;font-size:14px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">
-              ₹${Number(amount).toLocaleString('en-IN')}
+              ₹${Number(amount).toLocaleString("en-IN")}
             </td>
           </tr>
-          ` : ''}
+          `
+              : ""
+          }
           <tr>
             <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;background-color:#f9fafb;">
               Status
@@ -108,14 +112,18 @@ export function paymentFailedTemplate(context) {
         </table>
       </div>
 
-      ${error_message ? `
+      ${
+        error_message
+          ? `
       <!-- Error Reason (no emoji originally, unchanged) -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;margin:20px 0;border-radius:0 10px 10px 0;">
         <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;background-color:#fef2f2;">
           <strong>Reason:</strong> ${error_message}
         </p>
       </div>
-      ` : ''}
+      `
+          : ""
+      }
 
       <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:20px 0;background-color:#ffffff;">
         Don't worry! Payment failures can happen due to insufficient funds, 
@@ -145,11 +153,11 @@ export function paymentFailedTemplate(context) {
       </div>
 
       <!-- Retry Button: REFRESH icon replaces 🔄 -->
-      ${renderButton({ 
-        href: retry_url || `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, 
-        text: 'Retry Payment', 
-        icon: 'REFRESH', 
-        color: 'primary' 
+      ${renderButton({
+        href: retry_url || `${EMAIL_CONFIG.FRONTEND_URL}/subscription`,
+        text: "Retry Payment",
+        icon: "REFRESH",
+        color: "primary",
       })}
 
       <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">

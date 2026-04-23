@@ -10,14 +10,14 @@ import {
   renderFooter,
   renderButton,
   getSupportLink,
-} from './_helpers.js';
-import { ICONS } from './_icons.js';
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
 
 export function subscriptionSuspendedTemplate(context) {
   const { recipientName, shop_name } = context;
 
   // Subject: no emoji
-  const subject = 'Your account has been suspended';
+  const subject = "Your account has been suspended";
 
   const html = `
     <!DOCTYPE html>
@@ -30,7 +30,7 @@ export function subscriptionSuspendedTemplate(context) {
 
     <!-- Header: LOCK icon replaces 🔒 -->
     <div class="header-suspended" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.GRAY} 0%,${EMAIL_CONFIG.COLORS.GRAY_DARK} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo('WHITE', 'header')}
+      ${renderLogo("WHITE", "header")}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
         ${ICONS.LOCK_KEY}
         <span style="vertical-align:middle;">Account Suspended</span>
@@ -51,7 +51,7 @@ export function subscriptionSuspendedTemplate(context) {
       <div class="suspended-box" style="background-color:#f3f4f6;border-left:4px solid ${EMAIL_CONFIG.COLORS.GRAY};padding:16px 20px;margin:20px 0;border-radius:0 10px 10px 0;">
         <p class="suspended-text" style="margin:0;color:#374151;font-weight:600;font-size:14px;background-color:#f3f4f6;">
           Your <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> account for
-          <strong>${shop_name || 'your shop'}</strong> has been suspended due to non-payment.
+          <strong>${shop_name || "your shop"}</strong> has been suspended due to non-payment.
         </p>
       </div>
 
@@ -88,7 +88,7 @@ export function subscriptionSuspendedTemplate(context) {
         </ol>
       </div>
 
-      <!-- Data Safety: CHECK icon replaces ✅ -->
+      <!-- Data Safety: CHECK icon replaces  -->
       <div class="success-box" style="background-color:#d1fae5;border:2px solid ${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};border-radius:10px;padding:16px 20px;margin:24px 0;text-align:center;">
         <p class="success-text" style="margin:0;color:#065f46;font-size:14px;font-weight:600;background-color:#d1fae5;">
           ${ICONS.CHECK}
@@ -102,9 +102,9 @@ export function subscriptionSuspendedTemplate(context) {
       <!-- CTA Button: UNLOCK icon replaces 🔓 -->
       ${renderButton({
         href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`,
-        text: 'Reactivate Account Now',
-        icon: 'UNLOCK',
-        color: 'primary',
+        text: "Reactivate Account Now",
+        icon: "UNLOCK",
+        color: "primary",
       })}
 
       <!-- Support: LIGHTBULB_AMBER icon replaces 💡 -->

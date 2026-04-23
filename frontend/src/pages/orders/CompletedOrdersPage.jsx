@@ -1,14 +1,14 @@
 // src/pages/orders/CompletedOrdersPage.jsx
 
 import { motion } from "framer-motion";
-import { 
-  CheckCircle2, 
+import {
+  CheckCircle2,
   Download,
   Star,
   TrendingUp,
   Calendar,
   BarChart3,
-  ArrowLeft
+  ArrowLeft,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -16,35 +16,35 @@ const CompletedOrdersPage = () => {
   const navigate = useNavigate();
 
   const plannedFeatures = [
-    { 
-      icon: Calendar, 
+    {
+      icon: Calendar,
       title: "Order History",
-      description: "Browse complete history of fulfilled orders"
+      description: "Browse complete history of fulfilled orders",
     },
-    { 
-      icon: Star, 
+    {
+      icon: Star,
       title: "Customer Ratings",
-      description: "View ratings and feedback from customers"
+      description: "View ratings and feedback from customers",
     },
-    { 
-      icon: TrendingUp, 
+    {
+      icon: TrendingUp,
       title: "Performance Metrics",
-      description: "Track fulfillment rate and efficiency"
+      description: "Track fulfillment rate and efficiency",
     },
-    { 
-      icon: BarChart3, 
+    {
+      icon: BarChart3,
       title: "Sales Analytics",
-      description: "Analyze revenue and order trends"
+      description: "Analyze revenue and order trends",
     },
-    { 
-      icon: Download, 
+    {
+      icon: Download,
       title: "Export Reports",
-      description: "Download order data in various formats"
+      description: "Download order data in various formats",
     },
-    { 
-      icon: CheckCircle2, 
+    {
+      icon: CheckCircle2,
       title: "Order Details",
-      description: "Access detailed information for any order"
+      description: "Access detailed information for any order",
     },
   ];
 
@@ -71,7 +71,9 @@ const CompletedOrdersPage = () => {
           <div className="inline-flex items-center justify-center p-4 bg-green-100 rounded-2xl mb-4">
             <CheckCircle2 className="w-12 h-12 text-green-600" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Completed Orders</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Completed Orders
+          </h1>
           <p className="text-gray-500">Successfully fulfilled orders</p>
         </motion.div>
 
@@ -87,15 +89,15 @@ const CompletedOrdersPage = () => {
             {[...Array(6)].map((_, i) => (
               <motion.div
                 key={i}
-                animate={{ 
+                animate={{
                   y: [-20, 20, -20],
                   opacity: [0.3, 0.6, 0.3],
                 }}
-                transition={{ 
-                  duration: 3 + i, 
+                transition={{
+                  duration: 3 + i,
                   repeat: Infinity,
                   ease: "easeInOut",
-                  delay: i * 0.5
+                  delay: i * 0.5,
                 }}
                 className="absolute"
                 style={{
@@ -109,18 +111,18 @@ const CompletedOrdersPage = () => {
           </div>
 
           <div className="relative text-center">
-
             <span className="inline-block px-4 py-1.5 bg-white/20 rounded-full text-sm font-medium mb-4">
-              ✅ Coming Soon
+              Coming Soon
             </span>
-            
+
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Order History & Analytics
             </h2>
-            
+
             <p className="text-green-100 max-w-xl mx-auto text-lg">
-              View your complete order history, analyze trends, and track customer satisfaction. 
-              Export detailed reports for business insights.
+              View your complete order history, analyze trends, and track
+              customer satisfaction. Export detailed reports for business
+              insights.
             </p>
           </div>
         </motion.div>
@@ -134,7 +136,7 @@ const CompletedOrdersPage = () => {
           <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
             Planned Features
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {plannedFeatures.map((feature, index) => {
               const Icon = feature.icon;
@@ -149,7 +151,9 @@ const CompletedOrdersPage = () => {
                   <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center mb-3">
                     <Icon className="w-5 h-5 text-green-600" />
                   </div>
-                  <h4 className="font-semibold text-gray-900 mb-1">{feature.title}</h4>
+                  <h4 className="font-semibold text-gray-900 mb-1">
+                    {feature.title}
+                  </h4>
                   <p className="text-sm text-gray-500">{feature.description}</p>
                 </motion.div>
               );

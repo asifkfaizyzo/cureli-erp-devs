@@ -49,7 +49,7 @@ export async function getAvailableBatchesController(req, res) {
       {
         includeLowStock: includeLowStock === "true",
         includeExpiring: includeExpiring !== "false",
-      }
+      },
     );
 
     return success(res, { batches }, "Available batches retrieved");
@@ -81,7 +81,7 @@ export async function createDraftSaleController(req, res) {
       shopId,
       branchId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
     return success(res, invoice, "Draft sale created successfully", 201);
@@ -105,7 +105,7 @@ export async function addItemsController(req, res) {
       branchId,
       invoiceId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
     return success(res, invoice, "Items added successfully");
@@ -129,7 +129,7 @@ export async function removeItemController(req, res) {
       branchId,
       invoiceId,
       itemId,
-      auditContext
+      auditContext,
     );
 
     return success(res, invoice, "Item removed successfully");
@@ -153,7 +153,7 @@ export async function parkInvoiceController(req, res) {
       branchId,
       invoiceId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
     return success(res, invoice, "Invoice parked successfully");
@@ -174,7 +174,7 @@ export async function resumeParkedInvoiceController(req, res) {
       userId,
       shopId,
       branchId,
-      invoiceId
+      invoiceId,
     );
 
     return success(res, invoice, "Invoice resumed successfully");
@@ -194,7 +194,7 @@ export async function getParkedInvoicesController(req, res) {
       shopId,
       branchId,
       role,
-      branchMode
+      branchMode,
     );
 
     return success(res, { invoices }, "Parked invoices retrieved");
@@ -218,10 +218,14 @@ export async function confirmSaleController(req, res) {
       branchId,
       invoiceId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
-    return success(res, invoice, "Sale confirmed successfully. Stock deducted.");
+    return success(
+      res,
+      invoice,
+      "Sale confirmed successfully. Stock deducted.",
+    );
   } catch (error) {
     console.error("confirmSale ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
@@ -243,10 +247,14 @@ export async function cancelInvoiceController(req, res) {
       branchId,
       invoiceId,
       reason,
-      auditContext
+      auditContext,
     );
 
-    return success(res, invoice, "Invoice cancelled. Stock reservation released.");
+    return success(
+      res,
+      invoice,
+      "Invoice cancelled. Stock reservation released.",
+    );
   } catch (error) {
     console.error("cancelInvoice ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
@@ -267,7 +275,7 @@ export async function recordPaymentController(req, res) {
       branchId,
       invoiceId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
     return success(res, result, "Payment recorded successfully");
@@ -303,7 +311,7 @@ export async function getSalesInvoicesController(req, res) {
       branchId,
       role,
       branchMode,
-      filters
+      filters,
     );
 
     return success(res, result, "Sales invoices retrieved");
@@ -325,7 +333,7 @@ export async function getInvoiceDetailsController(req, res) {
       shopId,
       branchId,
       role,
-      branchMode
+      branchMode,
     );
 
     return success(res, invoice, "Invoice details retrieved");
@@ -351,7 +359,7 @@ export async function getSalesStatsController(req, res) {
       branchId,
       role,
       branchMode,
-      filters
+      filters,
     );
 
     return success(res, stats, "Sales statistics retrieved");
@@ -378,20 +386,24 @@ export async function createSalesReturnController(req, res) {
       });
     }
 
-    // ✅ Log the validated data to see what's coming through
-    console.log("📥 Validated return data:", JSON.stringify(req.validated, null, 2));
+    //  Log the validated data to see what's coming through
+    console.log(
+      "📥 Validated return data:",
+      JSON.stringify(req.validated, null, 2),
+    );
 
     const result = await salesReturnService.createSalesReturn(
       userId,
       shopId,
       branchId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
-    const message = result.return_approval_status === "APPROVED"
-      ? `Return processed successfully. Refund: ₹${result.refund_amount} (${result.refund_mode})`
-      : "Return created. Pending approval from admin.";
+    const message =
+      result.return_approval_status === "APPROVED"
+        ? `Return processed successfully. Refund: ₹${result.refund_amount} (${result.refund_mode})`
+        : "Return created. Pending approval from admin.";
 
     return success(res, result, message, 201);
   } catch (error) {
@@ -422,7 +434,7 @@ export async function getSalesReturnsController(req, res) {
       branchId,
       role,
       branchMode,
-      filters
+      filters,
     );
 
     return success(res, result, "Sales returns retrieved");
@@ -444,7 +456,7 @@ export async function getReturnDetailsController(req, res) {
       shopId,
       branchId,
       role,
-      branchMode
+      branchMode,
     );
 
     return success(res, result, "Return details retrieved");
@@ -469,7 +481,7 @@ export async function getReturnableItemsController(req, res) {
     const result = await salesReturnService.getReturnableItems(
       invoiceId,
       shopId,
-      branchId
+      branchId,
     );
 
     return success(res, result, "Returnable items retrieved");
@@ -493,12 +505,13 @@ export async function approveOrRejectReturnController(req, res) {
       branchId,
       returnId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
-    const message = req.validated.action === "APPROVE"
-      ? "Return approved. Stock added back and refund processed."
-      : "Return rejected.";
+    const message =
+      req.validated.action === "APPROVE"
+        ? "Return approved. Stock added back and refund processed."
+        : "Return rejected.";
 
     return success(res, result, message);
   } catch (error) {
@@ -521,10 +534,14 @@ export async function cancelSalesReturnController(req, res) {
       branchId,
       returnId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
-    return success(res, result, "Return cancelled. Stock has been deducted back.");
+    return success(
+      res,
+      result,
+      "Return cancelled. Stock has been deducted back.",
+    );
   } catch (error) {
     console.error("cancelSalesReturn ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
@@ -545,10 +562,14 @@ export async function revertSalesReturnController(req, res) {
       branchId,
       returnId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
-    return success(res, result, "Return reverted to pending. Awaiting re-approval.");
+    return success(
+      res,
+      result,
+      "Return reverted to pending. Awaiting re-approval.",
+    );
   } catch (error) {
     console.error("revertSalesReturn ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
@@ -578,7 +599,7 @@ export async function getCustomerCreditsController(req, res) {
       branchId,
       role,
       branchMode,
-      filters
+      filters,
     );
 
     return success(res, result, "Customer credits retrieved");
@@ -600,7 +621,7 @@ export async function applyCustomerCreditController(req, res) {
       shopId,
       branchId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
     return success(res, result, "Customer credit applied successfully");
@@ -634,7 +655,7 @@ export async function updateSalesInvoiceController(req, res) {
       branchId,
       invoiceId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
     return success(res, invoice, "Invoice updated successfully");
@@ -662,7 +683,7 @@ export async function updatePaymentStatusController(req, res) {
       branchId,
       invoiceId,
       req.validated,
-      auditContext
+      auditContext,
     );
 
     return success(res, result, "Payment status updated successfully");

@@ -2,9 +2,15 @@
 import axios from "axios";
 const BASE = "https://cpaas.messagecentral.com";
 
-export async function mcSendOtp({ authToken, customerId, mobileNumber, otpLength = 4, countryCode = "91" }) {
+export async function mcSendOtp({
+  authToken,
+  customerId,
+  mobileNumber,
+  otpLength = 4,
+  countryCode = "91",
+}) {
   console.log("🚀 mcSendOtp called");
-  
+
   if (!authToken) throw new Error("MC auth token required");
 
   const url = `${BASE}/verification/v3/send`;
@@ -26,15 +32,15 @@ export async function mcSendOtp({ authToken, customerId, mobileNumber, otpLength
       timeout: 10_000,
     });
 
-    console.log("✅ Response status:", resp.status);
+    console.log(" Response status:", resp.status);
     console.log("📥 Response data:", JSON.stringify(resp.data, null, 2));
 
     if (resp.status !== 200) throw new Error("mcSendOtp failed");
     return resp.data?.data;
   } catch (err) {
-    console.error("❌ mcSendOtp error:", err.message);
-    console.error("❌ Response data:", err.response?.data);
-    console.error("❌ Response status:", err.response?.status);
+    console.error(" mcSendOtp error:", err.message);
+    console.error(" Response data:", err.response?.data);
+    console.error(" Response status:", err.response?.status);
     throw err;
   }
 }

@@ -40,7 +40,8 @@ const CreateAccount = ({ onLoginClick }) => {
     localStorage.removeItem("user_id");
     localStorage.removeItem("user_name");
     localStorage.removeItem("onboarding_step");
-    document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie =
+      "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
   };
 
   // ---------------------------
@@ -62,7 +63,8 @@ const CreateAccount = ({ onLoginClick }) => {
     else if (!/[A-Z]/.test(pass)) err.password = "Missing uppercase letter";
     else if (!/[a-z]/.test(pass)) err.password = "Missing lowercase letter";
     else if (!/[0-9]/.test(pass)) err.password = "Missing number";
-    else if (!/[!@#$%^&*]/.test(pass)) err.password = "Missing special character";
+    else if (!/[!@#$%^&*]/.test(pass))
+      err.password = "Missing special character";
 
     if (!form.agree) err.agree = "You must agree";
 
@@ -102,7 +104,10 @@ const CreateAccount = ({ onLoginClick }) => {
   // GOOGLE ERROR
   // ---------------------------
   const handleGoogleError = () => {
-    toast.error("Google Sign-in Failed", "Unable to connect with Google. Please try again.");
+    toast.error(
+      "Google Sign-in Failed",
+      "Unable to connect with Google. Please try again.",
+    );
   };
 
   // ---------------------------
@@ -110,12 +115,15 @@ const CreateAccount = ({ onLoginClick }) => {
   // ---------------------------
   const handleCreateAccount = async () => {
     if (!validate()) {
-      toast.warning("Validation Error", "Please fix the errors before continuing");
+      toast.warning(
+        "Validation Error",
+        "Please fix the errors before continuing",
+      );
       return;
     }
 
     if (!executeRecaptcha) {
-      console.error("❌ executeRecaptcha is not available");
+      console.error(" executeRecaptcha is not available");
       toast.error("Error", "reCAPTCHA not ready. Please try again.");
       return;
     }
@@ -126,7 +134,7 @@ const CreateAccount = ({ onLoginClick }) => {
       clearPreviousSession();
 
       const recaptchaToken = await executeRecaptcha("signup");
-      console.log("✅ reCAPTCHA Token generated:", recaptchaToken);
+      console.log(" reCAPTCHA Token generated:", recaptchaToken);
 
       const payload = {
         first_name: form.first_name,
@@ -152,11 +160,12 @@ const CreateAccount = ({ onLoginClick }) => {
         },
       });
     } catch (err) {
-      console.error("❌ Signup failed:", err);
+      console.error(" Signup failed:", err);
       console.error("📥 Response data:", err?.response?.data);
       console.error("📊 Response status:", err?.response?.status);
-      
-      const message = err?.response?.data?.message || "Signup failed. Please try again.";
+
+      const message =
+        err?.response?.data?.message || "Signup failed. Please try again.";
       toast.error("Signup Failed", message);
     } finally {
       setLoading(false);
@@ -264,11 +273,26 @@ const CreateAccount = ({ onLoginClick }) => {
 
         {/* Password Rules */}
         <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
-          <PasswordRuleInline valid={form.password.length >= 8} text="8+ chars" />
-          <PasswordRuleInline valid={/[A-Z]/.test(form.password)} text="uppercase" />
-          <PasswordRuleInline valid={/[a-z]/.test(form.password)} text="lowercase" />
-          <PasswordRuleInline valid={/[0-9]/.test(form.password)} text="number" />
-          <PasswordRuleInline valid={/[!@#$%^&*]/.test(form.password)} text="special" />
+          <PasswordRuleInline
+            valid={form.password.length >= 8}
+            text="8+ chars"
+          />
+          <PasswordRuleInline
+            valid={/[A-Z]/.test(form.password)}
+            text="uppercase"
+          />
+          <PasswordRuleInline
+            valid={/[a-z]/.test(form.password)}
+            text="lowercase"
+          />
+          <PasswordRuleInline
+            valid={/[0-9]/.test(form.password)}
+            text="number"
+          />
+          <PasswordRuleInline
+            valid={/[!@#$%^&*]/.test(form.password)}
+            text="special"
+          />
         </div>
 
         {errors.password && (
@@ -384,14 +408,18 @@ const CreateAccount = ({ onLoginClick }) => {
       <p className="text-center text-[11px] text-gray-400 mt-4 leading-relaxed">
         This site is protected by reCAPTCHA and the{" "}
         <span
-          onClick={() => window.open("https://policies.google.com/privacy", "_blank")}
+          onClick={() =>
+            window.open("https://policies.google.com/privacy", "_blank")
+          }
           className="text-[#000060] underline cursor-pointer hover:font-medium"
         >
           Google Privacy Policy
         </span>{" "}
         and{" "}
         <span
-          onClick={() => window.open("https://policies.google.com/terms", "_blank")}
+          onClick={() =>
+            window.open("https://policies.google.com/terms", "_blank")
+          }
           className="text-[#000060] underline cursor-pointer hover:font-medium"
         >
           Terms of Service

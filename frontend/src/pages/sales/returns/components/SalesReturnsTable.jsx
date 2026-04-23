@@ -33,7 +33,7 @@ const RETURN_REASON_LABELS = {
   DOCTOR_ADVISED: "Doctor Advised",
 };
 
-// ✅ FIX: Map ALL possible refund_mode values from schema
+//  FIX: Map ALL possible refund_mode values from schema
 const REFUND_MODE_CONFIG = {
   // Schema values (what backend sends)
   CASH: {
@@ -136,147 +136,148 @@ const StatusBadge = ({ status }) => {
 // TABLE ROW COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
-const SalesReturnsTableRow = React.forwardRef(({ 
-  item, 
-  rowNumber, 
-  isEven, 
-  onViewReturn,
-  actionLoading,
-  rowHeight,
-}, ref) => {
-  // ✅ FIX: Use invoice_id and invoice_number (returns ARE invoices)
-  const returnNumber = item.invoice_number || "N/A";
-  
-  // ✅ FIX: Parent invoice is accessed via parentInvoice relation
-  const originalInvoiceNumber = item.parentInvoice?.invoice_number || "N/A";
-  
-  // ✅ FIX: Get refund_mode - check multiple possible fields
-  const refundMode = item.refund_mode || item.adjustment_type;
-  const refundConfig = REFUND_MODE_CONFIG[refundMode];
+const SalesReturnsTableRow = React.forwardRef(
+  (
+    { item, rowNumber, isEven, onViewReturn, actionLoading, rowHeight },
+    ref,
+  ) => {
+    //  FIX: Use invoice_id and invoice_number (returns ARE invoices)
+    const returnNumber = item.invoice_number || "N/A";
 
-  // ✅ FIX: Get customer info correctly
-  const customerName = item.customer?.name || item.walkin_name || "Walk-in Customer";
-  const customerPhone = item.customer?.phone || item.walkin_phone || "";
+    //  FIX: Parent invoice is accessed via parentInvoice relation
+    const originalInvoiceNumber = item.parentInvoice?.invoice_number || "N/A";
 
-  // ✅ FIX: Get item count correctly
-  const itemCount = item._count?.lineItems ?? item.lineItems?.length ?? 0;
+    //  FIX: Get refund_mode - check multiple possible fields
+    const refundMode = item.refund_mode || item.adjustment_type;
+    const refundConfig = REFUND_MODE_CONFIG[refundMode];
 
-  // Debug log
-  console.log(`Row ${rowNumber}:`, {
-    refund_mode: item.refund_mode,
-    adjustment_type: item.adjustment_type,
-    refundMode,
-    refundConfig,
-  });
+    //  FIX: Get customer info correctly
+    const customerName =
+      item.customer?.name || item.walkin_name || "Walk-in Customer";
+    const customerPhone = item.customer?.phone || item.walkin_phone || "";
 
-  return (
-    <tr
-      ref={ref}
-      className={`group transition-colors ${isEven ? "bg-white" : "bg-slate-50/50"} hover:bg-blue-50/50`}
-      style={{ height: `${rowHeight}px` }}
-    >
-      {/* Row Number */}
-      <td className="px-2 py-1 text-center border-r border-slate-100">
-        <span className="text-[10px] font-mono text-slate-400">
-          {String(rowNumber).padStart(2, "0")}
-        </span>
-      </td>
+    //  FIX: Get item count correctly
+    const itemCount = item._count?.lineItems ?? item.lineItems?.length ?? 0;
 
-      {/* Return Number */}
-      <td className="px-2 py-1 border-r border-slate-100">
-        <p className="font-mono font-bold text-[11px] text-[#000060] truncate">
-          {returnNumber}
-        </p>
-      </td>
+    // Debug log
+    console.log(`Row ${rowNumber}:`, {
+      refund_mode: item.refund_mode,
+      adjustment_type: item.adjustment_type,
+      refundMode,
+      refundConfig,
+    });
 
-      {/* Original Invoice */}
-      <td className="px-2 py-1 border-r border-slate-100">
-        <p className="font-mono text-[10px] text-slate-600 truncate">
-          {originalInvoiceNumber}
-        </p>
-      </td>
+    return (
+      <tr
+        ref={ref}
+        className={`group transition-colors ${isEven ? "bg-white" : "bg-slate-50/50"} hover:bg-blue-50/50`}
+        style={{ height: `${rowHeight}px` }}
+      >
+        {/* Row Number */}
+        <td className="px-2 py-1 text-center border-r border-slate-100">
+          <span className="text-[10px] font-mono text-slate-400">
+            {String(rowNumber).padStart(2, "0")}
+          </span>
+        </td>
 
-      {/* Customer */}
-      <td className="px-2 py-1 border-r border-slate-100">
-        <p className="font-medium text-[11px] text-slate-900 truncate">
-          {customerName}
-        </p>
-        {customerPhone && (
-          <p className="text-[9px] text-slate-500 truncate">
-            {customerPhone}
+        {/* Return Number */}
+        <td className="px-2 py-1 border-r border-slate-100">
+          <p className="font-mono font-bold text-[11px] text-[#000060] truncate">
+            {returnNumber}
           </p>
-        )}
-      </td>
+        </td>
 
-      {/* Items Count */}
-      <td className="px-2 py-1 text-center border-r border-slate-100">
-        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">
-          {itemCount}
-        </span>
-      </td>
+        {/* Original Invoice */}
+        <td className="px-2 py-1 border-r border-slate-100">
+          <p className="font-mono text-[10px] text-slate-600 truncate">
+            {originalInvoiceNumber}
+          </p>
+        </td>
 
-      {/* Return Reason */}
-      <td className="px-2 py-1 border-r border-slate-100">
-        <span className="inline-block text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded truncate max-w-full">
-          {RETURN_REASON_LABELS[item.return_reason] || item.return_reason || "N/A"}
-        </span>
-      </td>
+        {/* Customer */}
+        <td className="px-2 py-1 border-r border-slate-100">
+          <p className="font-medium text-[11px] text-slate-900 truncate">
+            {customerName}
+          </p>
+          {customerPhone && (
+            <p className="text-[9px] text-slate-500 truncate">
+              {customerPhone}
+            </p>
+          )}
+        </td>
 
-      {/* Adjustment Type / Refund Mode */}
-      <td className="px-2 py-1 border-r border-slate-100">
-        {refundConfig ? (
-          <span
-            className={`inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded truncate ${
-              refundConfig.color === "emerald"
-                ? "bg-emerald-100 text-emerald-700"
-                : refundConfig.color === "blue"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-purple-100 text-purple-700"
-            }`}
+        {/* Items Count */}
+        <td className="px-2 py-1 text-center border-r border-slate-100">
+          <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">
+            {itemCount}
+          </span>
+        </td>
+
+        {/* Return Reason */}
+        <td className="px-2 py-1 border-r border-slate-100">
+          <span className="inline-block text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded truncate max-w-full">
+            {RETURN_REASON_LABELS[item.return_reason] ||
+              item.return_reason ||
+              "N/A"}
+          </span>
+        </td>
+
+        {/* Adjustment Type / Refund Mode */}
+        <td className="px-2 py-1 border-r border-slate-100">
+          {refundConfig ? (
+            <span
+              className={`inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded truncate ${
+                refundConfig.color === "emerald"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : refundConfig.color === "blue"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-purple-100 text-purple-700"
+              }`}
+            >
+              <span>{refundConfig.icon}</span>
+              <span>{refundConfig.label}</span>
+            </span>
+          ) : (
+            <span className="text-[9px] text-slate-400">
+              {refundMode || "-"}
+            </span>
+          )}
+        </td>
+
+        {/* Amount */}
+        <td className="px-2 py-1 text-right border-r border-slate-100">
+          <p className="font-bold text-[11px] text-[#000060]">
+            {formatCurrency(item.net_amount)}
+          </p>
+        </td>
+
+        {/* Status */}
+        <td className="px-2 py-1 text-center border-r border-slate-100">
+          <StatusBadge status={item.return_approval_status} />
+        </td>
+
+        {/* Date */}
+        <td className="px-2 py-1 text-center border-r border-slate-100">
+          <span className="text-[10px] text-slate-600">
+            {formatDate(item.invoice_date || item.created_at)}
+          </span>
+        </td>
+
+        {/* Actions */}
+        <td className="px-2 py-1 text-center">
+          <button
+            onClick={() => onViewReturn(item)}
+            disabled={actionLoading}
+            className="p-1.5 rounded-lg bg-[#000060]/10 text-[#000060] hover:bg-[#000060]/20 transition-colors disabled:opacity-50"
+            title="View Details"
           >
-            <span>{refundConfig.icon}</span>
-            <span>{refundConfig.label}</span>
-          </span>
-        ) : (
-          <span className="text-[9px] text-slate-400">
-            {refundMode || "-"}
-          </span>
-        )}
-      </td>
-
-      {/* Amount */}
-      <td className="px-2 py-1 text-right border-r border-slate-100">
-        <p className="font-bold text-[11px] text-[#000060]">
-          {formatCurrency(item.net_amount)}
-        </p>
-      </td>
-
-      {/* Status */}
-      <td className="px-2 py-1 text-center border-r border-slate-100">
-        <StatusBadge status={item.return_approval_status} />
-      </td>
-
-      {/* Date */}
-      <td className="px-2 py-1 text-center border-r border-slate-100">
-        <span className="text-[10px] text-slate-600">
-          {formatDate(item.invoice_date || item.created_at)}
-        </span>
-      </td>
-
-      {/* Actions */}
-      <td className="px-2 py-1 text-center">
-        <button
-          onClick={() => onViewReturn(item)}
-          disabled={actionLoading}
-          className="p-1.5 rounded-lg bg-[#000060]/10 text-[#000060] hover:bg-[#000060]/20 transition-colors disabled:opacity-50"
-          title="View Details"
-        >
-          <Eye size={14} />
-        </button>
-      </td>
-    </tr>
-  );
-});
+            <Eye size={14} />
+          </button>
+        </td>
+      </tr>
+    );
+  },
+);
 
 SalesReturnsTableRow.displayName = "SalesReturnsTableRow";
 
@@ -294,7 +295,7 @@ const SalesReturnsTable = ({
   const tableBodyRef = useRef(null);
   const headerRef = useRef(null);
   const rowRefs = useRef([]);
-  
+
   const [scrollbarWidth, setScrollbarWidth] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scrollInfo, setScrollInfo] = useState({
@@ -401,7 +402,9 @@ const SalesReturnsTable = ({
           <div className="flex items-center gap-2">
             <Package size={14} className="text-[#000060]" />
             <span className="text-xs text-slate-500 font-medium">Total:</span>
-            <span className="text-sm font-bold text-[#000060]">{totalItems}</span>
+            <span className="text-sm font-bold text-[#000060]">
+              {totalItems}
+            </span>
           </div>
 
           {totalPages > 1 && (
@@ -449,7 +452,10 @@ const SalesReturnsTable = ({
           className="shrink-0 overflow-hidden border-b-2 border-slate-300"
           style={{ paddingRight: `${scrollbarWidth}px` }}
         >
-          <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
+          <table
+            className="w-full border-collapse"
+            style={{ tableLayout: "fixed" }}
+          >
             <colgroup>
               <col style={{ width: columnWidths.rowNum }} />
               <col style={{ width: columnWidths.returnNum }} />
@@ -465,17 +471,39 @@ const SalesReturnsTable = ({
             </colgroup>
             <thead>
               <tr className="bg-gradient-to-r from-[#000060] to-[#000080] text-white h-9">
-                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">#</th>
-                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">Return #</th>
-                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">Original Inv.</th>
-                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">Customer</th>
-                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">Items</th>
-                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">Reason</th>
-                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">Refund Mode</th>
-                <th className="px-2 py-2 text-[10px] font-bold text-right border-r border-white/10">Amount</th>
-                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">Status</th>
-                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">Date</th>
-                <th className="px-2 py-2 text-[10px] font-bold text-center">Actions</th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">
+                  #
+                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">
+                  Return #
+                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">
+                  Original Inv.
+                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">
+                  Customer
+                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">
+                  Items
+                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">
+                  Reason
+                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-left border-r border-white/10">
+                  Refund Mode
+                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-right border-r border-white/10">
+                  Amount
+                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">
+                  Status
+                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center border-r border-white/10">
+                  Date
+                </th>
+                <th className="px-2 py-2 text-[10px] font-bold text-center">
+                  Actions
+                </th>
               </tr>
             </thead>
           </table>
@@ -485,9 +513,15 @@ const SalesReturnsTable = ({
         <div
           ref={tableBodyRef}
           className="flex-1 overflow-y-auto overflow-x-hidden"
-          style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}
+          style={{
+            height: `${viewportHeight}px`,
+            maxHeight: `${viewportHeight}px`,
+          }}
         >
-          <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
+          <table
+            className="w-full border-collapse"
+            style={{ tableLayout: "fixed" }}
+          >
             <colgroup>
               <col style={{ width: columnWidths.rowNum }} />
               <col style={{ width: columnWidths.returnNum }} />
@@ -526,8 +560,12 @@ const SalesReturnsTable = ({
               <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
                 <Package size={28} className="text-slate-400" />
               </div>
-              <p className="text-sm font-medium text-slate-600">No returns found</p>
-              <p className="text-xs text-slate-400 mt-1">Try adjusting your filters</p>
+              <p className="text-sm font-medium text-slate-600">
+                No returns found
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                Try adjusting your filters
+              </p>
             </div>
           )}
         </div>

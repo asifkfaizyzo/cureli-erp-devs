@@ -3,14 +3,14 @@
 // DOCUMENT REJECTED EMAIL TEMPLATE
 // ============================================
 
-import { 
-  EMAIL_CONFIG, 
-  getBaseHeadContent, 
-  renderLogo, 
+import {
+  EMAIL_CONFIG,
+  getBaseHeadContent,
+  renderLogo,
   renderFooter,
-  renderButton 
-} from './_helpers.js';
-import { ICONS } from './_icons.js';
+  renderButton,
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
 
 export function documentRejectedTemplate(context) {
   const {
@@ -21,23 +21,23 @@ export function documentRejectedTemplate(context) {
     summary = {},
   } = context;
 
-  const shopName   = shop_name || business_name || 'your shop';
+  const shopName = shop_name || business_name || "your shop";
   const { approved = 0, rejected = 0, pending = 0 } = summary;
 
-  const subject = 'Action Required: Document review feedback - Cureli Health';
+  const subject = "Action Required: Document review feedback - Cureli Health";
 
   const html = `
     <!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  ${getBaseHeadContent('Document Review Result - Cureli Health')}
+  ${getBaseHeadContent("Document Review Result - Cureli Health")}
 </head>
 <body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;">
   <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
     
     <!-- Header: DOCUMENT icon replaces 📄 -->
     <div class="header-error" style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo('WHITE', 'normal')}
+      ${renderLogo("WHITE", "normal")}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
         ${ICONS.DOCUMENT}
         <span style="vertical-align:middle;">Document Review Result</span>
@@ -66,7 +66,7 @@ export function documentRejectedTemplate(context) {
         </p>
         <table style="width:100%;border-collapse:collapse;">
 
-          <!-- Approved row: CHECK icon replaces ✅ -->
+          <!-- Approved row: CHECK icon replaces  -->
           <tr>
             <td class="table-label" style="padding:10px 0;color:#059669;font-weight:600;font-size:14px;background-color:#f9fafb;">
               ${ICONS.CHECK}
@@ -77,7 +77,7 @@ export function documentRejectedTemplate(context) {
             </td>
           </tr>
 
-          <!-- Rejected row: CROSS icon replaces ❌ -->
+          <!-- Rejected row: CROSS icon replaces  -->
           <tr style="border-top:1px solid #e5e7eb;">
             <td class="table-label" style="padding:10px 0;color:#dc2626;font-weight:600;font-size:14px;background-color:#f9fafb;">
               ${ICONS.CROSS}
@@ -102,8 +102,10 @@ export function documentRejectedTemplate(context) {
         </table>
       </div>
 
-      ${reason ? `
-      <!-- Rejection Reason: CROSS icon replaces ❌ -->
+      ${
+        reason
+          ? `
+      <!-- Rejection Reason: CROSS icon replaces  -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid #dc2626;padding:14px 18px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="error-text" style="margin:0 0 6px;font-weight:600;color:#991b1b;font-size:13px;background-color:#fef2f2;">
           ${ICONS.CROSS.replace(/fill="#[^"]+"/g, 'fill="#991b1b"')}
@@ -113,7 +115,9 @@ export function documentRejectedTemplate(context) {
           "${reason}"
         </p>
       </div>
-      ` : ''}
+      `
+          : ""
+      }
 
       <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:0 0 24px;background-color:#ffffff;">
         Please log in to review the rejected documents. You can make 
@@ -121,11 +125,11 @@ export function documentRejectedTemplate(context) {
       </p>
 
       <!-- CTA Button: CLIPBOARD icon replaces 📋 -->
-      ${renderButton({ 
-        href: `${EMAIL_CONFIG.FRONTEND_URL}/onboarding?resume_step=documents`, 
-        text: 'Review Documents',
-        icon: 'CLIPBOARD',
-        color: 'primary' 
+      ${renderButton({
+        href: `${EMAIL_CONFIG.FRONTEND_URL}/onboarding?resume_step=documents`,
+        text: "Review Documents",
+        icon: "CLIPBOARD",
+        color: "primary",
       })}
 
       <!-- Help Note -->

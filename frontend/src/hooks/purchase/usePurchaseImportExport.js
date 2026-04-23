@@ -24,49 +24,123 @@ const mapHeaderToKey = (h) => {
     .replace(/[^a-z0-9%_]/g, "");
 
   const map = {
-    mfac: "mfac", manufacturer: "mfac", mfr: "mfac", company: "mfac",
-    mfgcomp: "mfac", mktgcomp: "mfac", manfacturer: "mfac",
-    rack: "rack", location: "rack", shelf: "rack", rackno: "rack",
-    description: "name", product: "name", name: "name",
-    itemname: "name", itemdescription: "name",
+    mfac: "mfac",
+    manufacturer: "mfac",
+    mfr: "mfac",
+    company: "mfac",
+    mfgcomp: "mfac",
+    mktgcomp: "mfac",
+    manfacturer: "mfac",
+    rack: "rack",
+    location: "rack",
+    shelf: "rack",
+    rackno: "rack",
+    description: "name",
+    product: "name",
+    name: "name",
+    itemname: "name",
+    itemdescription: "name",
     itemname2: "name2",
-    particulars: "name", productname: "name",
-    item: "name", productdesc: "name", desc: "name",
-    hsn: "hsn", hsnsac: "hsn", hsncode: "hsn", hsnsaccode: "hsn",
-    saccode: "hsn", hsnno: "hsn",
-    pack: "pack", packing: "pack", unit: "pack", packname: "pack",
-    packsize: "pack", uom: "pack",
-    batch: "batch", batchno: "batch", lot: "batch", lotno: "batch",
+    particulars: "name",
+    productname: "name",
+    item: "name",
+    productdesc: "name",
+    desc: "name",
+    hsn: "hsn",
+    hsnsac: "hsn",
+    hsncode: "hsn",
+    hsnsaccode: "hsn",
+    saccode: "hsn",
+    hsnno: "hsn",
+    pack: "pack",
+    packing: "pack",
+    unit: "pack",
+    packname: "pack",
+    packsize: "pack",
+    uom: "pack",
+    batch: "batch",
+    batchno: "batch",
+    lot: "batch",
+    lotno: "batch",
     batchnumber: "batch",
-    exp: "exp", expiry: "exp", expirydate: "exp", expdate: "exp",
+    exp: "exp",
+    expiry: "exp",
+    expirydate: "exp",
+    expdate: "exp",
     expirydt: "exp",
-    qty: "qty", quantity: "qty", units: "qty", invqty: "qty",
-    pqty: "pQty", prevqty: "pQty", previousqty: "pQty", purchaseqty: "pQty",
-    sch: "sch", scheme: "sch", free: "sch", bonus: "sch",
-    invscqty: "sch", scqty: "sch", freeqty: "sch", schqty: "sch",
+    qty: "qty",
+    quantity: "qty",
+    units: "qty",
+    invqty: "qty",
+    pqty: "pQty",
+    prevqty: "pQty",
+    previousqty: "pQty",
+    purchaseqty: "pQty",
+    sch: "sch",
+    scheme: "sch",
+    free: "sch",
+    bonus: "sch",
+    invscqty: "sch",
+    scqty: "sch",
+    freeqty: "sch",
+    schqty: "sch",
     freescheme: "sch",
-    invscdis: "schemePercent", schper: "schemePercent",
-    isfreeitem: "isFreeItem", freeitem: "isFreeItem", isfree: "isFreeItem",
-    mrp: "mrp", itemmrp: "mrp", maximumretailprice: "mrp", vatmrp: "mrp",
-    price: "price", rate: "price", purchaserate: "price",
-    ptr: "price", purrate: "price",
-    srate: "sRate", sellingrate: "sRate", selrate: "sRate", salerate: "sRate",
-    netrate: "netRate", net: "netRate", nrate: "netRate",
-    "sch%": "schemePercent", schemepercent: "schemePercent", schpercent: "schemePercent",
-    "disc%": "discountPercent", "dis%": "discountPercent",
-    discountpercent: "discountPercent", discount: "discountPercent",
-    invdisc: "discountPercent", tradedisc: "discountPercent",
-    "cgst%": "cgstPercent", cgstpercent: "cgstPercent", cgst: "cgstPercent",
-    cgstper: "cgstPercent", cgstrate: "cgstPercent",
-    "sgst%": "sgstPercent", sgstpercent: "sgstPercent", sgst: "sgstPercent",
-    sgstper: "sgstPercent", sgstrate: "sgstPercent",
-    "igst%": "igstPercent", igstpercent: "igstPercent", igst: "igstPercent",
+    invscdis: "schemePercent",
+    schper: "schemePercent",
+    isfreeitem: "isFreeItem",
+    freeitem: "isFreeItem",
+    isfree: "isFreeItem",
+    mrp: "mrp",
+    itemmrp: "mrp",
+    maximumretailprice: "mrp",
+    vatmrp: "mrp",
+    price: "price",
+    rate: "price",
+    purchaserate: "price",
+    ptr: "price",
+    purrate: "price",
+    srate: "sRate",
+    sellingrate: "sRate",
+    selrate: "sRate",
+    salerate: "sRate",
+    netrate: "netRate",
+    net: "netRate",
+    nrate: "netRate",
+    "sch%": "schemePercent",
+    schemepercent: "schemePercent",
+    schpercent: "schemePercent",
+    "disc%": "discountPercent",
+    "dis%": "discountPercent",
+    discountpercent: "discountPercent",
+    discount: "discountPercent",
+    invdisc: "discountPercent",
+    tradedisc: "discountPercent",
+    "cgst%": "cgstPercent",
+    cgstpercent: "cgstPercent",
+    cgst: "cgstPercent",
+    cgstper: "cgstPercent",
+    cgstrate: "cgstPercent",
+    "sgst%": "sgstPercent",
+    sgstpercent: "sgstPercent",
+    sgst: "sgstPercent",
+    sgstper: "sgstPercent",
+    sgstrate: "sgstPercent",
+    "igst%": "igstPercent",
+    igstpercent: "igstPercent",
+    igst: "igstPercent",
     igstper: "igstPercent",
-    vatper: "cgstPercent", vat: "cgstPercent",
-    amount: "amount", total: "amount", invamt: "amount",
-    lineamt: "amount", value: "amount", netamt: "amount",
-    crdays: "creditDays", creditdays: "creditDays",
-    convfact: "conversionFactor", cf: "conversionFactor",
+    vatper: "cgstPercent",
+    vat: "cgstPercent",
+    amount: "amount",
+    total: "amount",
+    invamt: "amount",
+    lineamt: "amount",
+    value: "amount",
+    netamt: "amount",
+    crdays: "creditDays",
+    creditdays: "creditDays",
+    convfact: "conversionFactor",
+    cf: "conversionFactor",
     loclsale: "localSaleFlag",
   };
 
@@ -80,7 +154,9 @@ const mapHeaderToKey = (h) => {
 const parseExpiryFromData = (row, headers, values) => {
   const getColValue = (colName) => {
     const idx = headers.findIndex((h) => {
-      const cleaned = String(h || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const cleaned = String(h || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
       return cleaned === colName;
     });
     return idx !== -1 ? String(values[idx] || "").trim() : "";
@@ -121,17 +197,25 @@ const parseExpiryFromData = (row, headers, values) => {
 };
 
 const checkIsFreeItem = (row) => {
-  if (row.isFreeItem === true || row.isFreeItem === "true" || row.isFreeItem === "1") {
+  if (
+    row.isFreeItem === true ||
+    row.isFreeItem === "true" ||
+    row.isFreeItem === "1"
+  ) {
     return true;
   }
 
-  const amount = String(row.amount || "").toUpperCase().trim();
+  const amount = String(row.amount || "")
+    .toUpperCase()
+    .trim();
   if (amount === "FREE" || amount === "0" || amount === "0.00") {
     const qty = parseFloat(row.qty) || 0;
     if (qty > 0) return true;
   }
 
-  const sch = String(row.sch || "").toUpperCase().trim();
+  const sch = String(row.sch || "")
+    .toUpperCase()
+    .trim();
   if (sch === "FREE" || sch === "FREEITEM" || sch === "FREE ITEM") {
     return true;
   }
@@ -152,8 +236,19 @@ const parseRowData = (headers, values, debugMode = false) => {
 
       if (
         [
-          "qty", "pQty", "sch", "mrp", "price", "sRate", "netRate", "amount",
-          "schemePercent", "discountPercent", "cgstPercent", "sgstPercent", "igstPercent",
+          "qty",
+          "pQty",
+          "sch",
+          "mrp",
+          "price",
+          "sRate",
+          "netRate",
+          "amount",
+          "schemePercent",
+          "discountPercent",
+          "cgstPercent",
+          "sgstPercent",
+          "igstPercent",
         ].includes(key)
       ) {
         if (value.toUpperCase() !== "FREE") {
@@ -195,8 +290,11 @@ const parseRowData = (headers, values, debugMode = false) => {
   if (debugMode) {
     console.log("Mapped fields:", mappedFields);
     console.log("Parsed row:", {
-      name: row.name, mfac: row.mfac, hsn: row.hsn,
-      qty: row.qty, isFreeItem: row.isFreeItem,
+      name: row.name,
+      mfac: row.mfac,
+      hsn: row.hsn,
+      qty: row.qty,
+      isFreeItem: row.isFreeItem,
     });
   }
 
@@ -257,7 +355,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
   const range = XLSX.utils.decode_range(sheet["!ref"]);
   console.log(
     `   📐 Range: ${XLSX.utils.encode_range(range)} ` +
-    `(${range.e.r - range.s.r + 1} rows × ${range.e.c - range.s.c + 1} cols)`
+      `(${range.e.r - range.s.r + 1} rows × ${range.e.c - range.s.c + 1} cols)`,
   );
 
   const data = XLSX.utils.sheet_to_json(sheet, {
@@ -269,7 +367,9 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
   });
 
   if (data.length < 2) {
-    throw new Error("File has less than 2 rows. Need at least a header + 1 data row.");
+    throw new Error(
+      "File has less than 2 rows. Need at least a header + 1 data row.",
+    );
   }
 
   let headerRowIndex = 0;
@@ -280,7 +380,8 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
     if (!row) continue;
 
     const nonEmpty = row.filter(
-      (cell) => cell !== null && cell !== undefined && String(cell).trim() !== ""
+      (cell) =>
+        cell !== null && cell !== undefined && String(cell).trim() !== "",
     ).length;
 
     if (nonEmpty > maxNonEmpty && nonEmpty >= 3) {
@@ -300,7 +401,8 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
     if (!row) continue;
 
     const hasData = row.some(
-      (cell) => cell !== null && cell !== undefined && String(cell).trim() !== ""
+      (cell) =>
+        cell !== null && cell !== undefined && String(cell).trim() !== "",
     );
     if (!hasData) continue;
 
@@ -313,7 +415,9 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
     dataRows.push(values);
   }
 
-  console.log(`   ✅ SheetJS extracted: ${headers.length} columns, ${dataRows.length} data rows`);
+  console.log(
+    `    SheetJS extracted: ${headers.length} columns, ${dataRows.length} data rows`,
+  );
 
   return { headers, dataRows };
 };
@@ -357,7 +461,8 @@ const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
     if (!row) continue;
 
     const nonEmpty = row.filter(
-      (cell) => cell !== null && cell !== undefined && String(cell).trim() !== ""
+      (cell) =>
+        cell !== null && cell !== undefined && String(cell).trim() !== "",
     ).length;
 
     if (nonEmpty > maxNonEmpty && nonEmpty >= 3) {
@@ -371,13 +476,16 @@ const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
   const dataRows = [];
   for (let i = headerRowIndex + 1; i < data.length; i++) {
     const row = data[i];
-    if (!row || row.every((cell) => !cell || String(cell).trim() === "")) continue;
+    if (!row || row.every((cell) => !cell || String(cell).trim() === ""))
+      continue;
 
     const values = row.map((cell) => String(cell || "").trim());
     dataRows.push(values);
   }
 
-  console.log(`   ✅ ExcelJS extracted: ${headers.length} columns, ${dataRows.length} data rows`);
+  console.log(
+    `    ExcelJS extracted: ${headers.length} columns, ${dataRows.length} data rows`,
+  );
 
   return { headers, dataRows };
 };
@@ -386,7 +494,13 @@ const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
 // MAIN HOOK
 // ═══════════════════════════════════════════
 
-export const usePurchaseImportExport = (onImport, supplier, toast, productMaster = [], onCatalogCheckComplete = null) => {
+export const usePurchaseImportExport = (
+  onImport,
+  supplier,
+  toast,
+  productMaster = [],
+  onCatalogCheckComplete = null,
+) => {
   const [isLoading, setIsLoading] = useState(false);
 
   // ─── Product detection + Master Catalog Check ───
@@ -443,12 +557,25 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           const searchName = rowName.toLowerCase();
           if (productName === searchName) return true;
           if (rowMfac) {
-            const productMfac = (product.manufacturer || product.mfac || "").toLowerCase();
+            const productMfac = (
+              product.manufacturer ||
+              product.mfac ||
+              ""
+            ).toLowerCase();
             const searchMfac = rowMfac.toLowerCase();
-            if (productName === searchName && productMfac === searchMfac) return true;
-            if (productName.includes(searchName) && productMfac.includes(searchMfac)) return true;
+            if (productName === searchName && productMfac === searchMfac)
+              return true;
+            if (
+              productName.includes(searchName) &&
+              productMfac.includes(searchMfac)
+            )
+              return true;
           }
-          if (productName.includes(searchName) || searchName.includes(productName)) return true;
+          if (
+            productName.includes(searchName) ||
+            searchName.includes(productName)
+          )
+            return true;
           return false;
         });
 
@@ -492,7 +619,9 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
               category: "",
               gst:
                 row.cgstPercent && row.sgstPercent
-                  ? String(parseFloat(row.cgstPercent) + parseFloat(row.sgstPercent))
+                  ? String(
+                      parseFloat(row.cgstPercent) + parseFloat(row.sgstPercent),
+                    )
                   : "12",
               cgstPercent: row.cgstPercent || "6",
               sgstPercent: row.sgstPercent || "6",
@@ -508,7 +637,9 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       console.log(`\n📊 Local Match Summary:`);
       console.log(`  Total Rows: ${parsedRows.length}`);
       console.log(`  Skipped (no name): ${skippedNoName}`);
-      console.log(`  Matched locally: ${matchedCount} (cache hits: ${cacheHits})`);
+      console.log(
+        `  Matched locally: ${matchedCount} (cache hits: ${cacheHits})`,
+      );
       console.log(`  New Products: ${newCount}`);
       console.log(`  Free Items: ${freeItemCount}`);
 
@@ -519,14 +650,19 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       let catalogResults = null;
 
       if (newProducts.length > 0) {
-        console.log(`\n🔗 Checking ${newProducts.length} new products against master catalog...`);
+        console.log(
+          `\n🔗 Checking ${newProducts.length} new products against master catalog...`,
+        );
 
         // 🔥 DEBUG LOG: Confirm exactly what we're sending to backend
-        console.log("📤 Sending to master catalog:", newProducts.map(p => ({
-          name: p.name,
-          manufacturer: p.manufacturer,
-          generic_name: p.genericName || "",
-        })));
+        console.log(
+          "📤 Sending to master catalog:",
+          newProducts.map((p) => ({
+            name: p.name,
+            manufacturer: p.manufacturer,
+            generic_name: p.genericName || "",
+          })),
+        );
 
         try {
           const catalogResponse = await medicinesAPI.checkMasterCatalog(
@@ -534,23 +670,29 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
               name: p.name,
               manufacturer: p.manufacturer,
               generic_name: p.genericName || "",
-            }))
+            })),
           );
 
           catalogResults = catalogResponse.data;
 
-          console.log(`✅ Master Catalog Results:`, catalogResults.stats);
+          console.log(` Master Catalog Results:`, catalogResults.stats);
 
           // Attach catalog results to new products
           if (catalogResults.results) {
             catalogResults.results.forEach((result) => {
-              if (result.rowIndex !== undefined && newProducts[result.rowIndex]) {
+              if (
+                result.rowIndex !== undefined &&
+                newProducts[result.rowIndex]
+              ) {
                 newProducts[result.rowIndex].catalogMatch = result;
               }
             });
           }
         } catch (error) {
-          console.warn("⚠️ Master catalog check failed (non-blocking):", error.message);
+          console.warn(
+            "⚠️ Master catalog check failed (non-blocking):",
+            error.message,
+          );
         }
       }
 
@@ -562,7 +704,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         catalogResults,
       };
     },
-    [productMaster]
+    [productMaster],
   );
 
   // ─── CSV Import ───
@@ -576,14 +718,19 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           const firstLine = content.split("\n")[0];
           const delimiter = firstLine.includes("\t") ? "\t" : ",";
 
-          const lines = content.split("\n").map((l) => l.trim()).filter(Boolean);
+          const lines = content
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean);
           if (lines.length < 2) {
             toast.error("CSV file is empty");
             setIsLoading(false);
             return;
           }
 
-          const headers = lines[0].split(delimiter).map((h) => h.trim().replace(/^\"|\"$/g, ""));
+          const headers = lines[0]
+            .split(delimiter)
+            .map((h) => h.trim().replace(/^\"|\"$/g, ""));
 
           console.group("📋 CSV Header Analysis");
           console.log("Headers:", headers);
@@ -591,13 +738,16 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
 
           const parsed = [];
           for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(delimiter).map((v) => v.trim().replace(/^\"|\"$/g, ""));
+            const values = lines[i]
+              .split(delimiter)
+              .map((v) => v.trim().replace(/^\"|\"$/g, ""));
             if (values.some((v) => v)) {
               parsed.push(parseRowData(headers, values, i <= 2));
             }
           }
 
-          const { existingRows, newProducts, catalogResults } = await detectNewProducts(parsed);
+          const { existingRows, newProducts, catalogResults } =
+            await detectNewProducts(parsed);
 
           if (onCatalogCheckComplete && catalogResults) {
             onCatalogCheckComplete(newProducts, catalogResults);
@@ -609,10 +759,10 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           const freeCount = existingRows.filter((r) => r.isFreeItem).length;
           toast.success(
             "CSV Imported",
-            `${matchedCount} matched, ${newProducts.length} new, ${freeCount} free items`
+            `${matchedCount} matched, ${newProducts.length} new, ${freeCount} free items`,
           );
         } catch (error) {
-          console.error("❌ CSV import error:", error);
+          console.error(" CSV import error:", error);
           toast.error("Failed to import CSV", error.message);
         } finally {
           setIsLoading(false);
@@ -620,7 +770,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       };
       reader.readAsText(file);
     },
-    [onImport, toast, detectNewProducts, onCatalogCheckComplete]
+    [onImport, toast, detectNewProducts, onCatalogCheckComplete],
   );
 
   // ═══════════════════════════════════════════
@@ -651,12 +801,17 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           headers = result.headers;
           dataRows = result.dataRows;
         } else {
-          throw new Error("Unsupported file format. Please use .xls or .xlsx files.");
+          throw new Error(
+            "Unsupported file format. Please use .xls or .xlsx files.",
+          );
         }
 
         console.group("📋 Import Analysis");
         console.log("Format:", extension.toUpperCase());
-        console.log("Engine:", extension === "xls" ? "SheetJS (client)" : "ExcelJS (client)");
+        console.log(
+          "Engine:",
+          extension === "xls" ? "SheetJS (client)" : "ExcelJS (client)",
+        );
         console.log("Headers:", headers);
         console.log("Data Rows:", dataRows.length);
         console.groupEnd();
@@ -667,18 +822,28 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
           const values = dataRows[i];
           const parsedRow = parseRowData(headers, values, parsed.length < 2);
 
-          if (parsedRow.name || parsedRow.mfac || parsedRow.hsn || parsedRow.qty || parsedRow.price) {
+          if (
+            parsedRow.name ||
+            parsedRow.mfac ||
+            parsedRow.hsn ||
+            parsedRow.qty ||
+            parsedRow.price
+          ) {
             parsed.push(parsedRow);
           }
         }
 
         if (parsed.length === 0) {
-          toast.warning("No Valid Data", "No valid product data found in the Excel file.");
+          toast.warning(
+            "No Valid Data",
+            "No valid product data found in the Excel file.",
+          );
           setIsLoading(false);
           return;
         }
 
-        const { existingRows, newProducts, catalogResults } = await detectNewProducts(parsed);
+        const { existingRows, newProducts, catalogResults } =
+          await detectNewProducts(parsed);
 
         if (onCatalogCheckComplete && catalogResults) {
           onCatalogCheckComplete(newProducts, catalogResults);
@@ -691,22 +856,28 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
 
         toast.success(
           "Import Successful",
-          `${matchedCount} matched, ${newProducts.length} new, ${freeCount} free items`
+          `${matchedCount} matched, ${newProducts.length} new, ${freeCount} free items`,
         );
       } catch (error) {
-        console.error("❌ Excel import error:", error);
+        console.error(" Excel import error:", error);
 
         if (error.message?.includes("password")) {
           toast.error(
             "Password Protected",
-            "This file is password-protected. Please remove the password and try again."
+            "This file is password-protected. Please remove the password and try again.",
           );
-        } else if (error.message?.includes("zip") || error.message?.includes("corrupted")) {
+        } else if (
+          error.message?.includes("zip") ||
+          error.message?.includes("corrupted")
+        ) {
           toast.error(
             "Corrupted File",
-            "This Excel file appears to be corrupted. Try opening and re-saving it."
+            "This Excel file appears to be corrupted. Try opening and re-saving it.",
           );
-        } else if (error.message?.includes("No data found") || error.message?.includes("empty")) {
+        } else if (
+          error.message?.includes("No data found") ||
+          error.message?.includes("empty")
+        ) {
           toast.error("Empty File", error.message);
         } else {
           toast.error("Import Failed", error.message);
@@ -715,7 +886,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         setIsLoading(false);
       }
     },
-    [onImport, toast, detectNewProducts, onCatalogCheckComplete]
+    [onImport, toast, detectNewProducts, onCatalogCheckComplete],
   );
 
   // ─── Export (UNCHANGED) ───
@@ -764,7 +935,9 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
             pQty: row.pQty ? Number(row.pQty) : 0,
             qty: row.qty ? Number(row.qty) : 0,
             price: row.price ? Number(row.price) : 0,
-            discountPercent: row.discountPercent ? Number(row.discountPercent) : 0,
+            discountPercent: row.discountPercent
+              ? Number(row.discountPercent)
+              : 0,
             netRate: isFree ? 0 : row.netRate ? Number(row.netRate) : 0,
             amount: isFree ? "FREE" : row.amount ? Number(row.amount) : 0,
             cgstPercent: row.cgstPercent ? Number(row.cgstPercent) : 0,
@@ -778,16 +951,28 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
 
           const excelRow = worksheet.addRow(rowData);
           if (isFree) {
-            excelRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5E9" } };
+            excelRow.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFE8F5E9" },
+            };
             excelRow.font = { color: { argb: "FF2E7D32" } };
           } else if (index % 2 === 0) {
-            excelRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8F9FA" } };
+            excelRow.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFF8F9FA" },
+            };
           }
         });
 
         const headerRow = worksheet.getRow(1);
         headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-        headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF05015A" } };
+        headerRow.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF05015A" },
+        };
         headerRow.height = 25;
         headerRow.alignment = { vertical: "middle", horizontal: "center" };
 
@@ -814,7 +999,8 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         const link = document.createElement("a");
         link.href = url;
         const timestamp = new Date().toISOString().split("T")[0];
-        const invoiceRef = supplier?.invoiceNo || supplier?.purchaseId || "export";
+        const invoiceRef =
+          supplier?.invoiceNo || supplier?.purchaseId || "export";
         link.download = `Purchase_${invoiceRef}_${timestamp}.xlsx`;
         document.body.appendChild(link);
         link.click();
@@ -823,15 +1009,18 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
 
         const freeCount = dataRows.filter((r) => r.isFreeItem).length;
         const billableCount = dataRows.length - freeCount;
-        toast.success("Excel Export Complete", `${billableCount} billable + ${freeCount} free items exported.`);
+        toast.success(
+          "Excel Export Complete",
+          `${billableCount} billable + ${freeCount} free items exported.`,
+        );
       } catch (error) {
-        console.error("❌ Export error:", error);
+        console.error(" Export error:", error);
         toast.error("Failed to export Excel", error.message);
       } finally {
         setIsLoading(false);
       }
     },
-    [supplier, toast]
+    [supplier, toast],
   );
 
   // ─── File router (UNCHANGED) ───
@@ -846,7 +1035,10 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
       const maxSize = 10 * 1024 * 1024;
 
       if (file.size > maxSize) {
-        toast.error("File too large", "Please select a file smaller than 10MB.");
+        toast.error(
+          "File too large",
+          "Please select a file smaller than 10MB.",
+        );
         return;
       }
 
@@ -858,7 +1050,7 @@ export const usePurchaseImportExport = (onImport, supplier, toast, productMaster
         toast.error("Unsupported Format", "Please use CSV or Excel files.");
       }
     },
-    [handleImportCSV, handleImportExcel, toast]
+    [handleImportCSV, handleImportExcel, toast],
   );
 
   return {

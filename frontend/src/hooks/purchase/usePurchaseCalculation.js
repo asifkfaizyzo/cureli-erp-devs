@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 /**
- * ✅ Create empty purchase row with all fields
+ *  Create empty purchase row with all fields
  */
 export const makeEmptyPurchaseRow = () => ({
   rowId: null,
@@ -35,7 +35,7 @@ export const makeEmptyPurchaseRow = () => ({
  * Calculate single row values
  */
 export const calculateRow = (row) => {
-  // ✅ FREE ITEM HANDLING - Return zero amounts
+  //  FREE ITEM HANDLING - Return zero amounts
   if (row.isFreeItem) {
     return {
       ...row,
@@ -81,12 +81,12 @@ export const calculateRow = (row) => {
 };
 
 /**
- * ✅ Hook to calculate purchase invoice summary - Excludes free items
+ *  Hook to calculate purchase invoice summary - Excludes free items
  */
 export const usePurchaseCalculation = (rows) => {
   const summary = useMemo(() => {
-    const billableRows = rows.filter(row => !row.isFreeItem);
-    const freeRows = rows.filter(row => row.isFreeItem);
+    const billableRows = rows.filter((row) => !row.isFreeItem);
+    const freeRows = rows.filter((row) => row.isFreeItem);
 
     let subtotal = 0;
     let totalSchemeDiscount = 0;

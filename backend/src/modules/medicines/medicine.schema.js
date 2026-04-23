@@ -16,8 +16,8 @@ export const createMedicineSchema = z.object({
   cgst_percentage: z.number().min(0).max(100).default(6),
   sgst_percentage: z.number().min(0).max(100).default(6),
   rack_no: z.string().max(20).optional().nullable(),
-  
-  // ✅ NEW: Stock level thresholds
+
+  //  NEW: Stock level thresholds
   min_stock_level: z.number().min(0).optional().nullable(),
   max_stock_level: z.number().min(0).optional().nullable(),
   reorder_point: z.number().min(0).optional().nullable(),
@@ -35,8 +35,8 @@ export const updateMedicineSchema = z.object({
   rack_no: z.string().max(20).optional().nullable(),
   is_active: z.boolean().optional(),
   is_discontinued: z.boolean().optional(),
-  
-  // ✅ NEW: Stock level thresholds
+
+  //  NEW: Stock level thresholds
   min_stock_level: z.number().min(0).optional().nullable(),
   max_stock_level: z.number().min(0).optional().nullable(),
   reorder_point: z.number().min(0).optional().nullable(),

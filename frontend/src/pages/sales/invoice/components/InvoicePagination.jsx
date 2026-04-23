@@ -1,20 +1,19 @@
 // frontend/src/pages/purchase/invoice/components/InvoicePagination.jsx
 import React from "react";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  ChevronsLeft,   // ✅ Added
-  ChevronsRight,  // ✅ Added
-  MoreHorizontal 
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft, //  Added
+  ChevronsRight, //  Added
+  MoreHorizontal,
 } from "lucide-react";
 
-const InvoicePagination = ({ 
-  currentPage, 
-  setCurrentPage, 
+const InvoicePagination = ({
+  currentPage,
+  setCurrentPage,
   totalItems,
   rowsPerPage,
 }) => {
-  
   // --- CALCULATE TOTAL PAGES ---
   const totalPages = Math.ceil(totalItems / rowsPerPage);
 
@@ -55,10 +54,13 @@ const InvoicePagination = ({
   };
 
   // --- STYLING CLASSES ---
-  const btnBase = "h-8 w-8 flex items-center justify-center rounded-lg text-sm transition-all duration-200 select-none";
+  const btnBase =
+    "h-8 w-8 flex items-center justify-center rounded-lg text-sm transition-all duration-200 select-none";
   const btnInactive = "text-gray-500 hover:bg-gray-100 hover:text-[#05015A]";
-  const btnActive = "bg-[#05015A] text-white shadow-md shadow-indigo-200 font-semibold scale-105";
-  const btnNav = "p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-gray-200 transition-all";
+  const btnActive =
+    "bg-[#05015A] text-white shadow-md shadow-indigo-200 font-semibold scale-105";
+  const btnNav =
+    "p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-gray-200 transition-all";
 
   if (totalPages === 0) return null;
 
@@ -68,25 +70,28 @@ const InvoicePagination = ({
 
   return (
     <div className="flex w-full items-center justify-between px-4 py-3 bg-white select-none">
-      
       {/* Left: Page Info with Item Range */}
       <div className="hidden sm:flex items-center gap-4 text-xs font-medium text-gray-500">
         <span>
-          Showing <span className="text-[#05015A] font-bold">{startItem}-{endItem}</span> of <span className="text-gray-900">{totalItems}</span>
+          Showing{" "}
+          <span className="text-[#05015A] font-bold">
+            {startItem}-{endItem}
+          </span>{" "}
+          of <span className="text-gray-900">{totalItems}</span>
         </span>
         <span className="text-gray-300">|</span>
         <span>
-          Page <span className="text-[#05015A] font-bold">{currentPage}</span> of <span className="text-gray-900">{totalPages}</span>
+          Page <span className="text-[#05015A] font-bold">{currentPage}</span>{" "}
+          of <span className="text-gray-900">{totalPages}</span>
         </span>
       </div>
 
       {/* Right: Controls */}
       <div className="flex items-center gap-2 mx-auto sm:mx-0">
-        
         {/* << FIRST PAGE (Added) */}
-        <button 
-          onClick={() => setCurrentPage(1)} 
-          disabled={currentPage === 1} 
+        <button
+          onClick={() => setCurrentPage(1)}
+          disabled={currentPage === 1}
           className={btnNav}
           title="First Page"
         >
@@ -94,7 +99,11 @@ const InvoicePagination = ({
         </button>
 
         {/* < PREVIOUS */}
-        <button onClick={goPrev} disabled={currentPage === 1} className={btnNav}>
+        <button
+          onClick={goPrev}
+          disabled={currentPage === 1}
+          className={btnNav}
+        >
           <ChevronLeft size={16} />
         </button>
 
@@ -137,20 +146,23 @@ const InvoicePagination = ({
         </div>
 
         {/* > NEXT */}
-        <button onClick={goNext} disabled={currentPage === totalPages} className={btnNav}>
+        <button
+          onClick={goNext}
+          disabled={currentPage === totalPages}
+          className={btnNav}
+        >
           <ChevronRight size={16} />
         </button>
 
         {/* >> LAST PAGE (Added) */}
-        <button 
-          onClick={() => setCurrentPage(totalPages)} 
-          disabled={currentPage === totalPages} 
+        <button
+          onClick={() => setCurrentPage(totalPages)}
+          disabled={currentPage === totalPages}
           className={btnNav}
           title="Last Page"
         >
           <ChevronsRight size={16} />
         </button>
-
       </div>
     </div>
   );

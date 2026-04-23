@@ -5,7 +5,7 @@ import SupplierPagination from "../../../components/common/Pagination";
 import { ChevronUp, ChevronDown, Users, Layers, Building2 } from "lucide-react";
 import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 
-const SupplierTable = ({ 
+const SupplierTable = ({
   data = [],
   loading,
   onRowClick,
@@ -18,8 +18,8 @@ const SupplierTable = ({
   const rowRefs = useRef([]);
   const [scrollbarWidth, setScrollbarWidth] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [scrollInfo, setScrollInfo] = useState({ 
-    canScrollUp: false, 
+  const [scrollInfo, setScrollInfo] = useState({
+    canScrollUp: false,
     canScrollDown: false,
   });
 
@@ -27,29 +27,31 @@ const SupplierTable = ({
   const rowHeight = 36;
   const viewportHeight = visibleRows * rowHeight;
 
-  // ✅ Adjust column widths based on mode
-  const columnWidths = isGlobalMode ? {
-    rowNum: '3%',
-    supplierId: '10%',
-    name: '18%',
-    branches: '15%', // NEW: Branches column
-    contact: '12%',
-    email: '18%',
-    gst: '14%',
-    actions: '10%',
-  } : {
-    rowNum: '4%',
-    supplierId: '12%',
-    name: '20%',
-    contact: '15%',
-    email: '22%',
-    gst: '17%',
-    actions: '10%',
-  };
+  //  Adjust column widths based on mode
+  const columnWidths = isGlobalMode
+    ? {
+        rowNum: "3%",
+        supplierId: "10%",
+        name: "18%",
+        branches: "15%", // NEW: Branches column
+        contact: "12%",
+        email: "18%",
+        gst: "14%",
+        actions: "10%",
+      }
+    : {
+        rowNum: "4%",
+        supplierId: "12%",
+        name: "20%",
+        contact: "15%",
+        email: "22%",
+        gst: "17%",
+        actions: "10%",
+      };
 
   const totalItems = data.length;
   const totalPages = Math.ceil(totalItems / visibleRows);
-  
+
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(totalPages);
@@ -86,23 +88,29 @@ const SupplierTable = ({
   useEffect(() => {
     const container = tableBodyRef.current;
     if (!container) return;
-    container.addEventListener('scroll', updateScrollInfo);
+    container.addEventListener("scroll", updateScrollInfo);
     updateScrollInfo();
-    return () => container.removeEventListener('scroll', updateScrollInfo);
+    return () => container.removeEventListener("scroll", updateScrollInfo);
   }, [updateScrollInfo]);
 
   const scrollToTop = useCallback(() => {
-    tableBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    tableBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   const scrollToBottom = useCallback(() => {
-    tableBodyRef.current?.scrollTo({ top: tableBodyRef.current.scrollHeight, behavior: 'smooth' });
+    tableBodyRef.current?.scrollTo({
+      top: tableBodyRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, []);
 
   const hasOverflow = paginatedItems.length > visibleRows;
 
   return (
-    <div className="h-full w-full flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden" ref={tableContainerRef}>
+    <div
+      className="h-full w-full flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden"
+      ref={tableContainerRef}
+    >
       {/* Header Stats */}
       <div className="shrink-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-3 py-1 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -112,17 +120,23 @@ const SupplierTable = ({
             ) : (
               <Users size={12} className="text-indigo-500" />
             )}
-            <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">Total:</span>
-            <span className="text-[10px] font-bold text-indigo-600">{totalItems}</span>
+            <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">
+              Total:
+            </span>
+            <span className="text-[10px] font-bold text-indigo-600">
+              {totalItems}
+            </span>
           </div>
-          
+
           {isGlobalMode && (
             <>
               <div className="h-3 w-px bg-slate-300" />
-              <span className="text-[8px] text-blue-600 font-medium uppercase">All Branches</span>
+              <span className="text-[8px] text-blue-600 font-medium uppercase">
+                All Branches
+              </span>
             </>
           )}
-          
+
           {totalPages > 1 && (
             <>
               <div className="h-3 w-px bg-slate-300" />
@@ -135,7 +149,7 @@ const SupplierTable = ({
             </>
           )}
         </div>
-        
+
         <div className="flex items-center gap-1">
           {hasOverflow && (
             <div className="flex items-center gap-0.5">
@@ -161,12 +175,15 @@ const SupplierTable = ({
       {/* Table Container */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Fixed Header */}
-        <div 
+        <div
           ref={headerRef}
           className="shrink-0 overflow-hidden border-b-2 border-slate-300"
           style={{ paddingRight: `${scrollbarWidth}px` }}
         >
-          <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+          <table
+            className="w-full border-collapse"
+            style={{ tableLayout: "fixed" }}
+          >
             <colgroup>
               <col style={{ width: columnWidths.rowNum }} />
               <col style={{ width: columnWidths.supplierId }} />
@@ -179,9 +196,15 @@ const SupplierTable = ({
             </colgroup>
             <thead>
               <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white h-6">
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">#</th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left pl-1 border-r border-slate-600/30">Supplier ID</th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">Name</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
+                  #
+                </th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left pl-1 border-r border-slate-600/30">
+                  Supplier ID
+                </th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">
+                  Name
+                </th>
                 {isGlobalMode && (
                   <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">
                     <div className="flex items-center gap-1">
@@ -190,22 +213,36 @@ const SupplierTable = ({
                     </div>
                   </th>
                 )}
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">Contact</th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">Email</th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">GST</th>
-                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center">Actions</th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
+                  Contact
+                </th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-left border-r border-slate-600/30">
+                  Email
+                </th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
+                  GST
+                </th>
+                <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center">
+                  Actions
+                </th>
               </tr>
             </thead>
           </table>
         </div>
 
         {/* Scrollable Body */}
-        <div 
+        <div
           ref={tableBodyRef}
           className="flex-1 overflow-y-auto overflow-x-hidden"
-          style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}
+          style={{
+            height: `${viewportHeight}px`,
+            maxHeight: `${viewportHeight}px`,
+          }}
         >
-          <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+          <table
+            className="w-full border-collapse"
+            style={{ tableLayout: "fixed" }}
+          >
             <colgroup>
               <col style={{ width: columnWidths.rowNum }} />
               <col style={{ width: columnWidths.supplierId }} />
@@ -220,7 +257,7 @@ const SupplierTable = ({
               {paginatedItems.map((item, index) => (
                 <SupplierRow
                   key={item.supplier_id || item.supplierId || index}
-                  ref={el => rowRefs.current[index] = el}
+                  ref={(el) => (rowRefs.current[index] = el)}
                   item={item}
                   rowNumber={startIndex + index + 1}
                   isEven={index % 2 === 0}
@@ -233,9 +270,9 @@ const SupplierTable = ({
               ))}
             </tbody>
           </table>
-          
+
           {data.length === 0 && (
-            <div 
+            <div
               className="flex flex-col items-center justify-center text-slate-400"
               style={{ height: `${viewportHeight}px` }}
             >
@@ -244,16 +281,15 @@ const SupplierTable = ({
               </div>
               <p className="text-xs font-medium">No suppliers found</p>
               <p className="text-[9px]">
-                {isGlobalMode 
-                  ? "Select a branch to add suppliers" 
-                  : "Try adjusting your filters"
-                }
+                {isGlobalMode
+                  ? "Select a branch to add suppliers"
+                  : "Try adjusting your filters"}
               </p>
             </div>
           )}
         </div>
       </div>
-      
+
       {/* Pagination */}
       {totalPages > 0 && (
         <div className="shrink-0 border-t border-slate-200">

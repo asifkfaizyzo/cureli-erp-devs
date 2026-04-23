@@ -42,7 +42,7 @@ export const ICONS = {
       </svg>
     </span>`,
 
-  // ✅ Checkmark icon - for approved/success
+  //  Checkmark icon - for approved/success
   CHECK: `
     <span style="
       display:inline-block;
@@ -62,7 +62,7 @@ export const ICONS = {
       </svg>
     </span>`,
 
-  // ❌ X icon - for rejected/error
+  //  X icon - for rejected/error
   CROSS: `
     <span style="
       display:inline-block;
@@ -147,7 +147,7 @@ export const ICONS = {
       </svg>
     </span>`,
 
-  // ✅ Email verified checkmark (colored for header)
+  //  Email verified checkmark (colored for header)
   EMAIL_VERIFIED: `
     <span style="
       display:inline-block;
@@ -343,7 +343,7 @@ export const ICONS = {
       </svg>
     </span>`,
 
-  // ✅ Check in circle - for "Change Successful" label
+  //  Check in circle - for "Change Successful" label
   CHECK_CIRCLE: `
     <span style="
       display:inline-block;
@@ -421,7 +421,7 @@ export const ICONS = {
       </svg>
     </span>`,
 
-  // ❌ X icon for payment failed header & subject line
+  //  X icon for payment failed header & subject line
   PAYMENT_FAILED: `
     <span style="
       display:inline-block;

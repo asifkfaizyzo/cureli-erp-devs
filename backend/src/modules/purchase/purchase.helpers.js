@@ -22,14 +22,14 @@ export function buildBranchFilter(shopId, branchId, role, branchMode) {
   });
 
   if (role === "super_admin" && branchMode === "GLOBAL") {
-    console.log("✅ Super Admin GLOBAL mode - no branch filter");
+    console.log(" Super Admin GLOBAL mode - no branch filter");
     return filter;
   }
 
   if (role === "super_admin" && branchMode === "BRANCH") {
     if (branchId) {
       filter.branch_id = branchId;
-      console.log("✅ Super Admin BRANCH mode - filtering by branch:", branchId);
+      console.log(" Super Admin BRANCH mode - filtering by branch:", branchId);
     } else {
       console.log("⚠️ Super Admin BRANCH mode but no branchId provided!");
     }
@@ -38,7 +38,7 @@ export function buildBranchFilter(shopId, branchId, role, branchMode) {
 
   if (branchId) {
     filter.branch_id = branchId;
-    console.log("✅ Non-admin user - filtering by assigned branch:", branchId);
+    console.log(" Non-admin user - filtering by assigned branch:", branchId);
   } else {
     console.log("⚠️ Non-admin user has no branch assigned!");
   }
@@ -50,7 +50,11 @@ export function buildBranchFilter(shopId, branchId, role, branchMode) {
 // HELPER: Calculate Payment Status with Threshold
 // ============================================
 
-export function calculatePaymentStatus(paidAmount, netAmount, threshold = PAYMENT_BALANCE_THRESHOLD) {
+export function calculatePaymentStatus(
+  paidAmount,
+  netAmount,
+  threshold = PAYMENT_BALANCE_THRESHOLD,
+) {
   const paid = parseFloat(paidAmount) || 0;
   const net = parseFloat(netAmount) || 0;
   const balance = net - paid;
@@ -197,7 +201,7 @@ export async function generateInvoiceNumber(shopId) {
 
 export async function generateReturnInvoiceNumber(shopId) {
   const lastReturn = await prisma.purchaseInvoice.findFirst({
-    where: { 
+    where: {
       shop_id: shopId,
       is_return: true,
     },
@@ -232,7 +236,12 @@ export async function generateCreditNoteNumber(shopId) {
 // HELPER: Process Approved Return
 // ============================================
 
-export async function processApprovedReturn(tx, returnInvoice, lineItems, userId) {
+export async function processApprovedReturn(
+  tx,
+  returnInvoice,
+  lineItems,
+  userId,
+) {
   const shopId = returnInvoice.shop_id;
   const branchId = returnInvoice.branch_id;
 
@@ -288,10 +297,11 @@ export async function processApprovedReturn(tx, returnInvoice, lineItems, userId
         where: { item_id: item.item_id },
         data: { inventory_id: newInventory.inventory_id },
       });
-
     } else {
-      const newCurrentStock = parseFloat(inventory.current_stock) - parseFloat(item.quantity);
-      const newAvailableStock = parseFloat(inventory.available_stock) - parseFloat(item.quantity);
+      const newCurrentStock =
+        parseFloat(inventory.current_stock) - parseFloat(item.quantity);
+      const newAvailableStock =
+        parseFloat(inventory.available_stock) - parseFloat(item.quantity);
 
       await tx.inventory.update({
         where: { inventory_id: inventory.inventory_id },
@@ -356,21 +366,19 @@ export async function processApprovedReturn(tx, returnInvoice, lineItems, userId
 
     await tx.purchaseInvoice.update({
       where: { invoice_id: returnInvoice.invoice_id },
-      data: { 
+      data: {
         credit_note_number: creditNoteNumber,
         payment_status: "PAID",
       },
     });
-
   } else if (returnInvoice.adjustment_type === "CASH_REFUND") {
     await tx.purchaseInvoice.update({
       where: { invoice_id: returnInvoice.invoice_id },
-      data: { 
+      data: {
         refund_amount: netAmount,
         payment_status: "UNPAID",
       },
     });
-
   } else if (returnInvoice.adjustment_type === "OFFSET_NEXT_PURCHASE") {
     const creditNoteNumber = await generateCreditNoteNumber(shopId);
 
@@ -395,7 +403,7 @@ export async function processApprovedReturn(tx, returnInvoice, lineItems, userId
 
     await tx.purchaseInvoice.update({
       where: { invoice_id: returnInvoice.invoice_id },
-      data: { 
+      data: {
         credit_note_number: creditNoteNumber,
         payment_status: "PAID",
       },
@@ -403,16 +411,26 @@ export async function processApprovedReturn(tx, returnInvoice, lineItems, userId
   }
 
   // 3. Update parent invoice balance if applicable
-  if (returnInvoice.parent_invoice_id && returnInvoice.adjustment_type !== "CREDIT_NOTE") {
+  if (
+    returnInvoice.parent_invoice_id &&
+    returnInvoice.adjustment_type !== "CREDIT_NOTE"
+  ) {
     const parentInvoice = await tx.purchaseInvoice.findUnique({
       where: { invoice_id: returnInvoice.parent_invoice_id },
     });
 
     if (parentInvoice && parentInvoice.payment_status !== "PAID") {
-      const newBalance = Math.max(0, parseFloat(parentInvoice.balance_amount) - netAmount);
+      const newBalance = Math.max(
+        0,
+        parseFloat(parentInvoice.balance_amount) - netAmount,
+      );
       const newPaid = parseFloat(parentInvoice.net_amount) - newBalance;
-      
-      const paymentCalc = calculatePaymentStatus(newPaid, parentInvoice.net_amount, PAYMENT_BALANCE_THRESHOLD);
+
+      const paymentCalc = calculatePaymentStatus(
+        newPaid,
+        parentInvoice.net_amount,
+        PAYMENT_BALANCE_THRESHOLD,
+      );
 
       await tx.purchaseInvoice.update({
         where: { invoice_id: returnInvoice.parent_invoice_id },

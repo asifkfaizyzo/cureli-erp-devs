@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
 
 const prisma = new PrismaClient();
-const uuid   = () => randomUUID();
+const uuid = () => randomUUID();
 
 async function main() {
   console.log("🌱 Starting PRODUCTION CAdmin bootstrap...\n");
@@ -22,7 +22,7 @@ async function main() {
 
   for (const key of required) {
     if (!process.env[key]) {
-      throw new Error(`❌ ${key} must be set in production environment`);
+      throw new Error(` ${key} must be set in production environment`);
     }
   }
 
@@ -37,7 +37,7 @@ async function main() {
   });
 
   if (existing) {
-    console.log("✅ Super Admin already exists. Skipping bootstrap.");
+    console.log(" Super Admin already exists. Skipping bootstrap.");
     console.log(`   Username: ${existing.username}`);
     console.log(`   Email:    ${existing.email}`);
     console.log("\n⚠️  No changes made to database.");
@@ -51,13 +51,13 @@ async function main() {
 
   const superCadmin = await prisma.cAdmin.create({
     data: {
-      cadmin_id:       uuid(),
-      name:            process.env.CADMIN_DEFAULT_NAME || "Super Admin",
-      username:        process.env.CADMIN_DEFAULT_USERNAME,
-      email:           process.env.CADMIN_DEFAULT_EMAIL,
-      phone_number:    process.env.CADMIN_DEFAULT_PHONE,
-      password_hash:   await bcrypt.hash(process.env.CADMIN_DEFAULT_PASSWORD, 10),
-      is_active:       true,
+      cadmin_id: uuid(),
+      name: process.env.CADMIN_DEFAULT_NAME || "Super Admin",
+      username: process.env.CADMIN_DEFAULT_USERNAME,
+      email: process.env.CADMIN_DEFAULT_EMAIL,
+      phone_number: process.env.CADMIN_DEFAULT_PHONE,
+      password_hash: await bcrypt.hash(process.env.CADMIN_DEFAULT_PASSWORD, 10),
+      is_active: true,
       is_super_cadmin: true,
       // No role assignments — super admin is outside the custom role system
     },
@@ -73,14 +73,16 @@ async function main() {
   console.log(`   Username: ${superCadmin.username}`);
   console.log(`   Email:    ${superCadmin.email}`);
   console.log(`   Phone:    ${superCadmin.phone_number}`);
-  console.log("\n⚠️  Keep credentials secure. Change password after first login.");
+  console.log(
+    "\n⚠️  Keep credentials secure. Change password after first login.",
+  );
   console.log("⚠️  Create additional admin roles via the Admin Management UI.");
   console.log("\n" + "═".repeat(60));
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Bootstrap failed:", e);
+    console.error(" Bootstrap failed:", e);
     process.exit(1);
   })
   .finally(async () => {

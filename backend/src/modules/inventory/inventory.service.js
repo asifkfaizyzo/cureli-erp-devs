@@ -69,46 +69,63 @@ function buildSortOrder(sortBy, sortOrder) {
    INVENTORY SERVICE
 ===================================================== */
 class InventoryService {
- 
   _toNumber(value) {
     if (value === null || value === undefined) return null;
-    if (typeof value === 'number') return isNaN(value) ? null : value;
-    if (typeof value === 'string') {
-      if (value.trim() === '') return null;
+    if (typeof value === "number") return isNaN(value) ? null : value;
+    if (typeof value === "string") {
+      if (value.trim() === "") return null;
       const num = Number(value);
       return isNaN(num) ? null : num;
     }
-    if (typeof value === 'object' && value.toString) {
+    if (typeof value === "object" && value.toString) {
       const num = Number(value.toString());
       return isNaN(num) ? null : num;
     }
     return null;
   }
 
-  _calculateStockStatus(currentStock, inventoryMinStock, medicineStockLevels, isExpired, expiryDate) {
+  _calculateStockStatus(
+    currentStock,
+    inventoryMinStock,
+    medicineStockLevels,
+    isExpired,
+    expiryDate,
+  ) {
     const stock = this._toNumber(currentStock) ?? 0;
-    const minStockFromMedicine = this._toNumber(medicineStockLevels?.min_stock_level);
+    const minStockFromMedicine = this._toNumber(
+      medicineStockLevels?.min_stock_level,
+    );
     const minStockFromInventory = this._toNumber(inventoryMinStock);
     const effectiveMinStock = minStockFromInventory ?? minStockFromMedicine;
 
     if (isExpired === true) return "Expired";
-    
+
     if (expiryDate) {
       const expDate = new Date(expiryDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       expDate.setHours(0, 0, 0, 0);
-      const daysUntilExpiry = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+      const daysUntilExpiry = Math.ceil(
+        (expDate - today) / (1000 * 60 * 60 * 24),
+      );
       if (daysUntilExpiry < 0) return "Expired";
       if (daysUntilExpiry <= 30) return "Expiring Soon";
     }
 
     if (stock === 0) return "Out of Stock";
-    if (effectiveMinStock !== null && stock < effectiveMinStock) return "Low Stock";
+    if (effectiveMinStock !== null && stock < effectiveMinStock)
+      return "Low Stock";
     return "In Stock";
   }
 
-  async getOrCreateInventory(shopId, branchId, medicineId, batchNumber, expiryDate, mrp) {
+  async getOrCreateInventory(
+    shopId,
+    branchId,
+    medicineId,
+    batchNumber,
+    expiryDate,
+    mrp,
+  ) {
     let inventory = await prisma.inventory.findFirst({
       where: {
         shop_id: shopId,
@@ -152,9 +169,10 @@ class InventoryService {
             batch_number: inventory.batch_number,
             branch_name: branch?.branch_name || null,
           },
-        }).catch(err => console.error('[Notification] OUT_OF_STOCK_ALERT failed:', err));
-      }
-      else if (
+        }).catch((err) =>
+          console.error("[Notification] OUT_OF_STOCK_ALERT failed:", err),
+        );
+      } else if (
         currentStock > 0 &&
         inventory.minimum_stock !== null &&
         currentStock <= minimumStock
@@ -171,7 +189,9 @@ class InventoryService {
             minimum_stock: minimumStock,
             branch_name: branch?.branch_name || null,
           },
-        }).catch(err => console.error('[Notification] LOW_STOCK_ALERT failed:', err));
+        }).catch((err) =>
+          console.error("[Notification] LOW_STOCK_ALERT failed:", err),
+        );
       }
     });
   }
@@ -199,7 +219,7 @@ class InventoryService {
         where: { inventory_id: inventoryId },
         include: {
           medicine: {
-            select: { 
+            select: {
               name: true,
               min_stock_level: true,
               max_stock_level: true,
@@ -224,9 +244,9 @@ class InventoryService {
       if (newStock < 0) {
         throw new ApiError(
           `Insufficient stock for ${inventory.medicine.name} (Batch: ${batchNumber}). ` +
-          `Current: ${inventory.current_stock}, Attempting to deduct: ${qtyOut}, Net change: ${netQty}`,
+            `Current: ${inventory.current_stock}, Attempting to deduct: ${qtyOut}, Net change: ${netQty}`,
           400,
-          "INSUFFICIENT_STOCK"
+          "INSUFFICIENT_STOCK",
         );
       }
 
@@ -238,7 +258,8 @@ class InventoryService {
         },
       });
 
-      const validReferenceId = referenceType === "PURCHASE_INVOICE" ? referenceId : null;
+      const validReferenceId =
+        referenceType === "PURCHASE_INVOICE" ? referenceId : null;
 
       const ledgerEntry = await transaction.stockLedger.create({
         data: {
@@ -258,7 +279,9 @@ class InventoryService {
           balance_after: newStock,
           rate: rate || null,
           amount: rate ? Number(netQty) * Number(rate) : null,
-          transaction_date: transactionDate ? new Date(transactionDate) : new Date(),
+          transaction_date: transactionDate
+            ? new Date(transactionDate)
+            : new Date(),
           created_by: userId,
           remarks,
         },
@@ -267,7 +290,7 @@ class InventoryService {
       this.checkAndSendStockAlerts(
         { ...updatedInventory, inventory_id: inventoryId },
         inventory.medicine,
-        inventory.branch
+        inventory.branch,
       );
 
       const status = this._calculateStockStatus(
@@ -279,20 +302,24 @@ class InventoryService {
           reorder_point: inventory.medicine?.reorder_point,
         },
         inventory.is_expired,
-        inventory.expiry_date
+        inventory.expiry_date,
       );
 
-      return { 
-        inventory: { ...updatedInventory, status }, 
-        ledgerEntry 
+      return {
+        inventory: { ...updatedInventory, status },
+        ledgerEntry,
       };
     };
 
     if (tx) {
-      console.log(`📦 Using existing transaction for stock update (${movementType})`);
+      console.log(
+        `📦 Using existing transaction for stock update (${movementType})`,
+      );
       return executeUpdate(tx);
     } else {
-      console.log(`📦 Creating new transaction for stock update (${movementType})`);
+      console.log(
+        `📦 Creating new transaction for stock update (${movementType})`,
+      );
       return prisma.$transaction(executeUpdate);
     }
   }
@@ -322,7 +349,11 @@ class InventoryService {
       ...(search && {
         OR: [
           { medicine: { name: { contains: search, mode: "insensitive" } } },
-          { medicine: { manufacturer: { contains: search, mode: "insensitive" } } },
+          {
+            medicine: {
+              manufacturer: { contains: search, mode: "insensitive" },
+            },
+          },
           { medicine: { category: { contains: search, mode: "insensitive" } } },
           { batch_number: { contains: search, mode: "insensitive" } },
         ],
@@ -373,7 +404,7 @@ class InventoryService {
           },
           take: 1,
           orderBy: {
-            transaction_date: 'desc',
+            transaction_date: "desc",
           },
           select: {
             reference_id: true,
@@ -386,35 +417,38 @@ class InventoryService {
     });
 
     const purchaseInvoiceIds = rawInventories
-      .flatMap(inv => inv.stockMovements.map(sm => sm.reference_id))
+      .flatMap((inv) => inv.stockMovements.map((sm) => sm.reference_id))
       .filter(Boolean);
 
-    const purchaseInvoices = purchaseInvoiceIds.length > 0
-      ? await prisma.purchaseInvoice.findMany({
-          where: {
-            invoice_id: { in: purchaseInvoiceIds },
-          },
-          select: {
-            invoice_id: true,
-            supplier: {
-              select: {
-                name: true,
+    const purchaseInvoices =
+      purchaseInvoiceIds.length > 0
+        ? await prisma.purchaseInvoice.findMany({
+            where: {
+              invoice_id: { in: purchaseInvoiceIds },
+            },
+            select: {
+              invoice_id: true,
+              supplier: {
+                select: {
+                  name: true,
+                },
               },
             },
-          },
-        })
-      : [];
+          })
+        : [];
 
     const supplierMap = new Map(
-      purchaseInvoices.map(inv => [inv.invoice_id, inv.supplier?.name])
+      purchaseInvoices.map((inv) => [inv.invoice_id, inv.supplier?.name]),
     );
 
     const inventories = rawInventories.map((inv) => {
       const firstMovementId = inv.stockMovements?.[0]?.reference_id;
-      const supplierName = firstMovementId ? supplierMap.get(firstMovementId) : null;
-      
+      const supplierName = firstMovementId
+        ? supplierMap.get(firstMovementId)
+        : null;
+
       const { stockMovements, ...rest } = inv;
-      
+
       const status = this._calculateStockStatus(
         rest.current_stock,
         rest.minimum_stock,
@@ -424,14 +458,15 @@ class InventoryService {
           reorder_point: rest.medicine?.reorder_point,
         },
         rest.is_expired,
-        rest.expiry_date
+        rest.expiry_date,
       );
 
       // Resolve category: use shop-level category, fallback to master catalog category
-      const resolvedCategory = rest.medicine?.category 
-        || rest.medicine?.masterMedicine?.primary_category 
-        || null;
-      
+      const resolvedCategory =
+        rest.medicine?.category ||
+        rest.medicine?.masterMedicine?.primary_category ||
+        null;
+
       return {
         ...rest,
         supplier_name: supplierName || null,
@@ -454,13 +489,19 @@ class InventoryService {
     let filteredInventories = inventories;
     if (lowStock) {
       filteredInventories = inventories.filter(
-        (inv) => inv.status === "Low Stock" || inv.status === "Out of Stock"
+        (inv) => inv.status === "Low Stock" || inv.status === "Out of Stock",
       );
     }
 
     // Status sorting — must be done post-query since status is computed
     if (sortBy === "status") {
-      const statusOrder = ["Out of Stock", "Low Stock", "Expiring Soon", "Expired", "In Stock"];
+      const statusOrder = [
+        "Out of Stock",
+        "Low Stock",
+        "Expiring Soon",
+        "Expired",
+        "In Stock",
+      ];
       const dir = sortOrder === "desc" ? -1 : 1;
       filteredInventories.sort((a, b) => {
         const aIdx = statusOrder.indexOf(a.status);
@@ -484,7 +525,14 @@ class InventoryService {
     return { inventories: filteredInventories, total };
   }
 
-  async getInventoryByMedicine(shopId, medicineId, branchId, role, branchMode, filters = {}) {
+  async getInventoryByMedicine(
+    shopId,
+    medicineId,
+    branchId,
+    role,
+    branchMode,
+    filters = {},
+  ) {
     const { includeExpired = false } = filters;
     const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
@@ -516,7 +564,7 @@ class InventoryService {
       orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
     });
 
-    return inventories.map(inv => ({
+    return inventories.map((inv) => ({
       ...inv,
       status: this._calculateStockStatus(
         inv.current_stock,
@@ -527,7 +575,7 @@ class InventoryService {
           reorder_point: inv.medicine?.reorder_point,
         },
         inv.is_expired,
-        inv.expiry_date
+        inv.expiry_date,
       ),
     }));
   }
@@ -543,8 +591,8 @@ class InventoryService {
       },
       include: {
         medicine: {
-          select: { 
-            name: true, 
+          select: {
+            name: true,
             manufacturer: true,
             min_stock_level: true,
             max_stock_level: true,
@@ -558,7 +606,7 @@ class InventoryService {
     });
 
     return inventories
-      .map(inv => ({
+      .map((inv) => ({
         ...inv,
         status: this._calculateStockStatus(
           inv.current_stock,
@@ -569,13 +617,21 @@ class InventoryService {
             reorder_point: inv.medicine?.reorder_point,
           },
           inv.is_expired,
-          inv.expiry_date
+          inv.expiry_date,
         ),
       }))
-      .filter(inv => inv.status === "Low Stock" || inv.status === "Out of Stock");
+      .filter(
+        (inv) => inv.status === "Low Stock" || inv.status === "Out of Stock",
+      );
   }
 
-  async getExpiringSoonItems(shopId, daysAhead = 90, branchId, role, branchMode) {
+  async getExpiringSoonItems(
+    shopId,
+    daysAhead = 90,
+    branchId,
+    role,
+    branchMode,
+  ) {
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + daysAhead);
 
@@ -594,8 +650,8 @@ class InventoryService {
       },
       include: {
         medicine: {
-          select: { 
-            name: true, 
+          select: {
+            name: true,
             manufacturer: true,
             min_stock_level: true,
             max_stock_level: true,
@@ -609,7 +665,7 @@ class InventoryService {
       orderBy: { expiry_date: "asc" },
     });
 
-    return inventories.map(inv => ({
+    return inventories.map((inv) => ({
       ...inv,
       status: this._calculateStockStatus(
         inv.current_stock,
@@ -620,7 +676,7 @@ class InventoryService {
           reorder_point: inv.medicine?.reorder_point,
         },
         inv.is_expired,
-        inv.expiry_date
+        inv.expiry_date,
       ),
     }));
   }
@@ -693,7 +749,7 @@ class InventoryService {
       throw new ApiError(
         "Branch selection is required for stock adjustments",
         400,
-        "BRANCH_REQUIRED"
+        "BRANCH_REQUIRED",
       );
     }
 
@@ -718,7 +774,7 @@ class InventoryService {
         throw new ApiError(
           "This inventory item belongs to a different branch",
           403,
-          "BRANCH_MISMATCH"
+          "BRANCH_MISMATCH",
         );
       }
 
@@ -738,7 +794,9 @@ class InventoryService {
           old_quantity: oldQty,
           new_quantity: newQty,
           variance,
-          adjustment_date: adjustmentDate ? new Date(adjustmentDate) : new Date(),
+          adjustment_date: adjustmentDate
+            ? new Date(adjustmentDate)
+            : new Date(),
           created_by: userId,
         },
       });
@@ -761,7 +819,7 @@ class InventoryService {
             remarks: `${reason}${reasonNotes ? ` - ${reasonNotes}` : ""}`,
           },
           userId,
-          tx
+          tx,
         );
       }
 
@@ -790,7 +848,7 @@ class InventoryService {
       },
     });
 
-    const inventoriesWithStatus = allInventories.map(inv => ({
+    const inventoriesWithStatus = allInventories.map((inv) => ({
       ...inv,
       status: this._calculateStockStatus(
         inv.current_stock,
@@ -801,16 +859,29 @@ class InventoryService {
           reorder_point: inv.medicine?.reorder_point,
         },
         inv.is_expired,
-        inv.expiry_date
+        inv.expiry_date,
       ),
     }));
 
-    const totalItems = inventoriesWithStatus.filter(inv => Number(inv.current_stock) > 0).length;
-    const totalQty = inventoriesWithStatus.reduce((sum, inv) => sum + Number(inv.current_stock || 0), 0);
-    const lowStock = inventoriesWithStatus.filter(inv => inv.status === "Low Stock").length;
-    const outOfStock = inventoriesWithStatus.filter(inv => inv.status === "Out of Stock").length;
-    const expiringSoon = inventoriesWithStatus.filter(inv => inv.status === "Expiring Soon").length;
-    const expired = inventoriesWithStatus.filter(inv => inv.status === "Expired").length;
+    const totalItems = inventoriesWithStatus.filter(
+      (inv) => Number(inv.current_stock) > 0,
+    ).length;
+    const totalQty = inventoriesWithStatus.reduce(
+      (sum, inv) => sum + Number(inv.current_stock || 0),
+      0,
+    );
+    const lowStock = inventoriesWithStatus.filter(
+      (inv) => inv.status === "Low Stock",
+    ).length;
+    const outOfStock = inventoriesWithStatus.filter(
+      (inv) => inv.status === "Out of Stock",
+    ).length;
+    const expiringSoon = inventoriesWithStatus.filter(
+      (inv) => inv.status === "Expiring Soon",
+    ).length;
+    const expired = inventoriesWithStatus.filter(
+      (inv) => inv.status === "Expired",
+    ).length;
 
     return {
       totalItems,
@@ -861,11 +932,13 @@ class InventoryService {
           inventory_id: item.inventory_id,
           medicine_name: item.medicine.name,
           batch_number: item.batch_number,
-          expiry_date: item.expiry_date.toISOString().split('T')[0],
+          expiry_date: item.expiry_date.toISOString().split("T")[0],
           current_stock: Number(item.current_stock),
           branch_name: item.branch?.branch_name || null,
         },
-      }).catch(err => console.error('[Notification] EXPIRED_STOCK_ALERT failed:', err));
+      }).catch((err) =>
+        console.error("[Notification] EXPIRED_STOCK_ALERT failed:", err),
+      );
     });
 
     return updateResult;
@@ -898,7 +971,7 @@ class InventoryService {
 
     expiringItems.forEach((item) => {
       const daysUntilExpiry = Math.ceil(
-        (new Date(item.expiry_date) - new Date()) / (1000 * 60 * 60 * 24)
+        (new Date(item.expiry_date) - new Date()) / (1000 * 60 * 60 * 24),
       );
 
       notify({
@@ -909,12 +982,14 @@ class InventoryService {
           inventory_id: item.inventory_id,
           medicine_name: item.medicine.name,
           batch_number: item.batch_number,
-          expiry_date: item.expiry_date.toISOString().split('T')[0],
+          expiry_date: item.expiry_date.toISOString().split("T")[0],
           days_until_expiry: daysUntilExpiry,
           current_stock: Number(item.current_stock),
           branch_name: item.branch?.branch_name || null,
         },
-      }).catch(err => console.error('[Notification] NEAR_EXPIRY_ALERT failed:', err));
+      }).catch((err) =>
+        console.error("[Notification] NEAR_EXPIRY_ALERT failed:", err),
+      );
     });
 
     return { sent: expiringItems.length };
@@ -922,33 +997,33 @@ class InventoryService {
 
   _parseExpiryDate(dateInput) {
     if (!dateInput) return null;
-    
+
     if (dateInput instanceof Date) {
       return isNaN(dateInput.getTime()) ? null : dateInput;
     }
-    
+
     const str = String(dateInput).trim();
-    
+
     if (/^\d{1,2}\/\d{4}$/.test(str)) {
-      const [month, year] = str.split('/');
+      const [month, year] = str.split("/");
       const date = new Date(parseInt(year), parseInt(month), 0);
       return isNaN(date.getTime()) ? null : date;
     }
-    
+
     if (/^\d{1,2}\/\d{2}$/.test(str)) {
-      const [month, year] = str.split('/');
+      const [month, year] = str.split("/");
       const fullYear = parseInt(year) + 2000;
       const date = new Date(fullYear, parseInt(month), 0);
       return isNaN(date.getTime()) ? null : date;
     }
-    
+
     const date = new Date(str);
     return isNaN(date.getTime()) ? null : date;
   }
 
   async updateInventory(inventoryId, shopId, branchId, data, userId) {
-    console.log('=== INVENTORY UPDATE START ===');
-    console.log('📝 Input:', { inventoryId, shopId, branchId, data, userId });
+    console.log("=== INVENTORY UPDATE START ===");
+    console.log("📝 Input:", { inventoryId, shopId, branchId, data, userId });
 
     return prisma.$transaction(async (tx) => {
       const inventory = await tx.inventory.findUnique({
@@ -966,24 +1041,32 @@ class InventoryService {
       }
 
       if (inventory.shop_id !== shopId) {
-        throw new ApiError("Inventory item does not belong to your shop", 403, "FORBIDDEN");
+        throw new ApiError(
+          "Inventory item does not belong to your shop",
+          403,
+          "FORBIDDEN",
+        );
       }
 
       if (inventory.branch_id !== branchId) {
         throw new ApiError(
           "This inventory item belongs to a different branch",
           403,
-          "BRANCH_MISMATCH"
+          "BRANCH_MISMATCH",
         );
       }
 
       // UPDATE MEDICINE MASTER
       const medicineUpdateData = {};
-      
+
       if (data.name !== undefined && data.name && data.name.trim()) {
         medicineUpdateData.name = data.name.trim();
       }
-      if (data.manufacturer !== undefined && data.manufacturer && data.manufacturer.trim()) {
+      if (
+        data.manufacturer !== undefined &&
+        data.manufacturer &&
+        data.manufacturer.trim()
+      ) {
         medicineUpdateData.manufacturer = data.manufacturer.trim();
       }
       if (data.category !== undefined) {
@@ -992,32 +1075,37 @@ class InventoryService {
       if (data.hsn_code !== undefined) {
         medicineUpdateData.hsn_code = data.hsn_code?.trim() || null;
       }
-      
+
       if (data.min_stock_level !== undefined) {
-        medicineUpdateData.min_stock_level = this._toNumber(data.min_stock_level);
+        medicineUpdateData.min_stock_level = this._toNumber(
+          data.min_stock_level,
+        );
       }
       if (data.max_stock_level !== undefined) {
-        medicineUpdateData.max_stock_level = this._toNumber(data.max_stock_level);
+        medicineUpdateData.max_stock_level = this._toNumber(
+          data.max_stock_level,
+        );
       }
       if (data.reorder_point !== undefined) {
         medicineUpdateData.reorder_point = this._toNumber(data.reorder_point);
       }
-      
+
       if (data.rack_no !== undefined) {
         medicineUpdateData.rack_no = data.rack_no?.trim() || null;
       }
 
       let updatedMedicine = inventory.medicine;
       if (Object.keys(medicineUpdateData).length > 0) {
-        console.log('📦 Updating medicine master:', {
+        console.log("📦 Updating medicine master:", {
           medicine_id: inventory.medicine_id,
           updates: medicineUpdateData,
         });
 
         if (medicineUpdateData.name || medicineUpdateData.manufacturer) {
           const newName = medicineUpdateData.name || inventory.medicine.name;
-          const newMfac = medicineUpdateData.manufacturer || inventory.medicine.manufacturer;
-          
+          const newMfac =
+            medicineUpdateData.manufacturer || inventory.medicine.manufacturer;
+
           const duplicate = await tx.medicine.findFirst({
             where: {
               shop_id: shopId,
@@ -1032,7 +1120,7 @@ class InventoryService {
             throw new ApiError(
               `Medicine "${newName}" by ${newMfac} already exists`,
               409,
-              "DUPLICATE_MEDICINE"
+              "DUPLICATE_MEDICINE",
             );
           }
         }
@@ -1046,7 +1134,11 @@ class InventoryService {
       // UPDATE INVENTORY RECORD
       const inventoryUpdateData = {};
 
-      if (data.batch_number !== undefined && data.batch_number && data.batch_number.trim()) {
+      if (
+        data.batch_number !== undefined &&
+        data.batch_number &&
+        data.batch_number.trim()
+      ) {
         const existingBatch = await tx.inventory.findFirst({
           where: {
             shop_id: shopId,
@@ -1061,7 +1153,7 @@ class InventoryService {
           throw new ApiError(
             `Batch "${data.batch_number}" already exists for this medicine`,
             409,
-            "DUPLICATE_BATCH"
+            "DUPLICATE_BATCH",
           );
         }
         inventoryUpdateData.batch_number = data.batch_number.trim();
@@ -1086,7 +1178,9 @@ class InventoryService {
         inventoryUpdateData.selling_rate = this._toNumber(data.selling_rate);
       }
       if (data.last_purchase_rate !== undefined) {
-        inventoryUpdateData.last_purchase_rate = this._toNumber(data.last_purchase_rate);
+        inventoryUpdateData.last_purchase_rate = this._toNumber(
+          data.last_purchase_rate,
+        );
       }
 
       if (data.rack_no !== undefined) {
@@ -1098,7 +1192,7 @@ class InventoryService {
       }
 
       if (Object.keys(inventoryUpdateData).length > 0) {
-        console.log('📦 Updating inventory record:', {
+        console.log("📦 Updating inventory record:", {
           inventory_id: inventoryId,
           updates: inventoryUpdateData,
         });
@@ -1145,10 +1239,10 @@ class InventoryService {
           reorder_point: finalInventory.medicine?.reorder_point,
         },
         finalInventory.is_expired,
-        finalInventory.expiry_date
+        finalInventory.expiry_date,
       );
 
-      console.log('✅ Inventory updated successfully:', {
+      console.log(" Inventory updated successfully:", {
         inventory_id: inventoryId,
         medicine_name: finalInventory.medicine?.name,
         new_status: status,
@@ -1188,8 +1282,8 @@ class InventoryService {
   }
 
   async deleteInventory(inventoryId, shopId, branchId, userId) {
-    console.log('=== INVENTORY DELETE START ===');
-    console.log('🗑️ Input:', { inventoryId, shopId, branchId, userId });
+    console.log("=== INVENTORY DELETE START ===");
+    console.log("🗑️ Input:", { inventoryId, shopId, branchId, userId });
 
     return prisma.$transaction(async (tx) => {
       const inventory = await tx.inventory.findUnique({
@@ -1206,23 +1300,27 @@ class InventoryService {
       }
 
       if (inventory.shop_id !== shopId) {
-        throw new ApiError("Inventory item does not belong to your shop", 403, "FORBIDDEN");
+        throw new ApiError(
+          "Inventory item does not belong to your shop",
+          403,
+          "FORBIDDEN",
+        );
       }
 
       if (inventory.branch_id !== branchId) {
         throw new ApiError(
           "This inventory item belongs to a different branch",
           403,
-          "BRANCH_MISMATCH"
+          "BRANCH_MISMATCH",
         );
       }
 
       if (Number(inventory.current_stock) > 0) {
         throw new ApiError(
           `Cannot delete inventory with existing stock (${inventory.current_stock} units). ` +
-          `Please use stock adjustment to reduce to zero first.`,
+            `Please use stock adjustment to reduce to zero first.`,
           400,
-          "STOCK_EXISTS"
+          "STOCK_EXISTS",
         );
       }
 
@@ -1231,7 +1329,7 @@ class InventoryService {
         data: { is_active: false },
       });
 
-      console.log('✅ Inventory soft-deleted:', {
+      console.log(" Inventory soft-deleted:", {
         inventory_id: inventoryId,
         medicine_name: inventory.medicine?.name,
       });

@@ -1,12 +1,12 @@
 // backend/scripts/backfill-selling-rate.js
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 async function backfillSellingRate() {
   try {
-    console.log('🔄 Starting backfill of selling_rate...');
+    console.log("🔄 Starting backfill of selling_rate...");
 
     // Update all items where selling_rate is null
     const result = await prisma.salesInvoiceItem.updateMany({
@@ -26,10 +26,10 @@ async function backfillSellingRate() {
       WHERE selling_rate IS NULL
     `;
 
-    console.log(`✅ Updated ${updated} rows`);
-    console.log('✅ Backfill complete!');
+    console.log(` Updated ${updated} rows`);
+    console.log(" Backfill complete!");
   } catch (error) {
-    console.error('❌ Backfill failed:', error);
+    console.error(" Backfill failed:", error);
     throw error;
   } finally {
     await prisma.$disconnect();

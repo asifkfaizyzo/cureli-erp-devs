@@ -15,10 +15,10 @@ import {
   getBranchActiveUsers,
   reactivateBranch,
   getBranchesForReassignment,
-  getCurrentBranchWithShop,  // ✅ ADD THIS IMPORT
+  getCurrentBranchWithShop, //  ADD THIS IMPORT
 } from "./branches.service.js";
 
-// ✅ REMOVE the old `branchService` import - it doesn't exist
+//  REMOVE the old `branchService` import - it doesn't exist
 
 /**
  * GET /api/branches/current
@@ -31,17 +31,23 @@ import {
 export async function getCurrentBranchController(req, res) {
   try {
     const { shop_id, branch_id, role } = req.user;
-    
+
     // Check header for branch context (SA branch switching)
     let effectiveBranchId = branch_id;
-    const headerBranchId = req.headers['x-branch-id'] || req.headers['x-current-branch'];
+    const headerBranchId =
+      req.headers["x-branch-id"] || req.headers["x-current-branch"];
     if (!effectiveBranchId && headerBranchId) {
       effectiveBranchId = headerBranchId;
     }
-    
-    console.log('getCurrentBranchController:', { shop_id, branch_id, effectiveBranchId, role });
 
-    // ✅ Call the SERVICE function
+    console.log("getCurrentBranchController:", {
+      shop_id,
+      branch_id,
+      effectiveBranchId,
+      role,
+    });
+
+    //  Call the SERVICE function
     const data = await getCurrentBranchWithShop(shop_id, effectiveBranchId);
 
     if (!data.branch && !data.shop) {
@@ -59,7 +65,7 @@ export async function getCurrentBranchController(req, res) {
   }
 }
 
-// ✅ REMOVE the duplicate getCurrentBranch function you added earlier
+//  REMOVE the duplicate getCurrentBranch function you added earlier
 // Keep only getCurrentBranchController
 
 /**
@@ -186,7 +192,7 @@ export async function switchBranchController(req, res) {
         branch_name: branch.branch_name,
         is_main: branch.is_main,
       },
-      "Branch switched successfully"
+      "Branch switched successfully",
     );
   } catch (error) {
     console.error("Switch branch error:", error);

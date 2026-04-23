@@ -19,31 +19,37 @@ const salesAPI = {
   // ═══════════════════════════════════════════════════════════════════════
 
   getAvailableBatches: async (medicineId, options = {}) => {
-  try {
-    const params = new URLSearchParams();
-    if (options.includeLowStock) params.append("includeLowStock", "true");
-    if (options.includeExpiring !== false) params.append("includeExpiring", "true");
-    
-    // ✅ Get current headers
-    const headers = getBranchHeaders();
-    console.log("📤 Request headers:", headers);
-    console.log("📤 Fetching batches for medicine:", medicineId, "Options:", options);
+    try {
+      const params = new URLSearchParams();
+      if (options.includeLowStock) params.append("includeLowStock", "true");
+      if (options.includeExpiring !== false)
+        params.append("includeExpiring", "true");
 
-    const response = await API.get(`/sales/batches/${medicineId}?${params}`, {
-      headers: headers,
-    });
+      //  Get current headers
+      const headers = getBranchHeaders();
+      console.log("📤 Request headers:", headers);
+      console.log(
+        "📤 Fetching batches for medicine:",
+        medicineId,
+        "Options:",
+        options,
+      );
 
-    console.log("📥 Batches response:", response.data);
-    return response.data;
-  } catch (error) {
-    console.error("❌ Get available batches failed:", {
-      error: error.response?.data,
-      status: error.response?.status,
-      medicineId,
-    });
-    throw error;
-  }
-},
+      const response = await API.get(`/sales/batches/${medicineId}?${params}`, {
+        headers: headers,
+      });
+
+      console.log("📥 Batches response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error(" Get available batches failed:", {
+        error: error.response?.data,
+        status: error.response?.status,
+        medicineId,
+      });
+      throw error;
+    }
+  },
 
   // ═══════════════════════════════════════════════════════════════════════
   // INVOICE CRUD OPERATIONS
@@ -56,7 +62,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Sales create failed:", error.response?.data);
+      console.error(" Sales create failed:", error.response?.data);
       throw error;
     }
   },
@@ -69,7 +75,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Sales create draft failed:", error.response?.data);
+      console.error(" Sales create draft failed:", error.response?.data);
       throw error;
     }
   },
@@ -81,7 +87,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Sales update failed:", error.response?.data);
+      console.error(" Sales update failed:", error.response?.data);
       throw error;
     }
   },
@@ -93,7 +99,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Add items failed:", error.response?.data);
+      console.error(" Add items failed:", error.response?.data);
       throw error;
     }
   },
@@ -105,7 +111,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Remove item failed:", error.response?.data);
+      console.error(" Remove item failed:", error.response?.data);
       throw error;
     }
   },
@@ -121,19 +127,23 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Park invoice failed:", error.response?.data);
+      console.error(" Park invoice failed:", error.response?.data);
       throw error;
     }
   },
 
   resume: async (invoiceId) => {
     try {
-      const response = await API.post(`/sales/${invoiceId}/resume`, {}, {
-        headers: getBranchHeaders(),
-      });
+      const response = await API.post(
+        `/sales/${invoiceId}/resume`,
+        {},
+        {
+          headers: getBranchHeaders(),
+        },
+      );
       return response.data;
     } catch (error) {
-      console.error("❌ Resume invoice failed:", error.response?.data);
+      console.error(" Resume invoice failed:", error.response?.data);
       throw error;
     }
   },
@@ -145,7 +155,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get parked invoices failed:", error.response?.data);
+      console.error(" Get parked invoices failed:", error.response?.data);
       throw error;
     }
   },
@@ -161,7 +171,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Confirm sale failed:", error.response?.data);
+      console.error(" Confirm sale failed:", error.response?.data);
       throw error;
     }
   },
@@ -171,11 +181,11 @@ const salesAPI = {
       const response = await API.post(
         `/sales/${invoiceId}/cancel`,
         { reason },
-        { headers: getBranchHeaders() }
+        { headers: getBranchHeaders() },
       );
       return response.data;
     } catch (error) {
-      console.error("❌ Cancel invoice failed:", error.response?.data);
+      console.error(" Cancel invoice failed:", error.response?.data);
       throw error;
     }
   },
@@ -191,20 +201,24 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Record payment failed:", error.response?.data);
+      console.error(" Record payment failed:", error.response?.data);
       throw error;
     }
   },
 
-  // ✅ NEW: Update payment status (Super Admin only)
+  //  NEW: Update payment status (Super Admin only)
   updatePaymentStatus: async (invoiceId, data) => {
     try {
-      const response = await API.patch(`/sales/${invoiceId}/payment-status`, data, {
-        headers: getBranchHeaders(),
-      });
+      const response = await API.patch(
+        `/sales/${invoiceId}/payment-status`,
+        data,
+        {
+          headers: getBranchHeaders(),
+        },
+      );
       return response.data;
     } catch (error) {
-      console.error("❌ Update payment status failed:", error.response?.data);
+      console.error(" Update payment status failed:", error.response?.data);
       throw error;
     }
   },
@@ -221,7 +235,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get sales invoices failed:", error.response?.data);
+      console.error(" Get sales invoices failed:", error.response?.data);
       throw error;
     }
   },
@@ -233,7 +247,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get invoice details failed:", error.response?.data);
+      console.error(" Get invoice details failed:", error.response?.data);
       throw error;
     }
   },
@@ -246,7 +260,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get sales stats failed:", error.response?.data);
+      console.error(" Get sales stats failed:", error.response?.data);
       throw error;
     }
   },
@@ -263,7 +277,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get returnable items failed:", error.response?.data);
+      console.error(" Get returnable items failed:", error.response?.data);
       throw error;
     }
   },
@@ -276,7 +290,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Create return failed:", error.response?.data);
+      console.error(" Create return failed:", error.response?.data);
       throw error;
     }
   },
@@ -290,7 +304,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get returns failed:", error.response?.data);
+      console.error(" Get returns failed:", error.response?.data);
       throw error;
     }
   },
@@ -302,27 +316,28 @@ const salesAPI = {
 
   // Get return details by ID
   getReturnById: async (returnId) => {
-  try {
-    // ✅ Validate UUID format before sending
-    if (!returnId || typeof returnId !== 'string') {
-      throw new Error('Invalid return ID');
+    try {
+      //  Validate UUID format before sending
+      if (!returnId || typeof returnId !== "string") {
+        throw new Error("Invalid return ID");
+      }
+
+      // Check if it's a valid UUID format
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(returnId)) {
+        throw new Error(`Invalid UUID format: ${returnId}`);
+      }
+
+      const response = await API.get(`/sales/returns/${returnId}`, {
+        headers: getBranchHeaders(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error(" Get return details failed:", error.response?.data);
+      throw error;
     }
-    
-    // Check if it's a valid UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(returnId)) {
-      throw new Error(`Invalid UUID format: ${returnId}`);
-    }
-    
-    const response = await API.get(`/sales/returns/${returnId}`, {
-      headers: getBranchHeaders(),
-    });
-    return response.data;
-  } catch (error) {
-    console.error("❌ Get return details failed:", error.response?.data);
-    throw error;
-  }
-},
+  },
 
   // Approve a pending return (Super Admin / Branch Admin)
   approveReturn: async (returnId, data = {}) => {
@@ -330,11 +345,11 @@ const salesAPI = {
       const response = await API.post(
         `/sales/returns/${returnId}/approve`,
         { action: "APPROVE", ...data },
-        { headers: getBranchHeaders() }
+        { headers: getBranchHeaders() },
       );
       return response.data;
     } catch (error) {
-      console.error("❌ Approve return failed:", error.response?.data);
+      console.error(" Approve return failed:", error.response?.data);
       throw error;
     }
   },
@@ -345,11 +360,11 @@ const salesAPI = {
       const response = await API.post(
         `/sales/returns/${returnId}/approve`,
         { action: "REJECT", rejection_reason: reason },
-        { headers: getBranchHeaders() }
+        { headers: getBranchHeaders() },
       );
       return response.data;
     } catch (error) {
-      console.error("❌ Reject return failed:", error.response?.data);
+      console.error(" Reject return failed:", error.response?.data);
       throw error;
     }
   },
@@ -361,11 +376,11 @@ const salesAPI = {
       const response = await API.patch(
         `/sales/returns/${returnId}/cancel`,
         data,
-        { headers: getBranchHeaders() }
+        { headers: getBranchHeaders() },
       );
       return response.data;
     } catch (error) {
-      console.error("❌ Cancel approved return failed:", error.response?.data);
+      console.error(" Cancel approved return failed:", error.response?.data);
       throw error;
     }
   },
@@ -377,11 +392,11 @@ const salesAPI = {
       const response = await API.patch(
         `/sales/returns/${returnId}/revert`,
         data,
-        { headers: getBranchHeaders() }
+        { headers: getBranchHeaders() },
       );
       return response.data;
     } catch (error) {
-      console.error("❌ Revert return failed:", error.response?.data);
+      console.error(" Revert return failed:", error.response?.data);
       throw error;
     }
   },
@@ -392,11 +407,11 @@ const salesAPI = {
       const response = await API.post(
         `/sales/returns/${returnId}/cancel`,
         { reason },
-        { headers: getBranchHeaders() }
+        { headers: getBranchHeaders() },
       );
       return response.data;
     } catch (error) {
-      console.error("❌ Cancel return failed:", error.response?.data);
+      console.error(" Cancel return failed:", error.response?.data);
       throw error;
     }
   },
@@ -414,7 +429,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get customer credits failed:", error.response?.data);
+      console.error(" Get customer credits failed:", error.response?.data);
       throw error;
     }
   },
@@ -427,7 +442,7 @@ const salesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Apply credit failed:", error.response?.data);
+      console.error(" Apply credit failed:", error.response?.data);
       throw error;
     }
   },

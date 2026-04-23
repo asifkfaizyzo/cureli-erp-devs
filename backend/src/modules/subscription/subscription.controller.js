@@ -16,7 +16,7 @@ import {
   cancelPendingSubscriptionService,
 } from "./subscription.service.js";
 import prisma from "../../config/prisma.js";
-import * as audit from "../audit/index.js";  // ✅ ADD THIS IMPORT
+import * as audit from "../audit/index.js"; //  ADD THIS IMPORT
 
 // ============================================
 // GET PLANS
@@ -74,7 +74,11 @@ export async function selectPlanController(req, res) {
     const user_id = req.user.user_id;
 
     if (!shop_id) {
-      return fail(res, "Shop not found. Please complete shop setup first.", 400);
+      return fail(
+        res,
+        "Shop not found. Please complete shop setup first.",
+        400,
+      );
     }
 
     // Check if shop already has active subscription
@@ -99,72 +103,81 @@ export async function selectPlanController(req, res) {
 
     // Check if plan is effectively free (price = 0 OR promo active)
     const isPriceZero = Number(plan.price) === 0;
-    const isPromoActive = plan.promo_free_until && new Date(plan.promo_free_until) > new Date();
+    const isPromoActive =
+      plan.promo_free_until && new Date(plan.promo_free_until) > new Date();
     const isEffectivelyFree = isPriceZero || isPromoActive;
 
-    // ✅ Extract audit context (IP, user agent)
+    //  Extract audit context (IP, user agent)
     const auditContext = audit.extractRequestContext(req);
 
     if (isEffectivelyFree) {
       // FREE PLAN (Standard or Promo) - Activate immediately
-      const subscription = await createFreeSubscription({ 
-        shop_id, 
-        plan, 
+      const subscription = await createFreeSubscription({
+        shop_id,
+        plan,
         user_id: req.user.user_id,
         user_role: req.user.role,
         isPromoApplied: isPromoActive && !isPriceZero,
-        auditContext,  // ✅ Pass audit context
+        auditContext, //  Pass audit context
       });
 
-      const message = isPromoActive && !isPriceZero
-        ? "Promo plan activated! Enjoy free access until the promo period ends."
-        : "Free plan activated successfully!";
+      const message =
+        isPromoActive && !isPriceZero
+          ? "Promo plan activated! Enjoy free access until the promo period ends."
+          : "Free plan activated successfully!";
 
-      return success(res, {
-        is_free: true,
-        is_promo_applied: isPromoActive && !isPriceZero,
-        subscription: {
-          subscription_id: subscription.subscription_id,
-          status: subscription.status,
-          start_date: subscription.start_date,
-          end_date: subscription.end_date,
-          grace_period_until: subscription.grace_period_until,
+      return success(
+        res,
+        {
+          is_free: true,
+          is_promo_applied: isPromoActive && !isPriceZero,
+          subscription: {
+            subscription_id: subscription.subscription_id,
+            status: subscription.status,
+            start_date: subscription.start_date,
+            end_date: subscription.end_date,
+            grace_period_until: subscription.grace_period_until,
+          },
+          plan: {
+            plan_id: plan.plan_id,
+            name: plan.name,
+            promo_free_until: plan.promo_free_until,
+          },
+          redirect: "dashboard",
         },
-        plan: {
-          plan_id: plan.plan_id,
-          name: plan.name,
-          promo_free_until: plan.promo_free_until,
-        },
-        redirect: "dashboard",
-      }, message);
+        message,
+      );
     }
 
     // PAID PLAN - Create Razorpay order
     const orderData = await createPaidSubscription({ shop_id, plan, user });
 
-    return success(res, {
-      is_free: false,
-      subscription_id: orderData.subscription.subscription_id,
-      razorpay: {
-        key: orderData.razorpay_key,
-        order_id: orderData.razorpay_order_id,
-        amount: orderData.amount, // In paisa for Razorpay SDK
-        currency: orderData.currency,
-        name: "Cureli ERP",
-        description: `${plan.name} - Annual Subscription`,
-        prefill: {
-          name: orderData.user_name || "",
-          email: orderData.user_email || "",
-          contact: orderData.user_phone || "",
+    return success(
+      res,
+      {
+        is_free: false,
+        subscription_id: orderData.subscription.subscription_id,
+        razorpay: {
+          key: orderData.razorpay_key,
+          order_id: orderData.razorpay_order_id,
+          amount: orderData.amount, // In paisa for Razorpay SDK
+          currency: orderData.currency,
+          name: "Cureli ERP",
+          description: `${plan.name} - Annual Subscription`,
+          prefill: {
+            name: orderData.user_name || "",
+            email: orderData.user_email || "",
+            contact: orderData.user_phone || "",
+          },
+        },
+        plan: {
+          plan_id: plan.plan_id,
+          name: plan.name,
+          price: Number(plan.price), // In rupees for display
         },
       },
-      plan: {
-        plan_id: plan.plan_id,
-        name: plan.name,
-        price: Number(plan.price), // In rupees for display
-      },
-    }, "Payment order created");
-
+      "Payment order created",
+    );
   } catch (err) {
     console.error("selectPlanController error:", err);
 
@@ -195,7 +208,7 @@ export async function confirmPaymentController(req, res) {
       subscription_id,
     } = req.validated;
 
-    // ✅ Extract audit context (IP, user agent)
+    //  Extract audit context (IP, user agent)
     const auditContext = audit.extractRequestContext(req);
 
     const subscription = await verifyAndActivateSubscription({
@@ -203,31 +216,38 @@ export async function confirmPaymentController(req, res) {
       razorpay_payment_id,
       razorpay_signature,
       subscription_id,
-      user_id: req.user.user_id,      // ✅ Pass user info
-      user_role: req.user.role,       // ✅ Pass user role
-      auditContext,                    // ✅ Pass audit context
+      user_id: req.user.user_id, //  Pass user info
+      user_role: req.user.role, //  Pass user role
+      auditContext, //  Pass audit context
     });
 
-    return success(res, {
-      subscription: {
-        subscription_id: subscription.subscription_id,
-        status: subscription.status,
-        start_date: subscription.start_date,
-        end_date: subscription.end_date,
-        grace_period_until: subscription.grace_period_until,
+    return success(
+      res,
+      {
+        subscription: {
+          subscription_id: subscription.subscription_id,
+          status: subscription.status,
+          start_date: subscription.start_date,
+          end_date: subscription.end_date,
+          grace_period_until: subscription.grace_period_until,
+        },
+        plan: {
+          plan_id: subscription.plan.plan_id,
+          name: subscription.plan.name,
+        },
+        redirect: "dashboard",
       },
-      plan: {
-        plan_id: subscription.plan.plan_id,
-        name: subscription.plan.name,
-      },
-      redirect: "dashboard",
-    }, "Payment successful! Subscription activated.");
-
+      "Payment successful! Subscription activated.",
+    );
   } catch (err) {
     console.error("confirmPaymentController error:", err);
 
     if (err.code === "INVALID_SIGNATURE") {
-      return fail(res, "Payment verification failed. Please contact support.", 400);
+      return fail(
+        res,
+        "Payment verification failed. Please contact support.",
+        400,
+      );
     }
     if (err.code === "TRANSACTION_NOT_FOUND") {
       return fail(res, "Transaction not found", 404);
@@ -236,7 +256,11 @@ export async function confirmPaymentController(req, res) {
       return fail(res, "Invalid subscription", 400);
     }
 
-    return fail(res, "Payment confirmation failed. Please contact support.", 500);
+    return fail(
+      res,
+      "Payment confirmation failed. Please contact support.",
+      500,
+    );
   }
 }
 
@@ -336,7 +360,7 @@ export async function getMySubscription(req, res) {
     // READ-TIME GRACE GUARD
     const endDate = new Date(sub.end_date);
     const isExpired = endDate < now;
-    const isActive = sub.is_active && sub.status === 'active';
+    const isActive = sub.is_active && sub.status === "active";
     const hasNoGrace = !sub.grace_period_until;
 
     if (isExpired && isActive && hasNoGrace) {
@@ -349,45 +373,48 @@ export async function getMySubscription(req, res) {
       });
 
       sub.grace_period_until = gracePeriodUntil;
-      console.log(`[GRACE GUARD] Healed subscription ${sub.subscription_id} via getMySubscription`);
+      console.log(
+        `[GRACE GUARD] Healed subscription ${sub.subscription_id} via getMySubscription`,
+      );
     }
 
-    const isValid = sub.is_active &&
-      sub.status === "active" &&
-      new Date(sub.end_date) > now;
+    const isValid =
+      sub.is_active && sub.status === "active" && new Date(sub.end_date) > now;
 
-    const isInGracePeriod = sub.grace_period_until &&
+    const isInGracePeriod =
+      sub.grace_period_until &&
       new Date(sub.end_date) <= now &&
       new Date(sub.grace_period_until) > now;
 
     return success(res, {
       has_active_subscription: isValid || isInGracePeriod,
       is_in_grace_period: isInGracePeriod,
-      current_plan: isValid || isInGracePeriod
-        ? {
-            plan_id: sub.plan.plan_id,
-            name: sub.plan.name,
-            price: Number(sub.plan.price),
-            expires_at: sub.end_date,
-            grace_period_until: sub.grace_period_until,
-            max_branches: sub.plan.max_branches,
-            max_users: sub.plan.max_users,
-          }
-        : null,
-      subscription: isValid || isInGracePeriod
-        ? {
-            subscription_id: sub.subscription_id,
-            status: sub.status,
-            start_date: sub.start_date,
-            end_date: sub.end_date,
-            renewal_date: sub.renewal_date,
-            grace_period_until: sub.grace_period_until,
-            branch_limit: sub.branch_limit_snapshot,
-            user_limit: sub.user_limit_snapshot,
-          }
-        : null,
+      current_plan:
+        isValid || isInGracePeriod
+          ? {
+              plan_id: sub.plan.plan_id,
+              name: sub.plan.name,
+              price: Number(sub.plan.price),
+              expires_at: sub.end_date,
+              grace_period_until: sub.grace_period_until,
+              max_branches: sub.plan.max_branches,
+              max_users: sub.plan.max_users,
+            }
+          : null,
+      subscription:
+        isValid || isInGracePeriod
+          ? {
+              subscription_id: sub.subscription_id,
+              status: sub.status,
+              start_date: sub.start_date,
+              end_date: sub.end_date,
+              renewal_date: sub.renewal_date,
+              grace_period_until: sub.grace_period_until,
+              branch_limit: sub.branch_limit_snapshot,
+              user_limit: sub.user_limit_snapshot,
+            }
+          : null,
     });
-
   } catch (err) {
     console.error("getMySubscription error:", err);
     return fail(res, "Failed to fetch subscription status", 500);
@@ -403,47 +430,59 @@ export async function getMySubscription(req, res) {
  */
 export async function changePlanController(req, res) {
   try {
-    const { plan_id, users_to_disable, branches_to_deactivate, user_reassignments } = req.validated;
+    const {
+      plan_id,
+      users_to_disable,
+      branches_to_deactivate,
+      user_reassignments,
+    } = req.validated;
     const { shop_id, user_id } = req.user;
 
     if (!shop_id) {
       return fail(res, "Shop not found", 400);
     }
 
-    // ✅ Extract audit context
+    //  Extract audit context
     const auditContext = audit.extractRequestContext(req);
 
     const result = await changePlanService({
       shop_id,
       user_id,
-      user_role: req.user.role,  // ✅ Pass user role
+      user_role: req.user.role, //  Pass user role
       target_plan_id: plan_id,
       users_to_disable,
       branches_to_deactivate,
       user_reassignments,
-      auditContext,  // ✅ Pass audit context
+      auditContext, //  Pass audit context
     });
 
     // UPGRADE: Return Razorpay order
     if (result.requires_payment) {
-      return success(res, {
-        requires_payment: true,
-        subscription_id: result.subscription_id,
-        razorpay: result.razorpay,
-        plan: result.plan,
-      }, "Payment required for upgrade");
+      return success(
+        res,
+        {
+          requires_payment: true,
+          subscription_id: result.subscription_id,
+          razorpay: result.razorpay,
+          plan: result.plan,
+        },
+        "Payment required for upgrade",
+      );
     }
 
     // DOWNGRADE: Applied immediately
-    return success(res, {
-      requires_payment: false,
-      subscription: result.subscription,
-      plan: result.plan,
-      disabled_users: result.disabled_users || 0,
-      deactivated_branches: result.deactivated_branches || 0,
-      reassigned_users: result.reassigned_users || 0,
-    }, "Plan changed successfully");
-
+    return success(
+      res,
+      {
+        requires_payment: false,
+        subscription: result.subscription,
+        plan: result.plan,
+        disabled_users: result.disabled_users || 0,
+        deactivated_branches: result.deactivated_branches || 0,
+        reassigned_users: result.reassigned_users || 0,
+      },
+      "Plan changed successfully",
+    );
   } catch (err) {
     console.error("changePlanController error:", err);
 
@@ -461,7 +500,10 @@ export async function changePlanController(req, res) {
     };
 
     const status = errorMap[err.code] || 500;
-    return fail(res, err.message, status, { code: err.code, details: err.details });
+    return fail(res, err.message, status, {
+      code: err.code,
+      details: err.details,
+    });
   }
 }
 
@@ -479,7 +521,6 @@ export async function previewPlanChangeController(req, res) {
 
     const preview = await analyzePlanChangeService(shop_id, plan_id);
     return success(res, preview);
-
   } catch (err) {
     console.error("previewPlanChangeController error:", err);
 
@@ -508,7 +549,6 @@ export async function getDowngradeComplianceController(req, res) {
 
     const complianceData = await getComplianceDataService(shop_id, plan_id);
     return success(res, complianceData);
-
   } catch (err) {
     console.error("getDowngradeComplianceController error:", err);
 
@@ -534,7 +574,6 @@ export async function cancelPendingSubscriptionController(req, res) {
 
     await cancelPendingSubscriptionService(subscription_id, shop_id);
     return success(res, null, "Pending subscription cancelled");
-
   } catch (err) {
     console.error("cancelPendingSubscriptionController error:", err);
 

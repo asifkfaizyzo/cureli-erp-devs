@@ -1,6 +1,6 @@
 // backend/src/modules/notifications/notification.rules.js
 
-import prisma from '../../config/prisma.js';
+import prisma from "../../config/prisma.js";
 
 /**
  * Resolves recipients based on event type and context.
@@ -9,8 +9,12 @@ import prisma from '../../config/prisma.js';
  * For inapp channel : Returns array of { user_id, shop_id?, role, type }
  *                     — email is NOT required for in-app
  */
-export async function resolveAudience(eventType, context, audienceFilters = {}) {
-  const { EVENT_CONFIG } = await import('./notification.events.js');
+export async function resolveAudience(
+  eventType,
+  context,
+  audienceFilters = {},
+) {
+  const { EVENT_CONFIG } = await import("./notification.events.js");
   const config = EVENT_CONFIG[eventType];
 
   if (!config) {
@@ -19,29 +23,31 @@ export async function resolveAudience(eventType, context, audienceFilters = {}) 
   }
 
   switch (config.audienceType) {
-    case 'direct_user':
+    case "direct_user":
       return resolveDirectUser(context);
 
-    case 'direct_cadmin':
+    case "direct_cadmin":
       return resolveDirectCAdmin(context);
 
-    case 'shop_owner':
+    case "shop_owner":
       return resolveShopOwner(context);
 
-    case 'shop_admins':
+    case "shop_admins":
       return resolveShopAdmins(context);
 
-    case 'shop_inventory_users':
+    case "shop_inventory_users":
       return resolveShopInventoryUsers(context);
 
-    case 'ticket_creator':
+    case "ticket_creator":
       return resolveTicketCreator(context);
 
-    case 'broadcast_filter':
+    case "broadcast_filter":
       return resolveBroadcastAudience(audienceFilters);
 
     default:
-      console.warn(`[Notifications] Unknown audience type: ${config.audienceType}`);
+      console.warn(
+        `[Notifications] Unknown audience type: ${config.audienceType}`,
+      );
       return [];
   }
 }
@@ -52,22 +58,24 @@ export async function resolveAudience(eventType, context, audienceFilters = {}) 
 
 async function resolveDirectUser(context) {
   if (context.email) {
-    return [{
-      email:   context.email,
-      name:    context.name || context.full_name || 'User',
-      user_id: context.user_id || null,
-      type:    'user',
-    }];
+    return [
+      {
+        email: context.email,
+        name: context.name || context.full_name || "User",
+        user_id: context.user_id || null,
+        type: "user",
+      },
+    ];
   }
 
   if (context.user_id) {
     const user = await prisma.user.findUnique({
-      where:  { user_id: context.user_id },
+      where: { user_id: context.user_id },
       select: {
-        user_id:   true,
-        email:     true,
+        user_id: true,
+        email: true,
         full_name: true,
-        shop_id:   true,
+        shop_id: true,
         branch_id: true,
         is_active: true,
       },
@@ -75,14 +83,16 @@ async function resolveDirectUser(context) {
 
     if (!user || !user.is_active) return [];
 
-    return [{
-      email:     user.email,
-      name:      user.full_name || 'User',
-      user_id:   user.user_id,
-      shop_id:   user.shop_id,
-      branch_id: user.branch_id,
-      type:      'user',
-    }];
+    return [
+      {
+        email: user.email,
+        name: user.full_name || "User",
+        user_id: user.user_id,
+        shop_id: user.shop_id,
+        branch_id: user.branch_id,
+        type: "user",
+      },
+    ];
   }
 
   return [];
@@ -90,28 +100,32 @@ async function resolveDirectUser(context) {
 
 async function resolveDirectCAdmin(context) {
   if (context.email) {
-    return [{
-      email:     context.email,
-      name:      context.name || 'Admin',
-      cadmin_id: context.cadmin_id || null,
-      type:      'cadmin',
-    }];
+    return [
+      {
+        email: context.email,
+        name: context.name || "Admin",
+        cadmin_id: context.cadmin_id || null,
+        type: "cadmin",
+      },
+    ];
   }
 
   if (context.cadmin_id) {
     const admin = await prisma.cAdmin.findUnique({
-      where:  { cadmin_id: context.cadmin_id },
+      where: { cadmin_id: context.cadmin_id },
       select: { cadmin_id: true, email: true, name: true, is_active: true },
     });
 
     if (!admin || !admin.is_active) return [];
 
-    return [{
-      email:     admin.email,
-      name:      admin.name || 'Admin',
-      cadmin_id: admin.cadmin_id,
-      type:      'cadmin',
-    }];
+    return [
+      {
+        email: admin.email,
+        name: admin.name || "Admin",
+        cadmin_id: admin.cadmin_id,
+        type: "cadmin",
+      },
+    ];
   }
 
   return [];
@@ -120,35 +134,42 @@ async function resolveDirectCAdmin(context) {
 async function resolveShopOwner(context) {
   const { shop_id } = context;
   if (!shop_id) {
-    console.warn('[Notifications] resolveShopOwner: No shop_id in context');
+    console.warn("[Notifications] resolveShopOwner: No shop_id in context");
     return [];
   }
 
   const shop = await prisma.shop.findUnique({
-    where:   { shop_id },
+    where: { shop_id },
     include: {
       owner: {
-        select: { user_id: true, email: true, full_name: true, is_active: true },
+        select: {
+          user_id: true,
+          email: true,
+          full_name: true,
+          is_active: true,
+        },
       },
     },
   });
 
   if (!shop?.owner?.is_active) return [];
 
-  return [{
-    email:     shop.owner.email,
-    name:      shop.owner.full_name || 'Shop Owner',
-    user_id:   shop.owner.user_id,
-    shop_id:   shop.shop_id,
-    shop_name: shop.business_name,
-    type:      'user',
-  }];
+  return [
+    {
+      email: shop.owner.email,
+      name: shop.owner.full_name || "Shop Owner",
+      user_id: shop.owner.user_id,
+      shop_id: shop.shop_id,
+      shop_name: shop.business_name,
+      type: "user",
+    },
+  ];
 }
 
 async function resolveShopAdmins(context) {
   const { shop_id, exclude_user_id } = context;
   if (!shop_id) {
-    console.warn('[Notifications] resolveShopAdmins: No shop_id in context');
+    console.warn("[Notifications] resolveShopAdmins: No shop_id in context");
     return [];
   }
 
@@ -156,68 +177,70 @@ async function resolveShopAdmins(context) {
     where: {
       shop_id,
       is_active: true,
-      role:      { in: ['super_admin', 'branch_admin'] },
+      role: { in: ["super_admin", "branch_admin"] },
       ...(exclude_user_id && { user_id: { not: exclude_user_id } }),
     },
     select: {
-      user_id:   true,
-      email:     true,
+      user_id: true,
+      email: true,
       full_name: true,
-      role:      true,
+      role: true,
       branch_id: true,
     },
   });
 
   return users
-    .filter(u => u.email)
-    .map(user => ({
-      email:     user.email,
-      name:      user.full_name || 'Admin',
-      user_id:   user.user_id,
+    .filter((u) => u.email)
+    .map((user) => ({
+      email: user.email,
+      name: user.full_name || "Admin",
+      user_id: user.user_id,
       shop_id,
       branch_id: user.branch_id,
-      role:      user.role,
-      type:      'user',
+      role: user.role,
+      type: "user",
     }));
 }
 
 async function resolveShopInventoryUsers(context) {
   const { shop_id, branch_id } = context;
   if (!shop_id) {
-    console.warn('[Notifications] resolveShopInventoryUsers: No shop_id in context');
+    console.warn(
+      "[Notifications] resolveShopInventoryUsers: No shop_id in context",
+    );
     return [];
   }
 
   const where = {
     shop_id,
     is_active: true,
-    role:      { in: ['staff', 'branch_admin', 'super_admin'] },
+    role: { in: ["staff", "branch_admin", "super_admin"] },
     ...(branch_id && {
-      OR: [{ branch_id }, { role: 'super_admin' }],
+      OR: [{ branch_id }, { role: "super_admin" }],
     }),
   };
 
   const users = await prisma.user.findMany({
     where,
     select: {
-      user_id:   true,
-      email:     true,
+      user_id: true,
+      email: true,
       full_name: true,
-      role:      true,
+      role: true,
       branch_id: true,
     },
   });
 
   return users
-    .filter(u => u.email)
-    .map(user => ({
-      email:     user.email,
-      name:      user.full_name || 'User',
-      user_id:   user.user_id,
+    .filter((u) => u.email)
+    .map((user) => ({
+      email: user.email,
+      name: user.full_name || "User",
+      user_id: user.user_id,
       shop_id,
       branch_id: user.branch_id,
-      role:      user.role,
-      type:      'user',
+      role: user.role,
+      type: "user",
     }));
 }
 
@@ -225,49 +248,68 @@ async function resolveTicketCreator(context) {
   const { ticket_id, user_id, email, name } = context;
 
   if (email) {
-    return [{ email, name: name || 'Customer', user_id: user_id || null, type: 'user' }];
+    return [
+      {
+        email,
+        name: name || "Customer",
+        user_id: user_id || null,
+        type: "user",
+      },
+    ];
   }
 
   if (user_id) {
     const user = await prisma.user.findUnique({
-      where:  { user_id },
+      where: { user_id },
       select: {
-        user_id: true, email: true, full_name: true,
-        shop_id: true, branch_id: true, is_active: true,
+        user_id: true,
+        email: true,
+        full_name: true,
+        shop_id: true,
+        branch_id: true,
+        is_active: true,
       },
     });
     if (!user || !user.is_active) return [];
-    return [{
-      email:     user.email,
-      name:      user.full_name || 'Customer',
-      user_id:   user.user_id,
-      shop_id:   user.shop_id,
-      branch_id: user.branch_id,
-      type:      'user',
-    }];
+    return [
+      {
+        email: user.email,
+        name: user.full_name || "Customer",
+        user_id: user.user_id,
+        shop_id: user.shop_id,
+        branch_id: user.branch_id,
+        type: "user",
+      },
+    ];
   }
 
   if (ticket_id) {
     const ticket = await prisma.ticket.findUnique({
-      where:   { ticket_id },
+      where: { ticket_id },
       include: {
         created_by: {
           select: {
-            user_id: true, email: true, full_name: true,
-            shop_id: true, branch_id: true, is_active: true,
+            user_id: true,
+            email: true,
+            full_name: true,
+            shop_id: true,
+            branch_id: true,
+            is_active: true,
           },
         },
       },
     });
     if (!ticket?.created_by?.is_active) return [];
-    return [{
-      email:     ticket.created_by.email,
-      name:      ticket.created_by.full_name || 'Customer',
-      user_id:   ticket.created_by.user_id,
-      shop_id:   ticket.created_by.shop_id,
-      branch_id: ticket.created_by.branch_id,
-      type:      'user',
-    }];
+    return [
+      {
+        email: ticket.created_by.email,
+        name: ticket.created_by.full_name || "Customer",
+        user_id: ticket.created_by.user_id,
+        shop_id: ticket.created_by.shop_id,
+        branch_id: ticket.created_by.branch_id,
+        type: "user",
+      },
+    ];
   }
 
   return [];
@@ -302,8 +344,8 @@ async function resolveBroadcastAudience(filters = {}) {
   // ── Destructure all recognised keys ────────────────────────────────────
   const {
     // Audience type toggles
-    includeUsers   = true,   // default ON
-    includeCAdmins = false,  // default OFF
+    includeUsers = true, // default ON
+    includeCAdmins = false, // default OFF
 
     // User filters
     shop_ids,
@@ -326,7 +368,7 @@ async function resolveBroadcastAudience(filters = {}) {
   // Normalise cadmin role filter to one variable
   const cadminRoleFilter = cadmin_roles || cadminRoles || [];
 
-  const userRecipients   = [];
+  const userRecipients = [];
   const cadminRecipients = [];
 
   // ── 1. ERP USERS ────────────────────────────────────────────────────────
@@ -344,7 +386,11 @@ async function resolveBroadcastAudience(filters = {}) {
       if (registration_date_from) {
         const d = new Date(registration_date_from);
         if (!isNaN(d)) userWhere.created_at.gte = d;
-        else console.warn('[Notifications] Invalid registration_date_from:', registration_date_from);
+        else
+          console.warn(
+            "[Notifications] Invalid registration_date_from:",
+            registration_date_from,
+          );
       }
       if (registration_date_to) {
         const d = new Date(registration_date_to);
@@ -352,7 +398,10 @@ async function resolveBroadcastAudience(filters = {}) {
           d.setHours(23, 59, 59, 999);
           userWhere.created_at.lte = d;
         } else {
-          console.warn('[Notifications] Invalid registration_date_to:', registration_date_to);
+          console.warn(
+            "[Notifications] Invalid registration_date_to:",
+            registration_date_to,
+          );
         }
       }
     }
@@ -365,11 +414,11 @@ async function resolveBroadcastAudience(filters = {}) {
       users = await prisma.user.findMany({
         where: { ...userWhere, shop_id: { in: shop_ids } },
         select: {
-          user_id:   true,
-          email:     true,
+          user_id: true,
+          email: true,
           full_name: true,
-          role:      true,
-          shop_id:   true,
+          role: true,
+          shop_id: true,
         },
       });
     }
@@ -381,18 +430,18 @@ async function resolveBroadcastAudience(filters = {}) {
           ...userWhere,
           shop: {
             currentSubscription: {
-              plan_id:   { in: plan_ids },
-              status:    'active',
+              plan_id: { in: plan_ids },
+              status: "active",
               is_active: true,
             },
           },
         },
         select: {
-          user_id:   true,
-          email:     true,
+          user_id: true,
+          email: true,
           full_name: true,
-          role:      true,
-          shop_id:   true,
+          role: true,
+          shop_id: true,
         },
       });
     }
@@ -410,50 +459,54 @@ async function resolveBroadcastAudience(filters = {}) {
         };
       }
 
-      console.log('[Broadcast] Querying all active users');
+      console.log("[Broadcast] Querying all active users");
       users = await prisma.user.findMany({
         where: userWhere,
         select: {
-          user_id:   true,
-          email:     true,
+          user_id: true,
+          email: true,
           full_name: true,
-          role:      true,
-          shop_id:   true,
+          role: true,
+          shop_id: true,
         },
       });
     }
 
-    // ✅ Do NOT filter by email — in-app only needs user_id
+    //  Do NOT filter by email — in-app only needs user_id
     for (const user of users) {
       userRecipients.push({
-        email:   user.email   || null,  // null-safe for in-app
-        name:    user.full_name || 'User',
+        email: user.email || null, // null-safe for in-app
+        name: user.full_name || "User",
         user_id: user.user_id,
         shop_id: user.shop_id || null,
-        role:    user.role,
-        type:    'user',
+        role: user.role,
+        type: "user",
       });
     }
 
-    console.log(`[Broadcast] Resolved ${userRecipients.length} user recipient(s)`);
+    console.log(
+      `[Broadcast] Resolved ${userRecipients.length} user recipient(s)`,
+    );
   }
 
   // ── 2. CADMINS ──────────────────────────────────────────────────────────
   if (includeCAdmins) {
-    // ✅ CAdmin model has NO role column — roles live in CAdminRoleAssignment
+    //  CAdmin model has NO role column — roles live in CAdminRoleAssignment
     // We join through roleAssignments → role → name
     let cadmins = [];
 
     if (cadminRoleFilter.length > 0) {
       // Filter cadmins who have at least one role whose name matches
-      console.log(`[Broadcast] Querying cadmins with roles: ${cadminRoleFilter.join(', ')}`);
+      console.log(
+        `[Broadcast] Querying cadmins with roles: ${cadminRoleFilter.join(", ")}`,
+      );
       cadmins = await prisma.cAdmin.findMany({
         where: {
           is_active: true,
           roleAssignments: {
             some: {
               role: {
-                name:       { in: cadminRoleFilter },
+                name: { in: cadminRoleFilter },
                 is_deleted: false,
               },
             },
@@ -461,8 +514,8 @@ async function resolveBroadcastAudience(filters = {}) {
         },
         select: {
           cadmin_id: true,
-          email:     true,
-          name:      true,
+          email: true,
+          name: true,
           roleAssignments: {
             where: { role: { is_deleted: false } },
             select: { role: { select: { name: true } } },
@@ -471,13 +524,13 @@ async function resolveBroadcastAudience(filters = {}) {
       });
     } else {
       // No role filter — all active cadmins
-      console.log('[Broadcast] Querying all active cadmins');
+      console.log("[Broadcast] Querying all active cadmins");
       cadmins = await prisma.cAdmin.findMany({
-        where:  { is_active: true },
+        where: { is_active: true },
         select: {
           cadmin_id: true,
-          email:     true,
-          name:      true,
+          email: true,
+          name: true,
           roleAssignments: {
             where: { role: { is_deleted: false } },
             select: { role: { select: { name: true } } },
@@ -488,33 +541,35 @@ async function resolveBroadcastAudience(filters = {}) {
 
     for (const admin of cadmins) {
       // Collect all role names for this cadmin (for display / audit)
-      const roleNames = admin.roleAssignments.map(a => a.role.name);
+      const roleNames = admin.roleAssignments.map((a) => a.role.name);
 
       cadminRecipients.push({
-        email:     admin.email || null,  // null-safe for in-app
-        name:      admin.name  || 'Admin',
+        email: admin.email || null, // null-safe for in-app
+        name: admin.name || "Admin",
         cadmin_id: admin.cadmin_id,
-        roles:     roleNames,
-        type:      'cadmin',
+        roles: roleNames,
+        type: "cadmin",
       });
     }
 
-    console.log(`[Broadcast] Resolved ${cadminRecipients.length} cadmin recipient(s)`);
+    console.log(
+      `[Broadcast] Resolved ${cadminRecipients.length} cadmin recipient(s)`,
+    );
   }
 
   // ── 3. DEDUPLICATE ──────────────────────────────────────────────────────
   // Deduplicate by user_id (users) and cadmin_id (cadmins) — NOT by email
   // because in-app recipients may have no email
-  const seenUsers   = new Set();
+  const seenUsers = new Set();
   const seenCAdmins = new Set();
 
-  const deduplicatedUsers = userRecipients.filter(r => {
+  const deduplicatedUsers = userRecipients.filter((r) => {
     if (seenUsers.has(r.user_id)) return false;
     seenUsers.add(r.user_id);
     return true;
   });
 
-  const deduplicatedCAdmins = cadminRecipients.filter(r => {
+  const deduplicatedCAdmins = cadminRecipients.filter((r) => {
     if (seenCAdmins.has(r.cadmin_id)) return false;
     seenCAdmins.add(r.cadmin_id);
     return true;
@@ -524,7 +579,7 @@ async function resolveBroadcastAudience(filters = {}) {
 
   console.log(
     `[Broadcast] Final audience: ${final.length} unique recipient(s)` +
-    ` (${deduplicatedUsers.length} users, ${deduplicatedCAdmins.length} cadmins)`
+      ` (${deduplicatedUsers.length} users, ${deduplicatedCAdmins.length} cadmins)`,
   );
 
   return final;

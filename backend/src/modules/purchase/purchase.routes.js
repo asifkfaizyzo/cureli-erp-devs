@@ -47,7 +47,7 @@ router.use(requireAuth);
 router.post(
   "/returns",
   validateBody(createReturnInvoiceSchema),
-  createPurchaseReturnController
+  createPurchaseReturnController,
 );
 
 // Get all purchase returns
@@ -60,7 +60,7 @@ router.get("/returns/:returnId", getReturnDetailsController);
 router.post(
   "/returns/:returnId/approve",
   validateBody(approveReturnSchema),
-  approveOrRejectReturnController
+  approveOrRejectReturnController,
 );
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -74,7 +74,7 @@ router.get("/credits", getSupplierCreditsController);
 router.post(
   "/credits/apply",
   validateBody(applyCreditNoteSchema),
-  applyCreditNoteController
+  applyCreditNoteController,
 );
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -85,7 +85,7 @@ router.post(
 router.post(
   "/",
   validateBody(createPurchaseInvoiceSchema),
-  createPurchaseInvoiceController
+  createPurchaseInvoiceController,
 );
 
 // Get all purchase invoices
@@ -101,7 +101,7 @@ router.get("/:invoiceId", getInvoiceDetailsController);
 router.put(
   "/:invoiceId",
   validateBody(updatePurchaseInvoiceSchema),
-  updatePurchaseInvoiceController
+  updatePurchaseInvoiceController,
 );
 
 // Confirm invoice
@@ -111,38 +111,37 @@ router.post("/:invoiceId/confirm", confirmPurchaseInvoiceController);
 router.post(
   "/:invoiceId/cancel",
   validateBody(cancelInvoiceSchema),
-  cancelPurchaseInvoiceController
+  cancelPurchaseInvoiceController,
 );
 
 // Update payment status (Super Admin only)
 router.patch(
   "/:invoiceId/payment-status",
   validateBody(updatePaymentStatusSchema),
-  updatePaymentStatusController
+  updatePaymentStatusController,
 );
 
 // Record payment
 router.post(
   "/:invoiceId/payments",
   validateBody(recordPaymentSchema),
-  recordPaymentController
+  recordPaymentController,
 );
 
-
-// ✅ ADD THESE TWO ROUTES
+//  ADD THESE TWO ROUTES
 
 // Cancel approved return (Super Admin only)
 router.patch(
   "/returns/:returnId/cancel",
   validateBody(cancelApprovedReturnSchema),
-  cancelApprovedReturnController
+  cancelApprovedReturnController,
 );
 
 // Revert approved return to pending (Super Admin only)
 router.patch(
   "/returns/:returnId/revert",
   validateBody(revertReturnToPendingSchema),
-  revertReturnToPendingController
+  revertReturnToPendingController,
 );
 
 export default router;

@@ -1,7 +1,7 @@
 // backend/src/modules/medicines/medicine.controller.js
 
 import { success, fail } from "../../utils/response.js";
-import prisma from "../../config/prisma.js"; // ✅ FIX: Add missing prisma import
+import prisma from "../../config/prisma.js"; //  FIX: Add missing prisma import
 import medicineService from "./medicine.service.js";
 
 /**
@@ -42,7 +42,7 @@ export async function createMedicineController(req, res) {
       req.validated,
       shopId,
       branchId,
-      userId
+      userId,
     );
 
     return success(res, medicine, "Medicine created successfully", 201);
@@ -76,7 +76,7 @@ export async function getMedicinesController(req, res) {
       branchId,
       role,
       branchMode,
-      filters
+      filters,
     );
 
     return success(res, result, "Medicines retrieved successfully");
@@ -102,7 +102,7 @@ export async function getMedicineByIdController(req, res) {
       shopId,
       branchId,
       role,
-      branchMode
+      branchMode,
     );
 
     return success(res, medicine, "Medicine retrieved successfully");
@@ -129,7 +129,7 @@ export async function updateMedicineController(req, res) {
       branchId,
       role,
       branchMode,
-      req.validated
+      req.validated,
     );
 
     return success(res, medicine, "Medicine updated successfully");
@@ -153,7 +153,7 @@ export async function bulkCreateMedicinesController(req, res) {
       req.validated.medicines,
       shopId,
       branchId,
-      userId
+      userId,
     );
 
     return success(res, result, "Bulk medicine import completed");
@@ -163,7 +163,7 @@ export async function bulkCreateMedicinesController(req, res) {
   }
 }
 
-// ✅ Search endpoint for autocomplete
+//  Search endpoint for autocomplete
 export async function searchMedicinesController(req, res) {
   try {
     const shopId = req.user.shop_id;
@@ -181,7 +181,7 @@ export async function searchMedicinesController(req, res) {
       role,
       branchMode,
       searchTerm,
-      parseInt(req.query.limit) || 20
+      parseInt(req.query.limit) || 20,
     );
 
     return success(res, { medicines }, "Search results");
@@ -195,12 +195,12 @@ export async function searchMedicinesController(req, res) {
  * GET /api/medicines/catalog-link-status
  * Get catalog link status for medicines
  *
- * ✅ FIX: Now uses the prisma import at the top of this file
+ *  FIX: Now uses the prisma import at the top of this file
  */
 export const getCatalogLinkStatusController = async (req, res) => {
   try {
     const shopId = req.user.shop_id;
-    const { branchId } = extractBranchContext(req); // ✅ FIX: Use extractBranchContext instead of raw header
+    const { branchId } = extractBranchContext(req); //  FIX: Use extractBranchContext instead of raw header
     const { ids } = req.query;
 
     if (!shopId) {

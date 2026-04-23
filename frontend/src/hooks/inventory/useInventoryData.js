@@ -60,7 +60,7 @@ export const useInventoryData = () => {
       }
 
       if (thisRequestId === requestIdRef.current) {
-        console.error("❌ Error fetching inventory:", error);
+        console.error(" Error fetching inventory:", error);
         setMedicines([]);
       }
     } finally {
@@ -117,11 +117,11 @@ export const useInventoryData = () => {
       await inventoryAPI.delete(inventoryId);
       setMedicines((prev) =>
         prev.filter(
-          (m) => m.inventory_id !== inventoryId && m.id !== inventoryId
-        )
+          (m) => m.inventory_id !== inventoryId && m.id !== inventoryId,
+        ),
       );
     } catch (error) {
-      console.error("❌ Error deleting medicine:", error);
+      console.error(" Error deleting medicine:", error);
       throw error;
     }
   }, []);

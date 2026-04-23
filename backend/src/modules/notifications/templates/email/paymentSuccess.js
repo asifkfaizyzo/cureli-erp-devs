@@ -9,8 +9,8 @@ import {
   renderLogo,
   renderFooter,
   renderButton,
-} from './_helpers.js';
-import { ICONS } from './_icons.js';
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
 
 export function paymentSuccessTemplate(context) {
   const {
@@ -25,21 +25,21 @@ export function paymentSuccessTemplate(context) {
   const subject = `Payment Successful - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
   const formattedAmount = amount
-    ? new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
+    ? new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
       }).format(amount)
-    : 'N/A';
+    : "N/A";
 
   const formattedDate = payment_date
-    ? new Date(payment_date).toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+    ? new Date(payment_date).toLocaleDateString("en-IN", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       })
-    : new Date().toLocaleDateString('en-IN');
+    : new Date().toLocaleDateString("en-IN");
 
   const html = `
     <!DOCTYPE html>
@@ -50,9 +50,9 @@ export function paymentSuccessTemplate(context) {
 <body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;-webkit-font-smoothing:antialiased;">
   <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
 
-    <!-- Header: CHECK icon replaces ✅ -->
+    <!-- Header: CHECK icon replaces  -->
     <div class="header-success" style="background:linear-gradient(135deg,#059669 0%,#047857 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo('WHITE', 'header')}
+      ${renderLogo("WHITE", "header")}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
         ${ICONS.CHECK}
         <span style="vertical-align:middle;">Payment Successful</span>
@@ -85,7 +85,7 @@ export function paymentSuccessTemplate(context) {
               Shop
             </td>
             <td class="table-value" style="padding:12px 16px;font-weight:600;font-size:14px;color:#1f2937;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">
-              ${shop_name || 'N/A'}
+              ${shop_name || "N/A"}
             </td>
           </tr>
 
@@ -98,7 +98,9 @@ export function paymentSuccessTemplate(context) {
             </td>
           </tr>
 
-          ${plan_name ? `
+          ${
+            plan_name
+              ? `
           <tr>
             <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">
               Plan
@@ -107,9 +109,13 @@ export function paymentSuccessTemplate(context) {
               ${plan_name}
             </td>
           </tr>
-          ` : ''}
+          `
+              : ""
+          }
 
-          ${transaction_id ? `
+          ${
+            transaction_id
+              ? `
           <tr>
             <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">
               Transaction ID
@@ -118,7 +124,9 @@ export function paymentSuccessTemplate(context) {
               ${transaction_id}
             </td>
           </tr>
-          ` : ''}
+          `
+              : ""
+          }
 
           <tr>
             <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;background-color:#f9fafb;">
@@ -156,9 +164,9 @@ export function paymentSuccessTemplate(context) {
       <!-- CTA Button: CLIPBOARD icon replaces 📋 -->
       ${renderButton({
         href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`,
-        text: 'View Subscription',
-        icon: 'CLIPBOARD',
-        color: 'primary',
+        text: "View Subscription",
+        icon: "CLIPBOARD",
+        color: "primary",
       })}
 
       <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">

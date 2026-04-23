@@ -1,10 +1,10 @@
 // src/pages/purchase/billing/components/PurchaseSummaryCard.jsx
 
 import React from "react";
-import { 
-  Calculator, 
-  Percent, 
-  Receipt, 
+import {
+  Calculator,
+  Percent,
+  Receipt,
   IndianRupee,
   Minus,
   Plus,
@@ -14,20 +14,20 @@ import {
 
 // Skeleton component for loading state
 const SkeletonLine = ({ width = "100%", height = "16px", className = "" }) => (
-  <div 
+  <div
     className={`bg-slate-200 rounded animate-pulse ${className}`}
     style={{ width, height }}
   />
 );
 
-const PurchaseSummaryCard = ({ 
-  summary, 
+const PurchaseSummaryCard = ({
+  summary,
   isLoading = false,
   isEditingConfirmed = false,
 }) => {
   const formatCurrency = (value) => {
     const num = parseFloat(value) || 0;
-    return new Intl.NumberFormat('en-IN', {
+    return new Intl.NumberFormat("en-IN", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(num);
@@ -66,24 +66,29 @@ const PurchaseSummaryCard = ({
   const roundOff = parseFloat(summary.roundOff) || 0;
   const total = parseFloat(summary.total) || 0;
   const itemCount = summary.itemCount || 0;
-  
-  // ✅ NEW: Free item info
+
+  //  NEW: Free item info
   const freeItemCount = summary.freeItemCount || 0;
   const totalFreeQty = summary.totalFreeQty || 0;
 
   return (
-    <div className={`
+    <div
+      className={`
       h-full bg-white rounded-lg border shadow-sm overflow-hidden flex flex-col
-      ${isEditingConfirmed ? 'border-amber-300' : 'border-slate-200'}
-    `}>
+      ${isEditingConfirmed ? "border-amber-300" : "border-slate-200"}
+    `}
+    >
       {/* Header */}
-      <div className={`
+      <div
+        className={`
         px-3 py-2 flex items-center justify-between
-        ${isEditingConfirmed 
-          ? 'bg-gradient-to-r from-amber-600 to-orange-600' 
-          : 'bg-gradient-to-r from-[#05015A] to-[#0a0280]'
+        ${
+          isEditingConfirmed
+            ? "bg-gradient-to-r from-amber-600 to-orange-600"
+            : "bg-gradient-to-r from-[#05015A] to-[#0a0280]"
         }
-      `}>
+      `}
+      >
         <div className="flex items-center gap-2">
           <Calculator size={14} className="text-white" />
           <h3 className="text-xs font-semibold text-white uppercase tracking-wide">
@@ -103,7 +108,7 @@ const PurchaseSummaryCard = ({
         </div>
       </div>
 
-      {/* ✅ NEW: Free Items Info Banner */}
+      {/*  NEW: Free Items Info Banner */}
       {freeItemCount > 0 && (
         <div className="px-3 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-200">
           <div className="flex items-center justify-between text-xs">
@@ -124,7 +129,6 @@ const PurchaseSummaryCard = ({
       {/* Content */}
       <div className="flex-1 p-3 overflow-y-auto">
         <div className="space-y-1.5">
-          
           {/* Subtotal */}
           <div className="flex items-center justify-between py-1">
             <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
@@ -196,10 +200,12 @@ const PurchaseSummaryCard = ({
                 {roundOff >= 0 ? <Plus size={10} /> : <Minus size={10} />}
                 Round Off
               </span>
-              <span className={`text-[10px] font-medium tabular-nums ${
-                roundOff >= 0 ? 'text-green-600' : 'text-rose-600'
-              }`}>
-                {roundOff >= 0 ? '+' : ''}₹{formatCurrency(roundOff)}
+              <span
+                className={`text-[10px] font-medium tabular-nums ${
+                  roundOff >= 0 ? "text-green-600" : "text-rose-600"
+                }`}
+              >
+                {roundOff >= 0 ? "+" : ""}₹{formatCurrency(roundOff)}
               </span>
             </div>
           )}
@@ -207,31 +213,43 @@ const PurchaseSummaryCard = ({
       </div>
 
       {/* Total */}
-      <div className={`
+      <div
+        className={`
         p-3 border-t-2
-        ${isEditingConfirmed 
-          ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300' 
-          : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200'
+        ${
+          isEditingConfirmed
+            ? "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300"
+            : "bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200"
         }
-      `}>
+      `}
+      >
         <div className="flex items-center justify-between">
-          <span className={`
+          <span
+            className={`
             text-xs font-bold uppercase tracking-wide
-            ${isEditingConfirmed ? 'text-amber-800' : 'text-indigo-800'}
-          `}>
+            ${isEditingConfirmed ? "text-amber-800" : "text-indigo-800"}
+          `}
+          >
             Net Amount
           </span>
           <div className="flex items-center gap-1">
-            <IndianRupee size={14} className={isEditingConfirmed ? 'text-amber-700' : 'text-indigo-700'} />
-            <span className={`
+            <IndianRupee
+              size={14}
+              className={
+                isEditingConfirmed ? "text-amber-700" : "text-indigo-700"
+              }
+            />
+            <span
+              className={`
               text-lg font-bold tabular-nums
-              ${isEditingConfirmed ? 'text-amber-900' : 'text-indigo-900'}
-            `}>
+              ${isEditingConfirmed ? "text-amber-900" : "text-indigo-900"}
+            `}
+            >
               {formatCurrency(total)}
             </span>
           </div>
         </div>
-        
+
         {/* Edit mode indicator */}
         {isEditingConfirmed && (
           <div className="mt-2 pt-2 border-t border-amber-200">
@@ -245,10 +263,12 @@ const PurchaseSummaryCard = ({
         {/* In words - optional */}
         {total > 0 && (
           <div className="mt-2 pt-2 border-t border-slate-200/50">
-            <p className={`
+            <p
+              className={`
               text-[9px] italic
-              ${isEditingConfirmed ? 'text-amber-700' : 'text-indigo-700'}
-            `}>
+              ${isEditingConfirmed ? "text-amber-700" : "text-indigo-700"}
+            `}
+            >
               {convertToWords(Math.round(total))} Only
             </p>
           </div>
@@ -261,22 +281,72 @@ const PurchaseSummaryCard = ({
 // Helper function to convert number to words
 function convertToWords(num) {
   if (num === 0) return "Zero";
-  
-  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-                'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
-                'Seventeen', 'Eighteen', 'Nineteen'];
-  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-  
+
+  const ones = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
+  const tens = [
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
+  ];
+
   const numToWords = (n) => {
     if (n < 20) return ones[n];
-    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
-    if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + numToWords(n % 100) : '');
-    if (n < 100000) return numToWords(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + numToWords(n % 1000) : '');
-    if (n < 10000000) return numToWords(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + numToWords(n % 100000) : '');
-    return numToWords(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + numToWords(n % 10000000) : '');
+    if (n < 100)
+      return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+    if (n < 1000)
+      return (
+        ones[Math.floor(n / 100)] +
+        " Hundred" +
+        (n % 100 ? " " + numToWords(n % 100) : "")
+      );
+    if (n < 100000)
+      return (
+        numToWords(Math.floor(n / 1000)) +
+        " Thousand" +
+        (n % 1000 ? " " + numToWords(n % 1000) : "")
+      );
+    if (n < 10000000)
+      return (
+        numToWords(Math.floor(n / 100000)) +
+        " Lakh" +
+        (n % 100000 ? " " + numToWords(n % 100000) : "")
+      );
+    return (
+      numToWords(Math.floor(n / 10000000)) +
+      " Crore" +
+      (n % 10000000 ? " " + numToWords(n % 10000000) : "")
+    );
   };
-  
-  return 'Rupees ' + numToWords(num);
+
+  return "Rupees " + numToWords(num);
 }
 
 export default PurchaseSummaryCard;

@@ -1,30 +1,31 @@
 // backend/src/modules/suppliers/supplier.schema.js
 import { z } from "zod";
 
-// ✅ GST Regex: 2 digits + 5 letters + 4 digits + 1 letter + 1 alphanumeric + Z + 1 alphanumeric
+//  GST Regex: 2 digits + 5 letters + 4 digits + 1 letter + 1 alphanumeric + Z + 1 alphanumeric
 const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
-// ✅ PAN Regex: 5 letters + 4 digits + 1 letter
+//  PAN Regex: 5 letters + 4 digits + 1 letter
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 
-// ✅ Phone: Only 10 digits
+//  Phone: Only 10 digits
 const PHONE_REGEX = /^[0-9]{10}$/;
 
-// ✅ Pincode: Only 6 digits
+//  Pincode: Only 6 digits
 const PINCODE_REGEX = /^[0-9]{6}$/;
 
-// ✅ Drug License formats (common Indian formats)
+//  Drug License formats (common Indian formats)
 // Format: XX/XXX/XX/XXXX or DL-XXX-XX-XXXXXX etc.
 const DRUG_LICENSE_REGEX = /^[A-Z0-9\-\/]{8,25}$/;
 
-// ✅ IFSC Code: 4 letters + 0 + 6 alphanumeric
+//  IFSC Code: 4 letters + 0 + 6 alphanumeric
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
-// ✅ Email validation
+//  Email validation
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Helper to allow empty string or null
-const optionalString = (schema) => schema.optional().nullable().or(z.literal(""));
+const optionalString = (schema) =>
+  schema.optional().nullable().or(z.literal(""));
 
 // Helper for phone validation
 const phoneSchema = z
@@ -68,7 +69,8 @@ export const createSupplierSchema = z
     email: z
       .string()
       .refine((val) => !val || EMAIL_REGEX.test(val), {
-        message: "Please enter a valid email address (e.g., example@domain.com)",
+        message:
+          "Please enter a valid email address (e.g., example@domain.com)",
       })
       .optional()
       .nullable()
@@ -115,7 +117,7 @@ export const createSupplierSchema = z
     address_line_2: z.string().max(500).optional().nullable().or(z.literal("")),
     city: z.string().max(100).optional().nullable().or(z.literal("")),
     state: z.string().max(100).optional().nullable().or(z.literal("")),
-    
+
     pincode: z
       .string()
       .refine((val) => !val || PINCODE_REGEX.test(val), {
@@ -136,7 +138,7 @@ export const createSupplierSchema = z
       .min(0, "Credit days cannot be negative")
       .max(365, "Credit days cannot exceed 365")
       .default(0),
-    
+
     credit_limit: z
       .number()
       .min(0, "Credit limit cannot be negative")
@@ -153,12 +155,13 @@ export const createSupplierSchema = z
       .optional()
       .nullable()
       .or(z.literal("")),
-    
+
     ifsc_code: z
       .string()
       .toUpperCase()
       .refine((val) => !val || IFSC_REGEX.test(val), {
-        message: "Invalid IFSC format. Must be 11 characters: 4 letters + 0 + 6 alphanumeric (e.g., HDFC0001234)",
+        message:
+          "Invalid IFSC format. Must be 11 characters: 4 letters + 0 + 6 alphanumeric (e.g., HDFC0001234)",
       })
       .optional()
       .nullable()
@@ -274,7 +277,7 @@ export const updateSupplierSchema = z
     address_line_2: z.string().max(500).optional().nullable().or(z.literal("")),
     city: z.string().max(100).optional().nullable().or(z.literal("")),
     state: z.string().max(100).optional().nullable().or(z.literal("")),
-    
+
     pincode: z
       .string()
       .refine((val) => !val || PINCODE_REGEX.test(val), {
@@ -285,16 +288,11 @@ export const updateSupplierSchema = z
       .or(z.literal("")),
 
     contact_person: z.string().max(100).optional().nullable().or(z.literal("")),
-    
-    credit_days: z
-      .number()
-      .int()
-      .min(0)
-      .max(365)
-      .optional(),
-    
+
+    credit_days: z.number().int().min(0).max(365).optional(),
+
     credit_limit: z.number().min(0).optional().nullable(),
-    
+
     bank_name: z.string().max(100).optional().nullable().or(z.literal("")),
     account_number: z
       .string()
@@ -304,7 +302,7 @@ export const updateSupplierSchema = z
       .optional()
       .nullable()
       .or(z.literal("")),
-    
+
     ifsc_code: z
       .string()
       .toUpperCase()

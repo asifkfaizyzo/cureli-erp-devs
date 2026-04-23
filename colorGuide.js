@@ -25,21 +25,21 @@
 ═══════════════════════════════════════════════════════════════════
 
   Background:
-    ✅ bg-gradient-to-r from-[#05015A] to-[#0a0280]     ← your main gradient
-    ✅ bg-[#05015A]                                       ← solid fallback
+     bg-gradient-to-r from-[#05015A] to-[#0a0280]     ← your main gradient
+     bg-[#05015A]                                       ← solid fallback
 
   Text on dark bg:
-    ✅ text-white                                         ← primary text
-    ✅ text-white/80                                      ← secondary text
-    ✅ text-white/60                                      ← muted / subtitle
-    ✅ text-white/40                                      ← disabled / hint
-    ❌ text-gray-300                                      ← too washed out
-    ❌ text-black                                         ← never on dark bg
+     text-white                                         ← primary text
+     text-white/80                                      ← secondary text
+     text-white/60                                      ← muted / subtitle
+     text-white/40                                      ← disabled / hint
+     text-gray-300                                      ← too washed out
+     text-black                                         ← never on dark bg
 
   Icons on dark bg:
-    ✅ text-white/70                                      ← default icon
-    ✅ text-white                                         ← active / hover icon
-    ✅ text-indigo-300                                    ← accent icon
+     text-white/70                                      ← default icon
+     text-white                                         ← active / hover icon
+     text-indigo-300                                    ← accent icon
 
 
 ═══════════════════════════════════════════════════════════════════
@@ -267,9 +267,11 @@ export const BRAND_COLORS = {
   textBrandMuted: "text-indigo-400",
 
   // Buttons
-  btnPrimary: "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800",
+  btnPrimary:
+    "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800",
   btnPrimaryDark: "bg-indigo-900 text-white hover:bg-indigo-950",
-  btnSecondary: "border border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50",
+  btnSecondary:
+    "border border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50",
   btnGhost: "text-indigo-600 hover:bg-indigo-50",
   btnSoft: "bg-indigo-50 text-indigo-700 hover:bg-indigo-100",
   btnGlass: "bg-white/10 text-white/80 hover:bg-white/20 hover:text-white",

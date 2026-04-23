@@ -110,7 +110,12 @@ function canAutoApprove(role) {
 // - Updates customer ledger if CREDIT
 // ============================================
 
-async function processApprovedSalesReturn(tx, returnInvoice, lineItems, userId) {
+async function processApprovedSalesReturn(
+  tx,
+  returnInvoice,
+  lineItems,
+  userId,
+) {
   const shopId = returnInvoice.shop_id;
   const branchId = returnInvoice.branch_id;
   const customerId = returnInvoice.customer_id;
@@ -178,7 +183,7 @@ async function processApprovedSalesReturn(tx, returnInvoice, lineItems, userId) 
         data: { inventory_id: inventory.inventory_id },
       });
 
-      console.log(`  ✅ Added back ${returnQty} units of ${item.batch_number}`);
+      console.log(`   Added back ${returnQty} units of ${item.batch_number}`);
     } else {
       console.warn(`  ⚠️ Inventory not found for batch ${item.batch_number}`);
     }
@@ -237,9 +242,11 @@ async function processApprovedSalesReturn(tx, returnInvoice, lineItems, userId) 
       },
     });
 
-    console.log(`  ✅ Cash refund of ₹${netAmount} recorded`);
-
-  } else if (returnInvoice.refund_mode === SALES_REFUND_MODE.CREDIT && customerId) {
+    console.log(`   Cash refund of ₹${netAmount} recorded`);
+  } else if (
+    returnInvoice.refund_mode === SALES_REFUND_MODE.CREDIT &&
+    customerId
+  ) {
     // CREDIT - Reduce customer's outstanding balance
     const customer = await tx.customer.findUnique({
       where: { customer_id: customerId },
@@ -284,9 +291,13 @@ async function processApprovedSalesReturn(tx, returnInvoice, lineItems, userId) 
       },
     });
 
-    console.log(`  ✅ Reduced customer outstanding by ₹${netAmount}. New balance: ₹${newOutstanding}`);
-
-  } else if (returnInvoice.refund_mode === SALES_REFUND_MODE.ADJUST_NEXT && customerId) {
+    console.log(
+      `   Reduced customer outstanding by ₹${netAmount}. New balance: ₹${newOutstanding}`,
+    );
+  } else if (
+    returnInvoice.refund_mode === SALES_REFUND_MODE.ADJUST_NEXT &&
+    customerId
+  ) {
     // ADJUST_NEXT - Create customer credit note for future purchases
     generatedCreditNoteNumber = await generateCustomerCreditNoteNumber(shopId);
 
@@ -320,7 +331,9 @@ async function processApprovedSalesReturn(tx, returnInvoice, lineItems, userId) 
       },
     });
 
-    console.log(`  ✅ Created customer credit note: ${generatedCreditNoteNumber} for ₹${netAmount}`);
+    console.log(
+      `   Created customer credit note: ${generatedCreditNoteNumber} for ₹${netAmount}`,
+    );
   }
 
   return { creditNoteNumber: generatedCreditNoteNumber };
@@ -333,7 +346,13 @@ async function processApprovedSalesReturn(tx, returnInvoice, lineItems, userId) 
 // - Reverses customer ledger entries
 // ============================================
 
-async function reverseApprovedSalesReturn(tx, returnInvoice, lineItems, userId, reason) {
+async function reverseApprovedSalesReturn(
+  tx,
+  returnInvoice,
+  lineItems,
+  userId,
+  reason,
+) {
   const shopId = returnInvoice.shop_id;
   const branchId = returnInvoice.branch_id;
   const customerId = returnInvoice.customer_id;
@@ -410,7 +429,10 @@ async function reverseApprovedSalesReturn(tx, returnInvoice, lineItems, userId, 
         await tx.salesInvoiceItem.update({
           where: { item_id: parentItem.item_id },
           data: {
-            returned_quantity: Math.max(0, currentReturned - parseFloat(item.quantity)),
+            returned_quantity: Math.max(
+              0,
+              currentReturned - parseFloat(item.quantity),
+            ),
           },
         });
       }
@@ -453,7 +475,6 @@ async function reverseApprovedSalesReturn(tx, returnInvoice, lineItems, userId, 
     });
 
     console.log(`  ↩️ Restored customer outstanding by ₹${netAmount}`);
-
   } else if (returnInvoice.refund_mode === SALES_REFUND_MODE.ADJUST_NEXT) {
     // Cancel any customer credits from this return
     await tx.customerCredit.updateMany({
@@ -466,7 +487,7 @@ async function reverseApprovedSalesReturn(tx, returnInvoice, lineItems, userId, 
       },
     });
 
-    console.log(`  ✅ Cancelled customer credit notes`);
+    console.log(`   Cancelled customer credit notes`);
   }
 }
 
@@ -493,7 +514,7 @@ class SalesReturnService {
       throw new ApiError(
         "Branch selection is required for sales returns",
         400,
-        "BRANCH_REQUIRED"
+        "BRANCH_REQUIRED",
       );
     }
 
@@ -534,7 +555,9 @@ class SalesReturnService {
         returnInvoices: {
           where: {
             status: { not: INVOICE_STATUS.CANCELLED },
-            return_approval_status: { not: SALES_RETURN_APPROVAL_STATUS.CANCELLED },
+            return_approval_status: {
+              not: SALES_RETURN_APPROVAL_STATUS.CANCELLED,
+            },
           },
           select: {
             invoice_id: true,
@@ -555,7 +578,7 @@ class SalesReturnService {
       throw new ApiError(
         "Parent invoice not found, not confirmed, or belongs to different branch",
         404,
-        "PARENT_NOT_FOUND"
+        "PARENT_NOT_FOUND",
       );
     }
 
@@ -567,8 +590,12 @@ class SalesReturnService {
     const returnedQuantityMap = new Map();
     for (const returnInv of parentInvoice.returnInvoices) {
       // Only count approved and pending returns
-      if ([SALES_RETURN_APPROVAL_STATUS.APPROVED, SALES_RETURN_APPROVAL_STATUS.PENDING_APPROVAL]
-          .includes(returnInv.return_approval_status)) {
+      if (
+        [
+          SALES_RETURN_APPROVAL_STATUS.APPROVED,
+          SALES_RETURN_APPROVAL_STATUS.PENDING_APPROVAL,
+        ].includes(returnInv.return_approval_status)
+      ) {
         for (const item of returnInv.lineItems) {
           const key = `${item.medicine_id}_${item.inventory_id}`;
           const current = returnedQuantityMap.get(key) || 0;
@@ -581,14 +608,14 @@ class SalesReturnService {
     const validatedItems = [];
     for (const returnItem of data.lineItems) {
       const originalItem = parentInvoice.lineItems.find(
-        (item) => item.item_id === returnItem.item_id
+        (item) => item.item_id === returnItem.item_id,
       );
 
       if (!originalItem) {
         throw new ApiError(
           `Item ${returnItem.item_id} not found in original sale`,
           400,
-          "ITEM_NOT_FOUND"
+          "ITEM_NOT_FOUND",
         );
       }
 
@@ -602,16 +629,16 @@ class SalesReturnService {
         throw new ApiError(
           `Return quantity must be greater than 0 for ${originalItem.medicine.name}`,
           400,
-          "INVALID_QUANTITY"
+          "INVALID_QUANTITY",
         );
       }
 
       if (returnQty > remainingReturnable) {
         throw new ApiError(
           `Cannot return ${returnQty} units of ${originalItem.medicine.name}. ` +
-          `Original: ${originalQty}, Already returned/pending: ${alreadyReturned}, Remaining: ${remainingReturnable}`,
+            `Original: ${originalQty}, Already returned/pending: ${alreadyReturned}, Remaining: ${remainingReturnable}`,
           400,
-          "EXCEEDS_RETURNABLE"
+          "EXCEEDS_RETURNABLE",
         );
       }
 
@@ -632,34 +659,43 @@ class SalesReturnService {
       sgst_percent: parseFloat(item.originalItem.sgst_percent),
     }));
 
-    const customerDiscountPercent = parseFloat(parentInvoice.customer_discount_percent || 0);
-    const billDiscountPercent = parseFloat(parentInvoice.bill_discount_percent || 0);
+    const customerDiscountPercent = parseFloat(
+      parentInvoice.customer_discount_percent || 0,
+    );
+    const billDiscountPercent = parseFloat(
+      parentInvoice.bill_discount_percent || 0,
+    );
 
     const calculations = calculateInvoiceTotals(
       returnLineItems,
       customerDiscountPercent,
-      billDiscountPercent
+      billDiscountPercent,
     );
 
-    const returnInvoiceNumber = await generateSalesReturnNumber(shopId, branchId);
+    const returnInvoiceNumber = await generateSalesReturnNumber(
+      shopId,
+      branchId,
+    );
 
     // Determine approval status based on role
     const shouldAutoApprove = canAutoApprove(user.role);
-    const approvalStatus = shouldAutoApprove 
-      ? SALES_RETURN_APPROVAL_STATUS.APPROVED 
+    const approvalStatus = shouldAutoApprove
+      ? SALES_RETURN_APPROVAL_STATUS.APPROVED
       : SALES_RETURN_APPROVAL_STATUS.PENDING_APPROVAL;
-    const invoiceStatus = shouldAutoApprove ? INVOICE_STATUS.CONFIRMED : "DRAFT";
+    const invoiceStatus = shouldAutoApprove
+      ? INVOICE_STATUS.CONFIRMED
+      : "DRAFT";
 
     // Validate refund mode - CREDIT/ADJUST_NEXT requires customer
     if (
-      (data.refund_mode === SALES_REFUND_MODE.CREDIT || 
-       data.refund_mode === SALES_REFUND_MODE.ADJUST_NEXT) && 
+      (data.refund_mode === SALES_REFUND_MODE.CREDIT ||
+        data.refund_mode === SALES_REFUND_MODE.ADJUST_NEXT) &&
       !parentInvoice.customer_id
     ) {
       throw new ApiError(
         `Refund mode "${data.refund_mode}" requires a registered customer. This is a walk-in sale. Please use CASH refund.`,
         400,
-        "INVALID_REFUND_MODE"
+        "INVALID_REFUND_MODE",
       );
     }
 
@@ -675,7 +711,7 @@ class SalesReturnService {
           walkin_phone: parentInvoice.walkin_phone,
           invoice_date: new Date(),
           created_by: userId,
-          
+
           // Auto-confirm if auto-approved
           ...(shouldAutoApprove && {
             confirmed_by: userId,
@@ -726,45 +762,46 @@ class SalesReturnService {
       // Create line items
       const createdItems = [];
       for (const item of validatedItems) {
-  // ✅ Use selling_rate from original item for calculations
-  const effectiveSellingRate = item.originalItem.selling_rate || item.originalItem.mrp;
-  
-  const itemCalc = calculateLineItem({
-    quantity: item.returnQty,
-    mrp: effectiveSellingRate, // ← Use selling_rate
-    discount_percent: item.originalItem.discount_percent,
-    cgst_percent: item.originalItem.cgst_percent,
-    sgst_percent: item.originalItem.sgst_percent,
-  });
+        //  Use selling_rate from original item for calculations
+        const effectiveSellingRate =
+          item.originalItem.selling_rate || item.originalItem.mrp;
 
-  const returnItem = await tx.salesInvoiceItem.create({
-    data: {
-      invoice_id: returnInvoice.invoice_id,
-      medicine_id: item.originalItem.medicine_id,
-      inventory_id: item.originalItem.inventory_id,
-      batch_number: item.inventory.batch_number,
-      expiry_date: item.inventory.expiry_date,
-      quantity: item.returnQty,
-      unit_of_measure: item.originalItem.unit_of_measure,
-      
-      // ✅ Store both selling_rate and MRP
-      selling_rate: effectiveSellingRate,
-      mrp: item.originalItem.mrp,
-      
-      purchase_rate: item.originalItem.purchase_rate,
-      discount_percent: item.originalItem.discount_percent,
-      discount_amount: itemCalc.discount_amount,
-      taxable_amount: itemCalc.taxable_amount,
-      cgst_percent: item.originalItem.cgst_percent,
-      cgst_amount: itemCalc.cgst_amount,
-      sgst_percent: item.originalItem.sgst_percent,
-      sgst_amount: itemCalc.sgst_amount,
-      line_total: itemCalc.line_total,
-    },
-  });
+        const itemCalc = calculateLineItem({
+          quantity: item.returnQty,
+          mrp: effectiveSellingRate, // ← Use selling_rate
+          discount_percent: item.originalItem.discount_percent,
+          cgst_percent: item.originalItem.cgst_percent,
+          sgst_percent: item.originalItem.sgst_percent,
+        });
 
-  createdItems.push(returnItem);
-}
+        const returnItem = await tx.salesInvoiceItem.create({
+          data: {
+            invoice_id: returnInvoice.invoice_id,
+            medicine_id: item.originalItem.medicine_id,
+            inventory_id: item.originalItem.inventory_id,
+            batch_number: item.inventory.batch_number,
+            expiry_date: item.inventory.expiry_date,
+            quantity: item.returnQty,
+            unit_of_measure: item.originalItem.unit_of_measure,
+
+            //  Store both selling_rate and MRP
+            selling_rate: effectiveSellingRate,
+            mrp: item.originalItem.mrp,
+
+            purchase_rate: item.originalItem.purchase_rate,
+            discount_percent: item.originalItem.discount_percent,
+            discount_amount: itemCalc.discount_amount,
+            taxable_amount: itemCalc.taxable_amount,
+            cgst_percent: item.originalItem.cgst_percent,
+            cgst_amount: itemCalc.cgst_amount,
+            sgst_percent: item.originalItem.sgst_percent,
+            sgst_amount: itemCalc.sgst_amount,
+            line_total: itemCalc.line_total,
+          },
+        });
+
+        createdItems.push(returnItem);
+      }
 
       // If auto-approved, process the return immediately
       if (shouldAutoApprove) {
@@ -772,7 +809,7 @@ class SalesReturnService {
           tx,
           returnInvoice,
           createdItems,
-          userId
+          userId,
         );
 
         // Update return invoice with credit note number if generated
@@ -806,7 +843,10 @@ class SalesReturnService {
       metadata: {
         return_invoice_number: result.invoice_number,
         parent_invoice_number: parentInvoice.invoice_number,
-        customer_name: parentInvoice.customer?.name || parentInvoice.walkin_name || "Walk-in",
+        customer_name:
+          parentInvoice.customer?.name ||
+          parentInvoice.walkin_name ||
+          "Walk-in",
         return_reason: data.return_reason,
         refund_mode: data.refund_mode,
         refund_amount: result.refund_amount,
@@ -823,7 +863,14 @@ class SalesReturnService {
   // APPROVE OR REJECT RETURN (Super Admin / Branch Admin)
   // ============================================
 
-  async approveOrRejectReturn(userId, shopId, branchId, returnId, data, auditContext) {
+  async approveOrRejectReturn(
+    userId,
+    shopId,
+    branchId,
+    returnId,
+    data,
+    auditContext,
+  ) {
     const user = await prisma.user.findUnique({
       where: { user_id: userId },
       select: { role: true, full_name: true },
@@ -838,7 +885,7 @@ class SalesReturnService {
       throw new ApiError(
         "Only Super Admin or Branch Admin can approve/reject returns",
         403,
-        "PERMISSION_DENIED"
+        "PERMISSION_DENIED",
       );
     }
 
@@ -865,7 +912,7 @@ class SalesReturnService {
       throw new ApiError(
         "Return invoice not found or already processed",
         404,
-        "NOT_FOUND"
+        "NOT_FOUND",
       );
     }
 
@@ -874,7 +921,7 @@ class SalesReturnService {
       throw new ApiError(
         "You can only approve returns from your own branch",
         403,
-        "BRANCH_MISMATCH"
+        "BRANCH_MISMATCH",
       );
     }
 
@@ -898,7 +945,7 @@ class SalesReturnService {
           tx,
           updated,
           returnInvoice.lineItems,
-          userId
+          userId,
         );
 
         // Update with credit note number if generated
@@ -927,9 +974,10 @@ class SalesReturnService {
 
     // Audit log
     await audit.log({
-      action: data.action === "APPROVE"
-        ? audit.AuditAction.SALES_RETURN_APPROVED
-        : audit.AuditAction.SALES_RETURN_REJECTED,
+      action:
+        data.action === "APPROVE"
+          ? audit.AuditAction.SALES_RETURN_APPROVED
+          : audit.AuditAction.SALES_RETURN_REJECTED,
       entity_type: audit.EntityType.SALES_INVOICE,
       entity_id: returnId,
       shop_id: shopId,
@@ -942,7 +990,10 @@ class SalesReturnService {
       metadata: {
         return_invoice_number: returnInvoice.invoice_number,
         parent_invoice_number: returnInvoice.parentInvoice?.invoice_number,
-        customer_name: returnInvoice.customer?.name || returnInvoice.walkin_name || "Walk-in",
+        customer_name:
+          returnInvoice.customer?.name ||
+          returnInvoice.walkin_name ||
+          "Walk-in",
         return_reason: returnInvoice.return_reason,
         action: data.action,
         rejection_reason: data.rejection_reason,
@@ -957,7 +1008,14 @@ class SalesReturnService {
   // CANCEL APPROVED SALES RETURN (Super Admin)
   // ============================================
 
-  async cancelSalesReturn(userId, shopId, branchId, returnId, data, auditContext) {
+  async cancelSalesReturn(
+    userId,
+    shopId,
+    branchId,
+    returnId,
+    data,
+    auditContext,
+  ) {
     const user = await prisma.user.findUnique({
       where: { user_id: userId },
       select: { role: true, full_name: true },
@@ -971,7 +1029,7 @@ class SalesReturnService {
       throw new ApiError(
         "Only Super Admin can cancel approved sales returns",
         403,
-        "PERMISSION_DENIED"
+        "PERMISSION_DENIED",
       );
     }
 
@@ -1000,11 +1058,14 @@ class SalesReturnService {
       throw new ApiError("Return invoice not found", 404, "NOT_FOUND");
     }
 
-    if (returnInvoice.return_approval_status !== SALES_RETURN_APPROVAL_STATUS.APPROVED) {
+    if (
+      returnInvoice.return_approval_status !==
+      SALES_RETURN_APPROVAL_STATUS.APPROVED
+    ) {
       throw new ApiError(
         `Cannot cancel return with status: ${returnInvoice.return_approval_status}. Only APPROVED returns can be cancelled.`,
         400,
-        "INVALID_STATUS"
+        "INVALID_STATUS",
       );
     }
 
@@ -1015,7 +1076,7 @@ class SalesReturnService {
         returnInvoice,
         returnInvoice.lineItems,
         userId,
-        data.cancellation_reason
+        data.cancellation_reason,
       );
 
       // Update return status
@@ -1027,7 +1088,8 @@ class SalesReturnService {
           cancelled_at: new Date(),
           cancelled_by: userId,
           cancellation_reason: data.cancellation_reason,
-          remarks: `CANCELLED: ${data.cancellation_reason}\n\n${returnInvoice.remarks || ""}`.trim(),
+          remarks:
+            `CANCELLED: ${data.cancellation_reason}\n\n${returnInvoice.remarks || ""}`.trim(),
         },
       });
 
@@ -1049,7 +1111,10 @@ class SalesReturnService {
       metadata: {
         return_invoice_number: returnInvoice.invoice_number,
         parent_invoice_number: returnInvoice.parentInvoice?.invoice_number,
-        customer_name: returnInvoice.customer?.name || returnInvoice.walkin_name || "Walk-in",
+        customer_name:
+          returnInvoice.customer?.name ||
+          returnInvoice.walkin_name ||
+          "Walk-in",
         cancellation_reason: data.cancellation_reason,
         refund_amount: returnInvoice.net_amount,
         credits_cancelled: returnInvoice.customerCredits?.length || 0,
@@ -1063,7 +1128,14 @@ class SalesReturnService {
   // REVERT APPROVED RETURN TO PENDING (Super Admin)
   // ============================================
 
-  async revertReturnToPending(userId, shopId, branchId, returnId, data, auditContext) {
+  async revertReturnToPending(
+    userId,
+    shopId,
+    branchId,
+    returnId,
+    data,
+    auditContext,
+  ) {
     const user = await prisma.user.findUnique({
       where: { user_id: userId },
       select: { role: true, full_name: true },
@@ -1077,7 +1149,7 @@ class SalesReturnService {
       throw new ApiError(
         "Only Super Admin can revert approved returns",
         403,
-        "PERMISSION_DENIED"
+        "PERMISSION_DENIED",
       );
     }
 
@@ -1106,11 +1178,14 @@ class SalesReturnService {
       throw new ApiError("Return invoice not found", 404, "NOT_FOUND");
     }
 
-    if (returnInvoice.return_approval_status !== SALES_RETURN_APPROVAL_STATUS.APPROVED) {
+    if (
+      returnInvoice.return_approval_status !==
+      SALES_RETURN_APPROVAL_STATUS.APPROVED
+    ) {
       throw new ApiError(
         `Cannot revert return with status: ${returnInvoice.return_approval_status}. Only APPROVED returns can be reverted.`,
         400,
-        "INVALID_STATUS"
+        "INVALID_STATUS",
       );
     }
 
@@ -1121,7 +1196,7 @@ class SalesReturnService {
         returnInvoice,
         returnInvoice.lineItems,
         userId,
-        data.revert_reason
+        data.revert_reason,
       );
 
       // Reset to pending
@@ -1139,7 +1214,8 @@ class SalesReturnService {
           payment_status: PAYMENT_STATUS.UNPAID,
           paid_amount: 0,
           balance_amount: returnInvoice.net_amount,
-          remarks: `REVERTED TO PENDING: ${data.revert_reason}\n\n${returnInvoice.remarks || ""}`.trim(),
+          remarks:
+            `REVERTED TO PENDING: ${data.revert_reason}\n\n${returnInvoice.remarks || ""}`.trim(),
         },
       });
 
@@ -1194,16 +1270,21 @@ class SalesReturnService {
       ...(customerId && { customer_id: customerId }),
       ...(returnReason && { return_reason: returnReason }),
       ...(approvalStatus && { return_approval_status: approvalStatus }),
-      ...(startDate && endDate && {
-        invoice_date: {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
-        },
-      }),
+      ...(startDate &&
+        endDate && {
+          invoice_date: {
+            gte: new Date(startDate),
+            lte: new Date(endDate),
+          },
+        }),
       ...(search && {
         OR: [
           { invoice_number: { contains: search, mode: "insensitive" } },
-          { parentInvoice: { invoice_number: { contains: search, mode: "insensitive" } } },
+          {
+            parentInvoice: {
+              invoice_number: { contains: search, mode: "insensitive" },
+            },
+          },
           { customer: { name: { contains: search, mode: "insensitive" } } },
           { walkin_name: { contains: search, mode: "insensitive" } },
         ],
@@ -1415,7 +1496,11 @@ class SalesReturnService {
     });
 
     if (!invoice) {
-      throw new ApiError("Invoice not found or not confirmed", 404, "NOT_FOUND");
+      throw new ApiError(
+        "Invoice not found or not confirmed",
+        404,
+        "NOT_FOUND",
+      );
     }
 
     // Build map of returned/pending quantities
@@ -1429,34 +1514,34 @@ class SalesReturnService {
     }
 
     const returnableItems = invoice.lineItems.map((item) => {
-  const key = `${item.medicine_id}_${item.inventory_id}`;
-  const originalQty = parseFloat(item.quantity);
-  const returnedQty = returnedQuantityMap.get(key) || 0;
-  const returnableQty = originalQty - returnedQty;
+      const key = `${item.medicine_id}_${item.inventory_id}`;
+      const originalQty = parseFloat(item.quantity);
+      const returnedQty = returnedQuantityMap.get(key) || 0;
+      const returnableQty = originalQty - returnedQty;
 
-  return {
-    item_id: item.item_id,
-    medicine_id: item.medicine_id,
-    inventory_id: item.inventory_id,
-    medicine_name: item.medicine.name,
-    manufacturer: item.medicine.manufacturer,
-    pack_size: item.medicine.pack_size,
-    batch_number: item.inventory?.batch_number || item.batch_number,
-    expiry_date: item.inventory?.expiry_date || item.expiry_date,
-    
-    // ✅ Return both selling_rate and MRP
-    selling_rate: item.selling_rate, // ← Add this
-    mrp: item.mrp,
-    
-    original_quantity: originalQty,
-    returned_quantity: returnedQty,
-    returnable_quantity: returnableQty,
-    discount_percent: item.discount_percent,
-    cgst_percent: item.cgst_percent,
-    sgst_percent: item.sgst_percent,
-    can_return: returnableQty > 0,
-  };
-});
+      return {
+        item_id: item.item_id,
+        medicine_id: item.medicine_id,
+        inventory_id: item.inventory_id,
+        medicine_name: item.medicine.name,
+        manufacturer: item.medicine.manufacturer,
+        pack_size: item.medicine.pack_size,
+        batch_number: item.inventory?.batch_number || item.batch_number,
+        expiry_date: item.inventory?.expiry_date || item.expiry_date,
+
+        //  Return both selling_rate and MRP
+        selling_rate: item.selling_rate, // ← Add this
+        mrp: item.mrp,
+
+        original_quantity: originalQty,
+        returned_quantity: returnedQty,
+        returnable_quantity: returnableQty,
+        discount_percent: item.discount_percent,
+        cgst_percent: item.cgst_percent,
+        sgst_percent: item.sgst_percent,
+        can_return: returnableQty > 0,
+      };
+    });
 
     return {
       invoice_id: invoice.invoice_id,
@@ -1484,7 +1569,7 @@ class SalesReturnService {
     } = filters;
 
     const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
-    
+
     // Remove shop_id from baseFilter and add to where separately
     // since CustomerCredit has shop_id directly
     const where = {
@@ -1578,7 +1663,11 @@ class SalesReturnService {
     });
 
     if (!credit) {
-      throw new ApiError("Credit note not found or not active", 404, "CREDIT_NOT_FOUND");
+      throw new ApiError(
+        "Credit note not found or not active",
+        404,
+        "CREDIT_NOT_FOUND",
+      );
     }
 
     if (new Date(credit.expiry_date) < new Date()) {
@@ -1592,7 +1681,7 @@ class SalesReturnService {
       throw new ApiError(
         `Insufficient credit balance. Available: ₹${availableBalance.toFixed(2)}`,
         400,
-        "INSUFFICIENT_CREDIT"
+        "INSUFFICIENT_CREDIT",
       );
     }
 
@@ -1611,9 +1700,9 @@ class SalesReturnService {
     if (!targetInvoice) {
       throw new ApiError(
         "Target invoice not found, not confirmed, or already fully paid. " +
-        "Credit can only be applied to invoices of the same customer.",
+          "Credit can only be applied to invoices of the same customer.",
         400,
-        "INVALID_TARGET_INVOICE"
+        "INVALID_TARGET_INVOICE",
       );
     }
 
@@ -1622,7 +1711,7 @@ class SalesReturnService {
       throw new ApiError(
         `Applied amount exceeds invoice balance. Invoice balance: ₹${invoiceBalance.toFixed(2)}`,
         400,
-        "EXCEEDS_INVOICE_BALANCE"
+        "EXCEEDS_INVOICE_BALANCE",
       );
     }
 
@@ -1654,8 +1743,12 @@ class SalesReturnService {
       });
 
       // Update invoice payment status
-      const newPaidAmount = parseFloat(targetInvoice.paid_amount) + appliedAmount;
-      const paymentCalc = calculatePaymentStatus(newPaidAmount, targetInvoice.net_amount);
+      const newPaidAmount =
+        parseFloat(targetInvoice.paid_amount) + appliedAmount;
+      const paymentCalc = calculatePaymentStatus(
+        newPaidAmount,
+        targetInvoice.net_amount,
+      );
 
       await tx.salesInvoice.update({
         where: { invoice_id: data.applied_to_invoice_id },

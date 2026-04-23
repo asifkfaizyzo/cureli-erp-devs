@@ -11,40 +11,40 @@
 
 export const AuditReasonCode = Object.freeze({
   /** Action initiated by user through UI/API */
-  USER_REQUEST: 'USER_REQUEST',
+  USER_REQUEST: "USER_REQUEST",
 
   /** Action performed by CAdmin */
-  ADMIN_ACTION: 'ADMIN_ACTION',
+  ADMIN_ACTION: "ADMIN_ACTION",
 
   /** System-enforced rule (policies, constraints) */
-  SYSTEM_ENFORCEMENT: 'SYSTEM_ENFORCEMENT',
+  SYSTEM_ENFORCEMENT: "SYSTEM_ENFORCEMENT",
 
   /** Plan limit exceeded, enforcement applied */
-  PLAN_LIMIT_ENFORCEMENT: 'PLAN_LIMIT_ENFORCEMENT',
+  PLAN_LIMIT_ENFORCEMENT: "PLAN_LIMIT_ENFORCEMENT",
 
   /** Payment failure, overdue, or billing issue */
-  PAYMENT_ISSUE: 'PAYMENT_ISSUE',
+  PAYMENT_ISSUE: "PAYMENT_ISSUE",
 
   /** Security-related action (password reset, suspension) */
-  SECURITY_ACTION: 'SECURITY_ACTION',
+  SECURITY_ACTION: "SECURITY_ACTION",
 
   /** Manual data correction by admin */
-  DATA_CORRECTION: 'DATA_CORRECTION',
+  DATA_CORRECTION: "DATA_CORRECTION",
 
   /** Automated process (cron, scheduled jobs) */
-  AUTOMATION: 'AUTOMATION',
+  AUTOMATION: "AUTOMATION",
 
-  /** ✅ NEW: Stock validation failure */
-  STOCK_VALIDATION: 'STOCK_VALIDATION',
+  /**  NEW: Stock validation failure */
+  STOCK_VALIDATION: "STOCK_VALIDATION",
 
-  /** ✅ NEW: Credit limit exceeded */
-  CREDIT_LIMIT_EXCEEDED: 'CREDIT_LIMIT_EXCEEDED',
+  /**  NEW: Credit limit exceeded */
+  CREDIT_LIMIT_EXCEEDED: "CREDIT_LIMIT_EXCEEDED",
 
-  /** ✅ NEW: Super admin override */
-  SUPER_ADMIN_OVERRIDE: 'SUPER_ADMIN_OVERRIDE',
+  /**  NEW: Super admin override */
+  SUPER_ADMIN_OVERRIDE: "SUPER_ADMIN_OVERRIDE",
 
   /** Reason not specified or not applicable */
-  UNKNOWN: 'UNKNOWN',
+  UNKNOWN: "UNKNOWN",
 });
 
 /**

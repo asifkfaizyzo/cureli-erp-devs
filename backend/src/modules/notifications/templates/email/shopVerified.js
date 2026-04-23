@@ -10,12 +10,12 @@ import {
   renderFooter,
   renderButton,
   getSupportLink,
-} from './_helpers.js';
-import { ICONS } from './_icons.js';
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
 
 export function shopVerifiedTemplate(context) {
   const { recipientName, shop_name, business_name } = context;
-  const shopName = shop_name || business_name || 'your shop';
+  const shopName = shop_name || business_name || "your shop";
 
   const subject = `Congratulations! Your shop is verified - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
@@ -30,7 +30,7 @@ export function shopVerifiedTemplate(context) {
 
     <!-- Header: CELEBRATE icon replaces 🎉 -->
     <div class="header-success" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo('WHITE', 'header')}
+      ${renderLogo("WHITE", "header")}
       <h1 style="margin:0;font-size:24px;font-weight:600;color:#ffffff;">
         ${ICONS.CELEBRATE}
         <span style="vertical-align:middle;">Verification Complete!</span>
@@ -52,7 +52,7 @@ export function shopVerifiedTemplate(context) {
         has been successfully verified by our team. All your documents have been approved!
       </p>
 
-      <!-- Success Box: CHECK icon replaces ✅ -->
+      <!-- Success Box: CHECK icon replaces  -->
       <div class="success-box" style="background-color:#d1fae5;border-left:4px solid ${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};padding:20px;margin:24px 0;border-radius:0 10px 10px 0;text-align:center;">
         <p class="success-text" style="margin:0;color:#065f46;font-weight:700;font-size:16px;background-color:#d1fae5;">
           ${ICONS.CHECK}
@@ -81,9 +81,9 @@ export function shopVerifiedTemplate(context) {
       <!-- CTA Button -->
       ${renderButton({
         href: `${EMAIL_CONFIG.FRONTEND_URL}/dashboard`,
-        text: 'Go to Dashboard',
-        icon: 'CLIPBOARD',
-        color: 'primary',
+        text: "Go to Dashboard",
+        icon: "CLIPBOARD",
+        color: "primary",
       })}
 
       <!-- Welcome Message: WAVE icon replaces 👋 -->

@@ -31,7 +31,7 @@ export function rejectFile(file_id, reason) {
 }
 
 /**
- * ✅ NEW: Batch update files (verify/reject multiple at once)
+ *  NEW: Batch update files (verify/reject multiple at once)
  * @param {Object} data
  * @param {string[]} data.verifyIds - Array of file_ids to verify
  * @param {Array<{file_id: string, reason: string}>} data.rejectItems - Array of rejections

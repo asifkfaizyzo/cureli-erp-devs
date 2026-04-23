@@ -3,21 +3,21 @@
 // EMAIL CHANGED NOTIFICATION TEMPLATE
 // ============================================
 
-import { 
-  EMAIL_CONFIG, 
-  getBaseHeadContent, 
-  renderLogo, 
-  renderFooter 
-} from './_helpers.js';
-import { ICONS } from './_icons.js';
+import {
+  EMAIL_CONFIG,
+  getBaseHeadContent,
+  renderLogo,
+  renderFooter,
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
 
 export function emailChangedTemplate(context) {
   const { recipientName, old_email, new_email, notification_type } = context;
 
-  const isOldEmail = notification_type === 'old_email';
+  const isOldEmail = notification_type === "old_email";
 
-  const subject = isOldEmail 
-    ? `Email Address Changed - ${EMAIL_CONFIG.COMPANY.NAME}` 
+  const subject = isOldEmail
+    ? `Email Address Changed - ${EMAIL_CONFIG.COMPANY.NAME}`
     : `Welcome to ${EMAIL_CONFIG.COMPANY.NAME} - Email Verified`;
 
   // WARNING icon replaces ⚠️
@@ -50,7 +50,7 @@ export function emailChangedTemplate(context) {
     <!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  ${getBaseHeadContent(`${isOldEmail ? 'Email Changed' : 'Email Verified'} - ${EMAIL_CONFIG.COMPANY.NAME}`)}
+  ${getBaseHeadContent(`${isOldEmail ? "Email Changed" : "Email Verified"} - ${EMAIL_CONFIG.COMPANY.NAME}`)}
 </head>
 <body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;">
   <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
@@ -58,14 +58,14 @@ export function emailChangedTemplate(context) {
     <!-- 
       Header:
         isOldEmail  → EMAIL icon replaces 📧
-        !isOldEmail → EMAIL_VERIFIED icon replaces ✅ 
+        !isOldEmail → EMAIL_VERIFIED icon replaces  
     -->
     <div class="header-primary" style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo('WHITE', 'header')}
+      ${renderLogo("WHITE", "header")}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
         ${isOldEmail ? ICONS.EMAIL : ICONS.EMAIL_VERIFIED}
         <span style="vertical-align:middle;">
-          ${isOldEmail ? 'Email Changed' : 'Email Verified'}
+          ${isOldEmail ? "Email Changed" : "Email Verified"}
         </span>
       </h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">
@@ -78,7 +78,7 @@ export function emailChangedTemplate(context) {
       
       <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 16px;background-color:#ffffff;">
         Hi <strong class="brand-text" style="color:#05015A;">
-          ${recipientName || 'there'}
+          ${recipientName || "there"}
         </strong>,
       </p>
       

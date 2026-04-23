@@ -1,14 +1,14 @@
 // backend/src/modules/cadmin/broadcast/email/emailBroadcast.recipients.js
 
-import prisma from '../../../../config/prisma.js';
-import { filterUnsubscribedRecipients } from './emailBroadcast.unsubscribe.js';
+import prisma from "../../../../config/prisma.js";
+import { filterUnsubscribedRecipients } from "./emailBroadcast.unsubscribe.js";
 
 // ── Main Resolver ─────────────────────────────────────────────────────────────
 
 export async function resolveRecipients(
   filters = {},
-  targetUsers    = true,
-  targetCAdmins  = false,
+  targetUsers = true,
+  targetCAdmins = false,
   excludeUnsubscribed = true,
 ) {
   const recipients = [];
@@ -24,7 +24,7 @@ export async function resolveRecipients(
   }
 
   // Deduplicate by email (case-insensitive)
-  const seen         = new Set();
+  const seen = new Set();
   const deduplicated = recipients.filter((r) => {
     const key = r.email.toLowerCase().trim();
     if (seen.has(key)) return false;
@@ -45,7 +45,7 @@ async function resolveShopOwners(filters) {
   const {
     shop_ids,
     plan_ids,
-    filter_mode = 'OR',
+    filter_mode = "OR",
     registration_date_from,
     registration_date_to,
   } = filters;
@@ -56,15 +56,15 @@ async function resolveShopOwners(filters) {
   let shops = [];
 
   if (hasShopFilter && hasPlanFilter) {
-    if (filter_mode === 'AND') {
+    if (filter_mode === "AND") {
       // Shop must be in shop_ids AND have one of the plan_ids active
       shops = await prisma.shop.findMany({
         where: {
-          is_active:           true,
-          shop_id:             { in: shop_ids },
+          is_active: true,
+          shop_id: { in: shop_ids },
           currentSubscription: {
-            plan_id:   { in: plan_ids },
-            status:    'active',
+            plan_id: { in: plan_ids },
+            status: "active",
             is_active: true,
           },
         },
@@ -74,15 +74,15 @@ async function resolveShopOwners(filters) {
       // OR: shop in shop_ids OR shop has one of the plan_ids
       const [byId, byPlan] = await Promise.all([
         prisma.shop.findMany({
-          where:   { is_active: true, shop_id: { in: shop_ids } },
+          where: { is_active: true, shop_id: { in: shop_ids } },
           include: { owner: ownerSelect() },
         }),
         prisma.shop.findMany({
           where: {
-            is_active:           true,
+            is_active: true,
             currentSubscription: {
-              plan_id:   { in: plan_ids },
-              status:    'active',
+              plan_id: { in: plan_ids },
+              status: "active",
               is_active: true,
             },
           },
@@ -96,16 +96,16 @@ async function resolveShopOwners(filters) {
     }
   } else if (hasShopFilter) {
     shops = await prisma.shop.findMany({
-      where:   { is_active: true, shop_id: { in: shop_ids } },
+      where: { is_active: true, shop_id: { in: shop_ids } },
       include: { owner: ownerSelect() },
     });
   } else if (hasPlanFilter) {
     shops = await prisma.shop.findMany({
       where: {
-        is_active:           true,
+        is_active: true,
         currentSubscription: {
-          plan_id:   { in: plan_ids },
-          status:    'active',
+          plan_id: { in: plan_ids },
+          status: "active",
           is_active: true,
         },
       },
@@ -114,7 +114,7 @@ async function resolveShopOwners(filters) {
   } else {
     // No filter — all active shops
     shops = await prisma.shop.findMany({
-      where:   { is_active: true },
+      where: { is_active: true },
       include: { owner: ownerSelect() },
     });
   }
@@ -141,18 +141,18 @@ async function resolveShopOwners(filters) {
 
   for (const shop of shops) {
     // Only send to the shop's super_admin (shop owner role in ERP)
-    if (!shop.owner)               continue;
-    if (!shop.owner.is_active)     continue;
-    if (!shop.owner.email)         continue;
-    if (shop.owner.role !== 'super_admin') continue;
+    if (!shop.owner) continue;
+    if (!shop.owner.is_active) continue;
+    if (!shop.owner.email) continue;
+    if (shop.owner.role !== "super_admin") continue;
 
     recipients.push({
-      email:     shop.owner.email,
-      name:      shop.owner.full_name || shop.business_name || 'Shop Owner',
-      user_id:   shop.owner.user_id,
-      shop_id:   shop.shop_id,
+      email: shop.owner.email,
+      name: shop.owner.full_name || shop.business_name || "Shop Owner",
+      user_id: shop.owner.user_id,
+      shop_id: shop.shop_id,
       shop_name: shop.business_name,
-      type:      'user',
+      type: "user",
     });
   }
 
@@ -162,10 +162,10 @@ async function resolveShopOwners(filters) {
 function ownerSelect() {
   return {
     select: {
-      user_id:   true,
-      email:     true,
+      user_id: true,
+      email: true,
       full_name: true,
-      role:      true,
+      role: true,
       is_active: true,
     },
   };
@@ -173,7 +173,7 @@ function ownerSelect() {
 
 // ── CAdmin Resolver ───────────────────────────────────────────────────────────
 //
-// ✅ CAdmin model has NO `role` column.
+//  CAdmin model has NO `role` column.
 //    Roles live in CAdminRoleAssignment → CAdminCustomRole.
 //    cadmin_roles filter contains role NAME strings (from getCAdminRoles below).
 
@@ -188,11 +188,11 @@ async function resolveCAdmins(filters) {
     // Filter cadmins who have at least one role whose NAME matches the filter
     cadmins = await prisma.cAdmin.findMany({
       where: {
-        is_active:       true,
+        is_active: true,
         roleAssignments: {
           some: {
             role: {
-              name:       { in: cadmin_roles },
+              name: { in: cadmin_roles },
               is_deleted: false,
             },
           },
@@ -200,10 +200,10 @@ async function resolveCAdmins(filters) {
       },
       select: {
         cadmin_id: true,
-        email:     true,
-        name:      true,
+        email: true,
+        name: true,
         roleAssignments: {
-          where:  { role: { is_deleted: false } },
+          where: { role: { is_deleted: false } },
           select: { role: { select: { name: true } } },
         },
       },
@@ -211,13 +211,13 @@ async function resolveCAdmins(filters) {
   } else {
     // No role filter — all active cadmins
     cadmins = await prisma.cAdmin.findMany({
-      where:  { is_active: true },
+      where: { is_active: true },
       select: {
         cadmin_id: true,
-        email:     true,
-        name:      true,
+        email: true,
+        name: true,
         roleAssignments: {
-          where:  { role: { is_deleted: false } },
+          where: { role: { is_deleted: false } },
           select: { role: { select: { name: true } } },
         },
       },
@@ -227,19 +227,19 @@ async function resolveCAdmins(filters) {
   return cadmins
     .filter((c) => c.email)
     .map((cadmin) => ({
-      email:     cadmin.email,
-      name:      cadmin.name || 'Admin',
+      email: cadmin.email,
+      name: cadmin.name || "Admin",
       cadmin_id: cadmin.cadmin_id,
-      roles:     cadmin.roleAssignments.map((a) => a.role.name),
-      type:      'cadmin',
+      roles: cadmin.roleAssignments.map((a) => a.role.name),
+      type: "cadmin",
     }));
 }
 
 // ── Preview ───────────────────────────────────────────────────────────────────
 
 export async function previewRecipients(
-  filters       = {},
-  targetUsers   = true,
+  filters = {},
+  targetUsers = true,
   targetCAdmins = false,
 ) {
   const recipients = await resolveRecipients(
@@ -252,13 +252,13 @@ export async function previewRecipients(
   const unsubscribedCount = await countUnsubscribedInList(recipients);
 
   const byType = {
-    users:   recipients.filter((r) => r.type === 'user').length,
-    cadmins: recipients.filter((r) => r.type === 'cadmin').length,
+    users: recipients.filter((r) => r.type === "user").length,
+    cadmins: recipients.filter((r) => r.type === "cadmin").length,
   };
 
   const byShop = {};
   recipients
-    .filter((r) => r.type === 'user' && r.shop_id)
+    .filter((r) => r.type === "user" && r.shop_id)
     .forEach((r) => {
       if (!byShop[r.shop_id]) {
         byShop[r.shop_id] = { name: r.shop_name, count: 0 };
@@ -267,11 +267,11 @@ export async function previewRecipients(
     });
 
   return {
-    total:                   recipients.length,
+    total: recipients.length,
     total_after_unsubscribe: recipients.length - unsubscribedCount,
-    unsubscribed_count:      unsubscribedCount,
-    by_type:                 byType,
-    by_shop:                 byShop,
+    unsubscribed_count: unsubscribedCount,
+    by_type: byType,
+    by_shop: byShop,
   };
 }
 
@@ -287,12 +287,12 @@ async function countUnsubscribedInList(recipients) {
 
 // ── Filter Helpers ────────────────────────────────────────────────────────────
 
-export async function getShopsForFilter(search = '', page = 1, limit = 50) {
-  const skip  = (page - 1) * limit;
+export async function getShopsForFilter(search = "", page = 1, limit = 50) {
+  const skip = (page - 1) * limit;
   const where = {
     is_active: true,
     ...(search && {
-      business_name: { contains: search, mode: 'insensitive' },
+      business_name: { contains: search, mode: "insensitive" },
     }),
   };
 
@@ -300,14 +300,14 @@ export async function getShopsForFilter(search = '', page = 1, limit = 50) {
     prisma.shop.findMany({
       where,
       select: {
-        shop_id:       true,
+        shop_id: true,
         business_name: true,
-        created_at:    true,
+        created_at: true,
         owner: {
           select: { full_name: true, email: true },
         },
       },
-      orderBy: { business_name: 'asc' },
+      orderBy: { business_name: "asc" },
       skip,
       take: limit,
     }),
@@ -316,11 +316,11 @@ export async function getShopsForFilter(search = '', page = 1, limit = 50) {
 
   return {
     shops: shops.map((shop) => ({
-      shop_id:       shop.shop_id,
+      shop_id: shop.shop_id,
       business_name: shop.business_name,
-      owner_name:    shop.owner?.full_name || 'N/A',
-      owner_email:   shop.owner?.email     || 'N/A',
-      created_at:    shop.created_at,
+      owner_name: shop.owner?.full_name || "N/A",
+      owner_email: shop.owner?.email || "N/A",
+      created_at: shop.created_at,
     })),
     pagination: { page, limit, total },
   };
@@ -328,28 +328,28 @@ export async function getShopsForFilter(search = '', page = 1, limit = 50) {
 
 export async function getActivePlans() {
   const plans = await prisma.plan.findMany({
-    where:   { status: 'ACTIVE', deleted_at: null },
-    select:  { plan_id: true, name: true, type: true },
-    orderBy: { name: 'asc' },
+    where: { status: "ACTIVE", deleted_at: null },
+    select: { plan_id: true, name: true, type: true },
+    orderBy: { name: "asc" },
   });
 
   return { plans };
 }
 
 /**
- * ✅ Dynamic from DB — reads CAdminCustomRole table.
+ *  Dynamic from DB — reads CAdminCustomRole table.
  *    Returns role NAME as value (matches what resolveCAdmins filters by).
  */
 export async function getCAdminRoles() {
   const roles = await prisma.cAdminCustomRole.findMany({
-    where:   { is_deleted: false },
-    select:  { name: true, description: true },
-    orderBy: { name: 'asc' },
+    where: { is_deleted: false },
+    select: { name: true, description: true },
+    orderBy: { name: "asc" },
   });
 
   return roles.map((r) => ({
-    value:       r.name,
-    label:       r.name,
+    value: r.name,
+    label: r.name,
     description: r.description || null,
   }));
 }

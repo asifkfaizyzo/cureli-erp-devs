@@ -42,7 +42,7 @@ model CAdmin {
   phone_number        String
   password_hash       String
   is_active           Boolean             @default(true)
-  is_super_cadmin     Boolean             @default(false)    // ✅ NEW
+  is_super_cadmin     Boolean             @default(false)    //  NEW
   verification_id     String?
   otp_expires         DateTime?
   last_login_at       DateTime?
@@ -53,7 +53,7 @@ model CAdmin {
   name                String
   
   // Relations
-  roleAssignments     CAdminRoleAssignment[]               // ✅ NEW
+  roleAssignments     CAdminRoleAssignment[]               //  NEW
   
   broadcastCampaigns  BroadcastCampaign[] @relation("BroadcastCampaigns")
   broadcastSegments   BroadcastSegment[]  @relation("BroadcastSegments")
@@ -307,7 +307,7 @@ model Branch {
   
   shop             Shop              @relation(fields: [shop_id], references: [shop_id])
   
-  // ✅ ADD THIS LINE
+  //  ADD THIS LINE
   suppliers        SupplierBranch[]  @relation("BranchSuppliers")
   
   customerCredits  CustomerCredit[]  @relation("BranchCustomerCredits")
@@ -639,26 +639,26 @@ model MasterMedicine {
   master_medicine_id String   @id @default(uuid()) @db.Uuid
   
   // Core identifiers
-  master_key         String   @unique @db.VarChar(100)  // ✅ NEW: "fluoxetine_capsule"
-  generic_name       String   @db.VarChar(300)          // ✅ NEW: "Fluoxetine Capsule"
+  master_key         String   @unique @db.VarChar(100)  //  NEW: "fluoxetine_capsule"
+  generic_name       String   @db.VarChar(300)          //  NEW: "Fluoxetine Capsule"
   
   // Medicine properties
   type               MedicineType
-  form               String?  @db.VarChar(50)           // ✅ NEW: "Capsule", "Tablet"
-  composition        Json                                // ✅ CHANGED: String → Json (structured)
+  form               String?  @db.VarChar(50)           //  NEW: "Capsule", "Tablet"
+  composition        Json                                //  CHANGED: String → Json (structured)
   
   // Regulatory
   prescription_required Boolean @default(false)
-  primary_category   String?  @db.VarChar(100)          // ✅ NEW: "DERMA", "CARDIO"
+  primary_category   String?  @db.VarChar(100)          //  NEW: "DERMA", "CARDIO"
   
   // Metadata
-  variant_count      Int      @default(0)                // ✅ NEW: Number of variants
+  variant_count      Int      @default(0)                //  NEW: Number of variants
   is_active          Boolean  @default(true)
   created_at         DateTime @default(now()) @db.Timestamptz(6)
   updated_at         DateTime @updatedAt @db.Timestamptz(6)
   
   // Relations
-  variants           MasterMedicineVariant[]             // ✅ NEW: One-to-many
+  variants           MasterMedicineVariant[]             //  NEW: One-to-many
   images             MasterMedicineImage[]
   linkedMedicines    Medicine[]              @relation("MedicineMasterLink")
   // Indexes
@@ -671,7 +671,7 @@ model MasterMedicine {
   @@map("master_medicines")
 }
 
-// ✅ NEW TABLE
+//  NEW TABLE
 model MasterMedicineVariant {
   variant_id         String   @id @default(uuid()) @db.Uuid
   master_medicine_id String   @db.Uuid
@@ -726,10 +726,10 @@ model MasterMedicineImage {
   master_medicine_id String   @db.Uuid
   
   // Image info
-  sku_id             String   @db.VarChar(50)           // ✅ NEW: Which variant this belongs to
+  sku_id             String   @db.VarChar(50)           //  NEW: Which variant this belongs to
   url                String   @db.VarChar(500)          // "/static/medicine_images/10005/img_00_high.jpg"
   type               ImageType                          // PRIMARY or GALLERY
-  sequence           Int      @default(0)               // ✅ NEW: Display order
+  sequence           Int      @default(0)               //  NEW: Display order
   source             ImageSource @default(SCRAPED)
   uploaded_by        String?     @db.VarChar(100)
   created_at         DateTime @default(now()) @db.Timestamptz(6)
@@ -774,8 +774,8 @@ model Medicine {
   reorder_point          Decimal?  @db.Decimal(10, 2)
   master_medicine_id     String?   @db.Uuid
   // ── VARIANT LINKING (the correct link target) ──
-  linked_variant_id      String?   @db.Uuid          // ✅ NEW: links to specific variant
-  linked_variant_sku     String?   @db.VarChar(50)   // ✅ NEW: denormalized for fast lookup
+  linked_variant_id      String?   @db.Uuid          //  NEW: links to specific variant
+  linked_variant_sku     String?   @db.VarChar(50)   //  NEW: denormalized for fast lookup
   link_status            LinkStatus @default(PENDING)
   link_confidence_score  Float?
   link_rejected          Boolean   @default(false)
@@ -841,7 +841,7 @@ model Supplier {
   created_at       DateTime          @default(now()) @db.Timestamptz(6)
   updated_at       DateTime          @updatedAt @db.Timestamptz(6)
   
-  // ✅ ADD THIS LINE
+  //  ADD THIS LINE
   branches         SupplierBranch[]  @relation("SupplierBranches")
   
   purchaseInvoices PurchaseInvoice[] @relation("SupplierPurchaseInvoices")
@@ -1580,15 +1580,15 @@ model EmailBroadcastCampaign {
   
   // Targeting
   target_filters      Json
-  target_users        Boolean   @default(true)    // ✅ ADD THIS
-  target_cadmins      Boolean   @default(false)   // ✅ ADD THIS
+  target_users        Boolean   @default(true)    //  ADD THIS
+  target_cadmins      Boolean   @default(false)   //  ADD THIS
   recipient_count     Int       @default(0)
   
   // Content
   inline_image        Json?
   attachments         Json?
-  action_url          String?   @db.VarChar(500)  // ✅ ADD THIS
-  action_label        String?   @db.VarChar(100)  // ✅ ADD THIS
+  action_url          String?   @db.VarChar(500)  //  ADD THIS
+  action_label        String?   @db.VarChar(100)  //  ADD THIS
 
   attachmentFiles     EmailBroadcastAttachment[] @relation("CampaignAttachments")
   

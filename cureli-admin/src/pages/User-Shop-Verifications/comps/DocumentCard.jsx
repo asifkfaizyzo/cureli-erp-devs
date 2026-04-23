@@ -21,11 +21,11 @@ import {
 } from "lucide-react";
 import { useToast } from "../../../components/common/Toast";
 
-// ✅ UPDATED: New URL format matching backend fileStorage service
+//  UPDATED: New URL format matching backend fileStorage service
 const getFileUrl = (storageKey) => {
   if (!storageKey) return null;
   if (storageKey.startsWith("http")) return storageKey;
-  
+
   const baseURL = import.meta.env.VITE_API_URL;
   // Backend serves files via /api/files/:folder/:filename
   // storage_key contains just the filename (e.g., "1234567890-abcdef12.jpg")
@@ -87,12 +87,12 @@ const FilePreviewModal = ({ isOpen, onClose, doc }) => {
 
   if (!isOpen || !doc) return null;
 
-  // ✅ UPDATED: Use new URL format
+  //  UPDATED: Use new URL format
   const fileUrl = getFileUrl(doc.storage_key);
   const isImage = doc.mime_type?.includes("image");
   const isPdf = doc.mime_type?.includes("pdf");
 
-  // ✅ UPDATED: Download using fetch + blob for better compatibility
+  //  UPDATED: Download using fetch + blob for better compatibility
   const handleDownload = async () => {
     if (!fileUrl) {
       toast.error("Download Failed", "File URL not available.");
@@ -101,10 +101,10 @@ const FilePreviewModal = ({ isOpen, onClose, doc }) => {
 
     try {
       toast.info("Downloading", `Downloading ${doc.name}...`, 2000);
-      
+
       const response = await fetch(fileUrl);
       if (!response.ok) throw new Error("Download failed");
-      
+
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -114,11 +114,14 @@ const FilePreviewModal = ({ isOpen, onClose, doc }) => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
-      
+
       toast.success("Downloaded", `${doc.name} downloaded successfully.`, 2000);
     } catch (err) {
       console.error("Download failed:", err);
-      toast.error("Download Failed", "Unable to download file. Opening in new tab instead.");
+      toast.error(
+        "Download Failed",
+        "Unable to download file. Opening in new tab instead.",
+      );
       window.open(fileUrl, "_blank");
     }
   };
@@ -277,7 +280,7 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  // ✅ UPDATED: Use new URL format
+  //  UPDATED: Use new URL format
   const fileUrl = getFileUrl(doc.storage_key);
 
   const getFileIcon = () => {
@@ -314,7 +317,7 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
 
   const config = statusConfig[doc.status] || statusConfig.normal;
 
-  // ✅ UPDATED: Download using fetch + blob
+  //  UPDATED: Download using fetch + blob
   const handleDownload = async (e) => {
     e.stopPropagation();
 
@@ -327,10 +330,10 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
 
     try {
       toast.info("Downloading", `Downloading ${doc.name}...`, 2000);
-      
+
       const response = await fetch(fileUrl);
       if (!response.ok) throw new Error("Download failed");
-      
+
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -340,7 +343,6 @@ const DocumentCard = ({ doc, onApprove, onReject, onReset }) => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
-      
     } catch (err) {
       console.error("Download failed:", err);
       toast.error(

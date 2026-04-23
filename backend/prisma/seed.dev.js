@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
 
 const prisma = new PrismaClient();
-const uuid   = () => randomUUID();
+const uuid = () => randomUUID();
 
 async function main() {
   console.log("🌱 Starting DEVELOPMENT CAdmin seed...\n");
@@ -21,7 +21,7 @@ async function main() {
   await prisma.cAdminActivityLog.deleteMany();
   await prisma.cAdmin.deleteMany();
 
-  console.log("✅ Cleared existing CAdmin data\n");
+  console.log(" Cleared existing CAdmin data\n");
 
   // ─────────────────────────────────────────────────────────────────────────
   // CREATE SUPER CADMIN
@@ -34,18 +34,18 @@ async function main() {
 
   const superCadmin = await prisma.cAdmin.create({
     data: {
-      cadmin_id:       uuid(),
-      name:            process.env.CADMIN_DEFAULT_NAME  || "Super Admin",
-      username:        process.env.CADMIN_DEFAULT_USERNAME || "cadmin",
-      email:           process.env.CADMIN_DEFAULT_EMAIL || "admin@cureli.com",
-      phone_number:    process.env.CADMIN_DEFAULT_PHONE || "9961045596",
-      password_hash:   await bcrypt.hash(superPassword, 10),
-      is_active:       true,
+      cadmin_id: uuid(),
+      name: process.env.CADMIN_DEFAULT_NAME || "Super Admin",
+      username: process.env.CADMIN_DEFAULT_USERNAME || "cadmin",
+      email: process.env.CADMIN_DEFAULT_EMAIL || "admin@cureli.com",
+      phone_number: process.env.CADMIN_DEFAULT_PHONE || "9961045596",
+      password_hash: await bcrypt.hash(superPassword, 10),
+      is_active: true,
       is_super_cadmin: true,
     },
   });
 
-  console.log(`   ✅ Super CAdmin: ${superCadmin.username}\n`);
+  console.log(`    Super CAdmin: ${superCadmin.username}\n`);
 
   // ─────────────────────────────────────────────────────────────────────────
   // CREATE SAMPLE CUSTOM ROLES
@@ -56,8 +56,8 @@ async function main() {
 
   const operationsRole = await prisma.cAdminCustomRole.create({
     data: {
-      role_id:     uuid(),
-      name:        "Operations",
+      role_id: uuid(),
+      name: "Operations",
       description: "Handles day-to-day shop, user, and subscription management",
       permissions: [
         "shops.view",
@@ -92,12 +92,12 @@ async function main() {
       ],
     },
   });
-  console.log(`   ✅ Role: ${operationsRole.name}`);
+  console.log(`    Role: ${operationsRole.name}`);
 
   const financeRole = await prisma.cAdminCustomRole.create({
     data: {
-      role_id:     uuid(),
-      name:        "Finance",
+      role_id: uuid(),
+      name: "Finance",
       description: "Manages plans, subscriptions, and financial operations",
       permissions: [
         "plans.view",
@@ -126,12 +126,12 @@ async function main() {
       ],
     },
   });
-  console.log(`   ✅ Role: ${financeRole.name}`);
+  console.log(`    Role: ${financeRole.name}`);
 
   const supportRole = await prisma.cAdminCustomRole.create({
     data: {
-      role_id:     uuid(),
-      name:        "Support",
+      role_id: uuid(),
+      name: "Support",
       description: "Handles tickets, enquiries, and shop verifications",
       permissions: [
         "tickets.view",
@@ -153,7 +153,7 @@ async function main() {
       ],
     },
   });
-  console.log(`   ✅ Role: ${supportRole.name}\n`);
+  console.log(`    Role: ${supportRole.name}\n`);
 
   // ─────────────────────────────────────────────────────────────────────────
   // CREATE SAMPLE NON-SUPER CADMINS FOR TESTING
@@ -161,78 +161,80 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
   console.log("👨‍💼 Creating sample CAdmins...");
 
-  const opsPassword     = process.env.CADMIN_OPS_PASSWORD     || "Ops@12345";
-  const financePassword = process.env.CADMIN_FINANCE_PASSWORD  || "Finance@12345";
-  const supportPassword = process.env.CADMIN_SUPPORT_PASSWORD  || "Support@12345";
+  const opsPassword = process.env.CADMIN_OPS_PASSWORD || "Ops@12345";
+  const financePassword =
+    process.env.CADMIN_FINANCE_PASSWORD || "Finance@12345";
+  const supportPassword =
+    process.env.CADMIN_SUPPORT_PASSWORD || "Support@12345";
 
   // Operations admin
   const opsAdmin = await prisma.cAdmin.create({
     data: {
-      cadmin_id:       uuid(),
-      name:            "Kiran",
-      username:        "kiran",
-      email:           "kiran@cureli.com",
-      phone_number:    "9876543210",
-      password_hash:   await bcrypt.hash(opsPassword, 10),
-      is_active:       true,
+      cadmin_id: uuid(),
+      name: "Kiran",
+      username: "kiran",
+      email: "kiran@cureli.com",
+      phone_number: "9876543210",
+      password_hash: await bcrypt.hash(opsPassword, 10),
+      is_active: true,
       is_super_cadmin: false,
     },
   });
   await prisma.cAdminRoleAssignment.create({
     data: {
-      cadmin_id:   opsAdmin.cadmin_id,
-      role_id:     operationsRole.role_id,
-      is_primary:  true,
+      cadmin_id: opsAdmin.cadmin_id,
+      role_id: operationsRole.role_id,
+      is_primary: true,
       assigned_by: superCadmin.cadmin_id,
     },
   });
-  console.log(`   ✅ Operations admin: ${opsAdmin.username}`);
+  console.log(`    Operations admin: ${opsAdmin.username}`);
 
   // Finance admin
   const financeAdmin = await prisma.cAdmin.create({
     data: {
-      cadmin_id:       uuid(),
-      name:            "Sibi",
-      username:        "sibi",
-      email:           "sibi@cureli.com",
-      phone_number:    "9876543211",
-      password_hash:   await bcrypt.hash(financePassword, 10),
-      is_active:       true,
+      cadmin_id: uuid(),
+      name: "Sibi",
+      username: "sibi",
+      email: "sibi@cureli.com",
+      phone_number: "9876543211",
+      password_hash: await bcrypt.hash(financePassword, 10),
+      is_active: true,
       is_super_cadmin: false,
     },
   });
   await prisma.cAdminRoleAssignment.create({
     data: {
-      cadmin_id:   financeAdmin.cadmin_id,
-      role_id:     financeRole.role_id,
-      is_primary:  true,
+      cadmin_id: financeAdmin.cadmin_id,
+      role_id: financeRole.role_id,
+      is_primary: true,
       assigned_by: superCadmin.cadmin_id,
     },
   });
-  console.log(`   ✅ Finance admin: ${financeAdmin.username}`);
+  console.log(`    Finance admin: ${financeAdmin.username}`);
 
   // Support admin
   const supportAdmin = await prisma.cAdmin.create({
     data: {
-      cadmin_id:       uuid(),
-      name:            "Akhil",
-      username:        "akhil",
-      email:           "akhil@cureli.com",
-      phone_number:    "9876543212",
-      password_hash:   await bcrypt.hash(supportPassword, 10),
-      is_active:       true,
+      cadmin_id: uuid(),
+      name: "Akhil",
+      username: "akhil",
+      email: "akhil@cureli.com",
+      phone_number: "9876543212",
+      password_hash: await bcrypt.hash(supportPassword, 10),
+      is_active: true,
       is_super_cadmin: false,
     },
   });
   await prisma.cAdminRoleAssignment.create({
     data: {
-      cadmin_id:   supportAdmin.cadmin_id,
-      role_id:     supportRole.role_id,
-      is_primary:  true,
+      cadmin_id: supportAdmin.cadmin_id,
+      role_id: supportRole.role_id,
+      is_primary: true,
       assigned_by: superCadmin.cadmin_id,
     },
   });
-  console.log(`   ✅ Support admin: ${supportAdmin.username}\n`);
+  console.log(`    Support admin: ${supportAdmin.username}\n`);
 
   // ─────────────────────────────────────────────────────────────────────────
   // SUMMARY
@@ -246,7 +248,9 @@ async function main() {
   console.log(`   Finance     │ sibi   │ ${financePassword}`);
   console.log(`   Support     │ akhil  │ ${supportPassword}`);
   console.log("\n📋 ROLES CREATED:");
-  console.log(`   Operations (${operationsRole.permissions.length} permissions)`);
+  console.log(
+    `   Operations (${operationsRole.permissions.length} permissions)`,
+  );
   console.log(`   Finance    (${financeRole.permissions.length} permissions)`);
   console.log(`   Support    (${supportRole.permissions.length} permissions)`);
   console.log("\n" + "═".repeat(60));
@@ -254,7 +258,7 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error("❌ Seed failed:", e);
+    console.error(" Seed failed:", e);
     process.exit(1);
   })
   .finally(async () => {

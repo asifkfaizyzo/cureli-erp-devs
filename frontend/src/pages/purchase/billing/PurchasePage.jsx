@@ -194,7 +194,7 @@ const PurchasePage = () => {
 
   const { handleImportFile, handleExportExcel } = usePurchaseImportExport(
     (importedRows, newProducts = []) => {
-      // ✅ FIX: When catalog check ran, ImportResultModal handles everything.
+      //  FIX: When catalog check ran, ImportResultModal handles everything.
       // It will call handleImportResultProceed which opens BatchProductModal.
       // Only open BatchProductModal directly if catalog check did NOT run.
       const hasAnyCatalogData = newProducts.some((p) => p.catalogMatch);
@@ -1036,7 +1036,7 @@ const PurchasePage = () => {
     async (productsToSave) => {
       try {
         if (productsToSave.length > 0) {
-          // ✅ FIX: Attach linking data DIRECTLY to each product
+          //  FIX: Attach linking data DIRECTLY to each product
           // Match by name+manufacturer (composite key) from the source array
           const productsWithLinking = productsToSave.map((product) => {
             // Find the original import product that matches this saved product

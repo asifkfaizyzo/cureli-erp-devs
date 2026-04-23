@@ -10,8 +10,8 @@ import {
   renderFooter,
   renderButton,
   getSupportLink,
-} from './_helpers.js';
-import { ICONS } from './_icons.js';
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
 
 export function subscriptionRenewedTemplate(context) {
   const {
@@ -23,13 +23,15 @@ export function subscriptionRenewedTemplate(context) {
     amount_paid,
   } = context;
 
-  const shopName = shop_name || business_name || 'your shop';
+  const shopName = shop_name || business_name || "your shop";
 
   const endDateFormatted = new_end_date
-    ? new Date(new_end_date).toLocaleDateString('en-IN', {
-        year: 'numeric', month: 'long', day: 'numeric',
+    ? new Date(new_end_date).toLocaleDateString("en-IN", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       })
-    : 'N/A';
+    : "N/A";
 
   // Subject: no emoji
   const subject = `Subscription Renewed Successfully - ${EMAIL_CONFIG.COMPANY.NAME}`;
@@ -45,7 +47,7 @@ export function subscriptionRenewedTemplate(context) {
 
     <!-- Header: CELEBRATE icon replaces 🎉 -->
     <div class="header-success" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT} 0%,${EMAIL_CONFIG.COLORS.SUCCESS} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo('WHITE', 'header')}
+      ${renderLogo("WHITE", "header")}
       <h1 style="margin:0;font-size:24px;font-weight:600;color:#ffffff;">
         ${ICONS.CELEBRATE}
         <span style="vertical-align:middle;">Renewal Successful!</span>
@@ -62,7 +64,7 @@ export function subscriptionRenewedTemplate(context) {
         Hello <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${recipientName}</strong>,
       </p>
 
-      <!-- Success Banner: CHECK icon replaces ✅ -->
+      <!-- Success Banner: CHECK icon replaces  -->
       <div class="success-banner" style="background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);border:2px solid ${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};padding:20px;border-radius:10px;margin:20px 0;text-align:center;">
         <p class="success-text" style="margin:0;font-size:18px;font-weight:700;color:#065f46;background:transparent;">
           ${ICONS.CHECK}
@@ -79,16 +81,20 @@ export function subscriptionRenewedTemplate(context) {
           </tr>
           <tr>
             <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">Plan</td>
-            <td class="table-value" style="padding:12px 16px;color:#1f2937;font-weight:600;font-size:14px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">${plan_name || 'Standard'}</td>
+            <td class="table-value" style="padding:12px 16px;color:#1f2937;font-weight:600;font-size:14px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">${plan_name || "Standard"}</td>
           </tr>
-          ${amount_paid ? `
+          ${
+            amount_paid
+              ? `
           <tr>
             <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">Amount Paid</td>
             <td class="amount-text" style="padding:12px 16px;color:${EMAIL_CONFIG.COLORS.SUCCESS};font-weight:700;font-size:15px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">
-              ₹${Number(amount_paid).toLocaleString('en-IN')}
+              ₹${Number(amount_paid).toLocaleString("en-IN")}
             </td>
           </tr>
-          ` : ''}
+          `
+              : ""
+          }
           <tr>
             <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;background-color:#f9fafb;">Valid Until</td>
             <td class="valid-date" style="padding:12px 16px;color:${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};font-weight:700;font-size:14px;background-color:#f9fafb;-webkit-text-fill-color:${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};">
@@ -121,9 +127,9 @@ export function subscriptionRenewedTemplate(context) {
       <!-- CTA Button: CLIPBOARD icon replaces 🏠 -->
       ${renderButton({
         href: `${EMAIL_CONFIG.FRONTEND_URL}/dashboard`,
-        text: 'Continue to Dashboard',
-        icon: 'CLIPBOARD',
-        color: 'success',
+        text: "Continue to Dashboard",
+        icon: "CLIPBOARD",
+        color: "success",
       })}
 
       <!-- Thank You: THANKYOU icon replaces 🙏 -->

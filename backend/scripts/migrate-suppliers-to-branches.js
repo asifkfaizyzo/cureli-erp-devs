@@ -1,10 +1,10 @@
 // scripts/migrate-suppliers-to-branches.js
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 async function migrateSuppliersToBranches() {
-  console.log('🔄 Starting supplier migration...');
+  console.log("🔄 Starting supplier migration...");
 
   try {
     // Get all suppliers
@@ -13,7 +13,7 @@ async function migrateSuppliersToBranches() {
         supplier_id: true,
         shop_id: true,
         created_by: true,
-      }
+      },
     });
 
     console.log(`📦 Found ${suppliers.length} suppliers to migrate`);
@@ -27,10 +27,12 @@ async function migrateSuppliersToBranches() {
         },
         select: {
           branch_id: true,
-        }
+        },
       });
 
-      console.log(`  ➜ Supplier ${supplier.supplier_id}: Linking to ${branches.length} branch(es)`);
+      console.log(
+        `  ➜ Supplier ${supplier.supplier_id}: Linking to ${branches.length} branch(es)`,
+      );
 
       // Link supplier to all branches in the shop
       for (const branch of branches) {
@@ -39,7 +41,7 @@ async function migrateSuppliersToBranches() {
             supplier_id_branch_id: {
               supplier_id: supplier.supplier_id,
               branch_id: branch.branch_id,
-            }
+            },
           },
           create: {
             supplier_id: supplier.supplier_id,
@@ -49,19 +51,18 @@ async function migrateSuppliersToBranches() {
           },
           update: {
             is_active: true,
-          }
+          },
         });
       }
     }
 
-    console.log('✅ Migration completed successfully!');
+    console.log(" Migration completed successfully!");
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    console.error(" Migration failed:", error);
     throw error;
   } finally {
     await prisma.$disconnect();
   }
 }
 
-migrateSuppliersToBranches()
-  .catch(console.error);
+migrateSuppliersToBranches().catch(console.error);

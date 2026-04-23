@@ -72,7 +72,7 @@ const suppliersAPI = {
     return response.data;
   },
 
-  // ✅ Status Management
+  //  Status Management
   deactivate: async (supplierId) => {
     const response = await api.post(`/suppliers/${supplierId}/deactivate`);
     return response.data;

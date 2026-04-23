@@ -2,16 +2,16 @@
  * ═══════════════════════════════════════════════════════════════
  * backend/src/modules/medicines/linking.service.js
  * ═══════════════════════════════════════════════════════════════
- * 
+ *
  * Master Catalog Linking Service - FIXED VERSION v2
- * 
+ *
  * Fixes v1:
  * 1. DB query now uses multiple separate queries + merges (reliability)
  * 2. extractStrength handles unitless brand numbers ("FLUvator 100")
  * 3. Scoring redistributes weight when composition data unavailable
  * 4. Strength scoring handles inferred units
  * 5. Better brand name matching
- * 
+ *
  * Fixes v2:
  * 6. extractStrength skips brand codes (LA, HP, DS, etc.)
  * 7. calculateStrengthScore never blocks when one side is inferred
@@ -59,11 +59,34 @@ function extractBrandToken(name) {
   if (!name) return null;
   const normalized = normalizeString(name);
   const forms = [
-    "tablet", "tablets", "tab", "capsule", "capsules", "cap",
-    "syrup", "suspension", "solution", "injection", "inj",
-    "cream", "ointment", "gel", "lotion", "drops", "drop",
-    "powder", "granules", "spray", "inhaler", "patch", "patches",
-    "suppository", "suppositories", "liquid", "liqu", "syrp",
+    "tablet",
+    "tablets",
+    "tab",
+    "capsule",
+    "capsules",
+    "cap",
+    "syrup",
+    "suspension",
+    "solution",
+    "injection",
+    "inj",
+    "cream",
+    "ointment",
+    "gel",
+    "lotion",
+    "drops",
+    "drop",
+    "powder",
+    "granules",
+    "spray",
+    "inhaler",
+    "patch",
+    "patches",
+    "suppository",
+    "suppositories",
+    "liquid",
+    "liqu",
+    "syrp",
   ];
 
   const tokens = normalized.split(" ").filter((t) => {
@@ -101,10 +124,10 @@ function normalizeUnit(unit) {
 
 /**
  * Extract strength from medicine name
- * 
- * ✅ FIX v2: Skips brand codes like "LA 12", "HP 500", "DS", etc.
+ *
+ *  FIX v2: Skips brand codes like "LA 12", "HP 500", "DS", etc.
  * Only infers strength for plausible dosage values.
- * 
+ *
  * "Paracetamol 500mg" → { value: 500, unit: "mg", inferred: false }
  * "FLUvator 100 Tablet" → { value: 100, unit: "mg", inferred: true }
  * "Penidure LA 12 Injection" → null (12 after "LA" = brand code)
@@ -143,7 +166,7 @@ function extractStrength(name) {
 
   const brandPattern = new RegExp(
     `([a-z])\\s+(\\d+(?:\\.\\d+)?)\\s+(?:${formWords})`,
-    "i"
+    "i",
   );
   const brandMatch = name.match(brandPattern);
   if (brandMatch) {
@@ -156,8 +179,8 @@ function extractStrength(name) {
     // Skip values like 12, 6.4 — these are often brand codes
     // ═══════════════════════════════════════════════════════════
     const plausibleDosages = [
-      0.25, 0.5, 1, 2, 2.5, 4, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 125,
-      150, 200, 250, 300, 400, 500, 600, 650, 750, 800, 1000,
+      0.25, 0.5, 1, 2, 2.5, 4, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 125, 150,
+      200, 250, 300, 400, 500, 600, 650, 750, 800, 1000,
     ];
 
     // Check if the value is a common dosage
@@ -165,11 +188,8 @@ function extractStrength(name) {
 
     // Also check if there are brand-code letters directly before the number
     // "LA 12" → likely brand code, "FLUvator 100" → likely dosage
-    const beforeNumber = name
-      .substring(0, name.indexOf(brandMatch[2]))
-      .trim();
-    const lastWordBefore =
-      beforeNumber.split(/\s+/).pop()?.toLowerCase() || "";
+    const beforeNumber = name.substring(0, name.indexOf(brandMatch[2])).trim();
+    const lastWordBefore = beforeNumber.split(/\s+/).pop()?.toLowerCase() || "";
     const brandCodePrefixes = [
       "la",
       "hp",
@@ -205,7 +225,7 @@ function extractStrength(name) {
     // If it's a brand code or not a plausible dosage, skip entirely
     if (isBrandCode) {
       console.log(
-        `⚠️ extractStrength: Skipping "${val}" after brand code "${lastWordBefore}" in "${name}"`
+        `⚠️ extractStrength: Skipping "${val}" after brand code "${lastWordBefore}" in "${name}"`,
       );
     }
   }
@@ -280,8 +300,7 @@ function levenshteinDistance(str1, str2) {
       if (str1[i - 1] === str2[j - 1]) {
         dp[i][j] = dp[i - 1][j - 1];
       } else {
-        dp[i][j] =
-          1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
       }
     }
   }
@@ -376,8 +395,8 @@ function calculateNameScore(shopName, masterName, masterBrand) {
 
 /**
  * Calculate strength match score
- * 
- * ✅ FIX v2: Never blocks when one side is inferred.
+ *
+ *  FIX v2: Never blocks when one side is inferred.
  * Only blocks when BOTH sides have explicit (non-inferred) strength
  * AND they disagree. This prevents "Penidure LA 12" (inferred 12mg)
  * from blocking against "1200000IU" (explicit).
@@ -491,7 +510,7 @@ function calculateCompositionScore(shopGenericName, masterComposition) {
 
   if (Array.isArray(masterComposition)) {
     compositionNames = masterComposition.map((c) =>
-      normalizeString(c.name || c)
+      normalizeString(c.name || c),
     );
   } else if (typeof masterComposition === "string") {
     compositionNames = [normalizeString(masterComposition)];
@@ -530,7 +549,7 @@ function calculateCompositionScore(shopGenericName, masterComposition) {
 function calculateManufacturerScore(
   shopManufacturer,
   masterManufacturer,
-  masterMarketer
+  masterMarketer,
 ) {
   if (!shopManufacturer) {
     return { score: 0, reason: "No shop manufacturer" };
@@ -555,19 +574,13 @@ function calculateManufacturerScore(
   }
 
   // Contains match
-  if (
-    mfrNorm &&
-    (shopNorm.includes(mfrNorm) || mfrNorm.includes(shopNorm))
-  ) {
+  if (mfrNorm && (shopNorm.includes(mfrNorm) || mfrNorm.includes(shopNorm))) {
     return {
       score: SCORE_WEIGHTS.MANUFACTURER * 0.9,
       reason: "Manufacturer contains match",
     };
   }
-  if (
-    mktNorm &&
-    (shopNorm.includes(mktNorm) || mktNorm.includes(shopNorm))
-  ) {
+  if (mktNorm && (shopNorm.includes(mktNorm) || mktNorm.includes(shopNorm))) {
     return {
       score: SCORE_WEIGHTS.MANUFACTURER * 0.85,
       reason: "Marketer contains match",
@@ -575,12 +588,8 @@ function calculateManufacturerScore(
   }
 
   // Similarity
-  const mfrSim = mfrNorm
-    ? calculateStringSimilarity(shopNorm, mfrNorm)
-    : 0;
-  const mktSim = mktNorm
-    ? calculateStringSimilarity(shopNorm, mktNorm)
-    : 0;
+  const mfrSim = mfrNorm ? calculateStringSimilarity(shopNorm, mfrNorm) : 0;
+  const mktSim = mktNorm ? calculateStringSimilarity(shopNorm, mktNorm) : 0;
   const bestSim = Math.max(mfrSim, mktSim);
 
   if (bestSim >= 0.7) {
@@ -595,8 +604,8 @@ function calculateManufacturerScore(
 
 /**
  * Calculate total match score
- * 
- * ✅ FIX v2: Adds exact-name boost.
+ *
+ *  FIX v2: Adds exact-name boost.
  * When the product name matches EXACTLY, this is an extremely strong signal.
  * Even if manufacturer or strength data is missing/mismatched, an exact name
  * is almost certainly correct. Boosts to minimum SUGGEST threshold.
@@ -606,17 +615,17 @@ function calculateMatchScore(shopMedicine, masterMedicine, masterVariant) {
     name: calculateNameScore(
       shopMedicine.name,
       masterVariant.name,
-      masterVariant.brand
+      masterVariant.brand,
     ),
     strength: calculateStrengthScore(shopMedicine.name, masterVariant),
     composition: calculateCompositionScore(
       shopMedicine.generic_name,
-      masterMedicine.composition
+      masterMedicine.composition,
     ),
     manufacturer: calculateManufacturerScore(
       shopMedicine.manufacturer,
       masterVariant.manufacturer,
-      masterVariant.marketer
+      masterVariant.marketer,
     ),
   };
 
@@ -654,20 +663,16 @@ function calculateMatchScore(shopMedicine, masterMedicine, masterVariant) {
   if (compositionUnavailable) {
     // Max possible without composition = 80 (name:40 + strength:25 + manufacturer:15)
     const rawScore =
-      scores.name.score +
-      scores.strength.score +
-      scores.manufacturer.score;
+      scores.name.score + scores.strength.score + scores.manufacturer.score;
     const maxPossible =
-      SCORE_WEIGHTS.NAME +
-      SCORE_WEIGHTS.STRENGTH +
-      SCORE_WEIGHTS.MANUFACTURER; // 80
+      SCORE_WEIGHTS.NAME + SCORE_WEIGHTS.STRENGTH + SCORE_WEIGHTS.MANUFACTURER; // 80
     totalScore = Math.round((rawScore / maxPossible) * 100);
   } else {
     totalScore = Math.round(
       scores.name.score +
         scores.strength.score +
         scores.composition.score +
-        scores.manufacturer.score
+        scores.manufacturer.score,
     );
   }
 
@@ -739,9 +744,7 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
   const brandToken = extractBrandToken(name);
 
   // Build search terms
-  const searchTerms = normalizedName
-    .split(" ")
-    .filter((t) => t.length > 2);
+  const searchTerms = normalizedName.split(" ").filter((t) => t.length > 2);
 
   console.log("🔍 Searching for:", name);
   console.log("🧠 Search terms:", searchTerms);
@@ -781,9 +784,7 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
       take: 5,
     });
     exactMatches.forEach((v) => variantMap.set(v.variant_id, v));
-    console.log(
-      `📦 Query 1 (exact name): ${exactMatches.length} results`
-    );
+    console.log(`📦 Query 1 (exact name): ${exactMatches.length} results`);
   } catch (e) {
     console.error("Query 1 failed:", e.message);
   }
@@ -803,7 +804,7 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
       });
       brandMatches.forEach((v) => variantMap.set(v.variant_id, v));
       console.log(
-        `📦 Query 2 (brand "${brandToken}"): ${brandMatches.length} results`
+        `📦 Query 2 (brand "${brandToken}"): ${brandMatches.length} results`,
       );
     } catch (e) {
       console.error("Query 2 failed:", e.message);
@@ -823,9 +824,7 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
         take: 20,
       });
       nameContains.forEach((v) => variantMap.set(v.variant_id, v));
-      console.log(
-        `📦 Query 3 (name contains): ${nameContains.length} results`
-      );
+      console.log(`📦 Query 3 (name contains): ${nameContains.length} results`);
     } catch (e) {
       console.error("Query 3 failed:", e.message);
     }
@@ -862,7 +861,7 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
         });
         mfrMatches.forEach((v) => variantMap.set(v.variant_id, v));
         console.log(
-          `📦 Query 4 (manufacturer "${mfrFirstWord}"): ${mfrMatches.length} results`
+          `📦 Query 4 (manufacturer "${mfrFirstWord}"): ${mfrMatches.length} results`,
         );
       } catch (e) {
         console.error("Query 4 failed:", e.message);
@@ -882,7 +881,7 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
         manufacturer: v.manufacturer,
         marketer: v.marketer,
         master_key: v.master?.master_key,
-      }))
+      })),
     );
   }
 
@@ -892,7 +891,7 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
       const matchResult = calculateMatchScore(
         shopMedicine,
         variant.master,
-        variant
+        variant,
       );
 
       return {
@@ -906,14 +905,14 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
     .slice(0, limit);
 
   console.log(
-    `✅ Final matches after filter (threshold=${THRESHOLDS.MIN_MATCH}):`,
+    ` Final matches after filter (threshold=${THRESHOLDS.MIN_MATCH}):`,
     scoredMatches.length > 0
       ? scoredMatches.map((m) => ({
           variant: m.variant.name,
           totalScore: m.totalScore,
           reasons: m.reasons,
         }))
-      : "❌ NONE passed threshold"
+      : " NONE passed threshold",
   );
 
   return scoredMatches;
@@ -946,7 +945,7 @@ export async function checkSingleMedicine(shopMedicine) {
   const confidence = topMatch.totalScore;
 
   const highConfidenceMatches = matches.filter(
-    (m) => m.totalScore >= THRESHOLDS.AUTO_LINK
+    (m) => m.totalScore >= THRESHOLDS.AUTO_LINK,
   );
 
   let result;
@@ -1036,7 +1035,7 @@ export async function bulkCheckImportRows(rows) {
   }
 
   console.log(
-    `🔍 Bulk checking ${rows.length} import rows against master catalog...`
+    `🔍 Bulk checking ${rows.length} import rows against master catalog...`,
   );
 
   const results = [];
@@ -1069,7 +1068,7 @@ export async function bulkCheckImportRows(rows) {
           "🧪 Checking row:",
           rowIndex,
           row.name,
-          row.manufacturer || "(no mfr)"
+          row.manufacturer || "(no mfr)",
         );
 
         try {
@@ -1098,13 +1097,13 @@ export async function bulkCheckImportRows(rows) {
             master_medicine_id: null,
           };
         }
-      })
+      }),
     );
 
     results.push(...batchResults);
   }
 
-  console.log(`✅ Bulk check complete:`, stats);
+  console.log(` Bulk check complete:`, stats);
 
   return { results, stats };
 }
@@ -1199,7 +1198,7 @@ export async function manuallyLinkMedicine(
   medicineId,
   masterMedicineId,
   userId,
-  userType = "CADMIN"
+  userType = "CADMIN",
 ) {
   const master = await prisma.masterMedicine.findUnique({
     where: { master_medicine_id: masterMedicineId },
@@ -1331,7 +1330,7 @@ export async function bulkAutoLinkMedicines(shopId, branchId = null) {
 export async function getUnlinkedMedicines(
   shopId,
   branchId = null,
-  options = {}
+  options = {},
 ) {
   const { status = "PENDING", page = 1, limit = 20 } = options;
 

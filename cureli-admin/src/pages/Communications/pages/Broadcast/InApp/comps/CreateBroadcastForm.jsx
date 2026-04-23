@@ -2,8 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Send, Save, Calendar, Eye, AlertTriangle,
-  Users, X, FileText, Loader2,
+  Send,
+  Save,
+  Calendar,
+  Eye,
+  AlertTriangle,
+  Users,
+  X,
+  FileText,
+  Loader2,
 } from "lucide-react";
 import AudienceFilterPanel from "./AudienceFilterPanel";
 import AttachmentsPanel from "./AttachmentsPanel";
@@ -14,13 +21,34 @@ import * as broadcastAPI from "../../../../../../api/cadminBroadcast";
 import { useDebounce } from "../../../../../../hooks/useDebounce";
 
 const PRIORITY_OPTIONS = [
-  { value: "low",      label: "Low",      color: "bg-gray-100 text-gray-600 border-gray-200" },
-  { value: "normal",   label: "Normal",   color: "bg-green-50 text-green-700 border-green-200" },
-  { value: "high",     label: "High",     color: "bg-orange-50 text-orange-700 border-orange-200" },
-  { value: "critical", label: "Critical", color: "bg-red-50 text-red-700 border-red-200" },
+  {
+    value: "low",
+    label: "Low",
+    color: "bg-gray-100 text-gray-600 border-gray-200",
+  },
+  {
+    value: "normal",
+    label: "Normal",
+    color: "bg-green-50 text-green-700 border-green-200",
+  },
+  {
+    value: "high",
+    label: "High",
+    color: "bg-orange-50 text-orange-700 border-orange-200",
+  },
+  {
+    value: "critical",
+    label: "Critical",
+    color: "bg-red-50 text-red-700 border-red-200",
+  },
 ];
 
-function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft = null }) {
+function CreateBroadcastForm({
+  onSuccess,
+  onDraftSaved,
+  onScheduled,
+  editDraft = null,
+}) {
   const [formData, setFormData] = useState({
     title: "",
     message: "",
@@ -42,9 +70,11 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
-  // ✅ Use ref to always have latest formData in async callbacks
+  //  Use ref to always have latest formData in async callbacks
   const formDataRef = useRef(formData);
-  useEffect(() => { formDataRef.current = formData; }, [formData]);
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
 
   const debouncedFilters = useDebounce(formData.target_filters, 600);
 
@@ -52,20 +82,20 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
   useEffect(() => {
     if (editDraft) {
       setFormData({
-        title:          editDraft.title         || "",
-        message:        editDraft.message       || "",
-        priority:       editDraft.priority      || "normal",
+        title: editDraft.title || "",
+        message: editDraft.message || "",
+        priority: editDraft.priority || "normal",
         target_filters: editDraft.target_filters || {},
-        attachments:    editDraft.attachments   || [],
-        action_url:     editDraft.action_url    || "",
-        action_label:   editDraft.action_label  || "",
-        target_users:   editDraft.target_users  ?? true,
+        attachments: editDraft.attachments || [],
+        action_url: editDraft.action_url || "",
+        action_label: editDraft.action_label || "",
+        target_users: editDraft.target_users ?? true,
         target_cadmins: editDraft.target_cadmins ?? false,
       });
     }
   }, [editDraft]);
 
-  // ✅ fetchRecipientCount reads from ref — never stale
+  //  fetchRecipientCount reads from ref — never stale
   const fetchRecipientCount = useCallback(async () => {
     const current = formDataRef.current;
 
@@ -77,10 +107,10 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
 
     setIsPreviewLoading(true);
     try {
-      // ✅ Merge audience flags into filters for the API call
+      //  Merge audience flags into filters for the API call
       const filtersToSend = {
         ...current.target_filters,
-        includeUsers:   current.target_users,
+        includeUsers: current.target_users,
         includeCAdmins: current.target_cadmins,
       };
 
@@ -94,12 +124,17 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
     } finally {
       setIsPreviewLoading(false);
     }
-  }, []); // ✅ Stable — uses ref internally
+  }, []); //  Stable — uses ref internally
 
-  // ✅ Re-fetch when debounced filters OR audience toggles change
+  //  Re-fetch when debounced filters OR audience toggles change
   useEffect(() => {
     fetchRecipientCount();
-  }, [debouncedFilters, formData.target_users, formData.target_cadmins, fetchRecipientCount]);
+  }, [
+    debouncedFilters,
+    formData.target_users,
+    formData.target_cadmins,
+    fetchRecipientCount,
+  ]);
 
   const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
@@ -142,30 +177,30 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
 
   const preparePayload = () => {
     const cleanedAttachments = formData.attachments.map((att) => ({
-      type:          att.type,
-      url:           att.url,
-      label:         att.label         || att.original_name || null,
-      filename:      att.filename      || null,
+      type: att.type,
+      url: att.url,
+      label: att.label || att.original_name || null,
+      filename: att.filename || null,
       original_name: att.original_name || null,
-      size:          att.size          || null,
+      size: att.size || null,
     }));
 
-    // ✅ Merge audience flags into target_filters so backend resolveAudience gets them
+    //  Merge audience flags into target_filters so backend resolveAudience gets them
     const mergedFilters = {
       ...formData.target_filters,
-      includeUsers:   formData.target_users,
+      includeUsers: formData.target_users,
       includeCAdmins: formData.target_cadmins,
     };
 
     return {
-      title:          formData.title,
-      message:        formData.message,
-      priority:       formData.priority,
+      title: formData.title,
+      message: formData.message,
+      priority: formData.priority,
       target_filters: mergedFilters,
-      attachments:    cleanedAttachments,
-      action_url:     formData.action_url,
-      action_label:   formData.action_label,
-      target_users:   formData.target_users,
+      attachments: cleanedAttachments,
+      action_url: formData.action_url,
+      action_label: formData.action_label,
+      target_users: formData.target_users,
       target_cadmins: formData.target_cadmins,
     };
   };
@@ -249,15 +284,20 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
       {/* Alert */}
       {(error || success) && (
         <div className="flex-shrink-0 px-6 pt-4">
-          <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm ${
-            error
-              ? "bg-red-50 border border-red-200 text-red-700"
-              : "bg-green-50 border border-green-200 text-green-700"
-          }`}>
+          <div
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm ${
+              error
+                ? "bg-red-50 border border-red-200 text-red-700"
+                : "bg-green-50 border border-green-200 text-green-700"
+            }`}
+          >
             {error && <AlertTriangle size={14} />}
             <span className="font-medium">{error || success}</span>
             {error && (
-              <button onClick={() => setError(null)} className="ml-auto p-0.5 hover:bg-red-100 rounded">
+              <button
+                onClick={() => setError(null)}
+                className="ml-auto p-0.5 hover:bg-red-100 rounded"
+              >
                 <X size={14} />
               </button>
             )}
@@ -273,7 +313,9 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
             <div className="p-5 space-y-5 h-full overflow-y-auto">
               <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
                 <FileText size={16} className="text-[#05015A]" />
-                <h3 className="text-sm font-semibold text-gray-900">Message Content</h3>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Message Content
+                </h3>
               </div>
 
               {/* Title */}
@@ -309,7 +351,9 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-[#05015A]/10 focus:border-[#05015A] disabled:bg-gray-50"
                 />
                 <div className="flex justify-end mt-1">
-                  <span className={`text-[10px] ${charCount > 450 ? "text-amber-600" : "text-gray-400"}`}>
+                  <span
+                    className={`text-[10px] ${charCount > 450 ? "text-amber-600" : "text-gray-400"}`}
+                  >
                     {charCount}/500
                   </span>
                 </div>
@@ -317,13 +361,17 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
 
               {/* Priority */}
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-2 block">Priority</label>
+                <label className="text-xs font-medium text-gray-600 mb-2 block">
+                  Priority
+                </label>
                 <div className="flex flex-wrap gap-2">
                   {PRIORITY_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => setFormData((p) => ({ ...p, priority: opt.value }))}
+                      onClick={() =>
+                        setFormData((p) => ({ ...p, priority: opt.value }))
+                      }
                       disabled={loading}
                       className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
                         formData.priority === opt.value
@@ -347,7 +395,8 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
               {/* Action Button */}
               <div className="pt-4 border-t border-gray-100">
                 <label className="text-xs font-medium text-gray-600 mb-2 block">
-                  Action Button <span className="text-gray-400 font-normal">(optional)</span>
+                  Action Button{" "}
+                  <span className="text-gray-400 font-normal">(optional)</span>
                 </label>
                 <div className="space-y-2">
                   <input
@@ -381,7 +430,9 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
               <div className="flex items-center justify-between pb-3 border-b border-gray-200 mb-5">
                 <div className="flex items-center gap-2">
                   <Users size={16} className="text-[#05015A]" />
-                  <h3 className="text-sm font-semibold text-gray-900">Target Audience</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Target Audience
+                  </h3>
                 </div>
                 <div className="flex items-center gap-3">
                   {isPreviewLoading ? (
@@ -397,7 +448,9 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
                       <span className="text-xs text-white/80">recipients</span>
                     </div>
                   ) : (
-                    <span className="text-xs text-gray-400">Select audience</span>
+                    <span className="text-xs text-gray-400">
+                      Select audience
+                    </span>
                   )}
                 </div>
               </div>
@@ -409,7 +462,11 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
                   onClick={() =>
                     !loading &&
                     handleInputChange({
-                      target: { name: "target_users", type: "checkbox", checked: !formData.target_users },
+                      target: {
+                        name: "target_users",
+                        type: "checkbox",
+                        checked: !formData.target_users,
+                      },
                     })
                   }
                   className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
@@ -419,22 +476,49 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      formData.target_users ? "bg-[#05015A]/10" : "bg-gray-100"
-                    }`}>
-                      <Users size={18} className={formData.target_users ? "text-[#05015A]" : "text-gray-400"} />
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        formData.target_users
+                          ? "bg-[#05015A]/10"
+                          : "bg-gray-100"
+                      }`}
+                    >
+                      <Users
+                        size={18}
+                        className={
+                          formData.target_users
+                            ? "text-[#05015A]"
+                            : "text-gray-400"
+                        }
+                      />
                     </div>
                     <div>
-                      <span className="text-sm font-semibold text-gray-900 block">ERP Users</span>
-                      <p className="text-xs text-gray-500">Shop owners & staff</p>
+                      <span className="text-sm font-semibold text-gray-900 block">
+                        ERP Users
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Shop owners & staff
+                      </p>
                     </div>
                   </div>
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                    formData.target_users ? "border-[#05015A] bg-[#05015A]" : "border-gray-300"
-                  }`}>
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      formData.target_users
+                        ? "border-[#05015A] bg-[#05015A]"
+                        : "border-gray-300"
+                    }`}
+                  >
                     {formData.target_users && (
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      <svg
+                        className="w-3 h-3 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     )}
                   </div>
@@ -445,7 +529,11 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
                   onClick={() =>
                     !loading &&
                     handleInputChange({
-                      target: { name: "target_cadmins", type: "checkbox", checked: !formData.target_cadmins },
+                      target: {
+                        name: "target_cadmins",
+                        type: "checkbox",
+                        checked: !formData.target_cadmins,
+                      },
                     })
                   }
                   className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
@@ -455,22 +543,49 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      formData.target_cadmins ? "bg-[#05015A]/10" : "bg-gray-100"
-                    }`}>
-                      <Users size={18} className={formData.target_cadmins ? "text-[#05015A]" : "text-gray-400"} />
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        formData.target_cadmins
+                          ? "bg-[#05015A]/10"
+                          : "bg-gray-100"
+                      }`}
+                    >
+                      <Users
+                        size={18}
+                        className={
+                          formData.target_cadmins
+                            ? "text-[#05015A]"
+                            : "text-gray-400"
+                        }
+                      />
                     </div>
                     <div>
-                      <span className="text-sm font-semibold text-gray-900 block">Admins</span>
-                      <p className="text-xs text-gray-500">Internal team members</p>
+                      <span className="text-sm font-semibold text-gray-900 block">
+                        Admins
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Internal team members
+                      </p>
                     </div>
                   </div>
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                    formData.target_cadmins ? "border-[#05015A] bg-[#05015A]" : "border-gray-300"
-                  }`}>
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      formData.target_cadmins
+                        ? "border-[#05015A] bg-[#05015A]"
+                        : "border-gray-300"
+                    }`}
+                  >
                     {formData.target_cadmins && (
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      <svg
+                        className="w-3 h-3 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     )}
                   </div>
@@ -543,7 +658,11 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
             disabled={loading || !recipientPreview?.total}
             className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white bg-[#05015A] rounded-lg hover:bg-[#05015A]/90 disabled:opacity-50 transition-colors shadow-sm"
           >
-            {loading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+            {loading ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Send size={15} />
+            )}
             Send Now
           </button>
         </div>
@@ -562,7 +681,10 @@ function CreateBroadcastForm({ onSuccess, onDraftSaved, onScheduled, editDraft =
         />
       )}
       {showScheduleModal && (
-        <ScheduleModal onConfirm={confirmSchedule} onCancel={() => setShowScheduleModal(false)} />
+        <ScheduleModal
+          onConfirm={confirmSchedule}
+          onCancel={() => setShowScheduleModal(false)}
+        />
       )}
       {showPreviewModal && recipientPreview && (
         <PreviewModal

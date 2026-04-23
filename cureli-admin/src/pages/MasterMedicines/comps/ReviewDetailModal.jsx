@@ -70,7 +70,7 @@ const ReviewDetailModal = ({
     if (!masterDetail?.variants?.length) return null;
     return (
       masterDetail.variants.find(
-        (v) => v.name?.toLowerCase() === item?.rawName?.toLowerCase()
+        (v) => v.name?.toLowerCase() === item?.rawName?.toLowerCase(),
       ) || masterDetail.variants[0]
     );
   }, [masterDetail, item]);
@@ -140,10 +140,7 @@ const ReviewDetailModal = ({
                 >
                   {item.rawName}
                 </span>
-                <ArrowRight
-                  size={16}
-                  className="text-gray-300 flex-shrink-0"
-                />
+                <ArrowRight size={16} className="text-gray-300 flex-shrink-0" />
                 <span
                   className="font-semibold text-indigo-700 truncate max-w-[200px]"
                   title={item.suggestedMaster?.name}
@@ -258,7 +255,7 @@ const ReviewDetailModal = ({
                   )}
                 </div>
 
-                {/* ✅ ENHANCED: Shop medicine info card with all available fields */}
+                {/*  ENHANCED: Shop medicine info card with all available fields */}
                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                   <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <Store size={12} />
@@ -322,7 +319,7 @@ const ReviewDetailModal = ({
                                 day: "2-digit",
                                 month: "short",
                                 year: "numeric",
-                              }
+                              },
                             )
                           : "—"
                       }
@@ -410,7 +407,7 @@ const ReviewDetailModal = ({
                   </div>
                 </div>
 
-                {/* ✅ NEW: Field comparison section — shop vs master */}
+                {/*  NEW: Field comparison section — shop vs master */}
                 {(shopMed.manufacturer || shopMed.category) && (
                   <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100">
                     <h4 className="text-xs font-semibold text-indigo-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -427,9 +424,7 @@ const ReviewDetailModal = ({
                         <ComparisonRow
                           label="Manufacturer"
                           shopValue={shopMed.manufacturer}
-                          masterValue={
-                            masterDetail.manufacturers?.[0] || "—"
-                          }
+                          masterValue={masterDetail.manufacturers?.[0] || "—"}
                         />
                       )}
                       {shopMed.category && (
@@ -628,9 +623,7 @@ const ReviewDetailModal = ({
                                   {v.marketer || "—"}
                                 </td>
                                 <td className="px-3 py-2 text-right font-medium text-gray-900">
-                                  {v.pricing?.mrp
-                                    ? `₹${v.pricing.mrp}`
-                                    : "—"}
+                                  {v.pricing?.mrp ? `₹${v.pricing.mrp}` : "—"}
                                 </td>
                                 <td className="px-3 py-2 text-gray-500">
                                   {v.packSize || "—"}
@@ -669,14 +662,11 @@ const ReviewDetailModal = ({
             <span>
               Created{" "}
               {masterDetail?.createdAt
-                ? new Date(masterDetail.createdAt).toLocaleDateString(
-                    "en-IN",
-                    {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    }
-                  )
+                ? new Date(masterDetail.createdAt).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })
                 : "—"}
             </span>
           </div>
@@ -751,7 +741,7 @@ const InfoChip = ({ icon: Icon, label }) => (
   </span>
 );
 
-// ✅ NEW: Side-by-side comparison row
+//  NEW: Side-by-side comparison row
 const ComparisonRow = ({ label, shopValue, masterValue }) => {
   const isMatch =
     shopValue &&
