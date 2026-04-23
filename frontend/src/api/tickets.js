@@ -37,7 +37,11 @@ export const getTickets = (params = {}) => {
 export const getTicketStats = () => API.get("/tickets/stats");
 
 // Get single ticket by ID
-export const getTicketById = (ticket_id) => API.get(`/tickets/${ticket_id}`);
+export const getTicketById = (ticket_id) =>
+  API.get(`/tickets/${ticket_id}`);
+
+export const getTicketActivities = (ticket_id) =>
+  API.get(`/tickets/${ticket_id}/activities`);
 
 // Create new ticket (with optional file attachments)
 export const createTicket = (ticketData) => {

@@ -22,7 +22,6 @@ const TopShopsTable = ({ period }) => {
       setLoading(true);
       try {
         const res = await getTopShops(period, page, 5);
-        console.log("[TopShopsTable] Response:", res);
         setData(res.data?.shops || []);
         setPagination(res.data?.pagination || null);
       } catch (e) {

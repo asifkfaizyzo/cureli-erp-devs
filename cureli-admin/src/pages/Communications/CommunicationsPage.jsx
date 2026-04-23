@@ -22,6 +22,25 @@ import { useCAdminPermission } from "../../hooks/useCAdminPermission";
 import { CADMIN_PERMISSIONS } from "../../config/cadminPermissions";
 
 // ============================================
+// BROADCAST PERMISSIONS — any of these = show card
+// ============================================
+const BROADCAST_ANY_PERMISSIONS = [
+  CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
+  CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY,
+  CADMIN_PERMISSIONS.BROADCAST_EMAIL_MANAGE_DRAFTS,
+  CADMIN_PERMISSIONS.BROADCAST_EMAIL_SCHEDULE,
+  CADMIN_PERMISSIONS.BROADCAST_EMAIL_UPLOAD,
+  CADMIN_PERMISSIONS.BROADCAST_EMAIL_MANAGE_UNSUBSCRIBES,
+  CADMIN_PERMISSIONS.BROADCAST_INAPP_SEND,
+  CADMIN_PERMISSIONS.BROADCAST_INAPP_VIEW_HISTORY,
+  CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_DRAFTS,
+  CADMIN_PERMISSIONS.BROADCAST_INAPP_SCHEDULE,
+  CADMIN_PERMISSIONS.BROADCAST_INAPP_UPLOAD,
+  CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_SEGMENTS,
+  CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_TEMPLATES,
+];
+
+// ============================================
 // STAT ITEM COMPONENT
 // ============================================
 const StatItem = ({ icon: Icon, label, value, color }) => (
@@ -66,13 +85,12 @@ const CommunicationCard = ({
       className={`
         bg-white rounded-xl border border-gray-200 p-5
         transition-all duration-200
-        ${isComingSoon 
-          ? "opacity-60 cursor-not-allowed" 
+        ${isComingSoon
+          ? "opacity-60 cursor-not-allowed"
           : "cursor-pointer hover:border-gray-300 hover:shadow-md"
         }
       `}
     >
-      {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center`}>
           <Icon className={`w-5 h-5 ${iconColor}`} />
@@ -84,11 +102,9 @@ const CommunicationCard = ({
         )}
       </div>
 
-      {/* Title & Description */}
       <h3 className="text-base font-semibold text-gray-900 mb-1">{title}</h3>
       <p className="text-xs text-gray-500 mb-4 line-clamp-2">{description}</p>
 
-      {/* Stats */}
       <div className="min-h-[44px]">
         {isLoading ? (
           <div className="flex items-center gap-2 text-gray-400">
@@ -110,7 +126,6 @@ const CommunicationCard = ({
         ) : null}
       </div>
 
-      {/* Action */}
       {!isComingSoon && (
         <div className="flex items-center gap-1.5 mt-4 pt-4 border-t border-gray-100">
           <span className="text-xs font-medium text-[#000060]">View all</span>
@@ -126,26 +141,20 @@ const CommunicationCard = ({
 // ============================================
 const CommunicationsPage = () => {
   const toast = useToast();
-  const { hasPermission } = useCAdminPermission();
-  
+  const { hasPermission, hasAnyPermission } = useCAdminPermission();
+
   const [ticketStats, setTicketStats] = useState(null);
   const [enquiryStats, setEnquiryStats] = useState(null);
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [loadingEnquiries, setLoadingEnquiries] = useState(true);
 
-  // Fetch ticket stats - get pending count
   const fetchTicketStats = useCallback(async () => {
     try {
       setLoadingTickets(true);
-      
-      // Fetch total count
       const totalResponse = await getAllTickets({ page: 1, limit: 1 });
       const total = totalResponse?.data?.data?.pagination?.total || 0;
-      
-      // Fetch pending count
       const pendingResponse = await getAllTickets({ page: 1, limit: 1, status: "PENDING" });
       const pending = pendingResponse?.data?.data?.pagination?.total || 0;
-
       setTicketStats({ total, pending });
     } catch (error) {
       console.error("Failed to fetch ticket stats:", error);
@@ -155,25 +164,16 @@ const CommunicationsPage = () => {
     }
   }, []);
 
-  // Fetch enquiry stats
   const fetchEnquiryStats = useCallback(async () => {
     try {
       setLoadingEnquiries(true);
       const response = await getEnquiryStats();
-
       let statsData = null;
-      if (response?.data?.data?.stats) {
-        statsData = response.data.data.stats;
-      } else if (response?.data?.stats) {
-        statsData = response.data.stats;
-      } else if (response?.stats) {
-        statsData = response.stats;
-      } else if (response?.data?.data) {
-        statsData = response.data.data;
-      } else if (response?.data) {
-        statsData = response.data;
-      }
-
+      if (response?.data?.data?.stats)   statsData = response.data.data.stats;
+      else if (response?.data?.stats)    statsData = response.data.stats;
+      else if (response?.stats)          statsData = response.stats;
+      else if (response?.data?.data)     statsData = response.data.data;
+      else if (response?.data)           statsData = response.data;
       setEnquiryStats(statsData);
     } catch (error) {
       console.error("Failed to fetch enquiry stats:", error);
@@ -183,27 +183,23 @@ const CommunicationsPage = () => {
     }
   }, []);
 
-  // Initial load - no toast, runs once on mount
   useEffect(() => {
     fetchTicketStats();
     fetchEnquiryStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Manual refresh handler - with toast
   const handleRefresh = useCallback(() => {
     toast.info("Data Refreshed", "Loading latest data...");
     fetchTicketStats();
     fetchEnquiryStats();
   }, [toast, fetchTicketStats, fetchEnquiryStats]);
 
-  // Calculate totals
-  const totalTickets = ticketStats?.total || 0;
-  const pendingTickets = ticketStats?.pending || 0;
-  const totalEnquiries = enquiryStats?.total || enquiryStats?.totalEnquiries || 0;
-  const pendingEnquiries = enquiryStats?.pending || enquiryStats?.pendingEnquiries || 0;
+  const totalTickets      = ticketStats?.total  || 0;
+  const pendingTickets    = ticketStats?.pending || 0;
+  const totalEnquiries    = enquiryStats?.total  || enquiryStats?.totalEnquiries   || 0;
+  const pendingEnquiries  = enquiryStats?.pending || enquiryStats?.pendingEnquiries || 0;
 
-  // Communication channels - filtered by permissions
   const channels = useMemo(() => {
     const allChannels = [
       {
@@ -216,21 +212,11 @@ const CommunicationsPage = () => {
         iconBg: "bg-blue-100",
         iconColor: "text-blue-600",
         isLoading: loadingTickets,
-        permissionKey: CADMIN_PERMISSIONS.TICKETS_VIEW,
+        visible: hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
         stats: ticketStats
           ? [
-              {
-                icon: TrendingUp,
-                label: "Total",
-                value: totalTickets,
-                color: "bg-blue-50 text-blue-600",
-              },
-              {
-                icon: Clock,
-                label: "Pending",
-                value: pendingTickets,
-                color: "bg-amber-50 text-amber-600",
-              },
+              { icon: TrendingUp, label: "Total",   value: totalTickets,   color: "bg-blue-50 text-blue-600"  },
+              { icon: Clock,      label: "Pending",  value: pendingTickets, color: "bg-amber-50 text-amber-600" },
             ]
           : null,
       },
@@ -244,21 +230,11 @@ const CommunicationsPage = () => {
         iconBg: "bg-emerald-100",
         iconColor: "text-emerald-600",
         isLoading: loadingEnquiries,
-        permissionKey: CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
+        visible: hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
         stats: enquiryStats
           ? [
-              {
-                icon: TrendingUp,
-                label: "Total",
-                value: totalEnquiries,
-                color: "bg-emerald-50 text-emerald-600",
-              },
-              {
-                icon: Clock,
-                label: "Pending",
-                value: pendingEnquiries,
-                color: "bg-amber-50 text-amber-600",
-              },
+              { icon: TrendingUp, label: "Total",   value: totalEnquiries,   color: "bg-emerald-50 text-emerald-600" },
+              { icon: Clock,      label: "Pending",  value: pendingEnquiries, color: "bg-amber-50 text-amber-600"    },
             ]
           : null,
       },
@@ -273,13 +249,15 @@ const CommunicationsPage = () => {
         iconColor: "text-violet-600",
         isLoading: false,
         isComingSoon: false,
-        permissionKey: CADMIN_PERMISSIONS.BROADCAST_VIEW,
+        // ✅ THE FIX: spread the array — hook uses rest params (...perms)
+        // Without the spread, the array is passed as a single argument
+        // and perms.some() checks if permissions.includes([...array]) → always false
+        visible: hasAnyPermission(...BROADCAST_ANY_PERMISSIONS),
         stats: null,
       },
     ];
 
-    // Filter channels based on permissions
-    return allChannels.filter((channel) => hasPermission(channel.permissionKey));
+    return allChannels.filter((channel) => channel.visible);
   }, [
     loadingTickets,
     loadingEnquiries,
@@ -290,6 +268,7 @@ const CommunicationsPage = () => {
     totalEnquiries,
     pendingEnquiries,
     hasPermission,
+    hasAnyPermission,
   ]);
 
   const isLoading = loadingTickets || loadingEnquiries;
@@ -307,9 +286,7 @@ const CommunicationsPage = () => {
               <h1 className="text-xl font-bold text-gray-900 truncate">
                 Communications
               </h1>
-              <p className="text-sm text-gray-500">
-                Manage customer interactions
-              </p>
+              <p className="text-sm text-gray-500">Manage customer interactions</p>
             </div>
           </div>
 
@@ -334,9 +311,8 @@ const CommunicationsPage = () => {
               <div className="w-1 h-8 bg-blue-600 rounded-full" />
               <p className="text-sm font-medium text-gray-700">Quick Overview</p>
             </div>
-            
+
             <div className="flex items-center gap-6 flex-wrap">
-              {/* Tickets */}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
                   <Ticket className="w-5 h-5 text-blue-600" />
@@ -351,7 +327,6 @@ const CommunicationsPage = () => {
 
               <div className="w-px h-10 bg-gray-200 hidden sm:block" />
 
-              {/* Enquiries */}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
                   <Mail className="w-5 h-5 text-violet-600" />
@@ -366,7 +341,6 @@ const CommunicationsPage = () => {
 
               <div className="w-px h-10 bg-gray-200 hidden sm:block" />
 
-              {/* Pending */}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
                   <AlertCircle className="w-5 h-5 text-amber-600" />
@@ -377,8 +351,7 @@ const CommunicationsPage = () => {
                   </p>
                   <p className="text-xs text-gray-500">Pending</p>
                 </div>
-                {/* Optional: Pending badge indicator */}
-                {!isLoading && (pendingTickets + pendingEnquiries) > 0 && (
+                {!isLoading && pendingTickets + pendingEnquiries > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
                     Action needed
                   </span>

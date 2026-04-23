@@ -1,4 +1,3 @@
-//cureli-admin\src\api\auth.js
 import CAdminAPI from "./axios";
 
 // LOGIN WITH OTP → sends OTP

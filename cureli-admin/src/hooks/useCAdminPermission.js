@@ -27,15 +27,14 @@ export function useCAdminPermission() {
   const { admin } = useAuth();
 
   return useMemo(() => {
-    const isSuperCAdmin  = admin?.is_super_cadmin === true;
-    const permissions    = admin?.permissions ?? [];   // string[]
-    const primary_role   = admin?.primary_role ?? null;
+    const isSuperCAdmin = admin?.is_super_cadmin === true;
+    const permissions   = admin?.permissions ?? []; // string[]
+    const primary_role  = admin?.primary_role ?? null;
 
     return {
       /**
        * Check if the admin has a specific permission string.
        * SUPER_CADMIN always returns true.
-       *
        * @param {string} permission - e.g. CADMIN_PERMISSIONS.SHOPS_VIEW
        */
       hasPermission: (permission) => {
@@ -47,7 +46,6 @@ export function useCAdminPermission() {
       /**
        * Check if the admin has ANY of the provided permissions.
        * SUPER_CADMIN always returns true.
-       *
        * @param {...string} perms
        */
       hasAnyPermission: (...perms) => {
@@ -59,7 +57,6 @@ export function useCAdminPermission() {
       /**
        * Check if the admin has ALL of the provided permissions.
        * SUPER_CADMIN always returns true.
-       *
        * @param {...string} perms
        */
       hasAllPermissions: (...perms) => {
@@ -70,24 +67,32 @@ export function useCAdminPermission() {
 
       // ── Identity helpers ────────────────────────────────────────────────
       isSuperCAdmin,
-      primary_role,          // display label e.g. "Operations"
-      permissions,           // raw array — use hasPermission() instead where possible
+      primary_role,
+      permissions, // raw array — use hasPermission() instead where possible
 
-      // ── Convenience checks (commonly used in multiple places) ───────────
+      // ── Convenience checks ──────────────────────────────────────────────
       canManageAdmins: isSuperCAdmin,
 
-      canManageFinance: isSuperCAdmin || [
-        CADMIN_PERMISSIONS.SUBSCRIPTIONS_EXTEND_GRACE,
-        CADMIN_PERMISSIONS.SUBSCRIPTIONS_FORCE_SUSPEND,
-        CADMIN_PERMISSIONS.SUBSCRIPTIONS_REACTIVATE,
-        CADMIN_PERMISSIONS.PLANS_CREATE,
-        CADMIN_PERMISSIONS.PLANS_EDIT,
-      ].some((p) => permissions.includes(p)),
+      canManageFinance:
+        isSuperCAdmin ||
+        [
+          CADMIN_PERMISSIONS.SUBSCRIPTIONS_EXTEND_GRACE,
+          CADMIN_PERMISSIONS.SUBSCRIPTIONS_FORCE_SUSPEND,
+          CADMIN_PERMISSIONS.SUBSCRIPTIONS_REACTIVATE,
+          CADMIN_PERMISSIONS.PLANS_CREATE,
+          CADMIN_PERMISSIONS.PLANS_EDIT,
+        ].some((p) => permissions.includes(p)),
 
-      canHandleCommunications: isSuperCAdmin || [
-        CADMIN_PERMISSIONS.TICKETS_VIEW,
-        CADMIN_PERMISSIONS.TICKETS_UPDATE_STATUS,
-      ].some((p) => permissions.includes(p)),
+      canHandleCommunications:
+        isSuperCAdmin ||
+        [
+          CADMIN_PERMISSIONS.TICKETS_VIEW,
+          CADMIN_PERMISSIONS.TICKETS_UPDATE_STATUS,
+          CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
+          CADMIN_PERMISSIONS.ENQUIRIES_REPLY,
+          CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
+          CADMIN_PERMISSIONS.BROADCAST_INAPP_SEND,
+        ].some((p) => permissions.includes(p)),
     };
   }, [admin]);
 }
@@ -108,7 +113,8 @@ export function useCAdminPermission() {
  * =============================================================================
  */
 export function useCAdminMenuPermissions() {
-  const { hasPermission, hasAnyPermission, isSuperCAdmin } = useCAdminPermission();
+  const { hasPermission, hasAnyPermission, isSuperCAdmin } =
+    useCAdminPermission();
 
   return useMemo(() => {
     const show = (permission) => ({
@@ -122,14 +128,14 @@ export function useCAdminMenuPermissions() {
     });
 
     return {
-      // ── Top-level items ──────────────────────────────────────────────────
+      // ── Top-level items ────────────────────────────────────────────────
       dashboard: show(CADMIN_PERMISSIONS.DASHBOARD_VIEW),
 
-      shops:     show(CADMIN_PERMISSIONS.SHOPS_VIEW),
+      shops: show(CADMIN_PERMISSIONS.SHOPS_VIEW),
 
-      users:     show(CADMIN_PERMISSIONS.USERS_VIEW),
+      users: show(CADMIN_PERMISSIONS.USERS_VIEW),
 
-      // ── Subscriptions parent + children ─────────────────────────────────
+      // ── Subscriptions parent + children ───────────────────────────────
       subscriptions: showAny(
         CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_AT_RISK,
         CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_DETAIL,
@@ -139,36 +145,68 @@ export function useCAdminMenuPermissions() {
       plans:             show(CADMIN_PERMISSIONS.PLANS_VIEW),
       riskMonitor:       show(CADMIN_PERMISSIONS.SUBSCRIPTIONS_VIEW_AT_RISK),
 
-      // ── Verifications ────────────────────────────────────────────────────
+      // ── Verifications ─────────────────────────────────────────────────
       verifications: show(CADMIN_PERMISSIONS.DOCUMENTS_VIEW),
 
-      // ── Communications parent + children ────────────────────────────────
-      // Parent visible if any child is visible
+      // ── Communications parent + children ──────────────────────────────
+      // Parent is visible if ANY child section is accessible
       communications: showAny(
         CADMIN_PERMISSIONS.TICKETS_VIEW,
+        CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY,
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_MANAGE_DRAFTS,
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_SCHEDULE,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_SEND,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_VIEW_HISTORY,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_DRAFTS,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_SCHEDULE,
       ),
-      // Broadcast: not in permission system yet — show to all authenticated
-      broadcast: { visible: true, disabled: false },
-      // Enquiries: not in permission system yet — show to all authenticated
-      enquiries: { visible: true, disabled: false },
-      tickets:   show(CADMIN_PERMISSIONS.TICKETS_VIEW),
 
-      // ── Admin management ─────────────────────────────────────────────────
-      // Only SUPER_CADMIN can see admin management
-      admins: {
-        visible:  isSuperCAdmin,
-        disabled: false,
-      },
+      // Tickets
+      tickets: show(CADMIN_PERMISSIONS.TICKETS_VIEW),
 
-      // ── Audit ────────────────────────────────────────────────────────────
+      // Enquiries — visible if admin can at minimum list enquiries
+      enquiries: show(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
+
+      // Broadcast parent — visible if admin has any broadcast permission
+      broadcast: showAny(
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY,
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_MANAGE_DRAFTS,
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_SCHEDULE,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_SEND,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_VIEW_HISTORY,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_DRAFTS,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_SCHEDULE,
+      ),
+
+      // Broadcast children
+      broadcastEmail: showAny(
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY,
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_MANAGE_DRAFTS,
+        CADMIN_PERMISSIONS.BROADCAST_EMAIL_SCHEDULE,
+      ),
+      broadcastInApp: showAny(
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_SEND,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_VIEW_HISTORY,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_DRAFTS,
+        CADMIN_PERMISSIONS.BROADCAST_INAPP_SCHEDULE,
+      ),
+
+      // ── Admin management ───────────────────────────────────────────────
+      admins: show(CADMIN_PERMISSIONS.ADMINS_VIEW),
+
+      // ── Audit ─────────────────────────────────────────────────────────
       audit: show(CADMIN_PERMISSIONS.AUDIT_VIEW),
 
-      // ── Master medicines ─────────────────────────────────────────────────
+      // ── Master medicines ──────────────────────────────────────────────
       masterMedicines: show(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
 
-      // ── Notifications ────────────────────────────────────────────────────
-      // Self-notifications — visible to all authenticated admins
+      // ── Always visible to all authenticated admins ─────────────────────
       notifications: { visible: true, disabled: false },
+      settings:      show(CADMIN_PERMISSIONS.SETTINGS_VIEW),
     };
   }, [hasPermission, hasAnyPermission, isSuperCAdmin]);
 }

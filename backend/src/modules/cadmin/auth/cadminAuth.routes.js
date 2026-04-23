@@ -1,5 +1,3 @@
-// backend/src/modules/cadmin/auth/cadminAuth.routes.js
-
 import express from "express";
 import {
   loginCAdminController,
@@ -24,41 +22,33 @@ import {
 
 const router = express.Router();
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AUTH ROUTES — No permission gates required
-// These are pre-authentication endpoints. requireCAdmin cannot run here
-// because the admin does not have a token yet.
-// ─────────────────────────────────────────────────────────────────────────────
-
 // POST /cadmin/login
 router.post("/login", validateBody(cadminLoginSchema), loginCAdminController);
 
-// POST /cadmin/login-direct (dev/special use)
+// POST /cadmin/login-direct
 router.post("/login-direct", validateBody(cadminLoginSchema), loginCAdminDirectController);
 
 // POST /cadmin/verify-otp
 router.post("/verify-otp", validateBody(cadminVerifyOtpSchema), verifyCAdminOtpController);
 
-// GET /cadmin/refresh — uses httpOnly cookie, no Bearer token
+// GET /cadmin/refresh
 router.get("/refresh", refreshCAdminController);
 
 // POST /cadmin/logout
-// requireCAdmin intentionally omitted — logout should always succeed
-// even if the token is near-expired. The cookie is cleared regardless.
 router.post("/logout", logoutCAdminController);
 
 // POST /cadmin/forgot-password
 router.post(
   "/forgot-password",
   validateBody(cadminForgotPasswordSchema),
-  forgotCAdminPasswordController
+  forgotCAdminPasswordController,
 );
 
 // POST /cadmin/reset-password
 router.post(
   "/reset-password",
   validateBody(cadminResetPasswordSchema),
-  resetCAdminPasswordController
+  resetCAdminPasswordController,
 );
 
 export default router;

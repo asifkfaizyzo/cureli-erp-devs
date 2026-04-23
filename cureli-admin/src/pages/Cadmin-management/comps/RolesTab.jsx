@@ -2,16 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Plus,
-  RefreshCw,
-  Shield,
-  Users,
-  AlertCircle,
-  Loader2,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  ChevronRight,
+  Plus, RefreshCw, Shield, Users, AlertCircle, Loader2,
+  MoreVertical, Pencil, Trash2, ChevronRight,
 } from "lucide-react";
 import { getRoles, getRoleDeletionImpact, deleteRole } from "../../../api/cadminAdmins";
 import { useToast } from "../../../components/common/Toast";
@@ -19,29 +11,18 @@ import { getRoleBadgeStyle } from "../../../config/tableConfig";
 import CreateRoleModal from "./CreateRoleModal";
 import RoleDetailModal from "./RoleDetailModal";
 import DeleteRoleModal from "./DeleteRoleModal";
+import { useCAdminPermission } from "../../../hooks/useCAdminPermission";
+import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Returns a consistent dot color class derived from role name.
- * Mirrors the logic in getRoleBadgeStyle so colors always match.
- */
 function getRoleDotColor(roleName) {
   if (!roleName) return "bg-gray-400";
   const normalized = roleName.trim().toLowerCase();
-  if (normalized === "super admin" || normalized === "super_cadmin")
-    return "bg-purple-500";
-
-  const colors = [
-    "bg-blue-500",
-    "bg-indigo-500",
-    "bg-emerald-500",
-    "bg-amber-500",
-    "bg-rose-500",
-    "bg-cyan-500",
-  ];
+  if (normalized === "super admin" || normalized === "super_cadmin") return "bg-purple-500";
+  const colors = ["bg-blue-500","bg-indigo-500","bg-emerald-500","bg-amber-500","bg-rose-500","bg-cyan-500"];
   let hash = 0;
   for (let i = 0; i < normalized.length; i++) {
     hash = normalized.charCodeAt(i) + ((hash << 5) - hash);
@@ -53,16 +34,13 @@ function getRoleDotColor(roleName) {
 // ROLE CARD KEBAB MENU
 // ─────────────────────────────────────────────────────────────────────────────
 
-function RoleCardMenu({ role, onEdit, onDelete, onViewDetail }) {
+function RoleCardMenu({ role, onEdit, onDelete, onViewDetail, canEdit }) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="relative">
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((p) => !p);
-        }}
+        onClick={(e) => { e.stopPropagation(); setOpen((p) => !p); }}
         className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
       >
         <MoreVertical size={16} />
@@ -70,46 +48,39 @@ function RoleCardMenu({ role, onEdit, onDelete, onViewDetail }) {
 
       {open && (
         <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-xl
+                          border border-gray-200 shadow-lg overflow-hidden">
+            {/* View Details — always visible */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(false);
-                onViewDetail(role);
-              }}
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onViewDetail(role); }}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700
+                         hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
             >
-              <ChevronRight size={15} />
-              View Details
+              <ChevronRight size={15} /> View Details
             </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(false);
-                onEdit(role);
-              }}
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-700 transition-colors"
-            >
-              <Pencil size={15} />
-              Edit Role
-            </button>
-            <div className="border-t border-gray-100" />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(false);
-                onDelete(role);
-              }}
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-            >
-              <Trash2 size={15} />
-              Delete Role
-            </button>
+
+            {/* Edit & Delete — only if user has edit permission */}
+            {canEdit && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(role); }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700
+                             hover:bg-amber-50 hover:text-amber-700 transition-colors"
+                >
+                  <Pencil size={15} /> Edit Role
+                </button>
+                {/* Divider only shown when edit/delete are visible */}
+                <div className="border-t border-gray-100" />
+                <button
+                  onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(role); }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600
+                             hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 size={15} /> Delete Role
+                </button>
+              </>
+            )}
           </div>
         </>
       )}
@@ -121,10 +92,8 @@ function RoleCardMenu({ role, onEdit, onDelete, onViewDetail }) {
 // ROLE CARD
 // ─────────────────────────────────────────────────────────────────────────────
 
-function RoleCard({ role, onEdit, onDelete, onViewDetail }) {
-  const dotColor = getRoleDotColor(role.name);
-
-  // Show first 4 permissions as preview tags, then "+ N more"
+function RoleCard({ role, onEdit, onDelete, onViewDetail, canEdit }) {
+  const dotColor     = getRoleDotColor(role.name);
   const previewPerms = role.permissions.slice(0, 4);
   const remainingCount = role.permissions.length - previewPerms.length;
 
@@ -135,7 +104,6 @@ function RoleCard({ role, onEdit, onDelete, onViewDetail }) {
                  hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-50
                  transition-all cursor-pointer group"
     >
-      {/* Card Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <div className={`w-3 h-3 rounded-full flex-shrink-0 ${dotColor}`} />
@@ -144,29 +112,24 @@ function RoleCard({ role, onEdit, onDelete, onViewDetail }) {
               {role.name}
             </h3>
             {role.description && (
-              <p className="text-sm text-gray-500 truncate mt-0.5">
-                {role.description}
-              </p>
+              <p className="text-sm text-gray-500 truncate mt-0.5">{role.description}</p>
             )}
           </div>
         </div>
-
         <RoleCardMenu
           role={role}
           onEdit={onEdit}
           onDelete={onDelete}
           onViewDetail={onViewDetail}
+          canEdit={canEdit}
         />
       </div>
 
-      {/* Permission Preview */}
       <div className="flex flex-wrap gap-1.5">
         {previewPerms.map((perm) => (
-          <span
-            key={perm}
+          <span key={perm}
             className="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-600
-                       text-[11px] font-medium rounded-md border border-indigo-100"
-          >
+                       text-[11px] font-medium rounded-md border border-indigo-100">
             {perm}
           </span>
         ))}
@@ -181,18 +144,14 @@ function RoleCard({ role, onEdit, onDelete, onViewDetail }) {
         )}
       </div>
 
-      {/* Card Footer */}
       <div className="flex items-center justify-between pt-3 border-t border-gray-100">
         <div className="flex items-center gap-1.5 text-gray-500">
           <Users size={14} />
           <span className="text-sm">
-            {role.admin_count ?? 0}{" "}
-            {(role.admin_count ?? 0) === 1 ? "admin" : "admins"}
+            {role.admin_count ?? 0} {(role.admin_count ?? 0) === 1 ? "admin" : "admins"}
           </span>
         </div>
-        <span className="text-xs text-gray-400">
-          {role.permissions.length} permissions
-        </span>
+        <span className="text-xs text-gray-400">{role.permissions.length} permissions</span>
       </div>
     </div>
   );
@@ -202,7 +161,7 @@ function RoleCard({ role, onEdit, onDelete, onViewDetail }) {
 // EMPTY STATE
 // ─────────────────────────────────────────────────────────────────────────────
 
-function EmptyRoles({ onCreateClick }) {
+function EmptyRoles({ onCreateClick, canEdit }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
       <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4">
@@ -213,14 +172,13 @@ function EmptyRoles({ onCreateClick }) {
         Create custom roles to define what each admin can access. Assign
         multiple roles to an admin and their permissions are combined.
       </p>
-      <button
-        onClick={onCreateClick}
-        className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium
-                   hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm"
-      >
-        <Plus size={16} />
-        Create First Role
-      </button>
+      {canEdit && (
+        <button onClick={onCreateClick}
+          className="px-5 py-2.5 bg-[#05015A] text-white rounded-xl text-sm font-medium
+                     hover:bg-[#1a10a0] transition-colors flex items-center gap-2 shadow-sm">
+          <Plus size={16} /> Create First Role
+        </button>
+      )}
     </div>
   );
 }
@@ -232,18 +190,20 @@ function EmptyRoles({ onCreateClick }) {
 const RolesTab = () => {
   const toast = useToast();
 
-  const [roles, setRoles]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
+  // ── Permission check ───────────────────────────────────────────────────────
+  const { hasPermission, isSuperCAdmin } = useCAdminPermission();
+  const canEdit = isSuperCAdmin || hasPermission(CADMIN_PERMISSIONS.ADMINS_EDIT);
 
-  // Modal states
-  const [createOpen, setCreateOpen]           = useState(false);
-  const [editRole, setEditRole]               = useState(null);   // role object to edit
-  const [detailRole, setDetailRole]           = useState(null);   // role object for detail modal
-  const [deleteTarget, setDeleteTarget]       = useState(null);   // { role, impact }
+  const [roles, setRoles]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+
+  const [createOpen, setCreateOpen]                   = useState(false);
+  const [editRole, setEditRole]                       = useState(null);
+  const [detailRole, setDetailRole]                   = useState(null);
+  const [deleteTarget, setDeleteTarget]               = useState(null);
   const [deleteImpactLoading, setDeleteImpactLoading] = useState(false);
 
-  // ── Fetch roles ────────────────────────────────────────────────────────────
   const fetchRoles = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -258,22 +218,16 @@ const RolesTab = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchRoles();
-  }, [fetchRoles]);
+  useEffect(() => { fetchRoles(); }, [fetchRoles]);
 
-  // ── Delete flow ────────────────────────────────────────────────────────────
   const handleDeleteClick = async (role) => {
     setDeleteImpactLoading(true);
     try {
-      const res = await getRoleDeletionImpact(role.id);
+      const res    = await getRoleDeletionImpact(role.id);
       const impact = res.data.data.impact;
       setDeleteTarget({ role, impact });
     } catch (err) {
-      toast.error(
-        "Failed to check impact",
-        err.response?.data?.message || "Something went wrong"
-      );
+      toast.error("Failed to check impact", err.response?.data?.message || "Something went wrong");
     } finally {
       setDeleteImpactLoading(false);
     }
@@ -287,14 +241,10 @@ const RolesTab = () => {
       setDeleteTarget(null);
       fetchRoles();
     } catch (err) {
-      toast.error(
-        "Delete Failed",
-        err.response?.data?.message || "Failed to delete role"
-      );
+      toast.error("Delete Failed", err.response?.data?.message || "Failed to delete role");
     }
   };
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
   const handleCreateSuccess = (newRole) => {
     setRoles((prev) => [newRole, ...prev]);
     setCreateOpen(false);
@@ -302,39 +252,33 @@ const RolesTab = () => {
   };
 
   const handleEditSuccess = (updatedRole) => {
-    setRoles((prev) =>
-      prev.map((r) => (r.id === updatedRole.id ? updatedRole : r))
-    );
+    setRoles((prev) => prev.map((r) => (r.id === updatedRole.id ? updatedRole : r)));
     setEditRole(null);
     toast.success("Role Updated", `"${updatedRole.name}" has been updated.`);
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="h-full flex flex-col gap-4 overflow-hidden">
+
       {/* Roles tab header */}
       <div className="flex-shrink-0 flex items-center justify-between">
         <p className="text-sm text-gray-500">
           {loading ? "Loading…" : `${roles.length} custom role${roles.length !== 1 ? "s" : ""}`}
         </p>
         <div className="flex items-center gap-2">
-          <button
-            onClick={fetchRoles}
-            disabled={loading}
+          <button onClick={fetchRoles} disabled={loading}
             className="p-2 rounded-lg border border-gray-200 bg-white text-gray-500
-                       hover:bg-gray-50 disabled:opacity-40 transition-colors"
-            title="Refresh"
-          >
+                       hover:bg-gray-50 disabled:opacity-40 transition-colors" title="Refresh">
             <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
           </button>
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium
-                       hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <Plus size={15} />
-            Create Role
-          </button>
+          {/* Create Role button — only if user has edit permission */}
+          {canEdit && (
+            <button onClick={() => setCreateOpen(true)}
+              className="px-4 py-2 bg-[#05015A] text-white rounded-xl text-sm font-medium
+                         hover:bg-[#1a10a0] transition-colors flex items-center gap-2 shadow-sm">
+              <Plus size={15} /> Create Role
+            </button>
+          )}
         </div>
       </div>
 
@@ -342,12 +286,8 @@ const RolesTab = () => {
       {error && (
         <div className="flex-shrink-0 bg-red-50 border border-red-200 text-red-700 px-4 py-3
                         rounded-xl flex items-center gap-2 text-sm">
-          <AlertCircle size={16} />
-          {error}
-          <button
-            onClick={fetchRoles}
-            className="ml-auto underline font-medium hover:text-red-900"
-          >
+          <AlertCircle size={16} /> {error}
+          <button onClick={fetchRoles} className="ml-auto underline font-medium hover:text-red-900">
             Retry
           </button>
         </div>
@@ -360,7 +300,7 @@ const RolesTab = () => {
             <Loader2 size={28} className="animate-spin text-indigo-400" />
           </div>
         ) : roles.length === 0 ? (
-          <EmptyRoles onCreateClick={() => setCreateOpen(true)} />
+          <EmptyRoles onCreateClick={() => setCreateOpen(true)} canEdit={canEdit} />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
             {roles.map((role) => (
@@ -370,6 +310,7 @@ const RolesTab = () => {
                 onEdit={setEditRole}
                 onDelete={handleDeleteClick}
                 onViewDetail={setDetailRole}
+                canEdit={canEdit}
               />
             ))}
           </div>
@@ -381,45 +322,42 @@ const RolesTab = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white rounded-2xl p-6 flex items-center gap-3 shadow-xl">
             <Loader2 size={20} className="animate-spin text-indigo-500" />
-            <span className="text-sm font-medium text-gray-700">
-              Checking impact…
-            </span>
+            <span className="text-sm font-medium text-gray-700">Checking impact…</span>
           </div>
         </div>
       )}
 
-      {/* Modals */}
-      <CreateRoleModal
-        isOpen={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onSuccess={handleCreateSuccess}
-      />
+      {/* Modals — only mount create/edit modals if user has edit permission */}
+      {canEdit && (
+        <CreateRoleModal
+          isOpen={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
 
-      <CreateRoleModal
-        isOpen={!!editRole}
-        roleToEdit={editRole}
-        onClose={() => setEditRole(null)}
-        onSuccess={handleEditSuccess}
-      />
+      {canEdit && (
+        <CreateRoleModal
+          isOpen={!!editRole}
+          roleToEdit={editRole}
+          onClose={() => setEditRole(null)}
+          onSuccess={handleEditSuccess}
+        />
+      )}
 
       {detailRole && (
         <RoleDetailModal
           isOpen={!!detailRole}
           roleId={detailRole.id}
           onClose={() => setDetailRole(null)}
-          onEdit={(role) => {
-            setDetailRole(null);
-            setEditRole(role);
-          }}
-          onDelete={(role) => {
-            setDetailRole(null);
-            handleDeleteClick(role);
-          }}
+          onEdit={(role) => { setDetailRole(null); setEditRole(role); }}
+          onDelete={(role) => { setDetailRole(null); handleDeleteClick(role); }}
           onRoleUpdated={fetchRoles}
         />
       )}
 
-      {deleteTarget && (
+      {/* DeleteRoleModal — only mount if user has edit permission */}
+      {canEdit && deleteTarget && (
         <DeleteRoleModal
           isOpen={!!deleteTarget}
           impact={deleteTarget.impact}

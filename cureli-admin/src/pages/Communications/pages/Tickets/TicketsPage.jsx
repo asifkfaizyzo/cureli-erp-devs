@@ -1,4 +1,4 @@
-// cureli-admin/src/pages/Tickets/TicketsPage.jsx
+// cureli-admin/src/pages/Communications/pages/Tickets/TicketsPage.jsx
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -16,16 +16,25 @@ import StyledSelect from "../../../../components/common/StyledSelect";
 import StyledDateFilter from "../../../../components/common/StyledDateFilter";
 import useDebounce from "../../../../hooks/useDebounce";
 import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
-import { useToast } from "../../../../components/common/Toast"; // ✅ FIXED IMPORT
+import { useToast } from "../../../../components/common/Toast";
 import {
   STATUS_OPTIONS,
   CATEGORY_OPTIONS,
   PRIORITY_OPTIONS,
 } from "../../../../config/ticketConfigs";
+import { useCAdminPermission } from "../../../../hooks/useCAdminPermission";
+import { CADMIN_PERMISSIONS } from "../../../../config/cadminPermissions";
 
 const TicketsPage = () => {
-  const toast = useToast(); // ✅ ADD THIS
+  const toast = useToast();
   const rowsPerPage = useDynamicRowCount();
+
+  // ── Permission gates ─────────────────────────────────────────────────────
+  const { hasPermission, isSuperCAdmin } = useCAdminPermission();
+  const canViewDetail   = isSuperCAdmin || hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW_DETAIL);
+  const canViewStats    = isSuperCAdmin || hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW_STATS);
+  const canViewHistory  = isSuperCAdmin || hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW_HISTORY);
+  const canUpdateStatus = isSuperCAdmin || hasPermission(CADMIN_PERMISSIONS.TICKETS_UPDATE_STATUS);
 
   // Data state
   const [tickets, setTickets] = useState([]);
@@ -58,7 +67,7 @@ const TicketsPage = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [loadingTicketDetails, setLoadingTicketDetails] = useState(false);
 
-  // Debounced search (300ms)
+  // Debounced search
   const debouncedSearch = useDebounce(searchText, 300);
 
   // Count active filters
@@ -72,7 +81,6 @@ const TicketsPage = () => {
     ].filter(Boolean).length;
   }, [statusFilter, categoryFilter, priorityFilter, dateFrom, dateTo]);
 
-  // Check if any filter is active (including search)
   const hasActiveFilters = useMemo(() => {
     return activeFiltersCount > 0 || debouncedSearch.trim().length > 0;
   }, [activeFiltersCount, debouncedSearch]);
@@ -91,11 +99,11 @@ const TicketsPage = () => {
       };
 
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
-      if (statusFilter) params.status = statusFilter;
+      if (statusFilter)   params.status   = statusFilter;
       if (categoryFilter) params.category = categoryFilter;
       if (priorityFilter) params.priority = priorityFilter;
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
+      if (dateFrom)       params.date_from = dateFrom;
+      if (dateTo)         params.date_to   = dateTo;
 
       const response = await getAllTickets(params);
       const { tickets: data, pagination } = response.data.data;
@@ -104,14 +112,13 @@ const TicketsPage = () => {
       setTotalItems(pagination.total);
       setTotalPages(pagination.totalPages);
 
-      // Auto-adjust page if current page exceeds total pages
       if (currentPage > pagination.totalPages && pagination.totalPages > 0) {
         setCurrentPage(pagination.totalPages);
       }
     } catch (err) {
       console.error("Failed to fetch tickets:", err);
       setError(err.response?.data?.message || "Failed to fetch tickets");
-      toast.error("Load Failed", "Failed to load tickets"); // ✅ FIXED
+      toast.error("Load Failed", "Failed to load tickets");
       setTickets([]);
       setTotalItems(0);
     } finally {
@@ -127,10 +134,9 @@ const TicketsPage = () => {
     dateFrom,
     dateTo,
     sortConfig,
-    toast, // ✅ ADD toast to dependencies
+    toast,
   ]);
 
-  // Fetch on dependency changes
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
@@ -148,17 +154,14 @@ const TicketsPage = () => {
     sortConfig,
   ]);
 
-  // Handlers
   const handleSortChange = useCallback((column) => {
     const columnMapping = {
-      ticket: "ticket_number",
+      ticket:    "ticket_number",
       createdAt: "created_at",
-      priority: "reopen_count",
-      status: "status",
+      priority:  "reopen_count",
+      status:    "status",
     };
-
     const backendColumn = columnMapping[column] || column;
-
     setSortConfig((prev) => ({
       sortBy: backendColumn,
       order:
@@ -175,26 +178,32 @@ const TicketsPage = () => {
     setDateTo("");
   }, []);
 
-  const handleViewTicket = useCallback(async (ticket) => {
-    setLoadingTicketDetails(true);
-    setIsDetailsModalOpen(true);
+  // Gate row click with canViewDetail
+  const handleViewTicket = useCallback(
+    async (ticket) => {
+      if (!canViewDetail) return;
 
-    try {
-      const response = await getTicketById(ticket.ticket_id);
-      setSelectedTicket(response.data.data.ticket);
-    } catch (err) {
-      console.error("Failed to fetch ticket details:", err);
-      toast.error("Load Failed", "Failed to load ticket details"); // ✅ FIXED
-      setSelectedTicket(ticket);
-    } finally {
-      setLoadingTicketDetails(false);
-    }
-  }, [toast]); // ✅ ADD toast to dependencies
+      setLoadingTicketDetails(true);
+      setIsDetailsModalOpen(true);
+
+      try {
+        const response = await getTicketById(ticket.ticket_id);
+        setSelectedTicket(response.data.data.ticket);
+      } catch (err) {
+        console.error("Failed to fetch ticket details:", err);
+        toast.error("Load Failed", "Failed to load ticket details");
+        setSelectedTicket(ticket);
+      } finally {
+        setLoadingTicketDetails(false);
+      }
+    },
+    [canViewDetail, toast],
+  );
 
   const handleRefresh = useCallback(() => {
-    toast.info("Data Refreshed", "Loading latest ticket data..."); // ✅ FIXED (removed 3rd arg if not needed)
+    toast.info("Data Refreshed", "Loading latest ticket data...");
     fetchTickets();
-  }, [fetchTickets, toast]); // ✅ ADD toast to dependencies
+  }, [fetchTickets, toast]);
 
   const handleCloseModal = useCallback(() => {
     setIsDetailsModalOpen(false);
@@ -224,6 +233,7 @@ const TicketsPage = () => {
             </div>
           </div>
 
+          {/* Refresh — never gated */}
           <button
             onClick={handleRefresh}
             disabled={loading}
@@ -238,7 +248,7 @@ const TicketsPage = () => {
         {/* Search & Filters */}
         <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {/* Search Input */}
+            {/* Search — never gated */}
             <div className="relative flex-1 min-w-[200px]">
               <Search
                 size={18}
@@ -265,7 +275,7 @@ const TicketsPage = () => {
               )}
             </div>
 
-            {/* Filter Toggle Button */}
+            {/* Filter Toggle — never gated */}
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
@@ -301,7 +311,6 @@ const TicketsPage = () => {
                   options={STATUS_OPTIONS}
                   placeholder="All Status"
                 />
-
                 <StyledSelect
                   label="Category"
                   value={categoryFilter}
@@ -309,7 +318,6 @@ const TicketsPage = () => {
                   options={CATEGORY_OPTIONS}
                   placeholder="All Categories"
                 />
-
                 <StyledSelect
                   label="Priority"
                   value={priorityFilter}
@@ -317,13 +325,11 @@ const TicketsPage = () => {
                   options={PRIORITY_OPTIONS}
                   placeholder="All Priorities"
                 />
-
                 <StyledDateFilter
                   label="Date From"
                   date={dateFrom}
                   setDate={setDateFrom}
                 />
-
                 <StyledDateFilter
                   label="Date To"
                   date={dateTo}
@@ -377,17 +383,24 @@ const TicketsPage = () => {
           onSortChange={handleSortChange}
           onViewTicket={handleViewTicket}
           hasActiveFilters={hasActiveFilters}
+          // Pass permission flags so the table can style rows correctly
+          canViewDetail={canViewDetail}
         />
       </div>
 
-      {/* Details Modal */}
-      <TicketDetailsModal
-        isOpen={isDetailsModalOpen}
-        onClose={handleCloseModal}
-        ticket={selectedTicket}
-        loading={loadingTicketDetails}
-        onRefresh={handleTicketUpdated}
-      />
+      {/* Details Modal — only mount if admin has view_detail permission */}
+      {canViewDetail && (
+        <TicketDetailsModal
+          isOpen={isDetailsModalOpen}
+          onClose={handleCloseModal}
+          ticket={selectedTicket}
+          loading={loadingTicketDetails}
+          onRefresh={handleTicketUpdated}
+          // Pass permission flags into the modal
+          canViewHistory={canViewHistory}
+          canUpdateStatus={canUpdateStatus}
+        />
+      )}
     </div>
   );
 };

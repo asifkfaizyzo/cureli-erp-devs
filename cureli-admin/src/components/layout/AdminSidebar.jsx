@@ -43,7 +43,7 @@ const getExpandedWidth = () => {
   if (width >= 1536) return EXPANDED_WIDTH_CONFIG["2xl"];
   if (width >= 1280) return EXPANDED_WIDTH_CONFIG["xl"];
   if (width >= 1024) return EXPANDED_WIDTH_CONFIG["lg"];
-  if (width >= 768)  return EXPANDED_WIDTH_CONFIG["md"];
+  if (width >= 768) return EXPANDED_WIDTH_CONFIG["md"];
   return EXPANDED_WIDTH_CONFIG["sm"];
 };
 
@@ -64,7 +64,7 @@ const MENU_ITEMS = [
     icon: LayoutGrid,
     path: "/dashboard",
     breadcrumbs: ["Dashboard"],
-    permissionKey: "dashboard",
+    // permissionKey: "dashboard",
   },
   {
     id: "users",
@@ -88,7 +88,7 @@ const MENU_ITEMS = [
     icon: ClipboardList,
     path: "/orders",
     breadcrumbs: ["Orders"],
-    permissionKey: "orders",
+    // permissionKey: "orders",
   },
   {
     id: "master-medicines",
@@ -144,8 +144,7 @@ const MENU_ITEMS = [
     icon: Settings,
     path: "/settings",
     breadcrumbs: ["Settings"],
-    // No permissionKey — controlled entirely by superAdminOnly flag
-    superAdminOnly: true,
+    permissionKey: "settings",
   },
 ];
 
@@ -243,14 +242,14 @@ const MenuItem = ({ item, activeMenu, isExpanded, onNavigate }) => {
 // MAIN SIDEBAR COMPONENT
 // ============================================
 const AdminSidebar = ({ expanded, onExpandChange }) => {
-  const activeMenu    = useMenuStore((s) => s.activeMenu);
+  const activeMenu = useMenuStore((s) => s.activeMenu);
   const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const permissions   = useCAdminMenuPermissions();
+  const permissions = useCAdminMenuPermissions();
   const { isSuperCAdmin } = useCAdminPermission();
 
   const [expandedWidth, setExpandedWidth] = useState(getExpandedWidth);
@@ -266,15 +265,9 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
   // ============================================
   const visibleMenuItems = useMemo(() => {
     return MENU_ITEMS.filter((item) => {
-      // Super admin only items — shown only to super cadmins
       if (item.superAdminOnly) return isSuperCAdmin;
-
-      // Items with no permissionKey are always visible to authenticated admins
       if (!item.permissionKey) return true;
-
       const permission = permissions[item.permissionKey];
-      // If the key exists → check visible flag
-      // If the key doesn't exist in the map → show by default (no gate)
       return permission === undefined ? true : permission.visible !== false;
     });
   }, [permissions, isSuperCAdmin]);
@@ -288,11 +281,17 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       setActiveMenu(item.id);
       setBreadcrumbs(item.breadcrumbs);
     },
-    [navigate, setActiveMenu, setBreadcrumbs]
+    [navigate, setActiveMenu, setBreadcrumbs],
   );
 
-  const handleMouseEnter = useCallback(() => onExpandChange(true),  [onExpandChange]);
-  const handleMouseLeave = useCallback(() => onExpandChange(false), [onExpandChange]);
+  const handleMouseEnter = useCallback(
+    () => onExpandChange(true),
+    [onExpandChange],
+  );
+  const handleMouseLeave = useCallback(
+    () => onExpandChange(false),
+    [onExpandChange],
+  );
 
   // ============================================
   // ROUTE → SIDEBAR SYNC
@@ -301,6 +300,12 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     const currentPath = location.pathname;
 
     if (NON_SIDEBAR_ROUTES.includes(currentPath)) return;
+
+    if (currentPath === "/dashboard") {
+      setActiveMenu("dashboard");
+      setBreadcrumbs(["Dashboard"]);
+      return;
+    }
 
     const childRoute = CHILD_ROUTES[currentPath];
     if (childRoute) {
@@ -324,10 +329,13 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
   useEffect(() => {
     const currentPath = location.pathname;
 
-    const isValidMain      = visibleMenuItems.some((m) => m.path === currentPath);
-    const isValidChild     = Object.keys(CHILD_ROUTES).includes(currentPath);
+    if (currentPath === "/dashboard") return;
+
+    const isValidMain = visibleMenuItems.some((m) => m.path === currentPath);
+    const isValidChild = Object.keys(CHILD_ROUTES).includes(currentPath);
     const isNonSidebarRoute = NON_SIDEBAR_ROUTES.includes(currentPath);
 
+    // Path is already valid — do nothing
     if (isValidMain || isValidChild || isNonSidebarRoute) return;
 
     const allValidPaths = [
@@ -336,6 +344,7 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       ...NON_SIDEBAR_ROUTES,
     ];
 
+    // Path is a prefix match (e.g. /admins/123) — do nothing, let the page handle it
     const isPartialMatch = allValidPaths.some((p) => currentPath.startsWith(p));
 
     if (!isPartialMatch) {
@@ -369,13 +378,10 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       transition={SIDEBAR_TRANSITION}
     >
       <nav
-        className="flex flex-col h-full pt-6 pb-4 px-2"
+        className="flex flex-col h-full pt-2 pb-4 px-2 overflow-y-auto sidebar-nav"
         style={{ gap: "clamp(4px, 1.5vh, 16px)" }}
       >
-        <div
-          className="flex flex-col"
-          style={{ gap: "clamp(2px, 1vh, 12px)" }}
-        >
+        <div className="flex flex-col" style={{ gap: "clamp(2px, 1vh, 12px)" }}>
           {visibleMenuItems.map((item) => (
             <MenuItem
               key={item.id}

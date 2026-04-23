@@ -12,6 +12,7 @@ import {
   Image,
   Paperclip,
   ChevronDown,
+  Lightbulb,
   Check,
 } from "lucide-react";
 import { createTicket } from "../../../api/tickets";
@@ -337,7 +338,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col max-h-[90vh] overflow-y-visible">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -534,7 +535,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
 
               {/* Info Box */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-xs text-blue-800 font-medium mb-1">💡 Tips</p>
+                <p className="flex items-center gap-1 text-xs text-blue-800 font-medium mb-1"><Lightbulb size={11}/> Tips</p>
                 <ul className="text-[10px] text-blue-700 space-y-0.5">
                   <li>• Provide a clear subject for faster resolution</li>
                   <li>• Include screenshots if applicable</li>
@@ -554,7 +555,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }) => {
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50/50 flex-shrink-0">
+        <div className="flex items-center justify-end rounded-b-2xl gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50/50 flex-shrink-0">
           <button
             type="button"
             onClick={onClose}

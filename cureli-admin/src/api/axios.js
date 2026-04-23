@@ -21,14 +21,13 @@ function isTokenExpired(token) {
 // Helper to refresh token
 async function refreshAccessToken() {
   try {
-    console.log("🔄 Attempting to refresh access token...");
+    
     const response = await axios.get(`${API_URL}/cadmin/refresh`, {
       withCredentials: true,
     });
     const newToken = response.data?.data?.access_token;
     if (newToken) {
       localStorage.setItem("cadmin_access_token", newToken);
-      console.log("✅ Access token refreshed successfully");
       return newToken;
     }
     throw new Error("No token in response");
@@ -56,7 +55,7 @@ CAdminAPI.interceptors.request.use(
 
     // Check if token is expired or about to expire
     if (isTokenExpired(token)) {
-      console.log("⚠️ Token expired or expiring soon, refreshing...");
+      
 
       if (!isRefreshing) {
         isRefreshing = true;

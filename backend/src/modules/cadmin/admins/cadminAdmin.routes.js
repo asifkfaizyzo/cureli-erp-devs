@@ -9,6 +9,8 @@ import {
   getAdminByIdController,
   createAdminController,
   updateAdminController,
+  createSuperAdminController,
+  toggleSuperAdminAccessController,
   toggleAdminAccessController,
   getAdminActivityController,
 } from "./cadminAdmin.controller.js";
@@ -16,6 +18,8 @@ import {
   validateGetAdminsQuery,
   validateCreateAdmin,
   validateUpdateAdmin,
+  validateCreateSuperAdmin,
+  validateToggleSuperAdminAccess,
   validateToggleAccess,
   validateGetActivityQuery,
 } from "./cadminAdmin.schema.js";
@@ -28,7 +32,7 @@ router.get(
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ADMINS_VIEW),
   validateGetAdminsQuery,
-  getAdminsController
+  getAdminsController,
 );
 
 // GET /cadmin/admins/:id
@@ -36,7 +40,7 @@ router.get(
   "/admins/:id",
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ADMINS_VIEW_DETAIL),
-  getAdminByIdController
+  getAdminByIdController,
 );
 
 // POST /cadmin/admins
@@ -45,7 +49,7 @@ router.post(
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ADMINS_CREATE),
   validateCreateAdmin,
-  createAdminController
+  createAdminController,
 );
 
 // PATCH /cadmin/admins/:id
@@ -54,7 +58,7 @@ router.patch(
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ADMINS_EDIT),
   validateUpdateAdmin,
-  updateAdminController
+  updateAdminController,
 );
 
 // PATCH /cadmin/admins/:id/access
@@ -63,7 +67,7 @@ router.patch(
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ADMINS_TOGGLE_ACCESS),
   validateToggleAccess,
-  toggleAdminAccessController
+  toggleAdminAccessController,
 );
 
 // GET /cadmin/admins/:id/activity
@@ -72,7 +76,25 @@ router.get(
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ADMINS_VIEW_ACTIVITY),
   validateGetActivityQuery,
-  getAdminActivityController
+  getAdminActivityController,
+);
+// POST /cadmin/admins/super
+// Create a new Super Admin — only callable by existing Super Admins
+// Note: this route MUST be defined before /admins/:id to avoid
+// Express matching "super" as the :id param
+router.post(
+  "/admins/super",
+  requireCAdmin,
+  validateCreateSuperAdmin,
+  createSuperAdminController,
 );
 
+// PATCH /cadmin/admins/:id/super-access
+// Toggle Super Admin active status — requires secret
+router.patch(
+  "/admins/:id/super-access",
+  requireCAdmin,
+  validateToggleSuperAdminAccess,
+  toggleSuperAdminAccessController,
+);
 export default router;

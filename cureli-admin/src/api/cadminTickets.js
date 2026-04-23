@@ -19,9 +19,11 @@ export const getTicketById = (ticketId) => {
 /**
  * Get ticket status history
  */
-export const getTicketHistory = (ticketId) => {
-  return CAdminAPI.get(`/tickets/${ticketId}/history`);
-};
+export const getTicketActivities = (ticketId) =>
+  CAdminAPI.get(`/tickets/${ticketId}/activities`);
+
+export const addTicketComment = (ticketId, data) =>
+  CAdminAPI.post(`/tickets/${ticketId}/comment`, data);
 
 /**
  * Update ticket status

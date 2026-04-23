@@ -123,7 +123,7 @@ export const getEnquiryStats = async (req, res) => {
   try {
     const stats = await enquiryService.getEnquiryStats();
 
-    log.info("📊 Enquiry Stats:", stats);
+    
 
     return success(res, { stats }, "Enquiry stats fetched successfully");
   } catch (error) {

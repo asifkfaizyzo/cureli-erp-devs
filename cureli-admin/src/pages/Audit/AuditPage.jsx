@@ -165,7 +165,7 @@ const AuditPage = () => {
       const response = await getAuditLogs(params);
       const result = response.data;
 
-      setAuditLogs(result.data?.data || result.data || []);
+      setAuditLogs(result.data?.data || []);
       setTotalItems(result.data?.meta?.total || 0);
     } catch (err) {
       console.error('Failed to fetch audit logs:', err);

@@ -1,4 +1,4 @@
-// src/modules/cadmin/admins/cadminAdmin.controller.js
+// backend/src/modules/cadmin/admins/cadminAdmin.controller.js
 
 import { success, fail } from "../../../utils/response.js";
 import * as audit from "../../audit/index.js";
@@ -9,6 +9,8 @@ import {
   updateAdminService,
   toggleAdminAccessService,
   getAdminActivityService,
+  createSuperAdminService,
+  toggleSuperAdminAccessService,
 } from "./cadminAdmin.service.js";
 
 export async function getAdminsController(req, res) {
@@ -61,7 +63,9 @@ export async function toggleAdminAccessController(req, res) {
     const { is_active } = req.validated;
     const auditContext = audit.extractRequestContext(req);
     const result = await toggleAdminAccessService(id, is_active, auditContext);
-    const message = is_active ? "Admin activated successfully" : "Admin suspended successfully";
+    const message = is_active
+      ? "Admin activated successfully"
+      : "Admin suspended successfully";
     return success(res, result, message);
   } catch (err) {
     console.error("cadmin.admins.toggleAccess", err);
@@ -77,5 +81,41 @@ export async function getAdminActivityController(req, res) {
   } catch (err) {
     console.error("cadmin.admins.activity", err);
     return fail(res, err.message || "Failed to fetch activity", err.status || 500);
+  }
+}
+
+export async function createSuperAdminController(req, res) {
+  try {
+    // Extra guard — only super admins can call this
+    // requireCAdmin runs first so req.cadmin is populated
+    if (!req.cadmin.is_super_cadmin) {
+      return fail(res, "Only Super Admins can create other Super Admins.", 403);
+    }
+    const auditContext = audit.extractRequestContext(req);
+    const admin = await createSuperAdminService(req.validated, auditContext);
+    return success(res, admin, "Super Admin created successfully", 201);
+  } catch (err) {
+    console.error("cadmin.admins.createSuperAdmin", err);
+    return fail(res, err.message || "Failed to create Super Admin", err.status || 500);
+  }
+}
+
+export async function toggleSuperAdminAccessController(req, res) {
+  try {
+    // Extra guard — only super admins can call this
+    if (!req.cadmin.is_super_cadmin) {
+      return fail(res, "Only Super Admins can modify Super Admin access.", 403);
+    }
+    const { id } = req.params;
+    const { is_active, secret } = req.validated;
+    const auditContext = audit.extractRequestContext(req);
+    const result = await toggleSuperAdminAccessService(id, is_active, secret, auditContext);
+    const message = is_active
+      ? "Super Admin activated successfully"
+      : "Super Admin deactivated successfully";
+    return success(res, result, message);
+  } catch (err) {
+    console.error("cadmin.admins.toggleSuperAdminAccess", err);
+    return fail(res, err.message || "Failed to update Super Admin access", err.status || 500);
   }
 }

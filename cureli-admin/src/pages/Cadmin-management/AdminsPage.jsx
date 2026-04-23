@@ -2,14 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
-  RefreshCw,
-  Search,
-  X,
-  Filter,
-  AlertCircle,
-  UserPlus,
-  Shield,
-  Users,
+  RefreshCw, Search, X, Filter, AlertCircle, UserPlus, Shield, Users,
 } from "lucide-react";
 import AdminTable from "./comps/AdminTable";
 import AddAdminModal from "./comps/AddAdminModal";
@@ -18,84 +11,84 @@ import StyledSelect from "../../components/common/StyledSelect";
 import { getAdmins } from "../../api/cadminAdmins";
 import { useToast } from "../../components/common/Toast";
 import useDynamicRowCount from "../../hooks/useDynamicRowCount";
+import { useCAdminPermission } from "../../hooks/useCAdminPermission";
+import { CADMIN_PERMISSIONS } from "../../config/cadminPermissions";
 
 const STATUS_OPTIONS = [
-  { value: "", label: "All Status" },
-  { value: "active", label: "Active" },
+  { value: "",         label: "All Status" },
+  { value: "active",   label: "Active" },
   { value: "inactive", label: "Suspended" },
 ];
 
 const ROLE_OPTIONS = [
   { value: "", label: "All Roles" },
-  { value: "super_cadmin", label: "Super Admin" },
-  { value: "analyst", label: "Analyst" },
-  { value: "accountant", label: "Accountant" },
-  { value: "salesman", label: "Salesman" },
 ];
 
 const AdminsPage = () => {
-  const toast = useToast();
+  const toast       = useToast();
   const rowsPerPage = useDynamicRowCount();
 
-  // TAB STATE
+  // ── Permission checks ──────────────────────────────────────────────────────
+  const { hasPermission, isSuperCAdmin } = useCAdminPermission();
+  const canCreate      = isSuperCAdmin || hasPermission(CADMIN_PERMISSIONS.ADMINS_CREATE);
+  const canEdit        = isSuperCAdmin || hasPermission(CADMIN_PERMISSIONS.ADMINS_EDIT);
+  const canManageRoles = canEdit; // roles tab requires edit permission
+
+  // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState("admins"); // "admins" | "roles"
 
-  // DATA STATE
-  const [admins, setAdmins] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Guard: if user loses canManageRoles mid-session, kick them back to admins tab
+  useEffect(() => {
+    if (activeTab === "roles" && !canManageRoles) {
+      setActiveTab("admins");
+    }
+  }, [activeTab, canManageRoles]);
 
-  // PAGINATION META FROM SERVER
+  // ── Data state ─────────────────────────────────────────────────────────────
+  const [admins, setAdmins]         = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // MODAL STATE
+  // ── Modal state ────────────────────────────────────────────────────────────
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // FILTERS & SORT
-  const [searchText, setSearchText] = useState("");
+  // ── Filters & sort ─────────────────────────────────────────────────────────
+  const [searchText, setSearchText]   = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
+  const [roleFilter, setRoleFilter]   = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [sortConfig, setSortConfig] = useState({
-    sortBy: "created_at",
-    order: "desc",
-  });
-
-  // PAGINATION
+  const [sortConfig, setSortConfig]   = useState({ sortBy: "created_at", order: "desc" });
   const [currentPage, setCurrentPage] = useState(1);
 
   const isInitialMount = useRef(true);
 
-  // Count active filters
-  const activeFiltersCount = useMemo(() => {
-    return [statusFilter, roleFilter].filter(Boolean).length;
-  }, [statusFilter, roleFilter]);
+  const activeFiltersCount = useMemo(
+    () => [statusFilter, roleFilter].filter(Boolean).length,
+    [statusFilter, roleFilter]
+  );
 
-  // Check if any filter is active
-  const hasActiveFilters = useMemo(() => {
-    return activeFiltersCount > 0 || searchText.trim().length > 0;
-  }, [activeFiltersCount, searchText]);
+  const hasActiveFilters = useMemo(
+    () => activeFiltersCount > 0 || searchText.trim().length > 0,
+    [activeFiltersCount, searchText]
+  );
 
-  // FETCH ADMINS FROM SERVER — only runs when on admins tab
+  // ── Fetch admins ───────────────────────────────────────────────────────────
   const fetchAdmins = useCallback(async () => {
     if (activeTab !== "admins") return;
-
     setLoading(true);
     setError(null);
-
     try {
       const params = {
-        page: currentPage,
+        page:  currentPage,
         limit: rowsPerPage,
-        sort: sortConfig.sortBy,
+        sort:  sortConfig.sortBy,
         order: sortConfig.order,
       };
-
       if (searchText.trim()) params.search = searchText.trim();
-      if (statusFilter) params.status = statusFilter.toLowerCase();
-      if (roleFilter)
-        params.role = roleFilter.toLowerCase().replace(/\s+/g, "_");
+      if (statusFilter)      params.status = statusFilter.toLowerCase();
+      if (roleFilter)        params.role   = roleFilter.toLowerCase().replace(/\s+/g, "_");
 
       const response = await getAdmins(params);
       const { admins: data, meta } = response.data.data;
@@ -117,16 +110,7 @@ const AdminsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [
-    activeTab,
-    currentPage,
-    rowsPerPage,
-    searchText,
-    statusFilter,
-    roleFilter,
-    sortConfig,
-    toast,
-  ]);
+  }, [activeTab, currentPage, rowsPerPage, searchText, statusFilter, roleFilter, sortConfig, toast]);
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -145,20 +129,12 @@ const AdminsPage = () => {
     setCurrentPage(1);
   }, [searchText, statusFilter, roleFilter, sortConfig]);
 
-  // Handle sort change with column mapping
   const handleSortChange = useCallback((column) => {
-    const columnMapping = {
-      name: "name",
-      role: "role",
-      lastLogin: "last_login_at",
-    };
-
+    const columnMapping = { name: "name", role: "role", lastLogin: "last_login_at" };
     const backendColumn = columnMapping[column] || column;
-
     setSortConfig((prev) => ({
       sortBy: backendColumn,
-      order:
-        prev.sortBy === backendColumn && prev.order === "asc" ? "desc" : "asc",
+      order:  prev.sortBy === backendColumn && prev.order === "asc" ? "desc" : "asc",
     }));
   }, []);
 
@@ -168,81 +144,56 @@ const AdminsPage = () => {
     setRoleFilter("");
   }, []);
 
-  const handleAdminUpdate = useCallback(
-    (adminId, updates) => {
-      try {
-        setAdmins((prev) =>
-          prev.map((a) => (a.id === adminId ? { ...a, ...updates } : a))
-        );
-
-        if (updates.status === "Inactive") {
-          toast.success(
-            "Admin Suspended",
-            "Admin account has been suspended successfully."
-          );
-        } else if (updates.status === "Active") {
-          toast.success(
-            "Admin Activated",
-            "Admin account has been activated successfully."
-          );
-        } else {
-          toast.success(
-            "Admin Updated",
-            "Admin information updated successfully."
-          );
-        }
-      } catch (error) {
-        console.error("Failed to update admin:", error);
-        toast.error(
-          "Update Failed",
-          "Failed to update admin. Please try again."
-        );
+  const handleAdminUpdate = useCallback((adminId, updates) => {
+    try {
+      setAdmins((prev) =>
+        prev.map((a) => (a.id === adminId ? { ...a, ...updates } : a))
+      );
+      if (updates.status === "Inactive") {
+        toast.success("Admin Suspended", "Admin account has been suspended successfully.");
+      } else if (updates.status === "Active") {
+        toast.success("Admin Activated", "Admin account has been activated successfully.");
+      } else {
+        toast.success("Admin Updated", "Admin information updated successfully.");
       }
-    },
-    [toast]
-  );
+    } catch (error) {
+      console.error("Failed to update admin:", error);
+      toast.error("Update Failed", "Failed to update admin. Please try again.");
+    }
+  }, [toast]);
 
   const handleRefresh = useCallback(() => {
     toast.info("Data Refreshed", "Loading latest Admins...");
     fetchAdmins();
   }, [fetchAdmins]);
 
-  const handleOpenAddModal = useCallback(() => {
-    setIsAddModalOpen(true);
-  }, []);
+  const handleOpenAddModal  = useCallback(() => setIsAddModalOpen(true), []);
+  const handleCloseAddModal = useCallback((wasCreated) => {
+    setIsAddModalOpen(false);
+    if (wasCreated) {
+      setCurrentPage(1);
+      fetchAdmins();
+    }
+  }, [fetchAdmins]);
 
-  const handleCloseAddModal = useCallback(
-    (wasCreated) => {
-      setIsAddModalOpen(false);
-      if (wasCreated) {
-        setCurrentPage(1);
-        fetchAdmins();
-      }
-    },
-    [fetchAdmins]
-  );
+  const handleCreateAdmin = useCallback((newAdmin) => {
+    setAdmins((prev) => [newAdmin, ...prev.slice(0, rowsPerPage - 1)]);
+    setTotalItems((prev) => prev + 1);
+    toast.success("Admin Created", `${newAdmin.username || "New admin"} has been added successfully.`);
+  }, [rowsPerPage, toast]);
 
-  const handleCreateAdmin = useCallback(
-    (newAdmin) => {
-      setAdmins((prev) => [newAdmin, ...prev.slice(0, rowsPerPage - 1)]);
-      setTotalItems((prev) => prev + 1);
-      toast.success(
-        "Admin Created",
-        `${newAdmin.username || "New admin"} has been added successfully.`
-      );
-    },
-    [rowsPerPage, toast]
-  );
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
+
       {/* Header */}
       <div className="flex-shrink-0 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
 
           {/* Title */}
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#05015A] to-[#0a0280] flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-900/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#05015A] to-[#0a0280]
+                            flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-900/20">
               <Shield size={20} className="text-white" />
             </div>
             <div className="min-w-0">
@@ -255,34 +206,33 @@ const AdminsPage = () => {
             </div>
           </div>
 
-          {/* Right side: Tab switcher + action buttons */}
+          {/* Right side: action buttons + tab switcher */}
           <div className="flex items-center gap-2 flex-wrap">
 
-            {/* Add Admin button — only visible on admins tab */}
+            {/* Add Admin button — only if on admins tab AND has create permission */}
+            {activeTab === "admins" && canCreate && (
+              <button
+                onClick={handleOpenAddModal}
+                className="px-4 py-2 bg-[#000060] text-white rounded-lg
+                           hover:shadow-lg hover:shadow-[#000060]/25 transition-all
+                           flex items-center gap-2 flex-shrink-0"
+              >
+                <UserPlus size={16} />
+                <span className="hidden sm:inline">Add Admin</span>
+              </button>
+            )}
+
+            {/* Refresh button — always visible on admins tab regardless of permissions */}
             {activeTab === "admins" && (
-              <>
-                <button
-                  onClick={handleOpenAddModal}
-                  className="px-4 py-2 bg-[#000060] text-white rounded-lg
-                             hover:shadow-lg hover:shadow-[#000060]/25 transition-all
-                             flex items-center gap-2 flex-shrink-0"
-                >
-                  <UserPlus size={16} />
-                  <span className="hidden sm:inline">Add Admin</span>
-                </button>
-                <button
-                  onClick={handleRefresh}
-                  disabled={loading}
-                  className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
-                             hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
-                             disabled:opacity-50 flex-shrink-0"
-                >
-                  <RefreshCw
-                    size={16}
-                    className={loading ? "animate-spin" : ""}
-                  />
-                </button>
-              </>
+              <button
+                onClick={handleRefresh}
+                disabled={loading}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
+                           hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
+                           disabled:opacity-50 flex-shrink-0"
+              >
+                <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+              </button>
             )}
 
             {/* Tab Switcher */}
@@ -290,27 +240,29 @@ const AdminsPage = () => {
               <button
                 onClick={() => setActiveTab("admins")}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
-                  ${
-                    activeTab === "admins"
-                      ? "bg-white text-indigo-700 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                  ${activeTab === "admins"
+                    ? "bg-white text-indigo-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
                   }`}
               >
                 <Users size={16} />
                 Admins
               </button>
-              <button
-                onClick={() => setActiveTab("roles")}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
-                  ${
-                    activeTab === "roles"
+
+              {/* Roles tab — only visible if user has edit permission */}
+              {canManageRoles && (
+                <button
+                  onClick={() => setActiveTab("roles")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2
+                    ${activeTab === "roles"
                       ? "bg-white text-indigo-700 shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
-                  }`}
-              >
-                <Shield size={16} />
-                Roles
-              </button>
+                    }`}
+                >
+                  <Shield size={16} />
+                  Roles
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -319,19 +271,15 @@ const AdminsPage = () => {
         {activeTab === "admins" && (
           <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              {/* Search Input */}
               <div className="relative flex-1 min-w-[200px]">
-                <Search
-                  size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search by name, username, or email..."
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
-                  className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
-                             bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20 
+                  className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm
+                             bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20
                              focus:border-[#000060] transition-all"
                 />
                 {searchText && (
@@ -346,60 +294,43 @@ const AdminsPage = () => {
                 )}
               </div>
 
-              {/* Filter Toggle Button */}
               <button
                 type="button"
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-3 sm:px-4 h-10 sm:h-11 rounded-lg text-sm font-medium flex items-center gap-2
                            transition-all shadow-sm relative flex-shrink-0
-                           ${
-                             showFilters || activeFiltersCount > 0
-                               ? "bg-indigo-50 text-indigo-700 border-2 border-indigo-200"
-                               : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                           ${showFilters || activeFiltersCount > 0
+                             ? "bg-indigo-50 text-indigo-700 border-2 border-indigo-200"
+                             : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                            }`}
               >
                 <Filter size={18} />
                 <span className="hidden sm:inline">Filters</span>
                 {activeFiltersCount > 0 && (
-                  <span
-                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
-                                   text-xs font-bold rounded-full flex items-center justify-center"
-                  >
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white
+                                   text-xs font-bold rounded-full flex items-center justify-center">
                     {activeFiltersCount}
                   </span>
                 )}
               </button>
             </div>
 
-            {/* Filter Options */}
             {showFilters && (
               <div className="pt-3 border-t border-gray-200 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  <StyledSelect
-                    label="Status"
-                    value={statusFilter}
+                  <StyledSelect label="Status" value={statusFilter}
                     onChange={(value) => setStatusFilter(value)}
-                    options={STATUS_OPTIONS}
-                    placeholder="All Status"
-                  />
-                  <StyledSelect
-                    label="Role"
-                    value={roleFilter}
+                    options={STATUS_OPTIONS} placeholder="All Status" />
+                  <StyledSelect label="Role" value={roleFilter}
                     onChange={(value) => setRoleFilter(value)}
-                    options={ROLE_OPTIONS}
-                    placeholder="All Roles"
-                  />
+                    options={ROLE_OPTIONS} placeholder="All Roles" />
                 </div>
-
                 {hasActiveFilters && (
                   <div className="mt-3 flex items-center justify-end">
-                    <button
-                      onClick={handleClearFilters}
-                      className="px-4 py-2 text-sm text-red-600 hover:text-red-700 
-                                 hover:bg-red-50 rounded-lg transition-all flex items-center gap-2"
-                    >
-                      <X size={16} />
-                      Clear all filters
+                    <button onClick={handleClearFilters}
+                      className="px-4 py-2 text-sm text-red-600 hover:text-red-700
+                                 hover:bg-red-50 rounded-lg transition-all flex items-center gap-2">
+                      <X size={16} /> Clear all filters
                     </button>
                   </div>
                 )}
@@ -408,17 +339,16 @@ const AdminsPage = () => {
           </div>
         )}
 
-        {/* Error State — only on admins tab */}
+        {/* Error state */}
         {activeTab === "admins" && error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg
+                          flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertCircle size={18} />
               <span className="text-sm">{error}</span>
             </div>
-            <button
-              onClick={handleRefresh}
-              className="text-red-700 hover:text-red-900 font-medium underline text-sm"
-            >
+            <button onClick={handleRefresh}
+              className="text-red-700 hover:text-red-900 font-medium underline text-sm">
               Retry
             </button>
           </div>
@@ -445,12 +375,14 @@ const AdminsPage = () => {
         )}
       </div>
 
-      {/* Add Admin Modal */}
-      <AddAdminModal
-        isOpen={isAddModalOpen}
-        onClose={handleCloseAddModal}
-        onCreate={handleCreateAdmin}
-      />
+      {/* Add Admin Modal — don't even mount if no create permission */}
+      {canCreate && (
+        <AddAdminModal
+          isOpen={isAddModalOpen}
+          onClose={handleCloseAddModal}
+          onCreate={handleCreateAdmin}
+        />
+      )}
     </div>
   );
 };

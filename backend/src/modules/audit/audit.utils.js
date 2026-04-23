@@ -1,5 +1,5 @@
 // ============================================
-// AUDIT UTILITIES
+// backend\src\modules\audit\audit.utils.js
 // ============================================
 
 import { ActorType } from './audit.constants.js';

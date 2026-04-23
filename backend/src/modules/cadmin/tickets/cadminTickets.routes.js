@@ -9,19 +9,21 @@ import {
   getAllTicketsController,
   getTicketStatsController,
   getTicketByIdController,
-  getTicketHistoryController,
+  getTicketActivitiesController,  // ← replaces getTicketHistoryController
   updateTicketStatusController,
+  addCommentController,           // ← new
 } from "./cadminTickets.controller.js";
 import {
   getTicketsQuerySchema,
   updateTicketStatusSchema,
+  addCommentSchema,               // ← new
 } from "./cadminTickets.schema.js";
 
 const router = Router();
 
 router.use(requireCAdmin);
 
-// stats MUST be before /:ticket_id
+// Stats MUST be before /:ticket_id
 router.get(
   "/tickets/stats",
   requireCAdminPermission(CADMIN_PERMISSIONS.TICKETS_VIEW_STATS),
@@ -41,10 +43,11 @@ router.get(
   getTicketByIdController
 );
 
+// ← replaces /history
 router.get(
-  "/tickets/:ticket_id/history",
+  "/tickets/:ticket_id/activities",
   requireCAdminPermission(CADMIN_PERMISSIONS.TICKETS_VIEW_HISTORY),
-  getTicketHistoryController
+  getTicketActivitiesController
 );
 
 router.patch(
@@ -52,6 +55,13 @@ router.patch(
   requireCAdminPermission(CADMIN_PERMISSIONS.TICKETS_UPDATE_STATUS),
   validateBody(updateTicketStatusSchema),
   updateTicketStatusController
+);
+
+router.post(
+  "/tickets/:ticket_id/comment",
+  requireCAdminPermission(CADMIN_PERMISSIONS.TICKETS_UPDATE_STATUS),
+  validateBody(addCommentSchema),
+  addCommentController
 );
 
 export default router;

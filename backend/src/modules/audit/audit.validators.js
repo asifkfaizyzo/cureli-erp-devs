@@ -1,5 +1,5 @@
 // ============================================
-// AUDIT INPUT VALIDATORS
+// backend\src\modules\audit\audit.validators.js
 // ============================================
 
 import { VALID_ACTIONS } from './audit.actions.js';

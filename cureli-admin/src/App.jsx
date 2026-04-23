@@ -1,4 +1,4 @@
-// frontend/src/App.jsx
+// App.jsx
 
 import {
   BrowserRouter as Router,
@@ -8,7 +8,6 @@ import {
 } from "react-router-dom";
 import { useEffect } from "react";
 
-// Pages
 import AdminLoginPage from "./pages/Cadmin-Login/AdminLoginPage";
 import AdminDashboard from "./pages/Dashboard/AdminDashboard";
 import UserPage from "./pages/Users-management/UserPage";
@@ -29,14 +28,12 @@ import InAppBroadcastPage from "./pages/Communications/pages/Broadcast/InApp/InA
 import EmailBroadcastPage from "./pages/Communications/pages/Broadcast/Email/EmailBroadcastPage";
 import NotificationsPage from "./pages/Notifications/NotificationsPage";
 import AuditPage from "./pages/Audit/AuditPage";
+import SettingsPage from "./pages/Settings/SettingsPage";
 
-// Layout + Auth
 import AppLayout from "./components/layout/AppLayout";
 import { AuthProvider } from "./context/AuthContext";
 import { PermissionGuard } from "./components/common/PermissionGuard";
 import { CADMIN_PERMISSIONS } from "./config/cadminPermissions";
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 const ProtectedLayout = () => (
   <AuthProvider>
@@ -44,16 +41,14 @@ const ProtectedLayout = () => (
   </AuthProvider>
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 function App() {
-  // Disable browser zoom shortcuts
   useEffect(() => {
     const disableZoomScroll = (e) => {
       if (e.ctrlKey) e.preventDefault();
     };
     const disableKeyZoom = (e) => {
-      if (e.ctrlKey && ["+", "-", "=", "0"].includes(e.key)) e.preventDefault();
+      if (e.ctrlKey && ["+", "-", "=", "0"].includes(e.key))
+        e.preventDefault();
     };
     const disablePinch = (e) => e.preventDefault();
 
@@ -75,7 +70,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* ── Public ────────────────────────────────────────────────────── */}
+        {/* ── Public ──────────────────────────────────────────────────── */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<AdminLoginPage />} />
         <Route
@@ -84,17 +79,10 @@ function App() {
         />
         <Route path="/reset-password" element={<CAdminResetPassword />} />
 
-        {/* ── Protected ─────────────────────────────────────────────────── */}
+        {/* ── Protected ───────────────────────────────────────────────── */}
         <Route element={<ProtectedLayout />}>
-          {/* Dashboard — visible to all authenticated admins */}
-          <Route
-            path="/dashboard"
-            element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.DASHBOARD_VIEW}>
-                <AdminDashboard />
-              </PermissionGuard>
-            }
-          />
+          {/* Dashboard — the page itself handles the no-permission state */}
+          <Route path="/dashboard" element={<AdminDashboard />} />
 
           {/* Shops */}
           <Route
@@ -150,15 +138,8 @@ function App() {
             }
           />
 
-          {/* Orders — no dedicated permission yet, use dashboard.view as gate */}
-          <Route
-            path="/orders"
-            element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.DASHBOARD_VIEW}>
-                <OrdersPage />
-              </PermissionGuard>
-            }
-          />
+          {/* Orders — no permission gate */}
+          <Route path="/orders" element={<OrdersPage />} />
 
           {/* Audit */}
           <Route
@@ -170,11 +151,11 @@ function App() {
             }
           />
 
-          {/* Admin Management — Super Admin only */}
+          {/* Admin Management */}
           <Route
             path="/admins"
             element={
-              <PermissionGuard superAdminOnly>
+              <PermissionGuard permission={CADMIN_PERMISSIONS.ADMINS_VIEW}>
                 <AdminsPage />
               </PermissionGuard>
             }
@@ -195,15 +176,26 @@ function App() {
           {/* Notifications — all authenticated admins */}
           <Route path="/notifications" element={<NotificationsPage />} />
 
-          {/* Communications — hub, visible if tickets permission exists
-              (broadcast + enquiries not in permission system yet) */}
+          {/* ── Communications ─────────────────────────────────────────── */}
+
+          {/* Communications hub — visible if admin can access ANY child */}
           <Route
             path="/communications"
             element={
               <PermissionGuard
-                permissions={[CADMIN_PERMISSIONS.TICKETS_VIEW]}
-                showForbidden={false}
-                fallback="/dashboard"
+                permissions={[
+                  CADMIN_PERMISSIONS.TICKETS_VIEW,
+                  CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY,
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_MANAGE_DRAFTS,
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_SCHEDULE,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_SEND,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_VIEW_HISTORY,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_DRAFTS,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_SCHEDULE,
+                ]}
+                requireAll={false}
               >
                 <CommunicationsPage />
               </PermissionGuard>
@@ -220,35 +212,86 @@ function App() {
             }
           />
 
-          {/* Enquiries — not in permission system yet, allow all authenticated */}
-          <Route path="/communications/enquiries" element={<EnquiriesPage />} />
+          {/* Enquiries */}
+          <Route
+            path="/communications/enquiries"
+            element={
+              <PermissionGuard permission={CADMIN_PERMISSIONS.ENQUIRIES_VIEW}>
+                <EnquiriesPage />
+              </PermissionGuard>
+            }
+          />
 
-          {/* Broadcast — not in permission system yet, allow all authenticated */}
-          <Route path="/communications/broadcast" element={<BroadcastPage />} />
+          {/* Broadcast hub — visible if admin has any broadcast permission */}
+          <Route
+            path="/communications/broadcast"
+            element={
+              <PermissionGuard
+                permissions={[
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY,
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_MANAGE_DRAFTS,
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_SCHEDULE,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_SEND,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_VIEW_HISTORY,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_DRAFTS,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_SCHEDULE,
+                ]}
+                requireAll={false}
+              >
+                <BroadcastPage />
+              </PermissionGuard>
+            }
+          />
+
+          {/* In-App Broadcast */}
           <Route
             path="/communications/broadcast/in-app"
-            element={<InAppBroadcastPage />}
-          />
-          <Route
-            path="/communications/broadcast/email"
-            element={<EmailBroadcastPage />}
+            element={
+              <PermissionGuard
+                permissions={[
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_SEND,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_VIEW_HISTORY,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_DRAFTS,
+                  CADMIN_PERMISSIONS.BROADCAST_INAPP_SCHEDULE,
+                ]}
+                requireAll={false}
+              >
+                <InAppBroadcastPage />
+              </PermissionGuard>
+            }
           />
 
-          {/* Settings — Super Admin only */}
+          {/* Email Broadcast */}
+          <Route
+            path="/communications/broadcast/email"
+            element={
+              <PermissionGuard
+                permissions={[
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY,
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_MANAGE_DRAFTS,
+                  CADMIN_PERMISSIONS.BROADCAST_EMAIL_SCHEDULE,
+                ]}
+                requireAll={false}
+              >
+                <EmailBroadcastPage />
+              </PermissionGuard>
+            }
+          />
+
+          {/* Settings */}
           <Route
             path="/settings"
             element={
-              <PermissionGuard superAdminOnly>
-                <div className="p-6">
-                  <h1 className="text-2xl font-bold">Settings</h1>
-                  <p className="text-gray-500 mt-2">Coming soon…</p>
-                </div>
+              <PermissionGuard permission={CADMIN_PERMISSIONS.SETTINGS_VIEW}>
+                <SettingsPage />
               </PermissionGuard>
             }
           />
         </Route>
 
-        {/* ── Catch-all ─────────────────────────────────────────────────── */}
+        {/* ── Catch-all → always dashboard ────────────────────────────── */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>

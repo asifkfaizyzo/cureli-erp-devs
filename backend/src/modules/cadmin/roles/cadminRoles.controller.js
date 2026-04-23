@@ -20,7 +20,7 @@ import {
 function getAuditContext(req) {
   return {
     actor_id:   req.cadmin.cadmin_id,
-    actor_type: "CADMIN",
+    actor_type: "cadmin",
     ip_address: req.ip,
     user_agent: req.headers["user-agent"],
   };
@@ -37,7 +37,7 @@ export async function listRolesController(req, res) {
       include_deleted: include_deleted === "true",
       search,
     });
-    return success(res, "Roles fetched", { roles });
+    return success(res, { roles }, "Roles fetched");           // ← data, then message
   } catch (err) {
     return fail(res, err.message, err.status || 500);
   }
@@ -46,7 +46,7 @@ export async function listRolesController(req, res) {
 export async function getRoleByIdController(req, res) {
   try {
     const role = await getRoleByIdService(req.params.role_id);
-    return success(res, "Role fetched", { role });
+    return success(res, { role }, "Role fetched");             // ← data, then message
   } catch (err) {
     return fail(res, err.message, err.status || 500);
   }
@@ -55,7 +55,7 @@ export async function getRoleByIdController(req, res) {
 export async function createRoleController(req, res) {
   try {
     const role = await createRoleService(req.body, getAuditContext(req));
-    return success(res, "Role created", { role }, 201);
+    return success(res, { role }, "Role created", 201);        // ← data, then message, then status
   } catch (err) {
     return fail(res, err.message, err.status || 500);
   }
@@ -68,7 +68,7 @@ export async function updateRoleController(req, res) {
       req.body,
       getAuditContext(req)
     );
-    return success(res, "Role updated", { role });
+    return success(res, { role }, "Role updated");             // ← data, then message
   } catch (err) {
     return fail(res, err.message, err.status || 500);
   }
@@ -77,7 +77,7 @@ export async function updateRoleController(req, res) {
 export async function getRoleDeletionImpactController(req, res) {
   try {
     const impact = await getRoleDeletionImpactService(req.params.role_id);
-    return success(res, "Role deletion impact fetched", { impact });
+    return success(res, { impact }, "Role deletion impact fetched");  // ← data, then message
   } catch (err) {
     return fail(res, err.message, err.status || 500);
   }
@@ -86,7 +86,7 @@ export async function getRoleDeletionImpactController(req, res) {
 export async function deleteRoleController(req, res) {
   try {
     await deleteRoleService(req.params.role_id, getAuditContext(req));
-    return success(res, "Role deleted");
+    return success(res, {}, "Role deleted");                   // ← empty data, then message
   } catch (err) {
     return fail(res, err.message, err.status || 500);
   }
@@ -99,7 +99,7 @@ export async function deleteRoleController(req, res) {
 export async function getAdminRolesController(req, res) {
   try {
     const data = await getAdminRolesService(req.params.cadmin_id);
-    return success(res, "Admin roles fetched", data);
+    return success(res, data, "Admin roles fetched");          // ← data, then message
   } catch (err) {
     return fail(res, err.message, err.status || 500);
   }
@@ -112,7 +112,7 @@ export async function assignRolesController(req, res) {
       req.body,
       getAuditContext(req)
     );
-    return success(res, "Roles assigned", data);
+    return success(res, data, "Roles assigned");               // ← data, then message
   } catch (err) {
     return fail(res, err.message, err.status || 500);
   }
@@ -121,7 +121,7 @@ export async function assignRolesController(req, res) {
 export async function removeAllRolesController(req, res) {
   try {
     await removeAllRolesService(req.params.cadmin_id, getAuditContext(req));
-    return success(res, "All roles removed");
+    return success(res, {}, "All roles removed");              // ← empty data, then message
   } catch (err) {
     return fail(res, err.message, err.status || 500);
   }

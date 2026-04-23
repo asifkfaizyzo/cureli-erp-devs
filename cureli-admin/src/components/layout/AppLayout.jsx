@@ -16,14 +16,8 @@ import { useMenuStore } from "../../store/useMenuStore";
 const NON_SIDEBAR_ROUTES = {
   "/notifications": {
     breadcrumbs: ["Dashboard", "Notifications"],
-    menuId: null, // No sidebar item to highlight
+    menuId: null,
   },
-  // Add more non-sidebar routes here as needed
-  // Example:
-  // "/some-other-page": {
-  //   breadcrumbs: ["Dashboard", "Some Page"],
-  //   menuId: null,
-  // },
 };
 
 const AppLayout = () => {

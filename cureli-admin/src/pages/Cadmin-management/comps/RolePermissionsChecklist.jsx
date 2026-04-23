@@ -11,7 +11,6 @@ import {
 import { CADMIN_PERMISSION_GROUPS } from "../../../config/cadminPermissions";
 
 const RolePermissionsChecklist = ({ selectedPermissions = [], onChange }) => {
-  // All groups expanded by default
   const [expanded, setExpanded] = useState(
     CADMIN_PERMISSION_GROUPS.reduce(
       (acc, g) => ({ ...acc, [g.key]: true }),
@@ -39,23 +38,46 @@ const RolePermissionsChecklist = ({ selectedPermissions = [], onChange }) => {
     );
   };
 
+  // ── Sort: groups with any selected permission float to top ──────────────
+  const sortedGroups = [...CADMIN_PERMISSION_GROUPS].sort((a, b) => {
+    const aHasSelected = a.permissions.some((p) =>
+      selectedPermissions.includes(p.key)
+    );
+    const bHasSelected = b.permissions.some((p) =>
+      selectedPermissions.includes(p.key)
+    );
+
+    if (aHasSelected && !bHasSelected) return -1;
+    if (!aHasSelected && bHasSelected) return 1;
+    return 0; // preserve original order within each tier
+  });
+
   return (
     <div className="space-y-3">
-      {CADMIN_PERMISSION_GROUPS.map((group) => {
-        const keys        = group.permissions.map((p) => p.key);
-        const selected    = keys.filter((k) => selectedPermissions.includes(k));
-        const isAll       = selected.length === keys.length;
-        const isPartial   = selected.length > 0 && !isAll;
-        const isOpen      = expanded[group.key];
+      {sortedGroups.map((group) => {
+        const keys      = group.permissions.map((p) => p.key);
+        const selected  = keys.filter((k) => selectedPermissions.includes(k));
+        const isAll     = selected.length === keys.length;
+        const isPartial = selected.length > 0 && !isAll;
+        const isOpen    = expanded[group.key];
+        const hasAny    = selected.length > 0;
 
         return (
           <div
             key={group.key}
-            className="border border-gray-200 rounded-xl overflow-hidden"
+            className={`border rounded-xl overflow-hidden transition-colors
+                        ${hasAny
+                          ? "border-indigo-200"
+                          : "border-gray-200"
+                        }`}
           >
             {/* Group header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-gray-50
-                            border-b border-gray-200">
+            <div className={`flex items-center justify-between px-4 py-3
+                             border-b transition-colors
+                             ${hasAny
+                               ? "bg-indigo-50/60 border-indigo-200"
+                               : "bg-gray-50 border-gray-200"
+                             }`}>
               <button
                 type="button"
                 onClick={() => toggle(group.key)}
@@ -65,10 +87,12 @@ const RolePermissionsChecklist = ({ selectedPermissions = [], onChange }) => {
                   ? <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
                   : <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
                 }
-                <span className="font-semibold text-gray-700 text-sm">
+                <span className={`font-semibold text-sm
+                                  ${hasAny ? "text-indigo-800" : "text-gray-700"}`}>
                   {group.module}
                 </span>
-                <span className="text-xs text-gray-400 font-normal ml-1 flex-shrink-0">
+                <span className={`text-xs font-normal ml-1 flex-shrink-0
+                                  ${hasAny ? "text-indigo-500" : "text-gray-400"}`}>
                   {selected.length}/{keys.length}
                 </span>
               </button>

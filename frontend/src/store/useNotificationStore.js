@@ -76,7 +76,7 @@ export const useNotificationStore = create(
       fetchUnreadCount: async () => {
         try {
           const response = await fetchUnreadCountAPI();
-          console.log('[NotificationStore] fetchUnreadCount response:', response);
+          
           
           if (response.success) {
             const { total, by_priority, has_critical, has_high } = response.data;
