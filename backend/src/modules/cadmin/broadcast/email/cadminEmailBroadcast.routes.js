@@ -1,5 +1,3 @@
-// backend/src/modules/cadmin/broadcast/email/cadminEmailBroadcast.routes.js
-
 import { Router } from 'express';
 import * as controller from './cadminEmailBroadcast.controller.js';
 import { validateBody, validateQuery } from '../../../../middleware/validate.js';
@@ -17,7 +15,6 @@ const emailAttachmentUpload = createUploader('email_attachments', {
   maxFiles: 1,
 });
 
-// All routes require CAdmin auth
 router.use(requireCAdmin);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -48,7 +45,6 @@ router.delete(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PREVIEW & QUOTA
-// Bundled under BROADCAST_EMAIL_SEND — needed before sending
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.post(
@@ -150,7 +146,6 @@ router.get(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FILTER OPTIONS
-// Bundled under BROADCAST_EMAIL_SEND — these helpers support the send flow
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get(
@@ -172,17 +167,7 @@ router.get(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SINGLE CAMPAIGN — must be last, catches :id
-// ─────────────────────────────────────────────────────────────────────────────
-
-router.get(
-  '/broadcast/email/:id',
-  requireCAdminPermission(CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY),
-  controller.getCampaignByIdController
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// UNSUBSCRIBE MANAGEMENT
+// UNSUBSCRIBE MANAGEMENT  ← NOW BEFORE /:id
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get(
@@ -219,6 +204,16 @@ router.delete(
   '/broadcast/email/unsubscribes/:email',
   requireCAdminPermission(CADMIN_PERMISSIONS.BROADCAST_EMAIL_MANAGE_UNSUBSCRIBES),
   unsubscribeController.removeFromSuppressionListController
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SINGLE CAMPAIGN — MUST BE LAST, catches :id
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.get(
+  '/broadcast/email/:id',
+  requireCAdminPermission(CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY),
+  controller.getCampaignByIdController
 );
 
 export default router;

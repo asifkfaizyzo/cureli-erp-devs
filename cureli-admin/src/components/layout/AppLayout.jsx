@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Outlet, useLocation } from "react-router-dom";
+import { useSSENotifications } from "../../hooks/useSSENotifications";
 
 import Sidebar from "./AdminSidebar";
 import TopHeader from "./AdminHeader";
@@ -21,6 +22,7 @@ const NON_SIDEBAR_ROUTES = {
 };
 
 const AppLayout = () => {
+  useSSENotifications();
   const location = useLocation();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 

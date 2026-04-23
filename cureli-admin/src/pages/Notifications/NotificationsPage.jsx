@@ -1,4 +1,6 @@
+// ============================================
 // cureli-admin/src/pages/Notifications/NotificationsPage.jsx
+// ============================================
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
@@ -27,14 +29,16 @@ const NotificationsPage = () => {
     error,
     filters,
     selectedNotification,
+    hasNewNotifications,        // ← NEW: SSE flag
     fetchNotifications,
     setFilters,
     goToPage,
     clearFilters,
     markAllAsRead,
-    markAsRead,                   // ✅ use store action, not raw API
+    markAsRead,
     setSelectedNotification,
     clearSelectedNotification,
+    setHasNewNotifications,     // ← NEW: clear SSE flag
   } = useCAdminNotificationStore();
 
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
@@ -57,7 +61,7 @@ const NotificationsPage = () => {
         (n) => n.notification_id === selectedId
       );
       if (notification) {
-        setSelectedNotification(notification); // ✅ store handles markAsRead
+        setSelectedNotification(notification);
       }
       window.history.replaceState({}, document.title);
     }
@@ -67,8 +71,9 @@ const NotificationsPage = () => {
 
   const handleRefresh = useCallback(() => {
     fetchNotifications({ limit: rowsPerPage });
+    setHasNewNotifications(false); // ← Clear SSE new-notification flag
     toast.success('Refreshed');
-  }, [fetchNotifications, rowsPerPage, toast]);
+  }, [fetchNotifications, rowsPerPage, toast, setHasNewNotifications]);
 
   const handleMarkAllRead = useCallback(async () => {
     setIsMarkingAllRead(true);
@@ -82,7 +87,6 @@ const NotificationsPage = () => {
     }
   }, [markAllAsRead, toast]);
 
-  // ✅ Use store's markAsRead — updates local state + unread count correctly
   const handleSelectNotification = useCallback((notification) => {
     setSelectedNotification(notification); // store auto-marks as read if unread
   }, [setSelectedNotification]);
@@ -96,7 +100,6 @@ const NotificationsPage = () => {
     clearSelectedNotification();
   }, [goToPage, clearSelectedNotification]);
 
-  // ✅ For the side panel "Mark as read" button — also goes through store
   const handleMarkAsRead = useCallback(async (notificationId) => {
     try {
       await markAsRead(notificationId);
@@ -139,11 +142,16 @@ const NotificationsPage = () => {
 
   const hasActiveFilters = filters.unreadOnly || filters.priority;
 
+  // ── Render ───────────────────────────────────────────────────────────────
+
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
-      {/* Header */}
+
+      {/* ── Header ── */}
       <div className="flex-shrink-0 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
+
+          {/* Title + count */}
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-[#000060] flex items-center justify-center flex-shrink-0">
               <Bell size={20} className="text-white" />
@@ -170,7 +178,10 @@ const NotificationsPage = () => {
             </div>
           </div>
 
+          {/* Action buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
+
+            {/* Mark all read */}
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
@@ -184,12 +195,22 @@ const NotificationsPage = () => {
                 <span className="hidden sm:inline">Mark all read</span>
               </button>
             )}
+
+            {/* Refresh — with SSE new-notification indicator */}
             <button
               onClick={handleRefresh}
               disabled={isLoading}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 flex-shrink-0"
+              className="relative px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 flex-shrink-0"
             >
               <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+
+              {/* ── Pulsing dot shown when SSE pushed a new notification ── */}
+              {hasNewNotifications && (
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-white" />
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -244,6 +265,7 @@ const NotificationsPage = () => {
           </div>
         </div>
 
+        {/* Error banner */}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -260,9 +282,10 @@ const NotificationsPage = () => {
         )}
       </div>
 
-      {/* Main Content */}
+      {/* ── Main Content ── */}
       <div className="flex-1 min-h-0 relative flex gap-4 items-start">
-        {/* List */}
+
+        {/* Notification list */}
         <div className={`
           flex-1 min-w-0 bg-white rounded-xl border border-gray-200 overflow-hidden
           ${selectedNotification ? 'hidden lg:block' : 'block'}

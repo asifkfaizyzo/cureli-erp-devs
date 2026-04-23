@@ -293,15 +293,11 @@ export async function getShopsForFilterController(req, res) {
   try {
     const { search = '', page = 1, limit = 50 } = req.query;
 
-    console.log('[Email Broadcast] getShopsForFilter called:', { search, page, limit });
+
 
     const result = await service.getShopsForFilter(search, Number(page), Number(limit));
 
-    console.log('[Email Broadcast] getShopsForFilter result:', {
-      shopsCount: result.shops?.length || 0,
-      pagination: result.pagination,
-      firstShop: result.shops?.[0] || 'none',
-    });
+   
 
     return success(res, result);
   } catch (err) {
@@ -312,15 +308,11 @@ export async function getShopsForFilterController(req, res) {
 
 export async function getActivePlansController(req, res) {
   try {
-    console.log('[Email Broadcast] getActivePlans called');
+    
 
     const result = await service.getActivePlans();
 
-    console.log('[Email Broadcast] getActivePlans result:', {
-      plansCount: result.plans?.length || 0,
-      plans: result.plans?.map(p => ({ id: p.plan_id, name: p.name, type: p.type })) || [],
-    });
-
+   
     return success(res, result);
   } catch (err) {
     console.error('[Email Broadcast Controller] Get plans failed:', err);
@@ -330,12 +322,7 @@ export async function getActivePlansController(req, res) {
 
 export async function getCAdminRolesController(req, res) {
   try {
-    console.log('[Email Broadcast] getCAdminRoles called');
-
-    const result = service.getCAdminRoles();
-
-    console.log('[Email Broadcast] getCAdminRoles result:', result);
-
+    const result = await service.getCAdminRoles();  // ✅ Add await
     return success(res, result);
   } catch (err) {
     console.error('[Email Broadcast Controller] Get CAdmin roles failed:', err);
@@ -374,7 +361,7 @@ export async function uploadInlineImageController(req, res) {
       filename: uploadResult.storage_key 
     });
 
-    console.log(`[Email Broadcast] Inline image uploaded: ${uploadResult.storage_key}`);
+    
 
     return success(res, {
       filename: uploadResult.storage_key,
@@ -417,7 +404,7 @@ export async function uploadAttachmentController(req, res) {
       filename: uploadResult.storage_key 
     });
 
-    console.log(`[Email Broadcast] Attachment uploaded: ${uploadResult.storage_key}`);
+    
 
     return success(res, {
       filename: uploadResult.storage_key,

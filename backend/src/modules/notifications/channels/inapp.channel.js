@@ -1,8 +1,11 @@
+// ============================================
 // backend/src/modules/notifications/channels/inapp.channel.js
+// ============================================
 
 import prisma from '../../../config/prisma.js';
 import { generateInAppContent } from '../templates/inapp/index.js';
 import { EVENT_CONFIG } from '../notification.events.js';
+import { sseService } from '../../../services/sse.service.js';
 
 /**
  * Send notifications via in-app channel.
@@ -54,7 +57,10 @@ export async function sendViaInApp(eventType, recipients, context) {
   // ✅ KEY FIX: prefer context.priority (caller-supplied) over the static event default
   const priority = context.priority || eventConfig.priority || 'normal';
 
-  console.log(`[InApp Channel] Priority resolved: "${priority}" (context="${context.priority}", eventConfig="${eventConfig.priority}")`);
+  console.log(
+    `[InApp Channel] Priority resolved: "${priority}" ` +
+    `(context="${context.priority}", eventConfig="${eventConfig.priority}")`
+  );
 
   const dedupEntity = eventConfig.dedupEntity;
 
@@ -110,11 +116,14 @@ async function processUserNotifications(
         shop_id:    recipient.shop_id   || context.shop_id   || null,
         branch_id:  recipient.branch_id || context.branch_id || null,
         dedup_key:  dedupKey,
-        priority,   // ← resolved above
+        priority,
         is_read:    false,
       });
     } catch (error) {
-      console.error(`[InApp Channel] Error preparing notification for user ${recipient.user_id}:`, error);
+      console.error(
+        `[InApp Channel] Error preparing notification for user ${recipient.user_id}:`,
+        error
+      );
       result.failed++;
       result.errors.push({ user_id: recipient.user_id, error: error.message });
     }
@@ -126,10 +135,49 @@ async function processUserNotifications(
         data:           notifications,
         skipDuplicates: true,
       });
+
       result.sent = created.count;
-      console.log(`[InApp Channel] Created ${created.count} user notifications (priority="${priority}") for ${eventType}`);
+      console.log(
+        `[InApp Channel] Created ${created.count} user notifications ` +
+        `(priority="${priority}") for ${eventType}`
+      );
+
+      // ── SSE: push real-time update to each connected user ────────────────
+      if (created.count > 0) {
+        const uniqueUserIds = [...new Set(notifications.map(n => n.user_id))];
+
+        uniqueUserIds.forEach(async (id) => {
+          try {
+            const [unreadCount, latest] = await Promise.all([
+              prisma.notification.count({
+                where: { user_id: id, is_read: false },
+              }),
+              prisma.notification.findFirst({
+                where:   { user_id: id },
+                orderBy: { created_at: 'desc' },
+                select:  { notification_id: true, title: true, priority: true },
+              }),
+            ]);
+
+            sseService.notifyUser(id, 'new_notification', {
+              unread_count: unreadCount,
+              notification: latest,
+            });
+          } catch (sseError) {
+            console.error(
+              `[InApp Channel] SSE notify failed for user ${id}:`,
+              sseError
+            );
+          }
+        });
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
     } catch (error) {
-      console.error(`[InApp Channel] User batch insert failed for ${eventType}:`, error);
+      console.error(
+        `[InApp Channel] User batch insert failed for ${eventType}:`,
+        error
+      );
       result.failed += notifications.length;
       result.errors.push({ error: error.message });
     }
@@ -167,11 +215,14 @@ async function processCAdminNotifications(
         shop_id:    null,
         branch_id:  null,
         dedup_key:  dedupKey,
-        priority,   // ← resolved above
+        priority,
         is_read:    false,
       });
     } catch (error) {
-      console.error(`[InApp Channel] Error preparing notification for cadmin ${recipient.cadmin_id}:`, error);
+      console.error(
+        `[InApp Channel] Error preparing notification for cadmin ${recipient.cadmin_id}:`,
+        error
+      );
       result.failed++;
       result.errors.push({ cadmin_id: recipient.cadmin_id, error: error.message });
     }
@@ -183,10 +234,49 @@ async function processCAdminNotifications(
         data:           notifications,
         skipDuplicates: true,
       });
+
       result.sent = created.count;
-      console.log(`[InApp Channel] Created ${created.count} cadmin notifications (priority="${priority}") for ${eventType}`);
+      console.log(
+        `[InApp Channel] Created ${created.count} cadmin notifications ` +
+        `(priority="${priority}") for ${eventType}`
+      );
+
+      // ── SSE: push real-time update to each connected cadmin ───────────────
+      if (created.count > 0) {
+        const uniqueAdminIds = [...new Set(notifications.map(n => n.cadmin_id))];
+
+        uniqueAdminIds.forEach(async (id) => {
+          try {
+            const [unreadCount, latest] = await Promise.all([
+              prisma.notification.count({
+                where: { cadmin_id: id, is_read: false },
+              }),
+              prisma.notification.findFirst({
+                where:   { cadmin_id: id },
+                orderBy: { created_at: 'desc' },
+                select:  { notification_id: true, title: true, priority: true },
+              }),
+            ]);
+
+            sseService.notifyCAdmin(id, 'new_notification', {
+              unread_count: unreadCount,
+              notification: latest,
+            });
+          } catch (sseError) {
+            console.error(
+              `[InApp Channel] SSE notify failed for cadmin ${id}:`,
+              sseError
+            );
+          }
+        });
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
     } catch (error) {
-      console.error(`[InApp Channel] CAdmin batch insert failed for ${eventType}:`, error);
+      console.error(
+        `[InApp Channel] CAdmin batch insert failed for ${eventType}:`,
+        error
+      );
       result.failed += notifications.length;
       result.errors.push({ error: error.message });
     }
@@ -217,7 +307,9 @@ function buildDedupKey(eventType, entityType, context) {
   }
 
   if (!entityId) {
-    console.warn(`[InApp Channel] Cannot build dedup key: missing ${entityType}_id in context`);
+    console.warn(
+      `[InApp Channel] Cannot build dedup key: missing ${entityType}_id in context`
+    );
     return null;
   }
 
@@ -249,8 +341,10 @@ async function checkCAdminDuplicateExists(cadminId, dedupKey) {
 function sanitizeContext(context) {
   if (!context) return null;
 
-  const sensitiveFields = ['password', 'password_hash', 'token', 'otp', 'reset_token', 'secret'];
-  const sanitized       = {};
+  const sensitiveFields = [
+    'password', 'password_hash', 'token', 'otp', 'reset_token', 'secret',
+  ];
+  const sanitized = {};
 
   for (const [key, value] of Object.entries(context)) {
     if (sensitiveFields.some(field => key.toLowerCase().includes(field))) continue;
@@ -292,12 +386,18 @@ export async function getUnreadCount(userId, filters = {}) {
 }
 
 export async function getNotifications(userId, options = {}) {
-  const { page = 1, limit = 20, unreadOnly = false, shop_id = null, event_types = null } = options;
+  const {
+    page       = 1,
+    limit      = 20,
+    unreadOnly = false,
+    shop_id    = null,
+    event_types = null,
+  } = options;
 
   const where = { user_id: userId };
-  if (unreadOnly)                    where.is_read   = false;
-  if (shop_id)                       where.shop_id   = shop_id;
-  if (event_types?.length > 0)       where.event_type = { in: event_types };
+  if (unreadOnly)              where.is_read    = false;
+  if (shop_id)                 where.shop_id    = shop_id;
+  if (event_types?.length > 0) where.event_type = { in: event_types };
 
   const [notifications, total] = await Promise.all([
     prisma.notification.findMany({

@@ -13,7 +13,7 @@ import { initializeCronJobs } from "./src/cron/jobs.js";
 // MIDDLEWARE IMPORTS
 // ============================================
 import maintenanceMiddleware from "./src/middleware/maintenance.js";
-import { globalLimiter } from "./src/middleware/rateLimiter.js";
+import { globalLimiter, cadminLimiter  } from "./src/middleware/rateLimiter.js";
 import publicUnsubscribeRoutes from "./src/modules/public/unsubscribe/unsubscribe.routes.js";
 
 // ROUTES
@@ -96,7 +96,7 @@ app.use(cookieParser());
 // ============================================
 app.use(maintenanceMiddleware);
 app.use("/api", globalLimiter);
-app.use("/cadmin", globalLimiter);
+app.use("/cadmin", cadminLimiter);
 
 // ============================================
 // FILE SERVING

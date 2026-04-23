@@ -1676,13 +1676,14 @@ model DailySendQuota {
 }
 
 model EmailUnsubscribe {
-  unsubscribe_id String   @id @default(uuid()) @db.Uuid
-  email          String   @unique @db.VarChar(255)
-  user_id        String?  @db.Uuid
-  shop_id        String?  @db.Uuid
-  reason         String?  @db.VarChar(100)
+  unsubscribe_id  String   @id @default(uuid()) @db.Uuid
+  email           String   @unique @db.VarChar(255)
+  token           String?  @db.VarChar(255)  // ← ADD THIS
+  user_id         String?  @db.Uuid
+  cadmin_id       String?  @db.Uuid          // ← RENAME from shop_id
+  reason          String?  @db.VarChar(500)  // ← increase length for longer reasons
   unsubscribed_at DateTime @default(now()) @db.Timestamptz(6)
-  
+
   @@index([email])
   @@map("email_unsubscribes")
 }

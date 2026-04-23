@@ -1,25 +1,34 @@
+// ============================================
 // cureli-admin/src/store/useCAdminNotificationStore.js
+// ============================================
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import {
-  fetchUnreadCount        as fetchUnreadCountAPI,
-  fetchRecentNotifications as fetchRecentAPI,
-  fetchNotifications      as fetchNotificationsAPI,
-  markNotificationAsRead  as markAsReadAPI,
+  fetchUnreadCount           as fetchUnreadCountAPI,
+  fetchRecentNotifications   as fetchRecentAPI,
+  fetchNotifications         as fetchNotificationsAPI,
+  markNotificationAsRead     as markAsReadAPI,
   markAllNotificationsAsRead as markAllAsReadAPI,
 } from '../api/cadminNotifications';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Initial State
+// ─────────────────────────────────────────────────────────────────────────────
+
 const initialState = {
+  // Recent / dropdown
   recentNotifications: [],
   isRecentLoading:     false,
   recentError:         null,
 
+  // Badge counts
   unreadCount: 0,
   byPriority:  { critical: 0, high: 0, normal: 0, low: 0 },
   hasCritical: false,
   hasHigh:     false,
 
+  // Full notification list
   notifications: [],
   pagination: {
     page:       1,
@@ -31,14 +40,20 @@ const initialState = {
   isLoading: false,
   error:     null,
 
+  // Detail view
   selectedNotification: null,
 
+  // Filters
   filters: {
     unreadOnly: false,
     priority:   null,
     eventType:  null,
   },
 
+  // SSE state — NEW
+  hasNewNotifications: false,
+
+  // Polling
   lastFetched:     null,
   pollingInterval: null,
 };
@@ -46,28 +61,52 @@ const initialState = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: build clean query params
 // ─────────────────────────────────────────────────────────────────────────────
+
 function buildQueryParams({ page, limit, unreadOnly, priority, eventType }) {
   const params = { page, limit };
 
-  if (unreadOnly === true) {
-    params.unread_only = true;
-  }
-  if (priority && typeof priority === 'string') {
-    params.priority = priority;
-  }
-  if (eventType && typeof eventType === 'string') {
-    params.event_type = eventType;
-  }
+  if (unreadOnly === true)                    params.unread_only = true;
+  if (priority  && typeof priority  === 'string') params.priority    = priority;
+  if (eventType && typeof eventType === 'string') params.event_type  = eventType;
 
   return params;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Store
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const useCAdminNotificationStore = create(
   devtools(
     (set, get) => ({
       ...initialState,
 
-      // ── Badge count ──────────────────────────────────────────────────────
+      // ── SSE Actions ──────────────────────────────────────────────────────
+
+      /**
+       * Manually set the hasNewNotifications flag.
+       * Useful for clearing the indicator after user opens the dropdown.
+       */
+      setHasNewNotifications: (val) => set({ hasNewNotifications: val }),
+
+      /**
+       * Called by the SSE hook when a `new_notification` event arrives.
+       * Updates badge count, prepends the new notification to recentNotifications,
+       * and sets the hasNewNotifications flag to trigger UI indicators.
+       */
+      receiveSSENotification: (data) => {
+        const { unread_count, notification } = data;
+
+        set((state) => ({
+          unreadCount:         unread_count,
+          hasNewNotifications: true,
+          recentNotifications: notification
+            ? [notification, ...state.recentNotifications].slice(0, 10)
+            : state.recentNotifications,
+        }));
+      },
+
+      // ── Badge Count ──────────────────────────────────────────────────────
 
       fetchUnreadCount: async () => {
         try {
@@ -89,7 +128,7 @@ export const useCAdminNotificationStore = create(
         }
       },
 
-      // ── Dropdown (recent) ────────────────────────────────────────────────
+      // ── Dropdown (Recent) ────────────────────────────────────────────────
 
       fetchRecent: async (limit = 5) => {
         set({ isRecentLoading: true, recentError: null });
@@ -116,7 +155,7 @@ export const useCAdminNotificationStore = create(
         }
       },
 
-      // ── Full page ────────────────────────────────────────────────────────
+      // ── Full Page ────────────────────────────────────────────────────────
 
       fetchNotifications: async (params = {}) => {
         const { filters, pagination } = get();
@@ -124,9 +163,9 @@ export const useCAdminNotificationStore = create(
 
         try {
           const mergedUnreadOnly = params.unreadOnly  ?? filters.unreadOnly;
-          const mergedPriority   = params.priority    !== undefined
+          const mergedPriority   = params.priority   !== undefined
             ? params.priority   : filters.priority;
-          const mergedEventType  = params.eventType   !== undefined
+          const mergedEventType  = params.eventType  !== undefined
             ? params.eventType  : filters.eventType;
           const mergedPage       = params.page  || pagination.page;
           const mergedLimit      = params.limit || pagination.limit;
@@ -209,15 +248,14 @@ export const useCAdminNotificationStore = create(
         });
       },
 
-      // ── Mark as read ─────────────────────────────────────────────────────
+      // ── Mark As Read ─────────────────────────────────────────────────────
 
       // ✅ Single markAsRead — updates local state optimistically, no refetch needed
       markAsRead: async (notificationId) => {
         try {
           const response = await markAsReadAPI(notificationId);
           if (response.success) {
-            const now = new Date().toISOString();
-            // ✅ Check if it was already read before decrementing count
+            const now         = new Date().toISOString();
             const alreadyRead = response.data?.already_read ?? false;
 
             set((state) => ({
@@ -231,7 +269,7 @@ export const useCAdminNotificationStore = create(
                   ? { ...n, is_read: true, read_at: now }
                   : n
               ),
-              // ✅ Update selectedNotification if it's the same one
+              // ✅ Update selectedNotification if it matches
               selectedNotification:
                 state.selectedNotification?.notification_id === notificationId
                   ? { ...state.selectedNotification, is_read: true, read_at: now }
@@ -268,12 +306,18 @@ export const useCAdminNotificationStore = create(
               })),
               // ✅ Also update selected if open
               selectedNotification: state.selectedNotification
-                ? { ...state.selectedNotification, is_read: true, read_at: state.selectedNotification.read_at || now }
+                ? {
+                    ...state.selectedNotification,
+                    is_read: true,
+                    read_at: state.selectedNotification.read_at || now,
+                  }
                 : null,
-              unreadCount: 0,
-              byPriority:  { critical: 0, high: 0, normal: 0, low: 0 },
-              hasCritical: false,
-              hasHigh:     false,
+              unreadCount:         0,
+              byPriority:          { critical: 0, high: 0, normal: 0, low: 0 },
+              hasCritical:         false,
+              hasHigh:             false,
+              // ✅ Clear new-notification indicator when user reads everything
+              hasNewNotifications: false,
             }));
           }
           return response;
@@ -297,10 +341,16 @@ export const useCAdminNotificationStore = create(
 
       // ── Polling ──────────────────────────────────────────────────────────
 
-      startPolling: (intervalMs = 60000) => {
+      /**
+       * Start polling for unread count.
+       * Default interval raised to 5 minutes (300_000 ms) since SSE
+       * handles real-time updates — polling is now just a fallback.
+       */
+      startPolling: (intervalMs = 300000) => {
         const { pollingInterval } = get();
         if (pollingInterval) clearInterval(pollingInterval);
 
+        // Fetch immediately on start
         get().fetchUnreadCount();
 
         const interval = setInterval(() => {
@@ -335,11 +385,14 @@ export const useCAdminNotificationStore = create(
   )
 );
 
-// ── Selectors ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Selectors
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const selectUnreadCount          = (state) => state.unreadCount;
 export const selectHasCritical          = (state) => state.hasCritical;
 export const selectHasHigh              = (state) => state.hasHigh;
+export const selectHasNewNotifications  = (state) => state.hasNewNotifications; // NEW
 export const selectRecentNotifications  = (state) => state.recentNotifications;
 export const selectIsRecentLoading      = (state) => state.isRecentLoading;
 export const selectNotifications        = (state) => state.notifications;
