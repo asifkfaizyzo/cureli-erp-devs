@@ -19,8 +19,8 @@ export function subscriptionExpiringTemplate(context) {
   const urgencyIcon = daysLeft <= 3 ? '🚨' : '⏰';
 
   const subject = daysLeft <= 3
-    ? `🚨 Urgent: Your subscription expires in ${daysLeft} days`
-    : `⏰ Reminder: Your subscription expires in ${daysLeft} days`;
+    ? ` Urgent: Your subscription expires in ${daysLeft} days`
+    : ` Reminder: Your subscription expires in ${daysLeft} days`;
 
   const html = `
     <!DOCTYPE html>
@@ -78,13 +78,13 @@ export function subscriptionExpiringTemplate(context) {
       <!-- Urgency Message -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;background-color:#fef2f2;">
-          ⚠️ <strong>Important:</strong> To avoid service interruption, please renew your subscription before it expires.
+           <strong>Important:</strong> To avoid service interruption, please renew your subscription before it expires.
         </p>
       </div>
 
       <!-- Benefits Reminder -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;">✨ Continue Enjoying:</p>
+        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> Continue Enjoying:</p>
         <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
           <li class="info-text" style="color:#0c4a6e;">Full access to all ${EMAIL_CONFIG.COMPANY.NAME} features</li>
           <li class="info-text" style="color:#0c4a6e;">Uninterrupted inventory management</li>
@@ -94,12 +94,12 @@ export function subscriptionExpiringTemplate(context) {
       </div>
 
       <!-- CTA Button -->
-      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Renew Now', emoji: '🔄' })}
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Renew Now' })}
 
       <!-- Grace Period Warning -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:12px;line-height:1.6;background-color:#fef9e7;">
-          📝 <strong>Note:</strong> If you don't renew, your account will enter a grace period and may be suspended after expiry.
+           <strong>Note:</strong> If you don't renew, your account will enter a grace period and may be suspended after expiry.
         </p>
       </div>
 

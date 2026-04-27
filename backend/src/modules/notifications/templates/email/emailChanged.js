@@ -21,7 +21,7 @@ export function emailChangedTemplate(context) {
       </p>
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid #dc2626;padding:16px 20px;margin:20px 0;border-radius:0 8px 8px 0;">
         <p class="error-text" style="margin:0;color:#991b1b;font-size:14px;background-color:#fef2f2;">
-          <strong>⚠️ If you did not make this change, please contact support immediately.</strong>
+          <strong> If you did not make this change, please contact support immediately.</strong>
         </p>
       </div>
     `
@@ -46,7 +46,7 @@ export function emailChangedTemplate(context) {
     <!-- Header -->
     <div class="header-primary" style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">${isOldEmail ? '📧 Email Changed' : '✅ Email Verified'}</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">${isOldEmail ? ' Email Changed' : ' Email Verified'}</h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">Account Notification</p>
     </div>
 

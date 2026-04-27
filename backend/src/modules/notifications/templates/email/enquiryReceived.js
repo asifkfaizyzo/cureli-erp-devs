@@ -23,7 +23,7 @@ export function enquiryReceivedTemplate(context) {
     <!-- Header -->
     <div class="header-primary" style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:24px;font-weight:600;color:#ffffff;">📬 Enquiry Received</h1>
+      <h1 style="margin:0;font-size:24px;font-weight:600;color:#ffffff;"> Enquiry Received</h1>
       <p style="margin:10px 0 0;opacity:0.9;font-size:14px;color:#e0e0e0;">Reference: <strong>${enquiry_number}</strong></p>
     </div>
 
@@ -46,21 +46,21 @@ export function enquiryReceivedTemplate(context) {
 
       <!-- Message Box -->
       <div class="card-bg" style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin:24px 0;">
-        <p class="text-secondary" style="margin:0 0 10px;font-weight:600;color:#374151;font-size:14px;background-color:#f9fafb;">💬 Your Message:</p>
+        <p class="text-secondary" style="margin:0 0 10px;font-weight:600;color:#374151;font-size:14px;background-color:#f9fafb;"> Your Message:</p>
         <p class="table-value" style="margin:0;color:#4b5563;white-space:pre-wrap;font-style:italic;line-height:1.6;font-size:14px;background-color:#f9fafb;">"${message}"</p>
       </div>
 
       <!-- Response Time -->
       <div class="success-box" style="background-color:#f0fdf4;border-left:4px solid #059669;padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="success-text" style="margin:0;color:#065f46;font-size:13px;background-color:#f0fdf4;">
-          ⏱ <strong>Response Time:</strong> We typically respond within 24-48 business hours.
+           <strong>Response Time:</strong> We typically respond within 24-48 business hours.
         </p>
       </div>
 
       <!-- Tip Box -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid #05015A;padding:12px 16px;margin:20px 0;border-radius:0 8px 8px 0;">
         <p class="info-text" style="margin:0;color:#05015A;font-size:13px;background-color:#e0f2fe;">
-          💡 <strong>Tip:</strong> Save this reference number for any follow-up communication.
+          <strong>Tip:</strong> Save this reference number for any follow-up communication.
         </p>
       </div>
 
@@ -73,7 +73,7 @@ export function enquiryReceivedTemplate(context) {
     <!-- Footer -->
     <div class="footer-bg" style="background-color:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
       ${renderLogo('WHITE', 'footer')}
-      <p style="margin:0 0 6px;color:#d1d5db;font-size:13px;">We'll be in touch soon! 💙</p>
+      <p style="margin:0 0 6px;color:#d1d5db;font-size:13px;">We'll be in touch soon! </p>
       <p style="margin:0 0 6px;color:#d1d5db;">© ${EMAIL_CONFIG.CURRENT_YEAR} <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong></p>
       <p style="margin:0;color:#9ca3af;">All rights reserved</p>
     </div>

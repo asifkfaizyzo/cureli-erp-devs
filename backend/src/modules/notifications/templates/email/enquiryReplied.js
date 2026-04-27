@@ -26,7 +26,7 @@ export function enquiryRepliedTemplate(context) {
     <!-- Header -->
     <div class="header-primary" style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">💬 Response to Your Enquiry</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Response to Your Enquiry</h1>
       <p style="margin:10px 0 0;opacity:0.9;font-size:14px;color:#e0e0e0;">Reference: <strong>${enquiry_number}</strong></p>
     </div>
 
@@ -57,7 +57,7 @@ export function enquiryRepliedTemplate(context) {
 
       <!-- Reply Message -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid #05015A;padding:18px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p class="info-text" style="margin:0 0 10px;font-weight:600;color:#05015A;font-size:13px;background-color:#e0f2fe;">📩 Our Response:</p>
+        <p class="info-text" style="margin:0 0 10px;font-weight:600;color:#05015A;font-size:13px;background-color:#e0f2fe;"> Our Response:</p>
         <p class="info-text" style="margin:0;color:#374151;line-height:1.7;font-size:14px;background-color:#e0f2fe;">
           ${formattedMessage}
         </p>
@@ -66,7 +66,7 @@ export function enquiryRepliedTemplate(context) {
       <!-- Follow-up Info -->
       <div class="warning-box" style="background-color:#fefce8;border-left:4px solid #eab308;padding:12px 16px;margin:20px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#854d0e;font-size:13px;background-color:#fefce8;">
-          💡 <strong>Need more help?</strong> Reply to this email with your reference number.
+           <strong>Need more help?</strong> Reply to this email with your reference number.
         </p>
       </div>
 

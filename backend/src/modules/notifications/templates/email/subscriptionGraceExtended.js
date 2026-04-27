@@ -16,7 +16,7 @@ export function subscriptionGraceExtendedTemplate(context) {
     reason,
   } = context;
 
-  const subject = '✅ Good News: Your grace period has been extended';
+  const subject = ' Good News: Your grace period has been extended';
 
   const html = `
     <!DOCTYPE html>
@@ -30,7 +30,7 @@ export function subscriptionGraceExtendedTemplate(context) {
     <!-- Header -->
     <div class="header-success" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.SUCCESS} 0%,${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">✅ Grace Period Extended</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Grace Period Extended</h1>
       <p class="days-display days-extended" style="margin:12px 0 0;font-size:36px;font-weight:700;letter-spacing:-1px;color:#ffffff;-webkit-text-fill-color:#ffffff;">+${days_extended} days</p>
       <p style="margin:4px 0 0;font-size:13px;opacity:0.9;color:#d1fae5;">Additional Time Granted</p>
     </div>
@@ -75,7 +75,7 @@ export function subscriptionGraceExtendedTemplate(context) {
             <td class="success-text" style="padding:8px 0;font-weight:700;font-size:15px;text-align:right;color:${EMAIL_CONFIG.COLORS.SUCCESS};background-color:#ecfdf5;">
               ${new_grace_end ? new Date(new_grace_end).toLocaleDateString('en-IN', { 
                 weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
-              }) : 'Extended'} ✅
+              }) : 'Extended'} 
             </td>
           </tr>
         </table>
@@ -84,7 +84,7 @@ export function subscriptionGraceExtendedTemplate(context) {
       ${reason ? `
       <!-- Support Note -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p class="info-text" style="margin:0 0 6px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;">📝 Note from ${EMAIL_CONFIG.COMPANY.NAME} Support:</p>
+        <p class="info-text" style="margin:0 0 6px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> Note from ${EMAIL_CONFIG.COMPANY.NAME} Support:</p>
         <p class="info-text" style="margin:0;color:#374151;font-size:13px;line-height:1.6;font-style:italic;background-color:#e0f2fe;">
           "${reason}"
         </p>
@@ -96,12 +96,12 @@ export function subscriptionGraceExtendedTemplate(context) {
       </p>
 
       <!-- CTA Button -->
-      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/settings/upgrade`, text: 'Complete Payment Now', emoji: '💳' })}
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/settings/upgrade`, text: 'Complete Payment Now' })}
 
       <!-- Reminder Warning -->
       <div class="warning-box" style="background-color:#fef3c7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;line-height:1.6;background-color:#fef3c7;">
-          ⚠️ <strong>Important Reminder:</strong> This extension is a one-time courtesy. Please ensure payment is completed before the new deadline to maintain your ${EMAIL_CONFIG.COMPANY.NAME} subscription.
+           <strong>Important Reminder:</strong> This extension is a one-time courtesy. Please ensure payment is completed before the new deadline to maintain your ${EMAIL_CONFIG.COMPANY.NAME} subscription.
         </p>
       </div>
 

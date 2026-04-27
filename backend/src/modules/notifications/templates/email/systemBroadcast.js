@@ -30,7 +30,7 @@ export function systemBroadcastTemplate(context) {
     <!-- Header -->
     <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">📢 Important Announcement</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Important Announcement</h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">From the ${EMAIL_CONFIG.COMPANY.NAME} Team</p>
     </div>
 
@@ -56,7 +56,7 @@ export function systemBroadcastTemplate(context) {
       <!-- Contact Info -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef9e7;">
-          💬 Questions? Contact us at ${getSupportLink()}
+           Questions? Contact us at ${getSupportLink()}
         </p>
       </div>
 

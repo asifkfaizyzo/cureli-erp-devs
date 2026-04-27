@@ -18,7 +18,7 @@ export function paymentFailedTemplate(context) {
   
   const shopName = shop_name || business_name || 'your shop';
 
-  const subject = `❌ Payment Failed - Action Required - ${EMAIL_CONFIG.COMPANY.NAME}`;
+  const subject = ` Payment Failed - Action Required - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
   const html = `
     <!DOCTYPE html>
@@ -32,7 +32,7 @@ export function paymentFailedTemplate(context) {
     <!-- Header -->
     <div class="header-error" style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">❌ Payment Failed</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Payment Failed</h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#fee2e2;">Action Required</p>
     </div>
 
@@ -46,7 +46,7 @@ export function paymentFailedTemplate(context) {
       <!-- Alert Box -->
       <div class="error-box" style="background-color:#fef2f2;border:2px solid #dc2626;padding:18px;border-radius:10px;margin:20px 0;text-align:center;">
         <p class="error-text" style="margin:0;font-size:16px;font-weight:700;color:#dc2626;background-color:#fef2f2;">
-          ⚠️ Your payment could not be processed
+           Your payment could not be processed
         </p>
       </div>
 
@@ -91,7 +91,7 @@ export function paymentFailedTemplate(context) {
 
       <!-- Action Steps -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid #05015A;padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-        <p class="info-text" style="margin:0 0 10px;font-weight:600;color:#05015A;font-size:13px;background-color:#e0f2fe;">💡 What you can do:</p>
+        <p class="info-text" style="margin:0 0 10px;font-weight:600;color:#05015A;font-size:13px;background-color:#e0f2fe;"> What you can do:</p>
         <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;">
           <li class="info-text" style="color:#0c4a6e;">Check your card/bank account balance</li>
           <li class="info-text" style="color:#0c4a6e;">Try a different payment method</li>
@@ -104,7 +104,6 @@ export function paymentFailedTemplate(context) {
       ${renderButton({ 
         href: retry_url || `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, 
         text: 'Retry Payment', 
-        emoji: '🔄', 
         color: 'primary' 
       })}
 

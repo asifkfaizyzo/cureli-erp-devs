@@ -15,7 +15,7 @@ export function paymentSuccessTemplate(context) {
     payment_date,
   } = context;
 
-  const subject = `✅ Payment Successful - ${EMAIL_CONFIG.COMPANY.NAME}`;
+  const subject = ` Payment Successful - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
   const formattedAmount = amount
     ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount)
@@ -33,7 +33,7 @@ export function paymentSuccessTemplate(context) {
     <!-- Header -->
     <div class="header-success" style="background:linear-gradient(135deg,#059669 0%,#047857 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">✅ Payment Successful</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Payment Successful</h1>
       <p style="margin:12px 0 0;font-size:32px;font-weight:700;letter-spacing:-1px;color:#ffffff;">${formattedAmount}</p>
       <p style="margin:4px 0 0;opacity:0.9;font-size:13px;color:#d1fae5;">Thank you for your payment</p>
     </div>
@@ -84,14 +84,14 @@ export function paymentSuccessTemplate(context) {
       <!-- Success Note -->
       <div class="success-box" style="background-color:#f0fdf4;border-left:4px solid #059669;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="success-text" style="margin:0;color:#065f46;font-size:13px;background-color:#f0fdf4;">
-          🧾 <strong>Receipt Generated:</strong> A receipt has been sent to your email for your records.
+           <strong>Receipt Generated:</strong> A receipt has been sent to your email for your records.
         </p>
       </div>
 
       <!-- Info Box -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid #05015A;padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
         <p class="info-text" style="margin:0;color:#05015A;font-size:13px;background-color:#e0f2fe;">
-          📊 You can view your complete payment history and subscription details in your dashboard.
+           You can view your complete payment history and subscription details in your dashboard.
         </p>
       </div>
 
@@ -99,7 +99,6 @@ export function paymentSuccessTemplate(context) {
       ${renderButton({ 
         href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, 
         text: 'View Subscription', 
-        emoji: '📋', 
         color: 'primary' 
       })}
 

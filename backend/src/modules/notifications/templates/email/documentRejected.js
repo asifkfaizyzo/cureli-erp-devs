@@ -37,7 +37,7 @@ export function documentRejectedTemplate(context) {
     <!-- Header -->
     <div class="header-error" style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'normal')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">📄 Document Review Result</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Document Review Result</h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#fee2e2;">Action Required</p>
     </div>
 
@@ -57,15 +57,15 @@ export function documentRejectedTemplate(context) {
         <p class="table-label" style="margin:0 0 12px;font-size:14px;font-weight:600;color:#374151;background-color:#f9fafb;">Review Summary:</p>
         <table style="width:100%;border-collapse:collapse;">
           <tr>
-            <td class="table-label" style="padding:10px 0;color:#059669;font-weight:600;font-size:14px;background-color:#f9fafb;">✅ Approved</td>
+            <td class="table-label" style="padding:10px 0;color:#059669;font-weight:600;font-size:14px;background-color:#f9fafb;"> Approved</td>
             <td class="success-text" style="padding:10px 0;text-align:right;font-weight:700;font-size:16px;color:#059669;background-color:#f9fafb;">${approved}</td>
           </tr>
           <tr style="border-top:1px solid #e5e7eb;">
-            <td class="table-label" style="padding:10px 0;color:#dc2626;font-weight:600;font-size:14px;background-color:#f9fafb;">❌ Rejected</td>
+            <td class="table-label" style="padding:10px 0;color:#dc2626;font-weight:600;font-size:14px;background-color:#f9fafb;"> Rejected</td>
             <td class="error-text" style="padding:10px 0;text-align:right;font-weight:700;font-size:16px;color:#dc2626;background-color:#f9fafb;">${rejected}</td>
           </tr>
           <tr style="border-top:1px solid #e5e7eb;">
-            <td class="table-label" style="padding:10px 0;color:#f59e0b;font-weight:600;font-size:14px;background-color:#f9fafb;">⏳ Pending</td>
+            <td class="table-label" style="padding:10px 0;color:#f59e0b;font-weight:600;font-size:14px;background-color:#f9fafb;"> Pending</td>
             <td class="warning-text" style="padding:10px 0;text-align:right;font-weight:700;font-size:16px;color:#f59e0b;background-color:#f9fafb;">${pending}</td>
           </tr>
         </table>
@@ -74,7 +74,7 @@ export function documentRejectedTemplate(context) {
       ${reason ? `
       <!-- Rejection Reason -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid #dc2626;padding:14px 18px;margin:24px 0;border-radius:0 8px 8px 0;">
-        <p class="error-text" style="margin:0 0 6px;font-weight:600;color:#991b1b;font-size:13px;background-color:#fef2f2;">❌ Reason for Rejection:</p>
+        <p class="error-text" style="margin:0 0 6px;font-weight:600;color:#991b1b;font-size:13px;background-color:#fef2f2;"> Reason for Rejection:</p>
         <p class="error-text" style="margin:0;color:#7f1d1d;font-style:italic;font-size:14px;line-height:1.5;background-color:#fef2f2;">"${reason}"</p>
       </div>
       ` : ''}
@@ -87,7 +87,6 @@ export function documentRejectedTemplate(context) {
       ${renderButton({ 
         href: `${EMAIL_CONFIG.FRONTEND_URL}/onboarding?resume_step=documents`, 
         text: 'Review Documents →', 
-        emoji: '📋', 
         color: 'primary' 
       })}
 

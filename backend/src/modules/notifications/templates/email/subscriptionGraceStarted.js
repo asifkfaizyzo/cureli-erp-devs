@@ -25,7 +25,7 @@ export function subscriptionGraceStartedTemplate(context) {
       })
     : 'soon';
 
-  const subject = `⚠️ Your subscription has expired - Grace period active - ${EMAIL_CONFIG.COMPANY.NAME}`;
+  const subject = ` Your subscription has expired - Grace period active - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
   const html = `
     <!DOCTYPE html>
@@ -39,7 +39,7 @@ export function subscriptionGraceStartedTemplate(context) {
     <!-- Header -->
     <div class="header-warning" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.WARNING} 0%,${EMAIL_CONFIG.COLORS.WARNING_DARK} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">⚠️ Grace Period Active</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Grace Period Active</h1>
       <p style="margin:8px 0 0;opacity:0.95;font-size:14px;color:#fef3c7;">Your subscription has expired</p>
     </div>
 
@@ -87,13 +87,13 @@ export function subscriptionGraceStartedTemplate(context) {
       <!-- Important Info -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;background-color:#fef2f2;">
-          ⚠️ <strong>Important:</strong> During the grace period, you still have access to your dashboard. However, if you don't renew before <strong>${graceEndDate}</strong>, your account will be <strong>SUSPENDED</strong>.
+           <strong>Important:</strong> During the grace period, you still have access to your dashboard. However, if you don't renew before <strong>${graceEndDate}</strong>, your account will be <strong>SUSPENDED</strong>.
         </p>
       </div>
 
       <!-- What Happens -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;">🚫 What Happens If You Don't Renew:</p>
+        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> What Happens If You Don't Renew:</p>
         <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
           <li class="info-text" style="color:#0c4a6e;">Complete loss of access to ${EMAIL_CONFIG.COMPANY.NAME}</li>
           <li class="info-text" style="color:#0c4a6e;">Your shop and branches will be locked</li>
@@ -103,12 +103,12 @@ export function subscriptionGraceStartedTemplate(context) {
       </div>
 
       <!-- Urgent CTA -->
-      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Renew Now - Avoid Suspension', emoji: '🔄', color: 'error' })}
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Renew Now - Avoid Suspension',  color: 'error' })}
 
       <!-- Support -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef9e7;">
-          💡 <strong>Need Help?</strong> Contact our support team immediately for assistance with renewal.
+           <strong>Need Help?</strong> Contact our support team immediately for assistance with renewal.
         </p>
       </div>
 

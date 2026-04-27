@@ -22,7 +22,7 @@ export function passwordChangedTemplate(context) {
     <!-- Header -->
     <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">🔐 Password Changed</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Password Changed</h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">Security Notification</p>
     </div>
 
@@ -39,7 +39,7 @@ export function passwordChangedTemplate(context) {
 
       <!-- Success Box -->
       <div class="success-box" style="background-color:#f0fdf4;border-left:4px solid ${EMAIL_CONFIG.COLORS.SUCCESS};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p class="success-text" style="margin:0 0 6px;color:#065f46;font-size:13px;font-weight:600;background-color:#f0fdf4;">✅ Change Successful</p>
+        <p class="success-text" style="margin:0 0 6px;color:#065f46;font-size:13px;font-weight:600;background-color:#f0fdf4;"> Change Successful</p>
         <p class="success-text" style="margin:0;color:#047857;font-size:13px;background-color:#f0fdf4;">
           <strong>Date & Time:</strong> ${changed_at || new Date().toLocaleString()}
         </p>
@@ -48,14 +48,14 @@ export function passwordChangedTemplate(context) {
       <!-- Security Warning -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;background-color:#fef2f2;">
-          ⚠️ <strong>Didn't make this change?</strong><br>
+           <strong>Didn't make this change?</strong><br>
           If you did not authorize this password change, please contact our support team immediately to secure your account.
         </p>
       </div>
 
       <!-- Security Tips -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;">🛡️ Security Tips:</p>
+        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> Security Tips:</p>
         <ul style="margin:0;padding-left:20px;color:#374151;font-size:12px;line-height:1.6;">
           <li class="info-text" style="color:#0c4a6e;">Never share your password with anyone</li>
           <li class="info-text" style="color:#0c4a6e;">Use a unique password for your ${EMAIL_CONFIG.COMPANY.NAME} account</li>

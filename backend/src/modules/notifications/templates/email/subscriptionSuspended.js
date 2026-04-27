@@ -8,7 +8,7 @@ import { EMAIL_CONFIG, getBaseHeadContent, renderLogo, renderFooter, renderButto
 export function subscriptionSuspendedTemplate(context) {
   const { recipientName, shop_name } = context;
 
-  const subject = '🔒 Your account has been suspended';
+  const subject = ' Your account has been suspended';
 
   const html = `
     <!DOCTYPE html>
@@ -22,7 +22,7 @@ export function subscriptionSuspendedTemplate(context) {
     <!-- Header -->
     <div class="header-suspended" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.GRAY} 0%,${EMAIL_CONFIG.COLORS.GRAY_DARK} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">🔒 Account Suspended</h1>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Account Suspended</h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e5e7eb;">Action Required to Restore Access</p>
     </div>
 
@@ -46,7 +46,7 @@ export function subscriptionSuspendedTemplate(context) {
 
       <!-- Impact Box -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p class="error-text" style="margin:0 0 8px;color:#991b1b;font-size:13px;font-weight:600;background-color:#fef2f2;">🚫 Currently Unavailable:</p>
+        <p class="error-text" style="margin:0 0 8px;color:#991b1b;font-size:13px;font-weight:600;background-color:#fef2f2;"> Currently Unavailable:</p>
         <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
           <li class="error-text" style="color:#7f1d1d;">Access to ${EMAIL_CONFIG.COMPANY.NAME} dashboard and all features</li>
           <li class="error-text" style="color:#7f1d1d;">Staff login and operations</li>
@@ -57,7 +57,7 @@ export function subscriptionSuspendedTemplate(context) {
 
       <!-- Restoration Steps -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p class="info-text" style="margin:0 0 10px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:14px;font-weight:600;background-color:#e0f2fe;">🔓 To Restore Access:</p>
+        <p class="info-text" style="margin:0 0 10px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:14px;font-weight:600;background-color:#e0f2fe;"> To Restore Access:</p>
         <ol style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;">
           <li class="info-text" style="color:#0c4a6e;">Log in to your ${EMAIL_CONFIG.COMPANY.NAME} account</li>
           <li class="info-text" style="color:#0c4a6e;">Navigate to Subscription settings</li>
@@ -69,7 +69,7 @@ export function subscriptionSuspendedTemplate(context) {
       <!-- Data Safety -->
       <div class="success-box" style="background-color:#d1fae5;border:2px solid ${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};border-radius:10px;padding:16px 20px;margin:24px 0;text-align:center;">
         <p class="success-text" style="margin:0;color:#065f46;font-size:14px;font-weight:600;background-color:#d1fae5;">
-          ✅ <strong>Good News:</strong> Your data is completely safe!
+           <strong>Good News:</strong> Your data is completely safe!
         </p>
         <p class="success-text" style="margin:6px 0 0;color:#047857;font-size:12px;background-color:#d1fae5;">
           Once you renew, everything will be restored exactly as it was.
@@ -77,12 +77,12 @@ export function subscriptionSuspendedTemplate(context) {
       </div>
 
       <!-- CTA Button -->
-      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Reactivate Account Now', emoji: '🔓' })}
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Reactivate Account Now', })}
 
       <!-- Support -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef9e7;">
-          💡 <strong>Need Help?</strong> Contact our support team for assistance with reactivation.
+           <strong>Need Help?</strong> Contact our support team for assistance with reactivation.
         </p>
       </div>
 
