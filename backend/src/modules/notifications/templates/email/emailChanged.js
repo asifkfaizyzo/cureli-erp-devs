@@ -58,22 +58,9 @@ export function emailChangedTemplate(context) {
         !isOldEmail → EMAIL_VERIFIED icon replaces  
     -->
     <div class="header-primary" style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-<<<<<<< HEAD
       ${renderLogo('WHITE', 'header')}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">${isOldEmail ? ' Email Changed' : ' Email Verified'}</h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">Account Notification</p>
-=======
-      ${renderLogo("WHITE", "header")}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${isOldEmail ? ICONS.EMAIL : ICONS.EMAIL_VERIFIED}
-        <span style="vertical-align:middle;">
-          ${isOldEmail ? "Email Changed" : "Email Verified"}
-        </span>
-      </h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">
-        Account Notification
-      </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
     </div>
 
     <!-- Content -->

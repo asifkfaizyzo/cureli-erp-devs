@@ -28,20 +28,9 @@ export function phoneChangedTemplate(context) {
 
     <!-- Header: PHONE icon replaces 📱 -->
     <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-<<<<<<< HEAD
       ${renderLogo('WHITE', 'header')}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">\ Phone Number Changed</h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">Security Notification</p>
-=======
-      ${renderLogo("WHITE", "header")}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${ICONS.PHONE}
-        <span style="vertical-align:middle;">Phone Number Changed</span>
-      </h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">
-        Security Notification
-      </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
     </div>
 
     <!-- Content -->
@@ -81,42 +70,21 @@ export function phoneChangedTemplate(context) {
       <!-- Success Confirmation: CHECK_CIRCLE icon replaces  -->
       <div class="success-box" style="background-color:#f0fdf4;border-left:4px solid ${EMAIL_CONFIG.COLORS.SUCCESS};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="success-text" style="margin:0;color:#065f46;font-size:13px;background-color:#f0fdf4;">
-<<<<<<< HEAD
            <strong>Change Successful:</strong> Your new phone number is now active.
-=======
-          ${ICONS.CHECK_CIRCLE}
-          <strong style="vertical-align:middle;">Change Successful:</strong>
-          <span style="vertical-align:middle;">Your new phone number is now active.</span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 
       <!-- Security Warning: WARNING_RED icon replaces ⚠️ -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
         <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;background-color:#fef2f2;">
-<<<<<<< HEAD
            <strong>Didn't make this change?</strong><br>
           If you did not authorize this change, please contact our support team immediately to secure your account.
-=======
-          ${ICONS.WARNING_RED}
-          <strong style="vertical-align:middle;">Didn't make this change?</strong><br>
-          <span style="padding-left:22px;display:block;">
-            If you did not authorize this change, please contact our support team immediately to secure your account.
-          </span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 
       <!-- Security Tips: SHIELD icon replaces 🛡️ -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-<<<<<<< HEAD
         <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> Security Reminder:</p>
-=======
-        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;">
-          ${ICONS.SHIELD}
-          <span style="vertical-align:middle;">Security Reminder:</span>
-        </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         <ul style="margin:0;padding-left:20px;color:#374151;font-size:12px;line-height:1.6;">
           <li class="info-text" style="color:#0c4a6e;">Keep your contact information up to date</li>
           <li class="info-text" style="color:#0c4a6e;">Never share your OTP or verification codes</li>

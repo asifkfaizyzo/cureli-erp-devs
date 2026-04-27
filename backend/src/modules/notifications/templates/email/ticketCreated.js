@@ -39,18 +39,8 @@ export function ticketCreatedTemplate(context) {
     <!-- Header: TICKET icon replaces 🎫 -->
     <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-<<<<<<< HEAD
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Ticket Created</h1>
       <p style="margin:10px 0 0;opacity:0.95;font-size:18px;font-weight:700;font-family:'Courier New',monospace;letter-spacing:1px;color:#ffffff;">${ticketNum}</p>
-=======
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${ICONS.TICKET}
-        <span style="vertical-align:middle;">Ticket Created</span>
-      </h1>
-      <p style="margin:10px 0 0;opacity:0.95;font-size:18px;font-weight:700;font-family:'Courier New',monospace;letter-spacing:1px;color:#ffffff;">
-        ${ticketNum}
-      </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
     </div>
 
     <!-- Content -->
@@ -103,29 +93,13 @@ export function ticketCreatedTemplate(context) {
       <!-- Response Time: STOPWATCH icon replaces ⏱️ -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="info-text" style="margin:0;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;line-height:1.6;background-color:#e0f2fe;">
-<<<<<<< HEAD
            <strong>Response Time:</strong> Our support team typically responds within <strong>24 business hours</strong>. You'll receive an email notification when your ticket is updated.
-=======
-          ${ICONS.STOPWATCH}
-          <strong style="vertical-align:middle;">Response Time:</strong>
-          <span style="vertical-align:middle;">
-            Our support team typically responds within <strong>24 business hours</strong>.
-            You'll receive an email notification when your ticket is updated.
-          </span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 
       <!-- What's Next: TICKET_SMALL icon replaces 📋 -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-<<<<<<< HEAD
         <p class="warning-text" style="margin:0 0 8px;color:#92400e;font-size:13px;font-weight:600;background-color:#fef9e7;"> What Happens Next:</p>
-=======
-        <p class="warning-text" style="margin:0 0 8px;color:#92400e;font-size:13px;font-weight:600;background-color:#fef9e7;">
-          ${ICONS.TICKET_SMALL}
-          <span style="vertical-align:middle;">What Happens Next:</span>
-        </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
           <li class="warning-text" style="color:#78350f;">Our team will review your ticket</li>
           <li class="warning-text" style="color:#78350f;">You'll receive updates via email</li>
@@ -133,18 +107,8 @@ export function ticketCreatedTemplate(context) {
         </ul>
       </div>
 
-<<<<<<< HEAD
       <!-- CTA Button -->
       ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/tickets`, text: 'View Your Tickets' })}
-=======
-      <!-- CTA Button: TICKET_SMALL icon replaces 📋 -->
-      ${renderButton({
-        href: `${EMAIL_CONFIG.FRONTEND_URL}/tickets`,
-        text: 'View Your Tickets',
-        icon: 'TICKET_SMALL',
-        color: 'primary',
-      })}
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
       <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
         Need urgent help? Contact us at ${getSupportLink()}

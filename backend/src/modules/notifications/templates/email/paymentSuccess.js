@@ -22,11 +22,7 @@ export function paymentSuccessTemplate(context) {
     payment_date,
   } = context;
 
-<<<<<<< HEAD
   const subject = ` Payment Successful - ${EMAIL_CONFIG.COMPANY.NAME}`;
-=======
-  const subject = `Payment Successful - ${EMAIL_CONFIG.COMPANY.NAME}`;
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
   const formattedAmount = amount
     ? new Intl.NumberFormat("en-IN", {
@@ -56,24 +52,10 @@ export function paymentSuccessTemplate(context) {
 
     <!-- Header: CHECK icon replaces  -->
     <div class="header-success" style="background:linear-gradient(135deg,#059669 0%,#047857 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-<<<<<<< HEAD
       ${renderLogo('WHITE', 'header')}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Payment Successful</h1>
       <p style="margin:12px 0 0;font-size:32px;font-weight:700;letter-spacing:-1px;color:#ffffff;">${formattedAmount}</p>
       <p style="margin:4px 0 0;opacity:0.9;font-size:13px;color:#d1fae5;">Thank you for your payment</p>
-=======
-      ${renderLogo("WHITE", "header")}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${ICONS.CHECK}
-        <span style="vertical-align:middle;">Payment Successful</span>
-      </h1>
-      <p style="margin:12px 0 0;font-size:32px;font-weight:700;letter-spacing:-1px;color:#ffffff;">
-        ${formattedAmount}
-      </p>
-      <p style="margin:4px 0 0;opacity:0.9;font-size:13px;color:#d1fae5;">
-        Thank you for your payment
-      </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
     </div>
 
     <!-- Content -->
@@ -154,22 +136,13 @@ export function paymentSuccessTemplate(context) {
       <!-- Receipt Note: DOCUMENT icon replaces 🧾 -->
       <div class="success-box" style="background-color:#f0fdf4;border-left:4px solid #059669;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="success-text" style="margin:0;color:#065f46;font-size:13px;background-color:#f0fdf4;">
-<<<<<<< HEAD
            <strong>Receipt Generated:</strong> A receipt has been sent to your email for your records.
-=======
-          ${ICONS.CHECK_CIRCLE}
-          <strong style="vertical-align:middle;">Receipt Generated:</strong>
-          <span style="vertical-align:middle;">
-            A receipt has been sent to your email for your records.
-          </span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 
       <!-- Info Box: CLIPBOARD icon replaces 📊 -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid #05015A;padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
         <p class="info-text" style="margin:0;color:#05015A;font-size:13px;background-color:#e0f2fe;">
-<<<<<<< HEAD
            You can view your complete payment history and subscription details in your dashboard.
         </p>
       </div>
@@ -179,21 +152,6 @@ export function paymentSuccessTemplate(context) {
         href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, 
         text: 'View Subscription', 
         color: 'primary' 
-=======
-          ${ICONS.CLIPBOARD}
-          <span style="vertical-align:middle;">
-            You can view your complete payment history and subscription details in your dashboard.
-          </span>
-        </p>
-      </div>
-
-      <!-- CTA Button: CLIPBOARD icon replaces 📋 -->
-      ${renderButton({
-        href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`,
-        text: "View Subscription",
-        icon: "CLIPBOARD",
-        color: "primary",
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
       })}
 
       <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">

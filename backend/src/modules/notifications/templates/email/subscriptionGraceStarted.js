@@ -30,12 +30,7 @@ export function subscriptionGraceStartedTemplate(context) {
       })
     : 'soon';
 
-<<<<<<< HEAD
   const subject = ` Your subscription has expired - Grace period active - ${EMAIL_CONFIG.COMPANY.NAME}`;
-=======
-  // Subject: no emoji
-  const subject = `Your subscription has expired - Grace period active - ${EMAIL_CONFIG.COMPANY.NAME}`;
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
   const html = `
     <!DOCTYPE html>
@@ -49,18 +44,8 @@ export function subscriptionGraceStartedTemplate(context) {
     <!-- Header: WARNING icon replaces ⚠️ -->
     <div class="header-warning" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.WARNING} 0%,${EMAIL_CONFIG.COLORS.WARNING_DARK} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-<<<<<<< HEAD
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Grace Period Active</h1>
       <p style="margin:8px 0 0;opacity:0.95;font-size:14px;color:#fef3c7;">Your subscription has expired</p>
-=======
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${ICONS.WARNING}
-        <span style="vertical-align:middle;">Grace Period Active</span>
-      </h1>
-      <p style="margin:8px 0 0;opacity:0.95;font-size:14px;color:#fef3c7;">
-        Your subscription has expired
-      </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
     </div>
 
     <!-- Content -->
@@ -115,29 +100,13 @@ export function subscriptionGraceStartedTemplate(context) {
       <!-- Important Info: WARNING_RED icon replaces ⚠️ -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;background-color:#fef2f2;">
-<<<<<<< HEAD
            <strong>Important:</strong> During the grace period, you still have access to your dashboard. However, if you don't renew before <strong>${graceEndDate}</strong>, your account will be <strong>SUSPENDED</strong>.
-=======
-          ${ICONS.WARNING_RED}
-          <strong style="vertical-align:middle;">Important:</strong>
-          <span style="vertical-align:middle;">
-            During the grace period, you still have access to your dashboard. However, if you don't renew
-            before <strong>${graceEndDate}</strong>, your account will be <strong>SUSPENDED</strong>.
-          </span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 
       <!-- What Happens: BAN icon replaces 🚫 -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-<<<<<<< HEAD
         <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> What Happens If You Don't Renew:</p>
-=======
-        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;">
-          ${ICONS.BAN}
-          <span style="vertical-align:middle;">What Happens If You Don't Renew:</span>
-        </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
           <li class="info-text" style="color:#0c4a6e;">Complete loss of access to ${EMAIL_CONFIG.COMPANY.NAME}</li>
           <li class="info-text" style="color:#0c4a6e;">Your shop and branches will be locked</li>
@@ -146,31 +115,13 @@ export function subscriptionGraceStartedTemplate(context) {
         </ul>
       </div>
 
-<<<<<<< HEAD
       <!-- Urgent CTA -->
       ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Renew Now - Avoid Suspension',  color: 'error' })}
-=======
-      <!-- Urgent CTA: REFRESH icon replaces 🔄 -->
-      ${renderButton({
-        href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`,
-        text: 'Renew Now - Avoid Suspension',
-        icon: 'REFRESH',
-        color: 'error',
-      })}
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
       <!-- Support: LIGHTBULB_AMBER icon replaces 💡 -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef9e7;">
-<<<<<<< HEAD
            <strong>Need Help?</strong> Contact our support team immediately for assistance with renewal.
-=======
-          ${ICONS.LIGHTBULB_AMBER}
-          <strong style="vertical-align:middle;">Need Help?</strong>
-          <span style="vertical-align:middle;">
-            Contact our support team immediately for assistance with renewal.
-          </span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 

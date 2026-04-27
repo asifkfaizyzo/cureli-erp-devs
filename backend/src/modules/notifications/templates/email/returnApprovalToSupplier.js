@@ -86,18 +86,9 @@ export const returnApprovalToSupplier = ({
     <!-- Header: PACKAGE icon replaces 📦 -->
     <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);border-radius:12px 12px 0 0;padding:32px;text-align:center;">
       ${renderLogo('WHITE', 'header')}
-<<<<<<< HEAD
       <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 600;"> Purchase Return Approved</h1>
       <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 13px;">
         Action Required • Return #${returnInvoiceNumber}
-=======
-      <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;">
-        ${ICONS.PACKAGE}
-        <span style="vertical-align:middle;">Purchase Return Approved</span>
-      </h1>
-      <p style="margin:8px 0 0;color:rgba(255,255,255,0.9);font-size:13px;">
-        Action Required &bull; Return #${returnInvoiceNumber}
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
       </p>
     </div>
 
@@ -216,20 +207,10 @@ export const returnApprovalToSupplier = ({
         </table>
       </div>
 
-<<<<<<< HEAD
       <!-- Contact Info -->
       <div class="warning-box" style="background-color: #fef3c7; border-left: 4px solid ${EMAIL_CONFIG.COLORS.WARNING}; border-radius: 0 8px 8px 0; padding: 12px 16px;">
         <p class="warning-text" style="margin: 0 0 6px; font-size: 12px; color: #92400e; font-weight: 600; background-color: #fef3c7;"> Need Clarification?</p>
         <p class="warning-text" style="margin: 0; font-size: 13px; color: #78350f; line-height: 1.5; background-color: #fef3c7;">
-=======
-      <!-- Contact Info: CHAT_DARK icon replaces 💬 -->
-      <div class="warning-box" style="background-color:#fef3c7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};border-radius:0 8px 8px 0;padding:12px 16px;">
-        <p class="warning-text" style="margin:0 0 6px;font-size:12px;color:#92400e;font-weight:600;background-color:#fef3c7;">
-          ${ICONS.CHAT_DARK}
-          <span style="vertical-align:middle;">Need Clarification?</span>
-        </p>
-        <p class="warning-text" style="margin:0;font-size:13px;color:#78350f;line-height:1.5;background-color:#fef3c7;">
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
           Contact: <strong>${shopName}</strong><br>
           ${shopContact ? `Phone: <strong>${shopContact}</strong>` : ''}
         </p>

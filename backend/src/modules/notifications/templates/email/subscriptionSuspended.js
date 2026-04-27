@@ -16,12 +16,7 @@ import { ICONS } from "./_icons.js";
 export function subscriptionSuspendedTemplate(context) {
   const { recipientName, shop_name } = context;
 
-<<<<<<< HEAD
   const subject = ' Your account has been suspended';
-=======
-  // Subject: no emoji
-  const subject = "Your account has been suspended";
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
   const html = `
     <!DOCTYPE html>
@@ -34,20 +29,9 @@ export function subscriptionSuspendedTemplate(context) {
 
     <!-- Header: LOCK icon replaces 🔒 -->
     <div class="header-suspended" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.GRAY} 0%,${EMAIL_CONFIG.COLORS.GRAY_DARK} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-<<<<<<< HEAD
       ${renderLogo('WHITE', 'header')}
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Account Suspended</h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e5e7eb;">Action Required to Restore Access</p>
-=======
-      ${renderLogo("WHITE", "header")}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${ICONS.LOCK_KEY}
-        <span style="vertical-align:middle;">Account Suspended</span>
-      </h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e5e7eb;">
-        Action Required to Restore Access
-      </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
     </div>
 
     <!-- Content -->
@@ -72,14 +56,7 @@ export function subscriptionSuspendedTemplate(context) {
 
       <!-- Impact Box: BAN icon replaces 🚫 -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-<<<<<<< HEAD
         <p class="error-text" style="margin:0 0 8px;color:#991b1b;font-size:13px;font-weight:600;background-color:#fef2f2;"> Currently Unavailable:</p>
-=======
-        <p class="error-text" style="margin:0 0 8px;color:#991b1b;font-size:13px;font-weight:600;background-color:#fef2f2;">
-          ${ICONS.BAN}
-          <span style="vertical-align:middle;">Currently Unavailable:</span>
-        </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
           <li class="error-text" style="color:#7f1d1d;">Access to ${EMAIL_CONFIG.COMPANY.NAME} dashboard and all features</li>
           <li class="error-text" style="color:#7f1d1d;">Staff login and operations</li>
@@ -90,14 +67,7 @@ export function subscriptionSuspendedTemplate(context) {
 
       <!-- Restoration Steps: UNLOCK icon replaces 🔓 -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-<<<<<<< HEAD
         <p class="info-text" style="margin:0 0 10px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:14px;font-weight:600;background-color:#e0f2fe;"> To Restore Access:</p>
-=======
-        <p class="info-text" style="margin:0 0 10px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:14px;font-weight:600;background-color:#e0f2fe;">
-          ${ICONS.UNLOCK}
-          <span style="vertical-align:middle;">To Restore Access:</span>
-        </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         <ol style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;">
           <li class="info-text" style="color:#0c4a6e;">Log in to your ${EMAIL_CONFIG.COMPANY.NAME} account</li>
           <li class="info-text" style="color:#0c4a6e;">Navigate to Subscription settings</li>
@@ -109,43 +79,20 @@ export function subscriptionSuspendedTemplate(context) {
       <!-- Data Safety: CHECK icon replaces  -->
       <div class="success-box" style="background-color:#d1fae5;border:2px solid ${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};border-radius:10px;padding:16px 20px;margin:24px 0;text-align:center;">
         <p class="success-text" style="margin:0;color:#065f46;font-size:14px;font-weight:600;background-color:#d1fae5;">
-<<<<<<< HEAD
            <strong>Good News:</strong> Your data is completely safe!
-=======
-          ${ICONS.CHECK}
-          <strong style="vertical-align:middle;">Good News: Your data is completely safe!</strong>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
         <p class="success-text" style="margin:6px 0 0;color:#047857;font-size:12px;background-color:#d1fae5;">
           Once you renew, everything will be restored exactly as it was.
         </p>
       </div>
 
-<<<<<<< HEAD
       <!-- CTA Button -->
       ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Reactivate Account Now', })}
-=======
-      <!-- CTA Button: UNLOCK icon replaces 🔓 -->
-      ${renderButton({
-        href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`,
-        text: "Reactivate Account Now",
-        icon: "UNLOCK",
-        color: "primary",
-      })}
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
       <!-- Support: LIGHTBULB_AMBER icon replaces 💡 -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef9e7;">
-<<<<<<< HEAD
            <strong>Need Help?</strong> Contact our support team for assistance with reactivation.
-=======
-          ${ICONS.LIGHTBULB_AMBER}
-          <strong style="vertical-align:middle;">Need Help?</strong>
-          <span style="vertical-align:middle;">
-            Contact our support team for assistance with reactivation.
-          </span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 

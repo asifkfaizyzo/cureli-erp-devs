@@ -29,18 +29,8 @@ export function passwordResetTemplate(context) {
     <!-- Header: LOCK_KEY icon replaces 🔐 -->
     <div class="header-primary" style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'normal')}
-<<<<<<< HEAD
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Reset Your Password</h1>
       <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">Password Recovery</p>
-=======
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${ICONS.LOCK_KEY}
-        <span style="vertical-align:middle;">Reset Your Password</span>
-      </h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">
-        Password Recovery
-      </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
     </div>
 
     <!-- Content -->
@@ -56,18 +46,8 @@ export function passwordResetTemplate(context) {
         button below to create a new password.
       </p>
 
-<<<<<<< HEAD
       <!-- CTA Button -->
       ${renderButton({ href: resetUrl, text: 'Reset Password', color: 'primary' })}
-=======
-      <!-- CTA Button: KEY icon replaces 🔑 -->
-      ${renderButton({ 
-        href: resetUrl, 
-        text: 'Reset Password', 
-        icon: 'KEY', 
-        color: 'primary' 
-      })}
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
       <!-- Alternative Link (no emoji originally, unchanged) -->
       <div class="card-bg" style="background-color:#f9fafb;padding:14px;border-radius:8px;margin:20px 0;">
@@ -83,30 +63,14 @@ export function passwordResetTemplate(context) {
       <!-- Expiry Warning: WARNING icon replaces ⚠️ -->
       <div class="warning-box" style="background-color:#fef3c7;border-left:4px solid #f59e0b;padding:14px 18px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef3c7;">
-<<<<<<< HEAD
            <strong>Important:</strong> This link expires in <strong>15 minutes</strong>
-=======
-          ${ICONS.WARNING}
-          <strong style="vertical-align:middle;">Important:</strong>
-          <span style="vertical-align:middle;">
-            This link expires in <strong>15 minutes</strong>
-          </span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 
       <!-- Security Note: SHIELD icon replaces 🛡️ -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid #05015A;padding:14px 18px;margin:20px 0;border-radius:0 8px 8px 0;">
         <p class="info-text" style="margin:0;color:#0c4a6e;font-size:13px;background-color:#e0f2fe;">
-<<<<<<< HEAD
            <strong>Didn't request this?</strong> You can safely ignore this email — your password won't change.
-=======
-          ${ICONS.SHIELD}
-          <strong style="vertical-align:middle;">Didn't request this?</strong>
-          <span style="vertical-align:middle;">
-            You can safely ignore this email — your password won't change.
-          </span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 

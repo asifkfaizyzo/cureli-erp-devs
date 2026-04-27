@@ -26,16 +26,9 @@ export function subscriptionExpiringTemplate(context) {
   const urgencyColor  = isUrgent ? EMAIL_CONFIG.COLORS.ERROR   : EMAIL_CONFIG.COLORS.WARNING;
   const urgencyBg     = isUrgent ? '#fef2f2'                   : '#fef3c7';
 
-<<<<<<< HEAD
   const subject = daysLeft <= 3
     ? ` Urgent: Your subscription expires in ${daysLeft} days`
     : ` Reminder: Your subscription expires in ${daysLeft} days`;
-=======
-  // Subject: ALERT/CLOCK text replacement — no emoji in subject
-  const subject = isUrgent
-    ? `Urgent: Your subscription expires in ${daysLeft} days`
-    : `Reminder: Your subscription expires in ${daysLeft} days`;
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
   const html = `
     <!DOCTYPE html>
@@ -108,28 +101,13 @@ export function subscriptionExpiringTemplate(context) {
       <!-- Urgency Message: WARNING icon replaces ⚠️ -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;background-color:#fef2f2;">
-<<<<<<< HEAD
            <strong>Important:</strong> To avoid service interruption, please renew your subscription before it expires.
-=======
-          ${ICONS.WARNING_RED}
-          <strong style="vertical-align:middle;">Important:</strong>
-          <span style="vertical-align:middle;">
-            To avoid service interruption, please renew your subscription before it expires.
-          </span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 
       <!-- Benefits Reminder: SPARKLE icon replaces ✨ -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-<<<<<<< HEAD
         <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> Continue Enjoying:</p>
-=======
-        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;">
-          ${ICONS.SPARKLE}
-          <span style="vertical-align:middle;">Continue Enjoying:</span>
-        </p>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
           <li class="info-text" style="color:#0c4a6e;">Full access to all ${EMAIL_CONFIG.COMPANY.NAME} features</li>
           <li class="info-text" style="color:#0c4a6e;">Uninterrupted inventory management</li>
@@ -138,31 +116,13 @@ export function subscriptionExpiringTemplate(context) {
         </ul>
       </div>
 
-<<<<<<< HEAD
       <!-- CTA Button -->
       ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Renew Now' })}
-=======
-      <!-- CTA Button: REFRESH icon replaces 🔄 -->
-      ${renderButton({
-        href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`,
-        text: 'Renew Now',
-        icon: 'REFRESH',
-        color: 'primary',
-      })}
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
       <!-- Grace Period Warning: NOTE icon replaces 📝 -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:12px;line-height:1.6;background-color:#fef9e7;">
-<<<<<<< HEAD
            <strong>Note:</strong> If you don't renew, your account will enter a grace period and may be suspended after expiry.
-=======
-          ${ICONS.NOTE}
-          <strong style="vertical-align:middle;">Note:</strong>
-          <span style="vertical-align:middle;">
-            If you don't renew, your account will enter a grace period and may be suspended after expiry.
-          </span>
->>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 
