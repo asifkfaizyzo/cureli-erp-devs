@@ -1,20 +1,12 @@
 // src/pages/settings/users/UsersPage.jsx
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  Users,
-  Plus,
-  AlertCircle,
-  RefreshCw,
-} from "lucide-react";
+import { Users, Plus, AlertCircle, RefreshCw } from "lucide-react";
 
 import { usePermission } from "../../../hooks/usePermission";
 import { useToast } from "../../../components/common/Toast/ToastContainer";
 import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
-import {
-  fetchUsers,
-  fetchUserLimits,
-} from "../../../api/users";
+import { fetchUsers, fetchUserLimits } from "../../../api/users";
 import { fetchBranchesDropdown } from "../../../api/branches";
 
 // Components
@@ -34,13 +26,13 @@ const UsersPage = () => {
   const { isSuperAdmin, isBranchAdmin, branchId } = usePermission();
   const toast = useToast();
 
-  // ✅ Use dynamic row count based on screen height
+  //  Use dynamic row count based on screen height
   const rowsPerPage = useDynamicRowCount();
 
   // ============================================
   // STATE
   // ============================================
-  
+
   // Data
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -56,7 +48,7 @@ const UsersPage = () => {
     status: "active",
   });
 
-  // Sorting - ✅ Match the pattern from CAdmin
+  // Sorting -  Match the pattern from CAdmin
   const [sortConfig, setSortConfig] = useState({
     sort_by: "created_at",
     sort_order: "desc",
@@ -78,7 +70,7 @@ const UsersPage = () => {
   // Fetch branches for filter dropdown (SA only)
   const loadBranches = useCallback(async () => {
     if (!isSuperAdmin) return;
-    
+
     try {
       const response = await fetchBranchesDropdown();
       if (response.success) {
@@ -89,7 +81,7 @@ const UsersPage = () => {
       toast.error(
         "Branch Load Failed",
         "Could not load branches for filtering. Please try again.",
-        5000
+        5000,
       );
     }
   }, [isSuperAdmin, toast]);
@@ -106,12 +98,12 @@ const UsersPage = () => {
       toast.warning(
         "Limits Unavailable",
         "Could not load user limits information.",
-        4000
+        4000,
       );
     }
   }, [toast]);
 
-  // ✅ Fetch users - Updated to use rowsPerPage from hook
+  //  Fetch users - Updated to use rowsPerPage from hook
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -128,7 +120,7 @@ const UsersPage = () => {
       if (filters.search) params.search = filters.search;
       if (filters.role) params.role = filters.role;
       if (filters.status) params.status = filters.status;
-      
+
       // Branch filter (SA only, BA is auto-filtered by backend)
       if (isSuperAdmin && filters.branch_id) {
         params.branch_id = filters.branch_id;
@@ -142,7 +134,9 @@ const UsersPage = () => {
       }
     } catch (err) {
       console.error("Failed to fetch users:", err);
-      const errorMessage = err.response?.data?.message || "Failed to load users. Please try again.";
+      const errorMessage =
+        err.response?.data?.message ||
+        "Failed to load users. Please try again.";
       setError(errorMessage);
       toast.error("Load Failed", errorMessage, 5000);
     } finally {
@@ -161,7 +155,7 @@ const UsersPage = () => {
     loadUsers();
   }, [loadUsers]);
 
-  // ✅ Reset to page 1 when filters or sort changes
+  //  Reset to page 1 when filters or sort changes
   useEffect(() => {
     setCurrentPage(1);
   }, [filters, sortConfig]);
@@ -180,11 +174,12 @@ const UsersPage = () => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  // ✅ Sort handler - matches CAdmin pattern
+  //  Sort handler - matches CAdmin pattern
   const handleSortChange = (column) => {
     setSortConfig((prev) => ({
       sort_by: column,
-      sort_order: prev.sort_by === column && prev.sort_order === "asc" ? "desc" : "asc",
+      sort_order:
+        prev.sort_by === column && prev.sort_order === "asc" ? "desc" : "asc",
     }));
   };
 
@@ -193,7 +188,7 @@ const UsersPage = () => {
       toast.warning(
         "User Limit Reached",
         "You have reached the maximum number of users allowed for your plan.",
-        5000
+        5000,
       );
       return;
     }
@@ -215,17 +210,29 @@ const UsersPage = () => {
     setShowAddEditModal(false);
     setShowResetPasswordModal(false);
     setSelectedUser(null);
-    
+
     if (shouldRefresh) {
       handleRefresh();
-      
+
       if (result) {
-        if (result.type === 'created') {
-          toast.success("User Created", `${result.userName} has been successfully added.`, 4000);
-        } else if (result.type === 'updated') {
-          toast.success("User Updated", `${result.userName}'s information updated.`, 4000);
-        } else if (result.type === 'password_reset') {
-          toast.success("Password Reset", `Password reset for ${result.userName}.`, 4000);
+        if (result.type === "created") {
+          toast.success(
+            "User Created",
+            `${result.userName} has been successfully added.`,
+            4000,
+          );
+        } else if (result.type === "updated") {
+          toast.success(
+            "User Updated",
+            `${result.userName}'s information updated.`,
+            4000,
+          );
+        } else if (result.type === "password_reset") {
+          toast.success(
+            "Password Reset",
+            `Password reset for ${result.userName}.`,
+            4000,
+          );
         }
       }
     }
@@ -236,7 +243,7 @@ const UsersPage = () => {
   // ============================================
 
   return (
-    // ✅ FIXED: Added min-w-0 and overflow-hidden for proper flex shrinking
+    //  FIXED: Added min-w-0 and overflow-hidden for proper flex shrinking
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
       {/* Header - flex-shrink-0 to prevent shrinking */}
       <div className="flex-shrink-0 flex flex-col gap-3">
@@ -250,10 +257,9 @@ const UsersPage = () => {
                 User Management
               </h1>
               <p className="text-sm text-gray-500">
-                {isSuperAdmin 
+                {isSuperAdmin
                   ? `${totalItems} total user${totalItems !== 1 ? "s" : ""} across branches`
-                  : `${totalItems} staff member${totalItems !== 1 ? "s" : ""} in your branch`
-                }
+                  : `${totalItems} staff member${totalItems !== 1 ? "s" : ""} in your branch`}
               </p>
             </div>
           </div>
@@ -276,9 +282,10 @@ const UsersPage = () => {
               disabled={!limits?.can_add}
               className={`
                 flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm
-                ${limits?.can_add
-                  ? 'bg-[#000060] text-white hover:bg-[#000080]'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ${
+                  limits?.can_add
+                    ? "bg-[#000060] text-white hover:bg-[#000080]"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }
               `}
               title={!limits?.can_add ? "User limit reached" : "Add new user"}
@@ -317,7 +324,7 @@ const UsersPage = () => {
         )}
       </div>
 
-      {/* ✅ Table Container - Takes remaining height with proper overflow */}
+      {/*  Table Container - Takes remaining height with proper overflow */}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <UserListTable
           users={users}
@@ -350,10 +357,7 @@ const UsersPage = () => {
       )}
 
       {showResetPasswordModal && selectedUser && (
-        <ResetPasswordModal
-          user={selectedUser}
-          onClose={handleModalClose}
-        />
+        <ResetPasswordModal user={selectedUser} onClose={handleModalClose} />
       )}
     </div>
   );

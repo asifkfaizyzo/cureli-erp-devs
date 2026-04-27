@@ -30,7 +30,7 @@ const VerificationPage = () => {
 
   const initializeVerification = async () => {
     if (initialStep && [12, 14, 15].includes(initialStep)) {
-      console.log("✅ Using navigation step:", initialStep);
+      console.log(" Using navigation step:", initialStep);
       setCurrentStep(initialStep);
 
       // Still fetch status to get isFirstVerification flag for success page

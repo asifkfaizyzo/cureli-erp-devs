@@ -4,6 +4,7 @@
 // ============================================
 
 import EMAIL_CONFIG, { getLogo } from '../../email.config.js';
+import { ICONS } from './_icons.js';
 
 // Re-export for convenience
 export { EMAIL_CONFIG };
@@ -34,39 +35,55 @@ export const renderFooter = () => {
 };
 
 /**
- * Renders a CTA button
- * @param {Object} options - Button options
- * @returns {string} - HTML string for button
+ * Renders a CTA button with an icon
+ * 
+ * @param {Object} options
+ * @param {string} options.href       - Button URL
+ * @param {string} options.text       - Button label text
+ * @param {string} [options.icon]     - Icon key from ICONS (e.g. 'KEY', 'CLIPBOARD')
+ * @param {string} [options.color]    - 'primary' | 'error' | 'success'
+ * @returns {string} HTML string
  */
-export const renderButton = ({ 
-  href, 
-  text, 
-  emoji = '', 
-  color = 'primary'
-}) => {
-  const gradients = {
-    primary: `linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY},${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT})`,
-    success: `linear-gradient(135deg,${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT},${EMAIL_CONFIG.COLORS.SUCCESS})`,
-    error: `linear-gradient(135deg,${EMAIL_CONFIG.COLORS.ERROR},${EMAIL_CONFIG.COLORS.ERROR_DARK})`,
+export function renderButton({ href, text, icon, color = 'primary' }) {
+  const colors = {
+    primary: { bg: '#05015A', hover: '#0a0280' },
+    error:   { bg: '#dc2626', hover: '#b91c1c' },
+    success: { bg: '#059669', hover: '#047857' },
   };
 
-  const shadows = {
-    primary: 'rgba(5,1,90,0.2)',
-    success: 'rgba(16,185,129,0.3)',
-    error: 'rgba(220,38,38,0.3)',
-  };
+  const { bg } = colors[color] || colors.primary;
 
-  const bg = gradients[color] || gradients.primary;
-  const shadow = shadows[color] || shadows.primary;
+  // Build the icon HTML safely — white fill for button context
+  const iconHtml = icon
+    ? (ICONS[icon] || '').replace(/fill="#[^"]+"/g, 'fill="#ffffff"')
+    : '';
 
   return `
     <div style="text-align:center;margin:28px 0;">
-      <a href="${href}" style="display:inline-block;background:${bg};color:#ffffff;padding:14px 40px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 3px 10px ${shadow};">
-        ${emoji ? emoji + ' ' : ''}${text}
+      <a href="${href}"
+         target="_blank"
+         style="
+           display:inline-block;
+           background-color:${bg};
+           color:#ffffff;
+           text-decoration:none;
+           padding:14px 32px;
+           border-radius:8px;
+           font-size:15px;
+           font-weight:600;
+           letter-spacing:0.3px;
+           line-height:1;
+         ">
+        ${iconHtml}
+        <span style="
+          vertical-align:middle;
+          color:#ffffff;
+          -webkit-text-fill-color:#ffffff;
+        ">${text}</span>
       </a>
     </div>
   `;
-};
+}
 
 /**
  * Base meta tags and styles for dark mode support

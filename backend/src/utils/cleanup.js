@@ -6,7 +6,7 @@ import * as fileStorage from "../services/fileStorage.service.js";
 // ============================================
 // MIGRATION NOTES:
 // - Removed fs import
-// - Removed path import  
+// - Removed path import
 // - deleteUserAndRelatedData: replaced fs.existsSync + fs.unlinkSync
 //   with fileStorage.deleteFile()
 // - All other functions: UNCHANGED
@@ -67,7 +67,7 @@ export async function cleanupIncompleteUsers() {
     });
 
     if (usersToDelete.length === 0) {
-      console.log("✅ No users to clean up");
+      console.log(" No users to clean up");
       return { deleted: 0, errors: [] };
     }
 
@@ -81,7 +81,7 @@ export async function cleanupIncompleteUsers() {
         await deleteUserAndRelatedData(user);
         deleted++;
       } catch (err) {
-        console.error(`❌ Failed to delete user ${user.user_id}:`, err);
+        console.error(` Failed to delete user ${user.user_id}:`, err);
         errors.push({
           user_id: user.user_id,
           email: user.email,
@@ -90,14 +90,14 @@ export async function cleanupIncompleteUsers() {
       }
     }
 
-    console.log(`✅ Cleanup complete: ${deleted} users deleted`);
+    console.log(` Cleanup complete: ${deleted} users deleted`);
     if (errors.length > 0) {
       console.log(`⚠️  ${errors.length} errors occurred`);
     }
 
     return { deleted, errors };
   } catch (err) {
-    console.error("❌ Cleanup job failed:", err);
+    console.error(" Cleanup job failed:", err);
     throw err;
   }
 }
@@ -132,7 +132,7 @@ async function deleteUserAndRelatedData(user) {
   // 2. Calculate inactivity days
   const inactiveDate = user.last_login_at || user.created_at;
   const daysInactive = Math.floor(
-    (Date.now() - new Date(inactiveDate).getTime()) / (1000 * 60 * 60 * 24)
+    (Date.now() - new Date(inactiveDate).getTime()) / (1000 * 60 * 60 * 24),
   );
 
   // 3. Create deletion log
@@ -167,7 +167,7 @@ async function deleteUserAndRelatedData(user) {
   });
 
   console.log(
-    `✅ Deleted user ${user.email} (${filesDeleted.length} files removed)`
+    ` Deleted user ${user.email} (${filesDeleted.length} files removed)`,
   );
 }
 
@@ -192,7 +192,7 @@ export async function cleanupOldDeletionLogs() {
 
     return result.count;
   } catch (err) {
-    console.error("❌ Failed to cleanup deletion logs:", err);
+    console.error(" Failed to cleanup deletion logs:", err);
     return 0;
   }
 }

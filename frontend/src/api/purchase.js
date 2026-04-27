@@ -5,7 +5,7 @@ import { useAuthStore } from "../store/useAuthStore";
 function getBranchHeaders() {
   const state = useAuthStore.getState();
   const { branchContext } = state;
-  
+
   return {
     "X-Branch-Mode": branchContext.mode || "BRANCH",
     "X-Branch-Id": branchContext.branch_id || "",
@@ -20,7 +20,7 @@ const purchaseAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Purchase create failed:", error.response?.data);
+      console.error(" Purchase create failed:", error.response?.data);
       throw error;
     }
   },
@@ -32,32 +32,36 @@ const purchaseAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Purchase update failed:", error.response?.data);
+      console.error(" Purchase update failed:", error.response?.data);
       throw error;
     }
   },
 
   confirm: async (invoiceId) => {
     try {
-      const response = await API.post(`/purchase/${invoiceId}/confirm`, {}, {
-        headers: getBranchHeaders(),
-      });
+      const response = await API.post(
+        `/purchase/${invoiceId}/confirm`,
+        {},
+        {
+          headers: getBranchHeaders(),
+        },
+      );
       return response.data;
     } catch (error) {
-      console.error("❌ Purchase confirm failed:", error.response?.data);
+      console.error(" Purchase confirm failed:", error.response?.data);
       throw error;
     }
   },
 
   getAll: async (filters = {}) => {
     try {
-      const response = await API.get("/purchase", { 
+      const response = await API.get("/purchase", {
         params: filters,
         headers: getBranchHeaders(),
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get invoices failed:", error.response?.data);
+      console.error(" Get invoices failed:", error.response?.data);
       throw error;
     }
   },
@@ -69,50 +73,58 @@ const purchaseAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get invoice details failed:", error.response?.data);
+      console.error(" Get invoice details failed:", error.response?.data);
       throw error;
     }
   },
 
   cancel: async (invoiceId, reason) => {
     try {
-      const response = await API.post(`/purchase/${invoiceId}/cancel`, { reason }, {
-        headers: getBranchHeaders(),
-      });
+      const response = await API.post(
+        `/purchase/${invoiceId}/cancel`,
+        { reason },
+        {
+          headers: getBranchHeaders(),
+        },
+      );
       return response.data;
     } catch (error) {
-      console.error("❌ Cancel invoice failed:", error.response?.data);
+      console.error(" Cancel invoice failed:", error.response?.data);
       throw error;
     }
   },
 
   getStats: async (filters = {}) => {
     try {
-      const response = await API.get("/purchase/stats", { 
+      const response = await API.get("/purchase/stats", {
         params: filters,
         headers: getBranchHeaders(),
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get stats failed:", error.response?.data);
+      console.error(" Get stats failed:", error.response?.data);
       throw error;
     }
   },
 
-  // ✅ NEW: Update payment status (Super Admin only)
+  //  NEW: Update payment status (Super Admin only)
   updatePaymentStatus: async (invoiceId, data) => {
     try {
-      const response = await API.patch(`/purchase/${invoiceId}/payment-status`, data, {
-        headers: getBranchHeaders(),
-      });
+      const response = await API.patch(
+        `/purchase/${invoiceId}/payment-status`,
+        data,
+        {
+          headers: getBranchHeaders(),
+        },
+      );
       return response.data;
     } catch (error) {
-      console.error("❌ Update payment status failed:", error.response?.data);
+      console.error(" Update payment status failed:", error.response?.data);
       throw error;
     }
   },
 
-  // ✅ NEW: Record payment
+  //  NEW: Record payment
   recordPayment: async (invoiceId, data) => {
     try {
       const response = await API.post(`/purchase/${invoiceId}/payments`, data, {
@@ -120,25 +132,29 @@ const purchaseAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Record payment failed:", error.response?.data);
+      console.error(" Record payment failed:", error.response?.data);
       throw error;
     }
   },
 
-  // ✅ NEW: Revert to draft (for super admin)
+  //  NEW: Revert to draft (for super admin)
   revertToDraft: async (invoiceId) => {
     try {
-      const response = await API.patch(`/purchase/${invoiceId}`, { status: 'DRAFT' }, {
-        headers: getBranchHeaders(),
-      });
+      const response = await API.patch(
+        `/purchase/${invoiceId}`,
+        { status: "DRAFT" },
+        {
+          headers: getBranchHeaders(),
+        },
+      );
       return response.data;
     } catch (error) {
-      console.error("❌ Revert to draft failed:", error.response?.data);
+      console.error(" Revert to draft failed:", error.response?.data);
       throw error;
     }
   },
 
- // ═══════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════
   // PURCHASE RETURNS
   // ═══════════════════════════════════════════════════════════════════════
 
@@ -149,7 +165,7 @@ const purchaseAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Create return failed:", error.response?.data);
+      console.error(" Create return failed:", error.response?.data);
       throw error;
     }
   },
@@ -162,7 +178,7 @@ const purchaseAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get returns failed:", error.response?.data);
+      console.error(" Get returns failed:", error.response?.data);
       throw error;
     }
   },
@@ -174,7 +190,7 @@ const purchaseAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get return details failed:", error.response?.data);
+      console.error(" Get return details failed:", error.response?.data);
       throw error;
     }
   },
@@ -184,11 +200,11 @@ const purchaseAPI = {
       const response = await API.post(
         `/purchase/returns/${returnId}/approve`,
         data,
-        { headers: getBranchHeaders() }
+        { headers: getBranchHeaders() },
       );
       return response.data;
     } catch (error) {
-      console.error("❌ Approve return failed:", error.response?.data);
+      console.error(" Approve return failed:", error.response?.data);
       throw error;
     }
   },
@@ -198,11 +214,11 @@ const purchaseAPI = {
       const response = await API.post(
         `/purchase/returns/${returnId}/approve`,
         { action: "REJECT", rejection_reason: reason },
-        { headers: getBranchHeaders() }
+        { headers: getBranchHeaders() },
       );
       return response.data;
     } catch (error) {
-      console.error("❌ Reject return failed:", error.response?.data);
+      console.error(" Reject return failed:", error.response?.data);
       throw error;
     }
   },
@@ -219,7 +235,7 @@ const purchaseAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Get credits failed:", error.response?.data);
+      console.error(" Get credits failed:", error.response?.data);
       throw error;
     }
   },
@@ -231,39 +247,45 @@ const purchaseAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error("❌ Apply credit failed:", error.response?.data);
+      console.error(" Apply credit failed:", error.response?.data);
       throw error;
     }
   },
 
- // Make sure these match the schema exactly:
-cancelApprovedReturn: async (returnId, data) => {
-  console.log("📤 Sending cancel data:", data); // ✅ Debug log
-  try {
-    const response = await API.patch(`/purchase/returns/${returnId}/cancel`, data, {
-      headers: getBranchHeaders(),
-    });
-    return response.data;
-  } catch (error) {
-    console.error("❌ Cancel approved return failed:", error.response?.data);
-    throw error;
-  }
-},
+  // Make sure these match the schema exactly:
+  cancelApprovedReturn: async (returnId, data) => {
+    console.log("📤 Sending cancel data:", data); //  Debug log
+    try {
+      const response = await API.patch(
+        `/purchase/returns/${returnId}/cancel`,
+        data,
+        {
+          headers: getBranchHeaders(),
+        },
+      );
+      return response.data;
+    } catch (error) {
+      console.error(" Cancel approved return failed:", error.response?.data);
+      throw error;
+    }
+  },
 
-revertReturnToPending: async (returnId, data) => {
-  console.log("📤 Sending revert data:", data); // ✅ Debug log
-  try {
-    const response = await API.patch(`/purchase/returns/${returnId}/revert`, data, {
-      headers: getBranchHeaders(),
-    });
-    return response.data;
-  } catch (error) {
-    console.error("❌ Revert return failed:", error.response?.data);
-    throw error;
-  }
-},
+  revertReturnToPending: async (returnId, data) => {
+    console.log("📤 Sending revert data:", data); //  Debug log
+    try {
+      const response = await API.patch(
+        `/purchase/returns/${returnId}/revert`,
+        data,
+        {
+          headers: getBranchHeaders(),
+        },
+      );
+      return response.data;
+    } catch (error) {
+      console.error(" Revert return failed:", error.response?.data);
+      throw error;
+    }
+  },
 };
-
-
 
 export default purchaseAPI;

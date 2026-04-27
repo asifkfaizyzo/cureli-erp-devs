@@ -1,6 +1,6 @@
 // cadmin/src/pages/MasterMedicines/comps/RawImagesTable.jsx
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
   X,
@@ -9,19 +9,27 @@ import {
   Link2,
   ChevronDown,
   ChevronUp,
+  ChevronsUpDown,
   AlertTriangle,
   CheckSquare,
   Square,
 } from "lucide-react";
 import Pagination from "../../../components/common/Pagination";
 import TableEmptyState from "../../../components/common/TableEmptyState";
+import TableSkeleton from "../../../components/common/TableSkeleton";
 import StyledSelect from "../../../components/common/StyledSelect";
+import { TABLE_CONFIG, getRowBgClass } from "../../../config/tableConfig";
+
+const { styles, heights } = TABLE_CONFIG;
+
 const RawImagesTable = ({
   medicines = [],
   selectedIds = [],
   onSelectionChange,
   onUploadImage,
   onViewLinked,
+  onRowClick,
+  loading = false,
 }) => {
   const [searchText, setSearchText] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -30,9 +38,47 @@ const RawImagesTable = ({
     key: "updatedAt",
     order: "desc",
   });
+
+  const defaultWidths = {
+    checkbox: 48,
+    index: 52,
+    name: 220,
+    type: 80,
+    manufacturer: 160,
+    rawImages: 100,
+    linked: 90,
+    updated: 100,
+    actions: 100,
+  };
+  const [columnWidths, setColumnWidths] = useState(defaultWidths);
+  const [resizing, setResizing] = useState(null);
+
+  const handleMouseDown = (col, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizing({ col, startX: e.clientX, startWidth: columnWidths[col] });
+  };
+  const handleMouseMove = (e) => {
+    if (!resizing) return;
+    setColumnWidths((p) => ({
+      ...p,
+      [resizing.col]: Math.max(50, resizing.startWidth + (e.clientX - resizing.startX)),
+    }));
+  };
+  const handleMouseUp = () => setResizing(null);
+
+  useEffect(() => {
+    if (!resizing) return;
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizing]);
+
   const rowsPerPage = 10;
 
-  // Filter & Sort
   const filteredData = useMemo(() => {
     let result = [...medicines];
 
@@ -41,7 +87,7 @@ const RawImagesTable = ({
       result = result.filter(
         (med) =>
           med.name?.toLowerCase().includes(search) ||
-          med.manufacturer?.toLowerCase().includes(search),
+          med.manufacturer?.toLowerCase().includes(search)
       );
     }
 
@@ -59,8 +105,8 @@ const RawImagesTable = ({
       }
 
       if (sortConfig.key === "imageCount") {
-        aVal = a.images?.length || 0;
-        bVal = b.images?.length || 0;
+        aVal = a.images?.filter((img) => img.status === "RAW").length || 0;
+        bVal = b.images?.filter((img) => img.status === "RAW").length || 0;
       }
 
       if (sortConfig.key === "updatedAt") {
@@ -68,8 +114,14 @@ const RawImagesTable = ({
         bVal = new Date(bVal || 0).getTime();
       }
 
-      if (sortConfig.order === "asc") return aVal > bVal ? 1 : -1;
-      return aVal < bVal ? 1 : -1;
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortConfig.order === "asc" ? aVal - bVal : bVal - aVal;
+      }
+
+      const as = String(aVal ?? "").toLowerCase();
+      const bs = String(bVal ?? "").toLowerCase();
+      if (sortConfig.order === "asc") return as < bs ? -1 : as > bs ? 1 : 0;
+      return as > bs ? -1 : as < bs ? 1 : 0;
     });
 
     return result;
@@ -83,26 +135,24 @@ const RawImagesTable = ({
   const totalItems = filteredData.length;
   const startIndex = (currentPage - 1) * rowsPerPage;
 
-  // Selection
   const allSelected =
     paginatedData.length > 0 &&
     paginatedData.every((item) => selectedIds.includes(item.id));
   const someSelected = paginatedData.some((item) =>
-    selectedIds.includes(item.id),
+    selectedIds.includes(item.id)
   );
 
   const toggleSelectAll = () => {
     if (allSelected) {
       onSelectionChange(
         selectedIds.filter(
-          (id) => !paginatedData.some((item) => item.id === id),
-        ),
+          (id) => !paginatedData.some((item) => item.id === id)
+        )
       );
     } else {
-      const newIds = [
+      onSelectionChange([
         ...new Set([...selectedIds, ...paginatedData.map((item) => item.id)]),
-      ];
-      onSelectionChange(newIds);
+      ]);
     }
   };
 
@@ -119,17 +169,53 @@ const RawImagesTable = ({
       key,
       order: prev.key === key && prev.order === "desc" ? "asc" : "desc",
     }));
+    setCurrentPage(1);
   };
 
-  const SortIcon = ({ column }) => {
-    if (sortConfig.key !== column)
-      return <ChevronDown size={14} className="text-gray-300" />;
-    return sortConfig.order === "asc" ? (
-      <ChevronUp size={14} className="text-indigo-600" />
-    ) : (
-      <ChevronDown size={14} className="text-indigo-600" />
+  const SortIcon = ({ sortKey }) => {
+    if (!sortKey) return null;
+    const isActive = sortConfig.key === sortKey;
+
+    if (isActive) {
+      return sortConfig.order === "asc" ? (
+        <ChevronUp size={14} className={`${styles.header.sortIcon.active} flex-shrink-0`} />
+      ) : (
+        <ChevronDown size={14} className={`${styles.header.sortIcon.active} flex-shrink-0`} />
+      );
+    }
+
+    return (
+      <ChevronsUpDown size={14} className={`${styles.header.sortIcon.inactive} flex-shrink-0`} />
     );
   };
+
+  const ResizableTh = ({ col, children, align = "left", sortKey }) => (
+    <th
+      style={{
+        width: columnWidths[col],
+        minWidth: 50,
+        height: `${heights.headerRow}px`,
+      }}
+      className="relative group"
+    >
+      <div
+        className={`flex items-center gap-1 h-full
+                    ${styles.header.cell}
+                    ${align === "center" ? "justify-center" : "justify-start"}
+                    ${sortKey ? "cursor-pointer select-none" : ""}`}
+        onClick={() => sortKey && handleSort(sortKey)}
+      >
+        <span className="text-sm font-semibold text-white whitespace-nowrap">
+          {children}
+        </span>
+        <SortIcon sortKey={sortKey} />
+      </div>
+      <div
+        onMouseDown={(e) => handleMouseDown(col, e)}
+        className={styles.header.resizeHandle}
+      />
+    </th>
+  );
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -139,21 +225,65 @@ const RawImagesTable = ({
     });
   };
 
+  const tableHeader = (
+    <thead className="sticky top-0 z-10">
+      <tr className={styles.header.row}>
+        {/* Checkbox */}
+        <th
+          style={{
+            width: columnWidths.checkbox,
+            minWidth: 48,
+            height: `${heights.headerRow}px`,
+          }}
+          className="relative group"
+        >
+          <div className={`flex items-center h-full ${styles.header.cell}`}>
+            <button
+              onClick={toggleSelectAll}
+              className="text-white/70 hover:text-white transition-colors"
+            >
+              {allSelected ? (
+                <CheckSquare size={17} className="text-white" />
+              ) : someSelected ? (
+                <CheckSquare size={17} className="text-white/50" />
+              ) : (
+                <Square size={17} />
+              )}
+            </button>
+          </div>
+          <div
+            onMouseDown={(e) => handleMouseDown("checkbox", e)}
+            className={styles.header.resizeHandle}
+          />
+        </th>
+
+        <ResizableTh col="index">#</ResizableTh>
+        <ResizableTh col="name" sortKey="name">Name</ResizableTh>
+        <ResizableTh col="type" align="center" sortKey="type">Type</ResizableTh>
+        <ResizableTh col="manufacturer">Manufacturer</ResizableTh>
+        <ResizableTh col="rawImages" align="center" sortKey="imageCount">Raw Images</ResizableTh>
+        <ResizableTh col="linked" align="center" sortKey="linkedCount">Linked</ResizableTh>
+        <ResizableTh col="updated" sortKey="updatedAt">Updated</ResizableTh>
+        <ResizableTh col="actions" align="center">Actions</ResizableTh>
+      </tr>
+    </thead>
+  );
+
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 overflow-hidden">
-      {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b border-gray-200 space-y-3">
+    <div className="flex flex-col h-full gap-0">
+      {/* ── Filter Section ── */}
+      <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200 px-4 py-3 mb-2 flex flex-col gap-3">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search
-              size={16}
+              size={15}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             />
             <input
               type="text"
               placeholder="Search medicines with raw images..."
               value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
+              onChange={(e) => { setSearchText(e.target.value); setCurrentPage(1); }}
               className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-lg text-sm
                          focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
@@ -162,15 +292,15 @@ const RawImagesTable = ({
                 onClick={() => setSearchText("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
             )}
           </div>
 
-          <div className="w-40">
+          <div className="w-36">
             <StyledSelect
               value={typeFilter}
-              onChange={setTypeFilter}
+              onChange={(v) => { setTypeFilter(v); setCurrentPage(1); }}
               options={[
                 { value: "", label: "All Types" },
                 { value: "DRUG", label: "Drug" },
@@ -180,6 +310,12 @@ const RawImagesTable = ({
             />
           </div>
 
+          <div className="flex-1" />
+
+          <span className="text-xs text-gray-400">
+            {totalItems} item{totalItems !== 1 ? "s" : ""}
+          </span>
+
           {selectedIds.length > 0 && (
             <div className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-sm font-medium">
               {selectedIds.length} selected
@@ -188,7 +324,7 @@ const RawImagesTable = ({
         </div>
 
         <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
-          <AlertTriangle size={16} className="text-amber-600" />
+          <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
           <p className="text-sm text-amber-700">
             <strong>Raw images</strong> are temporary scraped images. Upload
             verified images to replace them.
@@ -196,199 +332,155 @@ const RawImagesTable = ({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        {paginatedData.length === 0 ? (
-          <TableEmptyState
-            icon={AlertTriangle}
-            title="No raw images found"
-            subtitle="All medicines have verified images"
-          />
-        ) : (
-          <table className="w-full text-sm" style={{ minWidth: "900px" }}>
-            <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="w-12 px-4 py-3">
-                  <button
-                    onClick={toggleSelectAll}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    {allSelected ? (
-                      <CheckSquare size={18} className="text-indigo-600" />
-                    ) : someSelected ? (
-                      <CheckSquare size={18} className="text-indigo-300" />
-                    ) : (
-                      <Square size={18} />
-                    )}
-                  </button>
-                </th>
-                <th className="w-12 px-4 py-3 text-left text-xs font-semibold text-gray-600">
-                  #
-                </th>
-                <th className="px-4 py-3 text-left">
-                  <button
-                    onClick={() => handleSort("name")}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                  >
-                    Name <SortIcon column="name" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-center">
-                  <button
-                    onClick={() => handleSort("type")}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                  >
-                    Type <SortIcon column="type" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">
-                  Manufacturer
-                </th>
-                <th className="px-4 py-3 text-center">
-                  <button
-                    onClick={() => handleSort("imageCount")}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                  >
-                    Raw Images <SortIcon column="imageCount" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-center">
-                  <button
-                    onClick={() => handleSort("linkedCount")}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                  >
-                    <Link2 size={14} />
-                    Linked <SortIcon column="linkedCount" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left">
-                  <button
-                    onClick={() => handleSort("updatedAt")}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                  >
-                    Updated <SortIcon column="updatedAt" />
-                  </button>
-                </th>
-                <th className="w-24 px-4 py-3 text-center text-xs font-semibold text-gray-600">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {paginatedData.map((med, index) => {
-                const linkedCount = med.linkedMedicines?.length || 0;
-                const rawImageCount =
-                  med.images?.filter((img) => img.status === "RAW").length || 0;
+      {/* ── Table Card ── */}
+      <div className={styles.container.wrapper}>
+        <div className="flex-1 min-h-0 overflow-auto">
+          {loading ? (
+            <table className="w-full border-collapse text-sm" style={{ minWidth: 900 }}>
+              {tableHeader}
+              <tbody>
+                <TableSkeleton rows={rowsPerPage} columns={9} />
+              </tbody>
+            </table>
+          ) : paginatedData.length === 0 ? (
+            <TableEmptyState
+              icon={AlertTriangle}
+              title="No raw images found"
+              subtitle="All medicines have verified images"
+            />
+          ) : (
+            <table className="w-full border-collapse text-sm" style={{ minWidth: 900 }}>
+              {tableHeader}
+              <tbody>
+                {paginatedData.map((med, index) => {
+                  const linkedCount = med.linkedMedicines?.length || 0;
+                  const rawImageCount =
+                    med.images?.filter((img) => img.status === "RAW").length || 0;
+                  const isSelected = selectedIds.includes(med.id);
 
-                return (
-                  <tr
-                    key={med.id}
-                    className={`hover:bg-amber-50/50 transition-colors ${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                    }`}
-                  >
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => toggleSelect(med.id)}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        {selectedIds.includes(med.id) ? (
-                          <CheckSquare size={18} className="text-indigo-600" />
-                        ) : (
-                          <Square size={18} />
-                        )}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 font-medium">
-                      {startIndex + index + 1}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="max-w-[220px]">
-                        <p className="font-medium text-gray-900 truncate">
-                          {med.name}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {med.composition || "—"}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          med.type === "DRUG"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {med.type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      <span className="truncate block max-w-[140px]">
-                        {med.manufacturer || "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-sm font-medium">
-                        {rawImageCount} raw
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => onViewLinked(med)}
-                        disabled={linkedCount === 0}
-                        className={`px-2 py-1 rounded-lg text-sm font-medium flex items-center gap-1 mx-auto ${
-                          linkedCount > 0
-                            ? "bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer"
-                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        <Link2 size={14} />
-                        {linkedCount}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">
-                      {formatDate(med.updatedAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        {linkedCount > 0 && (
-                          <button
-                            onClick={() => onViewLinked(med)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                            title="View Linked"
-                          >
-                            <Eye size={16} />
-                          </button>
-                        )}
+                  return (
+                    <tr
+                      key={med.id}
+                      onClick={() => onRowClick?.(med)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected
+                          ? "bg-indigo-50/80"
+                          : index % 2 === 0
+                            ? "bg-white hover:bg-indigo-50/40"
+                            : "bg-gray-50/50 hover:bg-indigo-50/40"
+                      }`}
+                      style={{ height: `${heights.bodyRow}px` }}
+                    >
+                      {/* Checkbox — stop propagation */}
+                      <td className={styles.cell.base} onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => onUploadImage(med)}
-                          className="p-1.5 rounded-lg text-amber-600 bg-amber-50 hover:bg-amber-100"
-                          title="Upload Verified Image"
+                          onClick={() => toggleSelect(med.id)}
+                          className="text-gray-400 hover:text-gray-600"
                         >
-                          <Upload size={16} />
+                          {isSelected ? (
+                            <CheckSquare size={17} className="text-indigo-600" />
+                          ) : (
+                            <Square size={17} />
+                          )}
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+
+                      {/* Index */}
+                      <td className={`${styles.cell.base} ${styles.cell.muted} font-medium`}>
+                        {startIndex + index + 1}
+                      </td>
+
+                      {/* Name */}
+                      <td className={styles.cell.base}>
+                        <div className="max-w-[220px]">
+                          <p className={`${styles.cell.primary} truncate`}>
+                            {med.name}
+                          </p>
+                          <p className={`text-xs ${styles.cell.muted} truncate`}>
+                            {med.composition || "—"}
+                          </p>
+                        </div>
+                      </td>
+
+                      {/* Type */}
+                      <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            med.type === "DRUG"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {med.type}
+                        </span>
+                      </td>
+
+                      {/* Manufacturer */}
+                      <td className={styles.cell.base}>
+                        <span className={`${styles.cell.secondary} truncate block max-w-[150px]`}>
+                          {med.manufacturer || "—"}
+                        </span>
+                      </td>
+
+                      {/* Raw Images — show status badge only */}
+                      <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold">
+                          Raw
+                        </span>
+                      </td>
+
+                      {/* Linked — stop propagation */}
+                      <td className={`${styles.cell.base} ${styles.cell.center}`} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => onViewLinked(med)}
+                          disabled={linkedCount === 0}
+                          className={`px-2 py-0.5 rounded-lg text-xs font-semibold flex items-center gap-1 mx-auto ${
+                            linkedCount > 0
+                              ? "bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer"
+                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          }`}
+                        >
+                          <Link2 size={12} />
+                          {linkedCount}
+                        </button>
+                      </td>
+
+                      {/* Updated */}
+                      <td className={`${styles.cell.base} ${styles.cell.muted} text-xs`}>
+                        {formatDate(med.updatedAt)}
+                      </td>
+
+                      {/* Actions — stop propagation */}
+                      <td className={styles.cell.base} onClick={(e) => e.stopPropagation()}>
+                        <div className={styles.actions.container}>
+                          <button
+                            onClick={() => onUploadImage(med)}
+                            className={`${styles.actions.button.base} text-amber-600 bg-amber-50 hover:bg-amber-100`}
+                            title="Upload Verified Image"
+                          >
+                            <Upload size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {totalItems > 0 && !loading && (
+          <div className={styles.pagination.wrapper}>
+            <Pagination
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              totalItems={totalItems}
+              rowsPerPage={rowsPerPage}
+            />
+          </div>
         )}
       </div>
-
-      {/* Pagination */}
-      {totalItems > 0 && (
-        <div className="flex-shrink-0 border-t border-gray-200">
-          <Pagination
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            totalItems={totalItems}
-            rowsPerPage={rowsPerPage}
-          />
-        </div>
-      )}
     </div>
   );
 };

@@ -19,7 +19,7 @@ export const TABLE_CONFIG = {
   // ============================================
   rowBreakpoints: {
     1440: 13,  // 1440p+ / 27" monitors / 4K (reduced slightly for taller rows)
-    1080: 10,   // 1080p Full HD
+    1080: 10,  // 1080p Full HD
     900: 9,    // 900p / smaller monitors
     800: 8,    // Tablets / small laptops
     0: 5,      // Mobile / fallback (minimum)
@@ -163,21 +163,52 @@ export const TABLE_CONFIG = {
 // ============================================
 
 /**
- * Get role badge style based on role name
+ * Deterministic color generator for custom roles
+ * Handles both known brand roles and any dynamic/custom role names
  */
-export const getRoleBadgeStyle = (role) => {
+export const getRoleBadgeStyle = (roleName) => {
   const { badges } = TABLE_CONFIG.styles;
-  const roleKey = role?.toLowerCase().replace(/\s+/g, '');
-  
-  const roleMap = {
-    'superadmin': badges.role.superAdmin,
+  if (!roleName) return `${badges.roleBase} ${badges.role.default}`;
+
+  const normalized = roleName.trim().toLowerCase();
+
+  // Hardcoded brand constants
+  if (normalized === 'super admin' || normalized === 'super_admin')
+    return `${badges.roleBase} ${badges.role.superAdmin}`;
+  if (normalized === 'no role')
+    return `${badges.roleBase} ${badges.role.default}`;
+
+  // Known role exact matches
+  const knownRoleMap = {
     'admin': badges.role.admin,
+    'branch admin': badges.role.branchAdmin,
     'branchadmin': badges.role.branchAdmin,
+    'branch_admin': badges.role.branchAdmin,
     'manager': badges.role.manager,
     'staff': badges.role.staff,
   };
 
-  return `${badges.roleBase} ${roleMap[roleKey] || badges.role.default}`;
+  if (knownRoleMap[normalized]) {
+    return `${badges.roleBase} ${knownRoleMap[normalized]}`;
+  }
+
+  // Deterministic palette pick based on string hash for custom/unknown roles
+  const palettes = [
+    badges.role.admin,     // Blue
+    badges.role.manager,   // Indigo
+    'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    'bg-amber-100 text-amber-700 border border-amber-200',
+    'bg-rose-100 text-rose-700 border border-rose-200',
+    'bg-cyan-100 text-cyan-700 border border-cyan-200',
+  ];
+
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    hash = normalized.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % palettes.length;
+
+  return `${badges.roleBase} ${palettes[index]}`;
 };
 
 /**
@@ -185,10 +216,10 @@ export const getRoleBadgeStyle = (role) => {
  */
 export const getStatusBadgeStyle = (status) => {
   const { badges } = TABLE_CONFIG.styles;
-  const statusKey = typeof status === 'boolean' 
+  const statusKey = typeof status === 'boolean'
     ? (status ? 'active' : 'inactive')
     : status?.toLowerCase();
-  
+
   return badges.status[statusKey] || badges.status.inactive;
 };
 

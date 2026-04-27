@@ -52,7 +52,9 @@ const SetupRouter = () => {
 
       // If coming from plan selection, ensure store is reset
       if (fromPlanSelection) {
-        console.log("🔄 SetupRouter: Fresh from plan selection, resetting store");
+        console.log(
+          "🔄 SetupRouter: Fresh from plan selection, resetting store",
+        );
         resetSetup();
       }
 
@@ -64,7 +66,9 @@ const SetupRouter = () => {
         const statusData = statusRes.data?.data;
 
         if (statusData?.is_complete) {
-          console.log("✅ SetupRouter: Setup complete (backend), going to dashboard");
+          console.log(
+            " SetupRouter: Setup complete (backend), going to dashboard",
+          );
           completeSetup();
           hasRouted.current = true;
           navigate("/dashboard", { replace: true });
@@ -99,15 +103,15 @@ const SetupRouter = () => {
       }
 
       if (!subscriptionData?.has_active_subscription) {
-        console.log("❌ SetupRouter: No subscription, going to plan selection");
+        console.log(" SetupRouter: No subscription, going to plan selection");
         hasRouted.current = true;
         navigate("/plan-selection", { replace: true });
         return;
       }
 
       console.log(
-        "✅ SetupRouter: Active subscription:",
-        subscriptionData.current_plan?.name
+        " SetupRouter: Active subscription:",
+        subscriptionData.current_plan?.name,
       );
 
       // ============================================

@@ -33,6 +33,8 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+
+
 model CAdmin {
   cadmin_id           String              @id @default(uuid()) @db.Uuid
   username            String              @unique
@@ -40,6 +42,7 @@ model CAdmin {
   phone_number        String
   password_hash       String
   is_active           Boolean             @default(true)
+  is_super_cadmin     Boolean             @default(false)    //  NEW
   verification_id     String?
   otp_expires         DateTime?
   last_login_at       DateTime?
@@ -48,7 +51,10 @@ model CAdmin {
   reset_token         String?             @db.VarChar(500)
   reset_token_expires DateTime?           @db.Timestamptz(6)
   name                String
-  role                CAdminRole          @default(SUPER_CADMIN)
+  
+  // Relations
+  roleAssignments     CAdminRoleAssignment[]               //  NEW
+  
   broadcastCampaigns  BroadcastCampaign[] @relation("BroadcastCampaigns")
   broadcastSegments   BroadcastSegment[]  @relation("BroadcastSegments")
   broadcastTemplates  BroadcastTemplate[] @relation("BroadcastTemplates")
@@ -60,6 +66,35 @@ model CAdmin {
   emailBroadcastCampaigns EmailBroadcastCampaign[] @relation("EmailBroadcastCampaigns")
 
   @@map("cadmins")
+}
+
+model CAdminCustomRole {
+  role_id      String   @id @default(uuid()) @db.Uuid
+  name         String   @unique
+  description  String?
+  permissions  String[] // Array of strings e.g. ["shops.view"]
+  is_deleted   Boolean  @default(false)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @updatedAt @db.Timestamptz(6)
+
+  assignments  CAdminRoleAssignment[]
+
+  @@map("cadmin_custom_roles")
+}
+
+model CAdminRoleAssignment {
+  id          String           @id @default(uuid()) @db.Uuid
+  cadmin_id   String           @db.Uuid
+  role_id     String           @db.Uuid
+  is_primary  Boolean          @default(false)
+  assigned_at DateTime         @default(now()) @db.Timestamptz(6)
+  assigned_by String?          @db.Uuid
+
+  cadmin      CAdmin           @relation(fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
+  role        CAdminCustomRole @relation(fields: [role_id], references: [role_id], onDelete: Restrict)
+
+  @@unique([cadmin_id, role_id])
+  @@map("cadmin_role_assignments")
 }
 
 model CAdminActivityLog {
@@ -272,7 +307,7 @@ model Branch {
   
   shop             Shop              @relation(fields: [shop_id], references: [shop_id])
   
-  // ✅ ADD THIS LINE
+  //  ADD THIS LINE
   suppliers        SupplierBranch[]  @relation("BranchSuppliers")
   
   customerCredits  CustomerCredit[]  @relation("BranchCustomerCredits")
@@ -455,76 +490,111 @@ model FileVerificationLog {
   @@map("file_verification_logs")
 }
 
-model Ticket {
-  ticket_id           String                @id @default(uuid()) @db.Uuid
-  ticket_number       String                @unique @db.VarChar(30)
-  shop_id             String                @db.Uuid
-  branch_id           String?               @db.Uuid
-  created_by_user_id  String                @db.Uuid
-  contact_number      String                @db.VarChar(15)
-  category            TicketCategory
-  subject             String                @db.VarChar(200)
-  description         String?
-  other_category_text String?               @db.VarChar(100)
-  preferred_slot      String                @db.VarChar(20)
-  status              TicketStatus          @default(PENDING)
-  cancelled_at        DateTime?             @db.Timestamptz(6)
-  cancelled_by_id     String?               @db.Uuid
-  cancellation_reason String?
-  reopened_at         DateTime?             @db.Timestamptz(6)
-  reopened_by_id      String?               @db.Uuid
-  reopen_count        Int                   @default(0)
-  created_at          DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime              @updatedAt @db.Timestamptz(6)
-  admin_notes         String?
-  reopen_reason       String?
-  attachments         TicketAttachment[]
-  statusHistory       TicketStatusHistory[] @relation("TicketStatusHistory")
-  branch              Branch?               @relation("BranchTickets", fields: [branch_id], references: [branch_id])
-  cancelled_by        User?                 @relation("TicketCanceller", fields: [cancelled_by_id], references: [user_id])
-  created_by          User                  @relation("TicketCreator", fields: [created_by_user_id], references: [user_id])
-  reopened_by         User?                 @relation("TicketReopener", fields: [reopened_by_id], references: [user_id])
-  shop                Shop                  @relation("ShopTickets", fields: [shop_id], references: [shop_id])
 
-  @@index([shop_id])
-  @@index([branch_id])
-  @@index([status])
-  @@index([created_at])
+
+model Ticket {
+  ticket_id          String           @id @default(uuid()) @db.Uuid
+  ticket_number      String           @unique @db.VarChar(30)
+
+  // Ownership
+  shop_id            String           @db.Uuid
+  branch_id          String?          @db.Uuid
+  created_by_user_id String           @db.Uuid
+
+  // Cancellation actor (nullable — only set when cancelled)
+  cancelled_by_user_id String?        @db.Uuid
+
+  // Reopen actor (nullable — only set when last reopened)
+  reopened_by_user_id  String?        @db.Uuid
+
+  // Content
+  contact_number     String           @db.VarChar(15)
+  category           TicketCategory
+  other_category_text String?         @db.VarChar(100)
+  subject            String           @db.VarChar(200)
+  description        String?
+  preferred_slot     String           @db.VarChar(20)
+
+  // State (managed ONLY by state machine)
+  status             TicketStatus     @default(PENDING)
+  reopen_count       Int              @default(0)
+
+  // Counters (denormalised for query speed)
+  attachment_count   Int              @default(0)
+  activity_count     Int              @default(0)
+
+  // Timestamps
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @updatedAt @db.Timestamptz(6)
+  resolved_at        DateTime?        @db.Timestamptz(6)
+  closed_at          DateTime?        @db.Timestamptz(6)
+  cancelled_at       DateTime?        @db.Timestamptz(6)
+
+  // Relations
+  shop               Shop             @relation("ShopTickets", fields: [shop_id], references: [shop_id])
+  branch             Branch?          @relation("BranchTickets", fields: [branch_id], references: [branch_id])
+  created_by         User             @relation("TicketCreator", fields: [created_by_user_id], references: [user_id])
+  cancelled_by       User?            @relation("TicketCanceller", fields: [cancelled_by_user_id], references: [user_id])
+  reopened_by        User?            @relation("TicketReopener", fields: [reopened_by_user_id], references: [user_id])
+  attachments        TicketAttachment[]
+  activities         TicketActivity[]
+
+  @@index([shop_id, status, created_at(sort: Desc)])
+  @@index([branch_id, status])
   @@index([created_by_user_id])
+  @@index([status, created_at(sort: Desc)])
   @@index([ticket_number])
+  @@index([cancelled_by_user_id])
+  @@index([reopened_by_user_id])
   @@map("tickets")
 }
 
+model TicketActivity {
+  activity_id    String              @id @default(uuid()) @db.Uuid
+  ticket_id      String              @db.Uuid
+
+  // What happened
+  type           TicketActivityType
+  from_status    TicketStatus?       // null for COMMENT / CREATED
+  to_status      TicketStatus?       // null for COMMENT
+
+  // Who did it
+  actor_type     String              @db.VarChar(20)  // "ERP_USER" | "CADMIN" | "SYSTEM"
+  actor_id       String              @db.Uuid
+  actor_name     String              @db.VarChar(150)
+  actor_role     String?             @db.VarChar(50)
+
+  // The message/reason for this action (optional for pure status changes)
+  note           String?
+
+  // Visibility
+  is_internal    Boolean             @default(false)  // true = cadmin-only note
+
+  created_at     DateTime            @default(now()) @db.Timestamptz(6)
+
+  ticket         Ticket              @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+
+  @@index([ticket_id, created_at(sort: Asc)])
+  @@index([type])
+  @@index([actor_id])
+  @@map("ticket_activities")
+}
 model TicketAttachment {
-  attachment_id String   @id @default(uuid()) @db.Uuid
-  ticket_id     String   @db.Uuid
-  storage_key   String
-  original_name String   @db.VarChar(255)
-  mime_type     String   @db.VarChar(100)
-  file_size     Int
-  uploaded_at   DateTime @default(now()) @db.Timestamptz(6)
-  ticket        Ticket   @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+  attachment_id  String   @id @default(uuid()) @db.Uuid
+  ticket_id      String   @db.Uuid
+  storage_key    String
+  original_name  String   @db.VarChar(255)
+  mime_type      String   @db.VarChar(100)
+  file_size      Int
+  uploaded_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  ticket         Ticket   @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
 
   @@index([ticket_id])
   @@map("ticket_attachments")
 }
 
-model TicketStatusHistory {
-  id              String        @id @default(uuid()) @db.Uuid
-  ticket_id       String        @db.Uuid
-  changed_by_type String        @db.VarChar(20)
-  changed_by_id   String        @db.Uuid
-  changed_by_name String        @db.VarChar(100)
-  from_status     TicketStatus?
-  to_status       TicketStatus
-  note            String?
-  created_at      DateTime      @default(now()) @db.Timestamptz(6)
-  ticket          Ticket        @relation("TicketStatusHistory", fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
 
-  @@index([ticket_id])
-  @@index([created_at])
-  @@map("ticket_status_history")
-}
 
 model Enquiry {
   enquiry_id     String         @id @default(uuid()) @db.Uuid
@@ -561,33 +631,166 @@ model EnquiryReply {
   @@index([replied_by_id])
   @@map("enquiry_replies")
 }
+// ══════════════════════════════════════════════════════════════
+// MASTER MEDICINE CATALOG (Global Medicine Database)
+// ══════════════════════════════════════════════════════════════
+
+model MasterMedicine {
+  master_medicine_id String   @id @default(uuid()) @db.Uuid
+  
+  // Core identifiers
+  master_key         String   @unique @db.VarChar(100)  //  NEW: "fluoxetine_capsule"
+  generic_name       String   @db.VarChar(300)          //  NEW: "Fluoxetine Capsule"
+  
+  // Medicine properties
+  type               MedicineType
+  form               String?  @db.VarChar(50)           //  NEW: "Capsule", "Tablet"
+  composition        Json                                //  CHANGED: String → Json (structured)
+  
+  // Regulatory
+  prescription_required Boolean @default(false)
+  primary_category   String?  @db.VarChar(100)          //  NEW: "DERMA", "CARDIO"
+  
+  // Metadata
+  variant_count      Int      @default(0)                //  NEW: Number of variants
+  is_active          Boolean  @default(true)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  variants           MasterMedicineVariant[]             //  NEW: One-to-many
+  images             MasterMedicineImage[]
+  linkedMedicines    Medicine[]              @relation("MedicineMasterLink")
+  // Indexes
+  @@index([master_key])
+  @@index([generic_name])
+  @@index([type])
+  @@index([form])
+  @@index([is_active])
+  @@index([primary_category])
+  @@map("master_medicines")
+}
+
+//  NEW TABLE
+model MasterMedicineVariant {
+  variant_id         String   @id @default(uuid()) @db.Uuid
+  master_medicine_id String   @db.Uuid
+  
+  // CCSP identifiers
+  sku_id             String   @unique @db.VarChar(50)    // "10005", "10010"
+  
+  // Product details
+  name               String   @db.VarChar(300)           // "Topinate Cream"
+  brand              String?  @db.VarChar(150)           // "Topinate"
+  
+  // Composition (with strengths)
+  composition        Json                                 // [{ name, strength }]
+  
+  // Strength (parsed)
+  strength_value     Float?
+  strength_unit      String?  @db.VarChar(20)            // "mg", "%"
+  
+  // Business info
+  manufacturer       String?  @db.VarChar(200)
+  marketer           String?  @db.VarChar(200)
+  pack_size          String?  @db.VarChar(100)
+  
+  // Pricing
+  mrp                Decimal? @db.Decimal(10, 2)
+  selling_price      Decimal? @db.Decimal(10, 2)
+  discount_percent   Float?
+  
+  // Additional
+  description        String?  @db.Text
+  
+  // Images (JSON array of URLs)
+  images             Json     @default("[]")             // ["img_00_high.jpg", ...]
+  
+  // Metadata
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  master             MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
+  linkedMedicines  Medicine[] @relation("MedicineVariantLink")
+  // Indexes
+  @@index([master_medicine_id])
+  @@index([sku_id])
+  @@index([brand])
+  @@index([name])
+  @@map("master_medicine_variants")
+}
+
+model MasterMedicineImage {
+  image_id           String   @id @default(uuid()) @db.Uuid
+  master_medicine_id String   @db.Uuid
+  
+  // Image info
+  sku_id             String   @db.VarChar(50)           //  NEW: Which variant this belongs to
+  url                String   @db.VarChar(500)          // "/static/medicine_images/10005/img_00_high.jpg"
+  type               ImageType                          // PRIMARY or GALLERY
+  sequence           Int      @default(0)               //  NEW: Display order
+  source             ImageSource @default(SCRAPED)
+  uploaded_by        String?     @db.VarChar(100)
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  medicine           MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
+  
+  // Indexes
+  @@index([master_medicine_id])
+  @@index([sku_id])
+  @@index([type])
+  @@map("master_medicine_images")
+}
 
 model Medicine {
-  medicine_id      String                @id @default(uuid()) @db.Uuid
-  name             String                @db.VarChar(200)
-  generic_name     String?               @db.VarChar(200)
-  master_medicine_id String?             @db.Uuid
-  manufacturer     String                @db.VarChar(150)
-  category         String?               @db.VarChar(100)
-  sub_category     String?               @db.VarChar(100)
-  schedule         String?               @db.VarChar(50)
-  hsn_code         String?               @db.VarChar(20)
-  pack_size        String?               @db.VarChar(50)
-  unit_of_measure  String                @default("UNIT")
-  gst_percentage   Decimal               @default(12) @db.Decimal(5, 2)
-  cgst_percentage  Decimal               @default(6) @db.Decimal(5, 2)
-  sgst_percentage  Decimal               @default(6) @db.Decimal(5, 2)
-  rack_no          String?               @db.VarChar(20)
-  is_active        Boolean               @default(true)
-  is_discontinued  Boolean               @default(false)
-  shop_id          String                @db.Uuid
-  created_by       String                @db.Uuid
-  created_at       DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime              @updatedAt @db.Timestamptz(6)
-  branch_id        String?               @db.Uuid
-  max_stock_level  Decimal?              @db.Decimal(10, 2)
-  min_stock_level  Decimal?              @db.Decimal(10, 2)
-  reorder_point    Decimal?              @db.Decimal(10, 2)
+  // ═══════════════════════════════════════════════════════
+  // SCALAR FIELDS - ALL FIRST
+  // ═══════════════════════════════════════════════════════
+  medicine_id            String    @id @default(uuid()) @db.Uuid
+  name                   String    @db.VarChar(200)
+  generic_name           String?   @db.VarChar(200)
+  manufacturer           String    @db.VarChar(150)
+  category               String?   @db.VarChar(100)
+  sub_category           String?   @db.VarChar(100)
+  schedule               String?   @db.VarChar(50)
+  hsn_code               String?   @db.VarChar(20)
+  pack_size              String?   @db.VarChar(50)
+  unit_of_measure        String    @default("UNIT")
+  gst_percentage         Decimal   @default(12) @db.Decimal(5, 2)
+  cgst_percentage        Decimal   @default(6) @db.Decimal(5, 2)
+  sgst_percentage        Decimal   @default(6) @db.Decimal(5, 2)
+  rack_no                String?   @db.VarChar(20)
+  is_active              Boolean   @default(true)
+  is_discontinued        Boolean   @default(false)
+  shop_id                String    @db.Uuid
+  created_by             String    @db.Uuid
+  created_at             DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime  @updatedAt @db.Timestamptz(6)
+  branch_id              String?   @db.Uuid
+  max_stock_level        Decimal?  @db.Decimal(10, 2)
+  min_stock_level        Decimal?  @db.Decimal(10, 2)
+  reorder_point          Decimal?  @db.Decimal(10, 2)
+  master_medicine_id     String?   @db.Uuid
+  // ── VARIANT LINKING (the correct link target) ──
+  linked_variant_id      String?   @db.Uuid          //  NEW: links to specific variant
+  linked_variant_sku     String?   @db.VarChar(50)   //  NEW: denormalized for fast lookup
+  link_status            LinkStatus @default(PENDING)
+  link_confidence_score  Float?
+  link_rejected          Boolean   @default(false)
+  linked_at              DateTime? @db.Timestamptz(6)
+  linked_by_id           String?   @db.Uuid
+  linked_by_type         String?   @db.VarChar(20)
+  suggested_master_id    String?   @db.Uuid
+  suggested_variant_id   String?   @db.Uuid
+  suggestion_reason      String?   @db.VarChar(200)
+  normalized_name        String?   @db.VarChar(200)
+
+  // ═══════════════════════════════════════════════════════
+  // RELATIONS - ALL AFTER SCALARS
+  // ═══════════════════════════════════════════════════════
+  masterMedicine   MasterMedicine?       @relation("MedicineMasterLink", fields: [master_medicine_id], references: [master_medicine_id])
   inventory        Inventory[]           @relation("MedicineInventory")
   branch           Branch?               @relation("BranchMedicines", fields: [branch_id], references: [branch_id])
   creator          User                  @relation("MedicineCreator", fields: [created_by], references: [user_id])
@@ -596,21 +799,11 @@ model Medicine {
   salesItems       SalesInvoiceItem[]    @relation("SalesMedicineItems")
   stockAdjustments StockAdjustment[]     @relation("MedicineStockAdjustments")
   stockLedger      StockLedger[]         @relation("MedicineStockLedger")
+   linkedVariant    MasterMedicineVariant? @relation("MedicineVariantLink", fields: [linked_variant_id], references: [variant_id])
 
-   // Master catalog linking
-  link_status           LinkStatus @default(PENDING)     // ✅ NEW
-  link_confidence_score Float?                           // ✅ NEW (0-100)
-  link_rejected         Boolean    @default(false)       // ✅ NEW
-  linked_at             DateTime?  @db.Timestamptz(6)    // ✅ NEW
-
-   
-  // ✅ NEW: Linking metadata
-  linked_by_id            String?    @db.Uuid
-  linked_by_type          String?    @db.VarChar(20)       // "USER" | "SYSTEM" | "CADMIN"
-  suggested_master_id     String?    @db.Uuid              // Which master was suggested
-  suggestion_reason       String?    @db.VarChar(200)      // "Name match", etc.
-  normalized_name         String?    @db.VarChar(200)      // For aggregation
-
+  // ═══════════════════════════════════════════════════════
+  // INDEXES & CONSTRAINTS - LAST
+  // ═══════════════════════════════════════════════════════
   @@unique([shop_id, branch_id, name, manufacturer])
   @@index([shop_id, branch_id, is_active])
   @@index([shop_id, is_active])
@@ -648,7 +841,7 @@ model Supplier {
   created_at       DateTime          @default(now()) @db.Timestamptz(6)
   updated_at       DateTime          @updatedAt @db.Timestamptz(6)
   
-  // ✅ ADD THIS LINE
+  //  ADD THIS LINE
   branches         SupplierBranch[]  @relation("SupplierBranches")
   
   purchaseInvoices PurchaseInvoice[] @relation("SupplierPurchaseInvoices")
@@ -1387,15 +1580,15 @@ model EmailBroadcastCampaign {
   
   // Targeting
   target_filters      Json
-  target_users        Boolean   @default(true)    // ✅ ADD THIS
-  target_cadmins      Boolean   @default(false)   // ✅ ADD THIS
+  target_users        Boolean   @default(true)    //  ADD THIS
+  target_cadmins      Boolean   @default(false)   //  ADD THIS
   recipient_count     Int       @default(0)
   
   // Content
   inline_image        Json?
   attachments         Json?
-  action_url          String?   @db.VarChar(500)  // ✅ ADD THIS
-  action_label        String?   @db.VarChar(100)  // ✅ ADD THIS
+  action_url          String?   @db.VarChar(500)  //  ADD THIS
+  action_label        String?   @db.VarChar(100)  //  ADD THIS
 
   attachmentFiles     EmailBroadcastAttachment[] @relation("CampaignAttachments")
   
@@ -1483,13 +1676,14 @@ model DailySendQuota {
 }
 
 model EmailUnsubscribe {
-  unsubscribe_id String   @id @default(uuid()) @db.Uuid
-  email          String   @unique @db.VarChar(255)
-  user_id        String?  @db.Uuid
-  shop_id        String?  @db.Uuid
-  reason         String?  @db.VarChar(100)
+  unsubscribe_id  String   @id @default(uuid()) @db.Uuid
+  email           String   @unique @db.VarChar(255)
+  token           String?  @db.VarChar(255)  // ← ADD THIS
+  user_id         String?  @db.Uuid
+  cadmin_id       String?  @db.Uuid          // ← RENAME from shop_id
+  reason          String?  @db.VarChar(500)  // ← increase length for longer reasons
   unsubscribed_at DateTime @default(now()) @db.Timestamptz(6)
-  
+
   @@index([email])
   @@map("email_unsubscribes")
 }
@@ -1518,118 +1712,7 @@ model OtpDailyLimit {
   @@map("otp_daily_limits")
 }
 
-// ══════════════════════════════════════════════════════════════
-// MASTER MEDICINE CATALOG (Global Medicine Database)
-// ══════════════════════════════════════════════════════════════
 
-model MasterMedicine {
-  master_medicine_id String   @id @default(uuid()) @db.Uuid
-  
-  // Core identifiers
-  master_key         String   @unique @db.VarChar(100)  // ✅ NEW: "fluoxetine_capsule"
-  generic_name       String   @db.VarChar(300)          // ✅ NEW: "Fluoxetine Capsule"
-  
-  // Medicine properties
-  type               MedicineType
-  form               String?  @db.VarChar(50)           // ✅ NEW: "Capsule", "Tablet"
-  composition        Json                                // ✅ CHANGED: String → Json (structured)
-  
-  // Regulatory
-  prescription_required Boolean @default(false)
-  primary_category   String?  @db.VarChar(100)          // ✅ NEW: "DERMA", "CARDIO"
-  
-  // Metadata
-  variant_count      Int      @default(0)                // ✅ NEW: Number of variants
-  is_active          Boolean  @default(true)
-  created_at         DateTime @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime @updatedAt @db.Timestamptz(6)
-  
-  // Relations
-  variants           MasterMedicineVariant[]             // ✅ NEW: One-to-many
-  images             MasterMedicineImage[]
-  
-  // Indexes
-  @@index([master_key])
-  @@index([generic_name])
-  @@index([type])
-  @@index([form])
-  @@index([is_active])
-  @@index([primary_category])
-  @@map("master_medicines")
-}
-
-// ✅ NEW TABLE
-model MasterMedicineVariant {
-  variant_id         String   @id @default(uuid()) @db.Uuid
-  master_medicine_id String   @db.Uuid
-  
-  // CCSP identifiers
-  sku_id             String   @unique @db.VarChar(50)    // "10005", "10010"
-  
-  // Product details
-  name               String   @db.VarChar(300)           // "Topinate Cream"
-  brand              String?  @db.VarChar(150)           // "Topinate"
-  
-  // Composition (with strengths)
-  composition        Json                                 // [{ name, strength }]
-  
-  // Strength (parsed)
-  strength_value     Float?
-  strength_unit      String?  @db.VarChar(20)            // "mg", "%"
-  
-  // Business info
-  manufacturer       String?  @db.VarChar(200)
-  marketer           String?  @db.VarChar(200)
-  pack_size          String?  @db.VarChar(100)
-  
-  // Pricing
-  mrp                Decimal? @db.Decimal(10, 2)
-  selling_price      Decimal? @db.Decimal(10, 2)
-  discount_percent   Float?
-  
-  // Additional
-  description        String?  @db.Text
-  
-  // Images (JSON array of URLs)
-  images             Json     @default("[]")             // ["img_00_high.jpg", ...]
-  
-  // Metadata
-  created_at         DateTime @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime @updatedAt @db.Timestamptz(6)
-  
-  // Relations
-  master             MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
-  
-  // Indexes
-  @@index([master_medicine_id])
-  @@index([sku_id])
-  @@index([brand])
-  @@index([name])
-  @@map("master_medicine_variants")
-}
-
-model MasterMedicineImage {
-  image_id           String   @id @default(uuid()) @db.Uuid
-  master_medicine_id String   @db.Uuid
-  
-  // Image info
-  sku_id             String   @db.VarChar(50)           // ✅ NEW: Which variant this belongs to
-  url                String   @db.VarChar(500)          // "/static/medicine_images/10005/img_00_high.jpg"
-  type               ImageType                          // PRIMARY or GALLERY
-  sequence           Int      @default(0)               // ✅ NEW: Display order
-  source             ImageSource @default(SCRAPED)
-  uploaded_by        String?     @db.VarChar(100)
-  created_at         DateTime @default(now()) @db.Timestamptz(6)
-  
-  // Relations
-  medicine           MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
-  
-  // Indexes
-  @@index([master_medicine_id])
-  @@index([sku_id])
-  @@index([type])
-  @@map("master_medicine_images")
-}
 
 
 // ══════════════════════════════════════════════════════════════
@@ -1658,12 +1741,6 @@ enum ImageSource {
   UPLOADED
 }
 
-enum CAdminRole {
-SUPER_CADMIN
-ANALYST
-ACCOUNTANT
-SALESMAN
-}
 
 enum PlanStatus {
   DRAFT
@@ -1675,22 +1752,6 @@ enum PlanStatus {
 enum PlanType {
   PRE_MADE
   CUSTOM
-}
-
-enum TicketCategory {
-  TECHNICAL_ISSUE
-  BILLING_ISSUE
-  FEATURE_REQUEST
-  ACCOUNT_ISSUE
-  OTHER
-}
-
-enum TicketStatus {
-  PENDING
-  IN_PROGRESS
-  RESOLVED
-  CANCELLED
-  CLOSED
 }
 
 enum EnquiryStatus {
@@ -1789,4 +1850,30 @@ enum EmailRecipientStatus {
   BOUNCED
   FAILED
   UNSUBSCRIBED
+}
+
+// ── ENUMS ─────────────────────────────────────────────────────────────────────
+enum TicketStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum TicketCategory {
+  TECHNICAL_ISSUE
+  BILLING_ISSUE
+  FEATURE_REQUEST
+  ACCOUNT_ISSUE
+  OTHER
+}
+
+enum TicketActivityType {
+  CREATED          // ticket first created
+  STATUS_CHANGED   // any status transition
+  COMMENT          // note without status change (admin internal or user-visible)
+  REOPENED         // convenience alias (also sets status back to PENDING)
+  CANCELLED        // user or admin cancelled
+  ATTACHMENT_ADDED // file uploaded post-creation
 }

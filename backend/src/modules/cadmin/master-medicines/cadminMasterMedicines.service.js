@@ -1,392 +1,9 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
- * backend\src\modules\cadmin\master-medicines\cadminMasterMedicines.service.js
- * ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
- */
-
 import prisma from "../../../config/prisma.js";
-
-// ══════════════════════════════════════════════════════════════
-// GET NEEDS REVIEW MEDICINES
-// ══════════════════════════════════════════════════════════════
-
-export async function getNeedsReviewMedicines({
-  search = "",
-  confidenceFilter = "",
-  page = 1,
-  limit = 20,
-}) {
-  const pageNum = Math.max(1, parseInt(page) || 1);
-  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
-  const skip = (pageNum - 1) * limitNum;
-
-  // Build where clause
-  const where = {
-    link_status: "SUGGESTED",
-    suggested_master_id: { not: null },
-    link_rejected: false,
-    is_active: true,
-  };
-
-  if (search && search.trim()) {
-    const searchTerm = search.trim();
-    where.OR = [
-      { name: { contains: searchTerm, mode: "insensitive" } },
-      { normalized_name: { contains: searchTerm, mode: "insensitive" } },
-    ];
-  }
-
-  // Confidence filter
-  if (confidenceFilter === "high") {
-    where.link_confidence_score = { gte: 90 };
-  } else if (confidenceFilter === "medium") {
-    where.link_confidence_score = { gte: 70, lt: 90 };
-  } else if (confidenceFilter === "low") {
-    where.link_confidence_score = { lt: 70 };
-  }
-
-  const [medicines, total] = await Promise.all([
-    prisma.medicine.findMany({
-      where,
-      select: {
-        medicine_id: true,
-        name: true,
-        normalized_name: true,
-        manufacturer: true,
-        link_confidence_score: true,
-        suggestion_reason: true,
-        suggested_master_id: true,
-        shop_id: true,
-        created_at: true,
-        shop: {
-          select: {
-            shop_id: true,
-            business_name: true,
-          },
-        },
-      },
-      orderBy: { link_confidence_score: "desc" },
-      skip,
-      take: limitNum,
-    }),
-    prisma.medicine.count({ where }),
-  ]);
-
-  // Fetch suggested master details for each
-  const suggestedMasterIds = [
-    ...new Set(medicines.map((m) => m.suggested_master_id).filter(Boolean)),
-  ];
-
-  const suggestedMasters = await prisma.masterMedicine.findMany({
-    where: { master_medicine_id: { in: suggestedMasterIds } },
-    include: {
-      images: {
-        where: { type: "PRIMARY" },
-        take: 1,
-      },
-    },
-  });
-
-  const masterMap = new Map(
-    suggestedMasters.map((m) => [m.master_medicine_id, m])
-  );
-
-  // Re-validate suggestions (hybrid approach)
-  const reviewItems = medicines.map((med) => {
-    const suggestedMaster = masterMap.get(med.suggested_master_id);
-
-    return {
-      id: med.medicine_id,
-      rawName: med.name,
-      normalizedRaw: med.normalized_name || med.name.toLowerCase(),
-      suggestedMaster: suggestedMaster
-        ? {
-            id: suggestedMaster.master_medicine_id,
-            masterKey: suggestedMaster.master_key,
-            name: suggestedMaster.generic_name,
-            type: suggestedMaster.type,
-            manufacturer: null, // Master doesn't have manufacturer directly
-            hasImage: suggestedMaster.images.length > 0,
-            imageStatus: computeImageStatus(suggestedMaster.images),
-          }
-        : null,
-      confidenceScore: Math.round(med.link_confidence_score || 0),
-      confidenceReason: med.suggestion_reason || "Auto-detected match",
-      shopId: med.shop?.shop_id,
-      shopName: med.shop?.business_name || "Unknown Shop",
-      occurrenceCount: 1, // Individual medicine
-      firstSeenAt: med.created_at,
-    };
-  });
-
-  // Filter out items where suggested master no longer exists
-  const validItems = reviewItems.filter((item) => item.suggestedMaster !== null);
-
-  return {
-    reviewItems: validItems,
-    meta: {
-      total,
-      page: pageNum,
-      limit: limitNum,
-      totalPages: Math.ceil(total / limitNum),
-    },
-  };
-}
-
-// ══════════════════════════════════════════════════════════════
-// GET LINKED SHOP MEDICINES FOR A MASTER
-// ══════════════════════════════════════════════════════════════
-
-export async function getLinkedMedicines(masterMedicineId) {
-  const linkedMedicines = await prisma.medicine.findMany({
-    where: {
-      master_medicine_id: masterMedicineId,
-      link_status: { in: ["AUTO_LINKED", "MANUAL_LINKED"] },
-    },
-    select: {
-      medicine_id: true,
-      name: true,
-      normalized_name: true,
-      manufacturer: true,
-      linked_at: true,
-      linked_by_type: true,
-      link_status: true,
-      link_confidence_score: true,
-      shop: {
-        select: {
-          shop_id: true,
-          business_name: true,
-        },
-      },
-    },
-    orderBy: { linked_at: "desc" },
-  });
-
-  return linkedMedicines.map((med) => ({
-    id: med.medicine_id,
-    originalName: med.name,
-    normalizedName: med.normalized_name || med.name.toLowerCase(),
-    shopId: med.shop?.shop_id,
-    shopName: med.shop?.business_name || "Unknown Shop",
-    manufacturer: med.manufacturer,
-    occurrenceCount: 1,
-    linkedAt: med.linked_at,
-    linkedBy: med.linked_by_type === "SYSTEM" ? "System" : med.linked_by_type === "CADMIN" ? "CAdmin" : "Shop User",
-    linkStatus: med.link_status,
-    confidence: med.link_confidence_score,
-  }));
-}
-
-// ══════════════════════════════════════════════════════════════
-// CADMIN: ACCEPT REVIEW MATCH
-// ══════════════════════════════════════════════════════════════
-
-export async function acceptReviewMatch(medicineId, cadminId) {
-  const medicine = await prisma.medicine.findUnique({
-    where: { medicine_id: medicineId },
-  });
-
-  if (!medicine) throw new Error("Medicine not found");
-  if (!medicine.suggested_master_id) throw new Error("No suggestion to accept");
-
-  // Verify master still exists
-  const master = await prisma.masterMedicine.findUnique({
-    where: { master_medicine_id: medicine.suggested_master_id },
-  });
-
-  if (!master) throw new Error("Suggested master no longer exists");
-
-  // Link the medicine
-  const updated = await prisma.medicine.update({
-    where: { medicine_id: medicineId },
-    data: {
-      master_medicine_id: medicine.suggested_master_id,
-      link_status: "MANUAL_LINKED",
-      link_confidence_score: medicine.link_confidence_score,
-      linked_at: new Date(),
-      linked_by_id: cadminId,
-      linked_by_type: "CADMIN",
-    },
-  });
-
-  return {
-    success: true,
-    medicine: updated,
-    linkedTo: {
-      master_id: master.master_medicine_id,
-      master_key: master.master_key,
-      generic_name: master.generic_name,
-    },
-  };
-}
-
-// ══════════════════════════════════════════════════════════════
-// CADMIN: REJECT REVIEW MATCH
-// ══════════════════════════════════════════════════════════════
-
-export async function rejectReviewMatch(medicineId) {
-  const updated = await prisma.medicine.update({
-    where: { medicine_id: medicineId },
-    data: {
-      link_status: "PENDING",
-      suggested_master_id: null,
-      suggestion_reason: null,
-      link_confidence_score: null,
-    },
-  });
-
-  return { success: true, medicine: updated };
-}
-
-// ══════════════════════════════════════════════════════════════
-// CADMIN: MATCH UNMAPPED TO EXISTING MASTER
-// ══════════════════════════════════════════════════════════════
-
-export async function matchUnmappedToMaster(medicineIds, masterMedicineId, cadminId) {
-  // Verify master exists
-  const master = await prisma.masterMedicine.findUnique({
-    where: { master_medicine_id: masterMedicineId },
-  });
-
-  if (!master) throw new Error("Master medicine not found");
-
-  // Link all medicines in the group
-  const result = await prisma.medicine.updateMany({
-    where: {
-      medicine_id: { in: medicineIds },
-    },
-    data: {
-      master_medicine_id: masterMedicineId,
-      link_status: "MANUAL_LINKED",
-      link_confidence_score: 100,
-      linked_at: new Date(),
-      linked_by_id: cadminId,
-      linked_by_type: "CADMIN",
-      suggested_master_id: null,
-      suggestion_reason: null,
-    },
-  });
-
-  return {
-    success: true,
-    linkedCount: result.count,
-    linkedTo: {
-      master_id: master.master_medicine_id,
-      master_key: master.master_key,
-      generic_name: master.generic_name,
-    },
-  };
-}
-
-// ══════════════════════════════════════════════════════════════
-// CADMIN: IGNORE UNMAPPED MEDICINES
-// ══════════════════════════════════════════════════════════════
-
-export async function ignoreUnmappedMedicines(medicineIds) {
-  const result = await prisma.medicine.updateMany({
-    where: {
-      medicine_id: { in: medicineIds },
-    },
-    data: {
-      link_status: "UNLINKED",
-      link_rejected: true,
-    },
-  });
-
-  return { success: true, ignoredCount: result.count };
-}
-
-// ══════════════════════════════════════════════════════════════
-// CADMIN: UNLINK SHOP MEDICINE FROM MASTER
-// ══════════════════════════════════════════════════════════════
-
-export async function unlinkShopMedicine(medicineId) {
-  const updated = await prisma.medicine.update({
-    where: { medicine_id: medicineId },
-    data: {
-      master_medicine_id: null,
-      link_status: "PENDING",
-      link_confidence_score: null,
-      linked_at: null,
-      linked_by_id: null,
-      linked_by_type: null,
-    },
-  });
-
-  return { success: true, medicine: updated };
-}
-
-// ══════════════════════════════════════════════════════════════
-// CADMIN: UPLOAD IMAGE
-// ══════════════════════════════════════════════════════════════
-
-export async function uploadMasterImage(masterMedicineId, imageData, cadminName) {
-  const { filename, type = "PRIMARY", skuId } = imageData;
-
-  // Get master to determine sku_id
-  const master = await prisma.masterMedicine.findUnique({
-    where: { master_medicine_id: masterMedicineId },
-    include: {
-      variants: { take: 1, select: { sku_id: true } },
-    },
-  });
-
-  if (!master) throw new Error("Master medicine not found");
-
-  const effectiveSkuId = skuId || master.variants[0]?.sku_id || "master";
-  const url = `/static/medicine_images/${effectiveSkuId}/${filename}`;
-
-  // If setting as PRIMARY, unset existing primary
-  if (type === "PRIMARY") {
-    await prisma.masterMedicineImage.updateMany({
-      where: {
-        master_medicine_id: masterMedicineId,
-        type: "PRIMARY",
-      },
-      data: { type: "GALLERY" },
-    });
-  }
-
-  // Get next sequence
-  const maxSeq = await prisma.masterMedicineImage.aggregate({
-    where: { master_medicine_id: masterMedicineId },
-    _max: { sequence: true },
-  });
-
-  const image = await prisma.masterMedicineImage.create({
-    data: {
-      master_medicine_id: masterMedicineId,
-      sku_id: effectiveSkuId,
-      url,
-      type,
-      source: "UPLOADED",
-      sequence: (maxSeq._max.sequence || 0) + 1,
-      uploaded_by: cadminName,
-    },
-  });
-
-  return image;
-}
-
-// ══════════════════════════════════════════════════════════════
-// CADMIN: DELETE IMAGE
-// ══════════════════════════════════════════════════════════════
-
-export async function deleteMasterImage(imageId) {
-  const image = await prisma.masterMedicineImage.findUnique({
-    where: { image_id: imageId },
-  });
-
-  if (!image) throw new Error("Image not found");
-
-  await prisma.masterMedicineImage.delete({
-    where: { image_id: imageId },
-  });
-
-  return { success: true, deletedImage: image };
-}
-
-
+import { fileURLToPath } from "url";
+import path from "path";
+import { notifyAsync } from "../../notifications/notification.service.js";
+import { NOTIFICATION_EVENTS } from "../../notifications/notification.events.js";
+import * as audit from "../../audit/index.js";
 
 // ══════════════════════════════════════════════════════════════
 // HELPER: Compute Image Status
@@ -394,12 +11,8 @@ export async function deleteMasterImage(imageId) {
 
 function computeImageStatus(images) {
   if (!images || images.length === 0) return "NONE";
-  
-  // Check if any image has source = "UPLOADED"
   const hasUploaded = images.some((img) => img.source === "UPLOADED");
   if (hasUploaded) return "VERIFIED";
-  
-  // All images are scraped
   return "RAW";
 }
 
@@ -412,6 +25,7 @@ export async function getMasterMedicines({
   type = "",
   form = "",
   category = "",
+  imageStatus = "",
   prescriptionRequired = null,
   minVariants = null,
   maxVariants = null,
@@ -420,24 +34,18 @@ export async function getMasterMedicines({
   sort = "generic_name",
   order = "asc",
 }) {
-  // Validate pagination
   const pageNum = Math.max(1, parseInt(page) || 1);
   const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
   const skip = (pageNum - 1) * limitNum;
 
-  // Build where clause
-  const where = {
-    is_active: true,
-  };
+  const where = { is_active: true };
 
-  // Search filter
   if (search && search.trim()) {
     const searchTerm = search.trim();
     where.OR = [
       { generic_name: { contains: searchTerm, mode: "insensitive" } },
       { master_key: { contains: searchTerm, mode: "insensitive" } },
       { primary_category: { contains: searchTerm, mode: "insensitive" } },
-      // Search in variants
       {
         variants: {
           some: {
@@ -453,35 +61,39 @@ export async function getMasterMedicines({
     ];
   }
 
-  // Type filter (DRUG / OTC)
   if (type && (type === "DRUG" || type === "OTC")) {
     where.type = type;
   }
 
-  // Form filter
   if (form && form.trim()) {
     where.form = { equals: form.trim(), mode: "insensitive" };
   }
 
-  // Category filter
   if (category && category.trim()) {
-    where.primary_category = { equals: category.trim(), mode: "insensitive" };
+    where.primary_category = {
+      equals: category.trim(),
+      mode: "insensitive",
+    };
   }
 
-  // Prescription filter
   if (prescriptionRequired !== null) {
-    where.prescription_required = prescriptionRequired === "true" || prescriptionRequired === true;
+    where.prescription_required =
+      prescriptionRequired === "true" || prescriptionRequired === true;
   }
 
-  // Variant count filters
   if (minVariants !== null) {
-    where.variant_count = { ...where.variant_count, gte: parseInt(minVariants) };
+    where.variant_count = {
+      ...where.variant_count,
+      gte: parseInt(minVariants),
+    };
   }
   if (maxVariants !== null) {
-    where.variant_count = { ...where.variant_count, lte: parseInt(maxVariants) };
+    where.variant_count = {
+      ...where.variant_count,
+      lte: parseInt(maxVariants),
+    };
   }
 
-  // Build orderBy
   const validSortFields = [
     "generic_name",
     "master_key",
@@ -494,13 +106,15 @@ export async function getMasterMedicines({
   const sortField = validSortFields.includes(sort) ? sort : "generic_name";
   const sortOrder = order === "desc" ? "desc" : "asc";
 
-  // Execute queries
+  const effectiveSkip = imageStatus ? 0 : skip;
+  const effectiveTake = imageStatus ? 10000 : limitNum;
+
   const [medicines, total] = await Promise.all([
     prisma.masterMedicine.findMany({
       where,
       include: {
         variants: {
-          take: 5, // Preview variants
+          take: 5,
           orderBy: { mrp: "asc" },
           select: {
             variant_id: true,
@@ -518,18 +132,16 @@ export async function getMasterMedicines({
             images: true,
           },
         },
-        images: true, // ✅ CHANGED: Get ALL images to compute status
+        images: true,
       },
       orderBy: { [sortField]: sortOrder },
-      skip,
-      take: limitNum,
+      skip: effectiveSkip,
+      take: effectiveTake,
     }),
     prisma.masterMedicine.count({ where }),
   ]);
 
-  // Transform data for response
   const transformedMedicines = medicines.map((med) => {
-    // Calculate price range from variants
     const prices = med.variants
       .map((v) => v.mrp)
       .filter((p) => p !== null)
@@ -537,18 +149,13 @@ export async function getMasterMedicines({
 
     const priceRange =
       prices.length > 0
-        ? {
-            min: Math.min(...prices),
-            max: Math.max(...prices),
-          }
+        ? { min: Math.min(...prices), max: Math.max(...prices) }
         : null;
 
-    // ✅ FIXED: Compute image status from ALL images
-    const imageStatus = computeImageStatus(med.images);
-
-    // ✅ FIXED: Get primary image properly
+    const imgStatus = computeImageStatus(med.images);
     const primaryImageObj = med.images.find((img) => img.type === "PRIMARY");
-    const primaryImage = primaryImageObj?.url || med.variants[0]?.images?.[0] || null;
+    const primaryImage =
+      primaryImageObj?.url || med.variants[0]?.images?.[0] || null;
 
     return {
       id: med.master_medicine_id,
@@ -562,7 +169,7 @@ export async function getMasterMedicines({
       variantCount: med.variant_count,
       priceRange,
       primaryImage,
-      imageStatus, // ✅ NOW CORRECT
+      imageStatus: imgStatus,
       hasPlaceholder: primaryImage?.includes("PLACEHOLDER") || false,
       previewVariants: med.variants.map((v) => ({
         id: v.variant_id,
@@ -585,14 +192,25 @@ export async function getMasterMedicines({
     };
   });
 
+  let finalMedicines = transformedMedicines;
+  let finalTotal = total;
+
+  if (imageStatus) {
+    finalMedicines = transformedMedicines.filter(
+      (med) => med.imageStatus === imageStatus,
+    );
+    finalTotal = finalMedicines.length;
+    finalMedicines = finalMedicines.slice(skip, skip + limitNum);
+  }
+
   return {
-    medicines: transformedMedicines,
+    medicines: finalMedicines,
     meta: {
-      total,
+      total: finalTotal,
       page: pageNum,
       limit: limitNum,
-      totalPages: Math.ceil(total / limitNum),
-      hasNext: pageNum < Math.ceil(total / limitNum),
+      totalPages: Math.ceil(finalTotal / limitNum),
+      hasNext: pageNum < Math.ceil(finalTotal / limitNum),
       hasPrev: pageNum > 1,
     },
   };
@@ -603,39 +221,26 @@ export async function getMasterMedicines({
 // ══════════════════════════════════════════════════════════════
 
 export async function getMasterMedicineById(id) {
-  // Try finding by UUID first, then by master_key
   let medicine = await prisma.masterMedicine.findUnique({
     where: { master_medicine_id: id },
     include: {
-      variants: {
-        orderBy: [{ brand: "asc" }, { mrp: "asc" }],
-      },
-      images: {
-        orderBy: [{ type: "asc" }, { sequence: "asc" }],
-      },
+      variants: { orderBy: [{ brand: "asc" }, { mrp: "asc" }] },
+      images: { orderBy: [{ type: "asc" }, { sequence: "asc" }] },
     },
   });
 
-  // If not found by UUID, try master_key
   if (!medicine) {
     medicine = await prisma.masterMedicine.findUnique({
       where: { master_key: id },
       include: {
-        variants: {
-          orderBy: [{ brand: "asc" }, { mrp: "asc" }],
-        },
-        images: {
-          orderBy: [{ type: "asc" }, { sequence: "asc" }],
-        },
+        variants: { orderBy: [{ brand: "asc" }, { mrp: "asc" }] },
+        images: { orderBy: [{ type: "asc" }, { sequence: "asc" }] },
       },
     });
   }
 
-  if (!medicine) {
-    return null;
-  }
+  if (!medicine) return null;
 
-  // Calculate price range
   const prices = medicine.variants
     .map((v) => v.mrp)
     .filter((p) => p !== null)
@@ -643,37 +248,26 @@ export async function getMasterMedicineById(id) {
 
   const priceRange =
     prices.length > 0
-      ? {
-          min: Math.min(...prices),
-          max: Math.max(...prices),
-        }
+      ? { min: Math.min(...prices), max: Math.max(...prices) }
       : null;
 
-  // Get unique brands
   const brands = [
     ...new Set(medicine.variants.map((v) => v.brand).filter(Boolean)),
   ].sort();
-
-  // Get unique manufacturers
   const manufacturers = [
     ...new Set(medicine.variants.map((v) => v.manufacturer).filter(Boolean)),
   ].sort();
-
-  // Get unique marketers
   const marketers = [
     ...new Set(medicine.variants.map((v) => v.marketer).filter(Boolean)),
   ].sort();
-
-  // Get unique strengths
   const strengths = [
     ...new Set(
       medicine.variants
         .filter((v) => v.strength_value)
-        .map((v) => `${v.strength_value}${v.strength_unit || ""}`)
+        .map((v) => `${v.strength_value}${v.strength_unit || ""}`),
     ),
   ].sort();
 
-  // ✅ Compute image status
   const imageStatus = computeImageStatus(medicine.images);
 
   return {
@@ -687,16 +281,12 @@ export async function getMasterMedicineById(id) {
     primaryCategory: medicine.primary_category,
     variantCount: medicine.variant_count,
     isActive: medicine.is_active,
-    imageStatus, // ✅ ADD THIS
-
-    // Aggregated data
+    imageStatus,
     priceRange,
     brands,
     manufacturers,
     marketers,
     strengths,
-
-    // All variants
     variants: medicine.variants.map((v) => ({
       id: v.variant_id,
       skuId: v.sku_id,
@@ -723,19 +313,16 @@ export async function getMasterMedicineById(id) {
       createdAt: v.created_at,
       updatedAt: v.updated_at,
     })),
-
-    // Images (grouped by variant)
     images: medicine.images.map((img) => ({
       id: img.image_id,
       skuId: img.sku_id,
       url: img.url,
       type: img.type,
-      source: img.source, // ✅ ADD THIS
+      source: img.source,
       sequence: img.sequence,
       uploadedBy: img.uploaded_by,
       isPlaceholder: img.url?.includes("PLACEHOLDER") || false,
     })),
-
     createdAt: medicine.created_at,
     updatedAt: medicine.updated_at,
   };
@@ -771,11 +358,8 @@ export async function getVariantBySkuId(skuId) {
     },
   });
 
-  if (!variant) {
-    return null;
-  }
+  if (!variant) return null;
 
-  // Get images for this variant
   const images = await prisma.masterMedicineImage.findMany({
     where: { sku_id: skuId },
     orderBy: [{ type: "asc" }, { sequence: "asc" }],
@@ -828,7 +412,7 @@ export async function getVariantBySkuId(skuId) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// GET STATISTICS (✅ FIXED: Add image status counts)
+// GET STATISTICS
 // ══════════════════════════════════════════════════════════════
 
 export async function getMasterMedicineStats() {
@@ -843,19 +427,16 @@ export async function getMasterMedicineStats() {
     multiVariantCount,
     prescriptionRequiredCount,
     recentlyAdded,
-    // ✅ NEW: Get all masters with images to compute status
     allMasters,
+    unmappedCount,
+    needsReviewCount,
+    totalLinkedCount,
   ] = await Promise.all([
-    // Total counts
     prisma.masterMedicine.count({ where: { is_active: true } }),
     prisma.masterMedicineVariant.count(),
     prisma.masterMedicineImage.count(),
-
-    // By type
     prisma.masterMedicine.count({ where: { is_active: true, type: "DRUG" } }),
     prisma.masterMedicine.count({ where: { is_active: true, type: "OTC" } }),
-
-    // By category
     prisma.masterMedicine.groupBy({
       by: ["primary_category"],
       where: { is_active: true, primary_category: { not: null } },
@@ -863,8 +444,6 @@ export async function getMasterMedicineStats() {
       orderBy: { _count: { primary_category: "desc" } },
       take: 10,
     }),
-
-    // By form
     prisma.masterMedicine.groupBy({
       by: ["form"],
       where: { is_active: true, form: { not: null } },
@@ -872,46 +451,54 @@ export async function getMasterMedicineStats() {
       orderBy: { _count: { form: "desc" } },
       take: 10,
     }),
-
-    // Multi-variant masters
     prisma.masterMedicine.count({
       where: { is_active: true, variant_count: { gt: 1 } },
     }),
-
-    // Prescription required
     prisma.masterMedicine.count({
       where: { is_active: true, prescription_required: true },
     }),
-
-    // Recently added (last 7 days)
     prisma.masterMedicine.count({
       where: {
         is_active: true,
-        created_at: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        },
+        created_at: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
       },
     }),
-
-    // ✅ NEW: Get all masters with images
     prisma.masterMedicine.findMany({
       where: { is_active: true },
       select: {
         master_medicine_id: true,
-        images: {
-          select: {
-            source: true,
-          },
-        },
+        images: { select: { source: true } },
+      },
+    }),
+    prisma.medicine.count({
+      where: {
+        master_medicine_id: null,
+        linked_variant_id: null,
+        link_status: { in: ["PENDING", "UNLINKED"] },
+        link_rejected: false,
+        is_active: true,
+      },
+    }),
+    prisma.medicine.count({
+      where: {
+        link_status: "SUGGESTED",
+        suggested_master_id: { not: null },
+        link_rejected: false,
+        is_active: true,
+      },
+    }),
+    prisma.medicine.count({
+      where: {
+        linked_variant_id: { not: null },
+        link_status: { in: ["AUTO_LINKED", "MANUAL_LINKED"] },
+        is_active: true,
       },
     }),
   ]);
 
-  // ✅ NEW: Compute image status counts
-  let verifiedCount = 0;
-  let rawCount = 0;
-  let noneCount = 0;
-
+  let verifiedCount = 0,
+    rawCount = 0,
+    noneCount = 0;
   allMasters.forEach((master) => {
     const status = computeImageStatus(master.images);
     if (status === "VERIFIED") verifiedCount++;
@@ -919,38 +506,32 @@ export async function getMasterMedicineStats() {
     else noneCount++;
   });
 
-  // Calculate averages
-  const avgVariantsPerMaster =
-    totalMasters > 0 ? (totalVariants / totalMasters).toFixed(2) : 0;
-  const avgImagesPerVariant =
-    totalVariants > 0 ? (totalImages / totalVariants).toFixed(2) : 0;
-
   return {
     overview: {
       totalMasters,
       totalVariants,
       totalImages,
-      avgVariantsPerMaster: parseFloat(avgVariantsPerMaster),
-      avgImagesPerVariant: parseFloat(avgImagesPerVariant),
+      avgVariantsPerMaster:
+        totalMasters > 0
+          ? parseFloat((totalVariants / totalMasters).toFixed(2))
+          : 0,
+      avgImagesPerVariant:
+        totalVariants > 0
+          ? parseFloat((totalImages / totalVariants).toFixed(2))
+          : 0,
     },
-    byType: {
-      drug: drugCount,
-      otc: otcCount,
-    },
-    // ✅ NEW: Image status breakdown
-    byImageStatus: {
-      verified: verifiedCount,
-      raw: rawCount,
-      none: noneCount,
+    byType: { drug: drugCount, otc: otcCount },
+    byImageStatus: { verified: verifiedCount, raw: rawCount, none: noneCount },
+    mapping: {
+      unmapped: unmappedCount,
+      needsReview: needsReviewCount,
+      totalLinked: totalLinkedCount,
     },
     categories: categoryCounts.map((c) => ({
       category: c.primary_category,
       count: c._count.primary_category,
     })),
-    forms: formCounts.map((f) => ({
-      form: f.form,
-      count: f._count.form,
-    })),
+    forms: formCounts.map((f) => ({ form: f.form, count: f._count.form })),
     insights: {
       multiVariantMasters: multiVariantCount,
       singleVariantMasters: totalMasters - multiVariantCount,
@@ -962,28 +543,23 @@ export async function getMasterMedicineStats() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// GET FILTER OPTIONS (for dropdowns)
+// GET FILTER OPTIONS
 // ══════════════════════════════════════════════════════════════
 
 export async function getFilterOptions() {
   const [forms, categories, brands, manufacturers] = await Promise.all([
-    // Unique forms
     prisma.masterMedicine.findMany({
       where: { is_active: true, form: { not: null } },
       select: { form: true },
       distinct: ["form"],
       orderBy: { form: "asc" },
     }),
-
-    // Unique categories
     prisma.masterMedicine.findMany({
       where: { is_active: true, primary_category: { not: null } },
       select: { primary_category: true },
       distinct: ["primary_category"],
       orderBy: { primary_category: "asc" },
     }),
-
-    // Top brands (from variants)
     prisma.masterMedicineVariant.groupBy({
       by: ["brand"],
       where: { brand: { not: null } },
@@ -991,8 +567,6 @@ export async function getFilterOptions() {
       orderBy: { _count: { brand: "desc" } },
       take: 50,
     }),
-
-    // Top manufacturers (from variants)
     prisma.masterMedicineVariant.groupBy({
       by: ["manufacturer"],
       where: { manufacturer: { not: null } },
@@ -1006,10 +580,7 @@ export async function getFilterOptions() {
     types: ["DRUG", "OTC"],
     forms: forms.map((f) => f.form).filter(Boolean),
     categories: categories.map((c) => c.primary_category).filter(Boolean),
-    brands: brands.map((b) => ({
-      name: b.brand,
-      count: b._count.brand,
-    })),
+    brands: brands.map((b) => ({ name: b.brand, count: b._count.brand })),
     manufacturers: manufacturers.map((m) => ({
       name: m.manufacturer,
       count: m._count.manufacturer,
@@ -1028,9 +599,7 @@ export async function autocompleteSearch(query, limit = 10) {
 
   const searchTerm = query.trim();
 
-  // Search in both masters and variants
   const [masterMatches, variantMatches] = await Promise.all([
-    // Search masters by generic name
     prisma.masterMedicine.findMany({
       where: {
         is_active: true,
@@ -1050,8 +619,6 @@ export async function autocompleteSearch(query, limit = 10) {
       take: limit,
       orderBy: { generic_name: "asc" },
     }),
-
-    // Search variants by name/brand
     prisma.masterMedicineVariant.findMany({
       where: {
         OR: [
@@ -1078,10 +645,8 @@ export async function autocompleteSearch(query, limit = 10) {
     }),
   ]);
 
-  // Combine and deduplicate
   const suggestions = [];
 
-  // Add master suggestions
   for (const m of masterMatches) {
     suggestions.push({
       type: "master",
@@ -1092,7 +657,6 @@ export async function autocompleteSearch(query, limit = 10) {
     });
   }
 
-  // Add variant suggestions
   for (const v of variantMatches) {
     suggestions.push({
       type: "variant",
@@ -1111,13 +675,7 @@ export async function autocompleteSearch(query, limit = 10) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// COMPUTE IMAGE STATUS FOR A MASTER MEDICINE
-// ══════════════════════════════════════════════════════════════
-
-export { computeImageStatus };
-
-// ══════════════════════════════════════════════════════════════
-// GET UNMAPPED MEDICINES (Aggregated across shops)
+// GET UNMAPPED MEDICINES AGGREGATED
 // ══════════════════════════════════════════════════════════════
 
 export async function getUnmappedMedicinesAggregated({
@@ -1131,10 +689,10 @@ export async function getUnmappedMedicinesAggregated({
   const pageNum = Math.max(1, parseInt(page) || 1);
   const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
 
-  // Get all unlinked medicines grouped by normalized_name
   const rawMedicines = await prisma.medicine.findMany({
     where: {
       master_medicine_id: null,
+      linked_variant_id: null,
       link_status: { in: ["PENDING", "UNLINKED"] },
       link_rejected: false,
       is_active: true,
@@ -1146,6 +704,10 @@ export async function getUnmappedMedicinesAggregated({
       generic_name: true,
       manufacturer: true,
       category: true,
+      sub_category: true,
+      schedule: true,
+      hsn_code: true,
+      pack_size: true,
       shop_id: true,
       branch_id: true,
       created_at: true,
@@ -1160,7 +722,6 @@ export async function getUnmappedMedicinesAggregated({
     orderBy: { created_at: "desc" },
   });
 
-  // Aggregate by normalized_name
   const aggregationMap = new Map();
 
   for (const med of rawMedicines) {
@@ -1183,12 +744,18 @@ export async function getUnmappedMedicinesAggregated({
         type: med.category === "OTC" ? "OTC" : "DRUG",
         firstSeenAt: med.created_at,
         lastSeenAt: med.updated_at,
+        manufacturers: new Set(),
+        genericNames: new Set(),
+        categories: new Set(),
+        subCategories: new Set(),
+        schedules: new Set(),
+        hsnCodes: new Set(),
+        packSizes: new Set(),
       });
     }
 
     const group = aggregationMap.get(normalizedKey);
 
-    // Add unique sample names
     if (!group.sampleNameSet.has(med.name)) {
       group.sampleNameSet.add(med.name);
       group.sampleNames.push(med.name);
@@ -1197,7 +764,14 @@ export async function getUnmappedMedicinesAggregated({
     group.medicineIds.push(med.medicine_id);
     group.occurrenceCount++;
 
-    // Track shops
+    if (med.manufacturer) group.manufacturers.add(med.manufacturer);
+    if (med.generic_name) group.genericNames.add(med.generic_name);
+    if (med.category) group.categories.add(med.category);
+    if (med.sub_category) group.subCategories.add(med.sub_category);
+    if (med.schedule) group.schedules.add(med.schedule);
+    if (med.hsn_code) group.hsnCodes.add(med.hsn_code);
+    if (med.pack_size) group.packSizes.add(med.pack_size);
+
     if (med.shop) {
       const shopKey = med.shop.shop_id;
       if (!group.shopMap.has(shopKey)) {
@@ -1210,12 +784,10 @@ export async function getUnmappedMedicinesAggregated({
       group.shopMap.get(shopKey).count++;
     }
 
-    // Update timestamps
     if (med.created_at < group.firstSeenAt) group.firstSeenAt = med.created_at;
     if (med.updated_at > group.lastSeenAt) group.lastSeenAt = med.updated_at;
   }
 
-  // Convert to array
   let results = Array.from(aggregationMap.values()).map((group) => ({
     id: `unmapped_${group.normalizedName.replace(/\s+/g, "_")}`,
     normalizedName: group.normalizedName,
@@ -1230,42 +802,903 @@ export async function getUnmappedMedicinesAggregated({
     shops: Array.from(group.shopMap.values())
       .sort((a, b) => b.count - a.count)
       .slice(0, 10),
+    manufacturers: [...group.manufacturers].sort(),
+    genericNames: [...group.genericNames].sort(),
+    categories: [...group.categories].sort(),
+    subCategories: [...group.subCategories].sort(),
+    schedules: [...group.schedules].sort(),
+    hsnCodes: [...group.hsnCodes].sort(),
+    packSizes: [...group.packSizes].sort(),
   }));
 
-  // Apply search filter
   if (search && search.trim()) {
     const searchLower = search.toLowerCase();
     results = results.filter(
       (item) =>
         item.normalizedName.includes(searchLower) ||
-        item.sampleNames.some((name) => name.toLowerCase().includes(searchLower))
+        item.sampleNames.some((name) =>
+          name.toLowerCase().includes(searchLower),
+        ) ||
+        item.manufacturers.some((m) => m.toLowerCase().includes(searchLower)),
     );
   }
 
-  // Apply type filter
   if (type && (type === "DRUG" || type === "OTC")) {
     results = results.filter((item) => item.type === type);
   }
 
-  // Sort
-  const sortField = sort === "occurrence_count" ? "occurrenceCount" : sort === "shop_count" ? "shopCount" : "occurrenceCount";
+  const sortField =
+    sort === "occurrence_count"
+      ? "occurrenceCount"
+      : sort === "shop_count"
+        ? "shopCount"
+        : "occurrenceCount";
   results.sort((a, b) => {
     if (order === "asc") return a[sortField] - b[sortField];
     return b[sortField] - a[sortField];
   });
 
-  // Paginate
   const total = results.length;
   const skip = (pageNum - 1) * limitNum;
-  const paginatedResults = results.slice(skip, skip + limitNum);
 
   return {
-    unmapped: paginatedResults,
+    unmapped: results.slice(skip, skip + limitNum),
     meta: {
       total,
       page: pageNum,
       limit: limitNum,
       totalPages: Math.ceil(total / limitNum),
+    },
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// GET NEEDS REVIEW MEDICINES
+// ══════════════════════════════════════════════════════════════
+
+export async function getNeedsReviewMedicines({
+  search = "",
+  confidenceFilter = "",
+  page = 1,
+  limit = 20,
+}) {
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+  const skip = (pageNum - 1) * limitNum;
+
+  const where = {
+    link_status: "SUGGESTED",
+    suggested_master_id: { not: null },
+    link_rejected: false,
+    is_active: true,
+  };
+
+  if (search && search.trim()) {
+    const searchTerm = search.trim();
+    where.OR = [
+      { name: { contains: searchTerm, mode: "insensitive" } },
+      { normalized_name: { contains: searchTerm, mode: "insensitive" } },
+      { manufacturer: { contains: searchTerm, mode: "insensitive" } },
+    ];
+  }
+
+  if (confidenceFilter === "high") {
+    where.link_confidence_score = { gte: 90 };
+  } else if (confidenceFilter === "medium") {
+    where.link_confidence_score = { gte: 70, lt: 90 };
+  } else if (confidenceFilter === "low") {
+    where.link_confidence_score = { lt: 70 };
+  }
+
+  const [medicines, total] = await Promise.all([
+    prisma.medicine.findMany({
+      where,
+      select: {
+        medicine_id: true,
+        name: true,
+        normalized_name: true,
+        generic_name: true,
+        manufacturer: true,
+        category: true,
+        sub_category: true,
+        schedule: true,
+        hsn_code: true,
+        pack_size: true,
+        link_confidence_score: true,
+        suggestion_reason: true,
+        suggested_master_id: true,
+        suggested_variant_id: true,
+        shop_id: true,
+        branch_id: true,
+        created_at: true,
+        shop: {
+          select: { shop_id: true, business_name: true },
+        },
+        branch: {
+          select: { branch_id: true, branch_name: true },
+        },
+      },
+      orderBy: { link_confidence_score: "desc" },
+      skip,
+      take: limitNum,
+    }),
+    prisma.medicine.count({ where }),
+  ]);
+
+  const suggestedMasterIds = [
+    ...new Set(medicines.map((m) => m.suggested_master_id).filter(Boolean)),
+  ];
+
+  const suggestedMasters = await prisma.masterMedicine.findMany({
+    where: { master_medicine_id: { in: suggestedMasterIds } },
+    include: {
+      images: { where: { type: "PRIMARY" }, take: 1 },
+      variants: {
+        take: 1,
+        orderBy: { mrp: "asc" },
+        select: { manufacturer: true, marketer: true },
+      },
+    },
+  });
+
+  const masterMap = new Map(
+    suggestedMasters.map((m) => [m.master_medicine_id, m]),
+  );
+
+  const reviewItems = medicines.map((med) => {
+    const suggestedMaster = masterMap.get(med.suggested_master_id);
+    return {
+      id: med.medicine_id,
+      rawName: med.name,
+      normalizedRaw: med.normalized_name || med.name.toLowerCase(),
+      shopMedicine: {
+        genericName: med.generic_name,
+        manufacturer: med.manufacturer,
+        category: med.category,
+        subCategory: med.sub_category,
+        schedule: med.schedule,
+        hsnCode: med.hsn_code,
+        packSize: med.pack_size,
+      },
+      suggestedMaster: suggestedMaster
+        ? {
+            id: suggestedMaster.master_medicine_id,
+            masterKey: suggestedMaster.master_key,
+            name: suggestedMaster.generic_name,
+            type: suggestedMaster.type,
+            form: suggestedMaster.form,
+            primaryCategory: suggestedMaster.primary_category,
+            prescriptionRequired: suggestedMaster.prescription_required,
+            manufacturer: suggestedMaster.variants[0]?.manufacturer || null,
+            marketer: suggestedMaster.variants[0]?.marketer || null,
+            hasImage: suggestedMaster.images.length > 0,
+            imageStatus: computeImageStatus(suggestedMaster.images),
+          }
+        : null,
+      suggestedVariantId: med.suggested_variant_id || null,
+      confidenceScore: Math.round(med.link_confidence_score || 0),
+      confidenceReason: med.suggestion_reason || "Auto-detected match",
+      shopId: med.shop?.shop_id,
+      shopName: med.shop?.business_name || "Unknown Shop",
+      branchName: med.branch?.branch_name || null,
+      occurrenceCount: 1,
+      firstSeenAt: med.created_at,
+    };
+  });
+
+  const validItems = reviewItems.filter(
+    (item) => item.suggestedMaster !== null,
+  );
+
+  return {
+    reviewItems: validItems,
+    meta: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+    },
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// GET LINKED SHOP MEDICINES FOR A MASTER
+// ══════════════════════════════════════════════════════════════
+
+export async function getLinkedMedicines(masterMedicineId) {
+  const variants = await prisma.masterMedicineVariant.findMany({
+    where: { master_medicine_id: masterMedicineId },
+    select: { variant_id: true, name: true, sku_id: true },
+  });
+
+  const variantIds = variants.map((v) => v.variant_id);
+  const variantMap = new Map(variants.map((v) => [v.variant_id, v]));
+
+  const linkedMedicines = await prisma.medicine.findMany({
+    where: {
+      linked_variant_id: { in: variantIds },
+      link_status: { in: ["AUTO_LINKED", "MANUAL_LINKED"] },
+    },
+    select: {
+      medicine_id: true,
+      name: true,
+      normalized_name: true,
+      manufacturer: true,
+      linked_at: true,
+      linked_by_type: true,
+      link_status: true,
+      link_confidence_score: true,
+      linked_variant_id: true,
+      linked_variant_sku: true,
+      shop: {
+        select: { shop_id: true, business_name: true },
+      },
+    },
+    orderBy: { linked_at: "desc" },
+  });
+
+  return linkedMedicines.map((med) => {
+    const variant = variantMap.get(med.linked_variant_id);
+    return {
+      id: med.medicine_id,
+      originalName: med.name,
+      normalizedName: med.normalized_name || med.name.toLowerCase(),
+      shopId: med.shop?.shop_id,
+      shopName: med.shop?.business_name || "Unknown Shop",
+      manufacturer: med.manufacturer,
+      linkedVariantId: med.linked_variant_id,
+      linkedVariantSku: med.linked_variant_sku,
+      linkedVariantName: variant?.name || null,
+      occurrenceCount: 1,
+      linkedAt: med.linked_at,
+      linkedBy:
+        med.linked_by_type === "SYSTEM"
+          ? "System"
+          : med.linked_by_type === "CADMIN"
+            ? "CAdmin"
+            : "Shop User",
+      linkStatus: med.link_status,
+      confidence: med.link_confidence_score,
+    };
+  });
+}
+
+export async function getLinkedMedicinesByVariant(variantId) {
+  const variant = await prisma.masterMedicineVariant.findUnique({
+    where: { variant_id: variantId },
+    select: {
+      variant_id: true,
+      name: true,
+      sku_id: true,
+      master_medicine_id: true,
+    },
+  });
+
+  if (!variant) return [];
+
+  const linkedMedicines = await prisma.medicine.findMany({
+    where: {
+      linked_variant_id: variantId,
+      link_status: { in: ["AUTO_LINKED", "MANUAL_LINKED"] },
+    },
+    select: {
+      medicine_id: true,
+      name: true,
+      normalized_name: true,
+      manufacturer: true,
+      linked_at: true,
+      linked_by_type: true,
+      link_status: true,
+      link_confidence_score: true,
+      shop: {
+        select: { shop_id: true, business_name: true },
+      },
+    },
+    orderBy: { linked_at: "desc" },
+  });
+
+  return {
+    variant: {
+      id: variant.variant_id,
+      name: variant.name,
+      skuId: variant.sku_id,
+      masterId: variant.master_medicine_id,
+    },
+    linkedMedicines: linkedMedicines.map((med) => ({
+      id: med.medicine_id,
+      originalName: med.name,
+      normalizedName: med.normalized_name || med.name.toLowerCase(),
+      shopId: med.shop?.shop_id,
+      shopName: med.shop?.business_name || "Unknown Shop",
+      manufacturer: med.manufacturer,
+      linkedAt: med.linked_at,
+      linkedBy:
+        med.linked_by_type === "SYSTEM"
+          ? "System"
+          : med.linked_by_type === "CADMIN"
+            ? "CAdmin"
+            : "Shop User",
+      linkStatus: med.link_status,
+      confidence: med.link_confidence_score,
+    })),
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACCEPT REVIEW MATCH
+// ══════════════════════════════════════════════════════════════
+
+export async function acceptReviewMatch(medicineId, cadminId, auditContext = {}) {
+  const medicine = await prisma.medicine.findUnique({
+    where: { medicine_id: medicineId },
+  });
+
+  if (!medicine) throw new Error("Medicine not found");
+  if (!medicine.suggested_master_id) throw new Error("No suggestion to accept");
+
+  const master = await prisma.masterMedicine.findUnique({
+    where: { master_medicine_id: medicine.suggested_master_id },
+  });
+  if (!master) throw new Error("Suggested master no longer exists");
+
+  let targetVariant = null;
+
+  if (medicine.suggested_variant_id) {
+    targetVariant = await prisma.masterMedicineVariant.findUnique({
+      where: { variant_id: medicine.suggested_variant_id },
+    });
+  }
+
+  if (!targetVariant) {
+    targetVariant = await prisma.masterMedicineVariant.findFirst({
+      where: {
+        master_medicine_id: medicine.suggested_master_id,
+        name: { equals: medicine.name, mode: "insensitive" },
+      },
+    });
+  }
+
+  if (!targetVariant) {
+    targetVariant = await prisma.masterMedicineVariant.findFirst({
+      where: { master_medicine_id: medicine.suggested_master_id },
+      orderBy: { mrp: "asc" },
+    });
+  }
+
+  if (!targetVariant) {
+    throw new Error(
+      "No variants found under this master medicine. Cannot link to a variant.",
+    );
+  }
+
+  const updated = await prisma.medicine.update({
+    where: { medicine_id: medicineId },
+    data: {
+      master_medicine_id: medicine.suggested_master_id,
+      linked_variant_id: targetVariant.variant_id,
+      linked_variant_sku: targetVariant.sku_id,
+      link_status: "MANUAL_LINKED",
+      link_confidence_score: medicine.link_confidence_score,
+      linked_at: new Date(),
+      linked_by_id: cadminId,
+      linked_by_type: "CADMIN",
+      suggested_master_id: null,
+      suggested_variant_id: null,
+      suggestion_reason: null,
+    },
+  });
+
+  await audit.log({
+    action:      audit.AuditAction.MEDICINE_MATCH_ACCEPTED,
+    entity_type: audit.EntityType.MEDICINE,
+    entity_id:   medicineId,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      medicine_id:         medicineId,
+      medicine_name:       medicine.name,
+      master_medicine_id:  medicine.suggested_master_id,
+      master_generic_name: master.generic_name,
+      variant_id:          targetVariant.variant_id,
+      variant_name:        targetVariant.name,
+      variant_sku:         targetVariant.sku_id,
+      linked_by_cadmin_id: cadminId,
+      confidence_score:    medicine.link_confidence_score,
+    },
+  });
+
+  const shopMedicine = await prisma.medicine.findUnique({
+    where: { medicine_id: medicineId },
+    select: { name: true, shop_id: true },
+  });
+
+  if (shopMedicine?.shop_id) {
+    notifyAsync({
+      type: NOTIFICATION_EVENTS.MEDICINE_LINKED,
+      context: {
+        shop_id: shopMedicine.shop_id,
+        medicine_id: medicineId,
+        medicine_name: shopMedicine.name,
+        variant_name: targetVariant.name,
+        master_name: master.generic_name,
+      },
+    });
+  }
+
+  return {
+    success: true,
+    medicine: updated,
+    linkedTo: {
+      master_id: master.master_medicine_id,
+      master_key: master.master_key,
+      generic_name: master.generic_name,
+      variant_id: targetVariant.variant_id,
+      variant_name: targetVariant.name,
+      variant_sku: targetVariant.sku_id,
+    },
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// REJECT REVIEW MATCH
+// ══════════════════════════════════════════════════════════════
+
+export async function rejectReviewMatch(medicineId, auditContext = {}) {
+  const updated = await prisma.medicine.update({
+    where: { medicine_id: medicineId },
+    data: {
+      link_status: "PENDING",
+      suggested_master_id: null,
+      suggestion_reason: null,
+      link_confidence_score: null,
+    },
+  });
+
+  await audit.log({
+    action:      audit.AuditAction.MEDICINE_MATCH_REJECTED,
+    entity_type: audit.EntityType.MEDICINE,
+    entity_id:   medicineId,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      medicine_id: medicineId,
+    },
+  });
+
+  return { success: true, medicine: updated };
+}
+
+// ══════════════════════════════════════════════════════════════
+// MATCH UNMAPPED TO VARIANT
+// ══════════════════════════════════════════════════════════════
+
+export async function matchUnmappedToVariant(medicineIds, variantId, cadminId, auditContext = {}) {
+  const variant = await prisma.masterMedicineVariant.findUnique({
+    where: { variant_id: variantId },
+    include: {
+      master: {
+        select: {
+          master_medicine_id: true,
+          master_key: true,
+          generic_name: true,
+        },
+      },
+    },
+  });
+
+  if (!variant) throw new Error("Variant not found");
+
+  const result = await prisma.medicine.updateMany({
+    where: { medicine_id: { in: medicineIds } },
+    data: {
+      master_medicine_id: variant.master_medicine_id,
+      linked_variant_id: variant.variant_id,
+      linked_variant_sku: variant.sku_id,
+      link_status: "MANUAL_LINKED",
+      link_confidence_score: 100,
+      linked_at: new Date(),
+      linked_by_id: cadminId,
+      linked_by_type: "CADMIN",
+      suggested_master_id: null,
+      suggested_variant_id: null,
+      suggestion_reason: null,
+    },
+  });
+
+  await audit.log({
+    action:      audit.AuditAction.MEDICINE_MATCHED_TO_VARIANT,
+    entity_type: audit.EntityType.MEDICINE,
+    entity_id:   null,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      medicine_ids:        medicineIds,
+      count:               result.count,
+      variant_id:          variant.variant_id,
+      variant_name:        variant.name,
+      variant_sku:         variant.sku_id,
+      master_id:           variant.master.master_medicine_id,
+      master_key:          variant.master.master_key,
+      generic_name:        variant.master.generic_name,
+      linked_by_cadmin_id: cadminId,
+    },
+  });
+
+  const affectedMedicines = await prisma.medicine.findMany({
+    where: { medicine_id: { in: medicineIds } },
+    select: { medicine_id: true, name: true, shop_id: true },
+  });
+
+  const shopGroups = new Map();
+  for (const med of affectedMedicines) {
+    if (!med.shop_id) continue;
+    if (!shopGroups.has(med.shop_id)) {
+      shopGroups.set(med.shop_id, { names: [], count: 0 });
+    }
+    const group = shopGroups.get(med.shop_id);
+    group.names.push(med.name);
+    group.count++;
+  }
+
+  for (const [shopId, group] of shopGroups) {
+    notifyAsync({
+      type: NOTIFICATION_EVENTS.MEDICINE_LINKED,
+      context: {
+        shop_id: shopId,
+        medicine_name: group.names[0],
+        variant_name: variant.name,
+        master_name: variant.master.generic_name,
+        linked_count: group.count,
+      },
+    });
+  }
+
+  return {
+    success: true,
+    linkedCount: result.count,
+    linkedTo: {
+      variant_id: variant.variant_id,
+      variant_name: variant.name,
+      variant_sku: variant.sku_id,
+      master_id: variant.master.master_medicine_id,
+      master_key: variant.master.master_key,
+      generic_name: variant.master.generic_name,
+    },
+  };
+}
+
+export async function matchUnmappedToMaster(
+  medicineIds,
+  masterMedicineId,
+  cadminId,
+  auditContext = {},
+) {
+  const firstVariant = await prisma.masterMedicineVariant.findFirst({
+    where: { master_medicine_id: masterMedicineId },
+    orderBy: { mrp: "asc" },
+  });
+
+  if (!firstVariant) {
+    throw new Error(
+      "No variants found under this master. Create a variant first, then link.",
+    );
+  }
+
+  return matchUnmappedToVariant(medicineIds, firstVariant.variant_id, cadminId, auditContext);
+}
+
+// ══════════════════════════════════════════════════════════════
+// IGNORE UNMAPPED MEDICINES
+// ══════════════════════════════════════════════════════════════
+
+export async function ignoreUnmappedMedicines(medicineIds, auditContext = {}) {
+  const result = await prisma.medicine.updateMany({
+    where: { medicine_id: { in: medicineIds } },
+    data: {
+      link_status: "UNLINKED",
+      link_rejected: true,
+    },
+  });
+
+  await audit.log({
+    action:      audit.AuditAction.UNMAPPED_MEDICINES_IGNORED,
+    entity_type: audit.EntityType.MEDICINE,
+    entity_id:   null,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      medicine_ids:  medicineIds,
+      ignored_count: result.count,
+    },
+  });
+
+  return { success: true, ignoredCount: result.count };
+}
+
+// ══════════════════════════════════════════════════════════════
+// UNLINK SHOP MEDICINE
+// ══════════════════════════════════════════════════════════════
+
+export async function unlinkShopMedicine(medicineId, auditContext = {}) {
+  const updated = await prisma.medicine.update({
+    where: { medicine_id: medicineId },
+    data: {
+      master_medicine_id: null,
+      linked_variant_id: null,
+      linked_variant_sku: null,
+      link_status: "PENDING",
+      link_confidence_score: null,
+      linked_at: null,
+      linked_by_id: null,
+      linked_by_type: null,
+    },
+  });
+
+  await audit.log({
+    action:      audit.AuditAction.MEDICINE_UNLINKED,
+    entity_type: audit.EntityType.MEDICINE,
+    entity_id:   medicineId,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      medicine_id: medicineId,
+    },
+  });
+
+  return { success: true, medicine: updated };
+}
+
+// ══════════════════════════════════════════════════════════════
+// UPLOAD MASTER IMAGE
+// ══════════════════════════════════════════════════════════════
+
+export async function uploadMasterImage(
+  masterMedicineId,
+  imageData,
+  cadminName,
+  auditContext = {},
+) {
+  const { filename, type = "PRIMARY", skuId } = imageData;
+
+  const master = await prisma.masterMedicine.findUnique({
+    where: { master_medicine_id: masterMedicineId },
+    include: {
+      variants: { take: 1, select: { sku_id: true } },
+    },
+  });
+
+  if (!master) throw new Error("Master medicine not found");
+
+  const effectiveSkuId = skuId || master.variants[0]?.sku_id || "master";
+
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const baseDir = path.join(__dirname, "../../../../static/medicine_images");
+  const sourceFile = path.join(baseDir, "uploads", filename);
+  const targetDir = path.join(baseDir, effectiveSkuId);
+  const targetFile = path.join(targetDir, filename);
+
+  const fs = await import("fs");
+  fs.default.mkdirSync(targetDir, { recursive: true });
+
+  if (fs.default.existsSync(sourceFile) && sourceFile !== targetFile) {
+    fs.default.renameSync(sourceFile, targetFile);
+  }
+
+  const url = `/static/medicine_images/${effectiveSkuId}/${filename}`;
+
+  if (type === "PRIMARY") {
+    await prisma.masterMedicineImage.updateMany({
+      where: {
+        master_medicine_id: masterMedicineId,
+        type: "PRIMARY",
+      },
+      data: { type: "GALLERY" },
+    });
+  }
+
+  const maxSeq = await prisma.masterMedicineImage.aggregate({
+    where: { master_medicine_id: masterMedicineId },
+    _max: { sequence: true },
+  });
+
+  const image = await prisma.masterMedicineImage.create({
+    data: {
+      master_medicine_id: masterMedicineId,
+      sku_id: effectiveSkuId,
+      url,
+      type,
+      source: "UPLOADED",
+      sequence: (maxSeq._max.sequence || 0) + 1,
+      uploaded_by: cadminName,
+    },
+  });
+
+  await audit.log({
+    action:      audit.AuditAction.MASTER_MEDICINE_IMAGE_UPLOADED,
+    entity_type: audit.EntityType.MASTER_MEDICINE_IMAGE,
+    entity_id:   image.image_id,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      master_medicine_id: masterMedicineId,
+      sku_id:             effectiveSkuId,
+      image_type:         type,
+      filename:           filename,
+      url:                url,
+      uploaded_by_cadmin: cadminName,
+    },
+  });
+
+  return image;
+}
+
+// ══════════════════════════════════════════════════════════════
+// DELETE MASTER IMAGE
+// ══════════════════════════════════════════════════════════════
+
+export async function deleteMasterImage(imageId, auditContext = {}) {
+  const image = await prisma.masterMedicineImage.findUnique({
+    where: { image_id: imageId },
+  });
+
+  if (!image) throw new Error("Image not found");
+
+  await prisma.masterMedicineImage.delete({
+    where: { image_id: imageId },
+  });
+
+  await audit.log({
+    action:      audit.AuditAction.MASTER_MEDICINE_IMAGE_DELETED,
+    entity_type: audit.EntityType.MASTER_MEDICINE_IMAGE,
+    entity_id:   imageId,
+    ...auditContext,
+    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+    metadata: {
+      master_medicine_id: image.master_medicine_id,
+      sku_id:             image.sku_id,
+      image_type:         image.type,
+      url:                image.url,
+    },
+  });
+
+  return { success: true, deletedImage: image };
+}
+
+export { computeImageStatus };
+
+// ══════════════════════════════════════════════════════════════
+// CREATE NEW MASTER MEDICINE + FIRST VARIANT
+// ══════════════════════════════════════════════════════════════
+
+export async function createMasterMedicine(data, cadminId, auditContext = {}) {
+  const {
+    name,
+    genericName,
+    masterKey,
+    type,
+    form,
+    composition = [],
+    manufacturer,
+    marketer,
+    packSize,
+    prescriptionRequired = false,
+    hsn_code,
+    schedule,
+    category,
+    subCategory,
+  } = data;
+
+  if (!name || !genericName || !type || !form || !manufacturer) {
+    throw new Error(
+      "name, genericName, type, form, and manufacturer are required",
+    );
+  }
+
+  const finalKey =
+    masterKey ||
+    genericName
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, "")
+      .replace(/\s+/g, "_")
+      .trim() + (form ? `_${form.toLowerCase()}` : "");
+
+  const existing = await prisma.masterMedicine.findUnique({
+    where: { master_key: finalKey },
+  });
+  if (existing) {
+    throw new Error(`A master medicine with key "${finalKey}" already exists`);
+  }
+
+  const compositionJson =
+    Array.isArray(composition) && composition.length > 0
+      ? composition
+          .filter((c) => c.name && c.name.trim())
+          .map((c) => ({
+            name: c.name.trim(),
+            strength: c.strength?.trim() || null,
+          }))
+      : [];
+
+  const result = await prisma.$transaction(async (tx) => {
+    const master = await tx.masterMedicine.create({
+      data: {
+        master_key: finalKey,
+        generic_name: genericName.trim(),
+        type,
+        form: form || null,
+        composition: compositionJson,
+        prescription_required: prescriptionRequired,
+        primary_category: category || null,
+        variant_count: 1,
+        is_active: true,
+      },
+    });
+
+    const skuId = `MM${Date.now().toString(36).toUpperCase()}`;
+
+    let strengthValue = null;
+    let strengthUnit = null;
+    if (compositionJson.length > 0 && compositionJson[0].strength) {
+      const match = compositionJson[0].strength.match(/^([\d.]+)\s*(.*)$/);
+      if (match) {
+        strengthValue = parseFloat(match[1]);
+        strengthUnit = match[2] || null;
+      }
+    }
+
+    const variant = await tx.masterMedicineVariant.create({
+      data: {
+        master_medicine_id: master.master_medicine_id,
+        sku_id: skuId,
+        name: name.trim(),
+        brand: null,
+        composition: compositionJson,
+        strength_value: strengthValue,
+        strength_unit: strengthUnit,
+        manufacturer: manufacturer.trim(),
+        marketer: marketer?.trim() || manufacturer.trim(),
+        pack_size: packSize || null,
+        mrp: null,
+        selling_price: null,
+        discount_percent: null,
+        description: null,
+        images: [],
+      },
+    });
+
+    await audit.log({
+      action:      audit.AuditAction.MASTER_MEDICINE_CREATED,
+      entity_type: audit.EntityType.MASTER_MEDICINE,
+      entity_id:   master.master_medicine_id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+      metadata: {
+        master_key:           master.master_key,
+        generic_name:         master.generic_name,
+        type:                 master.type,
+        form:                 master.form,
+        created_by_cadmin_id: cadminId,
+        first_variant_sku:    skuId,
+      },
+    }, { tx });
+
+    return { master, variant, skuId };
+  });
+
+  return {
+    success: true,
+    master: {
+      id: result.master.master_medicine_id,
+      masterKey: result.master.master_key,
+      genericName: result.master.generic_name,
+      type: result.master.type,
+      form: result.master.form,
+    },
+    variant: {
+      id: result.variant.variant_id,
+      skuId: result.skuId,
+      name: result.variant.name,
+      manufacturer: result.variant.manufacturer,
     },
   };
 }

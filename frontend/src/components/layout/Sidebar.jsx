@@ -3,10 +3,13 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useSubscriptionStore, selectNeedsRenewal } from "../../store/useSubscriptionStore";
-import { 
-  useAuthStore, 
-  selectIsSuperAdmin, 
+import {
+  useSubscriptionStore,
+  selectNeedsRenewal,
+} from "../../store/useSubscriptionStore";
+import {
+  useAuthStore,
+  selectIsSuperAdmin,
   selectIsGlobalMode,
 } from "../../store/useAuthStore";
 import {
@@ -25,11 +28,11 @@ import {
   AlertTriangle,
   RotateCcw,
   ShoppingBag,
-  ClipboardList, // ✅ NEW: For Orders icon
-  Clock, // ✅ NEW: For Sessions icon
-  ListOrdered, // ✅ NEW: For All Orders
-  CheckCircle2, // ✅ NEW: For Completed Orders
-  Loader2, // ✅ NEW: For Pending Orders
+  ClipboardList, //  NEW: For Orders icon
+  Clock, //  NEW: For Sessions icon
+  ListOrdered, //  NEW: For All Orders
+  CheckCircle2, //  NEW: For Completed Orders
+  Loader2, //  NEW: For Pending Orders
 } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 import { useMenuPermissions } from "../../hooks/usePermission";
@@ -57,10 +60,7 @@ const SUBMENU_VARIANTS = {
 };
 
 // Define write routes that require BRANCH mode
-const WRITE_ROUTES = [
-  "/Sales-billing",
-  "/purchase-billing",
-];
+const WRITE_ROUTES = ["/Sales-billing", "/purchase-billing"];
 
 /* ───────────────── Renewal Badge Component ───────────────── */
 const RenewalBadge = ({ size = "sm", className = "" }) => {
@@ -71,7 +71,7 @@ const RenewalBadge = ({ size = "sm", className = "" }) => {
   };
 
   return (
-    <span 
+    <span
       className={`
         inline-flex items-center justify-center 
         bg-red-500 text-white font-bold rounded-full
@@ -133,11 +133,12 @@ const MenuItem = ({
         className={`
           relative flex items-center w-full h-11 rounded-xl
           transition-colors duration-200
-          ${isDisabled && !isParent
-            ? "opacity-50 cursor-not-allowed bg-gray-50"
-            : isActive
-              ? "bg-[#05015A] text-white shadow-lg shadow-blue-900/20"
-              : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          ${
+            isDisabled && !isParent
+              ? "opacity-50 cursor-not-allowed bg-gray-50"
+              : isActive
+                ? "bg-[#05015A] text-white shadow-lg shadow-blue-900/20"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }
         `}
         whileHover={isDisabled ? {} : { scale: 1.02 }}
@@ -146,13 +147,13 @@ const MenuItem = ({
         <div className="absolute left-0 w-[56px] flex justify-center">
           <div className="relative">
             <Icon size={20} />
-            
+
             {showBadgeOnIcon && (
               <span className="absolute -top-1.5 -right-1.5">
                 <RenewalBadge size="xs" />
               </span>
             )}
-            
+
             {isDisabled && !isParent && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full ring-2 ring-white flex items-center justify-center">
                 <AlertTriangle size={8} className="text-white" />
@@ -170,10 +171,8 @@ const MenuItem = ({
           transition={SIDEBAR_TRANSITION}
         >
           {item.label}
-          
-          {showBadgeOnText && (
-            <RenewalBadge size="sm" />
-          )}
+
+          {showBadgeOnText && <RenewalBadge size="sm" />}
         </motion.span>
 
         {isParent && (
@@ -211,28 +210,35 @@ const MenuItem = ({
             {item.submenu.map((sub) => {
               const SubIcon = sub.icon;
               const isSubActive = activeMenu === sub.id;
-              
-              const subShowBadge = isSuperAdmin && needsRenewal && sub.id === "settings-profile";
+
+              const subShowBadge =
+                isSuperAdmin && needsRenewal && sub.id === "settings-profile";
               const hasBadge = sub.badge !== null && sub.badge !== undefined;
-              
+
               const isSubWriteRoute = WRITE_ROUTES.includes(sub.path);
-              const isSubDisabled = isSubWriteRoute && isSuperAdmin && isGlobalMode;
+              const isSubDisabled =
+                isSubWriteRoute && isSuperAdmin && isGlobalMode;
 
               return (
                 <motion.button
                   key={sub.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onNavigate(sub, isSubDisabled, "Select a branch to create transactions");
+                    onNavigate(
+                      sub,
+                      isSubDisabled,
+                      "Select a branch to create transactions",
+                    );
                   }}
                   disabled={isSubDisabled}
                   className={`
                     flex items-center h-9 px-3 rounded-lg text-sm relative
-                    ${isSubDisabled
-                      ? "opacity-50 cursor-not-allowed bg-gray-50/50"
-                      : isSubActive
-                        ? "bg-blue-50 text-[#05015A]"
-                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                    ${
+                      isSubDisabled
+                        ? "opacity-50 cursor-not-allowed bg-gray-50/50"
+                        : isSubActive
+                          ? "bg-blue-50 text-[#05015A]"
+                          : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                     }
                   `}
                   whileHover={isSubDisabled ? {} : { x: 4 }}
@@ -245,19 +251,19 @@ const MenuItem = ({
                       </span>
                     )}
                   </div>
-                  
+
                   <span className="flex items-center gap-2 flex-1">
                     {sub.label}
-                    
+
                     {subShowBadge && <RenewalBadge size="sm" />}
-                    
+
                     {hasBadge && (
                       <span className="ml-auto px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] text-center animate-pulse">
                         {sub.badge}
                       </span>
                     )}
                   </span>
-                  
+
                   {isSubDisabled && (
                     <span className="ml-auto px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-bold rounded">
                       BRANCH
@@ -278,7 +284,7 @@ const Sidebar = () => {
   const [hovered, setHovered] = useState(false);
   const [openMenuId, setOpenMenuId] = useState("");
   const [pendingReturnsCount, setPendingReturnsCount] = useState(0);
-  const [pendingOrdersCount, setPendingOrdersCount] = useState(0); // ✅ NEW: For pending orders
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0); //  NEW: For pending orders
 
   const isManualToggle = useRef(false);
 
@@ -295,7 +301,9 @@ const Sidebar = () => {
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
   const isGlobalMode = useAuthStore(selectIsGlobalMode);
   const needsRenewal = useSubscriptionStore(selectNeedsRenewal);
-  const loadSubscriptionStatus = useSubscriptionStore((s) => s.loadSubscriptionStatus);
+  const loadSubscriptionStatus = useSubscriptionStore(
+    (s) => s.loadSubscriptionStatus,
+  );
 
   const isExpanded = hovered;
 
@@ -327,7 +335,7 @@ const Sidebar = () => {
     };
   }, [isSuperAdmin]);
 
-  // ✅ NEW: Load pending orders count
+  //  NEW: Load pending orders count
   useEffect(() => {
     const loadPendingOrdersCount = async () => {
       try {
@@ -361,233 +369,236 @@ const Sidebar = () => {
   }, [isSuperAdmin, loadSubscriptionStatus]);
 
   /* ───────────── menu data with permission keys ───────────── */
-  const allMenuItems = useMemo(() => [
-    {
-      id: "dashboard",
-      label: "Dashboard",
-      icon: LayoutGrid,
-      path: "/dashboard",
-      breadcrumbs: ["Dashboard"],
-      permissionKey: "dashboard",
-    },
-    {
-      id: "sales",
-      label: "Sales",
-      icon: Layers,
-      permissionKey: "salesBilling",
-      submenu: [
-        {
-          id: "sales-billing",
-          label: "Billing",
-          icon: FileText,
-          path: "/Sales-billing",
-          breadcrumbs: ["Sales", "Billing"],
-          permissionKey: "salesBilling",
-          isWriteRoute: true,
-        },
-        {
-          id: "sales-invoices",
-          label: "Invoices",
-          icon: BarChart2,
-          path: "/Sales-invoice",
-          breadcrumbs: ["Sales", "Invoices"],
-          permissionKey: "salesInvoices",
-        },
-        {
-          id: "sales-returns",
-          label: "Returns",
-          icon: RotateCcw,
-          path: "/sales-returns",
-          breadcrumbs: ["Sales", "Returns"],
-          permissionKey: "salesReturns",
-          badge: pendingReturnsCount > 0 ? pendingReturnsCount : null,
-        },
-      ],
-    },
-    {
-      id: "purchase",
-      label: "Purchase",
-      icon: ShoppingCart,
-      permissionKey: "purchaseBilling",
-      submenu: [
-        {
-          id: "purchase-billing",
-          label: "Billing",
-          icon: FileText,
-          path: "/purchase-billing",
-          breadcrumbs: ["Purchase", "Billing"],
-          permissionKey: "purchaseBilling",
-          isWriteRoute: true,
-        },
-        {
-          id: "purchase-invoices",
-          label: "Invoices",
-          icon: BarChart2,
-          path: "/purchase-invoices",
-          breadcrumbs: ["Purchase", "Invoices"],
-          permissionKey: "purchaseInvoices",
-        },
-        {
-          id: "purchase-returns",
-          label: "Returns",
-          icon: RotateCcw,
-          path: "/purchase-returns",
-          breadcrumbs: ["Purchase", "Returns"],
-          permissionKey: "purchaseReturns",
-          badge: pendingReturnsCount > 0 ? pendingReturnsCount : null,
-        },
-      ],
-    },
-    {
-      id: "inventory",
-      label: "Inventory",
-      icon: Box,
-      path: "/inventory",
-      breadcrumbs: ["Inventory"],
-      permissionKey: "inventory",
-    },
-    {
-      id: "suppliers",
-      label: "Suppliers",
-      icon: Users,
-      path: "/suppliers",
-      breadcrumbs: ["Suppliers"],
-      permissionKey: "suppliers",
-    },
-    {
-      id: "reports",
-      label: "Report",
-      icon: BarChart2,
-      permissionKey: "salesReport",
-      submenu: [
-        {
-          id: "sales-report",
-          label: "Sales Report",
-          icon: Layers,
-          path: "/reports-sales",
-          breadcrumbs: ["Reports", "Sales Report"],
-          permissionKey: "salesReport",
-        },
-        // {
-        //   id: "purchase-report",
-        //   label: "Purchase Report",
-        //   icon: ShoppingCart,
-        //   path: "/reports-purchase",
-        //   breadcrumbs: ["Reports", "Purchase Report"],
-        //   permissionKey: "purchaseReport",
-        // },
-        // {
-        //   id: "inventory-report",
-        //   label: "Inventory Report",
-        //   icon: Box,
-        //   path: "/reports-inventory",
-        //   breadcrumbs: ["Reports", "Inventory Report"],
-        //   permissionKey: "inventoryReport",
-        // },
-        // {
-        //   id: "finance-report",
-        //   label: "Finance Report",
-        //   icon: FileText,
-        //   path: "/reports-finance",
-        //   breadcrumbs: ["Reports", "Finance Report"],
-        //   permissionKey: "financeReport",
-        // },
-        // // ✅ NEW: Orders Report
-        // {
-        //   id: "orders-report",
-        //   label: "Orders Report",
-        //   icon: ShoppingBag,
-        //   path: "/reports-orders",
-        //   breadcrumbs: ["Reports", "Orders Report"],
-        //   permissionKey: "ordersReport",
-        // },
-      ],
-    },
-    
-    // ✅ NEW: Orders Section
-    {
-      id: "orders",
-      label: "Orders",
-      icon: ShoppingBag,
-      permissionKey: "orders",
-      submenu: [
-        {
-          id: "orders-all",
-          label: "All Orders",
-          icon: ListOrdered,
-          path: "/orders",
-          breadcrumbs: ["Orders", "All Orders"],
-          permissionKey: "ordersAll",
-        },
-        // {
-        //   id: "orders-sessions",
-        //   label: "Sessions",
-        //   icon: Clock,
-        //   path: "/orders-sessions",
-        //   breadcrumbs: ["Orders", "Sessions"],
-        //   permissionKey: "ordersSessions",
-        // },
-        // {
-        //   id: "orders-pending",
-        //   label: "Pending",
-        //   icon: Loader2,
-        //   path: "/orders-pending",
-        //   breadcrumbs: ["Orders", "Pending"],
-        //   permissionKey: "ordersPending",
-        //   badge: pendingOrdersCount > 0 ? pendingOrdersCount : null,
-        // },
-        // {
-        //   id: "orders-completed",
-        //   label: "Completed",
-        //   icon: CheckCircle2,
-        //   path: "/orders-completed",
-        //   breadcrumbs: ["Orders", "Completed"],
-        //   permissionKey: "ordersCompleted",
-        // },
-      ],
-    },
-    {
-      id: "settings",
-      label: "Settings",
-      icon: Settings,
-      permissionKey: "settings",
-      submenu: [
-        {
-          id: "settings-users",
-          label: "Users",
-          icon: Users,
-          path: "/settings/users",
-          breadcrumbs: ["Settings", "Users"],
-          permissionKey: "settingsUsers",
-        },
-        {
-          id: "settings-branches",
-          label: "Branches",
-          icon: Building2,
-          path: "/settings/branches",
-          breadcrumbs: ["Settings", "Branches"],
-          permissionKey: "settingsBranches",
-        },
-        {
-          id: "settings-profile",
-          label: "Profile",
-          icon: UserCircle,
-          path: "/settings/profile",
-          breadcrumbs: ["Settings", "Profile"],
-          permissionKey: "settingsProfile",
-        },
-        {
-          id: "settings-upgrade",
-          label: "Plans",
-          icon: CreditCard,
-          path: "/settings/upgrade",
-          breadcrumbs: ["Settings", "Profile", "Plans"],
-          permissionKey: "settingsUpgrade",
-          hidden: true,
-        },
-      ],
-    },
-  ], [pendingReturnsCount, pendingOrdersCount]);
+  const allMenuItems = useMemo(
+    () => [
+      {
+        id: "dashboard",
+        label: "Dashboard",
+        icon: LayoutGrid,
+        path: "/dashboard",
+        breadcrumbs: ["Dashboard"],
+        permissionKey: "dashboard",
+      },
+      {
+        id: "sales",
+        label: "Sales",
+        icon: Layers,
+        permissionKey: "salesBilling",
+        submenu: [
+          {
+            id: "sales-billing",
+            label: "Billing",
+            icon: FileText,
+            path: "/Sales-billing",
+            breadcrumbs: ["Sales", "Billing"],
+            permissionKey: "salesBilling",
+            isWriteRoute: true,
+          },
+          {
+            id: "sales-invoices",
+            label: "Invoices",
+            icon: BarChart2,
+            path: "/Sales-invoice",
+            breadcrumbs: ["Sales", "Invoices"],
+            permissionKey: "salesInvoices",
+          },
+          {
+            id: "sales-returns",
+            label: "Returns",
+            icon: RotateCcw,
+            path: "/sales-returns",
+            breadcrumbs: ["Sales", "Returns"],
+            permissionKey: "salesReturns",
+            badge: pendingReturnsCount > 0 ? pendingReturnsCount : null,
+          },
+        ],
+      },
+      {
+        id: "purchase",
+        label: "Purchase",
+        icon: ShoppingCart,
+        permissionKey: "purchaseBilling",
+        submenu: [
+          {
+            id: "purchase-billing",
+            label: "Billing",
+            icon: FileText,
+            path: "/purchase-billing",
+            breadcrumbs: ["Purchase", "Billing"],
+            permissionKey: "purchaseBilling",
+            isWriteRoute: true,
+          },
+          {
+            id: "purchase-invoices",
+            label: "Invoices",
+            icon: BarChart2,
+            path: "/purchase-invoices",
+            breadcrumbs: ["Purchase", "Invoices"],
+            permissionKey: "purchaseInvoices",
+          },
+          {
+            id: "purchase-returns",
+            label: "Returns",
+            icon: RotateCcw,
+            path: "/purchase-returns",
+            breadcrumbs: ["Purchase", "Returns"],
+            permissionKey: "purchaseReturns",
+            badge: pendingReturnsCount > 0 ? pendingReturnsCount : null,
+          },
+        ],
+      },
+      {
+        id: "inventory",
+        label: "Inventory",
+        icon: Box,
+        path: "/inventory",
+        breadcrumbs: ["Inventory"],
+        permissionKey: "inventory",
+      },
+      {
+        id: "suppliers",
+        label: "Suppliers",
+        icon: Users,
+        path: "/suppliers",
+        breadcrumbs: ["Suppliers"],
+        permissionKey: "suppliers",
+      },
+      {
+        id: "reports",
+        label: "Report",
+        icon: BarChart2,
+        permissionKey: "salesReport",
+        submenu: [
+          {
+            id: "sales-report",
+            label: "Sales Report",
+            icon: Layers,
+            path: "/reports-sales",
+            breadcrumbs: ["Reports", "Sales Report"],
+            permissionKey: "salesReport",
+          },
+          // {
+          //   id: "purchase-report",
+          //   label: "Purchase Report",
+          //   icon: ShoppingCart,
+          //   path: "/reports-purchase",
+          //   breadcrumbs: ["Reports", "Purchase Report"],
+          //   permissionKey: "purchaseReport",
+          // },
+          // {
+          //   id: "inventory-report",
+          //   label: "Inventory Report",
+          //   icon: Box,
+          //   path: "/reports-inventory",
+          //   breadcrumbs: ["Reports", "Inventory Report"],
+          //   permissionKey: "inventoryReport",
+          // },
+          // {
+          //   id: "finance-report",
+          //   label: "Finance Report",
+          //   icon: FileText,
+          //   path: "/reports-finance",
+          //   breadcrumbs: ["Reports", "Finance Report"],
+          //   permissionKey: "financeReport",
+          // },
+          // //  NEW: Orders Report
+          // {
+          //   id: "orders-report",
+          //   label: "Orders Report",
+          //   icon: ShoppingBag,
+          //   path: "/reports-orders",
+          //   breadcrumbs: ["Reports", "Orders Report"],
+          //   permissionKey: "ordersReport",
+          // },
+        ],
+      },
+
+      //  NEW: Orders Section
+      {
+        id: "orders",
+        label: "Orders",
+        icon: ShoppingBag,
+        permissionKey: "orders",
+        submenu: [
+          {
+            id: "orders-all",
+            label: "All Orders",
+            icon: ListOrdered,
+            path: "/orders",
+            breadcrumbs: ["Orders", "All Orders"],
+            permissionKey: "ordersAll",
+          },
+          // {
+          //   id: "orders-sessions",
+          //   label: "Sessions",
+          //   icon: Clock,
+          //   path: "/orders-sessions",
+          //   breadcrumbs: ["Orders", "Sessions"],
+          //   permissionKey: "ordersSessions",
+          // },
+          // {
+          //   id: "orders-pending",
+          //   label: "Pending",
+          //   icon: Loader2,
+          //   path: "/orders-pending",
+          //   breadcrumbs: ["Orders", "Pending"],
+          //   permissionKey: "ordersPending",
+          //   badge: pendingOrdersCount > 0 ? pendingOrdersCount : null,
+          // },
+          // {
+          //   id: "orders-completed",
+          //   label: "Completed",
+          //   icon: CheckCircle2,
+          //   path: "/orders-completed",
+          //   breadcrumbs: ["Orders", "Completed"],
+          //   permissionKey: "ordersCompleted",
+          // },
+        ],
+      },
+      {
+        id: "settings",
+        label: "Settings",
+        icon: Settings,
+        permissionKey: "settings",
+        submenu: [
+          {
+            id: "settings-users",
+            label: "Users",
+            icon: Users,
+            path: "/settings/users",
+            breadcrumbs: ["Settings", "Users"],
+            permissionKey: "settingsUsers",
+          },
+          {
+            id: "settings-branches",
+            label: "Branches",
+            icon: Building2,
+            path: "/settings/branches",
+            breadcrumbs: ["Settings", "Branches"],
+            permissionKey: "settingsBranches",
+          },
+          {
+            id: "settings-profile",
+            label: "Profile",
+            icon: UserCircle,
+            path: "/settings/profile",
+            breadcrumbs: ["Settings", "Profile"],
+            permissionKey: "settingsProfile",
+          },
+          {
+            id: "settings-upgrade",
+            label: "Plans",
+            icon: CreditCard,
+            path: "/settings/upgrade",
+            breadcrumbs: ["Settings", "Profile", "Plans"],
+            permissionKey: "settingsUpgrade",
+            hidden: true,
+          },
+        ],
+      },
+    ],
+    [pendingReturnsCount, pendingOrdersCount],
+  );
 
   const visibleMenuItems = useMemo(() => {
     return allMenuItems
@@ -658,7 +669,8 @@ const Sidebar = () => {
       if (isDisabled) {
         toast.warning(
           "Branch Required",
-          disabledReason || "Please select a specific branch to access this feature"
+          disabledReason ||
+            "Please select a specific branch to access this feature",
         );
         return;
       }
@@ -667,7 +679,7 @@ const Sidebar = () => {
       setActiveMenu(item.id);
       setBreadcrumbs(item.breadcrumbs);
     },
-    [navigate, setActiveMenu, setBreadcrumbs, toast]
+    [navigate, setActiveMenu, setBreadcrumbs, toast],
   );
 
   const handleToggleSubmenu = useCallback((id) => {
@@ -707,7 +719,7 @@ const Sidebar = () => {
     }
 
     const parent = allAccessibleItems.find((m) =>
-      m.submenu?.some((s) => s.id === activeMenu)
+      m.submenu?.some((s) => s.id === activeMenu),
     );
 
     if (parent && openMenuId !== parent.id) {
@@ -719,7 +731,7 @@ const Sidebar = () => {
     const isValid =
       allAccessibleItems.some((m) => m.id === activeMenu) ||
       allAccessibleItems.some((m) =>
-        m.submenu?.some((s) => s.id === activeMenu)
+        m.submenu?.some((s) => s.id === activeMenu),
       );
 
     if (!isValid && allAccessibleItems.length > 0) {
@@ -751,8 +763,9 @@ const Sidebar = () => {
     >
       <nav className="pt-6 px-2 flex flex-col gap-2">
         {visibleMenuItems.map((item) => {
-          const showRenewalBadge = isSuperAdmin && needsRenewal && item.id === "settings";
-          
+          const showRenewalBadge =
+            isSuperAdmin && needsRenewal && item.id === "settings";
+
           const isWriteRoute = WRITE_ROUTES.includes(item.path);
           const isDisabled = isWriteRoute && isSuperAdmin && isGlobalMode;
 

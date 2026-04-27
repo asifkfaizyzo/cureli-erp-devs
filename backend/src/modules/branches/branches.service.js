@@ -41,10 +41,7 @@ export async function getBranchesByShop(shop_id, options = {}) {
         },
       },
     },
-    orderBy: [
-      { branch_type: "asc" },
-      { branch_name: "asc" },
-    ],
+    orderBy: [{ branch_type: "asc" }, { branch_name: "asc" }],
   });
 
   return branches.map((branch) => ({
@@ -107,10 +104,7 @@ export async function getBranchesForDropdown(shop_id) {
       branch_type: true,
       is_active: true,
     },
-    orderBy: [
-      { branch_type: "asc" },
-      { branch_name: "asc" },
-    ],
+    orderBy: [{ branch_type: "asc" }, { branch_name: "asc" }],
   });
 
   return branches.map((branch) => ({
@@ -181,7 +175,8 @@ export async function getBranchLimits(shop_id) {
   const currentCount = shop._count.branches;
 
   const canAdd = maxAllowed === -1 || currentCount < maxAllowed;
-  const remaining = maxAllowed === -1 ? -1 : Math.max(0, maxAllowed - currentCount);
+  const remaining =
+    maxAllowed === -1 ? -1 : Math.max(0, maxAllowed - currentCount);
 
   return {
     current_count: currentCount,
@@ -191,7 +186,11 @@ export async function getBranchLimits(shop_id) {
   };
 }
 
-export async function isBranchNameUnique(shop_id, branch_name, exclude_branch_id = null) {
+export async function isBranchNameUnique(
+  shop_id,
+  branch_name,
+  exclude_branch_id = null,
+) {
   const where = {
     shop_id,
     branch_name: {
@@ -241,10 +240,7 @@ export async function getBranchesForReassignment(shop_id, exclude_branch_id) {
       branch_name: true,
       branch_type: true,
     },
-    orderBy: [
-      { branch_type: "asc" },
-      { branch_name: "asc" },
-    ],
+    orderBy: [{ branch_type: "asc" }, { branch_name: "asc" }],
   });
 
   return branches.map((b) => ({
@@ -267,7 +263,7 @@ export async function createBranch(shop_id, data, auditContext, options = {}) {
   const limits = await getBranchLimits(shop_id);
   if (!limits.can_add) {
     const err = new Error(
-      `Branch limit reached. Your plan allows ${limits.max_allowed} branches.`
+      `Branch limit reached. Your plan allows ${limits.max_allowed} branches.`,
     );
     err.code = "BRANCH_LIMIT_EXCEEDED";
     throw err;
@@ -319,21 +315,24 @@ export async function createBranch(shop_id, data, auditContext, options = {}) {
   });
 
   // Audit: Branch created
-  await audit.log({
-    action: audit.AuditAction.BRANCH_CREATED,
-    entity_type: audit.EntityType.BRANCH,
-    entity_id: branch.branch_id,
-    shop_id: shop_id,
-    ...auditContext,
-    reason_code: audit.AuditReasonCode.USER_REQUEST,
-    metadata: {
-      branch_name: branch.branch_name,
-      branch_type: branch.branch_type,
-      city: branch.city,
-      state: branch.state,
-      is_first_branch: isFirstBranch,
+  await audit.log(
+    {
+      action: audit.AuditAction.BRANCH_CREATED,
+      entity_type: audit.EntityType.BRANCH,
+      entity_id: branch.branch_id,
+      shop_id: shop_id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        branch_name: branch.branch_name,
+        branch_type: branch.branch_type,
+        city: branch.city,
+        state: branch.state,
+        is_first_branch: isFirstBranch,
+      },
     },
-  }, { tx });
+    { tx },
+  );
 
   return {
     ...branch,
@@ -342,7 +341,13 @@ export async function createBranch(shop_id, data, auditContext, options = {}) {
   };
 }
 
-export async function updateBranch(branch_id, shop_id, data, auditContext, options = {}) {
+export async function updateBranch(
+  branch_id,
+  shop_id,
+  data,
+  auditContext,
+  options = {},
+) {
   const { tx } = options;
   const db = tx || prisma;
 
@@ -361,11 +366,17 @@ export async function updateBranch(branch_id, shop_id, data, auditContext, optio
   }
 
   // Check name uniqueness if name is being changed
-  const nameChanged = data.branch_name && 
-    data.branch_name.trim().toLowerCase() !== existingBranch.branch_name.toLowerCase();
-  
+  const nameChanged =
+    data.branch_name &&
+    data.branch_name.trim().toLowerCase() !==
+      existingBranch.branch_name.toLowerCase();
+
   if (nameChanged) {
-    const isUnique = await isBranchNameUnique(shop_id, data.branch_name, branch_id);
+    const isUnique = await isBranchNameUnique(
+      shop_id,
+      data.branch_name,
+      branch_id,
+    );
     if (!isUnique) {
       const err = new Error("A branch with this name already exists");
       err.code = "BRANCH_NAME_EXISTS";
@@ -379,42 +390,43 @@ export async function updateBranch(branch_id, shop_id, data, auditContext, optio
 
   if (data.branch_name !== undefined) {
     updateData.branch_name = data.branch_name.trim();
-    if (nameChanged) changedFields.push('branch_name');
+    if (nameChanged) changedFields.push("branch_name");
   }
   if (data.address_line_1 !== undefined) {
     updateData.address_line_1 = data.address_line_1 || null;
     if (updateData.address_line_1 !== existingBranch.address_line_1) {
-      changedFields.push('address_line_1');
+      changedFields.push("address_line_1");
     }
   }
   if (data.address_line_2 !== undefined) {
     updateData.address_line_2 = data.address_line_2 || null;
     if (updateData.address_line_2 !== existingBranch.address_line_2) {
-      changedFields.push('address_line_2');
+      changedFields.push("address_line_2");
     }
   }
   if (data.city !== undefined) {
     updateData.city = data.city || null;
-    if (updateData.city !== existingBranch.city) changedFields.push('city');
+    if (updateData.city !== existingBranch.city) changedFields.push("city");
   }
   if (data.state !== undefined) {
     updateData.state = data.state || null;
-    if (updateData.state !== existingBranch.state) changedFields.push('state');
+    if (updateData.state !== existingBranch.state) changedFields.push("state");
   }
   if (data.pincode !== undefined) {
     updateData.pincode = data.pincode || null;
-    if (updateData.pincode !== existingBranch.pincode) changedFields.push('pincode');
+    if (updateData.pincode !== existingBranch.pincode)
+      changedFields.push("pincode");
   }
   if (data.contact_number !== undefined) {
     updateData.contact_number = data.contact_number || null;
     if (updateData.contact_number !== existingBranch.contact_number) {
-      changedFields.push('contact_number');
+      changedFields.push("contact_number");
     }
   }
   if (data.alternate_number !== undefined) {
     updateData.alternate_number = data.alternate_number || null;
     if (updateData.alternate_number !== existingBranch.alternate_number) {
-      changedFields.push('alternate_number');
+      changedFields.push("alternate_number");
     }
   }
 
@@ -447,33 +459,39 @@ export async function updateBranch(branch_id, shop_id, data, auditContext, optio
 
   // Audit: Branch renamed (if name changed) or general update
   if (nameChanged) {
-    await audit.log({
-      action: audit.AuditAction.BRANCH_RENAMED,
-      entity_type: audit.EntityType.BRANCH,
-      entity_id: branch_id,
-      shop_id: shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.USER_REQUEST,
-      metadata: {
-        previous_name: existingBranch.branch_name,
-        new_name: updatedBranch.branch_name,
-        changed_fields: changedFields,
+    await audit.log(
+      {
+        action: audit.AuditAction.BRANCH_RENAMED,
+        entity_type: audit.EntityType.BRANCH,
+        entity_id: branch_id,
+        shop_id: shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.USER_REQUEST,
+        metadata: {
+          previous_name: existingBranch.branch_name,
+          new_name: updatedBranch.branch_name,
+          changed_fields: changedFields,
+        },
       },
-    }, { tx });
+      { tx },
+    );
   } else if (changedFields.length > 0) {
     // Log general update if other fields changed
-    await audit.log({
-      action: audit.AuditAction.BRANCH_RENAMED, // Reusing this action for updates
-      entity_type: audit.EntityType.BRANCH,
-      entity_id: branch_id,
-      shop_id: shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.USER_REQUEST,
-      metadata: {
-        changed_fields: changedFields,
-        branch_name: updatedBranch.branch_name,
+    await audit.log(
+      {
+        action: audit.AuditAction.BRANCH_RENAMED, // Reusing this action for updates
+        entity_type: audit.EntityType.BRANCH,
+        entity_id: branch_id,
+        shop_id: shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.USER_REQUEST,
+        metadata: {
+          changed_fields: changedFields,
+          branch_name: updatedBranch.branch_name,
+        },
       },
-    }, { tx });
+      { tx },
+    );
   }
 
   return {
@@ -484,7 +502,12 @@ export async function updateBranch(branch_id, shop_id, data, auditContext, optio
   };
 }
 
-export async function deleteBranch(branch_id, shop_id, auditContext, options = {}) {
+export async function deleteBranch(
+  branch_id,
+  shop_id,
+  auditContext,
+  options = {},
+) {
   const { tx } = options;
   const db = tx || prisma;
 
@@ -521,7 +544,7 @@ export async function deleteBranch(branch_id, shop_id, auditContext, options = {
   // Check for active users
   if (branch._count.users > 0) {
     const err = new Error(
-      `Cannot delete branch with active users. Please reassign ${branch._count.users} user(s) first.`
+      `Cannot delete branch with active users. Please reassign ${branch._count.users} user(s) first.`,
     );
     err.code = "BRANCH_HAS_USERS";
     err.user_count = branch._count.users;
@@ -535,23 +558,31 @@ export async function deleteBranch(branch_id, shop_id, auditContext, options = {
   });
 
   // Audit: Branch deactivated
-  await audit.log({
-    action: audit.AuditAction.BRANCH_DEACTIVATED,
-    entity_type: audit.EntityType.BRANCH,
-    entity_id: branch_id,
-    shop_id: shop_id,
-    ...auditContext,
-    reason_code: audit.AuditReasonCode.USER_REQUEST,
-    metadata: {
-      branch_name: branch.branch_name,
-      reason: 'User requested deletion',
+  await audit.log(
+    {
+      action: audit.AuditAction.BRANCH_DEACTIVATED,
+      entity_type: audit.EntityType.BRANCH,
+      entity_id: branch_id,
+      shop_id: shop_id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        branch_name: branch.branch_name,
+        reason: "User requested deletion",
+      },
     },
-  }, { tx });
+    { tx },
+  );
 
   return { success: true };
 }
 
-export async function reactivateBranch(branch_id, shop_id, auditContext, options = {}) {
+export async function reactivateBranch(
+  branch_id,
+  shop_id,
+  auditContext,
+  options = {},
+) {
   const { tx } = options;
   const db = tx || prisma;
 
@@ -578,7 +609,7 @@ export async function reactivateBranch(branch_id, shop_id, auditContext, options
   const limits = await getBranchLimits(shop_id);
   if (!limits.can_add) {
     const err = new Error(
-      `Cannot reactivate. Branch limit reached (${limits.max_allowed} branches).`
+      `Cannot reactivate. Branch limit reached (${limits.max_allowed} branches).`,
     );
     err.code = "BRANCH_LIMIT_EXCEEDED";
     throw err;
@@ -595,17 +626,20 @@ export async function reactivateBranch(branch_id, shop_id, auditContext, options
   });
 
   // Audit: Branch reactivated
-  await audit.log({
-    action: audit.AuditAction.BRANCH_REACTIVATED,
-    entity_type: audit.EntityType.BRANCH,
-    entity_id: branch_id,
-    shop_id: shop_id,
-    ...auditContext,
-    reason_code: audit.AuditReasonCode.USER_REQUEST,
-    metadata: {
-      branch_name: updatedBranch.branch_name,
+  await audit.log(
+    {
+      action: audit.AuditAction.BRANCH_REACTIVATED,
+      entity_type: audit.EntityType.BRANCH,
+      entity_id: branch_id,
+      shop_id: shop_id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        branch_name: updatedBranch.branch_name,
+      },
     },
-  }, { tx });
+    { tx },
+  );
 
   return updatedBranch;
 }
@@ -613,18 +647,19 @@ export async function reactivateBranch(branch_id, shop_id, auditContext, options
 export async function getCurrentBranchController(req, res) {
   try {
     const { user_id, shop_id, branch_id, role } = req.user;
-    
-    // ✅ For Super Admin, also check for branch context in headers or session
+
+    //  For Super Admin, also check for branch context in headers or session
     // Some systems store the "switched" branch differently
     let effectiveBranchId = branch_id;
-    
+
     // Check if branch context is passed in header (common pattern for SA branch switching)
-    const headerBranchId = req.headers['x-branch-id'] || req.headers['x-current-branch'];
+    const headerBranchId =
+      req.headers["x-branch-id"] || req.headers["x-current-branch"];
     if (!effectiveBranchId && headerBranchId) {
       effectiveBranchId = headerBranchId;
     }
-    
-    console.log('getCurrentBranchController:', {
+
+    console.log("getCurrentBranchController:", {
       user_id,
       shop_id,
       branch_id,
@@ -634,29 +669,29 @@ export async function getCurrentBranchController(req, res) {
 
     // If still no branch, try to get the main branch for the shop
     if (!effectiveBranchId && shop_id) {
-      console.log('No branch_id, fetching main branch for shop:', shop_id);
-      
+      console.log("No branch_id, fetching main branch for shop:", shop_id);
+
       const mainBranch = await prisma.branch.findFirst({
         where: {
           shop_id,
-          branch_type: 'main',
+          branch_type: "main",
           is_active: true,
         },
         select: {
           branch_id: true,
         },
       });
-      
+
       if (mainBranch) {
         effectiveBranchId = mainBranch.branch_id;
-        console.log('Found main branch:', effectiveBranchId);
+        console.log("Found main branch:", effectiveBranchId);
       }
     }
 
     // If still no branch, try to get ANY active branch for the shop
     if (!effectiveBranchId && shop_id) {
-      console.log('No main branch, fetching any branch for shop:', shop_id);
-      
+      console.log("No main branch, fetching any branch for shop:", shop_id);
+
       const anyBranch = await prisma.branch.findFirst({
         where: {
           shop_id,
@@ -666,10 +701,10 @@ export async function getCurrentBranchController(req, res) {
           branch_id: true,
         },
       });
-      
+
       if (anyBranch) {
         effectiveBranchId = anyBranch.branch_id;
-        console.log('Found branch:', effectiveBranchId);
+        console.log("Found branch:", effectiveBranchId);
       }
     }
 
@@ -689,14 +724,14 @@ export async function getCurrentBranchController(req, res) {
             pincode: true,
           },
         });
-        
+
         return success(res, {
           branch: null,
           shop: shop,
           message: "No branch selected, returning shop info",
         });
       }
-      
+
       return success(res, {
         branch: null,
         shop: null,
@@ -704,7 +739,7 @@ export async function getCurrentBranchController(req, res) {
       });
     }
 
-    // ✅ Fetch branch and shop data
+    //  Fetch branch and shop data
     const branch = await prisma.branch.findUnique({
       where: { branch_id: effectiveBranchId },
       select: {
@@ -769,12 +804,12 @@ export async function getCurrentBranchWithShop(shop_id, branch_id = null) {
       const mainBranch = await prisma.branch.findFirst({
         where: {
           shop_id,
-          branch_type: 'main',
+          branch_type: "main",
           is_active: true,
         },
         select: { branch_id: true },
       });
-      
+
       if (mainBranch) {
         effectiveBranchId = mainBranch.branch_id;
       }
@@ -786,7 +821,7 @@ export async function getCurrentBranchWithShop(shop_id, branch_id = null) {
         where: { shop_id, is_active: true },
         select: { branch_id: true },
       });
-      
+
       if (anyBranch) {
         effectiveBranchId = anyBranch.branch_id;
       }
@@ -808,10 +843,10 @@ export async function getCurrentBranchWithShop(shop_id, branch_id = null) {
             pincode: true,
           },
         });
-        
+
         return { branch: null, shop };
       }
-      
+
       return { branch: null, shop: null };
     }
 

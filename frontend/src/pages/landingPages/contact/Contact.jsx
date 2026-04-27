@@ -8,8 +8,11 @@ import Footer from "../home/components/Footer";
 import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 
 const Contact = () => {
-  // ✅ Memoize reCAPTCHA key to prevent unnecessary re-renders
-  const recaptchaKey = useMemo(() => import.meta.env.VITE_GOOGLE_CAPTCHA_ID, []);
+  //  Memoize reCAPTCHA key to prevent unnecessary re-renders
+  const recaptchaKey = useMemo(
+    () => import.meta.env.VITE_GOOGLE_CAPTCHA_ID,
+    [],
+  );
 
   return (
     <div className="w-full overflow-hidden">
@@ -20,7 +23,7 @@ const Contact = () => {
         {/* Hero Section */}
         <ContactHero />
 
-        {/* ✅ FIXED: Wrap only the form component with reCAPTCHA provider */}
+        {/*  FIXED: Wrap only the form component with reCAPTCHA provider */}
         <GoogleReCaptchaProvider
           reCaptchaKey={recaptchaKey}
           scriptProps={{
@@ -60,12 +63,12 @@ export default Contact;
 //   return (
 //     <div className="w-full overflow-hidden">
 //       <Navbar />
-      
+
 //       {/* Hero and Form Card Container */}
 //       <div className="relative">
 //         {/* Hero Section */}
 //         <ContactHero />
-        
+
 //         {/* Overlapping Form Card - Responsive Margins */}
 //          <GoogleReCaptchaProvider
 //       reCaptchaKey={import.meta.env.VITE_GOOGLE_CAPTCHA_ID}
@@ -80,10 +83,9 @@ export default Contact;
 //         </div>
 
 //     </GoogleReCaptchaProvider>
-        
-        
+
 //       </div>
-      
+
 //       {/* White Space Below - Responsive Padding */}
 //      <div className="
 //   bg-white
@@ -98,7 +100,7 @@ export default Contact;
 //         {/* <OpeningHours /> */}
 //         <MapSection />
 //       </div>
-      
+
 //       <Footer />
 //     </div>
 //   );

@@ -33,19 +33,26 @@ const DEFAULT_ROWS_PER_PAGE = 10;
 const ROW_HEIGHT = 44;
 
 const getColumnWidths = () => ({
-  rowNum: '4%',
-  branch: '24%',
-  address: '28%',
-  contact: '16%',
-  users: '10%',
-  status: '10%',
-  actions: '8%',
+  rowNum: "4%",
+  branch: "24%",
+  address: "28%",
+  contact: "16%",
+  users: "10%",
+  status: "10%",
+  actions: "8%",
 });
 
 /**
  * ActionMenu Component - Rendered via Portal
  */
-const ActionMenu = ({ branch, position, onClose, onEdit, onDeactivate, onReactivate }) => {
+const ActionMenu = ({
+  branch,
+  position,
+  onClose,
+  onEdit,
+  onDeactivate,
+  onReactivate,
+}) => {
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -83,7 +90,10 @@ const ActionMenu = ({ branch, position, onClose, onEdit, onDeactivate, onReactiv
       style={{ top: position.top, left: position.left }}
     >
       <button
-        onClick={() => { onClose(); onEdit(branch); }}
+        onClick={() => {
+          onClose();
+          onEdit(branch);
+        }}
         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
       >
         <Edit2 size={12} />
@@ -94,7 +104,10 @@ const ActionMenu = ({ branch, position, onClose, onEdit, onDeactivate, onReactiv
         <>
           <div className="border-t border-gray-100 my-1" />
           <button
-            onClick={() => { onClose(); onReactivate(branch); }}
+            onClick={() => {
+              onClose();
+              onReactivate(branch);
+            }}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-600 hover:bg-emerald-50 transition-colors"
           >
             <Power size={12} />
@@ -107,7 +120,10 @@ const ActionMenu = ({ branch, position, onClose, onEdit, onDeactivate, onReactiv
         <>
           <div className="border-t border-gray-100 my-1" />
           <button
-            onClick={() => { onClose(); onDeactivate(branch); }}
+            onClick={() => {
+              onClose();
+              onDeactivate(branch);
+            }}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
           >
             <Trash2 size={12} />
@@ -117,10 +133,12 @@ const ActionMenu = ({ branch, position, onClose, onEdit, onDeactivate, onReactiv
       )}
 
       {branch.is_main && branch.is_active && (
-        <p className="px-3 py-1.5 text-[10px] text-gray-400 italic">Main branch cannot be deactivated</p>
+        <p className="px-3 py-1.5 text-[10px] text-gray-400 italic">
+          Main branch cannot be deactivated
+        </p>
       )}
     </motion.div>,
-    document.body
+    document.body,
   );
 };
 
@@ -168,7 +186,12 @@ const StatusBadge = ({ isActive }) => {
  * Format address helper
  */
 const formatAddress = (branch) => {
-  const parts = [branch.address_line_1, branch.city, branch.state, branch.pincode].filter(Boolean);
+  const parts = [
+    branch.address_line_1,
+    branch.city,
+    branch.state,
+    branch.pincode,
+  ].filter(Boolean);
   return parts.join(", ") || "No address";
 };
 
@@ -185,11 +208,11 @@ const BranchRow = ({
   onActionClick,
 }) => {
   return (
-    <tr 
+    <tr
       className={`
-        ${isEven ? 'bg-white' : 'bg-slate-50/50'} 
+        ${isEven ? "bg-white" : "bg-slate-50/50"} 
         hover:bg-indigo-50/50 transition-colors duration-150
-        ${!branch.is_active ? 'opacity-60' : ''}
+        ${!branch.is_active ? "opacity-60" : ""}
       `}
       style={{ height: `${rowHeight}px` }}
     >
@@ -203,31 +226,36 @@ const BranchRow = ({
       {/* Branch Info */}
       <td className="px-1.5 py-0.5 border-r border-slate-100">
         <div className="flex items-center gap-2">
-          <div className={`
+          <div
+            className={`
             w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0
-            ${!branch.is_active 
-              ? 'bg-slate-200' 
-              : branch.is_main 
-                ? 'bg-amber-100' 
-                : 'bg-indigo-100'
+            ${
+              !branch.is_active
+                ? "bg-slate-200"
+                : branch.is_main
+                  ? "bg-amber-100"
+                  : "bg-indigo-100"
             }
-          `}>
-            <Building2 
-              size={14} 
+          `}
+          >
+            <Building2
+              size={14}
               className={
-                !branch.is_active 
-                  ? 'text-slate-400' 
-                  : branch.is_main 
-                    ? 'text-amber-600' 
-                    : 'text-indigo-600'
-              } 
+                !branch.is_active
+                  ? "text-slate-400"
+                  : branch.is_main
+                    ? "text-amber-600"
+                    : "text-indigo-600"
+              }
             />
           </div>
           <div className="min-w-0 flex-1">
-            <p className={`
+            <p
+              className={`
               text-[10px] 2xl:text-[11px] font-medium truncate
-              ${branch.is_active ? 'text-slate-800' : 'text-slate-500'}
-            `}>
+              ${branch.is_active ? "text-slate-800" : "text-slate-500"}
+            `}
+            >
               {branch.branch_name}
             </p>
             <BranchTypeBadge isMain={branch.is_main} />
@@ -239,7 +267,7 @@ const BranchRow = ({
       <td className="px-1.5 py-0.5 border-r border-slate-100">
         <div className="flex items-center gap-1 min-w-0">
           <MapPin size={10} className="text-slate-400 flex-shrink-0" />
-          <span 
+          <span
             className="text-[9px] 2xl:text-[10px] text-slate-600 truncate"
             title={formatAddress(branch)}
           >
@@ -300,8 +328,8 @@ const BranchRow = ({
  * Loading Skeleton Row
  */
 const SkeletonRow = ({ rowHeight, isEven }) => (
-  <tr 
-    className={isEven ? 'bg-white' : 'bg-slate-50/50'}
+  <tr
+    className={isEven ? "bg-white" : "bg-slate-50/50"}
     style={{ height: `${rowHeight}px` }}
   >
     <td className="px-1 py-0.5 border-r border-slate-100">
@@ -348,17 +376,27 @@ const BranchListTable = ({
   const tableBodyRef = useRef(null);
   const headerRef = useRef(null);
   const actionButtonRefs = useRef({});
-  
+
   const [scrollbarWidth, setScrollbarWidth] = useState(0);
-  const [scrollInfo, setScrollInfo] = useState({ canScrollUp: false, canScrollDown: false });
-  const [actionMenuState, setActionMenuState] = useState({ branchId: null, position: null });
+  const [scrollInfo, setScrollInfo] = useState({
+    canScrollUp: false,
+    canScrollDown: false,
+  });
+  const [actionMenuState, setActionMenuState] = useState({
+    branchId: null,
+    position: null,
+  });
   const [processingBranchId, setProcessingBranchId] = useState(null);
-  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, branch: null });
-  
-  // ✅ INTERNAL PAGINATION STATE
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    type: null,
+    branch: null,
+  });
+
+  //  INTERNAL PAGINATION STATE
   const [currentPage, setCurrentPage] = useState(1);
 
-  // ✅ Get dynamic row count with proper fallback
+  //  Get dynamic row count with proper fallback
   const dynamicRowCount = useDynamicRowCount();
   const rowsPerPage = useMemo(() => {
     const count = Number(dynamicRowCount);
@@ -368,11 +406,11 @@ const BranchListTable = ({
   const viewportHeight = rowsPerPage * ROW_HEIGHT;
   const columnWidths = getColumnWidths();
 
-  // ✅ Safe pagination calculations
+  //  Safe pagination calculations
   const totalItems = Array.isArray(branches) ? branches.length : 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / rowsPerPage));
-  
-  // ✅ Ensure currentPage is always valid
+
+  //  Ensure currentPage is always valid
   const safeCurrentPage = useMemo(() => {
     const page = Number(currentPage);
     if (isNaN(page) || page < 1) return 1;
@@ -380,14 +418,14 @@ const BranchListTable = ({
     return page;
   }, [currentPage, totalPages]);
 
-  // ✅ Reset to valid page if current page exceeds total
+  //  Reset to valid page if current page exceeds total
   useEffect(() => {
     if (currentPage !== safeCurrentPage) {
       setCurrentPage(safeCurrentPage);
     }
   }, [safeCurrentPage, currentPage]);
 
-  // ✅ Paginate the branches array
+  //  Paginate the branches array
   const startIndex = (safeCurrentPage - 1) * rowsPerPage;
   const paginatedBranches = useMemo(() => {
     if (!Array.isArray(branches)) return [];
@@ -417,17 +455,20 @@ const BranchListTable = ({
   useEffect(() => {
     const container = tableBodyRef.current;
     if (!container) return;
-    container.addEventListener('scroll', updateScrollInfo);
+    container.addEventListener("scroll", updateScrollInfo);
     updateScrollInfo();
-    return () => container.removeEventListener('scroll', updateScrollInfo);
+    return () => container.removeEventListener("scroll", updateScrollInfo);
   }, [updateScrollInfo]);
 
   const scrollToTop = useCallback(() => {
-    tableBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    tableBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   const scrollToBottom = useCallback(() => {
-    tableBodyRef.current?.scrollTo({ top: tableBodyRef.current.scrollHeight, behavior: 'smooth' });
+    tableBodyRef.current?.scrollTo({
+      top: tableBodyRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, []);
 
   // ============================================
@@ -445,9 +486,11 @@ const BranchListTable = ({
     let top = rect.bottom + padding;
     let left = rect.right - menuWidth;
 
-    if (top + menuHeight > window.innerHeight) top = rect.top - menuHeight - padding;
+    if (top + menuHeight > window.innerHeight)
+      top = rect.top - menuHeight - padding;
     if (left < padding) left = padding;
-    if (left + menuWidth > window.innerWidth - padding) left = window.innerWidth - menuWidth - padding;
+    if (left + menuWidth > window.innerWidth - padding)
+      left = window.innerWidth - menuWidth - padding;
 
     return { top, left };
   }, []);
@@ -464,11 +507,16 @@ const BranchListTable = ({
     }
   };
 
-  const handleCloseMenu = () => setActionMenuState({ branchId: null, position: null });
+  const handleCloseMenu = () =>
+    setActionMenuState({ branchId: null, position: null });
 
   const handleDeactivateClick = (branch) => {
     if (branch.is_main) {
-      toast?.warning?.("Cannot Deactivate", "Main branch cannot be deactivated.", 4000);
+      toast?.warning?.(
+        "Cannot Deactivate",
+        "Main branch cannot be deactivated.",
+        4000,
+      );
       return;
     }
     setConfirmDialog({ isOpen: true, type: "deactivate", branch });
@@ -481,43 +529,59 @@ const BranchListTable = ({
   const handleConfirmAction = async () => {
     const { type, branch } = confirmDialog;
     if (!branch) return;
-    
+
     setProcessingBranchId(branch.branch_id);
     setConfirmDialog({ isOpen: false, type: null, branch: null });
 
     try {
       if (type === "deactivate") {
         await deleteBranch(branch.branch_id);
-        toast?.success?.("Branch Deactivated", `${branch.branch_name} deactivated.`, 4000);
+        toast?.success?.(
+          "Branch Deactivated",
+          `${branch.branch_name} deactivated.`,
+          4000,
+        );
       } else if (type === "reactivate") {
         await reactivateBranch(branch.branch_id);
-        toast?.success?.("Branch Reactivated", `${branch.branch_name} reactivated.`, 4000);
+        toast?.success?.(
+          "Branch Reactivated",
+          `${branch.branch_name} reactivated.`,
+          4000,
+        );
       }
       onRefresh?.();
     } catch (err) {
       console.error(`Failed to ${type} branch:`, err);
-      const errorMessage = err.response?.data?.message || `Failed to ${type} branch.`;
-      toast?.error?.(`${type === "deactivate" ? "Deactivation" : "Reactivation"} Failed`, errorMessage, 5000);
+      const errorMessage =
+        err.response?.data?.message || `Failed to ${type} branch.`;
+      toast?.error?.(
+        `${type === "deactivate" ? "Deactivation" : "Reactivation"} Failed`,
+        errorMessage,
+        5000,
+      );
     } finally {
       setProcessingBranchId(null);
     }
   };
 
-  // ✅ Safe page change handler
-  const handlePageChange = useCallback((page) => {
-    const newPage = Number(page);
-    if (!isNaN(newPage) && newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-    }
-  }, [totalPages]);
+  //  Safe page change handler
+  const handlePageChange = useCallback(
+    (page) => {
+      const newPage = Number(page);
+      if (!isNaN(newPage) && newPage >= 1 && newPage <= totalPages) {
+        setCurrentPage(newPage);
+      }
+    },
+    [totalPages],
+  );
 
   // ============================================
   // COMPUTED VALUES
   // ============================================
   const hasOverflow = paginatedBranches.length > rowsPerPage;
-  const activeCount = branches.filter(b => b.is_active).length;
-  const inactiveCount = branches.filter(b => !b.is_active).length;
-  const mainBranch = branches.find(b => b.is_main);
+  const activeCount = branches.filter((b) => b.is_active).length;
+  const inactiveCount = branches.filter((b) => !b.is_active).length;
+  const mainBranch = branches.find((b) => b.is_main);
   const showPagination = !loading && totalItems > 0;
 
   // ============================================
@@ -525,7 +589,7 @@ const BranchListTable = ({
   // ============================================
   return (
     <>
-      <div 
+      <div
         ref={tableContainerRef}
         className="h-full w-full flex flex-col bg-white rounded-xl border border-slate-200 overflow-hidden"
       >
@@ -534,25 +598,33 @@ const BranchListTable = ({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <Building2 size={12} className="text-indigo-500" />
-              <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">Total:</span>
-              <span className="text-[10px] font-bold text-indigo-600">{totalItems}</span>
+              <span className="text-[8px] text-slate-500 uppercase tracking-wide font-medium">
+                Total:
+              </span>
+              <span className="text-[10px] font-bold text-indigo-600">
+                {totalItems}
+              </span>
             </div>
-            
+
             <div className="h-3 w-px bg-slate-300" />
-            
+
             <div className="flex items-center gap-1.5">
               <CheckCircle size={10} className="text-emerald-500" />
               <span className="text-[8px] text-slate-500">Active:</span>
-              <span className="text-[10px] font-semibold text-emerald-600">{activeCount}</span>
+              <span className="text-[10px] font-semibold text-emerald-600">
+                {activeCount}
+              </span>
             </div>
-            
+
             {inactiveCount > 0 && (
               <>
                 <div className="h-3 w-px bg-slate-300" />
                 <div className="flex items-center gap-1.5">
                   <Ban size={10} className="text-red-400" />
                   <span className="text-[8px] text-slate-500">Inactive:</span>
-                  <span className="text-[10px] font-semibold text-red-500">{inactiveCount}</span>
+                  <span className="text-[10px] font-semibold text-red-500">
+                    {inactiveCount}
+                  </span>
                 </div>
               </>
             )}
@@ -568,7 +640,7 @@ const BranchListTable = ({
                 </div>
               </>
             )}
-            
+
             {totalPages > 1 && (
               <>
                 <div className="h-3 w-px bg-slate-300" />
@@ -581,7 +653,7 @@ const BranchListTable = ({
               </>
             )}
           </div>
-          
+
           <div className="flex items-center gap-1">
             {hasOverflow && (
               <div className="flex items-center gap-0.5">
@@ -607,12 +679,15 @@ const BranchListTable = ({
         {/* Table Container */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Fixed Header */}
-          <div 
+          <div
             ref={headerRef}
             className="shrink-0 overflow-hidden border-b-2 border-slate-300"
             style={{ paddingRight: `${scrollbarWidth}px` }}
           >
-            <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+            <table
+              className="w-full border-collapse"
+              style={{ tableLayout: "fixed" }}
+            >
               <colgroup>
                 <col style={{ width: columnWidths.rowNum }} />
                 <col style={{ width: columnWidths.branch }} />
@@ -624,7 +699,9 @@ const BranchListTable = ({
               </colgroup>
               <thead>
                 <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white h-7">
-                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">#</th>
+                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">
+                    #
+                  </th>
                   <th className="px-1.5 py-1 text-[8px] 2xl:text-[9px] font-bold text-left border-r border-slate-600/30">
                     <div className="flex items-center gap-1">
                       <Building2 size={10} />
@@ -649,20 +726,30 @@ const BranchListTable = ({
                       Users
                     </div>
                   </th>
-                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">Status</th>
-                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center">Actions</th>
+                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center border-r border-slate-600/30">
+                    Status
+                  </th>
+                  <th className="px-1 py-1 text-[8px] 2xl:text-[9px] font-bold text-center">
+                    Actions
+                  </th>
                 </tr>
               </thead>
             </table>
           </div>
 
           {/* Scrollable Body */}
-          <div 
+          <div
             ref={tableBodyRef}
             className="flex-1 overflow-y-auto overflow-x-hidden"
-            style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}
+            style={{
+              height: `${viewportHeight}px`,
+              maxHeight: `${viewportHeight}px`,
+            }}
           >
-            <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+            <table
+              className="w-full border-collapse"
+              style={{ tableLayout: "fixed" }}
+            >
               <colgroup>
                 <col style={{ width: columnWidths.rowNum }} />
                 <col style={{ width: columnWidths.branch }} />
@@ -673,47 +760,51 @@ const BranchListTable = ({
                 <col style={{ width: columnWidths.actions }} />
               </colgroup>
               <tbody>
-                {loading ? (
-                  Array.from({ length: rowsPerPage }).map((_, index) => (
-                    <SkeletonRow 
-                      key={index} 
-                      rowHeight={ROW_HEIGHT} 
-                      isEven={index % 2 === 0} 
-                    />
-                  ))
-                ) : (
-                  paginatedBranches.map((branch, index) => (
-                    <BranchRow
-                      key={branch.branch_id ?? index}
-                      branch={branch}
-                      rowNumber={startIndex + index + 1}
-                      isEven={index % 2 === 0}
-                      rowHeight={ROW_HEIGHT}
-                      isProcessing={processingBranchId === branch.branch_id}
-                      actionButtonRef={(el) => (actionButtonRefs.current[branch.branch_id] = el)}
-                      onActionClick={handleActionClick}
-                    />
-                  ))
-                )}
+                {loading
+                  ? Array.from({ length: rowsPerPage }).map((_, index) => (
+                      <SkeletonRow
+                        key={index}
+                        rowHeight={ROW_HEIGHT}
+                        isEven={index % 2 === 0}
+                      />
+                    ))
+                  : paginatedBranches.map((branch, index) => (
+                      <BranchRow
+                        key={branch.branch_id ?? index}
+                        branch={branch}
+                        rowNumber={startIndex + index + 1}
+                        isEven={index % 2 === 0}
+                        rowHeight={ROW_HEIGHT}
+                        isProcessing={processingBranchId === branch.branch_id}
+                        actionButtonRef={(el) =>
+                          (actionButtonRefs.current[branch.branch_id] = el)
+                        }
+                        onActionClick={handleActionClick}
+                      />
+                    ))}
               </tbody>
             </table>
-            
+
             {/* Empty State */}
             {!loading && totalItems === 0 && (
-              <div 
+              <div
                 className="flex flex-col items-center justify-center text-slate-400"
                 style={{ height: `${viewportHeight}px` }}
               >
                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-2">
                   <Building2 size={20} className="text-slate-400" />
                 </div>
-                <p className="text-sm font-medium text-slate-500">No branches found</p>
-                <p className="text-xs text-slate-400">Create your first branch to get started</p>
+                <p className="text-sm font-medium text-slate-500">
+                  No branches found
+                </p>
+                <p className="text-xs text-slate-400">
+                  Create your first branch to get started
+                </p>
               </div>
             )}
           </div>
         </div>
-        
+
         {/* Pagination */}
         {showPagination && (
           <div className="shrink-0 border-t border-slate-200">
@@ -730,7 +821,9 @@ const BranchListTable = ({
         <AnimatePresence>
           {actionMenuState.branchId && (
             <ActionMenu
-              branch={paginatedBranches.find((b) => b.branch_id === actionMenuState.branchId)}
+              branch={paginatedBranches.find(
+                (b) => b.branch_id === actionMenuState.branchId,
+              )}
               position={actionMenuState.position}
               onClose={handleCloseMenu}
               onEdit={onEdit}
@@ -744,24 +837,34 @@ const BranchListTable = ({
       {/* Confirm Dialog */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
-        onClose={() => setConfirmDialog({ isOpen: false, type: null, branch: null })}
+        onClose={() =>
+          setConfirmDialog({ isOpen: false, type: null, branch: null })
+        }
         onConfirm={handleConfirmAction}
-        title={confirmDialog.type === "deactivate" ? "Deactivate Branch?" : "Reactivate Branch?"}
+        title={
+          confirmDialog.type === "deactivate"
+            ? "Deactivate Branch?"
+            : "Reactivate Branch?"
+        }
         message={
           confirmDialog.type === "deactivate" ? (
             <>
-              Are you sure you want to deactivate <strong>{confirmDialog.branch?.branch_name}</strong>?
+              Are you sure you want to deactivate{" "}
+              <strong>{confirmDialog.branch?.branch_name}</strong>?
               <span className="text-xs block mt-2 text-amber-600 font-medium">
                 All users in this branch will be moved to the main branch.
               </span>
             </>
           ) : (
             <>
-              Are you sure you want to reactivate <strong>{confirmDialog.branch?.branch_name}</strong>?
+              Are you sure you want to reactivate{" "}
+              <strong>{confirmDialog.branch?.branch_name}</strong>?
             </>
           )
         }
-        confirmText={confirmDialog.type === "deactivate" ? "Deactivate" : "Reactivate"}
+        confirmText={
+          confirmDialog.type === "deactivate" ? "Deactivate" : "Reactivate"
+        }
         cancelText="Cancel"
         type={confirmDialog.type === "deactivate" ? "danger" : "success"}
         loading={processingBranchId === confirmDialog.branch?.branch_id}

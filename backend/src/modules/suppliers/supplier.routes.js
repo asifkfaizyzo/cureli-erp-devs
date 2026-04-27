@@ -13,9 +13,9 @@ import {
   removeSupplierFromBranchController,
   bulkUpdateSupplierBranchesController,
   getSuppliersNotInBranchController,
-  deactivateSupplierController,      // ✅ NEW
-  reactivateSupplierController,      // ✅ NEW
-  removeFromAllBranchesController,   // ✅ NEW
+  deactivateSupplierController, //  NEW
+  reactivateSupplierController, //  NEW
+  removeFromAllBranchesController, //  NEW
 } from "./supplier.controller.js";
 
 import {
@@ -35,20 +35,40 @@ router.use(requireAuth);
 router.post("/", validateBody(createSupplierSchema), createSupplierController);
 router.get("/", getSuppliersController);
 router.get("/:supplierId", getSupplierByIdController);
-router.put("/:supplierId", validateBody(updateSupplierSchema), updateSupplierController);
+router.put(
+  "/:supplierId",
+  validateBody(updateSupplierSchema),
+  updateSupplierController,
+);
 
-// ✅ NEW: Supplier Status Management
+//  NEW: Supplier Status Management
 router.post("/:supplierId/deactivate", deactivateSupplierController);
-router.post("/:supplierId/reactivate", validateBody(branchActionSchema), reactivateSupplierController);
+router.post(
+  "/:supplierId/reactivate",
+  validateBody(branchActionSchema),
+  reactivateSupplierController,
+);
 router.delete("/:supplierId/all-branches", removeFromAllBranchesController);
 
 // ============================================
 // Branch Management (Super Admin Only)
 // ============================================
 router.get("/:supplierId/branches", getSupplierBranchesController);
-router.post("/:supplierId/branches", validateBody(branchActionSchema), addSupplierToBranchController);
-router.delete("/:supplierId/branches", validateBody(branchActionSchema), removeSupplierFromBranchController);
-router.put("/:supplierId/branches", validateBody(bulkBranchUpdateSchema), bulkUpdateSupplierBranchesController);
+router.post(
+  "/:supplierId/branches",
+  validateBody(branchActionSchema),
+  addSupplierToBranchController,
+);
+router.delete(
+  "/:supplierId/branches",
+  validateBody(branchActionSchema),
+  removeSupplierFromBranchController,
+);
+router.put(
+  "/:supplierId/branches",
+  validateBody(bulkBranchUpdateSchema),
+  bulkUpdateSupplierBranchesController,
+);
 
 // ============================================
 // Quick Add - Get suppliers not in specific branch

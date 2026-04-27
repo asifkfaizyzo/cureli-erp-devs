@@ -10,19 +10,52 @@ import {
   Inbox,
 } from "lucide-react";
 import { format } from "date-fns";
-import { TABLE_CONFIG, getClickableRowClass } from "../../../../../config/tableConfig";
+import {
+  TABLE_CONFIG,
+  getClickableRowClass,
+} from "../../../../../config/tableConfig";
 import TableSkeleton from "../../../../../components/common/TableSkeleton";
 import TableEmptyState from "../../../../../components/common/TableEmptyState";
 import Pagination from "../../../../../components/common/Pagination";
 
-// ✅ Define COLUMNS configuration - Reduced actions width
+//  Define COLUMNS configuration - Reduced actions width
 const COLUMNS = {
-  slNo: { key: 'slNo', label: '#', width: 50, sortable: false, align: 'left' },
-  enquiry: { key: 'enquiry', label: 'Enquiry', width: 180, sortable: false, align: 'left' },
-  contact: { key: 'contact', label: 'Contact Info', width: 220, sortable: false, align: 'left' },
-  status: { key: 'status', label: 'Status', width: 110, sortable: false, align: 'center' },
-  submitted: { key: 'created_at', label: 'Submitted', width: 120, sortable: false, align: 'left' },
-  actions: { key: 'actions', label: 'Actions', width: 80, sortable: false, align: 'center' }, // ✅ Reduced from 100
+  slNo: { key: "slNo", label: "#", width: 50, sortable: false, align: "left" },
+  enquiry: {
+    key: "enquiry",
+    label: "Enquiry",
+    width: 180,
+    sortable: false,
+    align: "left",
+  },
+  contact: {
+    key: "contact",
+    label: "Contact Info",
+    width: 220,
+    sortable: false,
+    align: "left",
+  },
+  status: {
+    key: "status",
+    label: "Status",
+    width: 110,
+    sortable: false,
+    align: "center",
+  },
+  submitted: {
+    key: "created_at",
+    label: "Submitted",
+    width: 120,
+    sortable: false,
+    align: "left",
+  },
+  actions: {
+    key: "actions",
+    label: "Actions",
+    width: 80,
+    sortable: false,
+    align: "center",
+  }, //  Reduced from 100
 };
 
 // Status configuration
@@ -66,7 +99,9 @@ const StatusBadge = ({ status }) => {
       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold 
                   ${config.bg} ${config.text} border ${config.border} whitespace-nowrap min-w-[80px] justify-center`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0`} />
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0`}
+      />
       {config.label}
     </span>
   );
@@ -115,7 +150,7 @@ const EnquiriesTable = ({
       const newWidth = Math.max(50, resizing.startWidth + diff);
       setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
     },
-    [resizing]
+    [resizing],
   );
 
   const handleMouseUp = useCallback(() => setResizing(null), []);
@@ -168,17 +203,20 @@ const EnquiriesTable = ({
     onDeleteEnquiry(enquiry);
   };
 
-  // ✅ Non-sortable Header Component
+  //  Non-sortable Header Component
   const TableHeader = ({ column }) => {
     const config = COLUMNS[column];
 
     return (
       <th
-        style={{ width: columnWidths[column], height: `${heights.headerRow}px` }}
-        className={`relative group ${config.align === 'center' ? 'text-center' : ''}`}
+        style={{
+          width: columnWidths[column],
+          height: `${heights.headerRow}px`,
+        }}
+        className={`relative group ${config.align === "center" ? "text-center" : ""}`}
       >
         <div className={styles.header.cell}>{config.label}</div>
-        {column !== 'slNo' && (
+        {column !== "slNo" && (
           <div
             onMouseDown={(e) => handleMouseDown(column, e)}
             className={styles.header.resizeHandle}
@@ -190,7 +228,7 @@ const EnquiriesTable = ({
 
   const startIndex = (currentPage - 1) * rowsPerPage;
 
-  // ✅ Conditional rendering logic
+  //  Conditional rendering logic
   const hasData = enquiries.length > 0;
   const showTable = loading || hasData;
   const showEmptyState = !loading && !hasData;
@@ -198,10 +236,13 @@ const EnquiriesTable = ({
 
   return (
     <div className={styles.container.wrapper}>
-      {/* ✅ Table - Show when loading OR has data */}
+      {/*  Table - Show when loading OR has data */}
       {showTable && (
         <div className="flex-1 min-h-0 overflow-auto">
-          <table className="w-full border-collapse text-sm" style={{ minWidth: "800px" }}>
+          <table
+            className="w-full border-collapse text-sm"
+            style={{ minWidth: "800px" }}
+          >
             {/* Table Header */}
             <thead className="sticky top-0 z-10">
               <tr className={styles.header.row}>
@@ -224,10 +265,12 @@ const EnquiriesTable = ({
                     key={enquiry.enquiry_id}
                     onClick={() => handleRowClick(enquiry)} // 👈 Row click opens view
                     style={{ height: `${heights.bodyRow}px` }}
-                    className={getClickableRowClass(index, false)} // ✅ Changed to clickable
+                    className={getClickableRowClass(index, false)} //  Changed to clickable
                   >
                     {/* Serial Number */}
-                    <td className={`${styles.cell.base} ${styles.cell.muted} font-medium`}>
+                    <td
+                      className={`${styles.cell.base} ${styles.cell.muted} font-medium`}
+                    >
                       {startIndex + index + 1}
                     </td>
 
@@ -235,7 +278,10 @@ const EnquiriesTable = ({
                     <td className={styles.cell.base}>
                       <div className="flex items-center gap-2">
                         <div className="min-w-0">
-                          <p className={`text-sm ${styles.cell.primary} truncate max-w-[140px]`} title={enquiry.name}>
+                          <p
+                            className={`text-sm ${styles.cell.primary} truncate max-w-[140px]`}
+                            title={enquiry.name}
+                          >
                             {enquiry.name}
                           </p>
                           <p className="text-[10px] font-mono text-gray-500">
@@ -249,7 +295,10 @@ const EnquiriesTable = ({
                     <td className={styles.cell.base}>
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1.5">
-                          <Mail size={12} className="text-gray-400 flex-shrink-0" />
+                          <Mail
+                            size={12}
+                            className="text-gray-400 flex-shrink-0"
+                          />
                           <span
                             className={`text-xs ${styles.cell.secondary} truncate max-w-[180px]`}
                             title={enquiry.email}
@@ -259,8 +308,13 @@ const EnquiriesTable = ({
                         </div>
                         {enquiry.phone && (
                           <div className="flex items-center gap-1.5">
-                            <Phone size={12} className="text-gray-400 flex-shrink-0" />
-                            <span className={`text-xs ${styles.cell.secondary}`}>
+                            <Phone
+                              size={12}
+                              className="text-gray-400 flex-shrink-0"
+                            />
+                            <span
+                              className={`text-xs ${styles.cell.secondary}`}
+                            >
                               {enquiry.phone}
                             </span>
                           </div>
@@ -276,9 +330,14 @@ const EnquiriesTable = ({
                     {/* Submitted Date */}
                     <td className={styles.cell.base}>
                       <div className="flex items-start gap-1.5">
-                        <Calendar size={12} className="text-gray-400 flex-shrink-0 mt-0.5" />
+                        <Calendar
+                          size={12}
+                          className="text-gray-400 flex-shrink-0 mt-0.5"
+                        />
                         <div className="flex flex-col">
-                          <span className={`text-xs font-medium ${styles.cell.primary}`}>
+                          <span
+                            className={`text-xs font-medium ${styles.cell.primary}`}
+                          >
                             {formatDate(enquiry.created_at)}
                           </span>
                           <span className="text-[10px] text-gray-500">
@@ -318,11 +377,15 @@ const EnquiriesTable = ({
         </div>
       )}
 
-      {/* ✅ Empty State */}
+      {/*  Empty State */}
       {showEmptyState && (
         <TableEmptyState
           icon={Inbox}
-          title={hasActiveFilters ? "No enquiries match your filters" : "No enquiries yet"}
+          title={
+            hasActiveFilters
+              ? "No enquiries match your filters"
+              : "No enquiries yet"
+          }
           subtitle={
             hasActiveFilters
               ? "Try adjusting or clearing your filters"
@@ -331,7 +394,7 @@ const EnquiriesTable = ({
         />
       )}
 
-      {/* ✅ Pagination - only when has data */}
+      {/*  Pagination - only when has data */}
       {showPagination && (
         <Pagination
           currentPage={currentPage}
@@ -359,12 +422,12 @@ export default EnquiriesTable;
 //   Calendar,
 // } from "lucide-react";
 // import { format } from "date-fns";
-// import { TABLE_CONFIG, getRowBgClass } from "../../../../../config/tableConfig"; // ✅ Import from config
-// import TableSkeleton from "../../../../../components/common/TableSkeleton"; // ✅ Import skeleton
-// import TableEmptyState from "../../../../../components/common/TableEmptyState"; // ✅ Import empty state
+// import { TABLE_CONFIG, getRowBgClass } from "../../../../../config/tableConfig"; //  Import from config
+// import TableSkeleton from "../../../../../components/common/TableSkeleton"; //  Import skeleton
+// import TableEmptyState from "../../../../../components/common/TableEmptyState"; //  Import empty state
 // import Pagination from "../../../../../components/common/Pagination";
 
-// // ✅ Define COLUMNS configuration
+// //  Define COLUMNS configuration
 // const COLUMNS = {
 //   slNo: { key: 'slNo', label: '#', width: 50, sortable: false, align: 'left' },
 //   enquiry: { key: 'enquiry', label: 'Enquiry', width: 180, sortable: false, align: 'left' },
@@ -412,7 +475,7 @@ export default EnquiriesTable;
 
 //   return (
 //     <span
-//       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold 
+//       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold
 //                   ${config.bg} ${config.text} border ${config.border} whitespace-nowrap min-w-[80px] justify-center`}
 //     >
 //       <span className={`w-1.5 h-1.5 rounded-full ${config.dot} flex-shrink-0`} />
@@ -498,7 +561,7 @@ export default EnquiriesTable;
 //     }
 //   };
 
-//   // ✅ Non-sortable Header Component
+//   //  Non-sortable Header Component
 //   const TableHeader = ({ column }) => {
 //     const config = COLUMNS[column];
 
@@ -518,7 +581,7 @@ export default EnquiriesTable;
 
 //   const startIndex = (currentPage - 1) * rowsPerPage;
 
-//   // ✅ Conditional rendering logic
+//   //  Conditional rendering logic
 //   const hasData = enquiries.length > 0;
 //   const showTable = loading || hasData;
 //   const showEmptyState = !loading && !hasData;
@@ -526,7 +589,7 @@ export default EnquiriesTable;
 
 //   return (
 //     <div className={styles.container.wrapper}>
-//       {/* ✅ Table - Show when loading OR has data */}
+//       {/*  Table - Show when loading OR has data */}
 //       {showTable && (
 //         <div className="flex-1 min-h-0 overflow-auto">
 //           <table className="w-full border-collapse text-sm" style={{ minWidth: "900px" }}>
@@ -658,7 +721,7 @@ export default EnquiriesTable;
 //         </div>
 //       )}
 
-//       {/* ✅ Empty State */}
+//       {/*  Empty State */}
 //       {showEmptyState && (
 //         <TableEmptyState
 //           message={hasActiveFilters ? "No enquiries match your filters" : "No enquiries yet"}
@@ -670,7 +733,7 @@ export default EnquiriesTable;
 //         />
 //       )}
 
-//       {/* ✅ Pagination - only when has data */}
+//       {/*  Pagination - only when has data */}
 //       {showPagination && (
 //         <Pagination
 //           currentPage={currentPage}

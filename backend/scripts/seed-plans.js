@@ -88,7 +88,7 @@ async function seedPlans() {
 
 seedPlans()
   .catch((err) => {
-    console.error("❌ Seeding failed:", err);
+    console.error(" Seeding failed:", err);
     process.exit(1);
   })
   .finally(async () => {

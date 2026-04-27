@@ -7,7 +7,7 @@ import {
   verifyPaymentSignature,
 } from "../../config/razorpay.js";
 import * as audit from "../audit/index.js";
-import { notify } from "../notifications/index.js"; // ✅ ADD THIS
+import { notify } from "../notifications/index.js"; //  ADD THIS
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 const GRACE_PERIOD_DAYS = 7;
 
@@ -772,7 +772,7 @@ export async function changePlanService({
     },
   });
 
-  // ✅ Get current plan from shop's subscription
+  //  Get current plan from shop's subscription
   const currentPlan = shop.currentSubscription?.plan || null;
 
   if (analysis.direction === "renew") {
@@ -786,7 +786,7 @@ export async function changePlanService({
   }
 
   if (analysis.direction === "upgrade") {
-    // ✅ Pass currentPlan to executeUpgrade
+    //  Pass currentPlan to executeUpgrade
     return await executeUpgrade(
       shop_id,
       targetPlan,
@@ -885,7 +885,7 @@ async function executeUpgrade(
     },
   });
 
-  // ✅ Now currentPlan is available
+  //  Now currentPlan is available
   notify({
     type: NOTIFICATION_EVENTS.PLAN_UPGRADED,
     context: {
@@ -1423,16 +1423,16 @@ export async function suspendExpiredGrace() {
         },
       });
 
-      // ✅ CORRECT: Use is_active instead of is_suspended
+      //  CORRECT: Use is_active instead of is_suspended
       await tx.shop.update({
         where: { shop_id: sub.shop_id },
         data: {
-          is_active: false, // ✅ Suspend the shop
+          is_active: false, //  Suspend the shop
           updated_at: new Date(),
         },
       });
 
-      // ✅ AUDIT: Shop suspended due to non-payment
+      //  AUDIT: Shop suspended due to non-payment
       await audit.log(
         {
           action: audit.AuditAction.SHOP_SUSPENDED_DUE_TO_NON_PAYMENT,

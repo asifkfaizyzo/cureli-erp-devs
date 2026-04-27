@@ -76,7 +76,7 @@ const ShopDetailsModal = ({
     pincode: "",
   });
 
-  // ✅ Subscription plan selection (persists across tab switches)
+  //  Subscription plan selection (persists across tab switches)
   const [pendingPlanId, setPendingPlanId] = useState(null);
 
   // Save loading state
@@ -121,7 +121,7 @@ const ShopDetailsModal = ({
       // Check initial document validation
       const uploadedTypes = (shopData.shopFiles || []).map((f) => f.file_type);
       const allRequiredPresent = REQUIRED_DOCUMENT_TYPES.every((type) =>
-        uploadedTypes.includes(type)
+        uploadedTypes.includes(type),
       );
       setDocumentsValid(allRequiredPresent);
     } catch (err) {
@@ -199,7 +199,7 @@ const ShopDetailsModal = ({
   const currentTab = tabs.find((t) => t.id === activeTab);
   const isEditableTab = currentTab?.editable;
 
-  // ✅ Check if there are any pending changes
+  //  Check if there are any pending changes
   const hasFormChanges = () => {
     if (!shop) return false;
     return (
@@ -288,7 +288,7 @@ const ShopDetailsModal = ({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ✅ Handle subscription plan change (from child component)
+  //  Handle subscription plan change (from child component)
   const handlePlanChange = (planId) => {
     setPendingPlanId(planId);
   };
@@ -298,12 +298,12 @@ const ShopDetailsModal = ({
     setDocumentsValid(isValid);
   };
 
-  // ✅ Handle save - includes subscription update
+  //  Handle save - includes subscription update
   const handleSaveChanges = async () => {
     if (!canSave()) {
       toast.error(
         "Missing Documents",
-        "Please upload all 6 required documents before saving."
+        "Please upload all 6 required documents before saving.",
       );
       return;
     }
@@ -361,7 +361,7 @@ const ShopDetailsModal = ({
       setIsEditing(false);
       toast.success(
         "Shop Updated",
-        `${shop.business_name || "Shop"} details saved successfully.`
+        `${shop.business_name || "Shop"} details saved successfully.`,
       );
 
       onClose(true); // Close and refresh
@@ -380,7 +380,7 @@ const ShopDetailsModal = ({
   const handleClose = () => {
     if (isEditing && hasAnyChanges()) {
       const confirm = window.confirm(
-        "You have unsaved changes. Are you sure you want to close?"
+        "You have unsaved changes. Are you sure you want to close?",
       );
       if (!confirm) return;
     }
@@ -399,12 +399,12 @@ const ShopDetailsModal = ({
       if (newIsActive) {
         toast.success(
           "Shop Activated",
-          `${shop.business_name || "Shop"} has been activated successfully.`
+          `${shop.business_name || "Shop"} has been activated successfully.`,
         );
       } else {
         toast.success(
           "Shop Suspended",
-          `${shop.business_name || "Shop"} has been suspended successfully.`
+          `${shop.business_name || "Shop"} has been suspended successfully.`,
         );
       }
 
@@ -423,7 +423,11 @@ const ShopDetailsModal = ({
   const handleRefresh = () => {
     if (shop?.shop_id) {
       fetchShopDetails(shop.shop_id);
-      toast.info("RefData Refreshedreshing", "Loading latest shop data...", 2000);
+      toast.info(
+        "RefData Refreshedreshing",
+        "Loading latest shop data...",
+        2000,
+      );
     }
   };
 
@@ -609,8 +613,8 @@ const ShopDetailsModal = ({
                     {saveLoading
                       ? "Saving..."
                       : isEditing
-                      ? "Save Changes"
-                      : "Edit Details"}
+                        ? "Save Changes"
+                        : "Edit Details"}
                   </button>
                 )}
 
@@ -645,7 +649,9 @@ const ShopDetailsModal = ({
 
               // Show changes indicator on subscription tab
               const showSubChanges =
-                tab.id === "subscription" && isEditing && hasSubscriptionChanges();
+                tab.id === "subscription" &&
+                isEditing &&
+                hasSubscriptionChanges();
 
               return (
                 <button
@@ -674,12 +680,15 @@ const ShopDetailsModal = ({
                       title="Subscription change pending"
                     />
                   )}
-                  {tab.editable && isEditing && !showDocWarning && !showSubChanges && (
-                    <span
-                      className="w-1.5 h-1.5 bg-amber-400 rounded-full"
-                      title="Editable"
-                    />
-                  )}
+                  {tab.editable &&
+                    isEditing &&
+                    !showDocWarning &&
+                    !showSubChanges && (
+                      <span
+                        className="w-1.5 h-1.5 bg-amber-400 rounded-full"
+                        title="Editable"
+                      />
+                    )}
                 </button>
               );
             })}
@@ -695,9 +704,7 @@ const ShopDetailsModal = ({
             <div className="flex items-center justify-between">
               {/* Left: Meta Info */}
               <p className="text-xs text-gray-400">
-                Shop ID:{" "}
-                {shop?.shop_id || basicShop?.shop_id?.slice(0, 8)}
-                 •
+                Shop ID: {shop?.shop_id || basicShop?.shop_id?.slice(0, 8)}•
                 {isEditing ? (
                   <span>
                     {" "}
@@ -760,7 +767,9 @@ const ShopDetailsModal = ({
                           state: shop.state || "",
                           pincode: shop.pincode || "",
                         });
-                        setPendingPlanId(shop.currentSubscription?.plan?.plan_id || null);
+                        setPendingPlanId(
+                          shop.currentSubscription?.plan?.plan_id || null,
+                        );
                       }
                       setIsEditing(false);
                     }}

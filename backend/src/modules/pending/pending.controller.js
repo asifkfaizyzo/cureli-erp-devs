@@ -11,7 +11,7 @@ import {
   createPendingUserFromGoogle,
   setPasswordForPending,
   cleanupExpiredPendingUsers,
-  checkUsernameAvailabilityWithSuggestions
+  checkUsernameAvailabilityWithSuggestions,
 } from "./pending.service.js";
 import { success, fail } from "../../utils/response.js";
 import { jwtDecode } from "jwt-decode";
@@ -33,30 +33,33 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export async function startPendingSignup(req, res) {
   try {
-    const { first_name, last_name, email, password, recaptchaToken } = req.validated;
+    const { first_name, last_name, email, password, recaptchaToken } =
+      req.validated;
 
-    // ✅ Log the token for debugging
+    //  Log the token for debugging
     console.log("📝 Received reCAPTCHA token:", recaptchaToken ? "✓" : "✗");
 
-    // ✅ Verify reCAPTCHA (returns {success, score, error})
+    //  Verify reCAPTCHA (returns {success, score, error})
     const recaptchaResult = await verifyRecaptcha(recaptchaToken);
-    
+
     console.log("🔍 reCAPTCHA result:", recaptchaResult);
 
     if (!recaptchaResult.success) {
-      console.log("❌ reCAPTCHA verification failed:", recaptchaResult.error);
+      console.log(" reCAPTCHA verification failed:", recaptchaResult.error);
       return fail(res, "reCAPTCHA verification failed", 400);
     }
 
-    // ✅ Check if score meets threshold
+    //  Check if score meets threshold
     const threshold = Number(process.env.RECAPTCHA_THRESHOLD) || 0.3;
-    
+
     if (!isRecaptchaScoreValid(recaptchaResult.score, threshold)) {
-      console.log(`❌ Low reCAPTCHA score: ${recaptchaResult.score} (threshold: ${threshold})`);
+      console.log(
+        ` Low reCAPTCHA score: ${recaptchaResult.score} (threshold: ${threshold})`,
+      );
       return fail(res, "Suspicious activity detected. Please try again.", 400);
     }
 
-    console.log(`✅ reCAPTCHA passed. Score: ${recaptchaResult.score}`);
+    console.log(` reCAPTCHA passed. Score: ${recaptchaResult.score}`);
 
     // Continue with signup
     const pending = await createPendingUser({
@@ -69,13 +72,17 @@ export async function startPendingSignup(req, res) {
     // Send OTP automatically
     await sendEmailOtp(pending.pending_id);
 
-    return success(res, { pending_id: pending.pending_id, email }, "Signup started");
+    return success(
+      res,
+      { pending_id: pending.pending_id, email },
+      "Signup started",
+    );
   } catch (err) {
     if (err.code === "EMAIL_EXISTS") {
       return fail(res, err.message, 400);
     }
 
-    console.error("❌ Signup error:", err);
+    console.error(" Signup error:", err);
     return fail(res, "Cannot start signup", 500);
   }
 }
@@ -128,7 +135,7 @@ export async function googleSignupController(req, res) {
         first_name: pending.first_name,
         last_name: pending.last_name,
       },
-      "Google signup started"
+      "Google signup started",
     );
   } catch (err) {
     if (err.code === "GOOGLE_ID_EXISTS") {
@@ -184,7 +191,7 @@ export async function verifyEmailOtpController(req, res) {
 export async function requestSmsOtp(req, res) {
   try {
     const { pending_id, phone, isResend } = req.body;
-    
+
     console.log("📞 requestSmsOtp called:", { pending_id, phone });
 
     if (!phone || typeof phone !== "string") {
@@ -192,18 +199,18 @@ export async function requestSmsOtp(req, res) {
     }
 
     const result = await sendSmsOtp(pending_id, phone, isResend === true);
-    console.log("✅ sendSmsOtp completed:", result);
+    console.log(" sendSmsOtp completed:", result);
 
     return success(res, {}, "OTP sent to phone");
   } catch (err) {
-    console.error("❌ requestSmsOtp error:", err);
-    
+    console.error(" requestSmsOtp error:", err);
+
     if (err.code === "OTP_COOLDOWN") return fail(res, err.message, 429);
-        if (err.code === "OTP_DAILY_LIMIT") return fail(res, err.message, 429);
+    if (err.code === "OTP_DAILY_LIMIT") return fail(res, err.message, 429);
     if (err.code === "NOT_FOUND") return fail(res, err.message, 404);
     if (err.code === "PHONE_EXISTS") return fail(res, err.message, 409);
     if (err.code === "PHONE_PENDING_EXISTS") return fail(res, err.message, 409);
-    
+
     return fail(res, "Failed to send SMS OTP", 500);
   }
 }
@@ -220,7 +227,7 @@ export async function verifySmsOtpController(req, res) {
     if (err.code === "NO_OTP") return fail(res, err.message, 400);
     if (err.code === "OTP_EXPIRED") return fail(res, err.message, 400);
     if (err.code === "INVALID_OTP") return fail(res, err.message, 400);
-        if (err.code === "TOO_MANY_ATTEMPTS") return fail(res, err.message, 429);
+    if (err.code === "TOO_MANY_ATTEMPTS") return fail(res, err.message, 429);
 
     console.error(err);
     return fail(res, "Failed to verify SMS OTP", 500);
@@ -264,16 +271,19 @@ export async function completePendingSignupController(req, res) {
   console.log("=== Complete Signup Request ===");
   console.log("Body:", req.body);
   console.log("Validated:", req.validated);
-  
+
   try {
     const { pending_id } = req.body;
     console.log("=== Complete Signup Request ===");
     console.log("Body:", req.body);
     console.log("pending_id:", pending_id);
-    
+
     const auditContext = audit.extractRequestContext(req);
-    
-    const { user, shop } = await finalizePendingSignup(pending_id, auditContext);
+
+    const { user, shop } = await finalizePendingSignup(
+      pending_id,
+      auditContext,
+    );
 
     const accessToken = jwt.sign(
       {
@@ -283,7 +293,7 @@ export async function completePendingSignupController(req, res) {
         status: user.status,
       },
       ACCESS_SECRET,
-      { expiresIn: ACCESS_EXPIRES }
+      { expiresIn: ACCESS_EXPIRES },
     );
 
     const refreshToken = jwt.sign({ user_id: user.user_id }, REFRESH_SECRET, {
@@ -305,7 +315,7 @@ export async function completePendingSignupController(req, res) {
         access_token: accessToken,
       },
       "Signup completed",
-      201
+      201,
     );
   } catch (err) {
     console.error("=== Complete Signup ERROR ===");

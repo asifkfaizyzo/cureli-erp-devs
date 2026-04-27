@@ -1,6 +1,12 @@
 // src/pages/dashboard/DashboardPage.jsx
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Package,
@@ -144,19 +150,19 @@ const getDateRange = (range) => {
 
 const extractData = (result, fallback = null) => {
   if (result.status !== "fulfilled") return fallback;
-  
+
   const value = result.value;
-  
+
   // Handle { success: true, data: {...} } structure
   if (value?.success && value?.data !== undefined) {
     return value.data;
   }
-  
+
   // Handle direct data structure
   if (value?.data !== undefined) {
     return value.data;
   }
-  
+
   // Handle plain object response
   return value || fallback;
 };
@@ -237,7 +243,7 @@ const StatCard = ({
 
   const isUp = trend === "up";
   const hasChange = change !== undefined && change !== null && !isNaN(change);
-  
+
   const gradients = {
     green: "from-emerald-500 to-teal-600",
     blue: "from-blue-500 to-indigo-600",
@@ -298,9 +304,7 @@ const StatCard = ({
           <div
             className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full
             ${
-              isUp
-                ? "bg-emerald-50 text-emerald-600"
-                : "bg-red-50 text-red-600"
+              isUp ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
             }`}
           >
             {isUp ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
@@ -310,9 +314,7 @@ const StatCard = ({
       </div>
 
       {sub && (
-        <p className="text-[10px] text-gray-400 mt-1.5 pl-12 truncate">
-          {sub}
-        </p>
+        <p className="text-[10px] text-gray-400 mt-1.5 pl-12 truncate">{sub}</p>
       )}
 
       {onClick && (
@@ -446,8 +448,7 @@ const AlertPill = ({ type, title, count, icon: Icon, onClick }) => {
   const styles = {
     warning:
       "bg-amber-50/80 border-amber-200/60 text-amber-700 hover:bg-amber-100/80",
-    danger:
-      "bg-red-50/80 border-red-200/60 text-red-700 hover:bg-red-100/80",
+    danger: "bg-red-50/80 border-red-200/60 text-red-700 hover:bg-red-100/80",
     info: "bg-blue-50/80 border-blue-200/60 text-blue-700 hover:bg-blue-100/80",
     success:
       "bg-emerald-50/80 border-emerald-200/60 text-emerald-700 hover:bg-emerald-100/80",
@@ -528,9 +529,7 @@ const MetricChip = ({
       />
       <span className="text-[10px] text-gray-400 font-medium">{label}</span>
       <span className="text-[11px] font-bold text-gray-800">{value}</span>
-      {badge && (
-        <span className="text-[9px] text-gray-400">({badge})</span>
-      )}
+      {badge && <span className="text-[9px] text-gray-400">({badge})</span>}
     </button>
   );
 };
@@ -681,9 +680,7 @@ const SectionHeader = ({
       {Icon && <Icon size={14} className="text-indigo-500" />}
       <div>
         <h3 className="text-sm font-bold text-gray-900">{title}</h3>
-        {subtitle && (
-          <p className="text-[10px] text-gray-400">{subtitle}</p>
-        )}
+        {subtitle && <p className="text-[10px] text-gray-400">{subtitle}</p>}
       </div>
     </div>
     {action && (
@@ -769,46 +766,54 @@ const DashboardPage = () => {
         const dateParams = { startDate, endDate };
 
         const results = await Promise.allSettled([
-          salesAPI.getStats(dateParams),           // 0
-          purchaseAPI.getStats(dateParams),        // 1
-          inventoryAPI.getSummary(),               // 2
+          salesAPI.getStats(dateParams), // 0
+          purchaseAPI.getStats(dateParams), // 1
+          inventoryAPI.getSummary(), // 2
           inventoryAPI.getLowStock({ limit: 10 }), // 3
-          inventoryAPI.getExpiringSoon(30),        // 4
-          fetchUnreadCount(),                      // 5
-          salesAPI.getAll({ limit: 10, ...dateParams }),      // 6
-          purchaseAPI.getAll({ limit: 10, ...dateParams }),   // 7
-          salesAPI.getAllReturns({ limit: 5, ...dateParams }),     // 8
+          inventoryAPI.getExpiringSoon(30), // 4
+          fetchUnreadCount(), // 5
+          salesAPI.getAll({ limit: 10, ...dateParams }), // 6
+          purchaseAPI.getAll({ limit: 10, ...dateParams }), // 7
+          salesAPI.getAllReturns({ limit: 5, ...dateParams }), // 8
           purchaseAPI.getAllReturns({ limit: 5, ...dateParams }), // 9
           isSuperAdmin ? getMySubscription() : Promise.resolve(null), // 10
         ]);
 
-        // ✅ FIXED: Properly extract data from each result
-        
+        //  FIXED: Properly extract data from each result
+
         // Sales Stats - Backend returns: { totalInvoices, totalSalesAmount, totalReceivedAmount, totalOutstandingAmount, todaySalesAmount, todayInvoiceCount }
         const salesData = extractData(results[0], {});
         setSalesStats(salesData);
         console.log("📊 Sales Stats:", salesData);
-        
+
         // Purchase Stats - Backend returns: { totalInvoices, totalAmount, unpaidAmount }
         const purchaseData = extractData(results[1], {});
         setPurchaseStats(purchaseData);
         console.log("📊 Purchase Stats:", purchaseData);
-        
+
         // Inventory Summary - Backend returns: { totalItems, totalStockQuantity, lowStockCount, outOfStockCount, expiringSoonCount, expiredCount }
         const inventoryData = extractData(results[2], {});
         setInventorySummary(inventoryData);
         console.log("📊 Inventory Summary:", inventoryData);
-        
-        // ✅ FIXED: Low Stock Items - Backend returns array directly, not { items: [...] }
+
+        //  FIXED: Low Stock Items - Backend returns array directly, not { items: [...] }
         const lowStockData = extractData(results[3], []);
-        setLowStockItems(Array.isArray(lowStockData) ? lowStockData : (lowStockData?.items || []));
+        setLowStockItems(
+          Array.isArray(lowStockData)
+            ? lowStockData
+            : lowStockData?.items || [],
+        );
         console.log("📊 Low Stock Items:", lowStockData);
-        
-        // ✅ FIXED: Expiring Items - Backend returns array directly
+
+        //  FIXED: Expiring Items - Backend returns array directly
         const expiringData = extractData(results[4], []);
-        setExpiringItems(Array.isArray(expiringData) ? expiringData : (expiringData?.items || []));
+        setExpiringItems(
+          Array.isArray(expiringData)
+            ? expiringData
+            : expiringData?.items || [],
+        );
         console.log("📊 Expiring Items:", expiringData);
-        
+
         // Notifications - Backend returns: { total, by_priority: { critical, high, normal, low }, has_critical, has_high }
         const notifData = extractData(results[5], {});
         setNotifications({
@@ -816,7 +821,7 @@ const DashboardPage = () => {
           critical: notifData?.by_priority?.critical || 0,
           high: notifData?.by_priority?.high || 0,
         });
-        
+
         // Recent Sales
         const recentSalesData = extractData(results[6], { invoices: [] });
         const salesInvoices = recentSalesData?.invoices || [];
@@ -827,15 +832,15 @@ const DashboardPage = () => {
             party_name: inv.customer?.name || inv.walkin_name,
             amount: inv.net_amount,
             date: inv.invoice_date || inv.created_at,
-          }))
+          })),
         );
-        
-        // ✅ FIXED: Top products calculation - getAll doesn't include lineItems
+
+        //  FIXED: Top products calculation - getAll doesn't include lineItems
         // Instead, calculate from sales stats or show placeholder
         // For now, we'll leave it empty as the API doesn't provide this data
         // A proper fix would require a dedicated API endpoint
         setTopProducts([]);
-        
+
         // Recent Purchases
         const recentPurchasesData = extractData(results[7], { invoices: [] });
         setRecentPurchases(
@@ -845,17 +850,17 @@ const DashboardPage = () => {
             party_name: inv.supplier?.name,
             amount: inv.net_amount,
             date: inv.invoice_date || inv.created_at,
-          }))
+          })),
         );
-        
+
         // Sales Returns
         const salesReturnsData = extractData(results[8], { returns: [] });
         setSalesReturns(salesReturnsData?.returns || []);
-        
+
         // Purchase Returns
         const purchaseReturnsData = extractData(results[9], { returns: [] });
         setPurchaseReturns(purchaseReturnsData?.returns || []);
-        
+
         // Subscription
         if (results[10].status === "fulfilled" && results[10].value) {
           const subData = extractData(results[10], null);
@@ -866,13 +871,22 @@ const DashboardPage = () => {
       } catch (err) {
         console.error("Dashboard fetch error:", err);
         setError("Failed to load dashboard data.");
-        toast.error("Failed to load dashboard", err.message || "Please try refreshing");
+        toast.error(
+          "Failed to load dashboard",
+          err.message || "Please try refreshing",
+        );
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [dateRange, branchContext.mode, branchContext.branch_id, isSuperAdmin, toast]
+    [
+      dateRange,
+      branchContext.mode,
+      branchContext.branch_id,
+      isSuperAdmin,
+      toast,
+    ],
   );
 
   useEffect(() => {
@@ -907,20 +921,20 @@ const DashboardPage = () => {
   // COMPUTED DATA - FIXED FIELD NAMES
   // ════════════════════════════════════════════
 
-  // ✅ FIXED: Calculate "In Stock" count from available data
+  //  FIXED: Calculate "In Stock" count from available data
   const stockStatusData = useMemo(() => {
     if (!inventorySummary) return [];
-    
+
     const totalItems = inventorySummary.totalItems || 0;
     const lowStock = inventorySummary.lowStockCount || 0;
     const outOfStock = inventorySummary.outOfStockCount || 0;
     const expiringSoon = inventorySummary.expiringSoonCount || 0;
     const expired = inventorySummary.expiredCount || 0;
-    
+
     // Calculate healthy "In Stock" items (items that are not low, out, expiring, or expired)
     // Note: totalItems only counts items with stock > 0, so outOfStock shouldn't be subtracted
     const inStockCount = Math.max(0, totalItems - lowStock - expiringSoon);
-    
+
     return [
       { name: "In Stock", value: inStockCount, color: COLORS.success },
       { name: "Low Stock", value: lowStock, color: COLORS.warning },
@@ -935,10 +949,10 @@ const DashboardPage = () => {
       dateRange === "today"
         ? 1
         : dateRange === "week"
-        ? 7
-        : dateRange === "month"
-        ? 30
-        : 12;
+          ? 7
+          : dateRange === "month"
+            ? 30
+            : 12;
     const salesByDate = new Map();
     const purchasesByDate = new Map();
 
@@ -956,7 +970,7 @@ const DashboardPage = () => {
       });
       purchasesByDate.set(
         d,
-        (purchasesByDate.get(d) || 0) + parseFloat(p.amount || 0)
+        (purchasesByDate.get(d) || 0) + parseFloat(p.amount || 0),
       );
     });
 
@@ -980,23 +994,23 @@ const DashboardPage = () => {
       [...recentSales.slice(0, 5), ...recentPurchases.slice(0, 5)]
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .slice(0, 6),
-    [recentSales, recentPurchases]
+    [recentSales, recentPurchases],
   );
 
   const maxProductSales = useMemo(
     () => Math.max(...topProducts.map((p) => p.total_quantity), 1),
-    [topProducts]
+    [topProducts],
   );
 
   const pendingReturnCount = useMemo(
     () =>
       salesReturns.filter(
-        (r) => r.return_approval_status === "PENDING_APPROVAL"
+        (r) => r.return_approval_status === "PENDING_APPROVAL",
       ).length +
       purchaseReturns.filter(
-        (r) => r.return_approval_status === "PENDING_APPROVAL"
+        (r) => r.return_approval_status === "PENDING_APPROVAL",
       ).length,
-    [salesReturns, purchaseReturns]
+    [salesReturns, purchaseReturns],
   );
 
   const totalAlerts = useMemo(() => {
@@ -1030,7 +1044,7 @@ const DashboardPage = () => {
       if (isGlobalMode && ["new-sale", "new-purchase"].includes(action)) {
         toast.warning(
           "Select a Branch",
-          "Please select a specific branch first"
+          "Please select a specific branch first",
         );
         return;
       }
@@ -1042,7 +1056,7 @@ const DashboardPage = () => {
       };
       if (routes[action]) navigate(routes[action]);
     },
-    [navigate, isGlobalMode, toast]
+    [navigate, isGlobalMode, toast],
   );
 
   // ════════════════════════════════════════════
@@ -1086,8 +1100,8 @@ const DashboardPage = () => {
     new Date().getHours() < 12
       ? "Good morning"
       : new Date().getHours() < 17
-      ? "Good afternoon"
-      : "Good evening";
+        ? "Good afternoon"
+        : "Good evening";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50/30 relative">
@@ -1184,9 +1198,7 @@ const DashboardPage = () => {
             icon={Package}
             gradient="blue"
             onClick={() => handleQuickAction("inventory")}
-            badge={
-              lowStockItems.length > 0 ? `${lowStockItems.length}` : null
-            }
+            badge={lowStockItems.length > 0 ? `${lowStockItems.length}` : null}
             delay={2}
           />
           <QuickAction
@@ -1224,9 +1236,7 @@ const DashboardPage = () => {
                   title="Critical"
                   count={notifications.critical}
                   icon={Bell}
-                  onClick={() =>
-                    navigate("/notifications?priority=critical")
-                  }
+                  onClick={() => navigate("/notifications?priority=critical")}
                 />
               )}
               {pendingReturnCount > 0 && (
@@ -1251,7 +1261,7 @@ const DashboardPage = () => {
           )}
         </div>
 
-        {/* ── PRIMARY STATS ── ✅ FIXED FIELD NAMES */}
+        {/* ── PRIMARY STATS ──  FIXED FIELD NAMES */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <StatCard
             title="Sales"
@@ -1289,17 +1299,21 @@ const DashboardPage = () => {
           />
           <StatCard
             title="Low Stock"
-            value={formatNumber(inventorySummary?.lowStockCount || lowStockItems.length || 0)}
+            value={formatNumber(
+              inventorySummary?.lowStockCount || lowStockItems.length || 0,
+            )}
             sub={`${formatNumber(inventorySummary?.outOfStockCount || 0)} out of stock`}
             icon={AlertTriangle}
-            gradient={(inventorySummary?.lowStockCount || 0) > 10 ? "red" : "amber"}
+            gradient={
+              (inventorySummary?.lowStockCount || 0) > 10 ? "red" : "amber"
+            }
             onClick={() => navigate("/inventory?filter=lowstock")}
             loading={loading}
             delay={3}
           />
         </div>
 
-        {/* ── SECONDARY METRICS STRIP ── ✅ FIXED FIELD NAMES */}
+        {/* ── SECONDARY METRICS STRIP ──  FIXED FIELD NAMES */}
         <div
           className="flex items-center gap-0.5 bg-white/70 backdrop-blur-sm rounded-xl 
           px-2 py-1 border border-gray-100/80 overflow-x-auto scrollbar-hide"
@@ -1317,7 +1331,9 @@ const DashboardPage = () => {
             icon={Calendar}
             label="Expiring"
             color="red"
-            value={formatNumber(inventorySummary?.expiringSoonCount || expiringItems.length || 0)}
+            value={formatNumber(
+              inventorySummary?.expiringSoonCount || expiringItems.length || 0,
+            )}
             badge="30d"
             onClick={() => navigate("/inventory?filter=expiring")}
             loading={loading}
@@ -1348,7 +1364,11 @@ const DashboardPage = () => {
             label="Alerts"
             color={notifications.critical > 0 ? "red" : "teal"}
             value={formatNumber(notifications.total)}
-            badge={notifications.critical > 0 ? `${notifications.critical} critical` : null}
+            badge={
+              notifications.critical > 0
+                ? `${notifications.critical} critical`
+                : null
+            }
             onClick={() => navigate("/notifications")}
             loading={loading}
           />
@@ -1373,13 +1393,7 @@ const DashboardPage = () => {
                     margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
                   >
                     <defs>
-                      <linearGradient
-                        id="salesG"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
+                      <linearGradient id="salesG" x1="0" y1="0" x2="0" y2="1">
                         <stop
                           offset="5%"
                           stopColor={COLORS.success}
@@ -1434,30 +1448,21 @@ const DashboardPage = () => {
                   <MiniMetric
                     label="Total Sales"
                     value={formatCurrency(
-                      revenueChartData.reduce(
-                        (s, d) => s + d.sales,
-                        0
-                      )
+                      revenueChartData.reduce((s, d) => s + d.sales, 0),
                     )}
                     color="text-emerald-600"
                   />
                   <MiniMetric
                     label="Total Purchases"
                     value={formatCurrency(
-                      revenueChartData.reduce(
-                        (s, d) => s + d.purchases,
-                        0
-                      )
+                      revenueChartData.reduce((s, d) => s + d.purchases, 0),
                     )}
                     color="text-blue-600"
                   />
                   <MiniMetric
                     label="Net Profit"
                     value={formatCurrency(
-                      revenueChartData.reduce(
-                        (s, d) => s + d.profit,
-                        0
-                      )
+                      revenueChartData.reduce((s, d) => s + d.profit, 0),
                     )}
                     color="text-purple-600"
                   />
@@ -1504,10 +1509,7 @@ const DashboardPage = () => {
                     </div>
                     <div className="flex-1 space-y-2">
                       {stockStatusData.map((s) => (
-                        <div
-                          key={s.name}
-                          className="flex items-center gap-2.5"
-                        >
+                        <div key={s.name} className="flex items-center gap-2.5">
                           <div
                             className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                             style={{ backgroundColor: s.color }}
@@ -1526,10 +1528,7 @@ const DashboardPage = () => {
                         </span>
                         <span className="text-sm font-extrabold text-gray-900">
                           {formatNumber(
-                            stockStatusData.reduce(
-                              (a, b) => a + b.value,
-                              0
-                            )
+                            stockStatusData.reduce((a, b) => a + b.value, 0),
                           )}
                         </span>
                       </div>
@@ -1538,10 +1537,7 @@ const DashboardPage = () => {
                 ) : (
                   <div className="h-[180px] flex items-center justify-center text-gray-300">
                     <div className="text-center">
-                      <Boxes
-                        size={36}
-                        className="mx-auto mb-2 opacity-50"
-                      />
+                      <Boxes size={36} className="mx-auto mb-2 opacity-50" />
                       <p className="text-xs">No stock data</p>
                     </div>
                   </div>
@@ -1587,10 +1583,7 @@ const DashboardPage = () => {
                   </div>
                 ) : (
                   <div className="py-8 text-center text-gray-300">
-                    <Pill
-                      size={32}
-                      className="mx-auto mb-1.5 opacity-50"
-                    />
+                    <Pill size={32} className="mx-auto mb-1.5 opacity-50" />
                     <p className="text-xs">No sales data yet</p>
                     <p className="text-[10px] text-gray-400 mt-1">
                       Top products will appear after sales
@@ -1635,7 +1628,7 @@ const DashboardPage = () => {
                           navigate(
                             tx.type === "SALE"
                               ? "/sales/invoice"
-                              : "/purchase/invoice"
+                              : "/purchase/invoice",
                           )
                         }
                       />
@@ -1643,10 +1636,7 @@ const DashboardPage = () => {
                   </div>
                 ) : (
                   <div className="py-8 text-center text-gray-300">
-                    <FileText
-                      size={32}
-                      className="mx-auto mb-1.5 opacity-50"
-                    />
+                    <FileText size={32} className="mx-auto mb-1.5 opacity-50" />
                     <p className="text-xs">No transactions</p>
                   </div>
                 )}
@@ -1654,7 +1644,7 @@ const DashboardPage = () => {
             )}
           </GlassCard>
 
-          {/* Low Stock Preview - ✅ FIXED FIELD NAMES */}
+          {/* Low Stock Preview -  FIXED FIELD NAMES */}
           <GlassCard className="lg:col-span-4">
             {loading ? (
               <div className="animate-pulse space-y-3">
@@ -1691,9 +1681,7 @@ const DashboardPage = () => {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
-                        onClick={() =>
-                          navigate("/inventory?filter=lowstock")
-                        }
+                        onClick={() => navigate("/inventory?filter=lowstock")}
                         className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-50/60 
                           to-orange-50/40 border border-amber-100/80 hover:border-amber-200 
                           hover:shadow-sm cursor-pointer transition-all group"
@@ -1703,8 +1691,11 @@ const DashboardPage = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-800 truncate">
-                            {/* ✅ FIXED: Use correct field names from inventory service */}
-                            {item.medicine_name || item.medicine?.name || item.name || "Unknown"}
+                            {/*  FIXED: Use correct field names from inventory service */}
+                            {item.medicine_name ||
+                              item.medicine?.name ||
+                              item.name ||
+                              "Unknown"}
                           </p>
                           <p className="text-[10px] text-gray-400 truncate">
                             {item.batch_number || item.batch || "-"}
@@ -1712,11 +1703,18 @@ const DashboardPage = () => {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-xs font-bold text-amber-700">
-                            {/* ✅ FIXED: Use correct field name */}
-                            {item.current_stock ?? item.available_stock ?? item.quantity ?? 0}
+                            {/*  FIXED: Use correct field name */}
+                            {item.current_stock ??
+                              item.available_stock ??
+                              item.quantity ??
+                              0}
                           </p>
                           <p className="text-[10px] text-gray-400">
-                            min {item.minimum_stock ?? item.medicine_min_stock ?? item.min_stock_level ?? 10}
+                            min{" "}
+                            {item.minimum_stock ??
+                              item.medicine_min_stock ??
+                              item.min_stock_level ??
+                              10}
                           </p>
                         </div>
                       </motion.div>

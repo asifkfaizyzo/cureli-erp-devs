@@ -10,6 +10,7 @@ import { ticketTemplates } from "./ticket.templates.js";
 import { shopTemplates } from "./shop.templates.js";
 import { userTemplates } from "./user.templates.js";
 import { paymentTemplates } from "./payment.templates.js";
+import { medicineTemplates } from "./medicine.templates.js";
 
 // ============================================
 // TEMPLATE REGISTRY
@@ -65,13 +66,13 @@ export const INAPP_TEMPLATES = {
   [NOTIFICATION_EVENTS.OUT_OF_STOCK_ALERT]: inventoryTemplates.outOfStock,
   [NOTIFICATION_EVENTS.NEAR_EXPIRY_ALERT]: inventoryTemplates.nearExpiry,
   [NOTIFICATION_EVENTS.EXPIRED_STOCK_ALERT]: inventoryTemplates.expiredStock,
-
+  [NOTIFICATION_EVENTS.MEDICINE_LINKED]: medicineTemplates.medicineLinked,
+  [NOTIFICATION_EVENTS.MEDICINE_UNLINKED]: medicineTemplates.medicineUnlinked,
   // Tickets
   [NOTIFICATION_EVENTS.TICKET_CREATED]: ticketTemplates.ticketCreated,
   [NOTIFICATION_EVENTS.TICKET_STATUS_CHANGED]:
     ticketTemplates.ticketStatusChanged,
 
-    
   // ─────────────────────────────────────────
   // BROADCAST (Pass-through - CAdmin provides title/message)
   // ─────────────────────────────────────────

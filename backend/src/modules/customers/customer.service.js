@@ -27,7 +27,7 @@ class CustomerService {
       throw new ApiError(
         `Customer with phone ${data.phone} already exists`,
         409,
-        "DUPLICATE_CUSTOMER"
+        "DUPLICATE_CUSTOMER",
       );
     }
 
@@ -111,36 +111,35 @@ class CustomerService {
   // ============================================
 
   async searchCustomers(shopId, branchId, searchTerm, limit = 10) {
-  return prisma.customer.findMany({
-    where: {
-      shop_id: shopId,
-      is_active: true,
-      OR: [
-        { name: { contains: searchTerm, mode: "insensitive" } },
-        { phone: { contains: searchTerm, mode: "insensitive" } },
-      ],
-    },
-    select: {
-      customer_id: true,
-      name: true,
-      phone: true,
-      email: true,
-      discount_percent: true,
-      credit_limit: true,
-      outstanding_balance: true,
-      gst_number: true,
-      // ✅ ADD these address fields
-      address_line_1: true,
-      address_line_2: true,
-      city: true,
-      state: true,
-      pincode: true,
-    },
-    orderBy: { name: "asc" },
-    take: limit,
-  });
-}
-
+    return prisma.customer.findMany({
+      where: {
+        shop_id: shopId,
+        is_active: true,
+        OR: [
+          { name: { contains: searchTerm, mode: "insensitive" } },
+          { phone: { contains: searchTerm, mode: "insensitive" } },
+        ],
+      },
+      select: {
+        customer_id: true,
+        name: true,
+        phone: true,
+        email: true,
+        discount_percent: true,
+        credit_limit: true,
+        outstanding_balance: true,
+        gst_number: true,
+        //  ADD these address fields
+        address_line_1: true,
+        address_line_2: true,
+        city: true,
+        state: true,
+        pincode: true,
+      },
+      orderBy: { name: "asc" },
+      take: limit,
+    });
+  }
 
   // ============================================
   // GET CUSTOMER BY ID
@@ -221,7 +220,7 @@ class CustomerService {
         throw new ApiError(
           `Another customer with phone ${data.phone} already exists`,
           409,
-          "DUPLICATE_PHONE"
+          "DUPLICATE_PHONE",
         );
       }
     }
@@ -241,12 +240,13 @@ class CustomerService {
 
     const where = {
       customer_id: customerId,
-      ...(startDate && endDate && {
-        transaction_date: {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
-        },
-      }),
+      ...(startDate &&
+        endDate && {
+          transaction_date: {
+            gte: new Date(startDate),
+            lte: new Date(endDate),
+          },
+        }),
     };
 
     const [entries, total] = await Promise.all([
@@ -369,7 +369,9 @@ class CustomerService {
       total_paid: totalPaid._sum.amount || 0,
       outstanding_balance: customer.outstanding_balance,
       credit_limit: customer.credit_limit,
-      available_credit: parseFloat(customer.credit_limit) - parseFloat(customer.outstanding_balance),
+      available_credit:
+        parseFloat(customer.credit_limit) -
+        parseFloat(customer.outstanding_balance),
       invoice_count: invoiceCount,
       discount_percent: customer.discount_percent,
     };
@@ -395,14 +397,18 @@ class CustomerService {
     const currentOutstanding = parseFloat(customer.outstanding_balance) || 0;
 
     if (paymentAmount <= 0) {
-      throw new ApiError("Payment amount must be greater than 0", 400, "INVALID_AMOUNT");
+      throw new ApiError(
+        "Payment amount must be greater than 0",
+        400,
+        "INVALID_AMOUNT",
+      );
     }
 
     if (paymentAmount > currentOutstanding) {
       throw new ApiError(
         `Payment amount ₹${paymentAmount} exceeds outstanding balance ₹${currentOutstanding}`,
         400,
-        "EXCEEDS_OUTSTANDING"
+        "EXCEEDS_OUTSTANDING",
       );
     }
 
@@ -416,7 +422,9 @@ class CustomerService {
           shop_id: shopId,
           branch_id: branchId,
           customer_id: customerId,
-          payment_date: data.payment_date ? new Date(data.payment_date) : new Date(),
+          payment_date: data.payment_date
+            ? new Date(data.payment_date)
+            : new Date(),
           amount: paymentAmount,
           payment_mode: data.payment_mode,
           reference_number: data.reference_number || null,

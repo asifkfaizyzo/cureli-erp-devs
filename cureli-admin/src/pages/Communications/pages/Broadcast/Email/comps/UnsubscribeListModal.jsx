@@ -44,11 +44,15 @@ function UnsubscribeListModal({ onClose }) {
     setError(null);
 
     try {
-      const response = await emailBroadcastAPI.getUnsubscribeList(page, 20, search);
+      const response = await emailBroadcastAPI.getUnsubscribeList(
+        page,
+        20,
+        search,
+      );
 
       console.log("[UnsubscribeListModal] API Response:", response);
 
-      // ✅ FIXED: Handle both response formats
+      //  FIXED: Handle both response formats
       let recordsData = [];
       let pagination = { page: 1, limit: 20, total: 0, total_pages: 1 };
 
@@ -65,7 +69,9 @@ function UnsubscribeListModal({ onClose }) {
       setTotalItems(pagination.total || 0);
     } catch (err) {
       console.error("[UnsubscribeListModal] Load error:", err);
-      setError(err.response?.data?.message || "Failed to load unsubscribe list");
+      setError(
+        err.response?.data?.message || "Failed to load unsubscribe list",
+      );
     } finally {
       setLoading(false);
     }
@@ -82,12 +88,12 @@ function UnsubscribeListModal({ onClose }) {
     try {
       const response = await emailBroadcastAPI.addToSuppressionList(
         newEmail.trim(),
-        newReason.trim()
+        newReason.trim(),
       );
 
       console.log("[UnsubscribeListModal] Add response:", response);
 
-      // ✅ FIXED: Handle response
+      //  FIXED: Handle response
       if (response && (response.success || response.message)) {
         setAddSuccess(`${newEmail} added to suppression list`);
         setNewEmail("");
@@ -98,7 +104,9 @@ function UnsubscribeListModal({ onClose }) {
         throw new Error(response?.message || "Failed to add email");
       }
     } catch (err) {
-      setAddError(err.response?.data?.message || err.message || "Failed to add email");
+      setAddError(
+        err.response?.data?.message || err.message || "Failed to add email",
+      );
     } finally {
       setAddLoading(false);
     }
@@ -107,7 +115,7 @@ function UnsubscribeListModal({ onClose }) {
   const handleRemove = async (email) => {
     if (
       !window.confirm(
-        `Remove ${email} from suppression list? They will receive broadcast emails again.`
+        `Remove ${email} from suppression list? They will receive broadcast emails again.`,
       )
     ) {
       return;
@@ -298,7 +306,9 @@ function UnsubscribeListModal({ onClose }) {
           ) : records.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Mail size={48} className="text-gray-300 mb-3" />
-              <p className="text-gray-500 font-medium">No unsubscribed emails</p>
+              <p className="text-gray-500 font-medium">
+                No unsubscribed emails
+              </p>
               <p className="text-sm text-gray-400">
                 {search ? "No results found" : "Everyone is still subscribed!"}
               </p>

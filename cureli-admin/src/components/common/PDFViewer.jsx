@@ -16,25 +16,25 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-// ✅ UPDATED: Helper function to convert old URL format to new format
+//  UPDATED: Helper function to convert old URL format to new format
 const convertToNewFileUrl = (url, folder = "shop_files") => {
   if (!url) return null;
-  
+
   const baseURL = import.meta.env.VITE_API_URL;
-  
+
   // If already using the new format, return as-is
   if (url.includes("/api/files/")) {
     return url;
   }
-  
+
   // If it's a full URL (external), return as-is
   if (url.startsWith("http") && !url.includes(baseURL)) {
     return url;
   }
-  
+
   // Extract filename from old URL formats
   let filename = null;
-  
+
   // Handle /uploads/folder/filename format
   if (url.includes("/uploads/")) {
     const parts = url.replace(/.*\/uploads\//, "").split("/");
@@ -65,13 +65,13 @@ const convertToNewFileUrl = (url, folder = "shop_files") => {
       filename = parts.slice(1).join("/");
     }
   }
-  
+
   if (!filename) {
     // Fallback: just return the original URL
     return url.startsWith("http") ? url : `${baseURL}${url}`;
   }
-  
-  // ✅ New URL format: /api/files/:folder/:filename
+
+  //  New URL format: /api/files/:folder/:filename
   return `${baseURL}/api/files/${folder}/${filename}`;
 };
 
@@ -87,7 +87,7 @@ const PDFViewer = ({ url, filename, folder = "shop_files", onClose }) => {
   const containerRef = useRef(null);
   const iframeRef = useRef(null);
 
-  // ✅ UPDATED: Convert URL to new format
+  //  UPDATED: Convert URL to new format
   const fileUrl = convertToNewFileUrl(url, folder);
 
   // Fetch PDF as blob
@@ -168,7 +168,7 @@ const PDFViewer = ({ url, filename, folder = "shop_files", onClose }) => {
     setRotation((prev) => (prev + 90) % 360);
   };
 
-  // ✅ UPDATED: Download using fetch + blob
+  //  UPDATED: Download using fetch + blob
   const handleDownload = async () => {
     if (!fileUrl) return;
 

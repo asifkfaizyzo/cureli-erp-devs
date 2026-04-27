@@ -64,7 +64,7 @@ const OnboardingPage = () => {
 
     // CASE 1: Router passed a specific step (from login OTP verification)
     if (typeof routerStep === "number") {
-      console.log("✅ Using navigation step:", routerStep);
+      console.log(" Using navigation step:", routerStep);
 
       if (routerStep >= 12) {
         navigate("/verification", {
@@ -146,7 +146,7 @@ const OnboardingPage = () => {
     }
 
     // CASE 4: No token, no pending_id = redirect to home
-    console.log("❌ No valid session, redirecting to home");
+    console.log(" No valid session, redirecting to home");
     navigate("/", { replace: true });
     setLoading(false);
   };
@@ -161,7 +161,7 @@ const OnboardingPage = () => {
     if (nextStep >= 4 && nextStep <= 12) {
       try {
         await updateOnboardingStep(nextStep);
-        console.log("✅ Backend step updated to:", nextStep);
+        console.log(" Backend step updated to:", nextStep);
       } catch (err) {
         console.error("Failed to update step in backend:", err);
         // Continue anyway - don't block user progress
@@ -198,11 +198,21 @@ const OnboardingPage = () => {
 
       case 1:
         return (
-          <PhoneDetails pending_id={pending_id} onContinue={handleContinue} setPhone={setPhone}/>
+          <PhoneDetails
+            pending_id={pending_id}
+            onContinue={handleContinue}
+            setPhone={setPhone}
+          />
         );
 
       case 2:
-        return <PhoneOTP pending_id={pending_id} onContinue={handleContinue} phone={phone}/>;
+        return (
+          <PhoneOTP
+            pending_id={pending_id}
+            onContinue={handleContinue}
+            phone={phone}
+          />
+        );
 
       case 3:
         return (

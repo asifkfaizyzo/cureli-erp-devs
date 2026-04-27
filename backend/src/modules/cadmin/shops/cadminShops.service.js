@@ -16,7 +16,7 @@ import * as audit from "../../audit/index.js";
  */
 async function updateShopVerificationStatus(shop_id, tx = null) {
   const db = tx || prisma;
-  
+
   const allFiles = await db.shopFile.findMany({
     where: { shop_id },
   });
@@ -99,10 +99,13 @@ export async function listShops({
   // Search filter with UUID support
   if (search && search.trim()) {
     const searchTerm = search.trim();
-    
+
     // Check if search term is a UUID (shop_id)
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchTerm);
-    
+    const isUUID =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        searchTerm,
+      );
+
     if (isUUID) {
       where.shop_id = searchTerm;
     } else {
@@ -173,7 +176,9 @@ export async function listShops({
         {
           OR: [
             { currentSubscription: { status: "expired" } },
-            { currentSubscription: { status: { in: ["expired", "cancelled"] } } },
+            {
+              currentSubscription: { status: { in: ["expired", "cancelled"] } },
+            },
             { currentSubscription: { end_date: { lt: new Date() } } },
             { currentSubscription: { is_active: false } },
           ],
@@ -292,7 +297,9 @@ export async function listShops({
           is_active: shop.currentSubscription.is_active,
           end_date: shop.currentSubscription.end_date,
           bonus_months: shop.currentSubscription.plan?.bonus_months || 0,
-          is_promo_active: isPromoActive(shop.currentSubscription.plan?.promo_free_until),
+          is_promo_active: isPromoActive(
+            shop.currentSubscription.plan?.promo_free_until,
+          ),
           is_featured: shop.currentSubscription.plan?.is_featured || false,
         }
       : null,
@@ -586,9 +593,14 @@ export async function getShopById(shop_id) {
     return {
       ...plan,
       price: Number(plan.price),
-      compare_at_price: plan.compare_at_price ? Number(plan.compare_at_price) : null,
+      compare_at_price: plan.compare_at_price
+        ? Number(plan.compare_at_price)
+        : null,
       is_promo_active: isPromoActive(plan.promo_free_until),
-      total_duration_months: getTotalDurationMonths(plan.billing_cycle_months, plan.bonus_months),
+      total_duration_months: getTotalDurationMonths(
+        plan.billing_cycle_months,
+        plan.bonus_months,
+      ),
     };
   };
 
@@ -612,7 +624,12 @@ export async function getShopById(shop_id) {
 // UPDATE SHOP
 // ============================================
 
-export async function updateShop(shop_id, updates, cadmin_id, auditContext = {}) {
+export async function updateShop(
+  shop_id,
+  updates,
+  cadmin_id,
+  auditContext = {},
+) {
   const existingShop = await prisma.shop.findUnique({
     where: { shop_id },
   });
@@ -673,25 +690,28 @@ export async function updateShop(shop_id, updates, cadmin_id, auditContext = {})
       },
     });
 
-    // ✅ AUDIT: Shop details updated by admin
-    await audit.log({
-      action: audit.AuditAction.SHOP_DETAILS_UPDATED,
-      entity_type: audit.EntityType.SHOP,
-      entity_id: shop_id,
-      shop_id: shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.DATA_CORRECTION,
-      metadata: {
-        changed_fields: Object.keys(changes),
-        before: Object.fromEntries(
-          Object.entries(changes).map(([k, v]) => [k, v.old])
-        ),
-        after: Object.fromEntries(
-          Object.entries(changes).map(([k, v]) => [k, v.new])
-        ),
-        updated_by_cadmin_id: cadmin_id,
+    //  AUDIT: Shop details updated by admin
+    await audit.log(
+      {
+        action: audit.AuditAction.SHOP_DETAILS_UPDATED,
+        entity_type: audit.EntityType.SHOP,
+        entity_id: shop_id,
+        shop_id: shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.DATA_CORRECTION,
+        metadata: {
+          changed_fields: Object.keys(changes),
+          before: Object.fromEntries(
+            Object.entries(changes).map(([k, v]) => [k, v.old]),
+          ),
+          after: Object.fromEntries(
+            Object.entries(changes).map(([k, v]) => [k, v.new]),
+          ),
+          updated_by_cadmin_id: cadmin_id,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return updatedShop;
   });
@@ -703,7 +723,12 @@ export async function updateShop(shop_id, updates, cadmin_id, auditContext = {})
 // TOGGLE SHOP ACTIVE
 // ============================================
 
-export async function toggleShopActive(shop_id, is_active, cadmin_id, auditContext = {}) {
+export async function toggleShopActive(
+  shop_id,
+  is_active,
+  cadmin_id,
+  auditContext = {},
+) {
   const existingShop = await prisma.shop.findUnique({
     where: { shop_id },
     include: {
@@ -739,25 +764,28 @@ export async function toggleShopActive(shop_id, is_active, cadmin_id, auditConte
       },
     });
 
-    // ✅ AUDIT: Shop suspended or activated
-    const auditAction = is_active 
-      ? audit.AuditAction.SHOP_ACTIVATED 
+    //  AUDIT: Shop suspended or activated
+    const auditAction = is_active
+      ? audit.AuditAction.SHOP_ACTIVATED
       : audit.AuditAction.SHOP_SUSPENDED;
 
-    await audit.log({
-      action: auditAction,
-      entity_type: audit.EntityType.SHOP,
-      entity_id: shop_id,
-      shop_id: shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        previous_status: existingShop.is_active ? "active" : "suspended",
-        activated_by: is_active ? cadmin_id : undefined,
-        reason: is_active ? "Activated by admin" : "Suspended by admin",
-        suspended_by: !is_active ? cadmin_id : undefined,
+    await audit.log(
+      {
+        action: auditAction,
+        entity_type: audit.EntityType.SHOP,
+        entity_id: shop_id,
+        shop_id: shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          previous_status: existingShop.is_active ? "active" : "suspended",
+          activated_by: is_active ? cadmin_id : undefined,
+          reason: is_active ? "Activated by admin" : "Suspended by admin",
+          suspended_by: !is_active ? cadmin_id : undefined,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return updatedShop;
   });
@@ -769,7 +797,12 @@ export async function toggleShopActive(shop_id, is_active, cadmin_id, auditConte
 // UPDATE SHOP SUBSCRIPTION
 // ============================================
 
-export async function updateShopSubscription(shop_id, plan_id, cadmin_id, auditContext = {}) {
+export async function updateShopSubscription(
+  shop_id,
+  plan_id,
+  cadmin_id,
+  auditContext = {},
+) {
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
     include: {
@@ -804,8 +837,11 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id, auditC
 
   // Calculate dates with bonus_months support
   const startDate = new Date();
-  const totalMonths = getTotalDurationMonths(plan.billing_cycle_months, plan.bonus_months);
-  
+  const totalMonths = getTotalDurationMonths(
+    plan.billing_cycle_months,
+    plan.bonus_months,
+  );
+
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + totalMonths);
 
@@ -839,7 +875,9 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id, auditC
         plan_id,
         status: "active",
         billing_cycle: "yearly",
-        payment_status: isPromoActive(plan.promo_free_until) ? "free_promo" : "paid",
+        payment_status: isPromoActive(plan.promo_free_until)
+          ? "free_promo"
+          : "paid",
         start_date: startDate,
         end_date: endDate,
         renewal_date: renewalDate,
@@ -858,26 +896,29 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id, auditC
       },
     });
 
-    // ✅ AUDIT: Plan assigned by admin
-    await audit.log({
-      action: audit.AuditAction.SHOP_PLAN_ASSIGNED_BY_ADMIN,
-      entity_type: audit.EntityType.SHOP,
-      entity_id: shop_id,
-      shop_id: shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        plan_id: plan.plan_id,
-        plan_name: plan.name,
-        assigned_by_cadmin_id: cadmin_id,
-        previous_plan_id: shop.currentSubscription?.plan?.plan_id || null,
-        previous_plan_name: shop.currentSubscription?.plan?.name || null,
-        subscription_id: newSubscription.subscription_id,
-        start_date: startDate,
-        end_date: endDate,
-        is_promo: isPromoActive(plan.promo_free_until),
+    //  AUDIT: Plan assigned by admin
+    await audit.log(
+      {
+        action: audit.AuditAction.SHOP_PLAN_ASSIGNED_BY_ADMIN,
+        entity_type: audit.EntityType.SHOP,
+        entity_id: shop_id,
+        shop_id: shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          plan_id: plan.plan_id,
+          plan_name: plan.name,
+          assigned_by_cadmin_id: cadmin_id,
+          previous_plan_id: shop.currentSubscription?.plan?.plan_id || null,
+          previous_plan_name: shop.currentSubscription?.plan?.name || null,
+          subscription_id: newSubscription.subscription_id,
+          start_date: startDate,
+          end_date: endDate,
+          is_promo: isPromoActive(plan.promo_free_until),
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return newSubscription;
   });
@@ -910,13 +951,13 @@ export async function updateShopSubscription(shop_id, plan_id, cadmin_id, auditC
     plan: {
       ...subscription.plan,
       price: Number(subscription.plan.price),
-      compare_at_price: subscription.plan.compare_at_price 
-        ? Number(subscription.plan.compare_at_price) 
+      compare_at_price: subscription.plan.compare_at_price
+        ? Number(subscription.plan.compare_at_price)
         : null,
       is_promo_active: isPromoActive(subscription.plan.promo_free_until),
       total_duration_months: getTotalDurationMonths(
         subscription.plan.billing_cycle_months,
-        subscription.plan.bonus_months
+        subscription.plan.bonus_months,
       ),
     },
     status: subscription.status,
@@ -977,7 +1018,7 @@ export async function uploadShopDocument({
       if (existingDoc.storage_key) {
         const oldFilePath = path.join(
           "uploads/shop_files",
-          existingDoc.storage_key
+          existingDoc.storage_key,
         );
         if (fs.existsSync(oldFilePath)) {
           fs.unlinkSync(oldFilePath);
@@ -1016,24 +1057,26 @@ export async function uploadShopDocument({
         },
       });
 
-      // ✅ AUDIT: Document replaced by admin
-      await audit.log({
-        action: audit.AuditAction.SHOP_DOCUMENT_REPLACED_BY_ADMIN,
-        entity_type: audit.EntityType.DOCUMENT,
-        entity_id: shopFile.file_id,
-        shop_id: shop_id,
-        ...auditContext,
-        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-        metadata: {
-          file_id: shopFile.file_id,
-          previous_file_id: existingDoc.file_id,
-          file_type: file_type,
-          original_name: originalName,
-          replaced_by_cadmin_id: uploaded_by,
-          resubmission_count: shopFile.resubmission_count,
+      //  AUDIT: Document replaced by admin
+      await audit.log(
+        {
+          action: audit.AuditAction.SHOP_DOCUMENT_REPLACED_BY_ADMIN,
+          entity_type: audit.EntityType.DOCUMENT,
+          entity_id: shopFile.file_id,
+          shop_id: shop_id,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+          metadata: {
+            file_id: shopFile.file_id,
+            previous_file_id: existingDoc.file_id,
+            file_type: file_type,
+            original_name: originalName,
+            replaced_by_cadmin_id: uploaded_by,
+            resubmission_count: shopFile.resubmission_count,
+          },
         },
-      }, { tx });
-
+        { tx },
+      );
     } else {
       // Create new document
       shopFile = await tx.shopFile.create({
@@ -1062,22 +1105,25 @@ export async function uploadShopDocument({
         },
       });
 
-      // ✅ AUDIT: Document uploaded by admin
-      await audit.log({
-        action: audit.AuditAction.SHOP_DOCUMENT_UPLOADED_BY_ADMIN,
-        entity_type: audit.EntityType.DOCUMENT,
-        entity_id: shopFile.file_id,
-        shop_id: shop_id,
-        ...auditContext,
-        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-        metadata: {
-          file_type: file_type,
-          original_name: originalName,
-          uploaded_by_cadmin_id: uploaded_by,
-          mime_type: mimeType,
-          file_size: fileSize,
+      //  AUDIT: Document uploaded by admin
+      await audit.log(
+        {
+          action: audit.AuditAction.SHOP_DOCUMENT_UPLOADED_BY_ADMIN,
+          entity_type: audit.EntityType.DOCUMENT,
+          entity_id: shopFile.file_id,
+          shop_id: shop_id,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+          metadata: {
+            file_type: file_type,
+            original_name: originalName,
+            uploaded_by_cadmin_id: uploaded_by,
+            mime_type: mimeType,
+            file_size: fileSize,
+          },
         },
-      }, { tx });
+        { tx },
+      );
     }
 
     // Update shop verification status

@@ -1,23 +1,17 @@
-// src/modules/cadmin/admins/cadminAdmin.service.js
+// backend/src/modules/cadmin/admins/cadminAdmin.service.js
 
 import prisma from "../../../config/prisma.js";
 import { hashPassword } from "../../../utils/hash.js";
 import * as audit from "../../audit/index.js";
 
-// ============================================
+// ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
-// ============================================
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ✅ UPDATED: Match Prisma CAdminRole enum
-function formatRole(role) {
-  if (!role) return "Super Admin";
-  const map = {
-    SUPER_CADMIN: "Super Admin",
-    ANALYST: "Analyst",
-    ACCOUNTANT: "Accountant",
-    SALESMAN: "Salesman",
-  };
-  return map[role] || role;
+function createError(message, status = 400) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
 }
 
 function formatStatus(isActive) {
@@ -46,30 +40,53 @@ function formatDate(dt) {
   return `${day}/${month}/${year}`;
 }
 
-// ✅ UPDATED: Match Prisma CAdminRole enum with backward compatibility
-function mapRoleToDb(role) {
-  if (!role) return null;
-  const r = role.toLowerCase().replace(/\s+/g, "_");
-  const map = {
-    super_cadmin: "SUPER_CADMIN",
-    super_admin: "SUPER_CADMIN", // Backward compatibility
-    analyst: "ANALYST",
-    accountant: "ACCOUNTANT",
-    accounting: "ACCOUNTANT", // Backward compatibility
-    salesman: "SALESMAN",
-  };
-  return map[r] || role.toUpperCase();
+function deriveDisplayRole(admin) {
+  if (admin.is_super_cadmin) return "Super Admin";
+
+  const assignments = admin.roleAssignments ?? [];
+  if (assignments.length === 0) return "No Role";
+
+  const primary = assignments.find((a) => a.is_primary && !a.role.is_deleted);
+  if (primary) return primary.role.name;
+
+  const first = assignments.find((a) => !a.role.is_deleted);
+  return first ? first.role.name : "No Role";
 }
 
-function createError(message, status = 400) {
-  const err = new Error(message);
-  err.status = status;
-  return err;
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// STANDARD ADMIN SELECT
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ============================================
+const ADMIN_BASE_SELECT = {
+  cadmin_id: true,
+  name: true,
+  username: true,
+  phone_number: true,
+  email: true,
+  is_active: true,
+  is_super_cadmin: true,
+  last_login_at: true,
+  created_at: true,
+  updated_at: true,
+  roleAssignments: {
+    where: { role: { is_deleted: false } },
+    select: {
+      is_primary: true,
+      assigned_at: true,
+      role: {
+        select: {
+          role_id: true,
+          name: true,
+          is_deleted: true,
+        },
+      },
+    },
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SERVICES
-// ============================================
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function getAdminsService(query) {
   const { page, limit, search, status, role, sort, order } = query;
@@ -78,10 +95,22 @@ export async function getAdminsService(query) {
   const where = {};
 
   if (status === "active") where.is_active = true;
-  else if (status === "inactive") where.is_active = false;
+  if (status === "inactive") where.is_active = false;
 
   if (role) {
-    where.role = mapRoleToDb(role);
+    const normalized = role.toLowerCase().replace(/\s+/g, "_");
+    if (normalized === "super_cadmin" || normalized === "super_admin") {
+      where.is_super_cadmin = true;
+    } else {
+      where.roleAssignments = {
+        some: {
+          role: {
+            name: { contains: role, mode: "insensitive" },
+            is_deleted: false,
+          },
+        },
+      };
+    }
   }
 
   if (search) {
@@ -92,8 +121,14 @@ export async function getAdminsService(query) {
     ];
   }
 
-  const sortField = sort === "username" ? "username" : sort === "role" ? "role" : sort === "last_login_at" ? "last_login_at" : "created_at";
-  const orderBy = { [sortField]: order };
+  const SORT_MAP = {
+    name: "name",
+    username: "username",
+    last_login_at: "last_login_at",
+    created_at: "created_at",
+  };
+  const sortField = SORT_MAP[sort] ?? "created_at";
+  const orderBy = { [sortField]: order ?? "desc" };
 
   const [total, admins] = await Promise.all([
     prisma.cAdmin.count({ where }),
@@ -102,17 +137,7 @@ export async function getAdminsService(query) {
       orderBy,
       skip,
       take: limit,
-      select: {
-        cadmin_id: true,
-        name: true,
-        username: true,
-        phone_number: true,
-        email: true,
-        role: true,
-        is_active: true,
-        last_login_at: true,
-        created_at: true,
-      },
+      select: ADMIN_BASE_SELECT,
     }),
   ]);
 
@@ -124,7 +149,13 @@ export async function getAdminsService(query) {
     username: a.username,
     phone: a.phone_number,
     email: a.email || "",
-    role: formatRole(a.role),
+    role: deriveDisplayRole(a),
+    roles: a.roleAssignments.map((r) => ({
+      role_id: r.role.role_id,
+      name: r.role.name,
+      is_primary: r.is_primary,
+    })),
+    is_super_cadmin: a.is_super_cadmin,
     status: formatStatus(a.is_active),
     lastLogin: formatDateTime(a.last_login_at),
     createdAt: formatDate(a.created_at),
@@ -132,40 +163,40 @@ export async function getAdminsService(query) {
 
   return {
     admins: data,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages,
-    },
+    meta: { total, page, limit, totalPages },
   };
 }
 
 export async function getAdminByIdService(id) {
   const admin = await prisma.cAdmin.findUnique({
     where: { cadmin_id: id },
-    include: {
-      activityLogs: {
-        orderBy: { created_at: "desc" },
-        take: 50,
-      },
-    },
+    select: ADMIN_BASE_SELECT,
   });
 
-  if (!admin) {
-    throw createError("Admin not found", 404);
-  }
+  if (!admin) throw createError("Admin not found", 404);
 
-  const activityLogs = admin.activityLogs.map((log) => ({
-    id: log.id,
-    action: log.action,
-    description: log.description,
-    changes: log.changes,
-    meta: log.meta,
-    ipAddress: log.ip_address,
-    userAgent: log.user_agent,
-    createdAt: log.created_at,
-  }));
+  const activityLogs = await prisma.auditLog.findMany({
+    where: {
+      OR: [
+        { actor_id: id, actor_type: "cadmin" },
+        { entity_id: id, entity_type: "cadmin" },
+      ],
+    },
+    orderBy: { created_at: "desc" },
+    take: 50,
+    select: {
+      audit_id:    true,
+      action:      true,
+      actor_type:  true,
+      actor_role:  true,
+      entity_type: true,
+      reason_code: true,
+      metadata:    true,
+      ip_address:  true,
+      user_agent:  true,
+      created_at:  true,
+    },
+  });
 
   return {
     id: admin.cadmin_id,
@@ -173,34 +204,78 @@ export async function getAdminByIdService(id) {
     username: admin.username,
     phone: admin.phone_number,
     email: admin.email || "",
-    role: formatRole(admin.role),
-    rawRole: admin.role,
-    status: formatStatus(admin.is_active),
-    isActive: admin.is_active,
+    role: deriveDisplayRole(admin),
+    roles: admin.roleAssignments.map((r) => ({
+      role_id:     r.role.role_id,
+      name:        r.role.name,
+      is_primary:  r.is_primary,
+      assigned_at: r.assigned_at,
+    })),
+    is_super_cadmin: admin.is_super_cadmin,
+    status:    formatStatus(admin.is_active),
+    isActive:  admin.is_active,
     lastLogin: formatDateTime(admin.last_login_at),
     createdAt: formatDate(admin.created_at),
     updatedAt: formatDate(admin.updated_at),
-    activityLogs,
+    activityLogs: activityLogs.map((log) => ({
+      id:          log.audit_id,
+      action:      log.action,
+      description: log.metadata?.event || log.action,
+      changes:     null,          // AuditLog has no before/after changes field
+      meta:        log.metadata,  // metadata goes here
+      ipAddress:   log.ip_address,
+      userAgent:   log.user_agent,
+      createdAt:   log.created_at,
+    })),
   };
 }
 
 export async function createAdminService(data, auditContext = {}) {
-  const { name, username, phone, email, password, role, status } = data;
+  const {
+    name,
+    username,
+    phone,
+    email,
+    password,
+    status,
+    role_ids,
+    primary_role_id,
+  } = data;
 
-  // Check unique username
   const existingUsername = await prisma.cAdmin.findFirst({
     where: { username: { equals: username, mode: "insensitive" } },
   });
-  if (existingUsername) {
-    throw createError("Username already exists", 409);
-  }
+  if (existingUsername) throw createError("Username already exists", 409);
 
-  // Check unique email
   const existingEmail = await prisma.cAdmin.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
   });
-  if (existingEmail) {
-    throw createError("Email already exists", 409);
+  if (existingEmail) throw createError("Email already exists", 409);
+
+  if (role_ids && role_ids.length > 0) {
+    if (!primary_role_id) {
+      throw createError(
+        "primary_role_id is required when role_ids are provided",
+        400,
+      );
+    }
+    if (!role_ids.includes(primary_role_id)) {
+      throw createError(
+        "primary_role_id must be one of the role_ids provided",
+        400,
+      );
+    }
+
+    const validRoles = await prisma.cAdminCustomRole.findMany({
+      where: { role_id: { in: role_ids }, is_deleted: false },
+      select: { role_id: true },
+    });
+    if (validRoles.length !== role_ids.length) {
+      throw createError(
+        "One or more roles not found or have been deleted",
+        404,
+      );
+    }
   }
 
   const password_hash = await hashPassword(password);
@@ -213,61 +288,74 @@ export async function createAdminService(data, auditContext = {}) {
         phone_number: phone,
         email: email.toLowerCase(),
         password_hash,
-        role: role || "SUPER_CADMIN", // ✅ Changed default
         is_active: status === "Active",
+        is_super_cadmin: false,
       },
       select: {
-        cadmin_id: true,
-        name: true,
-        username: true,
-        phone_number: true,
-        email: true,
-        role: true,
-        is_active: true,
-        created_at: true,
+        cadmin_id:       true,
+        name:            true,
+        username:        true,
+        phone_number:    true,
+        email:           true,
+        is_active:       true,
+        is_super_cadmin: true,
+        created_at:      true,
       },
     });
 
-    // Legacy activity log
+    if (role_ids && role_ids.length > 0) {
+      await tx.cAdminRoleAssignment.createMany({
+        data: role_ids.map((role_id) => ({
+          cadmin_id:   admin.cadmin_id,
+          role_id,
+          is_primary:  role_id === primary_role_id,
+          assigned_by: auditContext.actor_id || null,
+        })),
+      });
+    }
+
     await tx.cAdminActivityLog.create({
       data: {
-        cadmin_id: admin.cadmin_id,
+        cadmin_id:       admin.cadmin_id,
         performed_by_id: auditContext.actor_id,
-        action: "admin_created",
-        description: "Admin account created",
-        ip_address: auditContext.ip_address,
-        user_agent: auditContext.user_agent,
+        action:          "admin_created",
+        description:     "Admin account created",
+        ip_address:      auditContext.ip_address,
+        user_agent:      auditContext.user_agent,
       },
     });
 
-    // ✅ AUDIT LOG: CAdmin created
-    await audit.log({
-      action: audit.AuditAction.CADMIN_CREATED,
-      entity_type: audit.EntityType.CADMIN,
-      entity_id: admin.cadmin_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        username: admin.username,
-        role: admin.role,
-        email: admin.email,
-        created_by_cadmin_id: auditContext.actor_id,
+    await audit.log(
+      {
+        action:      audit.AuditAction.CADMIN_CREATED,
+        entity_type: audit.EntityType.CADMIN,
+        entity_id:   admin.cadmin_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          username:             admin.username,
+          email:                admin.email,
+          role_ids_assigned:    role_ids ?? [],
+          created_by_cadmin_id: auditContext.actor_id,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return admin;
   });
 
   return {
-    id: result.cadmin_id,
-    name: result.name,
-    username: result.username,
-    phone: result.phone_number,
-    email: result.email || "",
-    role: formatRole(result.role),
-    status: formatStatus(result.is_active),
-    lastLogin: "Never",
-    createdAt: formatDate(result.created_at),
+    id:              result.cadmin_id,
+    name:            result.name,
+    username:        result.username,
+    phone:           result.phone_number,
+    email:           result.email || "",
+    is_super_cadmin: result.is_super_cadmin,
+    role:            "No Role",
+    status:          formatStatus(result.is_active),
+    lastLogin:       "Never",
+    createdAt:       formatDate(result.created_at),
   };
 }
 
@@ -275,9 +363,7 @@ export async function updateAdminService(id, data, auditContext = {}) {
   const existing = await prisma.cAdmin.findUnique({
     where: { cadmin_id: id },
   });
-  if (!existing) {
-    throw createError("Admin not found", 404);
-  }
+  if (!existing) throw createError("Admin not found", 404);
 
   const updateData = {};
   const changes = {};
@@ -322,122 +408,101 @@ export async function updateAdminService(id, data, auditContext = {}) {
     }
   }
 
-  if (data.role !== undefined && data.role !== existing.role) {
-    changes.role = { from: existing.role, to: data.role };
-    updateData.role = data.role;
-  }
-
   if (Object.keys(updateData).length === 0) {
     throw createError("No changes detected", 400);
   }
 
-  const hasRoleChange = !!changes.role;
-  const action = hasRoleChange ? "role_updated" : "profile_updated";
   const changedFields = Object.keys(changes).join(", ");
-  const description = hasRoleChange
-    ? `Role changed from ${formatRole(changes.role.from)} to ${formatRole(changes.role.to)}`
-    : `Updated: ${changedFields}`;
 
   const result = await prisma.$transaction(async (tx) => {
     const updated = await tx.cAdmin.update({
       where: { cadmin_id: id },
       data: updateData,
-      select: {
-        cadmin_id: true,
-        name: true,
-        username: true,
-        phone_number: true,
-        email: true,
-        role: true,
-        is_active: true,
-        last_login_at: true,
-        created_at: true,
-        updated_at: true,
-      },
+      select: ADMIN_BASE_SELECT,
     });
 
-    // Legacy activity log
     await tx.cAdminActivityLog.create({
       data: {
-        cadmin_id: id,
+        cadmin_id:       id,
         performed_by_id: auditContext.actor_id,
-        action,
-        description,
+        action:          "profile_updated",
+        description:     `Updated: ${changedFields}`,
         changes,
-        ip_address: auditContext.ip_address,
-        user_agent: auditContext.user_agent,
+        ip_address:      auditContext.ip_address,
+        user_agent:      auditContext.user_agent,
       },
     });
 
-    // ✅ AUDIT LOG: CAdmin profile updated
-    await audit.log({
-      action: audit.AuditAction.CADMIN_PROFILE_UPDATED,
-      entity_type: audit.EntityType.CADMIN,
-      entity_id: id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        changed_fields: Object.keys(changes),
-        before: Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v.from])),
-        after: Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v.to])),
-        changed_by_cadmin_id: auditContext.actor_id,
-      },
-    }, { tx });
-
-    // ✅ AUDIT LOG: Role changed (if applicable)
-    if (hasRoleChange) {
-      await audit.log({
-        action: audit.AuditAction.CADMIN_ROLE_CHANGED,
+    await audit.log(
+      {
+        action:      audit.AuditAction.CADMIN_PROFILE_UPDATED,
         entity_type: audit.EntityType.CADMIN,
-        entity_id: id,
+        entity_id:   id,
         ...auditContext,
         reason_code: audit.AuditReasonCode.ADMIN_ACTION,
         metadata: {
-          previous_role: changes.role.from,
-          new_role: changes.role.to,
+          changed_fields: Object.keys(changes),
+          before: Object.fromEntries(
+            Object.entries(changes).map(([k, v]) => [k, v.from]),
+          ),
+          after: Object.fromEntries(
+            Object.entries(changes).map(([k, v]) => [k, v.to]),
+          ),
           changed_by_cadmin_id: auditContext.actor_id,
         },
-      }, { tx });
-    }
+      },
+      { tx },
+    );
 
     return updated;
   });
 
   return {
-    id: result.cadmin_id,
-    name: result.name,
-    username: result.username,
-    phone: result.phone_number,
-    email: result.email || "",
-    role: formatRole(result.role),
-    status: formatStatus(result.is_active),
-    lastLogin: formatDateTime(result.last_login_at),
-    createdAt: formatDate(result.created_at),
-    updatedAt: formatDate(result.updated_at),
+    id:              result.cadmin_id,
+    name:            result.name,
+    username:        result.username,
+    phone:           result.phone_number,
+    email:           result.email || "",
+    role:            deriveDisplayRole(result),
+    roles:           result.roleAssignments.map((r) => ({
+      role_id:    r.role.role_id,
+      name:       r.role.name,
+      is_primary: r.is_primary,
+    })),
+    is_super_cadmin: result.is_super_cadmin,
+    status:          formatStatus(result.is_active),
+    lastLogin:       formatDateTime(result.last_login_at),
+    createdAt:       formatDate(result.created_at),
+    updatedAt:       formatDate(result.updated_at),
   };
 }
 
-export async function toggleAdminAccessService(id, isActive, auditContext = {}) {
-  // Prevent self-deactivation
+export async function toggleAdminAccessService(
+  id,
+  isActive,
+  auditContext = {},
+) {
   if (auditContext.actor_id === id && !isActive) {
     throw createError("Cannot deactivate your own account", 403);
   }
 
   const existing = await prisma.cAdmin.findUnique({
     where: { cadmin_id: id },
+    select: {
+      cadmin_id:       true,
+      name:            true,
+      username:        true,
+      is_active:       true,
+      is_super_cadmin: true,
+    },
   });
-  if (!existing) {
-    throw createError("Admin not found", 404);
-  }
+  if (!existing) throw createError("Admin not found", 404);
 
-  // ✅ UPDATED: Match Prisma enum SUPER_CADMIN
-  if (!isActive && existing.role === "SUPER_CADMIN") {
-    const activeSuperAdmins = await prisma.cAdmin.count({
-      where: { role: "SUPER_CADMIN", is_active: true },
-    });
-    if (activeSuperAdmins <= 1) {
-      throw createError("Cannot deactivate the last active Super Admin", 400);
-    }
+  if (existing.is_super_cadmin) {
+    throw createError(
+      "Super Admin accounts cannot be toggled through this endpoint. Use the Super Admin access endpoint.",
+      403,
+    );
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -445,54 +510,53 @@ export async function toggleAdminAccessService(id, isActive, auditContext = {}) 
       where: { cadmin_id: id },
       data: { is_active: isActive },
       select: {
-        cadmin_id: true,
-        name: true,
-        username: true,
-        role: true,
-        is_active: true,
+        cadmin_id:       true,
+        name:            true,
+        username:        true,
+        is_active:       true,
+        is_super_cadmin: true,
       },
     });
 
-    // Legacy activity log
     await tx.cAdminActivityLog.create({
       data: {
-        cadmin_id: id,
+        cadmin_id:       id,
         performed_by_id: auditContext.actor_id,
-        action: "status_changed",
-        description: isActive ? "Admin activated" : "Admin suspended",
-        changes: { is_active: { from: existing.is_active, to: isActive } },
-        meta: { performed_by: auditContext.actor_id },
-        ip_address: auditContext.ip_address,
-        user_agent: auditContext.user_agent,
+        action:          "status_changed",
+        description:     isActive ? "Admin activated" : "Admin suspended",
+        changes:         { is_active: { from: existing.is_active, to: isActive } },
+        meta:            { performed_by: auditContext.actor_id },
+        ip_address:      auditContext.ip_address,
+        user_agent:      auditContext.user_agent,
       },
     });
 
-    // ✅ AUDIT LOG: Activated or Suspended
-    const auditAction = isActive 
-      ? audit.AuditAction.CADMIN_ACTIVATED 
-      : audit.AuditAction.CADMIN_SUSPENDED;
-
-    await audit.log({
-      action: auditAction,
-      entity_type: audit.EntityType.CADMIN,
-      entity_id: id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        username: updated.username,
-        role: updated.role,
-        reason: isActive ? "activated_by_admin" : "suspended_by_admin",
-        changed_by_cadmin_id: auditContext.actor_id,
+    await audit.log(
+      {
+        action: isActive
+          ? audit.AuditAction.CADMIN_ACTIVATED
+          : audit.AuditAction.CADMIN_SUSPENDED,
+        entity_type: audit.EntityType.CADMIN,
+        entity_id:   id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          username:             updated.username,
+          is_super_cadmin:      updated.is_super_cadmin,
+          reason:               isActive ? "activated_by_admin" : "suspended_by_admin",
+          changed_by_cadmin_id: auditContext.actor_id,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return updated;
   });
 
   return {
-    id: result.cadmin_id,
-    name: result.name,
-    status: formatStatus(result.is_active),
+    id:       result.cadmin_id,
+    name:     result.name,
+    status:   formatStatus(result.is_active),
     isActive: result.is_active,
   };
 }
@@ -505,45 +569,258 @@ export async function getAdminActivityService(adminId, query) {
     where: { cadmin_id: adminId },
     select: { cadmin_id: true },
   });
-  if (!admin) {
-    throw createError("Admin not found", 404);
-  }
+  if (!admin) throw createError("Admin not found", 404);
 
-  const where = { cadmin_id: adminId };
+  const where = {
+    OR: [
+      { actor_id: adminId,  actor_type: "cadmin"  },
+      { entity_id: adminId, entity_type: "cadmin" },
+    ],
+  };
+
   if (action) {
-    where.action = action;
+    where.action = {
+      contains: action,
+      mode: "insensitive",
+    };
   }
 
   const [total, activities] = await Promise.all([
-    prisma.cAdminActivityLog.count({ where }),
-    prisma.cAdminActivityLog.findMany({
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({
       where,
       orderBy: { created_at: "desc" },
       skip,
       take: limit,
+      select: {
+        audit_id:    true,
+        action:      true,
+        actor_type:  true,
+        actor_role:  true,
+        entity_type: true,
+        entity_id:   true,
+        reason_code: true,
+        metadata:    true,
+        ip_address:  true,
+        user_agent:  true,
+        created_at:  true,
+      },
     }),
   ]);
 
   const totalPages = Math.max(Math.ceil(total / limit), 1);
 
-  const data = activities.map((a) => ({
-    id: a.id,
-    action: a.action,
-    description: a.description,
-    changes: a.changes,
-    meta: a.meta,
-    ipAddress: a.ip_address,
-    userAgent: a.user_agent,
-    createdAt: a.created_at,
-  }));
+  return {
+    activities: activities.map((a) => ({
+      id:          a.audit_id,
+      action:      a.action,
+      actor_type:  a.actor_type,
+      actor_role:  a.actor_role,
+      entity_type: a.entity_type,
+      entity_id:   a.entity_id,
+      reason_code: a.reason_code,
+      description: a.metadata?.event || a.action,
+      changes:     null,          // AuditLog has no before/after changes field
+      meta:        a.metadata,    // metadata goes here
+      ipAddress:   a.ip_address,
+      userAgent:   a.user_agent,
+      createdAt:   a.created_at,
+    })),
+    meta: { total, page, limit, totalPages },
+  };
+}
+
+export async function createSuperAdminService(data, auditContext = {}) {
+  const { name, username, phone, email, password, status } = data;
+
+  const existingUsername = await prisma.cAdmin.findFirst({
+    where: { username: { equals: username, mode: "insensitive" } },
+  });
+  if (existingUsername) throw createError("Username already exists", 409);
+
+  const existingEmail = await prisma.cAdmin.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
+  if (existingEmail) throw createError("Email already exists", 409);
+
+  const password_hash = await hashPassword(password);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const admin = await tx.cAdmin.create({
+      data: {
+        name,
+        username:        username.toLowerCase(),
+        phone_number:    phone,
+        email:           email.toLowerCase(),
+        password_hash,
+        is_active:       status === "Active",
+        is_super_cadmin: true,
+      },
+      select: {
+        cadmin_id:       true,
+        name:            true,
+        username:        true,
+        phone_number:    true,
+        email:           true,
+        is_active:       true,
+        is_super_cadmin: true,
+        created_at:      true,
+      },
+    });
+
+    await tx.cAdminActivityLog.create({
+      data: {
+        cadmin_id:       admin.cadmin_id,
+        performed_by_id: auditContext.actor_id,
+        action:          "super_admin_created",
+        description:     "Super Admin account created",
+        ip_address:      auditContext.ip_address,
+        user_agent:      auditContext.user_agent,
+      },
+    });
+
+    await audit.log(
+      {
+        action:      audit.AuditAction.CADMIN_CREATED,
+        entity_type: audit.EntityType.CADMIN,
+        entity_id:   admin.cadmin_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          username:             admin.username,
+          email:                admin.email,
+          is_super_cadmin:      true,
+          created_by_cadmin_id: auditContext.actor_id,
+        },
+      },
+      { tx },
+    );
+
+    return admin;
+  });
 
   return {
-    activities: data,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages,
+    id:              result.cadmin_id,
+    name:            result.name,
+    username:        result.username,
+    phone:           result.phone_number,
+    email:           result.email || "",
+    is_super_cadmin: true,
+    role:            "Super Admin",
+    status:          formatStatus(result.is_active),
+    lastLogin:       "Never",
+    createdAt:       formatDate(result.created_at),
+  };
+}
+
+export async function toggleSuperAdminAccessService(
+  id,
+  isActive,
+  secret,
+  auditContext = {},
+) {
+  if (auditContext.actor_id === id && !isActive) {
+    throw createError("Cannot deactivate your own account", 403);
+  }
+
+  const expectedSecret = process.env.SUPER_ADMIN_DEACTIVATE_SECRET;
+  if (!expectedSecret) {
+    throw createError(
+      "Super Admin access control is not configured. Contact your system administrator.",
+      500,
+    );
+  }
+  if (secret !== expectedSecret) {
+    throw createError("Invalid secret. Access denied.", 403);
+  }
+
+  const existing = await prisma.cAdmin.findUnique({
+    where: { cadmin_id: id },
+    select: {
+      cadmin_id:       true,
+      name:            true,
+      username:        true,
+      is_active:       true,
+      is_super_cadmin: true,
     },
+  });
+  if (!existing) throw createError("Admin not found", 404);
+
+  if (!existing.is_super_cadmin) {
+    throw createError(
+      "This endpoint is only for Super Admin accounts. Use the standard toggle endpoint.",
+      400,
+    );
+  }
+
+  if (!isActive) {
+    const activeSuperAdmins = await prisma.cAdmin.count({
+      where: { is_super_cadmin: true, is_active: true },
+    });
+    if (activeSuperAdmins <= 1) {
+      throw createError("Cannot deactivate the last active Super Admin.", 400);
+    }
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.cAdmin.update({
+      where: { cadmin_id: id },
+      data: { is_active: isActive },
+      select: {
+        cadmin_id:       true,
+        name:            true,
+        username:        true,
+        is_active:       true,
+        is_super_cadmin: true,
+      },
+    });
+
+    await tx.cAdminActivityLog.create({
+      data: {
+        cadmin_id:       id,
+        performed_by_id: auditContext.actor_id,
+        action:          "super_admin_status_changed",
+        description:     isActive
+          ? "Super Admin account activated"
+          : "Super Admin account deactivated",
+        changes: { is_active: { from: existing.is_active, to: isActive } },
+        meta: {
+          performed_by:    auditContext.actor_id,
+          required_secret: true,
+        },
+        ip_address: auditContext.ip_address,
+        user_agent: auditContext.user_agent,
+      },
+    });
+
+    await audit.log(
+      {
+        action: isActive
+          ? audit.AuditAction.CADMIN_ACTIVATED
+          : audit.AuditAction.CADMIN_SUSPENDED,
+        entity_type: audit.EntityType.CADMIN,
+        entity_id:   id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          username:             updated.username,
+          is_super_cadmin:      true,
+          reason:               isActive
+            ? "super_admin_activated_with_secret"
+            : "super_admin_deactivated_with_secret",
+          changed_by_cadmin_id: auditContext.actor_id,
+        },
+      },
+      { tx },
+    );
+
+    return updated;
+  });
+
+  return {
+    id:       result.cadmin_id,
+    name:     result.name,
+    status:   formatStatus(result.is_active),
+    isActive: result.is_active,
   };
 }

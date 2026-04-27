@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Edit2, Trash2, FileText, Loader2 } from "lucide-react";
 import * as broadcastAPI from "../../../../../../api/cadminBroadcast";
-import Pagination from '../../../../../../components/common/Pagination';
+import Pagination from "../../../../../../components/common/Pagination";
 import { TABLE_CONFIG } from "../../../../../../config/tableConfig";
 import useDynamicRowCount from "../../../../../../hooks/useDynamicRowCount";
 
@@ -14,12 +14,12 @@ function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // ✅ Dynamic row count based on screen height
+  //  Dynamic row count based on screen height
   const rowsPerPage = useDynamicRowCount();
 
   useEffect(() => {
     loadDrafts();
-  }, [refreshTrigger, page, rowsPerPage]); // ✅ Added rowsPerPage dependency
+  }, [refreshTrigger, page, rowsPerPage]); //  Added rowsPerPage dependency
 
   const loadDrafts = async () => {
     setLoading(true);
@@ -101,7 +101,9 @@ function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
           <FileText size={48} className={styles.emptyState.icon} />
         </div>
         <p className={styles.emptyState.title}>No drafts yet</p>
-        <p className={styles.emptyState.subtitle}>Saved drafts will appear here</p>
+        <p className={styles.emptyState.subtitle}>
+          Saved drafts will appear here
+        </p>
       </div>
     );
   }
@@ -118,7 +120,9 @@ function DraftsList({ refreshTrigger, onCountChange, onEdit }) {
             <tr className={styles.header.row}>
               <th className={styles.header.cell}>Title</th>
               <th className={styles.header.cell}>Message Preview</th>
-              <th className={`${styles.header.cell} text-center`}>Recipients</th>
+              <th className={`${styles.header.cell} text-center`}>
+                Recipients
+              </th>
               <th className={`${styles.header.cell} text-center`}>Priority</th>
               <th className={styles.header.cell}>Last Updated</th>
               <th className={`${styles.header.cell} text-center`}>Actions</th>

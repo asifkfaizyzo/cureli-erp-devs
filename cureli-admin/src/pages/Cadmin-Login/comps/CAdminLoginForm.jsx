@@ -37,7 +37,6 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
 
     setLoading(true);
     setErrors({});
-  
 
     try {
       if (enableOtp) {
@@ -49,11 +48,14 @@ const CAdminLoginForm = ({ onSuccess, enableOtp = false }) => {
         const res = await loginCAdminDirect({ username, password });
         const accessToken = res.data.data.access_token;
 
+        //  Store token IMMEDIATELY — before any navigation or timeout
+        localStorage.setItem("cadmin_access_token", accessToken);
+
         setLoading(false);
         setSuccess(true);
 
+        // Navigate after success animation — token is already in localStorage
         setTimeout(() => {
-          localStorage.setItem("cadmin_access_token", accessToken);
           navigate("/dashboard");
         }, 1800);
       }

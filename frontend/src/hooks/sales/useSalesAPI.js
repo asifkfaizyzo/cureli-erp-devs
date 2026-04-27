@@ -8,7 +8,7 @@ import { useToast } from "../../components/common/Toast";
 
 export function useSalesAPI() {
   const toast = useToast();
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [medicines, setMedicines] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -17,7 +17,10 @@ export function useSalesAPI() {
   // Load medicines
   const loadMedicines = useCallback(async () => {
     try {
-      const response = await medicinesAPI.getAll({ isActive: true, limit: 1000 });
+      const response = await medicinesAPI.getAll({
+        isActive: true,
+        limit: 1000,
+      });
       setMedicines(response.data?.medicines || []);
     } catch (error) {
       console.error("Load medicines error:", error);
@@ -28,7 +31,10 @@ export function useSalesAPI() {
   // Load customers
   const loadCustomers = useCallback(async () => {
     try {
-      const response = await customersAPI.getAll({ isActive: true, limit: 500 });
+      const response = await customersAPI.getAll({
+        isActive: true,
+        limit: 500,
+      });
       setCustomers(response.data?.customers || []);
     } catch (error) {
       console.error("Load customers error:", error);
@@ -69,124 +75,139 @@ export function useSalesAPI() {
   }, []);
 
   // Create customer
-  const createCustomer = useCallback(async (customerData) => {
-    try {
-      const response = await customersAPI.create(customerData);
-      if (response.success) {
-        toast.success("Customer Created", `${customerData.name} added successfully`);
-        await loadCustomers();
-        return response.data;
+  const createCustomer = useCallback(
+    async (customerData) => {
+      try {
+        const response = await customersAPI.create(customerData);
+        if (response.success) {
+          toast.success(
+            "Customer Created",
+            `${customerData.name} added successfully`,
+          );
+          await loadCustomers();
+          return response.data;
+        }
+        throw new Error(response.message);
+      } catch (error) {
+        toast.error("Failed to create customer", error.message);
+        return null;
       }
-      throw new Error(response.message);
-    } catch (error) {
-      toast.error("Failed to create customer", error.message);
-      return null;
-    }
-  }, [toast, loadCustomers]);
+    },
+    [toast, loadCustomers],
+  );
 
   // Save sales invoice (draft)
-  const saveSalesInvoice = useCallback(async (invoiceData, lineItems, customer) => {
-  try {
-    setIsLoading(true);
-    
-    const payload = {
-      customer_id: customer.customer_id || null,
-      walkin_name: !customer.customer_id ? customer.patientName : null,
-      walkin_phone: !customer.customer_id ? customer.phone : null,
-      invoice_date: new Date(invoiceData.invoice_date).toISOString(),
-      prescription_number: invoiceData.prescription_number || null,
-      doctor_name: customer.doctorName || null,
-      bill_discount_percent: 0,
-      lineItems: lineItems.map(item => ({
-        medicine_id: item.medicine_id,
-        inventory_id: item.inventory_id,
-        batch_number: item.batch,
-        expiry_date: parseExpiryToDate(item.exp),
-        quantity: parseFloat(item.qty),
-        unit_of_measure: "UNIT",
-        
-        // ✅ ADD THIS LINE - Send selling_rate (from rate field)
-        selling_rate: parseFloat(item.rate),
-        
-        // Keep MRP as well
-        mrp: parseFloat(item.mrp),
-        
-        discount_percent: parseFloat(item.discountPercent) || 0,
-        cgst_percent: parseFloat(item.cgstPercent) || 6,
-        sgst_percent: parseFloat(item.sgstPercent) || 6,
-      })),
-      remarks: invoiceData.remarks || null,
-    };
+  const saveSalesInvoice = useCallback(
+    async (invoiceData, lineItems, customer) => {
+      try {
+        setIsLoading(true);
 
-    // ✅ ADD DEBUG LOG
-    console.log("📤 Sending sales invoice payload:", {
-      lineItems: payload.lineItems.map(li => ({
-        selling_rate: li.selling_rate,
-        mrp: li.mrp,
-        quantity: li.quantity,
-      }))
-    });
+        const payload = {
+          customer_id: customer.customer_id || null,
+          walkin_name: !customer.customer_id ? customer.patientName : null,
+          walkin_phone: !customer.customer_id ? customer.phone : null,
+          invoice_date: new Date(invoiceData.invoice_date).toISOString(),
+          prescription_number: invoiceData.prescription_number || null,
+          doctor_name: customer.doctorName || null,
+          bill_discount_percent: 0,
+          lineItems: lineItems.map((item) => ({
+            medicine_id: item.medicine_id,
+            inventory_id: item.inventory_id,
+            batch_number: item.batch,
+            expiry_date: parseExpiryToDate(item.exp),
+            quantity: parseFloat(item.qty),
+            unit_of_measure: "UNIT",
 
-    let response;
-    if (currentInvoice) {
-      response = { success: true, data: currentInvoice };
-    } else {
-      response = await salesAPI.createDraft(payload);
-    }
+            //  ADD THIS LINE - Send selling_rate (from rate field)
+            selling_rate: parseFloat(item.rate),
 
-    if (response.success) {
-      setCurrentInvoice(response.data);
-      return response.data;
-    }
-    
-    throw new Error(response.message || "Failed to save invoice");
-  } catch (error) {
-    toast.error("Save Failed", error.message);
-    return null;
-  } finally {
-    setIsLoading(false);
-  }
-}, [currentInvoice, toast]);
+            // Keep MRP as well
+            mrp: parseFloat(item.mrp),
+
+            discount_percent: parseFloat(item.discountPercent) || 0,
+            cgst_percent: parseFloat(item.cgstPercent) || 6,
+            sgst_percent: parseFloat(item.sgstPercent) || 6,
+          })),
+          remarks: invoiceData.remarks || null,
+        };
+
+        //  ADD DEBUG LOG
+        console.log("📤 Sending sales invoice payload:", {
+          lineItems: payload.lineItems.map((li) => ({
+            selling_rate: li.selling_rate,
+            mrp: li.mrp,
+            quantity: li.quantity,
+          })),
+        });
+
+        let response;
+        if (currentInvoice) {
+          response = { success: true, data: currentInvoice };
+        } else {
+          response = await salesAPI.createDraft(payload);
+        }
+
+        if (response.success) {
+          setCurrentInvoice(response.data);
+          return response.data;
+        }
+
+        throw new Error(response.message || "Failed to save invoice");
+      } catch (error) {
+        toast.error("Save Failed", error.message);
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [currentInvoice, toast],
+  );
 
   // Confirm sales invoice
-  const confirmSalesInvoice = useCallback(async (invoiceId, data = {}) => {
-    try {
-      setIsLoading(true);
-      const response = await salesAPI.confirm(invoiceId, data);
-      
-      if (response.success) {
-        setCurrentInvoice(response.data);
-        return response.data;
+  const confirmSalesInvoice = useCallback(
+    async (invoiceId, data = {}) => {
+      try {
+        setIsLoading(true);
+        const response = await salesAPI.confirm(invoiceId, data);
+
+        if (response.success) {
+          setCurrentInvoice(response.data);
+          return response.data;
+        }
+
+        throw new Error(response.message || "Failed to confirm invoice");
+      } catch (error) {
+        toast.error("Confirmation Failed", error.message);
+        return null;
+      } finally {
+        setIsLoading(false);
       }
-      
-      throw new Error(response.message || "Failed to confirm invoice");
-    } catch (error) {
-      toast.error("Confirmation Failed", error.message);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
+    },
+    [toast],
+  );
 
   // Load invoice for edit
-  const loadInvoiceForEdit = useCallback(async (invoiceId) => {
-    try {
-      setIsLoading(true);
-      const response = await salesAPI.getById(invoiceId);
-      
-      if (response.success) {
-        setCurrentInvoice(response.data);
-        return response.data;
+  const loadInvoiceForEdit = useCallback(
+    async (invoiceId) => {
+      try {
+        setIsLoading(true);
+        const response = await salesAPI.getById(invoiceId);
+
+        if (response.success) {
+          setCurrentInvoice(response.data);
+          return response.data;
+        }
+
+        throw new Error(response.message || "Failed to load invoice");
+      } catch (error) {
+        toast.error("Load Failed", error.message);
+        return null;
+      } finally {
+        setIsLoading(false);
       }
-      
-      throw new Error(response.message || "Failed to load invoice");
-    } catch (error) {
-      toast.error("Load Failed", error.message);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
+    },
+    [toast],
+  );
 
   // Reset invoice state
   const resetInvoice = useCallback(() => {
@@ -194,19 +215,22 @@ export function useSalesAPI() {
   }, []);
 
   // Record payment
-  const recordPayment = useCallback(async (invoiceId, paymentData) => {
-    try {
-      const response = await salesAPI.recordPayment(invoiceId, paymentData);
-      if (response.success) {
-        setCurrentInvoice(response.data?.invoice);
-        return response.data;
+  const recordPayment = useCallback(
+    async (invoiceId, paymentData) => {
+      try {
+        const response = await salesAPI.recordPayment(invoiceId, paymentData);
+        if (response.success) {
+          setCurrentInvoice(response.data?.invoice);
+          return response.data;
+        }
+        throw new Error(response.message);
+      } catch (error) {
+        toast.error("Payment Failed", error.message);
+        return null;
       }
-      throw new Error(response.message);
-    } catch (error) {
-      toast.error("Payment Failed", error.message);
-      return null;
-    }
-  }, [toast]);
+    },
+    [toast],
+  );
 
   return {
     isLoading,
@@ -230,7 +254,7 @@ export function useSalesAPI() {
 // Helper function
 function parseExpiryToDate(exp) {
   if (!exp) return new Date().toISOString();
-  const parts = exp.split('/');
+  const parts = exp.split("/");
   if (parts.length === 2) {
     const month = parseInt(parts[0]) - 1;
     const year = parseInt(parts[1]) + 2000;

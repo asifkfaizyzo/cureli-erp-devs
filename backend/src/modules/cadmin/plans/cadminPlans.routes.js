@@ -1,8 +1,9 @@
-// Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\cadmin\plans\cadminPlans.routes.js
-
+// backend/src/modules/cadmin/plans/cadminPlans.routes.js
 
 import express from "express";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
+import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
+import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
 import { validate } from "../../../middleware/validate.js";
 import {
   createPlanSchema,
@@ -25,88 +26,81 @@ import {
 
 const router = express.Router();
 
-// All routes require admin authentication
 router.use(requireCAdmin);
 
-// ============================================
-// READ OPERATIONS
-// ============================================
+// ── READ ─────────────────────────────────────────────────────────────────────
 
-// GET /cadmin/plans/stats
-// Returns count of plans by status
-// Must be before /:plan_id to avoid route conflict
-router.get("/plans/stats", getPlanStatsController);
+// stats MUST be before /:plan_id
+router.get(
+  "/plans/stats",
+  requireCAdminPermission(CADMIN_PERMISSIONS.PLANS_VIEW_STATS),
+  getPlanStatsController
+);
 
-// GET /cadmin/plans
-// List plans with filters, search, pagination
 router.get(
   "/plans",
+  requireCAdminPermission(CADMIN_PERMISSIONS.PLANS_VIEW),
   validate(listPlansQuerySchema, "query"),
   listPlansController
 );
 
-// GET /cadmin/plans/:plan_id
-// Get single plan with full details and subscriber count
-router.get("/plans/:plan_id", getPlanByIdController);
+router.get(
+  "/plans/:plan_id",
+  requireCAdminPermission(CADMIN_PERMISSIONS.PLANS_VIEW_DETAIL),
+  getPlanByIdController
+);
 
-// ============================================
-// CREATE OPERATIONS
-// ============================================
+// ── CREATE ───────────────────────────────────────────────────────────────────
 
-// POST /cadmin/plans
-// Create new plan (always starts as DRAFT)
 router.post(
   "/plans",
+  requireCAdminPermission(CADMIN_PERMISSIONS.PLANS_CREATE),
   validate(createPlanSchema),
   createPlanController
 );
 
-// ============================================
-// UPDATE OPERATIONS
-// ============================================
+// ── UPDATE ───────────────────────────────────────────────────────────────────
 
-// PATCH /cadmin/plans/:plan_id
-// Update plan details (DRAFT plans only)
 router.patch(
   "/plans/:plan_id",
+  requireCAdminPermission(CADMIN_PERMISSIONS.PLANS_EDIT),
   validate(updatePlanSchema),
   updatePlanController
 );
 
-// ============================================
-// LIFECYCLE TRANSITIONS
-// ============================================
+// ── LIFECYCLE ────────────────────────────────────────────────────────────────
 
-// POST /cadmin/plans/:plan_id/activate
-// Transition: DRAFT -> ACTIVE
-// Makes plan live and immutable
-router.post("/plans/:plan_id/activate", activatePlanController);
+router.post(
+  "/plans/:plan_id/activate",
+  requireCAdminPermission(CADMIN_PERMISSIONS.PLANS_ACTIVATE),
+  activatePlanController
+);
 
-// POST /cadmin/plans/:plan_id/suspend
-// Transition: ACTIVE -> DEPRECATED (if has subscribers) or SUSPENDED (if no subscribers)
-// Stops new subscriptions
-router.post("/plans/:plan_id/suspend", suspendPlanController);
+router.post(
+  "/plans/:plan_id/suspend",
+  requireCAdminPermission(CADMIN_PERMISSIONS.PLANS_SUSPEND),
+  suspendPlanController
+);
 
-// POST /cadmin/plans/:plan_id/reactivate
-// Transition: SUSPENDED -> ACTIVE
-// Only if no active subscribers and name is available
-router.post("/plans/:plan_id/reactivate", reactivatePlanController);
+router.post(
+  "/plans/:plan_id/reactivate",
+  requireCAdminPermission(CADMIN_PERMISSIONS.PLANS_REACTIVATE),
+  reactivatePlanController
+);
 
-// POST /cadmin/plans/:plan_id/clone
-// Creates a new DRAFT plan with copied values
-// Works for any status
 router.post(
   "/plans/:plan_id/clone",
+  requireCAdminPermission(CADMIN_PERMISSIONS.PLANS_CLONE),
   validate(clonePlanSchema),
   clonePlanController
 );
 
-// ============================================
-// DELETE OPERATIONS
-// ============================================
+// ── DELETE ───────────────────────────────────────────────────────────────────
 
-// DELETE /cadmin/plans/:plan_id
-// Soft delete (DRAFT plans only)
-router.delete("/plans/:plan_id", deletePlanController);
+router.delete(
+  "/plans/:plan_id",
+  requireCAdminPermission(CADMIN_PERMISSIONS.PLANS_DELETE),
+  deletePlanController
+);
 
 export default router;

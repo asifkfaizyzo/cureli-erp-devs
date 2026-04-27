@@ -112,7 +112,7 @@ export async function uploadShopFileController(req, res) {
       return fail(res, "No shop associated with your account", 400);
     }
 
-    // ✅ FIX: Import and call fileStorage.uploadFile() to actually save the file
+    //  FIX: Import and call fileStorage.uploadFile() to actually save the file
     const { default: fileStorageSvc } =
       await import("../../services/fileStorage.service.js");
 
@@ -133,7 +133,7 @@ export async function uploadShopFileController(req, res) {
       original_name: req.file.originalname,
       mime_type: req.file.mimetype,
       file_size: req.file.size,
-      storage_key: uploadResult.storage_key, // ✅ Now correctly set
+      storage_key: uploadResult.storage_key, //  Now correctly set
       auditContext,
     };
 
@@ -158,7 +158,7 @@ export async function listRejectedController(req, res) {
     console.log("resolved shop_id:", shop_id);
 
     if (!shop_id) {
-      console.log("❌ No shop_id found!");
+      console.log(" No shop_id found!");
       return fail(res, "Your account is not associated with a shop", 400);
     }
 
@@ -192,7 +192,7 @@ export async function resubmitController(req, res) {
       return fail(res, "No file uploaded", 400);
     }
 
-    // ✅ FIX: Upload file to S3 via fileStorage
+    //  FIX: Upload file to S3 via fileStorage
     const { default: fileStorageSvc } =
       await import("../../services/fileStorage.service.js");
 
@@ -209,7 +209,7 @@ export async function resubmitController(req, res) {
     const fileData = {
       file_id,
       shop_id,
-      storage_key: uploadResult.storage_key, // ✅ Now correctly set
+      storage_key: uploadResult.storage_key, //  Now correctly set
       original_name: req.file.originalname,
       mime_type: req.file.mimetype,
       file_size: req.file.size,

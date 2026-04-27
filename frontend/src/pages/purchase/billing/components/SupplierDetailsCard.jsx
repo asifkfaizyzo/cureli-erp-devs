@@ -1,9 +1,9 @@
 // src/pages/purchase/billing/components/SupplierDetailsCard.jsx
 import { useState, useRef, useEffect } from "react";
-import { 
-  Building2, 
-  FileText, 
-  Calendar, 
+import {
+  Building2,
+  FileText,
+  Calendar,
   Search,
   X,
   ChevronUp,
@@ -17,7 +17,7 @@ import {
   Plus,
   Phone,
   CreditCard,
-  ArrowRight
+  ArrowRight,
 } from "lucide-react";
 
 // ============================================
@@ -25,12 +25,12 @@ import {
 // ============================================
 const SkeletonInput = ({ delay = 0 }) => (
   <div className="relative h-9 rounded-lg border border-gray-200 bg-gray-50 flex items-center gap-2 px-3 overflow-hidden">
-    <div 
-      className="w-4 h-4 bg-slate-200 rounded animate-pulse" 
+    <div
+      className="w-4 h-4 bg-slate-200 rounded animate-pulse"
       style={{ animationDelay: `${delay}ms` }}
     />
-    <div 
-      className="flex-1 h-3 bg-slate-200 rounded animate-pulse" 
+    <div
+      className="flex-1 h-3 bg-slate-200 rounded animate-pulse"
       style={{ animationDelay: `${delay + 50}ms` }}
     />
   </div>
@@ -39,12 +39,12 @@ const SkeletonInput = ({ delay = 0 }) => (
 // ============================================
 // ANIMATED INPUT COMPONENT
 // ============================================
-const AnimatedInput = ({ 
-  label, 
-  value, 
-  onChange, 
-  placeholder, 
-  type = "text", 
+const AnimatedInput = ({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
   icon: Icon,
   readOnly = false,
   className = "",
@@ -54,54 +54,60 @@ const AnimatedInput = ({
   prefix = "",
   suffix = "",
   highlight = false,
-  ...props 
+  ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const hasValue = value && value.toString().length > 0;
-  
+
   return (
     <div className={`relative ${className}`}>
-      <label 
+      <label
         className={`
           absolute transition-all duration-200 pointer-events-none z-10
-          ${isFocused || hasValue 
-            ? '-top-2 text-[9px] bg-white px-1 font-semibold left-2' 
-            : `top-1/2 -translate-y-1/2 text-[10px] ${Icon && prefix ? 'left-12' : Icon ? 'left-8' : prefix ? 'left-7' : 'left-3'}`
+          ${
+            isFocused || hasValue
+              ? "-top-2 text-[9px] bg-white px-1 font-semibold left-2"
+              : `top-1/2 -translate-y-1/2 text-[10px] ${Icon && prefix ? "left-12" : Icon ? "left-8" : prefix ? "left-7" : "left-3"}`
           }
-          ${isFocused 
-            ? 'text-indigo-600' 
-            : error 
-              ? 'text-red-500' 
-              : success 
-                ? 'text-green-600' 
-                : highlight
-                  ? 'text-indigo-600'
-                  : 'text-gray-500'
+          ${
+            isFocused
+              ? "text-indigo-600"
+              : error
+                ? "text-red-500"
+                : success
+                  ? "text-green-600"
+                  : highlight
+                    ? "text-indigo-600"
+                    : "text-gray-500"
           }
         `}
       >
         {label}
       </label>
-      
+
       {Icon && (
-        <div className={`
+        <div
+          className={`
           absolute left-2.5 top-1/2 -translate-y-1/2 transition-colors duration-200
-          ${isFocused ? 'text-indigo-500' : highlight ? 'text-indigo-500' : 'text-gray-400'}
-        `}>
+          ${isFocused ? "text-indigo-500" : highlight ? "text-indigo-500" : "text-gray-400"}
+        `}
+        >
           <Icon size={14} strokeWidth={1.5} />
         </div>
       )}
-      
+
       {prefix && (
-        <span className={`
+        <span
+          className={`
           absolute top-1/2 -translate-y-1/2 text-[11px] font-medium
-          ${Icon ? 'left-8' : 'left-3'} 
-          ${highlight ? 'text-indigo-500' : 'text-gray-400'}
-        `}>
+          ${Icon ? "left-8" : "left-3"} 
+          ${highlight ? "text-indigo-500" : "text-gray-400"}
+        `}
+        >
           {prefix}
         </span>
       )}
-      
+
       <input
         type={type}
         value={value}
@@ -112,34 +118,38 @@ const AnimatedInput = ({
         onBlur={() => setIsFocused(false)}
         className={`
           w-full h-9 text-[11px] rounded-lg border transition-all duration-200 outline-none
-          ${Icon && prefix ? 'pl-12' : Icon ? 'pl-8' : prefix ? 'pl-7' : 'pl-3'}
-          ${suffix ? 'pr-12' : success ? 'pr-8' : 'pr-3'}
-          ${readOnly 
-            ? 'bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed' 
-            : isFocused
-              ? 'border-indigo-400 ring-2 ring-indigo-100 bg-white'
-              : error
-                ? 'border-red-300 bg-red-50'
-                : success
-                  ? 'border-green-300 bg-green-50'
-                  : highlight
-                    ? 'border-indigo-200 bg-indigo-50/50 hover:border-indigo-300'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
+          ${Icon && prefix ? "pl-12" : Icon ? "pl-8" : prefix ? "pl-7" : "pl-3"}
+          ${suffix ? "pr-12" : success ? "pr-8" : "pr-3"}
+          ${
+            readOnly
+              ? "bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed"
+              : isFocused
+                ? "border-indigo-400 ring-2 ring-indigo-100 bg-white"
+                : error
+                  ? "border-red-300 bg-red-50"
+                  : success
+                    ? "border-green-300 bg-green-50"
+                    : highlight
+                      ? "border-indigo-200 bg-indigo-50/50 hover:border-indigo-300"
+                      : "border-gray-200 bg-white hover:border-gray-300"
           }
-          ${highlight ? 'font-semibold text-indigo-700' : ''}
+          ${highlight ? "font-semibold text-indigo-700" : ""}
           ${inputClassName}
         `}
         {...props}
       />
-      
+
       {suffix && (
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">
           {suffix}
         </span>
       )}
-      
+
       {success && !suffix && (
-        <CheckCircle2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+        <CheckCircle2
+          size={14}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500"
+        />
       )}
     </div>
   );
@@ -148,42 +158,45 @@ const AnimatedInput = ({
 // ============================================
 // ANIMATED SELECT COMPONENT
 // ============================================
-const AnimatedSelect = ({ 
-  label, 
-  value, 
-  onChange, 
+const AnimatedSelect = ({
+  label,
+  value,
+  onChange,
   options = [],
   icon: Icon,
   className = "",
-  placeholder = "Select..."
+  placeholder = "Select...",
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const hasValue = value && value.length > 0;
-  
+
   return (
     <div className={`relative ${className}`}>
-      <label 
+      <label
         className={`
           absolute transition-all duration-200 pointer-events-none z-10
-          ${isFocused || hasValue 
-            ? '-top-2 text-[9px] bg-white px-1 font-semibold left-2' 
-            : 'top-1/2 -translate-y-1/2 text-[10px] left-8'
+          ${
+            isFocused || hasValue
+              ? "-top-2 text-[9px] bg-white px-1 font-semibold left-2"
+              : "top-1/2 -translate-y-1/2 text-[10px] left-8"
           }
-          ${isFocused ? 'text-indigo-600' : hasValue ? 'text-gray-600' : 'text-gray-500'}
+          ${isFocused ? "text-indigo-600" : hasValue ? "text-gray-600" : "text-gray-500"}
         `}
       >
         {label}
       </label>
-      
+
       {Icon && (
-        <div className={`
+        <div
+          className={`
           absolute left-2.5 top-1/2 -translate-y-1/2 transition-colors duration-200 z-10
-          ${isFocused ? 'text-indigo-500' : 'text-gray-400'}
-        `}>
+          ${isFocused ? "text-indigo-500" : "text-gray-400"}
+        `}
+        >
           <Icon size={14} strokeWidth={1.5} />
         </div>
       )}
-      
+
       <select
         value={value || ""}
         onChange={onChange}
@@ -192,25 +205,28 @@ const AnimatedSelect = ({
         className={`
           w-full h-9 pl-8 pr-8 text-[11px] rounded-lg border transition-all duration-200 outline-none
           appearance-none cursor-pointer bg-white
-          ${isFocused
-            ? 'border-indigo-400 ring-2 ring-indigo-100'
-            : hasValue
-              ? 'border-gray-300'
-              : 'border-gray-200 hover:border-gray-300'
+          ${
+            isFocused
+              ? "border-indigo-400 ring-2 ring-indigo-100"
+              : hasValue
+                ? "border-gray-300"
+                : "border-gray-200 hover:border-gray-300"
           }
-          ${hasValue ? 'font-medium text-gray-800' : 'text-gray-400'}
+          ${hasValue ? "font-medium text-gray-800" : "text-gray-400"}
         `}
       >
-        <option value="" disabled>{placeholder}</option>
-        {options.map(opt => (
+        <option value="" disabled>
+          {placeholder}
+        </option>
+        {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
           </option>
         ))}
       </select>
-      
-      <ChevronDown 
-        size={14} 
+
+      <ChevronDown
+        size={14}
         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
       />
     </div>
@@ -218,13 +234,13 @@ const AnimatedSelect = ({
 };
 
 // ============================================
-// SEARCHABLE SELECT COMPONENT - ✅ LABEL ALWAYS UP
+// SEARCHABLE SELECT COMPONENT -  LABEL ALWAYS UP
 // ============================================
-const SearchableSelect = ({ 
-  label, 
-  value, 
-  onChange, 
-  options, 
+const SearchableSelect = ({
+  label,
+  value,
+  onChange,
+  options,
   placeholder,
   icon: Icon,
   displayKey = "name",
@@ -232,7 +248,7 @@ const SearchableSelect = ({
   onAddNew,
   className = "",
   dropDirection = "up",
-  required = false
+  required = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -241,15 +257,16 @@ const SearchableSelect = ({
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  const filteredOptions = options.filter(opt => 
-    opt[displayKey]?.toLowerCase().includes(search.toLowerCase()) ||
-    opt.gst?.toLowerCase().includes(search.toLowerCase()) ||
-    opt.gstNumber?.toLowerCase().includes(search.toLowerCase()) ||
-    opt.gst_number?.toLowerCase().includes(search.toLowerCase())
+  const filteredOptions = options.filter(
+    (opt) =>
+      opt[displayKey]?.toLowerCase().includes(search.toLowerCase()) ||
+      opt.gst?.toLowerCase().includes(search.toLowerCase()) ||
+      opt.gstNumber?.toLowerCase().includes(search.toLowerCase()) ||
+      opt.gst_number?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const exactMatch = options.some(opt => 
-    opt[displayKey]?.toLowerCase() === search.toLowerCase().trim()
+  const exactMatch = options.some(
+    (opt) => opt[displayKey]?.toLowerCase() === search.toLowerCase().trim(),
   );
 
   useEffect(() => {
@@ -265,11 +282,13 @@ const SearchableSelect = ({
 
   useEffect(() => {
     if (isOpen && dropdownRef.current && value) {
-      const selectedIndex = filteredOptions.findIndex(opt => opt[displayKey] === value);
+      const selectedIndex = filteredOptions.findIndex(
+        (opt) => opt[displayKey] === value,
+      );
       if (selectedIndex > -1) {
-        const items = dropdownRef.current.querySelectorAll('[data-option]');
+        const items = dropdownRef.current.querySelectorAll("[data-option]");
         if (items[selectedIndex]) {
-          items[selectedIndex].scrollIntoView({ block: 'nearest' });
+          items[selectedIndex].scrollIntoView({ block: "nearest" });
         }
       }
     }
@@ -303,18 +322,19 @@ const SearchableSelect = ({
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
-      {/* ✅ FIXED: Label ALWAYS stays in up position */}
-      <label 
+      {/*  FIXED: Label ALWAYS stays in up position */}
+      <label
         className={`
           absolute -top-2 left-2 text-[9px] bg-white px-1 font-semibold z-20
           transition-colors duration-200 pointer-events-none
-          ${isFocused || isOpen 
-            ? 'text-indigo-600' 
-            : isEmpty 
-              ? 'text-amber-600' 
-              : hasValue 
-                ? 'text-gray-600' 
-                : 'text-gray-500'
+          ${
+            isFocused || isOpen
+              ? "text-indigo-600"
+              : isEmpty
+                ? "text-amber-600"
+                : hasValue
+                  ? "text-gray-600"
+                  : "text-gray-500"
           }
         `}
       >
@@ -322,10 +342,12 @@ const SearchableSelect = ({
       </label>
 
       {Icon && (
-        <div className={`
+        <div
+          className={`
           absolute left-2.5 top-1/2 -translate-y-1/2 transition-colors duration-200 z-10
-          ${isFocused || isOpen ? 'text-indigo-500' : isEmpty ? 'text-amber-500' : 'text-gray-400'}
-        `}>
+          ${isFocused || isOpen ? "text-indigo-500" : isEmpty ? "text-amber-500" : "text-gray-400"}
+        `}
+        >
           <Icon size={14} strokeWidth={1.5} />
         </div>
       )}
@@ -346,12 +368,13 @@ const SearchableSelect = ({
         className={`
           w-full h-9 flex items-center justify-between rounded-lg border cursor-pointer
           transition-all duration-200
-          ${Icon ? 'pl-8' : 'pl-3'} pr-3
-          ${isEmpty 
-            ? 'border-amber-300 bg-amber-50 hover:bg-amber-100 hover:border-amber-400' 
-            : isOpen 
-              ? 'border-indigo-400 ring-2 ring-indigo-100 bg-white' 
-              : 'border-gray-200 bg-white hover:border-gray-300'
+          ${Icon ? "pl-8" : "pl-3"} pr-3
+          ${
+            isEmpty
+              ? "border-amber-300 bg-amber-50 hover:bg-amber-100 hover:border-amber-400"
+              : isOpen
+                ? "border-indigo-400 ring-2 ring-indigo-100 bg-white"
+                : "border-gray-200 bg-white hover:border-gray-300"
           }
         `}
       >
@@ -366,11 +389,11 @@ const SearchableSelect = ({
             placeholder={placeholder}
             className="flex-1 outline-none text-[11px] bg-transparent"
             onKeyDown={(e) => {
-              if (e.key === 'Escape') {
+              if (e.key === "Escape") {
                 setIsOpen(false);
                 setSearch("");
               }
-              if (e.key === 'Enter') {
+              if (e.key === "Enter") {
                 e.preventDefault();
                 if (filteredOptions.length > 0) {
                   handleSelect(filteredOptions[0]);
@@ -381,13 +404,15 @@ const SearchableSelect = ({
             }}
           />
         ) : (
-          <span className={`text-[11px] truncate flex items-center gap-1.5 ${
-            isEmpty 
-              ? 'text-amber-700 font-medium' 
-              : value 
-                ? 'text-gray-900 font-medium' 
-                : 'text-gray-400'
-          }`}>
+          <span
+            className={`text-[11px] truncate flex items-center gap-1.5 ${
+              isEmpty
+                ? "text-amber-700 font-medium"
+                : value
+                  ? "text-gray-900 font-medium"
+                  : "text-gray-400"
+            }`}
+          >
             {isEmpty ? (
               <>
                 <Plus size={12} />
@@ -398,11 +423,9 @@ const SearchableSelect = ({
             )}
           </span>
         )}
-        
+
         <div className="flex items-center gap-1 ml-1">
-          {isEmpty && (
-            <ArrowRight size={14} className="text-amber-500" />
-          )}
+          {isEmpty && <ArrowRight size={14} className="text-amber-500" />}
           {value && !isOpen && !isEmpty && (
             <button
               onClick={handleClear}
@@ -413,26 +436,27 @@ const SearchableSelect = ({
             </button>
           )}
           {!isEmpty && (
-            <ChevronUp 
-              size={14} 
-              className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+            <ChevronUp
+              size={14}
+              className={`text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
             />
           )}
         </div>
       </div>
 
       {isOpen && !isEmpty && (
-        <div 
+        <div
           ref={dropdownRef}
           className={`
             absolute left-0 right-0 bg-white border border-gray-200 rounded-xl 
             shadow-xl z-50 max-h-52 overflow-auto
-            ${dropDirection === 'up' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}
+            ${dropDirection === "up" ? "bottom-full mb-1.5" : "top-full mt-1.5"}
           `}
           style={{
-            boxShadow: dropDirection === 'up' 
-              ? '0 -10px 40px -5px rgba(0, 0, 0, 0.1), 0 -4px 6px -2px rgba(0, 0, 0, 0.05)'
-              : '0 10px 40px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+            boxShadow:
+              dropDirection === "up"
+                ? "0 -10px 40px -5px rgba(0, 0, 0, 0.1), 0 -4px 6px -2px rgba(0, 0, 0, 0.05)"
+                : "0 10px 40px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
           }}
         >
           {search && (
@@ -457,31 +481,42 @@ const SearchableSelect = ({
                   className={`
                     px-3 py-2.5 cursor-pointer transition-all duration-150
                     hover:bg-indigo-50 group
-                    ${value === option[displayKey] 
-                      ? 'bg-indigo-50 border-l-2 border-indigo-500' 
-                      : 'border-l-2 border-transparent'
+                    ${
+                      value === option[displayKey]
+                        ? "bg-indigo-50 border-l-2 border-indigo-500"
+                        : "border-l-2 border-transparent"
                     }
                   `}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className={`text-[11px] font-medium truncate ${value === option[displayKey] ? 'text-indigo-700' : 'text-gray-800'}`}>
+                      <div
+                        className={`text-[11px] font-medium truncate ${value === option[displayKey] ? "text-indigo-700" : "text-gray-800"}`}
+                      >
                         {option[displayKey]}
                       </div>
-                      {(option.gst || option.gstNumber || option.gst_number) && (
+                      {(option.gst ||
+                        option.gstNumber ||
+                        option.gst_number) && (
                         <div className="text-[9px] text-gray-400 mt-0.5 font-mono">
-                          GST: {option.gst || option.gstNumber || option.gst_number}
+                          GST:{" "}
+                          {option.gst || option.gstNumber || option.gst_number}
                         </div>
                       )}
                       {(option.address || option.address_line_1) && (
                         <div className="text-[9px] text-gray-400 flex items-center gap-1 mt-0.5 truncate">
                           <MapPin size={8} />
-                          <span className="truncate">{option.address || option.address_line_1}</span>
+                          <span className="truncate">
+                            {option.address || option.address_line_1}
+                          </span>
                         </div>
                       )}
                     </div>
                     {value === option[displayKey] && (
-                      <CheckCircle2 size={14} className="text-indigo-500 shrink-0 ml-2" />
+                      <CheckCircle2
+                        size={14}
+                        className="text-indigo-500 shrink-0 ml-2"
+                      />
                     )}
                   </div>
                 </div>
@@ -492,21 +527,27 @@ const SearchableSelect = ({
               <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-2">
                 <Search size={18} className="text-gray-400" />
               </div>
-              <p className="text-gray-500 text-[11px] font-medium">No suppliers found</p>
-              <p className="text-gray-400 text-[10px] mt-0.5">Press Enter to add new supplier</p>
+              <p className="text-gray-500 text-[11px] font-medium">
+                No suppliers found
+              </p>
+              <p className="text-gray-400 text-[10px] mt-0.5">
+                Press Enter to add new supplier
+              </p>
             </div>
           )}
 
           {search && !exactMatch && onAddNew && (
             <div className="border-t border-gray-100 px-3 py-2 bg-gradient-to-r from-indigo-50 to-purple-50">
-              <button 
+              <button
                 className="w-full text-left text-[10px] text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1.5 py-1 px-2 rounded-lg hover:bg-indigo-100 transition-colors"
                 onClick={handleAddNewSupplier}
               >
                 <span className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-white shrink-0">
                   <Plus size={12} />
                 </span>
-                <span className="truncate">Add "<strong>{search}</strong>" as new supplier</span>
+                <span className="truncate">
+                  Add "<strong>{search}</strong>" as new supplier
+                </span>
                 <span className="ml-auto text-[9px] text-indigo-400 bg-white px-1.5 py-0.5 rounded shrink-0">
                   Enter
                 </span>
@@ -517,7 +558,7 @@ const SearchableSelect = ({
           {/* Always show add new option when not searching */}
           {!search && onAddNew && (
             <div className="border-t border-gray-100 px-3 py-2 bg-gradient-to-r from-gray-50 to-slate-50">
-              <button 
+              <button
                 className="w-full text-left text-[10px] text-gray-600 hover:text-indigo-700 font-medium flex items-center gap-1.5 py-1 px-2 rounded-lg hover:bg-indigo-50 transition-colors"
                 onClick={() => onAddNew("")}
               >
@@ -540,29 +581,32 @@ const SearchableSelect = ({
 const DateInput = ({ label, value, onChange, className = "" }) => {
   const [isFocused, setIsFocused] = useState(false);
   const hasValue = value && value.length > 0;
-  
+
   return (
     <div className={`relative ${className}`}>
-      <label 
+      <label
         className={`
           absolute transition-all duration-200 pointer-events-none z-10
-          ${isFocused || hasValue 
-            ? '-top-2 text-[9px] bg-white px-1 font-semibold left-2' 
-            : 'top-1/2 -translate-y-1/2 text-[10px] left-8'
+          ${
+            isFocused || hasValue
+              ? "-top-2 text-[9px] bg-white px-1 font-semibold left-2"
+              : "top-1/2 -translate-y-1/2 text-[10px] left-8"
           }
-          ${isFocused ? 'text-indigo-600' : 'text-gray-500'}
+          ${isFocused ? "text-indigo-600" : "text-gray-500"}
         `}
       >
         {label}
       </label>
-      
-      <div className={`
+
+      <div
+        className={`
         absolute left-2.5 top-1/2 -translate-y-1/2 transition-colors duration-200
-        ${isFocused ? 'text-indigo-500' : 'text-gray-400'}
-      `}>
+        ${isFocused ? "text-indigo-500" : "text-gray-400"}
+      `}
+      >
         <Calendar size={14} strokeWidth={1.5} />
       </div>
-      
+
       <input
         type="date"
         value={value}
@@ -571,9 +615,10 @@ const DateInput = ({ label, value, onChange, className = "" }) => {
         onBlur={() => setIsFocused(false)}
         className={`
           w-full h-9 pl-8 pr-3 text-[11px] rounded-lg border transition-all duration-200 outline-none
-          ${isFocused
-            ? 'border-indigo-400 ring-2 ring-indigo-100 bg-white'
-            : 'border-gray-200 bg-white hover:border-gray-300'
+          ${
+            isFocused
+              ? "border-indigo-400 ring-2 ring-indigo-100 bg-white"
+              : "border-gray-200 bg-white hover:border-gray-300"
           }
         `}
       />
@@ -590,7 +635,7 @@ const PAYMENT_MODE_OPTIONS = [
   { value: "UPI", label: "UPI" },
   { value: "CHEQUE", label: "Cheque" },
   { value: "BANK_TRANSFER", label: "Bank Transfer" },
-  { value: "CREDIT", label: "Credit" }
+  { value: "CREDIT", label: "Credit" },
 ];
 
 const DEFAULT_PAYMENT_MODE = "CASH";
@@ -598,17 +643,16 @@ const DEFAULT_PAYMENT_MODE = "CASH";
 // ============================================
 // MAIN COMPONENT
 // ============================================
-const SupplierDetailsCard = ({ 
-  supplier, 
-  setSupplier, 
-  suppliersList = [], 
+const SupplierDetailsCard = ({
+  supplier,
+  setSupplier,
+  suppliersList = [],
   onSupplierSelect,
   onAddNewSupplier,
   onFieldChange,
   isLoading = false,
   isLocked = false,
 }) => {
-  
   useEffect(() => {
     if (!supplier.paymentMode) {
       updateField("paymentMode", DEFAULT_PAYMENT_MODE);
@@ -619,14 +663,14 @@ const SupplierDetailsCard = ({
     if (onFieldChange) {
       onFieldChange(field, value);
     } else {
-      setSupplier(prev => ({ ...prev, [field]: value }));
+      setSupplier((prev) => ({ ...prev, [field]: value }));
     }
   };
 
   const formatDateForInput = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
-    return date.toISOString().split('T')[0];
+    return date.toISOString().split("T")[0];
   };
 
   const handleSupplierSelect = (selectedSupplier) => {
@@ -634,12 +678,22 @@ const SupplierDetailsCard = ({
       const updates = {
         supplier_id: selectedSupplier.supplier_id || selectedSupplier.id,
         supplierName: selectedSupplier.name,
-        supplierGST: selectedSupplier.gstNumber || selectedSupplier.gst || selectedSupplier.gst_number || "",
-        supplierPhone: selectedSupplier.officePhone || selectedSupplier.office_phone || selectedSupplier.personalPhone || selectedSupplier.personal_phone || "",
-        address: selectedSupplier.address || selectedSupplier.address_line_1 || "",
+        supplierGST:
+          selectedSupplier.gstNumber ||
+          selectedSupplier.gst ||
+          selectedSupplier.gst_number ||
+          "",
+        supplierPhone:
+          selectedSupplier.officePhone ||
+          selectedSupplier.office_phone ||
+          selectedSupplier.personalPhone ||
+          selectedSupplier.personal_phone ||
+          "",
+        address:
+          selectedSupplier.address || selectedSupplier.address_line_1 || "",
       };
 
-      setSupplier(prev => ({ ...prev, ...updates }));
+      setSupplier((prev) => ({ ...prev, ...updates }));
       onSupplierSelect?.(selectedSupplier);
     }
   };
@@ -652,7 +706,10 @@ const SupplierDetailsCard = ({
             <div className="w-7 h-7 rounded-lg bg-slate-200 animate-pulse" />
             <div className="flex-1 space-y-1.5">
               <div className="w-28 h-4 bg-slate-200 rounded animate-pulse" />
-              <div className="w-40 h-2.5 bg-slate-200 rounded animate-pulse" style={{ animationDelay: '50ms' }} />
+              <div
+                className="w-40 h-2.5 bg-slate-200 rounded animate-pulse"
+                style={{ animationDelay: "50ms" }}
+              />
             </div>
           </div>
         </div>
@@ -679,24 +736,34 @@ const SupplierDetailsCard = ({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full h-full flex flex-col overflow-visible">
-      
       {/* Header */}
-      <div className={`px-4 py-2.5 border-b border-gray-100 shrink-0 ${
-        noSuppliers 
-          ? 'bg-gradient-to-r from-amber-50 to-orange-50' 
-          : 'bg-gradient-to-r from-indigo-50 to-purple-50'
-      }`}>
+      <div
+        className={`px-4 py-2.5 border-b border-gray-100 shrink-0 ${
+          noSuppliers
+            ? "bg-gradient-to-r from-amber-50 to-orange-50"
+            : "bg-gradient-to-r from-indigo-50 to-purple-50"
+        }`}
+      >
         <div className="flex items-center gap-2">
-          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-            noSuppliers ? 'bg-amber-100' : 'bg-indigo-100'
-          }`}>
-            <Building2 size={14} className={noSuppliers ? 'text-amber-600' : 'text-indigo-600'} />
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+              noSuppliers ? "bg-amber-100" : "bg-indigo-100"
+            }`}
+          >
+            <Building2
+              size={14}
+              className={noSuppliers ? "text-amber-600" : "text-indigo-600"}
+            />
           </div>
           <div className="flex-1">
-            <h3 className="text-xs font-bold text-gray-800">Supplier Details</h3>
-            <p className="text-[9px] text-gray-500">Invoice & Payment Information</p>
+            <h3 className="text-xs font-bold text-gray-800">
+              Supplier Details
+            </h3>
+            <p className="text-[9px] text-gray-500">
+              Invoice & Payment Information
+            </p>
           </div>
-          
+
           {suppliersList.length > 0 ? (
             <div className="flex items-center gap-1.5">
               <div className="flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded text-[9px] text-green-700 font-medium">
@@ -724,7 +791,6 @@ const SupplierDetailsCard = ({
 
       {/* Body */}
       <div className="p-4 flex flex-col gap-4 flex-1 overflow-visible">
-        
         {/* Row 1 */}
         <div className="grid grid-cols-5 gap-3">
           <div className="relative">
@@ -742,7 +808,7 @@ const SupplierDetailsCard = ({
               </div>
             )}
           </div>
-          
+
           <SearchableSelect
             label="Supplier Name *"
             value={supplier.supplierName}
@@ -755,7 +821,7 @@ const SupplierDetailsCard = ({
             onSelect={handleSupplierSelect}
             required
           />
-          
+
           <AnimatedInput
             label="Supplier Invoice No"
             value={supplier.invoiceNo}
@@ -763,13 +829,13 @@ const SupplierDetailsCard = ({
             placeholder="INV-2025-001"
             icon={FileText}
           />
-          
+
           <DateInput
             label="Invoice Date"
             value={formatDateForInput(supplier.invoiceDate)}
             onChange={(e) => updateField("invoiceDate", e.target.value)}
           />
-          
+
           <DateInput
             label="Received On"
             value={formatDateForInput(supplier.receivedOn)}
@@ -782,13 +848,15 @@ const SupplierDetailsCard = ({
           <AnimatedInput
             label="Supplier GST"
             value={supplier.supplierGST}
-            onChange={(e) => updateField("supplierGST", e.target.value.toUpperCase())}
+            onChange={(e) =>
+              updateField("supplierGST", e.target.value.toUpperCase())
+            }
             placeholder="29ABCDE1234F1Z5"
             icon={Receipt}
             inputClassName="font-mono tracking-wide"
             success={supplier.supplierGST?.length === 15}
           />
-          
+
           <AnimatedInput
             label="Phone Number"
             value={supplier.supplierPhone}
@@ -796,7 +864,7 @@ const SupplierDetailsCard = ({
             placeholder="+91 98765 43210"
             icon={Phone}
           />
-          
+
           <AnimatedInput
             label="Credit Days"
             value={supplier.creditDays}
@@ -815,7 +883,7 @@ const SupplierDetailsCard = ({
             icon={CreditCard}
             placeholder="Select mode..."
           />
-          
+
           <AnimatedInput
             label="Amount Paid"
             value={supplier.amountPaid}

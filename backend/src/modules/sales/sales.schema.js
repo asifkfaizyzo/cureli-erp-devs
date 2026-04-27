@@ -34,11 +34,15 @@ export const createSalesInvoiceSchema = z.object({
   prescription_number: z.string().max(50).optional().nullable(),
   doctor_name: z.string().max(200).optional().nullable(),
   lineItems: z.array(salesLineItemSchema).min(1),
-  payments: z.array(z.object({
-    amount: z.number().positive(),
-    payment_mode: z.enum(["CASH", "CARD", "UPI", "CREDIT"]),
-    reference_number: z.string().max(100).optional().nullable(),
-  })).optional(),
+  payments: z
+    .array(
+      z.object({
+        amount: z.number().positive(),
+        payment_mode: z.enum(["CASH", "CARD", "UPI", "CREDIT"]),
+        reference_number: z.string().max(100).optional().nullable(),
+      }),
+    )
+    .optional(),
   remarks: z.string().max(500).optional().nullable(),
 });
 
@@ -55,20 +59,26 @@ export const updateSalesInvoiceSchema = z.object({
   bill_discount_percent: z.number().min(0).max(100).optional(),
   prescription_number: z.string().max(50).optional().nullable(),
   doctor_name: z.string().max(200).optional().nullable(),
-  
-  // ✅ Line items with optional selling_rate (backend gets from inventory)
-  lineItems: z.array(z.object({
-    medicine_id: z.string().uuid(),
-    inventory_id: z.string().uuid(),
-    quantity: z.number().positive(),
-    unit_of_measure: z.enum(["UNIT", "STRIP", "BOX", "BOTTLE"]).default("UNIT"),
-    selling_rate: z.number().positive().optional().nullable(),
-    mrp: z.number().positive().optional().nullable(),
-    discount_percent: z.number().min(0).max(100).default(0),
-    cgst_percent: z.number().min(0).max(100).optional(),
-    sgst_percent: z.number().min(0).max(100).optional(),
-  })).optional(),
-  
+
+  //  Line items with optional selling_rate (backend gets from inventory)
+  lineItems: z
+    .array(
+      z.object({
+        medicine_id: z.string().uuid(),
+        inventory_id: z.string().uuid(),
+        quantity: z.number().positive(),
+        unit_of_measure: z
+          .enum(["UNIT", "STRIP", "BOX", "BOTTLE"])
+          .default("UNIT"),
+        selling_rate: z.number().positive().optional().nullable(),
+        mrp: z.number().positive().optional().nullable(),
+        discount_percent: z.number().min(0).max(100).default(0),
+        cgst_percent: z.number().min(0).max(100).optional(),
+        sgst_percent: z.number().min(0).max(100).optional(),
+      }),
+    )
+    .optional(),
+
   remarks: z.string().max(500).optional().nullable(),
 });
 
@@ -85,11 +95,15 @@ export const addItemsSchema = z.object({
 // ============================================
 
 export const confirmInvoiceSchema = z.object({
-  payments: z.array(z.object({
-    amount: z.number().positive(),
-    payment_mode: z.enum(["CASH", "CARD", "UPI", "CREDIT"]),
-    reference_number: z.string().max(100).optional().nullable(),
-  })).optional(),
+  payments: z
+    .array(
+      z.object({
+        amount: z.number().positive(),
+        payment_mode: z.enum(["CASH", "CARD", "UPI", "CREDIT"]),
+        reference_number: z.string().max(100).optional().nullable(),
+      }),
+    )
+    .optional(),
 });
 
 // ============================================
@@ -126,7 +140,7 @@ export const parkInvoiceSchema = z.object({
 
 export const createSalesReturnSchema = z.object({
   parent_invoice_id: z.string().uuid(),
-  
+
   return_reason: z.enum([
     "EXPIRED_PRODUCT",
     "DAMAGED_PRODUCT",
@@ -138,13 +152,17 @@ export const createSalesReturnSchema = z.object({
   ]),
   return_notes: z.string().max(500).optional().nullable(),
 
-  // ✅ It's expecting "lineItems", not "return_items"
-  lineItems: z.array(z.object({
-    item_id: z.string().uuid(),
-    quantity: z.number().positive(),
-  })).min(1),
+  //  It's expecting "lineItems", not "return_items"
+  lineItems: z
+    .array(
+      z.object({
+        item_id: z.string().uuid(),
+        quantity: z.number().positive(),
+      }),
+    )
+    .min(1),
 
-  // ✅ refund_mode is required
+  //  refund_mode is required
   refund_mode: z.enum(["CASH", "CREDIT", "ADJUST_NEXT"]).default("CREDIT"),
 
   refund_notes: z.string().max(500).optional().nullable(),
@@ -158,11 +176,17 @@ export const approveReturnSchema = z.object({
 });
 
 export const cancelSalesReturnSchema = z.object({
-  cancellation_reason: z.string().min(10, "Reason must be at least 10 characters").max(500),
+  cancellation_reason: z
+    .string()
+    .min(10, "Reason must be at least 10 characters")
+    .max(500),
 });
 
 export const revertSalesReturnSchema = z.object({
-  revert_reason: z.string().min(10, "Reason must be at least 10 characters").max(500),
+  revert_reason: z
+    .string()
+    .min(10, "Reason must be at least 10 characters")
+    .max(500),
 });
 
 // ============================================
@@ -181,10 +205,14 @@ export const applyCustomerCreditSchema = z.object({
 // ============================================
 
 export const checkStockSchema = z.object({
-  items: z.array(z.object({
-    inventory_id: z.string().uuid(),
-    quantity: z.number().positive(),
-  })).min(1),
+  items: z
+    .array(
+      z.object({
+        inventory_id: z.string().uuid(),
+        quantity: z.number().positive(),
+      }),
+    )
+    .min(1),
 });
 
 // ============================================

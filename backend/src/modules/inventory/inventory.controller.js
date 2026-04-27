@@ -1,3 +1,5 @@
+// backend/src/modules/inventory/inventory.controller.js
+
 import inventoryService from "./inventory.service.js";
 import { success, fail } from "../../utils/response.js";
 
@@ -39,6 +41,9 @@ class InventoryController {
         lowStock: req.query.lowStock === "true",
         limit: parseInt(req.query.limit) || 100,
         offset: parseInt(req.query.offset) || 0,
+        // Sorting params
+        sortBy: req.query.sortBy || null,
+        sortOrder: req.query.sortOrder || "asc",
       };
 
       const result = await inventoryService.getInventory(
@@ -200,7 +205,7 @@ class InventoryController {
     }
   }
 
-  // ✅ NEW: Update inventory item
+  // Update inventory item
   async updateInventory(req, res) {
     try {
       const shopId = req.user.shop_id;
@@ -215,7 +220,6 @@ class InventoryController {
         data: req.validated 
       });
 
-      // Validate branch for write operation
       if (!branchId) {
         return fail(res, "Please select a specific branch to update inventory", 400, {
           code: "BRANCH_REQUIRED"
@@ -237,7 +241,7 @@ class InventoryController {
     }
   }
 
-  // ✅ NEW: Delete inventory item (soft delete)
+  // Delete inventory item (soft delete)
   async deleteInventory(req, res) {
     try {
       const shopId = req.user.shop_id;

@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Outlet, useLocation } from "react-router-dom";
+import { useSSENotifications } from "../../hooks/useSSENotifications";
 
 import Sidebar from "./AdminSidebar";
 import TopHeader from "./AdminHeader";
@@ -16,17 +17,12 @@ import { useMenuStore } from "../../store/useMenuStore";
 const NON_SIDEBAR_ROUTES = {
   "/notifications": {
     breadcrumbs: ["Dashboard", "Notifications"],
-    menuId: null, // No sidebar item to highlight
+    menuId: null,
   },
-  // Add more non-sidebar routes here as needed
-  // Example:
-  // "/some-other-page": {
-  //   breadcrumbs: ["Dashboard", "Some Page"],
-  //   menuId: null,
-  // },
 };
 
 const AppLayout = () => {
+  useSSENotifications();
   const location = useLocation();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 

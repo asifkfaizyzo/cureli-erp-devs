@@ -1,0 +1,135 @@
+[2026-04-17T11:17:49.813Z] [INFO] Initializing cron jobs...
+[2026-04-17T11:17:49.813Z] [INFO] Instance ID: CHKTHN-LOQ-26748-babc33de
+[2026-04-17T11:17:49.839Z] [INFO] Email broadcast worker: Every 1 minute
+[2026-04-17T11:17:49.839Z] [INFO] Email file cleanup: Daily at 4:00 AM
+[2026-04-17T11:17:49.813Z] [INFO] Distributed locking: ENABLED
+[2026-04-17T11:17:49.842Z] [INFO] Plan transition job scheduled (daily at 2:00 AM)
+[2026-04-17T11:17:49.844Z] [INFO] Subscription lifecycle job scheduled (every hour)
+[2026-04-17T11:17:49.845Z] [INFO] Payment status sync job scheduled (daily at 1:00 AM)
+[2026-04-17T11:17:49.853Z] [INFO] Scheduled broadcasts job initialized (every 5 minutes)
+[2026-04-17T11:17:49.860Z] [INFO]   - Session cleanup: Every hour
+[2026-04-17T11:17:49.850Z] [INFO] Inventory expiry job scheduled (daily at 6:00 AM)
+[2026-04-17T11:17:49.848Z] [INFO] Reminder job scheduled (daily at 9:00 AM)
+[2026-04-17T11:17:49.860Z] [INFO]   - Subscription lifecycle + emails: Every hour
+[2026-04-17T11:17:49.860Z] [INFO]   - Plan transition: Daily at 2:00 AM
+[2026-04-17T11:17:49.860Z] [INFO]   - Payment status sync: Daily at 1:00 AM
+[2026-04-17T11:17:49.860Z] [INFO] All cron jobs initialized:
+[2026-04-17T11:17:49.860Z] [INFO]   - Inventory expiry checks + alerts: Daily at 6:00 AM
+[2026-04-17T11:17:49.860Z] [INFO]   - Pending users cleanup: Daily at 3:00 AM
+[2026-04-17T11:17:49.860Z] [INFO]   - Incomplete users cleanup: Daily at 3:15 AM
+[2026-04-17T11:17:49.860Z] [INFO]   - Scheduled broadcasts: Every 5 minutes
+[2026-04-17T11:17:49.860Z] [INFO]   - Reminder emails (7d/3d/final): Daily at 9:00 AM
+[2026-04-17T11:17:49.860Z] [INFO]   - OTP daily limits cleanup: Daily at 3:45 AM
+[2026-04-17T11:17:49.860Z] [INFO]   - Deletion logs cleanup: Daily at 3:30 AM
+[2026-04-17T11:19:29.690Z] [INFO] Initializing cron jobs...
+[2026-04-17T11:19:29.690Z] [INFO] Instance ID: CHKTHN-LOQ-20060-804859f4
+[2026-04-17T11:19:29.713Z] [INFO] Email file cleanup: Daily at 4:00 AM
+[2026-04-17T11:19:29.715Z] [INFO] Plan transition job scheduled (daily at 2:00 AM)
+[2026-04-17T11:19:29.717Z] [INFO] Subscription lifecycle job scheduled (every hour)
+[2026-04-17T11:19:29.719Z] [INFO] Payment status sync job scheduled (daily at 1:00 AM)
+[2026-04-17T11:19:29.690Z] [INFO] Distributed locking: ENABLED
+[2026-04-17T11:19:29.713Z] [INFO] Email broadcast worker: Every 1 minute
+[2026-04-17T11:19:29.722Z] [INFO] Reminder job scheduled (daily at 9:00 AM)
+[2026-04-17T11:19:29.724Z] [INFO] Inventory expiry job scheduled (daily at 6:00 AM)
+[2026-04-17T11:19:29.725Z] [INFO] Scheduled broadcasts job initialized (every 5 minutes)
+[2026-04-17T11:19:29.733Z] [INFO] All cron jobs initialized:
+[2026-04-17T11:19:29.733Z] [INFO]   - Session cleanup: Every hour
+[2026-04-17T11:19:29.733Z] [INFO]   - Subscription lifecycle + emails: Every hour
+[2026-04-17T11:19:29.733Z] [INFO]   - Reminder emails (7d/3d/final): Daily at 9:00 AM
+[2026-04-17T11:19:29.733Z] [INFO]   - Payment status sync: Daily at 1:00 AM
+[2026-04-17T11:19:29.733Z] [INFO]   - Inventory expiry checks + alerts: Daily at 6:00 AM
+[2026-04-17T11:19:29.733Z] [INFO]   - Incomplete users cleanup: Daily at 3:15 AM
+[2026-04-17T11:19:29.733Z] [INFO]   - Pending users cleanup: Daily at 3:00 AM
+[2026-04-17T11:19:29.733Z] [INFO]   - Scheduled broadcasts: Every 5 minutes
+[2026-04-17T11:19:29.733Z] [INFO]   - Deletion logs cleanup: Daily at 3:30 AM
+[2026-04-17T11:19:29.733Z] [INFO]   - OTP daily limits cleanup: Daily at 3:45 AM
+[2026-04-17T11:19:29.733Z] [INFO]   - Plan transition: Daily at 2:00 AM
+[2026-04-17T11:20:00.031Z] [INFO] Checking for scheduled broadcasts...
+[2026-04-17T11:20:00.207Z] [INFO] No scheduled broadcasts due for sending
+[2026-04-17T11:20:38.555Z] [INFO] Instance ID: CHKTHN-LOQ-2000-b6aafea9
+[2026-04-17T11:20:38.555Z] [INFO] Distributed locking: ENABLED
+[2026-04-17T11:20:38.555Z] [INFO] Initializing cron jobs...
+[2026-04-17T11:20:38.579Z] [INFO] [File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)
+[2026-04-17T11:20:38.582Z] [INFO] Plan transition job scheduled (daily at 2:00 AM)
+[2026-04-17T11:20:38.579Z] [INFO] Email broadcast worker: Every 1 minute
+[2026-04-17T11:20:38.583Z] [INFO] Subscription lifecycle job scheduled (every hour)
+[2026-04-17T11:20:38.585Z] [INFO] Payment status sync job scheduled (daily at 1:00 AM)
+[2026-04-17T11:20:38.579Z] [INFO] Email file cleanup: Daily at 4:00 AM
+[2026-04-17T11:20:38.589Z] [INFO] Inventory expiry job scheduled (daily at 6:00 AM)
+[2026-04-17T11:20:38.587Z] [INFO] Reminder job scheduled (daily at 9:00 AM)
+[2026-04-17T11:20:38.591Z] [INFO] Scheduled broadcasts job initialized (every 5 minutes)
+[2026-04-17T11:20:38.598Z] [INFO]   - Session cleanup: Every hour
+[2026-04-17T11:20:38.598Z] [INFO] All cron jobs initialized:
+[2026-04-17T11:20:38.598Z] [INFO]   - Plan transition: Daily at 2:00 AM
+[2026-04-17T11:20:38.598Z] [INFO]   - Subscription lifecycle + emails: Every hour
+[2026-04-17T11:20:38.598Z] [INFO]   - Inventory expiry checks + alerts: Daily at 6:00 AM
+[2026-04-17T11:20:38.598Z] [INFO]   - Pending users cleanup: Daily at 3:00 AM
+[2026-04-17T11:20:38.598Z] [INFO]   - Incomplete users cleanup: Daily at 3:15 AM
+[2026-04-17T11:20:38.598Z] [INFO]   - Reminder emails (7d/3d/final): Daily at 9:00 AM
+[2026-04-17T11:20:38.598Z] [INFO]   - Payment status sync: Daily at 1:00 AM
+[2026-04-17T11:20:38.598Z] [INFO]   - Deletion logs cleanup: Daily at 3:30 AM
+[2026-04-17T11:20:38.598Z] [INFO]   - Scheduled broadcasts: Every 5 minutes
+[2026-04-17T11:20:38.598Z] [INFO]   - OTP daily limits cleanup: Daily at 3:45 AM
+[2026-04-17T11:23:27.320Z] [INFO] Initializing cron jobs...
+[2026-04-17T11:23:27.320Z] [INFO] Distributed locking: ENABLED
+[2026-04-17T11:23:27.327Z] [INFO] [File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)
+[2026-04-17T11:23:27.329Z] [INFO] Plan transition job scheduled (daily at 2:00 AM)
+[2026-04-17T11:23:27.327Z] [INFO] Email file cleanup: Daily at 4:00 AM
+[2026-04-17T11:23:27.327Z] [INFO] Email broadcast worker: Every 1 minute
+[2026-04-17T11:23:27.320Z] [INFO] Instance ID: CHKTHN-LOQ-15068-adc497da
+[2026-04-17T11:23:27.331Z] [INFO] Subscription lifecycle job scheduled (every hour)
+[2026-04-17T11:23:27.333Z] [INFO] Payment status sync job scheduled (daily at 1:00 AM)
+[2026-04-17T11:23:27.335Z] [INFO] Reminder job scheduled (daily at 9:00 AM)
+[2026-04-17T11:23:27.337Z] [INFO] Inventory expiry job scheduled (daily at 6:00 AM)
+[2026-04-17T11:23:27.339Z] [INFO] Scheduled broadcasts job initialized (every 5 minutes)
+[2026-04-17T11:23:27.348Z] [INFO] All cron jobs initialized:
+[2026-04-17T11:23:27.348Z] [INFO]   - Session cleanup: Every hour
+[2026-04-17T11:23:27.348Z] [INFO]   - Plan transition: Daily at 2:00 AM
+[2026-04-17T11:23:27.348Z] [INFO]   - Subscription lifecycle + emails: Every hour
+[2026-04-17T11:23:27.348Z] [INFO]   - Inventory expiry checks + alerts: Daily at 6:00 AM
+[2026-04-17T11:23:27.348Z] [INFO]   - Payment status sync: Daily at 1:00 AM
+[2026-04-17T11:23:27.348Z] [INFO]   - Pending users cleanup: Daily at 3:00 AM
+[2026-04-17T11:23:27.348Z] [INFO]   - Incomplete users cleanup: Daily at 3:15 AM
+[2026-04-17T11:23:27.348Z] [INFO]   - Reminder emails (7d/3d/final): Daily at 9:00 AM
+[2026-04-17T11:23:27.348Z] [INFO]   - OTP daily limits cleanup: Daily at 3:45 AM
+[2026-04-17T11:23:27.348Z] [INFO]   - Scheduled broadcasts: Every 5 minutes
+[2026-04-17T11:23:27.348Z] [INFO]   - Deletion logs cleanup: Daily at 3:30 AM
+[2026-04-17T11:23:51.000Z] [INFO] Initializing cron jobs...
+[2026-04-17T11:23:51.001Z] [INFO] Instance ID: CHKTHN-LOQ-26808-0492135a
+[2026-04-17T11:23:51.001Z] [INFO] Distributed locking: ENABLED
+[2026-04-17T11:23:51.007Z] [INFO] Email broadcast worker: Every 1 minute
+[2026-04-17T11:23:51.007Z] [INFO] Email file cleanup: Daily at 4:00 AM
+[2026-04-17T11:23:51.005Z] [INFO] [Email Cron] Email broadcast worker initialized (every 1 minute)
+[2026-04-17T11:23:51.007Z] [INFO] [File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)
+[2026-04-17T11:23:51.010Z] [INFO] Plan transition job scheduled (daily at 2:00 AM)
+[2026-04-17T11:23:51.013Z] [INFO] Payment status sync job scheduled (daily at 1:00 AM)
+[2026-04-17T11:23:51.016Z] [INFO] Reminder job scheduled (daily at 9:00 AM)
+[2026-04-17T11:23:51.012Z] [INFO] Subscription lifecycle job scheduled (every hour)
+[2026-04-17T11:23:51.021Z] [INFO] Scheduled broadcasts job initialized (every 5 minutes)
+[2026-04-17T11:23:51.019Z] [INFO] Inventory expiry job scheduled (daily at 6:00 AM)
+[2026-04-17T11:23:51.028Z] [INFO]   - Session cleanup: Every hour
+[2026-04-17T11:23:51.028Z] [INFO] All cron jobs initialized:
+[2026-04-17T11:23:51.028Z] [INFO]   - Plan transition: Daily at 2:00 AM
+[2026-04-17T11:23:51.028Z] [INFO]   - Payment status sync: Daily at 1:00 AM
+[2026-04-17T11:23:51.028Z] [INFO]   - Inventory expiry checks + alerts: Daily at 6:00 AM
+[2026-04-17T11:23:51.028Z] [INFO]   - Subscription lifecycle + emails: Every hour
+[2026-04-17T11:23:51.028Z] [INFO]   - Incomplete users cleanup: Daily at 3:15 AM
+[2026-04-17T11:23:51.028Z] [INFO]   - Pending users cleanup: Daily at 3:00 AM
+[2026-04-17T11:23:51.028Z] [INFO]   - OTP daily limits cleanup: Daily at 3:45 AM
+[2026-04-17T11:23:51.028Z] [INFO]   - Scheduled broadcasts: Every 5 minutes
+[2026-04-17T11:23:51.028Z] [INFO]   - Deletion logs cleanup: Daily at 3:30 AM
+[2026-04-17T11:23:51.028Z] [INFO]   - Reminder emails (7d/3d/final): Daily at 9:00 AM
+[2026-04-17T11:25:00.025Z] [INFO] Checking for scheduled broadcasts...
+[2026-04-17T11:25:00.036Z] [INFO] No scheduled broadcasts due for sending
+[2026-04-17T11:30:00.039Z] [INFO] Checking for scheduled broadcasts...
+[2026-04-17T11:30:00.042Z] [INFO] Starting subscription lifecycle check...
+[2026-04-17T11:30:00.050Z] [INFO] No scheduled broadcasts due for sending
+[2026-04-17T11:30:00.060Z] [INFO] Subscription lifecycle complete | Grace: 0 | Suspended: 0
+[2026-04-17T11:35:00.034Z] [INFO] Checking for scheduled broadcasts...
+[2026-04-17T11:35:00.041Z] [INFO] No scheduled broadcasts due for sending
+[2026-04-17T11:40:00.039Z] [INFO] Checking for scheduled broadcasts...
+[2026-04-17T11:40:00.044Z] [INFO] No scheduled broadcasts due for sending
+[2026-04-17T11:45:00.043Z] [INFO] Checking for scheduled broadcasts...
+[2026-04-17T11:45:00.049Z] [INFO] No scheduled broadcasts due for sending
+[2026-04-17T11:50:00.037Z] [INFO] Checking for scheduled broadcasts...
+[2026-04-17T11:50:00.046Z] [INFO] No scheduled broadcasts due for sending

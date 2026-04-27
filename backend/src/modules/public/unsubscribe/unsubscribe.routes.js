@@ -1,4 +1,4 @@
-// backend/src/modules/public/unsubscribe/unsubscribe.routes.js
+// unsubscribe.routes.js
 
 import { Router } from 'express';
 import express from 'express';
@@ -6,60 +6,41 @@ import * as controller from './unsubscribe.controller.js';
 
 const router = Router();
 
-// ============================================
-// MIDDLEWARE: Parse URL-encoded bodies (for form submission)
-// ============================================
-
 router.use(express.urlencoded({ extended: true }));
 router.use(express.json());
 
-// ============================================
-// PUBLIC ROUTES (No Auth Required)
-// ============================================
+// ─── Specific routes FIRST ────────────────────────────────────────────────────
 
-/**
- * Unsubscribe page (renders HTML)
- * GET /api/public/unsubscribe/:token?email=xxx
- */
+// GET /api/public/unsubscribe/status?email=xxx
 router.get(
-  '/unsubscribe/:token',
-  controller.unsubscribePageController
+  '/unsubscribe/status',
+  controller.checkStatusController
 );
 
-/**
- * Process unsubscribe (form submission)
- * POST /api/public/unsubscribe/:token
- */
-router.post(
-  '/unsubscribe/:token',
-  controller.processUnsubscribeController
-);
-
-/**
- * One-click unsubscribe (RFC 8058)
- * POST /api/public/unsubscribe/one-click
- */
+// POST /api/public/unsubscribe/one-click  (RFC 8058 - Gmail button)
 router.post(
   '/unsubscribe/one-click',
   controller.oneClickUnsubscribeController
 );
 
-/**
- * API endpoint (JSON response)
- * POST /api/public/unsubscribe/api
- */
+// POST /api/public/unsubscribe/api  (JSON response)
 router.post(
   '/unsubscribe/api',
   controller.unsubscribeApiController
 );
 
-/**
- * Check subscription status
- * GET /api/public/unsubscribe/status?email=xxx
- */
+// ─── Token catch-all routes LAST ─────────────────────────────────────────────
+
+// GET /api/public/unsubscribe/:token?email=xxx  (renders HTML confirmation page)
 router.get(
-  '/unsubscribe/status',
-  controller.checkStatusController
+  '/unsubscribe/:token',
+  controller.unsubscribePageController
+);
+
+// POST /api/public/unsubscribe/:token  (form submission from confirmation page)
+router.post(
+  '/unsubscribe/:token',
+  controller.processUnsubscribeController
 );
 
 export default router;

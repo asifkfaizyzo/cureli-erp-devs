@@ -44,7 +44,9 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
               <AlertTriangle size={20} className="text-red-600" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900">Cannot Reopen Ticket</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Cannot Reopen Ticket
+              </h3>
               <p className="text-sm text-gray-500">{ticket?.ticket_number}</p>
             </div>
             <button
@@ -57,18 +59,30 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
 
           <div className="p-5">
             <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <AlertTriangle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <AlertTriangle
+                size={20}
+                className="text-red-600 flex-shrink-0 mt-0.5"
+              />
               <div>
-                <p className="text-sm font-medium text-red-900 mb-1">Reopen Limit Reached</p>
+                <p className="text-sm font-medium text-red-900 mb-1">
+                  Reopen Limit Reached
+                </p>
                 <p className="text-sm text-red-700">{REOPEN_LIMIT_MESSAGE}</p>
               </div>
             </div>
 
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">
               <p className="text-xs text-gray-600">
-                <span className="font-medium">Reopen History:</span> This ticket has been reopened{" "}
-                <span className="font-semibold text-gray-900">{reopenCount}</span> time{reopenCount !== 1 ? "s" : ""}.
-                The maximum allowed is <span className="font-semibold text-gray-900">{REOPEN_LIMIT}</span> times.
+                <span className="font-medium">Reopen History:</span> This ticket
+                has been reopened{" "}
+                <span className="font-semibold text-gray-900">
+                  {reopenCount}
+                </span>{" "}
+                time{reopenCount !== 1 ? "s" : ""}. The maximum allowed is{" "}
+                <span className="font-semibold text-gray-900">
+                  {REOPEN_LIMIT}
+                </span>{" "}
+                times.
               </p>
             </div>
           </div>
@@ -92,7 +106,7 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
 
     if (!reason.trim() || reason.trim().length < 10) {
       setError("Reason must be at least 10 characters");
-      // ✅ REMOVED: toast.warning - inline error is enough
+      //  REMOVED: toast.warning - inline error is enough
       return;
     }
 
@@ -104,13 +118,13 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
     setLoading(true);
     try {
       await onConfirm(reason.trim());
-      // ✅ REMOVED: toast.success - let parent handle it
+      //  REMOVED: toast.success - let parent handle it
       // Modal will be closed by parent after success
     } catch (err) {
       console.error("Failed to reopen ticket:", err);
       const errorMessage = err.message || "Failed to reopen ticket";
       setError(errorMessage);
-      // ✅ REMOVED: toast.error - let parent handle it OR show inline error only
+      //  REMOVED: toast.error - let parent handle it OR show inline error only
     } finally {
       setLoading(false);
     }
@@ -130,7 +144,9 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
               <AlertTriangle size={20} className="text-amber-600" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900">Confirm Reopen</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Confirm Reopen
+              </h3>
               <p className="text-sm text-gray-500">{ticket?.ticket_number}</p>
             </div>
             <button
@@ -144,28 +160,41 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
 
           <div className="p-5">
             <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
-              <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <AlertTriangle
+                size={20}
+                className="text-amber-600 flex-shrink-0 mt-0.5"
+              />
               <div>
-                <p className="text-sm font-medium text-amber-900 mb-1">Frequent Reopening Warning</p>
-                <p className="text-sm text-amber-700">{REOPEN_WARNING_MESSAGE}</p>
+                <p className="text-sm font-medium text-amber-900 mb-1">
+                  Frequent Reopening Warning
+                </p>
+                <p className="text-sm text-amber-700">
+                  {REOPEN_WARNING_MESSAGE}
+                </p>
               </div>
             </div>
 
             <div className="p-3 bg-gray-50 rounded-lg mb-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Current reopen count:</span>
-                <span className="font-semibold text-gray-900">{reopenCount} / {REOPEN_LIMIT}</span>
+                <span className="font-semibold text-gray-900">
+                  {reopenCount} / {REOPEN_LIMIT}
+                </span>
               </div>
               <div className="flex items-center justify-between text-sm mt-1">
                 <span className="text-gray-600">Remaining reopens:</span>
-                <span className={`font-semibold ${remainingReopens <= 2 ? "text-red-600" : "text-gray-900"}`}>
+                <span
+                  className={`font-semibold ${remainingReopens <= 2 ? "text-red-600" : "text-gray-900"}`}
+                >
                   {remainingReopens}
                 </span>
               </div>
             </div>
 
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs font-medium text-blue-700 mb-1">Your reason:</p>
+              <p className="text-xs font-medium text-blue-700 mb-1">
+                Your reason:
+              </p>
               <p className="text-sm text-blue-900">{reason}</p>
             </div>
           </div>
@@ -211,7 +240,9 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
             <RotateCcw size={20} className="text-orange-600" />
           </div>
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">Reopen Ticket</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Reopen Ticket
+            </h3>
             <p className="text-sm text-gray-500">{ticket?.ticket_number}</p>
           </div>
           <button
@@ -225,18 +256,27 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
 
         <form onSubmit={handleSubmit} className="p-5">
           {reopenCount > 0 && (
-            <div className={`flex items-start gap-2 p-3 rounded-lg mb-4 ${
-              showWarning 
-                ? "bg-amber-50 border border-amber-200" 
-                : "bg-blue-50 border border-blue-200"
-            }`}>
-              <Info size={16} className={showWarning ? "text-amber-600" : "text-blue-600"} />
+            <div
+              className={`flex items-start gap-2 p-3 rounded-lg mb-4 ${
+                showWarning
+                  ? "bg-amber-50 border border-amber-200"
+                  : "bg-blue-50 border border-blue-200"
+              }`}
+            >
+              <Info
+                size={16}
+                className={showWarning ? "text-amber-600" : "text-blue-600"}
+              />
               <div className="text-xs">
                 <p className={showWarning ? "text-amber-800" : "text-blue-800"}>
-                  This ticket has been reopened <span className="font-semibold">{reopenCount}</span> time{reopenCount !== 1 ? "s" : ""} before.
+                  This ticket has been reopened{" "}
+                  <span className="font-semibold">{reopenCount}</span> time
+                  {reopenCount !== 1 ? "s" : ""} before.
                   {showWarning && (
                     <span className="block mt-1 text-amber-700">
-                      Only <span className="font-semibold">{remainingReopens}</span> reopen{remainingReopens !== 1 ? "s" : ""} remaining.
+                      Only{" "}
+                      <span className="font-semibold">{remainingReopens}</span>{" "}
+                      reopen{remainingReopens !== 1 ? "s" : ""} remaining.
                     </span>
                   )}
                 </p>
@@ -262,7 +302,7 @@ const ReopenTicketModal = ({ isOpen, onClose, ticket, onConfirm }) => {
               error ? "border-red-500" : "border-gray-300"
             }`}
           />
-          
+
           <div className="flex items-center justify-between mt-1">
             {error ? (
               <p className="text-xs text-red-500">{error}</p>

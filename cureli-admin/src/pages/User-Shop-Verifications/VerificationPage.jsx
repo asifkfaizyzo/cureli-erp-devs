@@ -16,12 +16,12 @@ import { listShopsForVerification } from "../../api/cadminDocs";
 import { useToast } from "../../components/common/Toast";
 import useDynamicRowCount from "../../hooks/useDynamicRowCount";
 
-// ✅ FIXED: Match backend status values
+//  FIXED: Match backend status values
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
   { value: "pending", label: "Pending" },
   { value: "pending_review", label: "Pending Review" },
-  { value: "verified", label: "Verified" }, // ✅ Backend uses "verified"
+  { value: "verified", label: "Verified" }, //  Backend uses "verified"
   { value: "partially_rejected", label: "Partially Rejected" },
   { value: "rejected", label: "Rejected" },
 ];
@@ -91,7 +91,7 @@ const VerificationPage = () => {
         params.search = search.trim();
       }
       if (status) {
-        params.status = status; // ✅ Now sends correct backend values
+        params.status = status; //  Now sends correct backend values
       }
       if (resubmissionCount && Number(resubmissionCount) > 0) {
         params.resubmissionCountMin = Number(resubmissionCount);
@@ -193,7 +193,8 @@ const VerificationPage = () => {
                 Shop Verification
               </h1>
               <p className="text-sm text-gray-500">
-                {totalItems} shop{totalItems !== 1 ? "s" : ""} pending verification
+                {totalItems} shop{totalItems !== 1 ? "s" : ""} pending
+                verification
               </p>
             </div>
           </div>
@@ -206,7 +207,6 @@ const VerificationPage = () => {
                        disabled:opacity-50 flex-shrink-0"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            
           </button>
         </div>
 

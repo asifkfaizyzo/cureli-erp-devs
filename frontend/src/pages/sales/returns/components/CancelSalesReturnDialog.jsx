@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, AlertTriangle, Ban, DollarSign } from "lucide-react";
 
-const MIN_REASON_LENGTH = 10; // ✅ Match backend schema requirement
+const MIN_REASON_LENGTH = 10; //  Match backend schema requirement
 
 const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
   const [cancellationReason, setCancellationReason] = useState("");
@@ -15,14 +15,14 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
 
   if (!open || !returnData) return null;
 
-  // ✅ Use normalized field names
+  //  Use normalized field names
   const refundMode = returnData.refund_mode || returnData.adjustment_type;
   const hasCashRefund = refundMode === "CASH" || refundMode === "CASH_REFUND";
   const hasCreditNote = returnData.credit_note_number;
   const refundAmount = returnData.refund_amount || returnData.net_amount;
 
   const handleSubmit = async () => {
-    // ✅ Validate minimum length
+    //  Validate minimum length
     if (cancellationReason.trim().length < MIN_REASON_LENGTH) {
       setError(`Reason must be at least ${MIN_REASON_LENGTH} characters`);
       return;
@@ -52,7 +52,8 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
   };
 
   const isReasonValid = cancellationReason.trim().length >= MIN_REASON_LENGTH;
-  const charactersRemaining = MIN_REASON_LENGTH - cancellationReason.trim().length;
+  const charactersRemaining =
+    MIN_REASON_LENGTH - cancellationReason.trim().length;
 
   return createPortal(
     <AnimatePresence>
@@ -82,7 +83,9 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">Cancel Approved Return</h3>
-                  <p className="text-sm text-white/80">This action will reverse all changes</p>
+                  <p className="text-sm text-white/80">
+                    This action will reverse all changes
+                  </p>
                 </div>
               </div>
               <button
@@ -99,13 +102,26 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
               {/* Warning */}
               <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle size={20} className="text-red-600 mt-0.5 shrink-0" />
+                  <AlertTriangle
+                    size={20}
+                    className="text-red-600 mt-0.5 shrink-0"
+                  />
                   <div className="flex-1">
-                    <h4 className="font-semibold text-red-900 mb-2">Cancellation Effects:</h4>
+                    <h4 className="font-semibold text-red-900 mb-2">
+                      Cancellation Effects:
+                    </h4>
                     <ul className="text-sm text-red-800 space-y-1">
-                      <li>• Stock will be deducted from inventory (reversed)</li>
-                      {hasCreditNote && <li>• Customer credit note will be marked as CANCELLED</li>}
-                      {hasCashRefund && <li>• Refund amount will need to be handled</li>}
+                      <li>
+                        • Stock will be deducted from inventory (reversed)
+                      </li>
+                      {hasCreditNote && (
+                        <li>
+                          • Customer credit note will be marked as CANCELLED
+                        </li>
+                      )}
+                      {hasCashRefund && (
+                        <li>• Refund amount will need to be handled</li>
+                      )}
                       <li>• Return status will change to CANCELLED</li>
                     </ul>
                   </div>
@@ -114,7 +130,9 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
 
               {/* Return Summary */}
               <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Return Summary</h4>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                  Return Summary
+                </h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Return Number:</span>
@@ -125,12 +143,17 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Return Amount:</span>
                     <span className="font-bold text-red-600">
-                      ₹{Math.abs(parseFloat(returnData.net_amount)).toLocaleString("en-IN")}
+                      ₹
+                      {Math.abs(
+                        parseFloat(returnData.net_amount),
+                      ).toLocaleString("en-IN")}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Refund Mode:</span>
-                    <span className="font-medium">{refundMode?.replace(/_/g, " ") || "N/A"}</span>
+                    <span className="font-medium">
+                      {refundMode?.replace(/_/g, " ") || "N/A"}
+                    </span>
                   </div>
                   {hasCreditNote && (
                     <div className="flex justify-between">
@@ -148,10 +171,14 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                 <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
                   <div className="flex items-center gap-2 mb-3">
                     <DollarSign size={16} className="text-amber-600" />
-                    <h4 className="text-sm font-semibold text-amber-900">Refund Handling</h4>
+                    <h4 className="text-sm font-semibold text-amber-900">
+                      Refund Handling
+                    </h4>
                   </div>
                   <p className="text-sm text-amber-800 mb-4">
-                    Refund of ₹{parseFloat(refundAmount).toLocaleString("en-IN")} was given. Choose action:
+                    Refund of ₹
+                    {parseFloat(refundAmount).toLocaleString("en-IN")} was
+                    given. Choose action:
                   </p>
                   <div className="space-y-2">
                     <label className="flex items-start gap-3 p-3 bg-white rounded-lg border-2 border-gray-200 cursor-pointer hover:border-amber-400 transition-colors">
@@ -164,8 +191,12 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                         className="mt-1 accent-amber-600"
                       />
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">Collect Refund Back</p>
-                        <p className="text-xs text-gray-600">Customer returns the refund amount</p>
+                        <p className="font-medium text-gray-900">
+                          Collect Refund Back
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          Customer returns the refund amount
+                        </p>
                       </div>
                     </label>
                     <label className="flex items-start gap-3 p-3 bg-white rounded-lg border-2 border-gray-200 cursor-pointer hover:border-amber-400 transition-colors">
@@ -178,8 +209,12 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                         className="mt-1 accent-amber-600"
                       />
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">Adjust in Next Purchase</p>
-                        <p className="text-xs text-gray-600">Adjust against customer's next purchase</p>
+                        <p className="font-medium text-gray-900">
+                          Adjust in Next Purchase
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          Adjust against customer's next purchase
+                        </p>
                       </div>
                     </label>
                   </div>
@@ -204,9 +239,9 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                   rows={3}
                   disabled={isSubmitting}
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 resize-none disabled:bg-gray-50 transition-colors ${
-                    error 
-                      ? "border-red-300 focus:ring-red-500 focus:border-red-500" 
-                      : isReasonValid 
+                    error
+                      ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                      : isReasonValid
                         ? "border-green-300 focus:ring-green-500 focus:border-green-500"
                         : "border-gray-300 focus:ring-red-500 focus:border-red-500"
                   }`}
@@ -216,13 +251,17 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
                     <p className="text-xs text-red-600">{error}</p>
                   ) : charactersRemaining > 0 ? (
                     <p className="text-xs text-amber-600">
-                      {charactersRemaining} more character{charactersRemaining !== 1 ? "s" : ""} needed
+                      {charactersRemaining} more character
+                      {charactersRemaining !== 1 ? "s" : ""} needed
                     </p>
                   ) : (
-                    <p className="text-xs text-green-600">✓ Minimum length reached</p>
+                    <p className="text-xs text-green-600">
+                      ✓ Minimum length reached
+                    </p>
                   )}
                   <p className="text-xs text-gray-400">
-                    {cancellationReason.length} / {MIN_REASON_LENGTH}+ characters
+                    {cancellationReason.length} / {MIN_REASON_LENGTH}+
+                    characters
                   </p>
                 </div>
               </div>
@@ -259,7 +298,7 @@ const CancelSalesReturnDialog = ({ open, onClose, returnData, onConfirm }) => {
         </div>
       )}
     </AnimatePresence>,
-    document.body
+    document.body,
   );
 };
 

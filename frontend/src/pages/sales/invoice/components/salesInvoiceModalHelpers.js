@@ -234,7 +234,9 @@ export const calculatePaymentDetails = (invoice) => {
  */
 export const getEffectivePaymentDisplay = (invoice) => {
   const paymentCalc = calculatePaymentStatus(invoice);
-  const config = PAYMENT_STATUS_CONFIG[paymentCalc.effectiveStatus] || PAYMENT_STATUS_CONFIG.UNPAID;
+  const config =
+    PAYMENT_STATUS_CONFIG[paymentCalc.effectiveStatus] ||
+    PAYMENT_STATUS_CONFIG.UNPAID;
 
   return {
     ...paymentCalc,
@@ -284,9 +286,9 @@ export const calculateEditRow = (row) => {
 export const makeEmptyRow = () => ({
   item_id: null,
   medicine_id: null,
-  batch_id: null,  // ✅ This maps to inventory_id
+  batch_id: null, //  This maps to inventory_id
   name: "",
-  batch: "",       // This is the batch_number string for display
+  batch: "", // This is the batch_number string for display
   exp: "",
   pack: "",
   qty: "",
@@ -329,22 +331,22 @@ export const transformInvoiceToRows = (invoice) => {
       // IDs
       item_id: item.item_id,
       medicine_id: item.medicine_id,
-      batch_id: item.inventory_id, // ✅ KEY FIX: inventory_id IS the batch_id
-      
+      batch_id: item.inventory_id, //  KEY FIX: inventory_id IS the batch_id
+
       // Display fields
       name: item.medicine?.name || item.product_name || "Unknown",
       batch: item.batch_number || item.inventory?.batch_number || "",
       exp: expStr,
       pack: item.pack_size || item.medicine?.pack_size || "",
-      
+
       // Quantities
       qty: String(parseFloat(item.quantity) || 0),
       availableQty: parseFloat(item.inventory?.available_stock) || 0,
-      
+
       // Pricing - use selling_rate
       price: String(parseFloat(item.selling_rate) || parseFloat(item.mrp) || 0),
       mrp: String(parseFloat(item.mrp) || 0),
-      
+
       // Discounts & Tax
       discountPercent: String(parseFloat(item.discount_percent) || 0),
       cgstPercent: String(cgst),

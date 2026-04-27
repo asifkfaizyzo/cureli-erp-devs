@@ -6,19 +6,19 @@ import supplierService from "./supplier.service.js";
    HELPER: Get Branch Context from Request
 ============================================ */
 const getBranchContext = (req) => {
-  // ✅ FIX: Add null checks
+  //  FIX: Add null checks
   const user = req.user;
-  
+
   if (!user) {
-    console.error("❌ getBranchContext: req.user is undefined");
+    console.error(" getBranchContext: req.user is undefined");
     return { mode: "GLOBAL", branch_id: null };
   }
 
   const isSuperAdmin = user.role === "super_admin";
-  
+
   // Check for explicit branch_id in query/body
   const explicitBranchId = req.query?.branch_id || req.body?.branch_id;
-  
+
   // Super admin can be in GLOBAL mode or BRANCH mode
   if (isSuperAdmin) {
     if (explicitBranchId) {
@@ -31,12 +31,12 @@ const getBranchContext = (req) => {
     }
     return { mode: "GLOBAL", branch_id: null };
   }
-  
+
   // Non-super admin always uses their assigned branch
-  // ✅ FIX: Handle case where user.branch_id might be undefined
-  return { 
-    mode: user.branch_id ? "BRANCH" : "GLOBAL", 
-    branch_id: user.branch_id || null 
+  //  FIX: Handle case where user.branch_id might be undefined
+  return {
+    mode: user.branch_id ? "BRANCH" : "GLOBAL",
+    branch_id: user.branch_id || null,
   };
 };
 
@@ -45,9 +45,9 @@ const getBranchContext = (req) => {
 ============================================ */
 export async function getSuppliersController(req, res) {
   try {
-    // ✅ FIX: Add user check first
+    //  FIX: Add user check first
     if (!req.user) {
-      console.error("❌ getSuppliersController: No user in request");
+      console.error(" getSuppliersController: No user in request");
       return fail(res, "Authentication required", 401);
     }
 
@@ -57,12 +57,13 @@ export async function getSuppliersController(req, res) {
     }
 
     const branchContext = getBranchContext(req);
-    
+
     const filters = {
       search: req.query.search,
-      isActive: req.query.isActive !== undefined 
-        ? req.query.isActive === "true" 
-        : undefined,
+      isActive:
+        req.query.isActive !== undefined
+          ? req.query.isActive === "true"
+          : undefined,
       limit: parseInt(req.query.limit) || 100,
       offset: parseInt(req.query.offset) || 0,
     };
@@ -75,16 +76,20 @@ export async function getSuppliersController(req, res) {
       userId: req.user.user_id,
     });
 
-    const result = await supplierService.getSuppliers(shopId, branchContext, filters);
-    
-    console.log("✅ Suppliers fetched:", {
+    const result = await supplierService.getSuppliers(
+      shopId,
+      branchContext,
+      filters,
+    );
+
+    console.log(" Suppliers fetched:", {
       count: result.suppliers?.length || 0,
       mode: result.mode,
     });
 
     return success(res, result, "Suppliers retrieved successfully");
   } catch (error) {
-    console.error("❌ supplier.getAll ERROR:", {
+    console.error(" supplier.getAll ERROR:", {
       message: error.message,
       stack: error.stack,
       code: error.code,
@@ -111,18 +116,23 @@ export async function createSupplierController(req, res) {
     }
 
     const branchContext = getBranchContext(req);
-    
-    // ✅ Get branch_id from context or request body
+
+    //  Get branch_id from context or request body
     let branchId = branchContext.branch_id;
-    
+
     // If branch_id was in the original request body (before schema transform removed it)
     if (!branchId && req.body?.branch_id) {
       branchId = req.body.branch_id;
     }
-    
+
     // Must have a branch to create
     if (!branchId) {
-      return fail(res, "Please select a branch to create suppliers", 400, "BRANCH_REQUIRED");
+      return fail(
+        res,
+        "Please select a branch to create suppliers",
+        400,
+        "BRANCH_REQUIRED",
+      );
     }
 
     console.log("📍 Creating supplier:", {
@@ -136,21 +146,21 @@ export async function createSupplierController(req, res) {
       req.validated,
       shopId,
       branchId,
-      userId
+      userId,
     );
 
-    const message = supplier.linked_to_existing 
-      ? supplier.message 
+    const message = supplier.linked_to_existing
+      ? supplier.message
       : "Supplier created successfully";
 
     return success(res, supplier, message, 201);
   } catch (error) {
-    console.error("❌ supplier.create ERROR:", error);
-    
-    // ✅ Better error handling with specific codes
+    console.error(" supplier.create ERROR:", error);
+
+    //  Better error handling with specific codes
     const statusCode = error.statusCode || 500;
     const errorCode = error.code || "CREATE_FAILED";
-    
+
     return fail(res, error.message, statusCode, errorCode);
   }
 }
@@ -171,13 +181,18 @@ export async function getSupplierByIdController(req, res) {
     }
 
     const branchContext = getBranchContext(req);
-    const branchId = branchContext.mode === "BRANCH" ? branchContext.branch_id : null;
+    const branchId =
+      branchContext.mode === "BRANCH" ? branchContext.branch_id : null;
 
-    const supplier = await supplierService.getSupplierById(supplierId, shopId, branchId);
+    const supplier = await supplierService.getSupplierById(
+      supplierId,
+      shopId,
+      branchId,
+    );
 
     return success(res, supplier, "Supplier retrieved successfully");
   } catch (error) {
-    console.error("❌ supplier.getById ERROR:", error);
+    console.error(" supplier.getById ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
   }
 }
@@ -199,18 +214,19 @@ export async function updateSupplierController(req, res) {
     }
 
     const branchContext = getBranchContext(req);
-    const branchId = branchContext.mode === "BRANCH" ? branchContext.branch_id : null;
+    const branchId =
+      branchContext.mode === "BRANCH" ? branchContext.branch_id : null;
 
     const supplier = await supplierService.updateSupplier(
       supplierId,
       shopId,
       req.validated,
-      branchId
+      branchId,
     );
 
     return success(res, supplier, "Supplier updated successfully");
   } catch (error) {
-    console.error("❌ supplier.update ERROR:", error);
+    console.error(" supplier.update ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
   }
 }
@@ -231,11 +247,14 @@ export async function getSupplierBranchesController(req, res) {
       return fail(res, "Only super admin can manage supplier branches", 403);
     }
 
-    const result = await supplierService.getSupplierBranches(supplierId, shopId);
-    
+    const result = await supplierService.getSupplierBranches(
+      supplierId,
+      shopId,
+    );
+
     return success(res, result, "Supplier branches retrieved successfully");
   } catch (error) {
-    console.error("❌ supplier.getBranches ERROR:", error);
+    console.error(" supplier.getBranches ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
   }
 }
@@ -262,12 +281,12 @@ export async function addSupplierToBranchController(req, res) {
       supplierId,
       branch_id,
       shopId,
-      userId
+      userId,
     );
 
     return success(res, result, "Supplier added to branch successfully");
   } catch (error) {
-    console.error("❌ supplier.addToBranch ERROR:", error);
+    console.error(" supplier.addToBranch ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
   }
 }
@@ -286,14 +305,22 @@ export async function removeSupplierFromBranchController(req, res) {
     const { branch_id } = req.validated;
 
     if (req.user.role !== "super_admin") {
-      return fail(res, "Only super admin can remove suppliers from branches", 403);
+      return fail(
+        res,
+        "Only super admin can remove suppliers from branches",
+        403,
+      );
     }
 
-    await supplierService.removeSupplierFromBranch(supplierId, branch_id, shopId);
+    await supplierService.removeSupplierFromBranch(
+      supplierId,
+      branch_id,
+      shopId,
+    );
 
     return success(res, null, "Supplier removed from branch successfully");
   } catch (error) {
-    console.error("❌ supplier.removeFromBranch ERROR:", error);
+    console.error(" supplier.removeFromBranch ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
   }
 }
@@ -320,12 +347,12 @@ export async function bulkUpdateSupplierBranchesController(req, res) {
       supplierId,
       branch_ids,
       shopId,
-      userId
+      userId,
     );
 
     return success(res, result, "Supplier branches updated successfully");
   } catch (error) {
-    console.error("❌ supplier.bulkUpdateBranches ERROR:", error);
+    console.error(" supplier.bulkUpdateBranches ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
   }
 }
@@ -350,20 +377,19 @@ export async function getSuppliersNotInBranchController(req, res) {
     const suppliers = await supplierService.getSuppliersNotInBranch(
       shopId,
       branchId,
-      search
+      search,
     );
 
-    return success(res, { suppliers }, "Available suppliers retrieved successfully");
+    return success(
+      res,
+      { suppliers },
+      "Available suppliers retrieved successfully",
+    );
   } catch (error) {
-    console.error("❌ supplier.getNotInBranch ERROR:", error);
+    console.error(" supplier.getNotInBranch ERROR:", error);
     return fail(res, error.message, error.statusCode || 500);
   }
-
-  
-
-
 }
-
 
 /* ============================================
    DEACTIVATE SUPPLIER - Shop-wide
@@ -382,11 +408,15 @@ export async function deactivateSupplierController(req, res) {
       return fail(res, "Only super admin can deactivate suppliers", 403);
     }
 
-    const result = await supplierService.deactivateSupplier(supplierId, shopId, userId);
+    const result = await supplierService.deactivateSupplier(
+      supplierId,
+      shopId,
+      userId,
+    );
 
     return success(res, result, "Supplier deactivated successfully");
   } catch (error) {
-    console.error("❌ supplier.deactivate ERROR:", error);
+    console.error(" supplier.deactivate ERROR:", error);
     return fail(res, error.message, error.statusCode || 500, error.code);
   }
 }
@@ -409,11 +439,16 @@ export async function reactivateSupplierController(req, res) {
       return fail(res, "Only super admin can reactivate suppliers", 403);
     }
 
-    const result = await supplierService.reactivateSupplier(supplierId, shopId, branch_id, userId);
+    const result = await supplierService.reactivateSupplier(
+      supplierId,
+      shopId,
+      branch_id,
+      userId,
+    );
 
     return success(res, result, "Supplier reactivated successfully");
   } catch (error) {
-    console.error("❌ supplier.reactivate ERROR:", error);
+    console.error(" supplier.reactivate ERROR:", error);
     return fail(res, error.message, error.statusCode || 500, error.code);
   }
 }
@@ -431,14 +466,21 @@ export async function removeFromAllBranchesController(req, res) {
     const { supplierId } = req.params;
 
     if (req.user.role !== "super_admin") {
-      return fail(res, "Only super admin can remove supplier from all branches", 403);
+      return fail(
+        res,
+        "Only super admin can remove supplier from all branches",
+        403,
+      );
     }
 
-    const result = await supplierService.removeFromAllBranches(supplierId, shopId);
+    const result = await supplierService.removeFromAllBranches(
+      supplierId,
+      shopId,
+    );
 
     return success(res, result, "Supplier removed from all branches");
   } catch (error) {
-    console.error("❌ supplier.removeFromAllBranches ERROR:", error);
+    console.error(" supplier.removeFromAllBranches ERROR:", error);
     return fail(res, error.message, error.statusCode || 500, error.code);
   }
 }

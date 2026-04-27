@@ -7,6 +7,7 @@ import {
   shouldPauseSending,
   getRemainingCapacity,
 } from "../modules/cadmin/broadcast/email/emailBroadcast.quota.js";
+import cronLogger from "../utils/cronLogger.js";
 
 // ============================================
 // CONFIGURATION
@@ -27,25 +28,9 @@ const CAMPAIGN_STATUS = {
 };
 
 // ============================================
-// PHASE 2: ATOMIC CAMPAIGN CLAIMS
-//
-// Uses PostgreSQL FOR UPDATE SKIP LOCKED to
-// guarantee only one instance can claim a
-// campaign, even if the cron lock fails.
-//
-// Defense-in-depth: cron lock is the primary
-// gate, atomic claims are the safety net.
+// ATOMIC CAMPAIGN CLAIMS
 // ============================================
 
-/**
- * Atomically claim one SCHEDULED campaign.
- * Returns the claimed campaign or null.
- *
- * FOR UPDATE SKIP LOCKED ensures:
- * - If another transaction holds the row → skip it
- * - Only one instance can claim a given campaign
- * - No duplicate email sends, guaranteed by PostgreSQL
- */
 async function claimScheduledCampaign(beforeDate) {
   try {
     const results = await prisma.$queryRaw`
@@ -69,15 +54,11 @@ async function claimScheduledCampaign(beforeDate) {
 
     return results.length > 0 ? results[0] : null;
   } catch (err) {
-    console.error("[Email Cron] Atomic claim (scheduled) failed:", err.message);
+    cronLogger.error("[Email Cron] Atomic claim (scheduled) failed", err);
     return null;
   }
 }
 
-/**
- * Atomically claim one PAUSED campaign.
- * Same atomic guarantee as claimScheduledCampaign.
- */
 async function claimPausedCampaign() {
   try {
     const results = await prisma.$queryRaw`
@@ -100,7 +81,7 @@ async function claimPausedCampaign() {
 
     return results.length > 0 ? results[0] : null;
   } catch (err) {
-    console.error("[Email Cron] Atomic claim (paused) failed:", err.message);
+    cronLogger.error("[Email Cron] Atomic claim (paused) failed", err);
     return null;
   }
 }
@@ -109,18 +90,12 @@ async function claimPausedCampaign() {
 // MAIN WORKER FUNCTION
 // ============================================
 
-/**
- * Main cron job function - runs every minute
- * Wrapped by withCronLock in initializeEmailBroadcastWorker
- */
 async function processEmailBroadcasts() {
   const startTime = Date.now();
 
   try {
-    // Step 1: Reset stuck campaigns
     await resetStuckProcessing();
 
-    // Step 2: Check if sending is allowed (quota not exhausted)
     const quotaExhausted = await shouldPauseSending();
 
     if (quotaExhausted) {
@@ -128,32 +103,25 @@ async function processEmailBroadcasts() {
       return;
     }
 
-    // Step 3: Resume paused campaigns first (they have priority)
     await resumePausedCampaigns();
-
-    // Step 4: Process scheduled campaigns that are due
     await processScheduledCampaigns();
 
     const duration = Date.now() - startTime;
     if (duration > 5000) {
-      console.log(`[Email Cron] Cycle completed in ${duration}ms`);
+      cronLogger.info(`[Email Cron] Cycle completed in ${duration}ms`);
     }
   } catch (err) {
-    console.error("[Email Cron] Worker cycle failed:", err);
+    cronLogger.error("[Email Cron] Worker cycle failed", err);
   }
 }
 
 // ============================================
 // RESET STUCK PROCESSING
-// (Unchanged — already safe behind cron lock,
-//  and naturally idempotent)
 // ============================================
 
 async function resetStuckProcessing() {
   try {
-    const threshold = new Date(
-      Date.now() - STUCK_THRESHOLD_MINUTES * 60 * 1000,
-    );
+    const threshold = new Date(Date.now() - STUCK_THRESHOLD_MINUTES * 60 * 1000);
 
     const stuckCampaigns = await prisma.emailBroadcastCampaign.findMany({
       where: {
@@ -172,17 +140,12 @@ async function resetStuckProcessing() {
 
     if (stuckCampaigns.length === 0) return;
 
-    console.log(
-      `[Email Cron] Found ${stuckCampaigns.length} stuck campaign(s)`,
-    );
+    cronLogger.warn(`[Email Cron] Found ${stuckCampaigns.length} stuck campaign(s)`);
 
     for (const campaign of stuckCampaigns) {
       let newStatus = CAMPAIGN_STATUS.PAUSED;
 
-      if (
-        campaign.delivered_count === 0 &&
-        campaign.last_processed_index === 0
-      ) {
+      if (campaign.delivered_count === 0 && campaign.last_processed_index === 0) {
         newStatus = CAMPAIGN_STATUS.FAILED;
       }
 
@@ -195,18 +158,15 @@ async function resetStuckProcessing() {
         },
       });
 
-      console.log(
-        `[Email Cron] Reset stuck campaign ${campaign.campaign_id} (${campaign.subject}) to ${newStatus}`,
-      );
+      cronLogger.warn(`[Email Cron] Reset stuck campaign ${campaign.campaign_id} ("${campaign.subject}") to ${newStatus}`);
     }
   } catch (err) {
-    console.error("[Email Cron] Reset stuck processing failed:", err);
+    cronLogger.error("[Email Cron] Reset stuck processing failed", err);
   }
 }
 
 // ============================================
 // RESUME PAUSED CAMPAIGNS
-// (Rewritten with atomic claims)
 // ============================================
 
 async function resumePausedCampaigns() {
@@ -214,21 +174,17 @@ async function resumePausedCampaigns() {
     let processed = 0;
 
     while (processed < MAX_CAMPAIGNS_PER_CYCLE) {
-      // Check quota before each claim
       const capacity = await getRemainingCapacity();
       if (capacity.remaining <= 0) {
-        console.log("[Email Cron] Quota exhausted, stopping resume cycle");
+        cronLogger.info("[Email Cron] Quota exhausted, stopping resume cycle");
         break;
       }
 
-      // Atomically claim one paused campaign
       const claimed = await claimPausedCampaign();
-      if (!claimed) break; // No more paused campaigns
+      if (!claimed) break;
 
       try {
-        console.log(
-          `[Email Cron] Resuming paused campaign: ${claimed.campaign_id} - "${claimed.subject}"`,
-        );
+        cronLogger.info(`[Email Cron] Resuming paused campaign: ${claimed.campaign_id} - "${claimed.subject}"`);
 
         const { processCampaignSending } = await import(
           "../modules/cadmin/broadcast/email/cadminEmailBroadcast.service.js"
@@ -236,16 +192,10 @@ async function resumePausedCampaigns() {
 
         await processCampaignSending(claimed.campaign_id);
 
-        console.log(
-          `[Email Cron] ✅ Resumed campaign ${claimed.campaign_id} completed`,
-        );
+        cronLogger.success(`[Email Cron] Resumed campaign ${claimed.campaign_id} completed`);
       } catch (err) {
-        console.error(
-          `[Email Cron] ❌ Failed to resume campaign ${claimed.campaign_id}:`,
-          err.message,
-        );
+        cronLogger.error(`[Email Cron] Failed to resume campaign ${claimed.campaign_id}`, err);
 
-        // Reset campaign so it can be retried
         try {
           await prisma.emailBroadcastCampaign.update({
             where: { campaign_id: claimed.campaign_id },
@@ -263,31 +213,25 @@ async function resumePausedCampaigns() {
       processed++;
     }
   } catch (err) {
-    console.error("[Email Cron] Resume paused campaigns failed:", err);
+    cronLogger.error("[Email Cron] Resume paused campaigns failed", err);
   }
 }
 
-/**
- * Check if it's a new day (IST) and resume paused campaigns
- */
 async function checkAndResumePausedCampaigns() {
   try {
     const capacity = await getRemainingCapacity();
 
     if (capacity.remaining > 0) {
-      console.log(
-        `[Email Cron] New day detected (IST: ${capacity.date}), quota available: ${capacity.remaining}`,
-      );
+      cronLogger.info(`[Email Cron] New day detected (IST: ${capacity.date}), quota available: ${capacity.remaining}`);
       await resumePausedCampaigns();
     }
   } catch (err) {
-    console.error("[Email Cron] Check and resume failed:", err);
+    cronLogger.error("[Email Cron] Check and resume failed", err);
   }
 }
 
 // ============================================
 // PROCESS SCHEDULED CAMPAIGNS
-// (Rewritten with atomic claims)
 // ============================================
 
 async function processScheduledCampaigns() {
@@ -296,23 +240,17 @@ async function processScheduledCampaigns() {
     let processed = 0;
 
     while (processed < MAX_CAMPAIGNS_PER_CYCLE) {
-      // Check quota before each claim
       const capacity = await getRemainingCapacity();
       if (capacity.remaining <= 0) {
-        console.log(
-          "[Email Cron] Quota exhausted, remaining campaigns will be processed tomorrow",
-        );
+        cronLogger.info("[Email Cron] Quota exhausted, remaining campaigns will be processed tomorrow");
         break;
       }
 
-      // Atomically claim one scheduled campaign
       const claimed = await claimScheduledCampaign(now);
-      if (!claimed) break; // No more due campaigns
+      if (!claimed) break;
 
       try {
-        console.log(
-          `[Email Cron] Processing scheduled campaign: ${claimed.campaign_id} - "${claimed.subject}"`,
-        );
+        cronLogger.info(`[Email Cron] Processing scheduled campaign: ${claimed.campaign_id} - "${claimed.subject}"`);
 
         const { processCampaignSending } = await import(
           "../modules/cadmin/broadcast/email/cadminEmailBroadcast.service.js"
@@ -321,21 +259,13 @@ async function processScheduledCampaigns() {
         const result = await processCampaignSending(claimed.campaign_id);
 
         if (result?.paused) {
-          console.log(
-            `[Email Cron] ⏸️ Campaign ${claimed.campaign_id} paused (quota exhausted)`,
-          );
+          cronLogger.warn(`[Email Cron] Campaign ${claimed.campaign_id} paused (quota exhausted)`);
         } else {
-          console.log(
-            `[Email Cron] ✅ Campaign ${claimed.campaign_id} completed - ${result?.delivered || 0} delivered, ${result?.failed || 0} failed`,
-          );
+          cronLogger.success(`[Email Cron] Campaign ${claimed.campaign_id} completed - ${result?.delivered || 0} delivered, ${result?.failed || 0} failed`);
         }
       } catch (err) {
-        console.error(
-          `[Email Cron] ❌ Failed to process campaign ${claimed.campaign_id}:`,
-          err.message,
-        );
+        cronLogger.error(`[Email Cron] Failed to process campaign ${claimed.campaign_id}`, err);
 
-        // Reset campaign so it can be retried
         try {
           await prisma.emailBroadcastCampaign.update({
             where: { campaign_id: claimed.campaign_id },
@@ -353,7 +283,7 @@ async function processScheduledCampaigns() {
       processed++;
     }
   } catch (err) {
-    console.error("[Email Cron] Process scheduled campaigns failed:", err);
+    cronLogger.error("[Email Cron] Process scheduled campaigns failed", err);
   }
 }
 
@@ -361,33 +291,18 @@ async function processScheduledCampaigns() {
 // INITIALIZE CRON JOB
 // ============================================
 
-/**
- * Initialize the email broadcast cron job
- * Runs every minute, wrapped with distributed lock
- *
- * REMOVED: setTimeout startup trigger
- * (unnecessary — cron fires within 60 seconds anyway,
- *  and it caused duplicate processing on multi-instance boot)
- */
 export function initializeEmailBroadcastWorker() {
   cron.schedule("* * * * *", () =>
     withCronLock("email-broadcast", 5, processEmailBroadcasts),
   );
 
-  console.log(
-    "[Email Cron] Email broadcast worker initialized (every 1 minute)",
-  );
+  cronLogger.info("[Email Cron] Email broadcast worker initialized (every 1 minute)");
 }
 
 // ============================================
-// MANUAL TRIGGERS (for admin use)
-// (Unchanged — admin-triggered, not cron-triggered,
-//  doesn't need distributed locking)
+// MANUAL TRIGGERS
 // ============================================
 
-/**
- * Manually trigger processing of a specific campaign
- */
 export async function manuallyProcessCampaign(campaignId) {
   try {
     const campaign = await prisma.emailBroadcastCampaign.findUnique({
@@ -398,14 +313,8 @@ export async function manuallyProcessCampaign(campaignId) {
       throw new Error("Campaign not found");
     }
 
-    if (
-      ![CAMPAIGN_STATUS.PAUSED, CAMPAIGN_STATUS.FAILED].includes(
-        campaign.status,
-      )
-    ) {
-      throw new Error(
-        `Cannot manually process campaign with status: ${campaign.status}`,
-      );
+    if (![CAMPAIGN_STATUS.PAUSED, CAMPAIGN_STATUS.FAILED].includes(campaign.status)) {
+      throw new Error(`Cannot manually process campaign with status: ${campaign.status}`);
     }
 
     const capacity = await getRemainingCapacity();
@@ -413,9 +322,7 @@ export async function manuallyProcessCampaign(campaignId) {
       throw new Error("Daily quota exhausted. Try again tomorrow.");
     }
 
-    console.log(
-      `[Email Cron] Manual processing triggered for campaign ${campaignId}`,
-    );
+    cronLogger.info(`[Email Cron] Manual processing triggered for campaign ${campaignId}`);
 
     await prisma.emailBroadcastCampaign.update({
       where: { campaign_id: campaignId },
@@ -432,34 +339,20 @@ export async function manuallyProcessCampaign(campaignId) {
     );
 
     const result = await processCampaignSending(campaignId);
-
     return result;
   } catch (err) {
-    console.error(
-      `[Email Cron] Manual processing failed for ${campaignId}:`,
-      err,
-    );
+    cronLogger.error(`[Email Cron] Manual processing failed for ${campaignId}`, err);
     throw err;
   }
 }
 
-/**
- * Get worker status (for monitoring)
- */
 export async function getWorkerStatus() {
-  const [scheduledCount, pausedCount, sendingCount, capacity] =
-    await Promise.all([
-      prisma.emailBroadcastCampaign.count({
-        where: { status: CAMPAIGN_STATUS.SCHEDULED },
-      }),
-      prisma.emailBroadcastCampaign.count({
-        where: { status: CAMPAIGN_STATUS.PAUSED },
-      }),
-      prisma.emailBroadcastCampaign.count({
-        where: { status: CAMPAIGN_STATUS.SENDING, processing: true },
-      }),
-      getRemainingCapacity(),
-    ]);
+  const [scheduledCount, pausedCount, sendingCount, capacity] = await Promise.all([
+    prisma.emailBroadcastCampaign.count({ where: { status: CAMPAIGN_STATUS.SCHEDULED } }),
+    prisma.emailBroadcastCampaign.count({ where: { status: CAMPAIGN_STATUS.PAUSED } }),
+    prisma.emailBroadcastCampaign.count({ where: { status: CAMPAIGN_STATUS.SENDING, processing: true } }),
+    getRemainingCapacity(),
+  ]);
 
   return {
     scheduled_campaigns: scheduledCount,

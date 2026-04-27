@@ -4,7 +4,7 @@ import prisma from "../src/config/prisma.js";
 
 /**
  * Migration: Assign branch_id to old inventory records that don't have it
- * 
+ *
  * Strategy:
  * 1. For each shop, get the main branch
  * 2. Update all inventory records without branch_id to use main branch
@@ -35,12 +35,16 @@ async function migrateInventoryBranch() {
       const mainBranch = shop.branches[0];
 
       if (!mainBranch) {
-        console.warn(`⚠️  Shop "${shop.business_name}" has no main branch - SKIPPING`);
+        console.warn(
+          `⚠️  Shop "${shop.business_name}" has no main branch - SKIPPING`,
+        );
         continue;
       }
 
       console.log(`\n🏢 Processing: ${shop.business_name}`);
-      console.log(`   Main Branch: ${mainBranch.branch_name} (${mainBranch.branch_id})`);
+      console.log(
+        `   Main Branch: ${mainBranch.branch_name} (${mainBranch.branch_id})`,
+      );
 
       // ============================================
       // 1. UPDATE INVENTORY RECORDS
@@ -56,7 +60,7 @@ async function migrateInventoryBranch() {
       });
 
       if (inventoryResult.count > 0) {
-        console.log(`   ✅ Inventory: Migrated ${inventoryResult.count} records`);
+        console.log(`    Inventory: Migrated ${inventoryResult.count} records`);
         totalInventoryMigrated += inventoryResult.count;
       } else {
         console.log(`   ℹ️  Inventory: No records needed migration`);
@@ -76,7 +80,7 @@ async function migrateInventoryBranch() {
       });
 
       if (medicineResult.count > 0) {
-        console.log(`   ✅ Medicines: Migrated ${medicineResult.count} records`);
+        console.log(`    Medicines: Migrated ${medicineResult.count} records`);
         totalMedicineMigrated += medicineResult.count;
       } else {
         console.log(`   ℹ️  Medicines: No records needed migration`);
@@ -96,7 +100,7 @@ async function migrateInventoryBranch() {
       });
 
       if (ledgerResult.count > 0) {
-        console.log(`   ✅ Stock Ledger: Migrated ${ledgerResult.count} records`);
+        console.log(`    Stock Ledger: Migrated ${ledgerResult.count} records`);
       }
 
       // ============================================
@@ -113,7 +117,9 @@ async function migrateInventoryBranch() {
       });
 
       if (purchaseResult.count > 0) {
-        console.log(`   ✅ Purchase Invoices: Migrated ${purchaseResult.count} records`);
+        console.log(
+          `    Purchase Invoices: Migrated ${purchaseResult.count} records`,
+        );
       }
 
       shopsProcessed++;
@@ -136,23 +142,22 @@ async function migrateInventoryBranch() {
     console.log("\n🔍 Verifying migration...");
 
     const remainingNullInventory = await prisma.inventory.count({
-      where: { branch_id: null }
+      where: { branch_id: null },
     });
 
     const remainingNullMedicine = await prisma.medicine.count({
-      where: { branch_id: null }
+      where: { branch_id: null },
     });
 
     if (remainingNullInventory === 0 && remainingNullMedicine === 0) {
-      console.log("✅ All records now have branch_id assigned!");
+      console.log(" All records now have branch_id assigned!");
     } else {
       console.log(`⚠️  Remaining records without branch_id:`);
       console.log(`   - Inventory: ${remainingNullInventory}`);
       console.log(`   - Medicine: ${remainingNullMedicine}`);
     }
-
   } catch (error) {
-    console.error("\n❌ Migration failed:", error);
+    console.error("\n Migration failed:", error);
     throw error;
   } finally {
     await prisma.$disconnect();
@@ -162,7 +167,7 @@ async function migrateInventoryBranch() {
 // Run migration
 migrateInventoryBranch()
   .then(() => {
-    console.log("\n✅ Migration complete!");
+    console.log("\n Migration complete!");
     process.exit(0);
   })
   .catch(() => {

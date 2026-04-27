@@ -27,7 +27,7 @@ const handleMaintenanceMode = (data) => {
   sessionStorage.setItem("maintenance_mode", "true");
   sessionStorage.setItem(
     "maintenance_message",
-    data?.message || "System is under maintenance"
+    data?.message || "System is under maintenance",
   );
 
   // Redirect to maintenance page (if not already there)
@@ -63,13 +63,15 @@ API.interceptors.request.use(
 
       // Optional: Send branch name for logging/debugging
       if (branchContext.branch_name) {
-        config.headers["x-branch-name"] = encodeURIComponent(branchContext.branch_name);
+        config.headers["x-branch-name"] = encodeURIComponent(
+          branchContext.branch_name,
+        );
       }
     }
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // ============================================
@@ -86,7 +88,7 @@ API.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // ✅ Handle maintenance mode (503)
+    //  Handle maintenance mode (503)
     if (error.response?.status === 503) {
       const data = error.response.data;
 
@@ -97,31 +99,33 @@ API.interceptors.response.use(
       }
     }
 
-    // ✅ Handle branch context errors (NEW)
+    //  Handle branch context errors (NEW)
     if (error.response?.status === 403) {
       const errorCode = error.response.data?.code;
-      
+
       if (errorCode === "BRANCH_REQUIRED") {
         // Backend rejected write operation in GLOBAL mode
-        console.warn("🚫 Backend rejected: Write operation requires BRANCH mode");
+        console.warn(
+          "🚫 Backend rejected: Write operation requires BRANCH mode",
+        );
         // The BranchRequiredGuard should have caught this, but backend is the final authority
         // We could show a toast here if needed
       }
-      
+
       if (errorCode === "BRANCH_MISMATCH") {
         // Branch ID doesn't match user's allowed branches
         console.warn("🚫 Backend rejected: Branch access not allowed");
       }
     }
 
-    // ✅ Handle session invalidation (logged in from another device)
+    //  Handle session invalidation (logged in from another device)
     if (error.response?.data?.data?.code === "SESSION_INVALIDATED") {
       console.warn("🔒 Session invalidated - logged in from another device");
       clearAuthAndRedirect("session_replaced");
       return Promise.reject(error);
     }
 
-    // ✅ Handle token expiration - try to refresh
+    //  Handle token expiration - try to refresh
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
@@ -134,7 +138,7 @@ API.interceptors.response.use(
         const res = await axios.post(
           `${import.meta.env.VITE_API_URL}/api/auth/refresh`,
           {},
-          { withCredentials: true }
+          { withCredentials: true },
         );
 
         const newToken = res.data?.data?.access_token;
@@ -169,7 +173,7 @@ API.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default API;

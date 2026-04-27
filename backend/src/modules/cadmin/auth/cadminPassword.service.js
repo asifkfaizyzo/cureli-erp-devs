@@ -46,7 +46,11 @@ export async function requestCAdminPasswordReset(email, auditContext = {}) {
   return { success: true };
 }
 
-export async function resetCAdminPassword(token, newPassword, auditContext = {}) {
+export async function resetCAdminPassword(
+  token,
+  newPassword,
+  auditContext = {},
+) {
   const hashed = hashToken(token);
 
   const admin = await prisma.cAdmin.findFirst({
@@ -74,21 +78,24 @@ export async function resetCAdminPassword(token, newPassword, auditContext = {})
       },
     });
 
-    // ✅ AUDIT LOG: Password reset completed (SECURITY ACTION)
-    await audit.log({
-      action: audit.AuditAction.CADMIN_PASSWORD_RESET_COMPLETED,
-      entity_type: audit.EntityType.CADMIN,
-      entity_id: admin.cadmin_id,
-      actor_type: audit.ActorType.CADMIN,
-      actor_id: admin.cadmin_id,
-      actor_role: admin.role,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.SECURITY_ACTION,
-      metadata: {
-        username: admin.username,
-        reset_method: 'email',
+    //  AUDIT LOG: Password reset completed (SECURITY ACTION)
+    await audit.log(
+      {
+        action: audit.AuditAction.CADMIN_PASSWORD_RESET_COMPLETED,
+        entity_type: audit.EntityType.CADMIN,
+        entity_id: admin.cadmin_id,
+        actor_type: audit.ActorType.CADMIN,
+        actor_id: admin.cadmin_id,
+        actor_role: admin.role,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+        metadata: {
+          username: admin.username,
+          reset_method: "email",
+        },
       },
-    }, { tx });
+      { tx },
+    );
   });
 
   return { success: true };

@@ -1,31 +1,41 @@
 // backend/src/modules/notifications/templates/email/subscriptionGraceStarted.js
 // ============================================
-// SUBSCRIPTION GRACE STARTED EMAIL TEMPLATE - DARK MODE FIXED
+// SUBSCRIPTION GRACE STARTED EMAIL TEMPLATE
 // ============================================
 
-import { EMAIL_CONFIG, getBaseHeadContent, renderLogo, renderFooter, renderButton, getSupportLink } from './_helpers.js';
+import {
+  EMAIL_CONFIG,
+  getBaseHeadContent,
+  renderLogo,
+  renderFooter,
+  renderButton,
+  getSupportLink,
+} from './_helpers.js';
+import { ICONS } from './_icons.js';
 
 export function subscriptionGraceStartedTemplate(context) {
-  const { 
-    recipientName, 
-    shop_name, 
+  const {
+    recipientName,
+    shop_name,
     business_name,
     grace_period_until,
-    plan_name 
+    plan_name,
   } = context;
-  
+
   const shopName = shop_name || business_name || 'your shop';
-  
-  const graceEndDate = grace_period_until 
+
+  const graceEndDate = grace_period_until
     ? new Date(grace_period_until).toLocaleDateString('en-IN', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
       })
     : 'soon';
 
+<<<<<<< HEAD
   const subject = ` Your subscription has expired - Grace period active - ${EMAIL_CONFIG.COMPANY.NAME}`;
+=======
+  // Subject: no emoji
+  const subject = `Your subscription has expired - Grace period active - ${EMAIL_CONFIG.COMPANY.NAME}`;
+>>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
   const html = `
     <!DOCTYPE html>
@@ -33,30 +43,44 @@ export function subscriptionGraceStartedTemplate(context) {
 <head>
   ${getBaseHeadContent(`Grace Period Active - ${EMAIL_CONFIG.COMPANY.NAME}`)}
 </head>
-<body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;">
+<body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;-webkit-font-smoothing:antialiased;">
   <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
-    
-    <!-- Header -->
+
+    <!-- Header: WARNING icon replaces ⚠️ -->
     <div class="header-warning" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.WARNING} 0%,${EMAIL_CONFIG.COLORS.WARNING_DARK} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
+<<<<<<< HEAD
       <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Grace Period Active</h1>
       <p style="margin:8px 0 0;opacity:0.95;font-size:14px;color:#fef3c7;">Your subscription has expired</p>
+=======
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
+        ${ICONS.WARNING}
+        <span style="vertical-align:middle;">Grace Period Active</span>
+      </h1>
+      <p style="margin:8px 0 0;opacity:0.95;font-size:14px;color:#fef3c7;">
+        Your subscription has expired
+      </p>
+>>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
     </div>
 
     <!-- Content -->
     <div class="content-bg content" style="background-color:#ffffff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
-      
+
       <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 16px;background-color:#ffffff;">
         Hello <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${recipientName}</strong>,
       </p>
-      
-      <!-- Alert Box -->
+
+      <!-- Alert Box: CLOCK icon replaces inline warning -->
       <div class="warning-box" style="background-color:#fffbeb;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:16px 20px;margin:20px 0;border-radius:0 10px 10px 0;">
         <p class="warning-text" style="margin:0 0 8px;color:#b45309;font-weight:600;font-size:14px;background-color:#fffbeb;">
           Your <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> subscription for <strong>${shopName}</strong> has expired.
         </p>
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fffbeb;">
-          You are now in a grace period until <strong class="grace-date" style="color:${EMAIL_CONFIG.COLORS.ERROR};-webkit-text-fill-color:${EMAIL_CONFIG.COLORS.ERROR};">${graceEndDate}</strong>.
+          ${ICONS.CLOCK}
+          <span style="vertical-align:middle;">
+            You are now in a grace period until
+            <strong class="grace-date" style="color:${EMAIL_CONFIG.COLORS.ERROR};-webkit-text-fill-color:${EMAIL_CONFIG.COLORS.ERROR};">${graceEndDate}</strong>.
+          </span>
         </p>
       </div>
 
@@ -74,26 +98,46 @@ export function subscriptionGraceStartedTemplate(context) {
           <tr>
             <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">Status</td>
             <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">
-              <span style="background-color:#fef3c7;color:${EMAIL_CONFIG.COLORS.WARNING};padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">GRACE PERIOD</span>
+              <span style="background-color:#fef3c7;color:${EMAIL_CONFIG.COLORS.WARNING};padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">
+                GRACE PERIOD
+              </span>
             </td>
           </tr>
           <tr>
             <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;background-color:#f9fafb;">Grace Ends</td>
-            <td class="grace-date" style="padding:12px 16px;color:${EMAIL_CONFIG.COLORS.ERROR};font-weight:700;font-size:14px;background-color:#f9fafb;-webkit-text-fill-color:${EMAIL_CONFIG.COLORS.ERROR};">${graceEndDate}</td>
+            <td class="grace-date" style="padding:12px 16px;color:${EMAIL_CONFIG.COLORS.ERROR};font-weight:700;font-size:14px;background-color:#f9fafb;-webkit-text-fill-color:${EMAIL_CONFIG.COLORS.ERROR};">
+              ${graceEndDate}
+            </td>
           </tr>
         </table>
       </div>
 
-      <!-- Important Info -->
+      <!-- Important Info: WARNING_RED icon replaces ⚠️ -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;background-color:#fef2f2;">
+<<<<<<< HEAD
            <strong>Important:</strong> During the grace period, you still have access to your dashboard. However, if you don't renew before <strong>${graceEndDate}</strong>, your account will be <strong>SUSPENDED</strong>.
+=======
+          ${ICONS.WARNING_RED}
+          <strong style="vertical-align:middle;">Important:</strong>
+          <span style="vertical-align:middle;">
+            During the grace period, you still have access to your dashboard. However, if you don't renew
+            before <strong>${graceEndDate}</strong>, your account will be <strong>SUSPENDED</strong>.
+          </span>
+>>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 
-      <!-- What Happens -->
+      <!-- What Happens: BAN icon replaces 🚫 -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
+<<<<<<< HEAD
         <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> What Happens If You Don't Renew:</p>
+=======
+        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;">
+          ${ICONS.BAN}
+          <span style="vertical-align:middle;">What Happens If You Don't Renew:</span>
+        </p>
+>>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
           <li class="info-text" style="color:#0c4a6e;">Complete loss of access to ${EMAIL_CONFIG.COMPANY.NAME}</li>
           <li class="info-text" style="color:#0c4a6e;">Your shop and branches will be locked</li>
@@ -102,18 +146,40 @@ export function subscriptionGraceStartedTemplate(context) {
         </ul>
       </div>
 
+<<<<<<< HEAD
       <!-- Urgent CTA -->
       ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Renew Now - Avoid Suspension',  color: 'error' })}
+=======
+      <!-- Urgent CTA: REFRESH icon replaces 🔄 -->
+      ${renderButton({
+        href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`,
+        text: 'Renew Now - Avoid Suspension',
+        icon: 'REFRESH',
+        color: 'error',
+      })}
+>>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
 
-      <!-- Support -->
+      <!-- Support: LIGHTBULB_AMBER icon replaces 💡 -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef9e7;">
+<<<<<<< HEAD
            <strong>Need Help?</strong> Contact our support team immediately for assistance with renewal.
+=======
+          ${ICONS.LIGHTBULB_AMBER}
+          <strong style="vertical-align:middle;">Need Help?</strong>
+          <span style="vertical-align:middle;">
+            Contact our support team immediately for assistance with renewal.
+          </span>
+>>>>>>> afc323d4d23aafe80fd9f74f8e2072f92a9d476c
         </p>
       </div>
 
       <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
-        <strong>Support:</strong> <a href="mailto:${EMAIL_CONFIG.COMPANY.SUPPORT_EMAIL}" style="color:${EMAIL_CONFIG.COLORS.ERROR};text-decoration:none;font-weight:600;">${EMAIL_CONFIG.COMPANY.SUPPORT_EMAIL}</a>
+        <strong>Support:</strong>
+        <a href="mailto:${EMAIL_CONFIG.COMPANY.SUPPORT_EMAIL}"
+           style="color:${EMAIL_CONFIG.COLORS.ERROR};text-decoration:none;font-weight:600;">
+          ${EMAIL_CONFIG.COMPANY.SUPPORT_EMAIL}
+        </a>
       </p>
 
     </div>

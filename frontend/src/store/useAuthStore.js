@@ -266,7 +266,9 @@ export const useAuthStore = create(
         const { user } = get();
 
         if (!user || user.role !== "super_admin") {
-          console.warn("❌ setGlobalBranch: Only super_admin can switch to GLOBAL mode");
+          console.warn(
+            " setGlobalBranch: Only super_admin can switch to GLOBAL mode",
+          );
           return false;
         }
 
@@ -291,18 +293,18 @@ export const useAuthStore = create(
         const { user } = get();
 
         if (!user) {
-          console.warn("❌ setBranch: No authenticated user");
+          console.warn(" setBranch: No authenticated user");
           return false;
         }
 
         // Non-SA users can only be set to their assigned branch (handled at login)
         if (user.role !== "super_admin") {
-          console.warn("❌ setBranch: Only super_admin can switch branches");
+          console.warn(" setBranch: Only super_admin can switch branches");
           return false;
         }
 
         if (!branch_id) {
-          console.warn("❌ setBranch: branch_id is required for BRANCH mode");
+          console.warn(" setBranch: branch_id is required for BRANCH mode");
           return false;
         }
 
@@ -344,7 +346,9 @@ export const useAuthStore = create(
        */
       canWrite: () => {
         const { branchContext } = get();
-        return branchContext.mode === BRANCH_MODE.BRANCH && !!branchContext.branch_id;
+        return (
+          branchContext.mode === BRANCH_MODE.BRANCH && !!branchContext.branch_id
+        );
       },
 
       // ============================================
@@ -480,7 +484,7 @@ export const useAuthStore = create(
           // Migrate from old format
           const oldBranchName = persistedState.branchName;
           delete persistedState.branchName;
-          
+
           persistedState.branchContext = {
             mode: BRANCH_MODE.GLOBAL,
             branch_id: null,
@@ -489,8 +493,8 @@ export const useAuthStore = create(
         }
         return persistedState;
       },
-    }
-  )
+    },
+  ),
 );
 
 // ============================================
@@ -510,9 +514,11 @@ export const selectBranchContext = (state) => state.branchContext;
 export const selectBranchMode = (state) => state.branchContext.mode;
 export const selectBranchId = (state) => state.branchContext.branch_id;
 export const selectBranchName = (state) => state.branchContext.branch_name;
-export const selectIsGlobalMode = (state) => state.branchContext.mode === "GLOBAL";
-export const selectIsBranchMode = (state) => state.branchContext.mode === "BRANCH";
-export const selectCanWrite = (state) => 
+export const selectIsGlobalMode = (state) =>
+  state.branchContext.mode === "GLOBAL";
+export const selectIsBranchMode = (state) =>
+  state.branchContext.mode === "BRANCH";
+export const selectCanWrite = (state) =>
   state.branchContext.mode === "BRANCH" && !!state.branchContext.branch_id;
 
 // Export constants for use elsewhere

@@ -1,4 +1,5 @@
 // cadmin/src/pages/MasterMedicines/comps/MasterCatalogTable.jsx
+// Only the filter section changes — add viewMode prop and toggle buttons
 
 import { useState, useEffect } from "react";
 import {
@@ -7,55 +8,117 @@ import {
   Upload,
   ChevronDown,
   ChevronUp,
-  ImageIcon,
+  ChevronsUpDown,
   ImageOff,
+  Pill,
   AlertTriangle,
+  LayoutGrid,    // ← ADD
+  List,          // ← ADD
 } from "lucide-react";
 import Pagination from "../../../components/common/Pagination";
 import TableEmptyState from "../../../components/common/TableEmptyState";
+import TableSkeleton from "../../../components/common/TableSkeleton";
 import StyledSelect from "../../../components/common/StyledSelect";
-import { IMAGE_STATUS, getImageStatusInfo, getImageUrl } from "../../../api/cadminMasterMedicines";
+import {
+  IMAGE_STATUS,
+  getImageStatusInfo,
+  getImageUrl,
+} from "../../../api/cadminMasterMedicines";
+import { TABLE_CONFIG, getRowBgClass } from "../../../config/tableConfig";
 
-const MasterCatalogTable = ({ 
-  medicines = [], 
-  meta = {}, 
-  onViewLinked, 
-  onUploadImage, 
+const { styles, heights } = TABLE_CONFIG;
+
+const AttentionBadge = ({ reason }) => (
+  <div className="relative group/alert inline-flex items-center">
+    <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 cursor-help" />
+    <div className="absolute left-5 top-1/2 -translate-y-1/2 z-50
+                    hidden group-hover/alert:block
+                    bg-gray-900 text-white text-xs rounded-lg px-2.5 py-1.5
+                    whitespace-nowrap shadow-xl pointer-events-none">
+      {reason}
+      <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+    </div>
+  </div>
+);
+
+const getAttentionReason = (med) => {
+  if (med.imageStatus === IMAGE_STATUS.NONE) return "No image — upload required";
+  if (med.imageStatus === IMAGE_STATUS.RAW) return "Raw scraped image — upload a verified image";
+  return "Needs attention";
+};
+
+const MasterCatalogTable = ({
+  medicines = [],
+  meta = {},
+  onViewLinked,
+  onUploadImage,
   loading = false,
   onFiltersChange,
-  onRowClick, // NEW: Handler for row click
+  onRowClick,
+  viewMode = "table",         // ← ADD PROP
+  onViewModeChange,           // ← ADD PROP
 }) => {
   const [searchText, setSearchText] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [imageStatusFilter, setImageStatusFilter] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: "generic_name", order: "asc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "generic_name",
+    order: "asc",
+  });
 
-  // Debounced search effect
+  const defaultWidths = {
+    index: 52,
+    image: 72,
+    name: 200,
+    type: 80,
+    composition: 180,
+    manufacturer: 160,
+    variants: 80,
+    status: 90,
+    updated: 110,
+    actions: 72,
+  };
+  const [columnWidths, setColumnWidths] = useState(defaultWidths);
+  const [resizing, setResizing] = useState(null);
+
+  const handleMouseDown = (col, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizing({ col, startX: e.clientX, startWidth: columnWidths[col] });
+  };
+  const handleMouseMove = (e) => {
+    if (!resizing) return;
+    setColumnWidths((p) => ({
+      ...p,
+      [resizing.col]: Math.max(50, resizing.startWidth + (e.clientX - resizing.startX)),
+    }));
+  };
+  const handleMouseUp = () => setResizing(null);
+
+  useEffect(() => {
+    if (!resizing) return;
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizing]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      applyFilters();
-    }, 300); // 300ms debounce
-
+      onFiltersChange({
+        search: searchText.trim(),
+        type: typeFilter,
+        imageStatus: imageStatusFilter,
+        page: 1,
+        limit: meta.limit || 20,
+        sort: sortConfig.key,
+        order: sortConfig.order,
+      });
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchText, typeFilter, imageStatusFilter, sortConfig]); // eslint-disable-line
-
-  // Apply filters to parent
-  const applyFilters = () => {
-    const filters = {
-      search: searchText.trim(),
-      type: typeFilter,
-      imageStatus: imageStatusFilter,
-      page: 1, // Reset to page 1 on filter change
-      limit: meta.limit || 20,
-      sort: sortConfig.key,
-      order: sortConfig.order,
-    };
-
-    onFiltersChange(filters);
-  };
-
-  // Use medicines directly from props (no local filtering)
-  const displayData = medicines;
 
   const handleSort = (key) => {
     setSortConfig((prev) => ({
@@ -76,295 +139,293 @@ const MasterCatalogTable = ({
     });
   };
 
-  const SortIcon = ({ column }) => {
-    if (sortConfig.key !== column) return <ChevronDown size={14} className="text-gray-300" />;
-    return sortConfig.order === "asc" ? (
-      <ChevronUp size={14} className="text-indigo-600" />
-    ) : (
-      <ChevronDown size={14} className="text-indigo-600" />
-    );
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-IN", {
+  const formatDate = (d) => {
+    if (!d) return "—";
+    return new Date(d).toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     });
   };
 
-  // Type options for StyledSelect
-  const typeOptions = [
-    { value: "", label: "All Types" },
-    { value: "DRUG", label: "Drug" },
-    { value: "OTC", label: "OTC" },
-  ];
+  const SortIcon = ({ sortKey }) => {
+    if (!sortKey) return null;
+    const isActive = sortConfig.key === sortKey;
+    if (isActive) {
+      return sortConfig.order === "asc" ? (
+        <ChevronUp size={14} className={`${styles.header.sortIcon.active} flex-shrink-0`} />
+      ) : (
+        <ChevronDown size={14} className={`${styles.header.sortIcon.active} flex-shrink-0`} />
+      );
+    }
+    return (
+      <ChevronsUpDown size={14} className={`${styles.header.sortIcon.inactive} flex-shrink-0`} />
+    );
+  };
 
-  // Image status options
-  const imageStatusOptions = [
-    { value: "", label: "All Image Status" },
-    { value: IMAGE_STATUS.VERIFIED, label: "Verified" },
-    { value: IMAGE_STATUS.RAW, label: "Raw" },
-    { value: IMAGE_STATUS.NONE, label: "No Image" },
-  ];
+  const ResizableTh = ({ col, children, align = "left", sortKey }) => (
+    <th
+      style={{ width: columnWidths[col], minWidth: 50, height: `${heights.headerRow}px` }}
+      className="relative group"
+    >
+      <div
+        className={`flex items-center gap-1 h-full
+                    ${styles.header.cell}
+                    ${align === "center" ? "justify-center" : "justify-start"}
+                    ${sortKey ? "cursor-pointer select-none" : ""}`}
+        onClick={() => sortKey && handleSort(sortKey)}
+      >
+        <span className="text-sm font-semibold text-white whitespace-nowrap">{children}</span>
+        <SortIcon sortKey={sortKey} />
+      </div>
+      <div onMouseDown={(e) => handleMouseDown(col, e)} className={styles.header.resizeHandle} />
+    </th>
+  );
+
+  const tableHeader = (
+    <thead className="sticky top-0 z-10">
+      <tr className={styles.header.row}>
+        <ResizableTh col="index">#</ResizableTh>
+        <ResizableTh col="image" align="center">Image</ResizableTh>
+        <ResizableTh col="name" sortKey="generic_name">Name</ResizableTh>
+        <ResizableTh col="type" align="center" sortKey="type">Type</ResizableTh>
+        <ResizableTh col="composition">Composition</ResizableTh>
+        <ResizableTh col="manufacturer" sortKey="manufacturer">Manufacturer</ResizableTh>
+        <ResizableTh col="variants" align="center" sortKey="variant_count">Variants</ResizableTh>
+        <ResizableTh col="status" align="center">Status</ResizableTh>
+        <ResizableTh col="updated" sortKey="updated_at">Updated</ResizableTh>
+        <ResizableTh col="actions" align="center">Actions</ResizableTh>
+      </tr>
+    </thead>
+  );
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 overflow-hidden">
-      {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b border-gray-200 space-y-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search master medicines..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              className="w-full h-10 pl-9 pr-8 border border-gray-300 rounded-lg text-sm
-                         focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-            />
-            {searchText && (
-              <button
-                onClick={() => setSearchText("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+    <div className="flex flex-col h-full gap-0">
+      {/* ── Filter Section ── */}
+      <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200 px-4 py-3 mb-2 flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search master medicines..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-lg text-sm
+                       focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+          />
+          {searchText && (
+            <button
+              onClick={() => setSearchText("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
 
-          <div className="w-40">
-            <StyledSelect
-              value={typeFilter}
-              onChange={setTypeFilter}
-              options={typeOptions}
-              placeholder="All Types"
-            />
-          </div>
+        <div className="w-36">
+          <StyledSelect
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={[
+              { value: "", label: "All Types" },
+              { value: "DRUG", label: "Drug" },
+              { value: "OTC", label: "OTC" },
+            ]}
+            placeholder="All Types"
+          />
+        </div>
 
-          <div className="w-48">
-            <StyledSelect
-              value={imageStatusFilter}
-              onChange={setImageStatusFilter}
-              options={imageStatusOptions}
-              placeholder="All Image Status"
-            />
-          </div>
+        <div className="w-44">
+          <StyledSelect
+            value={imageStatusFilter}
+            onChange={setImageStatusFilter}
+            options={[
+              { value: "", label: "All Images" },
+              { value: IMAGE_STATUS.VERIFIED, label: "Verified" },
+              { value: IMAGE_STATUS.RAW, label: "Raw" },
+              { value: IMAGE_STATUS.NONE, label: "No Image" },
+            ]}
+            placeholder="All Images"
+          />
+        </div>
+
+        <div className="flex-1" />
+
+        {/* ── View mode toggle ── */}
+        <div className="flex items-center gap-0 bg-gray-100 rounded-lg p-0.5 border border-gray-200">
+          <button
+            onClick={() => onViewModeChange?.("table")}
+            title="Table view"
+            className={`p-1.5 rounded-md transition-all ${
+              viewMode === "table"
+                ? "bg-white shadow-sm text-indigo-700"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            <List size={16} />
+          </button>
+          <button
+            onClick={() => onViewModeChange?.("grid")}
+            title="Grid view"
+            className={`p-1.5 rounded-md transition-all ${
+              viewMode === "grid"
+                ? "bg-white shadow-sm text-indigo-700"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            <LayoutGrid size={16} />
+          </button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-          </div>
-        ) : displayData.length === 0 ? (
-          <TableEmptyState
-            icon={ImageIcon}
-            title="No master medicines found"
-            subtitle="Try adjusting your search or filters"
-          />
-        ) : (
-          <table className="w-full text-sm" style={{ minWidth: "1000px" }}>
-            <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="w-12 px-4 py-3 text-left text-xs font-semibold text-gray-600">#</th>
-                <th className="w-20 px-4 py-3 text-center text-xs font-semibold text-gray-600">
-                  Image
-                </th>
-                <th className="px-4 py-3 text-left">
-                  <button
-                    onClick={() => handleSort("generic_name")}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                  >
-                    Name <SortIcon column="generic_name" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-center">
-                  <button
-                    onClick={() => handleSort("type")}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                  >
-                    Type <SortIcon column="type" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">
-                  Composition
-                </th>
-                <th className="px-4 py-3 text-left">
-                  <button
-                    onClick={() => handleSort("manufacturer")}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                  >
-                    Manufacturer <SortIcon column="manufacturer" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-center">
-                  <button
-                    onClick={() => handleSort("variant_count")}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                  >
-                    Variants <SortIcon column="variant_count" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left">
-                  <button
-                    onClick={() => handleSort("updated_at")}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                  >
-                    Updated <SortIcon column="updated_at" />
-                  </button>
-                </th>
-                <th className="w-20 px-4 py-3 text-center text-xs font-semibold text-gray-600">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {displayData.map((med, index) => {
-                const statusInfo = getImageStatusInfo(med.imageStatus);
-                const needsAttention =
-                  med.imageStatus === IMAGE_STATUS.RAW || med.imageStatus === IMAGE_STATUS.NONE;
-                
-                // Compute actual index from pagination
-                const globalIndex = ((meta.page || 1) - 1) * (meta.limit || 20) + index + 1;
+      {/* ── Table Card ── */}
+      <div className={styles.container.wrapper}>
+        <div className="flex-1 min-h-0 overflow-auto">
+          {loading ? (
+            <table className="w-full border-collapse text-sm" style={{ minWidth: 1000 }}>
+              {tableHeader}
+              <tbody>
+                <TableSkeleton rows={meta.limit || 20} columns={10} />
+              </tbody>
+            </table>
+          ) : medicines.length === 0 ? (
+            <TableEmptyState
+              icon={Pill}
+              title="No master medicines found"
+              subtitle="Try adjusting your search or filters"
+            />
+          ) : (
+            <table className="w-full border-collapse text-sm" style={{ minWidth: 1000 }}>
+              {tableHeader}
+              <tbody>
+                {medicines.map((med, index) => {
+                  const statusInfo = getImageStatusInfo(med.imageStatus);
+                  const needsAttention =
+                    med.imageStatus === IMAGE_STATUS.RAW ||
+                    med.imageStatus === IMAGE_STATUS.NONE;
+                  const globalIndex =
+                    ((meta.page || 1) - 1) * (meta.limit || 20) + index + 1;
 
-                return (
-                  <tr
-                    key={med.id}
-                    className={`hover:bg-indigo-50/50 transition-colors cursor-pointer ${
-                      needsAttention ? "bg-amber-50/30" : index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                    }`}
-                    onClick={() => onRowClick && onRowClick(med)}
-                  >
-                    <td className="px-4 py-3 text-gray-500 font-medium">
-                      {globalIndex}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-center">
+                  return (
+                    <tr
+                      key={med.id}
+                      onClick={() => onRowClick?.(med)}
+                      className={`${getRowBgClass(index)} ${styles.row.clickable}`}
+                      style={{ height: `${heights.bodyRow}px` }}
+                    >
+                      <td className={`${styles.cell.base} ${styles.cell.muted} font-medium`}>
+                        <div className="flex items-center gap-1.5">
+                          <span>{globalIndex}</span>
+                          {needsAttention && <AttentionBadge reason={getAttentionReason(med)} />}
+                        </div>
+                      </td>
+
+                      <td className={`${styles.cell.base} ${styles.cell.center}`}>
                         {med.primaryImage ? (
-                          <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-200">
+                          <div className="w-9 h-9 mx-auto rounded-lg overflow-hidden border border-gray-200 bg-white">
                             <img
                               src={getImageUrl(med.primaryImage)}
                               alt={med.name}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                               onError={(e) => {
                                 e.target.style.display = "none";
-                                if (e.target.nextSibling) {
+                                if (e.target.nextSibling)
                                   e.target.nextSibling.style.display = "flex";
-                                }
                               }}
                             />
                             <div
-                              className={`w-10 h-10 rounded-lg flex items-center justify-center ${statusInfo.bgClass}`}
+                              className={`w-9 h-9 rounded-lg items-center justify-center ${statusInfo.bgClass}`}
                               style={{ display: "none" }}
                             >
-                              {med.imageStatus === IMAGE_STATUS.RAW ? (
-                                <AlertTriangle size={18} className={statusInfo.textClass} />
-                              ) : (
-                                <ImageOff size={18} className={statusInfo.textClass} />
-                              )}
+                              <ImageOff size={15} className={statusInfo.textClass} />
                             </div>
                           </div>
                         ) : (
-                          <div
-                            className={`w-10 h-10 rounded-lg flex items-center justify-center ${statusInfo.bgClass}`}
-                          >
-                            <ImageOff size={18} className={statusInfo.textClass} />
+                          <div className={`w-9 h-9 mx-auto rounded-lg flex items-center justify-center ${statusInfo.bgClass}`}>
+                            <ImageOff size={15} className={statusInfo.textClass} />
                           </div>
                         )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="max-w-[200px]">
-                        <p className="font-medium text-gray-900 truncate">{med.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{med.packSize || "—"}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          med.type === "DRUG"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-green-100 text-green-700"
-                        }`}
+                      </td>
+
+                      <td className={styles.cell.base}>
+                        <p className={`${styles.cell.primary} truncate max-w-[190px]`}>{med.name}</p>
+                        {med.packSize && med.packSize !== "N/A" && (
+                          <p className={`${styles.cell.muted} truncate max-w-[190px] text-xs`}>{med.packSize}</p>
+                        )}
+                      </td>
+
+                      <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          med.type === "DRUG" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+                        }`}>
+                          {med.type}
+                        </span>
+                      </td>
+
+                      <td className={styles.cell.base}>
+                        <span className={`${styles.cell.secondary} truncate block max-w-[170px]`}>
+                          {med.composition || "—"}
+                        </span>
+                      </td>
+
+                      <td className={styles.cell.base}>
+                        <span className={`${styles.cell.secondary} truncate block max-w-[150px]`}>
+                          {med.manufacturer || "—"}
+                        </span>
+                      </td>
+
+                      <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold">
+                          {med.variantCount}
+                        </span>
+                      </td>
+
+                      <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.bgClass} ${statusInfo.textClass}`}>
+                          {statusInfo.label}
+                        </span>
+                      </td>
+
+                      <td className={`${styles.cell.base} ${styles.cell.muted} text-xs`}>
+                        {formatDate(med.updatedAt)}
+                      </td>
+
+                      <td
+                        className={`${styles.cell.base} ${styles.cell.center}`}
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {med.type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      <span className="truncate block max-w-[160px]">
-                        {med.composition || "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      <span className="truncate block max-w-[140px]">
-                        {med.manufacturer || "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium">
-                        {med.variantCount}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          statusInfo.bgClass
-                        } ${statusInfo.textClass}`}
-                      >
-                        {statusInfo.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">
-                      {formatDate(med.updatedAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent row click
-                            onUploadImage(med);
-                          }}
-                          className={`p-1.5 rounded-lg ${
+                          onClick={() => onUploadImage(med)}
+                          className={`${styles.actions.button.base} ${
                             needsAttention
                               ? "text-amber-600 bg-amber-50 hover:bg-amber-100"
-                              : "text-gray-400 hover:text-green-600 hover:bg-green-50"
+                              : styles.actions.button.edit
                           }`}
-                          title={
-                            med.imageStatus === IMAGE_STATUS.NONE
-                              ? "Upload Image"
-                              : "Change Image"
-                          }
+                          title={med.imageStatus === IMAGE_STATUS.NONE ? "Upload Image" : "Change Image"}
                         >
-                          <Upload size={16} />
+                          <Upload size={14} />
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {meta.total > 0 && !loading && (
+          <div className={styles.pagination.wrapper}>
+            <Pagination
+              currentPage={meta.page || 1}
+              setCurrentPage={handlePageChange}
+              totalItems={meta.total}
+              rowsPerPage={meta.limit || 20}
+            />
+          </div>
         )}
       </div>
-
-      {/* Pagination */}
-      {meta.total > 0 && (
-        <div className="flex-shrink-0 border-t border-gray-200">
-          <Pagination
-            currentPage={meta.page || 1}
-            setCurrentPage={handlePageChange}
-            totalItems={meta.total}
-            rowsPerPage={meta.limit || 20}
-          />
-        </div>
-      )}
     </div>
   );
 };

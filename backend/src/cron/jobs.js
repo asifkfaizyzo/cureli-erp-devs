@@ -12,6 +12,7 @@ import {
 } from "../utils/cleanup.js";
 import { initializeEmailBroadcastWorker } from "./emailBroadcastWorker.js";
 import { initializeFileCleanupWorker } from "./emailFileCleanupWorker.js";
+import cronLogger from "../utils/cronLogger.js";
 
 // Subscription imports
 import {
@@ -34,7 +35,7 @@ import {
 // ============================================
 
 async function processScheduledBroadcasts() {
-  console.log("[CRON] Checking for scheduled broadcasts...");
+  cronLogger.info("Checking for scheduled broadcasts...");
 
   try {
     const now = new Date();
@@ -42,30 +43,24 @@ async function processScheduledBroadcasts() {
     const dueBroadcasts = await prisma.broadcastCampaign.findMany({
       where: {
         status: "scheduled",
-        scheduled_for: {
-          lte: now,
-        },
+        scheduled_for: { lte: now },
       },
-      orderBy: {
-        scheduled_for: "asc",
-      },
+      orderBy: { scheduled_for: "asc" },
     });
 
     if (dueBroadcasts.length === 0) {
-      console.log("[CRON] No scheduled broadcasts due for sending");
+      cronLogger.info("No scheduled broadcasts due for sending");
       return;
     }
 
-    console.log(`[CRON] Found ${dueBroadcasts.length} broadcast(s) to send`);
+    cronLogger.info(`Found ${dueBroadcasts.length} broadcast(s) to send`);
 
     let sent = 0;
     let failed = 0;
 
     for (const campaign of dueBroadcasts) {
       try {
-        console.log(
-          `[CRON] Sending broadcast: ${campaign.campaign_id} - "${campaign.title}"`,
-        );
+        cronLogger.info(`Sending broadcast: ${campaign.campaign_id} - "${campaign.title}"`);
 
         const { sendScheduled } = await import(
           "../modules/cadmin/broadcast/inapp/cadminInAppBroadcast.service.js"
@@ -73,24 +68,17 @@ async function processScheduledBroadcasts() {
 
         const result = await sendScheduled(campaign.campaign_id);
 
-        console.log(
-          `[CRON] ✅ Broadcast ${campaign.campaign_id} sent to ${result.sent} recipients`,
-        );
+        cronLogger.success(`Broadcast ${campaign.campaign_id} sent to ${result.sent} recipients`);
         sent++;
       } catch (err) {
-        console.error(
-          `[CRON] ❌ Failed to send broadcast ${campaign.campaign_id}:`,
-          err.message,
-        );
+        cronLogger.error(`Failed to send broadcast ${campaign.campaign_id}`, err);
         failed++;
       }
     }
 
-    console.log(
-      `[CRON] Scheduled broadcasts complete: ${sent} sent, ${failed} failed`,
-    );
+    cronLogger.info(`Scheduled broadcasts complete: ${sent} sent, ${failed} failed`);
   } catch (err) {
-    console.error("[CRON] Scheduled broadcasts job failed:", err);
+    cronLogger.error("Scheduled broadcasts job failed", err);
   }
 }
 
@@ -98,7 +86,7 @@ function initializeScheduledBroadcastsJob() {
   cron.schedule("*/5 * * * *", () =>
     withCronLock("scheduled-broadcasts", 10, processScheduledBroadcasts),
   );
-  console.log("[CRON] Scheduled broadcasts job initialized (every 5 minutes)");
+  cronLogger.info("Scheduled broadcasts job initialized (every 5 minutes)");
 }
 
 // ============================================
@@ -109,10 +97,10 @@ async function runSessionCleanup() {
   try {
     const count = await cleanupExpiredSessions();
     if (count > 0) {
-      console.log(`[CRON] Cleaned up ${count} expired sessions`);
+      cronLogger.info(`Cleaned up ${count} expired sessions`);
     }
   } catch (err) {
-    console.error("[CRON] Session cleanup failed:", err);
+    cronLogger.error("Session cleanup failed", err);
   }
 }
 
@@ -123,29 +111,23 @@ async function runSessionCleanup() {
 function initializePlanTransitionJob() {
   cron.schedule("0 2 * * *", () =>
     withCronLock("plan-transition", 30, async () => {
-      console.log("[CRON] Starting plan status transition check...");
+      cronLogger.info("Starting plan status transition check...");
 
       try {
         const result = await transitionDeprecatedPlans();
 
-        console.log(`[CRON] Plan transition complete:`);
-        console.log(`  - Checked: ${result.checked} deprecated plans`);
-        console.log(
-          `  - Transitioned: ${result.transitioned} plans to SUSPENDED`,
-        );
+        cronLogger.info(`Plan transition complete: checked=${result.checked} deprecated plans, transitioned=${result.transitioned} plans to SUSPENDED`);
 
         if (result.transitioned > 0) {
-          console.log(
-            `  - Plans: ${result.plans.map((p) => p.name).join(", ")}`,
-          );
+          cronLogger.info(`Transitioned plans: ${result.plans.map((p) => p.name).join(", ")}`);
         }
       } catch (err) {
-        console.error("[CRON] Plan transition job failed:", err);
+        cronLogger.error("Plan transition job failed", err);
       }
     }),
   );
 
-  console.log("[CRON] Plan transition job scheduled (daily at 2:00 AM)");
+  cronLogger.info("Plan transition job scheduled (daily at 2:00 AM)");
 }
 
 // ============================================
@@ -155,20 +137,16 @@ function initializePlanTransitionJob() {
 function initializeSubscriptionLifecycleJob() {
   cron.schedule("0 * * * *", () =>
     withCronLock("subscription-lifecycle", 30, async () => {
-      console.log("[CRON] Starting subscription lifecycle check...");
+      cronLogger.info("Starting subscription lifecycle check...");
 
       try {
         // 1. Expired → Grace Period
         const graceResult = await transitionExpiredToGrace();
         if (graceResult.transitioned > 0) {
-          console.log(
-            `[CRON] Expired → Grace: ${graceResult.transitioned} subscriptions`,
-          );
+          cronLogger.info(`Expired → Grace: ${graceResult.transitioned} subscriptions`);
 
           for (const r of graceResult.results) {
-            console.log(
-              `       - ${r.shop_name}: grace until ${r.grace_period_until.toISOString().split("T")[0]}`,
-            );
+            cronLogger.info(`  - ${r.shop_name}: grace until ${r.grace_period_until.toISOString().split("T")[0]}`);
 
             notifyAsync({
               type: NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_STARTED,
@@ -185,12 +163,10 @@ function initializeSubscriptionLifecycleJob() {
         // 2. Grace Expired → Suspended
         const suspendResult = await suspendExpiredGrace();
         if (suspendResult.suspended > 0) {
-          console.log(
-            `[CRON] Grace → Suspended: ${suspendResult.suspended} subscriptions`,
-          );
+          cronLogger.info(`Grace → Suspended: ${suspendResult.suspended} subscriptions`);
 
           for (const r of suspendResult.results) {
-            console.log(`       - ${r.shop_name} (${r.shop_id}): SUSPENDED`);
+            cronLogger.info(`  - ${r.shop_name} (${r.shop_id}): SUSPENDED`);
 
             notifyAsync({
               type: NOTIFICATION_EVENTS.SUBSCRIPTION_SUSPENDED,
@@ -202,17 +178,14 @@ function initializeSubscriptionLifecycleJob() {
           }
         }
 
-        console.log(`[CRON] Subscription lifecycle complete`);
-        console.log(
-          `       Grace: ${graceResult.transitioned} | Suspended: ${suspendResult.suspended}`,
-        );
+        cronLogger.info(`Subscription lifecycle complete | Grace: ${graceResult.transitioned} | Suspended: ${suspendResult.suspended}`);
       } catch (err) {
-        console.error("[CRON] Subscription lifecycle job failed:", err);
+        cronLogger.error("Subscription lifecycle job failed", err);
       }
     }),
   );
 
-  console.log("[CRON] Subscription lifecycle job scheduled (every hour)");
+  cronLogger.info("Subscription lifecycle job scheduled (every hour)");
 }
 
 // ============================================
@@ -222,25 +195,23 @@ function initializeSubscriptionLifecycleJob() {
 function initializePaymentStatusSyncJob() {
   cron.schedule("0 1 * * *", () =>
     withCronLock("payment-sync", 30, async () => {
-      console.log("[CRON] Starting payment status sync...");
+      cronLogger.info("Starting payment status sync...");
 
       try {
         const result = await transitionPendingToOverdue();
 
         if (result.updated > 0) {
-          console.log(
-            `[CRON] Pending → Overdue: ${result.updated} subscriptions`,
-          );
+          cronLogger.info(`Pending → Overdue: ${result.updated} subscriptions`);
         }
 
-        console.log(`[CRON] Payment status sync complete`);
+        cronLogger.info("Payment status sync complete");
       } catch (err) {
-        console.error("[CRON] Payment status sync failed:", err);
+        cronLogger.error("Payment status sync failed", err);
       }
     }),
   );
 
-  console.log("[CRON] Payment status sync job scheduled (daily at 1:00 AM)");
+  cronLogger.info("Payment status sync job scheduled (daily at 1:00 AM)");
 }
 
 // ============================================
@@ -250,16 +221,14 @@ function initializePaymentStatusSyncJob() {
 function initializeReminderJob() {
   cron.schedule("0 9 * * *", () =>
     withCronLock("reminder-emails", 60, async () => {
-      console.log("[CRON] Starting reminder emails...");
+      cronLogger.info("Starting reminder emails...");
 
       try {
         const reminders = await getSubscriptionsDueForReminders();
 
         // 7 DAYS BEFORE EXPIRY
         if (reminders.expiring7Days.length > 0) {
-          console.log(
-            `[CRON] Expiring in 7 days: ${reminders.expiring7Days.length} shops`,
-          );
+          cronLogger.info(`Expiring in 7 days: ${reminders.expiring7Days.length} shops`);
           for (const sub of reminders.expiring7Days) {
             notifyAsync({
               type: NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_7_DAYS,
@@ -276,9 +245,7 @@ function initializeReminderJob() {
 
         // 3 DAYS BEFORE EXPIRY
         if (reminders.expiring3Days.length > 0) {
-          console.log(
-            `[CRON] Expiring in 3 days: ${reminders.expiring3Days.length} shops`,
-          );
+          cronLogger.info(`Expiring in 3 days: ${reminders.expiring3Days.length} shops`);
           for (const sub of reminders.expiring3Days) {
             notifyAsync({
               type: NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_3_DAYS,
@@ -295,9 +262,7 @@ function initializeReminderJob() {
 
         // GRACE ENDING TOMORROW
         if (reminders.graceEndingSoon.length > 0) {
-          console.log(
-            `[CRON] Grace ending tomorrow: ${reminders.graceEndingSoon.length} shops`,
-          );
+          cronLogger.info(`Grace ending tomorrow: ${reminders.graceEndingSoon.length} shops`);
           for (const sub of reminders.graceEndingSoon) {
             notifyAsync({
               type: NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_ENDING,
@@ -310,14 +275,14 @@ function initializeReminderJob() {
           }
         }
 
-        console.log("[CRON] All reminder emails dispatched");
+        cronLogger.info("All reminder emails dispatched");
       } catch (err) {
-        console.error("[CRON] Reminder job failed:", err);
+        cronLogger.error("Reminder job failed", err);
       }
     }),
   );
 
-  console.log("[CRON] Reminder job scheduled (daily at 9:00 AM)");
+  cronLogger.info("Reminder job scheduled (daily at 9:00 AM)");
 }
 
 // ============================================
@@ -327,7 +292,7 @@ function initializeReminderJob() {
 function initializeInventoryExpiryJob() {
   cron.schedule("0 6 * * *", () =>
     withCronLock("inventory-expiry", 60, async () => {
-      console.log("[CRON] Starting inventory expiry checks...");
+      cronLogger.info("Starting inventory expiry checks...");
 
       try {
         const shops = await prisma.shop.findMany({
@@ -340,45 +305,32 @@ function initializeInventoryExpiryJob() {
 
         for (const shop of shops) {
           try {
-            const expiredResult = await inventoryService.markExpiredItems(
-              shop.shop_id,
-            );
+            const expiredResult = await inventoryService.markExpiredItems(shop.shop_id);
             totalExpired += expiredResult.count || 0;
 
             if (expiredResult.count > 0) {
-              console.log(
-                `       - ${shop.business_name}: ${expiredResult.count} items expired`,
-              );
+              cronLogger.info(`  - ${shop.business_name}: ${expiredResult.count} items expired`);
             }
 
-            const nearExpiryResult =
-              await inventoryService.sendNearExpiryAlerts(shop.shop_id, 30);
+            const nearExpiryResult = await inventoryService.sendNearExpiryAlerts(shop.shop_id, 30);
             totalNearExpiry += nearExpiryResult.sent || 0;
 
             if (nearExpiryResult.sent > 0) {
-              console.log(
-                `       - ${shop.business_name}: ${nearExpiryResult.sent} near-expiry alerts sent`,
-              );
+              cronLogger.info(`  - ${shop.business_name}: ${nearExpiryResult.sent} near-expiry alerts sent`);
             }
           } catch (shopErr) {
-            console.error(
-              `       - ${shop.business_name} failed:`,
-              shopErr.message,
-            );
+            cronLogger.error(`  - ${shop.business_name} failed`, shopErr);
           }
         }
 
-        console.log(`[CRON] Inventory expiry checks complete`);
-        console.log(
-          `       Expired: ${totalExpired} | Near-expiry alerts: ${totalNearExpiry}`,
-        );
+        cronLogger.info(`Inventory expiry checks complete | Expired: ${totalExpired} | Near-expiry alerts: ${totalNearExpiry}`);
       } catch (err) {
-        console.error("[CRON] Inventory expiry job failed:", err);
+        cronLogger.error("Inventory expiry job failed", err);
       }
     }),
   );
 
-  console.log("[CRON] Inventory expiry job scheduled (daily at 6:00 AM)");
+  cronLogger.info("Inventory expiry job scheduled (daily at 6:00 AM)");
 }
 
 // ============================================
@@ -386,15 +338,15 @@ function initializeInventoryExpiryJob() {
 // ============================================
 
 export function initializeCronJobs() {
-  console.log("Initializing cron jobs...");
-  console.log(`[CRON] Instance ID: ${getInstanceId()}`);
-  console.log("[CRON] Distributed locking: ENABLED");
+  cronLogger.info("Initializing cron jobs...");
+  cronLogger.info(`Instance ID: ${getInstanceId()}`);
+  cronLogger.info("Distributed locking: ENABLED");
 
   // Email broadcast worker (has its own lock + atomic claims)
   initializeEmailBroadcastWorker();
   initializeFileCleanupWorker();
-  console.log("   - Email broadcast worker: Every 1 minute");
-  console.log("   - Email file cleanup: Daily at 4:00 AM");
+  cronLogger.info("Email broadcast worker: Every 1 minute");
+  cronLogger.info("Email file cleanup: Daily at 4:00 AM");
 
   // Session cleanup (every hour)
   setInterval(
@@ -415,69 +367,65 @@ export function initializeCronJobs() {
   // Cleanup jobs
   cron.schedule("0 3 * * *", () =>
     withCronLock("cleanup-pending-users", 15, async () => {
-      console.log("🧹 [CRON] Running pending users cleanup...");
+      cronLogger.info("Running pending users cleanup...");
       try {
         await cleanupOldPendingUsers();
-        console.log("✅ [CRON] Pending users cleanup completed");
+        cronLogger.success("Pending users cleanup completed");
       } catch (err) {
-        console.error("❌ [CRON] Pending users cleanup failed:", err);
+        cronLogger.error("Pending users cleanup failed", err);
       }
     }),
   );
 
   cron.schedule("15 3 * * *", () =>
     withCronLock("cleanup-incomplete-users", 15, async () => {
-      console.log("🧹 [CRON] Running incomplete users cleanup...");
+      cronLogger.info("Running incomplete users cleanup...");
       try {
         const result = await cleanupIncompleteUsers();
-        console.log(
-          `✅ [CRON] Incomplete users cleanup completed: ${result.deleted} deleted`,
-        );
+        cronLogger.success(`Incomplete users cleanup completed: ${result.deleted} deleted`);
       } catch (err) {
-        console.error("❌ [CRON] Incomplete users cleanup failed:", err);
+        cronLogger.error("Incomplete users cleanup failed", err);
       }
     }),
   );
 
   cron.schedule("30 3 * * *", () =>
     withCronLock("cleanup-deletion-logs", 15, async () => {
-      console.log("🧹 [CRON] Running deletion logs cleanup...");
+      cronLogger.info("Running deletion logs cleanup...");
       try {
         const count = await cleanupOldDeletionLogs();
-        console.log(
-          `✅ [CRON] Deletion logs cleanup completed: ${count} old logs removed`,
-        );
+        cronLogger.success(`Deletion logs cleanup completed: ${count} old logs removed`);
       } catch (err) {
-        console.error("❌ [CRON] Deletion logs cleanup failed:", err);
+        cronLogger.error("Deletion logs cleanup failed", err);
       }
     }),
   );
 
-    cron.schedule("45 3 * * *", () =>
+  cron.schedule("45 3 * * *", () =>
     withCronLock("cleanup-otp-limits", 10, async () => {
-      console.log("[CRON] Cleaning up old OTP daily limits...");
+      cronLogger.info("Cleaning up old OTP daily limits...");
       try {
         const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         const result = await prisma.otpDailyLimit.deleteMany({
           where: { date: { lt: cutoff } },
         });
-        console.log(`[CRON] Removed ${result.count} old OTP limit records`);
+        cronLogger.success(`Removed ${result.count} old OTP limit records`);
       } catch (err) {
-        console.error("[CRON] OTP limits cleanup failed:", err);
+        cronLogger.error("OTP limits cleanup failed", err);
       }
     }),
   );
 
-  console.log("All cron jobs initialized:");
-  console.log("   - Session cleanup: Every hour");
-  console.log("   - Plan transition: Daily at 2:00 AM");
-  console.log("   - Subscription lifecycle + emails: Every hour");
-  console.log("   - Payment status sync: Daily at 1:00 AM");
-  console.log("   - Inventory expiry checks + alerts: Daily at 6:00 AM");
-  console.log("   - Reminder emails (7d/3d/final): Daily at 9:00 AM");
-  console.log("   - Pending users cleanup: Daily at 3:00 AM");
-  console.log("   - Incomplete users cleanup: Daily at 3:15 AM");
-  console.log("   - Deletion logs cleanup: Daily at 3:30 AM");
-  console.log("   - Scheduled broadcasts: Every 5 minutes");
-  console.log("   - OTP daily limits cleanup: Daily at 3:45 AM");
+  cronLogger.info("All cron jobs initialized:");
+  cronLogger.info("  - Session cleanup: Every hour");
+  cronLogger.info("  - Plan transition: Daily at 2:00 AM");
+  cronLogger.info("  - Subscription lifecycle + emails: Every hour");
+  cronLogger.info("  - Payment status sync: Daily at 1:00 AM");
+  cronLogger.info("  - Inventory expiry checks + alerts: Daily at 6:00 AM");
+  cronLogger.info("  - Reminder emails (7d/3d/final): Daily at 9:00 AM");
+  cronLogger.info("  - Pending users cleanup: Daily at 3:00 AM");
+  cronLogger.info("  - Incomplete users cleanup: Daily at 3:15 AM");
+  cronLogger.info("  - Deletion logs cleanup: Daily at 3:30 AM");
+  cronLogger.info("  - Scheduled broadcasts: Every 5 minutes");
+  cronLogger.info("  - OTP daily limits cleanup: Daily at 3:45 AM");
 }

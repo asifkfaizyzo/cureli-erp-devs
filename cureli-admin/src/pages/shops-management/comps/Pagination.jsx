@@ -8,7 +8,7 @@ import {
 
 const Pagination = ({ totalPages, currentPage, setCurrentPage }) => {
   if (!setCurrentPage) {
-    console.error("❌ Pagination missing setCurrentPage prop");
+    console.error(" Pagination missing setCurrentPage prop");
     return null;
   }
 
@@ -87,7 +87,7 @@ const Pagination = ({ totalPages, currentPage, setCurrentPage }) => {
             >
               {page}
             </button>
-          )
+          ),
         )}
       </div>
 

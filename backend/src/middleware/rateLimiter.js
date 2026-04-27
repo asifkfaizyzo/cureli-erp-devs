@@ -1,15 +1,16 @@
-//backend\src\middleware\rateLimiter.js
+// backend/src/middleware/rateLimiter.js
+
 import rateLimit from "express-rate-limit";
 
 // ============================================
-// GLOBAL API LIMITER
+// GLOBAL API LIMITER — for /api/* (ERP users)
 // ============================================
 
 export const globalLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 100,
+  windowMs: 1 * 60 * 1000,  // 1 minute
+  max:      100,             // 100 req/min per IP for ERP users — unchanged
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders:   false,
   message: {
     success: false,
     message: "Too many requests. Please try again later.",
@@ -17,15 +18,39 @@ export const globalLimiter = rateLimit({
 });
 
 // ============================================
-// AUTH LIMITER — for sensitive auth endpoints
-// Login, OTP verify, password reset
+// CADMIN API LIMITER — for /cadmin/* (internal admins)
+//
+// CAdmin panel makes significantly more requests per page:
+//   - Notification polling
+//   - Filter dropdowns (shops, plans, roles)
+//   - Preview endpoint on every filter change
+//   - Drafts/history pagination
+//   - SSE connection (persistent, doesn't count but still opens)
+//
+// 300 req/min = 5 req/sec — plenty for a single admin user's UI
+// and still protects against abuse.
+// ============================================
+
+export const cadminLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,  // 1 minute
+  max:      300,             // 300 req/min per IP for internal admins
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    success: false,
+    message: "Too many requests. Please try again later.",
+  },
+});
+
+// ============================================
+// AUTH LIMITER — login, OTP verify, password reset
 // ============================================
 
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 15,
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max:      15,
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders:   false,
   message: {
     success: false,
     message: "Too many authentication attempts. Please try again later.",
@@ -33,15 +58,14 @@ export const authLimiter = rateLimit({
 });
 
 // ============================================
-// OTP SEND LIMITER — for OTP request endpoints
-// Tighter than authLimiter since each hit costs SMS money
+// OTP SEND LIMITER — each hit costs SMS money
 // ============================================
 
 export const otpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 15,
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max:      15,
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders:   false,
   message: {
     success: false,
     message: "OTP request limit exceeded. Please try again later.",
@@ -49,15 +73,14 @@ export const otpLimiter = rateLimit({
 });
 
 // ============================================
-// SIGNUP LIMITER — for registration flow
-// More permissive than auth since signup has many steps
+// SIGNUP LIMITER — registration flow
 // ============================================
 
 export const signupLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max:      30,
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders:   false,
   message: {
     success: false,
     message: "Too many signup attempts. Please try again later.",

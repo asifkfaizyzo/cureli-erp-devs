@@ -30,7 +30,7 @@ function EmailDraftsList({ refreshTrigger, onCountChange, onEdit }) {
 
       console.log("[EmailDraftsList] API Response:", response);
 
-      // ✅ FIXED: Handle both response formats
+      //  FIXED: Handle both response formats
       let draftsData = [];
       let pagination = { page: 1, limit: 10, total: 0, total_pages: 1 };
 
@@ -123,8 +123,12 @@ function EmailDraftsList({ refreshTrigger, onCountChange, onEdit }) {
             <tr className={styles.header.row}>
               <th className={styles.header.cell}>Subject</th>
               <th className={styles.header.cell}>Message Preview</th>
-              <th className={`${styles.header.cell} text-center`}>Recipients</th>
-              <th className={`${styles.header.cell} text-center`}>Attachments</th>
+              <th className={`${styles.header.cell} text-center`}>
+                Recipients
+              </th>
+              <th className={`${styles.header.cell} text-center`}>
+                Attachments
+              </th>
               <th className={styles.header.cell}>Last Updated</th>
               <th className={styles.header.cell}>Created By</th>
               <th className={`${styles.header.cell} text-center`}>Actions</th>
@@ -177,7 +181,9 @@ function EmailDraftsList({ refreshTrigger, onCountChange, onEdit }) {
                 </td>
 
                 <td className={styles.cell.base}>
-                  <span className={styles.cell.primary}>{draft.cadmin_name}</span>
+                  <span className={styles.cell.primary}>
+                    {draft.cadmin_name}
+                  </span>
                 </td>
 
                 <td className={styles.cell.base}>

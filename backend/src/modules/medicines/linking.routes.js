@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * MEDICINE LINKING ROUTES
+ * backend/src/modules/medicines/linking.routes.js
  * ═══════════════════════════════════════════════════════════════
  */
 
@@ -13,6 +13,7 @@ import {
   bulkAutoLinkMedicines,
   getUnlinkedMedicines,
   searchMasterCatalog,
+  bulkCheckImportRows,
 } from "./linking.service.js";
 import { success, fail } from "../../utils/response.js";
 
@@ -20,6 +21,34 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(requireAuth);
+
+// ══════════════════════════════════════════════════════════════
+// BULK CHECK IMPORT ROWS (NEW - Must be before /:medicineId)
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * POST /api/medicines/linking/check-import
+ * Bulk check import rows against master catalog
+ */
+router.post("/check-import", async (req, res) => {
+  try {
+    const { rows } = req.body;
+    
+    if (!rows || !Array.isArray(rows)) {
+      return fail(res, "rows array is required", 400);
+    }
+    
+    if (rows.length > 500) {
+      return fail(res, "Maximum 500 rows per request", 400);
+    }
+    
+    const result = await bulkCheckImportRows(rows);
+    return success(res, result, "Import check complete");
+  } catch (error) {
+    console.error("linking.checkImport ERROR:", error);
+    return fail(res, error.message, 500);
+  }
+});
 
 // ══════════════════════════════════════════════════════════════
 // SEARCH MASTER CATALOG
@@ -91,7 +120,7 @@ router.get("/:medicineId/suggestions", async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════
-// MANUAL LINK
+// MANUAL LINK (CAdmin only in practice, but API allows user)
 // ══════════════════════════════════════════════════════════════
 
 /**
@@ -108,7 +137,7 @@ router.post("/:medicineId/link", async (req, res) => {
       return fail(res, "masterMedicineId is required", 400);
     }
     
-    const result = await manuallyLinkMedicine(medicineId, masterMedicineId, userId);
+    const result = await manuallyLinkMedicine(medicineId, masterMedicineId, userId, "USER");
     return success(res, result, "Medicine linked successfully");
   } catch (error) {
     console.error("linking.manualLink ERROR:", error);

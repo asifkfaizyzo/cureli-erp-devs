@@ -83,7 +83,8 @@ function transformTicketForCAdmin(ticket) {
     reopen_reason: ticket.reopen_reason,
 
     attachments: ticket.attachments || [],
-    attachment_count: ticket._count?.attachments || ticket.attachments?.length || 0,
+    attachment_count:
+      ticket._count?.attachments || ticket.attachments?.length || 0,
 
     created_at: ticket.created_at,
     updated_at: ticket.updated_at,
@@ -345,7 +346,7 @@ export async function updateTicketStatus(
   status,
   note,
   cadmin_id,
-  auditContext = {}
+  auditContext = {},
 ) {
   try {
     // Get ticket with creator info
@@ -489,7 +490,7 @@ export async function updateTicketStatus(
         },
       });
 
-      // ✅ AUDIT: Determine which action to log
+      //  AUDIT: Determine which action to log
       let auditAction;
       if (status === "RESOLVED") {
         auditAction = audit.AuditAction.TICKET_RESOLVED_BY_ADMIN;
@@ -499,28 +500,31 @@ export async function updateTicketStatus(
         auditAction = audit.AuditAction.TICKET_STATUS_UPDATED_BY_ADMIN;
       }
 
-      await audit.log({
-        action: auditAction,
-        entity_type: audit.EntityType.TICKET,
-        entity_id: ticket_id,
-        shop_id: ticket.shop?.shop_id || null,
-        ...auditContext,
-        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-        metadata: {
-          ticket_number: ticket.ticket_number,
-          previous_status: previousStatus,
-          new_status: status,
-          updated_by_cadmin_id: cadmin_id,
-          note: note || null,
-          category: ticket.category,
-          reopen_count: ticket.reopen_count,
+      await audit.log(
+        {
+          action: auditAction,
+          entity_type: audit.EntityType.TICKET,
+          entity_id: ticket_id,
+          shop_id: ticket.shop?.shop_id || null,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+          metadata: {
+            ticket_number: ticket.ticket_number,
+            previous_status: previousStatus,
+            new_status: status,
+            updated_by_cadmin_id: cadmin_id,
+            note: note || null,
+            category: ticket.category,
+            reopen_count: ticket.reopen_count,
+          },
         },
-      }, { tx });
+        { tx },
+      );
 
       return updatedTicket;
     });
 
-    // ✅ Send notification to ticket creator
+    //  Send notification to ticket creator
     if (ticket.created_by?.email) {
       notifyAsync({
         type: NOTIFICATION_EVENTS.TICKET_STATUS_CHANGED,
@@ -536,7 +540,9 @@ export async function updateTicketStatus(
         },
       });
     } else {
-      console.warn(`⚠️ No email for ticket ${ticket.ticket_number} creator - skipping notification`);
+      console.warn(
+        `⚠️ No email for ticket ${ticket.ticket_number} creator - skipping notification`,
+      );
     }
 
     return transformTicketForCAdmin(result);

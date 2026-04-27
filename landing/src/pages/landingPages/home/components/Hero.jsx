@@ -72,8 +72,7 @@ const HeroContent = memo(() => (
     </div> */}
 
     <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-4xl lg:text-5xl xl:text-6xl 2xl:text-6xl font-semibold leading-tight mb-4 sm:mb-5 md:mb-6">
-      Medicine. Management.{" "}
-      <br className="hidden xs:block" />
+      Medicine. Management. <br className="hidden xs:block" />
       One Smart Platform.
     </h1>
 
@@ -148,17 +147,15 @@ const Hero = () => {
       <div className="relative z-10 w-full max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 xs:px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         {/* Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 md:gap-10 lg:gap-12 xl:gap-16 2xl:gap-20 items-center">
-
-          {/* ✅ Image — order-1 on mobile (top), order-2 on lg (right) */}
+          {/*  Image — order-1 on mobile (top), order-2 on lg (right) */}
           <div className="order-1 lg:order-2">
             <HeroImage />
           </div>
 
-          {/* ✅ Content — order-2 on mobile (bottom), order-1 on lg (left) */}
+          {/*  Content — order-2 on mobile (bottom), order-1 on lg (left) */}
           <div className="order-2 lg:order-1">
             <HeroContent />
           </div>
-
         </div>
       </div>
     </section>

@@ -1,8 +1,14 @@
 // frontend/src/pages/purchase/invoice/components/invoiceModalHelpers.js
 // Shared utilities and constants for Invoice Modal components
-// ✅ UPDATED: Added print helpers, formatExpiry, numberToWords, and enhanced payment helpers
+//  UPDATED: Added print helpers, formatExpiry, numberToWords, and enhanced payment helpers
 
-import { Clock, CheckCircle2, XCircle, Wallet, AlertCircle } from "lucide-react";
+import {
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Wallet,
+  AlertCircle,
+} from "lucide-react";
 
 // ════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -33,20 +39,20 @@ export const ANIMATION_VARIANTS = {
   },
   dropdown: {
     hidden: { opacity: 0, scale: 0.95, y: -8 },
-    visible: { 
-      opacity: 1, 
-      scale: 1, 
+    visible: {
+      opacity: 1,
+      scale: 1,
       y: 0,
-      transition: { type: "spring", stiffness: 400, damping: 25 }
+      transition: { type: "spring", stiffness: 400, damping: 25 },
     },
     exit: { opacity: 0, scale: 0.95, y: -8, transition: { duration: 0.15 } },
   },
   slideIn: {
     hidden: { opacity: 0, x: -20 },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       x: 0,
-      transition: { type: "spring", stiffness: 300, damping: 25 }
+      transition: { type: "spring", stiffness: 300, damping: 25 },
     },
     exit: { opacity: 0, x: -20, transition: { duration: 0.15 } },
   },
@@ -152,9 +158,9 @@ export const PAYMENT_MODES = [
  */
 export const formatCurrency = (amount) => {
   const num = parseFloat(amount) || 0;
-  return `₹${num.toLocaleString("en-IN", { 
+  return `₹${num.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2 
+    maximumFractionDigits: 2,
   })}`;
 };
 
@@ -165,9 +171,9 @@ export const formatCurrency = (amount) => {
  */
 export const formatCurrencyValue = (amount) => {
   const num = parseFloat(amount) || 0;
-  return num.toLocaleString("en-IN", { 
+  return num.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2 
+    maximumFractionDigits: 2,
   });
 };
 
@@ -311,79 +317,119 @@ export const isExpiringSoon = (dateString, days = 90) => {
  */
 export const numberToWords = (num) => {
   if (num === undefined || num === null || isNaN(num)) return "";
-  
+
   const ones = [
-    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
-    'Seventeen', 'Eighteen', 'Nineteen'
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
   ];
-  
+
   const tens = [
-    '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
   ];
-  
-  if (num === 0) return 'Zero Rupees Only';
-  
+
+  if (num === 0) return "Zero Rupees Only";
+
   const convertLessThanThousand = (n) => {
-    if (n === 0) return '';
+    if (n === 0) return "";
     if (n < 20) return ones[n];
     if (n < 100) {
-      return tens[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + ones[n % 10] : '');
+      return (
+        tens[Math.floor(n / 10)] + (n % 10 !== 0 ? " " + ones[n % 10] : "")
+      );
     }
-    return ones[Math.floor(n / 100)] + ' Hundred' + 
-           (n % 100 !== 0 ? ' ' + convertLessThanThousand(n % 100) : '');
+    return (
+      ones[Math.floor(n / 100)] +
+      " Hundred" +
+      (n % 100 !== 0 ? " " + convertLessThanThousand(n % 100) : "")
+    );
   };
-  
+
   const convert = (n) => {
-    if (n === 0) return '';
-    
+    if (n === 0) return "";
+
     // Handle negative numbers
-    if (n < 0) return 'Minus ' + convert(Math.abs(n));
-    
+    if (n < 0) return "Minus " + convert(Math.abs(n));
+
     // Less than 1000
     if (n < 1000) return convertLessThanThousand(n);
-    
+
     // Thousand (1,000 - 99,999)
     if (n < 100000) {
-      return convertLessThanThousand(Math.floor(n / 1000)) + ' Thousand' + 
-             (n % 1000 !== 0 ? ' ' + convertLessThanThousand(n % 1000) : '');
+      return (
+        convertLessThanThousand(Math.floor(n / 1000)) +
+        " Thousand" +
+        (n % 1000 !== 0 ? " " + convertLessThanThousand(n % 1000) : "")
+      );
     }
-    
+
     // Lakh (1,00,000 - 99,99,999)
     if (n < 10000000) {
-      return convertLessThanThousand(Math.floor(n / 100000)) + ' Lakh' + 
-             (n % 100000 !== 0 ? ' ' + convert(n % 100000) : '');
+      return (
+        convertLessThanThousand(Math.floor(n / 100000)) +
+        " Lakh" +
+        (n % 100000 !== 0 ? " " + convert(n % 100000) : "")
+      );
     }
-    
+
     // Crore (1,00,00,000+)
-    return convertLessThanThousand(Math.floor(n / 10000000)) + ' Crore' + 
-           (n % 10000000 !== 0 ? ' ' + convert(n % 10000000) : '');
+    return (
+      convertLessThanThousand(Math.floor(n / 10000000)) +
+      " Crore" +
+      (n % 10000000 !== 0 ? " " + convert(n % 10000000) : "")
+    );
   };
-  
+
   const absNum = Math.abs(num);
   const rupees = Math.floor(absNum);
   const paise = Math.round((absNum - rupees) * 100);
-  
-  let result = '';
-  
+
+  let result = "";
+
   if (num < 0) {
-    result = 'Minus ';
+    result = "Minus ";
   }
-  
+
   if (rupees > 0) {
-    result += convert(rupees) + ' Rupees';
+    result += convert(rupees) + " Rupees";
   }
-  
+
   if (paise > 0) {
-    if (rupees > 0) result += ' and ';
-    result += convert(paise) + ' Paise';
+    if (rupees > 0) result += " and ";
+    result += convert(paise) + " Paise";
   }
-  
+
   if (rupees === 0 && paise === 0) {
-    result = 'Zero Rupees';
+    result = "Zero Rupees";
   }
-  
-  return result + ' Only';
+
+  return result + " Only";
 };
 
 /**
@@ -393,28 +439,74 @@ export const numberToWords = (num) => {
  */
 export const numberToWordsSimple = (num) => {
   if (num === undefined || num === null || isNaN(num)) return "";
-  
+
   const ones = [
-    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
-    'Seventeen', 'Eighteen', 'Nineteen'
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
   ];
-  
+
   const tens = [
-    '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
   ];
-  
-  if (num === 0) return 'Zero';
-  
+
+  if (num === 0) return "Zero";
+
   const convert = (n) => {
     if (n < 20) return ones[n];
-    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
-    if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + convert(n % 100) : '');
-    if (n < 100000) return convert(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + convert(n % 1000) : '');
-    if (n < 10000000) return convert(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + convert(n % 100000) : '');
-    return convert(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + convert(n % 10000000) : '');
+    if (n < 100)
+      return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+    if (n < 1000)
+      return (
+        ones[Math.floor(n / 100)] +
+        " Hundred" +
+        (n % 100 ? " " + convert(n % 100) : "")
+      );
+    if (n < 100000)
+      return (
+        convert(Math.floor(n / 1000)) +
+        " Thousand" +
+        (n % 1000 ? " " + convert(n % 1000) : "")
+      );
+    if (n < 10000000)
+      return (
+        convert(Math.floor(n / 100000)) +
+        " Lakh" +
+        (n % 100000 ? " " + convert(n % 100000) : "")
+      );
+    return (
+      convert(Math.floor(n / 10000000)) +
+      " Crore" +
+      (n % 10000000 ? " " + convert(n % 10000000) : "")
+    );
   };
-  
+
   return convert(Math.floor(Math.abs(num)));
 };
 
@@ -433,17 +525,17 @@ export const calculateEditRow = (row) => {
   const gross = qty * price;
 
   const schPct = Number(row.schemePercent) || 0;
-  const schemeAmount = +(gross * schPct / 100).toFixed(2);
+  const schemeAmount = +((gross * schPct) / 100).toFixed(2);
   const afterScheme = gross - schemeAmount;
 
   const discPct = Number(row.discountPercent) || 0;
-  const discountAmount = +(afterScheme * discPct / 100).toFixed(2);
+  const discountAmount = +((afterScheme * discPct) / 100).toFixed(2);
   const taxableValue = +(afterScheme - discountAmount).toFixed(2);
 
   const cgstPct = Number(row.cgstPercent) || 0;
   const sgstPct = Number(row.sgstPercent) || 0;
-  const cgstAmount = +(taxableValue * cgstPct / 100).toFixed(2);
-  const sgstAmount = +(taxableValue * sgstPct / 100).toFixed(2);
+  const cgstAmount = +((taxableValue * cgstPct) / 100).toFixed(2);
+  const sgstAmount = +((taxableValue * sgstPct) / 100).toFixed(2);
   const amount = +(taxableValue + cgstAmount + sgstAmount).toFixed(2);
 
   const netRate = qty > 0 ? +(taxableValue / qty).toFixed(2) : 0;
@@ -611,23 +703,27 @@ export const calculateInvoiceTotals = (lineItems) => {
  * - If balance <= threshold (default 10), treat as PAID (handles small rounding differences)
  * - If paid amount is 0, treat as UNPAID
  * - Otherwise, PARTIALLY_PAID
- * 
+ *
  * @param {number|string} paidAmount - Amount paid
  * @param {number|string} netAmount - Total invoice amount
  * @param {number} threshold - Minimum balance to be partially paid (default: PAYMENT_BALANCE_THRESHOLD)
  * @returns {string} - "PAID" | "PARTIALLY_PAID" | "UNPAID"
  */
-export const calculatePaymentStatus = (paidAmount, netAmount, threshold = PAYMENT_BALANCE_THRESHOLD) => {
+export const calculatePaymentStatus = (
+  paidAmount,
+  netAmount,
+  threshold = PAYMENT_BALANCE_THRESHOLD,
+) => {
   const paid = parseFloat(paidAmount) || 0;
   const net = parseFloat(netAmount) || 0;
   const balance = net - paid;
-  
+
   // If nothing paid
   if (paid <= 0) return "UNPAID";
-  
+
   // If balance is within threshold, treat as fully paid
   if (balance <= threshold) return "PAID";
-  
+
   // Otherwise, partially paid
   return "PARTIALLY_PAID";
 };
@@ -635,13 +731,17 @@ export const calculatePaymentStatus = (paidAmount, netAmount, threshold = PAYMEN
 /**
  * Calculate payment details with threshold handling
  * Returns normalized values for display
- * 
+ *
  * @param {number|string} paidAmount - Amount paid
  * @param {number|string} netAmount - Total invoice amount
  * @param {number} threshold - Minimum balance to be partially paid (default: PAYMENT_BALANCE_THRESHOLD)
  * @returns {Object} - { status, paidAmount, balanceAmount, effectiveStatus }
  */
-export const calculatePaymentDetails = (paidAmount, netAmount, threshold = PAYMENT_BALANCE_THRESHOLD) => {
+export const calculatePaymentDetails = (
+  paidAmount,
+  netAmount,
+  threshold = PAYMENT_BALANCE_THRESHOLD,
+) => {
   const paid = parseFloat(paidAmount) || 0;
   const net = parseFloat(netAmount) || 0;
   const rawBalance = net - paid;
@@ -672,7 +772,7 @@ export const calculatePaymentDetails = (paidAmount, netAmount, threshold = PAYME
 
   // Otherwise, partially paid
   const paymentPercentage = net > 0 ? Math.round((paid / net) * 100) : 0;
-  
+
   return {
     status: "PARTIALLY_PAID",
     paidAmount: paid,
@@ -686,7 +786,7 @@ export const calculatePaymentDetails = (paidAmount, netAmount, threshold = PAYME
 /**
  * Get effective payment status config based on actual amounts
  * This handles the threshold logic for UI display
- * 
+ *
  * @param {Object} invoice - Invoice object with payment_status, paid_amount, net_amount
  * @returns {Object} - { effectiveStatus, config, balance, showBalance, thresholdApplied, paymentPercentage }
  */
@@ -709,7 +809,7 @@ export const getEffectivePaymentDisplay = (invoice) => {
 
   // Calculate effective status with threshold
   let effectiveStatus = invoice.payment_status || "UNPAID";
-  
+
   // Override based on actual amounts
   if (paid <= 0) {
     effectiveStatus = "UNPAID";
@@ -719,8 +819,9 @@ export const getEffectivePaymentDisplay = (invoice) => {
     effectiveStatus = "PARTIALLY_PAID";
   }
 
-  const config = PAYMENT_STATUS_CONFIG[effectiveStatus] || PAYMENT_STATUS_CONFIG.UNPAID;
-  
+  const config =
+    PAYMENT_STATUS_CONFIG[effectiveStatus] || PAYMENT_STATUS_CONFIG.UNPAID;
+
   // Only show balance if > threshold
   const showBalance = rawBalance > PAYMENT_BALANCE_THRESHOLD;
   const displayBalance = showBalance ? rawBalance : 0;
@@ -732,7 +833,10 @@ export const getEffectivePaymentDisplay = (invoice) => {
     balance: displayBalance,
     rawBalance,
     showBalance,
-    thresholdApplied: effectiveStatus === "PAID" && rawBalance > 0 && rawBalance <= PAYMENT_BALANCE_THRESHOLD,
+    thresholdApplied:
+      effectiveStatus === "PAID" &&
+      rawBalance > 0 &&
+      rawBalance <= PAYMENT_BALANCE_THRESHOLD,
     paymentPercentage: effectiveStatus === "PAID" ? 100 : paymentPercentage,
   };
 };
@@ -758,15 +862,15 @@ export const isValidExpiryFormat = (expiry) => {
  */
 export const parseExpiryToDate = (expiry) => {
   if (!isValidExpiryFormat(expiry)) return null;
-  
-  const [month, year] = expiry.split('/');
+
+  const [month, year] = expiry.split("/");
   const fullYear = parseInt(year) > 50 ? `19${year}` : `20${year}`;
   const date = new Date(`${fullYear}-${month}-01`);
-  
+
   // Set to last day of month
   date.setMonth(date.getMonth() + 1);
   date.setDate(0);
-  
+
   return date;
 };
 
@@ -805,7 +909,9 @@ export const getPrintStatusStyle = (status) => {
  * @returns {Object} - Print styles
  */
 export const getPrintPaymentStatusStyle = (status) => {
-  const config = PAYMENT_STATUS_CONFIG[status?.toUpperCase()] || PAYMENT_STATUS_CONFIG.UNPAID;
+  const config =
+    PAYMENT_STATUS_CONFIG[status?.toUpperCase()] ||
+    PAYMENT_STATUS_CONFIG.UNPAID;
   return {
     backgroundColor: config.printBg,
     color: config.printText,
@@ -818,13 +924,13 @@ export const getPrintPaymentStatusStyle = (status) => {
  * @returns {string} - Formatted timestamp
  */
 export const getPrintTimestamp = () => {
-  return new Date().toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+  return new Date().toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
     hour12: true,
   });
 };
@@ -839,7 +945,7 @@ export const getPrintTimestamp = () => {
  * @returns {Object} - Cloned object
  */
 export const deepClone = (obj) => {
-  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj === null || typeof obj !== "object") return obj;
   return JSON.parse(JSON.stringify(obj));
 };
 
@@ -888,13 +994,13 @@ export const generateUniqueId = () => {
  * @param {string} direction - 'asc' or 'desc'
  * @returns {Array} - Sorted array
  */
-export const sortByKey = (arr, key, direction = 'asc') => {
+export const sortByKey = (arr, key, direction = "asc") => {
   if (!Array.isArray(arr)) return [];
   return [...arr].sort((a, b) => {
     const aVal = a[key];
     const bVal = b[key];
-    if (aVal < bVal) return direction === 'asc' ? -1 : 1;
-    if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+    if (aVal < bVal) return direction === "asc" ? -1 : 1;
+    if (aVal > bVal) return direction === "asc" ? 1 : -1;
     return 0;
   });
 };
@@ -911,7 +1017,7 @@ export default {
   STATUS_CONFIG,
   PAYMENT_STATUS_CONFIG,
   PAYMENT_MODES,
-  
+
   // Format helpers
   formatCurrency,
   formatCurrencyValue,
@@ -922,32 +1028,32 @@ export default {
   formatDateTime,
   isExpired,
   isExpiringSoon,
-  
+
   // Number to words
   numberToWords,
   numberToWordsSimple,
-  
+
   // Calculation helpers
   calculateEditRow,
   makeEmptyRow,
   transformInvoiceToRows,
   calculateInvoiceTotals,
-  
+
   // Payment helpers
   calculatePaymentStatus,
   calculatePaymentDetails,
   getEffectivePaymentDisplay,
-  
+
   // Validation helpers
   isValidExpiryFormat,
   parseExpiryToDate,
   isValidBatchNumber,
-  
+
   // Print helpers
   getPrintStatusStyle,
   getPrintPaymentStatusStyle,
   getPrintTimestamp,
-  
+
   // Utilities
   deepClone,
   debounce,

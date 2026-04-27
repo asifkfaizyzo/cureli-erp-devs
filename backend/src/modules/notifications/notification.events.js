@@ -24,14 +24,14 @@ export const NOTIFICATION_EVENTS = {
   BROADCAST_INAPP: "BROADCAST_INAPP",
   BROADCAST_EMAIL: "BROADCAST_EMAIL",
   BROADCAST_SMS: "BROADCAST_SMS",
-  BROADCAST_WHATSAPP: "BROADCAST_WHATSAPP",  // Future-ready
-  
+  BROADCAST_WHATSAPP: "BROADCAST_WHATSAPP", // Future-ready
+
   // ─────────────────────────────────────────
   // USER MANAGEMENT
   // ─────────────────────────────────────────
   USER_CREATED: "USER_CREATED",
   USER_INVITED: "USER_INVITED",
-  
+
   // ─────────────────────────────────────────
   // SHOP & VERIFICATION
   // ─────────────────────────────────────────
@@ -68,6 +68,12 @@ export const NOTIFICATION_EVENTS = {
   OUT_OF_STOCK_ALERT: "OUT_OF_STOCK_ALERT",
   NEAR_EXPIRY_ALERT: "NEAR_EXPIRY_ALERT",
   EXPIRED_STOCK_ALERT: "EXPIRED_STOCK_ALERT",
+
+  // ─────────────────────────────────────────
+  // MEDICINE LINKING
+  // ─────────────────────────────────────────
+  MEDICINE_LINKED: "MEDICINE_LINKED",
+  MEDICINE_UNLINKED: "MEDICINE_UNLINKED",
 
   // ─────────────────────────────────────────
   // TICKETS
@@ -173,7 +179,7 @@ export const EVENT_CONFIG = {
     description: "Manual in-app announcement from CAdmin",
     defaultChannels: ["inapp"],
     audienceType: "broadcast_filter",
-    priority: "normal",  // Can be overridden per broadcast
+    priority: "normal", // Can be overridden per broadcast
   },
   [NOTIFICATION_EVENTS.BROADCAST_EMAIL]: {
     description: "Manual email broadcast from CAdmin",
@@ -354,6 +360,20 @@ export const EVENT_CONFIG = {
     audienceType: "shop_inventory_users",
     priority: "critical",
     dedupEntity: "inventory",
+  },
+    [NOTIFICATION_EVENTS.MEDICINE_LINKED]: {
+    description: "Shop medicine linked to master catalog variant",
+    defaultChannels: ["inapp"],
+    audienceType: "shop_admins",
+    priority: "normal",
+    dedupEntity: "medicine",
+  },
+  [NOTIFICATION_EVENTS.MEDICINE_UNLINKED]: {
+    description: "Shop medicine unlinked from master catalog",
+    defaultChannels: ["inapp"],
+    audienceType: "shop_admins",
+    priority: "normal",
+    dedupEntity: "medicine",
   },
 
   // ─────────────────────────────────────────

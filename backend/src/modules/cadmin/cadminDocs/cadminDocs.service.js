@@ -30,17 +30,17 @@ export async function listShopsForVerification(query = {}) {
   }
 
   if (query.dateStart) {
-    const startDate = query.dateStart instanceof Date 
-      ? query.dateStart 
-      : new Date(query.dateStart);
+    const startDate =
+      query.dateStart instanceof Date
+        ? query.dateStart
+        : new Date(query.dateStart);
     if (!isNaN(startDate.getTime())) {
       where.created_at = { gte: startDate };
     }
   }
   if (query.dateEnd) {
-    const endDate = query.dateEnd instanceof Date 
-      ? query.dateEnd 
-      : new Date(query.dateEnd);
+    const endDate =
+      query.dateEnd instanceof Date ? query.dateEnd : new Date(query.dateEnd);
     if (!isNaN(endDate.getTime())) {
       endDate.setHours(23, 59, 59, 999);
       where.created_at = { ...where.created_at, lte: endDate };
@@ -107,7 +107,10 @@ export async function listShopsForVerification(query = {}) {
     verified: 3,
   };
 
-  const useDefaultSort = !query.sort_by || query.sort_by === "default" || query.sort_by === "created_at";
+  const useDefaultSort =
+    !query.sort_by ||
+    query.sort_by === "default" ||
+    query.sort_by === "created_at";
 
   if (useDefaultSort) {
     data.sort((a, b) => {
@@ -279,11 +282,11 @@ export async function getShopVerificationDetail(shop_id) {
 // ═══════════════════════════════════════════════════════════════
 // VERIFY FILE
 // ═══════════════════════════════════════════════════════════════
-export async function verifyFile({ 
-  file_id, 
-  cadmin_id, 
+export async function verifyFile({
+  file_id,
+  cadmin_id,
   skipShopUpdate = false,
-  auditContext = {}
+  auditContext = {},
 }) {
   const file = await prisma.shopFile.findUnique({
     where: { file_id },
@@ -322,20 +325,23 @@ export async function verifyFile({
       },
     });
 
-    // ✅ AUDIT LOG: File verified
-    await audit.log({
-      action: audit.AuditAction.SHOP_VERIFICATION_FILE_VERIFIED,
-      entity_type: audit.EntityType.DOCUMENT,
-      entity_id: file_id,
-      shop_id: file.shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        file_type: file.file_type,
-        original_name: file.original_name,
-        verified_by_cadmin_id: cadmin_id,
+    //  AUDIT LOG: File verified
+    await audit.log(
+      {
+        action: audit.AuditAction.SHOP_VERIFICATION_FILE_VERIFIED,
+        entity_type: audit.EntityType.DOCUMENT,
+        entity_id: file_id,
+        shop_id: file.shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          file_type: file.file_type,
+          original_name: file.original_name,
+          verified_by_cadmin_id: cadmin_id,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return updated;
   });
@@ -346,7 +352,7 @@ export async function verifyFile({
     if (newShopStatus === "verified") {
       await updateOwnerStatusToVerified(file.shop_id);
 
-      // ✅ AUDIT LOG: Shop verification completed
+      //  AUDIT LOG: Shop verification completed
       await audit.log({
         action: audit.AuditAction.SHOP_VERIFICATION_COMPLETED,
         entity_type: audit.EntityType.SHOP,
@@ -385,12 +391,12 @@ export async function verifyFile({
 // ═══════════════════════════════════════════════════════════════
 // REJECT FILE
 // ═══════════════════════════════════════════════════════════════
-export async function rejectFile({ 
-  file_id, 
-  cadmin_id, 
-  reason, 
+export async function rejectFile({
+  file_id,
+  cadmin_id,
+  reason,
   skipShopUpdate = false,
-  auditContext = {}
+  auditContext = {},
 }) {
   const file = await prisma.shopFile.findUnique({
     where: { file_id },
@@ -430,21 +436,24 @@ export async function rejectFile({
       },
     });
 
-    // ✅ AUDIT LOG: File rejected
-    await audit.log({
-      action: audit.AuditAction.SHOP_VERIFICATION_FILE_REJECTED,
-      entity_type: audit.EntityType.DOCUMENT,
-      entity_id: file_id,
-      shop_id: file.shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        file_type: file.file_type,
-        original_name: file.original_name,
-        reason: reason.trim(),
-        rejected_by_cadmin_id: cadmin_id,
+    //  AUDIT LOG: File rejected
+    await audit.log(
+      {
+        action: audit.AuditAction.SHOP_VERIFICATION_FILE_REJECTED,
+        entity_type: audit.EntityType.DOCUMENT,
+        entity_id: file_id,
+        shop_id: file.shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          file_type: file.file_type,
+          original_name: file.original_name,
+          reason: reason.trim(),
+          rejected_by_cadmin_id: cadmin_id,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return updated;
   });
@@ -452,13 +461,17 @@ export async function rejectFile({
   if (!skipShopUpdate) {
     const newShopStatus = await updateShopVerificationStatus(file.shop_id);
 
-    if (newShopStatus === "rejected" || newShopStatus === "partially_rejected") {
+    if (
+      newShopStatus === "rejected" ||
+      newShopStatus === "partially_rejected"
+    ) {
       await updateOwnerStatusAfterRejection(file.shop_id, newShopStatus);
 
-      // ✅ AUDIT LOG: Shop verification rejected/partially rejected
-      const auditAction = newShopStatus === "rejected"
-        ? audit.AuditAction.SHOP_VERIFICATION_REJECTED
-        : audit.AuditAction.SHOP_VERIFICATION_PARTIALLY_REJECTED;
+      //  AUDIT LOG: Shop verification rejected/partially rejected
+      const auditAction =
+        newShopStatus === "rejected"
+          ? audit.AuditAction.SHOP_VERIFICATION_REJECTED
+          : audit.AuditAction.SHOP_VERIFICATION_PARTIALLY_REJECTED;
 
       const summary = await getFileSummary(file.shop_id);
 
@@ -510,11 +523,11 @@ export async function rejectFile({
 // ═══════════════════════════════════════════════════════════════
 // BATCH VERIFY/REJECT FILES
 // ═══════════════════════════════════════════════════════════════
-export async function batchUpdateFiles({ 
-  cadmin_id, 
-  verifyIds = [], 
+export async function batchUpdateFiles({
+  cadmin_id,
+  verifyIds = [],
   rejectItems = [],
-  auditContext = {}
+  auditContext = {},
 }) {
   if (verifyIds.length === 0 && rejectItems.length === 0) {
     return { updated: 0 };
@@ -542,20 +555,23 @@ export async function batchUpdateFiles({
 
       results.verified = verifyIds;
 
-      // ✅ AUDIT LOG: Batch verified
-      await audit.log({
-        action: audit.AuditAction.SHOP_VERIFICATION_FILE_BATCH_VERIFIED,
-        entity_type: audit.EntityType.DOCUMENT,
-        entity_id: null,
-        shop_id,
-        ...auditContext,
-        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-        metadata: {
-          file_ids: verifyIds,
-          count: verifyIds.length,
-          verified_by_cadmin_id: cadmin_id,
+      //  AUDIT LOG: Batch verified
+      await audit.log(
+        {
+          action: audit.AuditAction.SHOP_VERIFICATION_FILE_BATCH_VERIFIED,
+          entity_type: audit.EntityType.DOCUMENT,
+          entity_id: null,
+          shop_id,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+          metadata: {
+            file_ids: verifyIds,
+            count: verifyIds.length,
+            verified_by_cadmin_id: cadmin_id,
+          },
         },
-      }, { tx });
+        { tx },
+      );
     }
 
     for (const item of rejectItems) {
@@ -563,7 +579,7 @@ export async function batchUpdateFiles({
         where: { file_id: item.file_id },
         select: { shop_id: true },
       });
-      
+
       if (!shop_id) shop_id = file?.shop_id;
 
       await tx.shopFile.update({
@@ -579,21 +595,24 @@ export async function batchUpdateFiles({
     }
 
     if (rejectItems.length > 0) {
-      // ✅ AUDIT LOG: Batch rejected
-      await audit.log({
-        action: audit.AuditAction.SHOP_VERIFICATION_FILE_BATCH_REJECTED,
-        entity_type: audit.EntityType.DOCUMENT,
-        entity_id: null,
-        shop_id,
-        ...auditContext,
-        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-        metadata: {
-          file_ids: rejectItems.map(r => r.file_id),
-          count: rejectItems.length,
-          reason: rejectItems.map(r => r.reason).join("; "),
-          rejected_by_cadmin_id: cadmin_id,
+      //  AUDIT LOG: Batch rejected
+      await audit.log(
+        {
+          action: audit.AuditAction.SHOP_VERIFICATION_FILE_BATCH_REJECTED,
+          entity_type: audit.EntityType.DOCUMENT,
+          entity_id: null,
+          shop_id,
+          ...auditContext,
+          reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+          metadata: {
+            file_ids: rejectItems.map((r) => r.file_id),
+            count: rejectItems.length,
+            reason: rejectItems.map((r) => r.reason).join("; "),
+            rejected_by_cadmin_id: cadmin_id,
+          },
         },
-      }, { tx });
+        { tx },
+      );
     }
 
     // Legacy verification logs
@@ -644,13 +663,16 @@ export async function batchUpdateFiles({
         type: NOTIFICATION_EVENTS.SHOP_VERIFIED,
         context: { shop_id },
       });
-
-    } else if (newShopStatus === "rejected" || newShopStatus === "partially_rejected") {
+    } else if (
+      newShopStatus === "rejected" ||
+      newShopStatus === "partially_rejected"
+    ) {
       await updateOwnerStatusAfterRejection(shop_id, newShopStatus);
 
-      const auditAction = newShopStatus === "rejected"
-        ? audit.AuditAction.SHOP_VERIFICATION_REJECTED
-        : audit.AuditAction.SHOP_VERIFICATION_PARTIALLY_REJECTED;
+      const auditAction =
+        newShopStatus === "rejected"
+          ? audit.AuditAction.SHOP_VERIFICATION_REJECTED
+          : audit.AuditAction.SHOP_VERIFICATION_PARTIALLY_REJECTED;
 
       const summary = await getFileSummary(shop_id);
 
@@ -662,7 +684,7 @@ export async function batchUpdateFiles({
         ...auditContext,
         reason_code: audit.AuditReasonCode.ADMIN_ACTION,
         metadata: {
-          reason: rejectItems.map(r => r.reason).join("; "),
+          reason: rejectItems.map((r) => r.reason).join("; "),
           rejected_by_cadmin_id: cadmin_id,
           rejected_files: results.rejected,
           all_files_rejected: newShopStatus === "rejected",
@@ -671,7 +693,7 @@ export async function batchUpdateFiles({
         },
       });
 
-      const rejectionReasons = rejectItems.map(r => r.reason).join("; ");
+      const rejectionReasons = rejectItems.map((r) => r.reason).join("; ");
       notifyAsync({
         type: NOTIFICATION_EVENTS.DOCUMENT_REJECTED,
         context: {
@@ -714,7 +736,7 @@ async function getFileSummary(shop_id) {
       if (f.status === "uploaded") acc.pending++;
       return acc;
     },
-    { approved: 0, rejected: 0, pending: 0 }
+    { approved: 0, rejected: 0, pending: 0 },
   );
 }
 
@@ -780,9 +802,9 @@ async function updateOwnerStatusToVerified(shop_id) {
       data: updateData,
     });
 
-    console.log("✅ User status updated to verified:", shop.owner_user_id);
+    console.log(" User status updated to verified:", shop.owner_user_id);
   } catch (err) {
-    console.error("❌ Failed to update owner status:", err);
+    console.error(" Failed to update owner status:", err);
   }
 }
 
@@ -803,9 +825,12 @@ async function updateOwnerStatusAfterRejection(shop_id) {
       },
     });
 
-    console.log("✅ Updated user status to pending_verification:", shop.owner_user_id);
+    console.log(
+      " Updated user status to pending_verification:",
+      shop.owner_user_id,
+    );
   } catch (err) {
-    console.error("❌ Failed to update owner status after rejection:", err);
+    console.error(" Failed to update owner status after rejection:", err);
   }
 }
 

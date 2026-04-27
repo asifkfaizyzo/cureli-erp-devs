@@ -1,4 +1,4 @@
-// cureli-admin/src/pages/Tickets/components/TicketsTable.jsx
+// cureli-admin/src/pages/Communications/pages/Tickets/components/TicketsTable.jsx
 
 import { useEffect, useState, useCallback } from "react";
 import {
@@ -10,9 +10,12 @@ import {
   Ticket,
 } from "lucide-react";
 import { format } from "date-fns";
-import { TABLE_CONFIG, getClickableRowClass } from "../../../../../config/tableConfig"; 
-import TableSkeleton from "../../../../../components/common/TableSkeleton"; 
-import TableEmptyState from "../../../../../components/common/TableEmptyState"; 
+import {
+  TABLE_CONFIG,
+  getClickableRowClass,
+} from "../../../../../config/tableConfig";
+import TableSkeleton from "../../../../../components/common/TableSkeleton";
+import TableEmptyState from "../../../../../components/common/TableEmptyState";
 import Pagination from "../../../../../components/common/Pagination";
 import {
   getStatusConfig,
@@ -20,19 +23,18 @@ import {
   getPriorityConfig,
 } from "../../../../../config/ticketConfigs";
 
-// ✅ Define COLUMNS configuration - REMOVED actions column
 const COLUMNS = {
-  slNo: { key: 'slNo', label: '#', width: 50, sortable: false, align: 'left' },
-  ticket: { key: 'ticket_number', label: 'Ticket', width: 130, sortable: true, align: 'left' },
-  shop: { key: 'shop', label: 'Shop', width: 150, sortable: false, align: 'left' },
-  subject: { key: 'subject', label: 'Subject', width: 200, sortable: false, align: 'left' },
-  category: { key: 'category', label: 'Category', width: 100, sortable: false, align: 'center' },
-  priority: { key: 'priority', label: 'Priority', width: 130, sortable: true, align: 'left' },
-  status: { key: 'status', label: 'Status', width: 110, sortable: true, align: 'center' },
-  createdAt: { key: 'created_at', label: 'Created', width: 120, sortable: true, align: 'left' },
+  slNo:      { key: "slNo",          label: "#",        width: 50,  sortable: false, align: "left" },
+  ticket:    { key: "ticket_number", label: "Ticket",   width: 130, sortable: true,  align: "left" },
+  shop:      { key: "shop",          label: "Shop",     width: 150, sortable: false, align: "left" },
+  subject:   { key: "subject",       label: "Subject",  width: 200, sortable: false, align: "left" },
+  category:  { key: "category",      label: "Category", width: 100, sortable: false, align: "center" },
+  priority:  { key: "priority",      label: "Priority", width: 130, sortable: true,  align: "left" },
+  status:    { key: "status",        label: "Status",   width: 110, sortable: true,  align: "center" },
+  createdAt: { key: "created_at",    label: "Created",  width: 120, sortable: true,  align: "left" },
 };
 
-// Status Badge Component
+// Status Badge
 const StatusBadge = ({ status }) => {
   const config = getStatusConfig(status);
   return (
@@ -46,7 +48,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// Category Badge Component
+// Category Badge
 const CategoryBadge = ({ category }) => {
   const config = getCategoryConfig(category);
   return (
@@ -59,7 +61,7 @@ const CategoryBadge = ({ category }) => {
   );
 };
 
-// Priority with Reopen indicator
+// Priority Cell
 const PriorityCell = ({ priority, reopenCount = 0 }) => {
   const config = getPriorityConfig(priority);
   const hasReopens = reopenCount > 0;
@@ -83,8 +85,8 @@ const PriorityCell = ({ priority, reopenCount = 0 }) => {
                         isCritical
                           ? "bg-red-100 text-red-700"
                           : isHigh
-                          ? "bg-orange-100 text-orange-700"
-                          : "bg-amber-100 text-amber-700"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-amber-100 text-amber-700"
                       }`}
           title={`Reopened ${reopenCount}x`}
         >
@@ -107,10 +109,11 @@ const TicketsTable = ({
   onSortChange,
   onViewTicket,
   hasActiveFilters = false,
+  // Permission flag passed from parent
+  canViewDetail = true,
 }) => {
   const { styles, heights } = TABLE_CONFIG;
 
-  // Column widths for resizing
   const [columnWidths, setColumnWidths] = useState(() => {
     const widths = {};
     Object.entries(COLUMNS).forEach(([key, col]) => {
@@ -139,7 +142,7 @@ const TicketsTable = ({
       const newWidth = Math.max(50, resizing.startWidth + diff);
       setColumnWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
     },
-    [resizing]
+    [resizing],
   );
 
   const handleMouseUp = useCallback(() => setResizing(null), []);
@@ -163,28 +166,25 @@ const TicketsTable = ({
     }
   };
 
-  // ============================================
-  // ROW CLICK HANDLER (Opens View Modal)
-  // ============================================
   const handleRowClick = (ticket) => {
+    // Only trigger if admin has canViewDetail — parent handler also guards this,
+    // but the cursor style below gives the user a visual cue before clicking.
+    if (!canViewDetail) return;
     onViewTicket(ticket);
   };
 
-  // ✅ Sortable Header Component
   const SortableHeader = ({ column }) => {
     const config = COLUMNS[column];
-    
     const columnToBackendMap = {
-      'ticket': 'ticket_number',
-      'createdAt': 'created_at',
-      'priority': 'reopen_count',
-      'status': 'status',
+      ticket:    "ticket_number",
+      createdAt: "created_at",
+      priority:  "reopen_count",
+      status:    "status",
     };
-    
     const backendColumn = columnToBackendMap[column] || column;
     const isActive = sortConfig?.sortBy === backendColumn;
-    const isAsc = isActive && sortConfig?.order === "asc";
-    const isDesc = isActive && sortConfig?.order === "desc";
+    const isAsc    = isActive && sortConfig?.order === "asc";
+    const isDesc   = isActive && sortConfig?.order === "desc";
 
     return (
       <th
@@ -200,7 +200,11 @@ const TicketsTable = ({
             <div className="flex flex-col gap-0.5">
               <ChevronUp
                 size={12}
-                className={isAsc ? styles.header.sortIcon.active : styles.header.sortIcon.inactive}
+                className={
+                  isAsc
+                    ? styles.header.sortIcon.active
+                    : styles.header.sortIcon.inactive
+                }
               />
               <ChevronDown
                 size={12}
@@ -217,21 +221,16 @@ const TicketsTable = ({
     );
   };
 
-  // ✅ Non-sortable Header Component
   const TableHeader = ({ column }) => {
     const config = COLUMNS[column];
-
-    if (config.sortable) {
-      return <SortableHeader column={column} />;
-    }
-
+    if (config.sortable) return <SortableHeader column={column} />;
     return (
       <th
         style={{ width: columnWidths[column], height: `${heights.headerRow}px` }}
-        className={`relative group ${config.align === 'center' ? 'text-center' : ''}`}
+        className={`relative group ${config.align === "center" ? "text-center" : ""}`}
       >
         <div className={styles.header.cell}>{config.label}</div>
-        {column !== 'slNo' && (
+        {column !== "slNo" && (
           <div
             onMouseDown={(e) => handleMouseDown(column, e)}
             className={styles.header.resizeHandle}
@@ -242,20 +241,19 @@ const TicketsTable = ({
   };
 
   const startIndex = (currentPage - 1) * rowsPerPage;
-
-  // ✅ Conditional rendering logic
-  const hasData = tickets.length > 0;
-  const showTable = loading || hasData;
+  const hasData        = tickets.length > 0;
+  const showTable      = loading || hasData;
   const showEmptyState = !loading && !hasData;
   const showPagination = !loading && hasData;
 
   return (
     <div className={styles.container.wrapper}>
-      {/* ✅ Table - Show when loading OR has data */}
       {showTable && (
         <div className="flex-1 min-h-0 overflow-auto">
-          <table className="w-full border-collapse text-sm" style={{ minWidth: "900px" }}>
-            {/* Table Header - NO ACTIONS COLUMN */}
+          <table
+            className="w-full border-collapse text-sm"
+            style={{ minWidth: "900px" }}
+          >
             <thead className="sticky top-0 z-10">
               <tr className={styles.header.row}>
                 <TableHeader column="slNo" />
@@ -269,7 +267,6 @@ const TicketsTable = ({
               </tr>
             </thead>
 
-            {/* Table Body */}
             <tbody>
               {loading ? (
                 <TableSkeleton columns={8} rows={rowsPerPage} />
@@ -277,19 +274,32 @@ const TicketsTable = ({
                 tickets.map((ticket, index) => (
                   <tr
                     key={ticket.ticket_id}
-                    onClick={() => handleRowClick(ticket)} // 👈 Row click opens view
+                    onClick={() => handleRowClick(ticket)}
                     style={{ height: `${heights.bodyRow}px` }}
-                    className={getClickableRowClass(index, false)} // ✅ Changed to clickable
+                    className={
+                      canViewDetail
+                        ? getClickableRowClass(index, false)
+                        : // Non-clickable: same row styling but no pointer cursor
+                          getClickableRowClass(index, false).replace(
+                            "cursor-pointer",
+                            "cursor-default",
+                          )
+                    }
                   >
                     {/* Serial Number */}
-                    <td className={`${styles.cell.base} ${styles.cell.muted} font-medium`}>
+                    <td
+                      className={`${styles.cell.base} ${styles.cell.muted} font-medium`}
+                    >
                       {startIndex + index + 1}
                     </td>
 
                     {/* Ticket Number */}
                     <td className={styles.cell.base}>
                       <div className="flex items-center gap-1.5">
-                        <FileText size={14} className="text-gray-400 flex-shrink-0" />
+                        <FileText
+                          size={14}
+                          className="text-gray-400 flex-shrink-0"
+                        />
                         <span className="font-semibold text-[#05015A] truncate max-w-[100px]">
                           {ticket.ticket_number}
                         </span>
@@ -337,7 +347,10 @@ const TicketsTable = ({
                     {/* Created Date */}
                     <td className={styles.cell.base}>
                       <div className="flex items-center gap-1.5">
-                        <Calendar size={12} className="text-gray-400 flex-shrink-0" />
+                        <Calendar
+                          size={12}
+                          className="text-gray-400 flex-shrink-0"
+                        />
                         <span className={`text-xs ${styles.cell.secondary}`}>
                           {formatDateTime(ticket.created_at)}
                         </span>
@@ -351,7 +364,6 @@ const TicketsTable = ({
         </div>
       )}
 
-      {/* ✅ Empty State */}
       {showEmptyState && (
         <TableEmptyState
           icon={Ticket}
@@ -364,7 +376,6 @@ const TicketsTable = ({
         />
       )}
 
-      {/* ✅ Pagination - only when has data */}
       {showPagination && (
         <Pagination
           currentPage={currentPage}
@@ -378,4 +389,3 @@ const TicketsTable = ({
 };
 
 export default TicketsTable;
-

@@ -2,12 +2,21 @@
 
 import { useNavigate } from "react-router-dom";
 import {
-  Store, Users, CreditCard, Ticket, Mail, ShieldCheck,
-  AlertTriangle, Ban, BadgeIndianRupee, Clock, Building2,
+  Store,
+  Users,
+  CreditCard,
+  Ticket,
+  Mail,
+  ShieldCheck,
+  AlertTriangle,
+  Ban,
+  BadgeIndianRupee,
+  Clock,
+  Building2,
 } from "lucide-react";
 import KPICard from "./KPICard";
 
-// ✅ Currency formatter helper
+//  Currency formatter helper
 const formatCurrency = (value) => {
   const num = parseFloat(value) || 0;
   if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
@@ -122,7 +131,7 @@ const KPICardsGrid = ({ data, period, role, loading }) => {
       });
     }
     if (data.revenue) {
-      // ✅ FIXED: Amount is already in rupees, NO division needed
+      //  FIXED: Amount is already in rupees, NO division needed
       kpis.push({
         id: "revenue",
         title: "Revenue",
@@ -194,14 +203,15 @@ const KPICardsGrid = ({ data, period, role, loading }) => {
 
   const filtered = kpis.filter((k) => k.roles.includes(role));
   const count = filtered.length;
-  
-  const gridClass = count <= 3 
-    ? "grid-cols-1 sm:grid-cols-3" 
-    : count <= 4 
-    ? "grid-cols-2 sm:grid-cols-4"
-    : count <= 6
-    ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
-    : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-6";
+
+  const gridClass =
+    count <= 3
+      ? "grid-cols-1 sm:grid-cols-3"
+      : count <= 4
+        ? "grid-cols-2 sm:grid-cols-4"
+        : count <= 6
+          ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
+          : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-6";
 
   return (
     <div className={`grid ${gridClass} gap-2.5`}>
