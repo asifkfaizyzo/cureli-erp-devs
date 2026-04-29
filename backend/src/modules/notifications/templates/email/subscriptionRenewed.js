@@ -23,18 +23,7 @@ export function subscriptionRenewedTemplate(context) {
     amount_paid,
   } = context;
 
-  const shopName = shop_name || business_name || "your shop";
-
-  const endDateFormatted = new_end_date
-    ? new Date(new_end_date).toLocaleDateString("en-IN", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "N/A";
-
-  // Subject: no emoji
-  const subject = `Subscription Renewed Successfully - ${EMAIL_CONFIG.COMPANY.NAME}`;
+  const subject = ` Subscription Renewed Successfully - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
   const html = `
     <!DOCTYPE html>
@@ -47,14 +36,9 @@ export function subscriptionRenewedTemplate(context) {
 
     <!-- Header: CELEBRATE icon replaces 🎉 -->
     <div class="header-success" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT} 0%,${EMAIL_CONFIG.COLORS.SUCCESS} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo("WHITE", "header")}
-      <h1 style="margin:0;font-size:24px;font-weight:600;color:#ffffff;">
-        ${ICONS.CELEBRATE}
-        <span style="vertical-align:middle;">Renewal Successful!</span>
-      </h1>
-      <p style="margin:8px 0 0;opacity:0.95;font-size:14px;color:#d1fae5;">
-        Your subscription has been renewed
-      </p>
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:24px;font-weight:600;color:#ffffff;"> Renewal Successful!</h1>
+      <p style="margin:8px 0 0;opacity:0.95;font-size:14px;color:#d1fae5;">Your subscription has been renewed</p>
     </div>
 
     <!-- Content -->
@@ -67,8 +51,7 @@ export function subscriptionRenewedTemplate(context) {
       <!-- Success Banner: CHECK icon replaces  -->
       <div class="success-banner" style="background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);border:2px solid ${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};padding:20px;border-radius:10px;margin:20px 0;text-align:center;">
         <p class="success-text" style="margin:0;font-size:18px;font-weight:700;color:#065f46;background:transparent;">
-          ${ICONS.CHECK}
-          <span style="vertical-align:middle;">Subscription Renewed Successfully!</span>
+           Subscription Renewed Successfully!
         </p>
       </div>
 
@@ -105,17 +88,12 @@ export function subscriptionRenewedTemplate(context) {
       </div>
 
       <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:20px 0;background-color:#ffffff;">
-        Great news! Your <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> subscription for
-        <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${shopName}</strong>
-        has been renewed successfully. You'll continue to have uninterrupted access to all features.
+        Great news! Your <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> subscription for <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${shopName}</strong> has been renewed successfully. You'll continue to have uninterrupted access to all features. 
       </p>
 
       <!-- Benefits Box: SPARKLE icon replaces ✨ -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;">
-          ${ICONS.SPARKLE}
-          <span style="vertical-align:middle;">Continue Enjoying:</span>
-        </p>
+        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> Continue Enjoying:</p>
         <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
           <li class="info-text" style="color:#0c4a6e;">Full access to all ${EMAIL_CONFIG.COMPANY.NAME} features</li>
           <li class="info-text" style="color:#0c4a6e;">Uninterrupted service and support</li>
@@ -124,19 +102,13 @@ export function subscriptionRenewedTemplate(context) {
         </ul>
       </div>
 
-      <!-- CTA Button: CLIPBOARD icon replaces 🏠 -->
-      ${renderButton({
-        href: `${EMAIL_CONFIG.FRONTEND_URL}/dashboard`,
-        text: "Continue to Dashboard",
-        icon: "CLIPBOARD",
-        color: "success",
-      })}
+      <!-- CTA Button -->
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/dashboard`, text: 'Continue to Dashboard', color: 'success' })}
 
       <!-- Thank You: THANKYOU icon replaces 🙏 -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;text-align:center;background-color:#fef9e7;">
-          ${ICONS.THANKYOU}
-          <strong style="vertical-align:middle;">Thank you for your continued trust in ${EMAIL_CONFIG.COMPANY.NAME}!</strong>
+           <strong>Thank you for your continued trust in ${EMAIL_CONFIG.COMPANY.NAME}!</strong>
         </p>
       </div>
 

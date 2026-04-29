@@ -31,13 +31,8 @@ export function enquiryRepliedTemplate(context) {
     <!-- Header: CHAT icon replaces 💬 -->
     <div class="header-primary" style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${ICONS.CHAT}
-        <span style="vertical-align:middle;">Response to Your Enquiry</span>
-      </h1>
-      <p style="margin:10px 0 0;opacity:0.9;font-size:14px;color:#e0e0e0;">
-        Reference: <strong>${enquiry_number}</strong>
-      </p>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Response to Your Enquiry</h1>
+      <p style="margin:10px 0 0;opacity:0.9;font-size:14px;color:#e0e0e0;">Reference: <strong>${enquiry_number}</strong></p>
     </div>
 
     <!-- Content -->
@@ -75,10 +70,7 @@ export function enquiryRepliedTemplate(context) {
 
       <!-- Reply Message: INBOX icon replaces 📩 -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid #05015A;padding:18px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p class="info-text" style="margin:0 0 10px;font-weight:600;color:#05015A;font-size:13px;background-color:#e0f2fe;">
-          ${ICONS.INBOX}
-          <span style="vertical-align:middle;">Our Response:</span>
-        </p>
+        <p class="info-text" style="margin:0 0 10px;font-weight:600;color:#05015A;font-size:13px;background-color:#e0f2fe;"> Our Response:</p>
         <p class="info-text" style="margin:0;color:#374151;line-height:1.7;font-size:14px;background-color:#e0f2fe;">
           ${formattedMessage}
         </p>
@@ -87,11 +79,7 @@ export function enquiryRepliedTemplate(context) {
       <!-- Follow-up Info: LIGHTBULB_AMBER icon replaces 💡 -->
       <div class="warning-box" style="background-color:#fefce8;border-left:4px solid #eab308;padding:12px 16px;margin:20px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#854d0e;font-size:13px;background-color:#fefce8;">
-          ${ICONS.LIGHTBULB_AMBER}
-          <strong style="vertical-align:middle;">Need more help?</strong>
-          <span style="vertical-align:middle;">
-            Reply to this email with your reference number.
-          </span>
+           <strong>Need more help?</strong> Reply to this email with your reference number.
         </p>
       </div>
 

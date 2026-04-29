@@ -54,13 +54,8 @@ export function cadminPasswordResetTemplate(context) {
         below to set a new password.
       </p>
 
-      <!-- CTA Button: KEY icon replaces 🔑 -->
-      ${renderButton({ 
-        href: resetUrl, 
-        text: 'Reset Password', 
-        icon: 'KEY', 
-        color: 'primary' 
-      })}
+      <!-- CTA Button -->
+      ${renderButton({ href: resetUrl, text: 'Reset Password', color: 'primary' })}
 
       <!-- Alternative Link -->
       <div class="card-bg" style="background-color:#f9fafb;padding:14px;border-radius:8px;margin:20px 0;">
@@ -76,10 +71,7 @@ export function cadminPasswordResetTemplate(context) {
       <!-- Warning: CLOCK icon replaces ⏰ -->
       <div class="warning-box" style="background-color:#fef3c7;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef3c7;">
-          ${ICONS.CLOCK}
-          <span style="vertical-align:middle;">
-            This link expires in <strong>15 minutes</strong>
-          </span>
+           This link expires in <strong>15 minutes</strong>
         </p>
       </div>
 

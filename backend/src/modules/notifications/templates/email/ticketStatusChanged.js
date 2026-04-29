@@ -60,13 +60,8 @@ export function ticketStatusChangedTemplate(context) {
   const adminNoteHtml = admin_note
     ? `
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:16px 20px;border-radius:0 10px 10px 0;margin:24px 0;">
-        <p class="info-text" style="margin:0 0 8px;font-weight:600;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;background-color:#e0f2fe;">
-          ${ICONS.NOTE_DARK}
-          <span style="vertical-align:middle;">Note from ${EMAIL_CONFIG.COMPANY.NAME} Support:</span>
-        </p>
-        <p class="info-text" style="margin:0;color:#374151;white-space:pre-wrap;line-height:1.6;font-size:14px;background-color:#e0f2fe;">
-          ${admin_note}
-        </p>
+        <p class="info-text" style="margin:0 0 8px;font-weight:600;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;background-color:#e0f2fe;"> Note from ${EMAIL_CONFIG.COMPANY.NAME} Support:</p>
+        <p class="info-text" style="margin:0;color:#374151;white-space:pre-wrap;line-height:1.6;font-size:14px;background-color:#e0f2fe;">${admin_note}</p>
       </div>
     `
     : '';
@@ -108,13 +103,8 @@ export function ticketStatusChangedTemplate(context) {
     <!-- Header: UPDATE icon replaces 🔄 -->
     <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${ICONS.UPDATE}
-        <span style="vertical-align:middle;">Ticket Update</span>
-      </h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">
-        Your support ticket has been updated
-      </p>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Ticket Update</h1>
+      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">Your support ticket has been updated</p>
     </div>
 
     <!-- Content -->
@@ -156,13 +146,8 @@ export function ticketStatusChangedTemplate(context) {
       ${adminNoteHtml}
       ${reopenHintHtml}
 
-      <!-- CTA Button: TICKET_SMALL icon replaces 📋 -->
-      ${renderButton({
-        href: `${EMAIL_CONFIG.FRONTEND_URL}/tickets`,
-        text: 'View Ticket Details',
-        icon: 'TICKET_SMALL',
-        color: 'primary',
-      })}
+      <!-- CTA Button -->
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/tickets`, text: 'View Ticket Details' })}
 
       <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
         Questions? Contact ${getSupportLink()}

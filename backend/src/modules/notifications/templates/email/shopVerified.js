@@ -30,14 +30,9 @@ export function shopVerifiedTemplate(context) {
 
     <!-- Header: CELEBRATE icon replaces 🎉 -->
     <div class="header-success" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo("WHITE", "header")}
-      <h1 style="margin:0;font-size:24px;font-weight:600;color:#ffffff;">
-        ${ICONS.CELEBRATE}
-        <span style="vertical-align:middle;">Verification Complete!</span>
-      </h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:14px;color:#e0e0e0;">
-        Your shop is now verified
-      </p>
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:24px;font-weight:600;color:#ffffff;"> Verification Complete!</h1>
+      <p style="margin:8px 0 0;opacity:0.9;font-size:14px;color:#e0e0e0;">Your shop is now verified</p>
     </div>
 
     <!-- Content -->
@@ -55,17 +50,13 @@ export function shopVerifiedTemplate(context) {
       <!-- Success Box: CHECK icon replaces  -->
       <div class="success-box" style="background-color:#d1fae5;border-left:4px solid ${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};padding:20px;margin:24px 0;border-radius:0 10px 10px 0;text-align:center;">
         <p class="success-text" style="margin:0;color:#065f46;font-weight:700;font-size:16px;background-color:#d1fae5;">
-          ${ICONS.CHECK}
-          <span style="vertical-align:middle;">Your shop is now fully operational!</span>
+          Your shop is now fully operational!
         </p>
       </div>
 
       <!-- Features Box: ROCKET_BLUE icon replaces 🚀 -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p class="info-text" style="margin:0 0 10px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:14px;font-weight:600;background-color:#e0f2fe;">
-          ${ICONS.ROCKET_BLUE}
-          <span style="vertical-align:middle;">What's Next?</span>
-        </p>
+        <p class="info-text" style="margin:0 0 10px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:14px;font-weight:600;background-color:#e0f2fe;"> What's Next?</p>
         <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;">
           <li class="info-text" style="color:#0c4a6e;">Access all ${EMAIL_CONFIG.COMPANY.NAME} features</li>
           <li class="info-text" style="color:#0c4a6e;">Set up your inventory and products</li>
@@ -79,21 +70,12 @@ export function shopVerifiedTemplate(context) {
       </p>
 
       <!-- CTA Button -->
-      ${renderButton({
-        href: `${EMAIL_CONFIG.FRONTEND_URL}/dashboard`,
-        text: "Go to Dashboard",
-        icon: "CLIPBOARD",
-        color: "primary",
-      })}
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/dashboard`, text: 'Go to Dashboard' })}
 
       <!-- Welcome Message: WAVE icon replaces 👋 -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;line-height:1.6;background-color:#fef9e7;">
-          ${ICONS.WAVE}
-          <strong style="vertical-align:middle;">Welcome to ${EMAIL_CONFIG.COMPANY.NAME}!</strong>
-          <span style="vertical-align:middle;">
-            Need help getting started? Check out our documentation or contact support anytime.
-          </span>
+           <strong>Welcome to ${EMAIL_CONFIG.COMPANY.NAME}!</strong> Need help getting started? Check out our documentation or contact support anytime.
         </p>
       </div>
 

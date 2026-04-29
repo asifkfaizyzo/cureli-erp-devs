@@ -40,8 +40,8 @@ export function subscriptionPaymentReminderTemplate(context) {
 
   // Subject: no emoji
   const subject = is_in_grace
-    ? "Action Required: Complete payment to avoid suspension"
-    : "Payment Reminder: Renew your subscription";
+    ? ` Action Required: Complete payment to avoid suspension`
+    : ` Payment Reminder: Renew your subscription`;
 
   const html = `
     <!DOCTYPE html>
@@ -54,14 +54,9 @@ export function subscriptionPaymentReminderTemplate(context) {
 
     <!-- Header: CREDIT_CARD icon replaces 💳 -->
     <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      ${renderLogo("WHITE", "header")}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${ICONS.CREDIT_CARD}
-        <span style="vertical-align:middle;">Payment Reminder</span>
-      </h1>
-      <p style="margin:8px 0 0;font-size:13px;opacity:0.9;color:#e0e0e0;">
-        ${statusText}
-      </p>
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Payment Reminder</h1>
+      <p style="margin:8px 0 0;font-size:13px;opacity:0.9;color:#e0e0e0;">${statusText}</p>
     </div>
 
     <!-- Content -->
@@ -136,13 +131,7 @@ export function subscriptionPaymentReminderTemplate(context) {
       <!-- Grace Period Warning: ALERT icon replaces 🚨 -->
       <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;background-color:#fef2f2;">
-          ${ICONS.ALERT}
-          <strong style="vertical-align:middle;">Critical:</strong>
-          <span style="vertical-align:middle;">
-            Your account is in grace period. If payment is not received before the deadline, your
-            subscription will be <strong>suspended</strong> and you will lose access to all
-            ${EMAIL_CONFIG.COMPANY.NAME} services.
-          </span>
+           <strong>Critical:</strong> Your account is in grace period. If payment is not received before the deadline, your subscription will be <strong>suspended</strong> and you will lose access to all ${EMAIL_CONFIG.COMPANY.NAME} services.
         </p>
       </div>
       `
@@ -152,12 +141,7 @@ export function subscriptionPaymentReminderTemplate(context) {
       <!-- Action Required: CHECK_CIRCLE icon replaces  -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
         <p class="info-text" style="margin:0;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;line-height:1.6;background-color:#e0f2fe;">
-          ${ICONS.CHECK_CIRCLE}
-          <strong style="vertical-align:middle;">Action Required:</strong>
-          <span style="vertical-align:middle;">
-            Complete your payment to ensure uninterrupted access to all
-            ${EMAIL_CONFIG.COMPANY.NAME} features and services.
-          </span>
+           <strong>Action Required:</strong> Complete your payment to ensure uninterrupted access to all ${EMAIL_CONFIG.COMPANY.NAME} features and services.
         </p>
       </div>
 
@@ -165,22 +149,13 @@ export function subscriptionPaymentReminderTemplate(context) {
         Please complete your payment at your earliest convenience.
       </p>
 
-      <!-- CTA Button: CREDIT_CARD icon replaces 💳 -->
-      ${renderButton({
-        href: `${EMAIL_CONFIG.FRONTEND_URL}/settings/upgrade`,
-        text: "Complete Payment",
-        icon: "CREDIT_CARD",
-        color: "primary",
-      })}
+      <!-- CTA Button -->
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/settings/upgrade`, text: 'Complete Payment'})}
 
       <!-- Help Section: LIGHTBULB_AMBER icon replaces 💡 -->
       <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef9e7;">
-          ${ICONS.LIGHTBULB_AMBER}
-          <strong style="vertical-align:middle;">Need Help?</strong>
-          <span style="vertical-align:middle;">
-            Our support team is ready to assist you with any payment questions.
-          </span>
+           <strong>Need Help?</strong> Our support team is ready to assist you with any payment questions.
         </p>
       </div>
 

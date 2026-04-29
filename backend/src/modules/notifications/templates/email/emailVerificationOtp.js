@@ -28,13 +28,8 @@ export function emailVerificationOtpTemplate(context) {
     <!-- Header: EMAIL icon replaces 📧 -->
     <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
       ${renderLogo('WHITE', 'header')}
-      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;">
-        ${ICONS.EMAIL}
-        <span style="vertical-align:middle;">Email Verification</span>
-      </h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">
-        Verify Your Account
-      </p>
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Email Verification</h1>
+      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">Verify Your Account</p>
     </div>
 
     <!-- Content -->
@@ -69,20 +64,14 @@ export function emailVerificationOtpTemplate(context) {
       <!-- Expiry Notice: CLOCK icon replaces ⏰ -->
       <div class="warning-box" style="background-color:#fef3c7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:14px 18px;margin:24px 0;border-radius:0 8px 8px 0;">
         <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;text-align:center;background-color:#fef3c7;">
-          ${ICONS.CLOCK}
-          <span style="vertical-align:middle;">
-            This code expires in <strong>${expires_in_minutes} minutes</strong>
-          </span>
+           This code expires in <strong>${expires_in_minutes} minutes</strong>
         </p>
       </div>
 
       <!-- Security Info: LOCK_BLUE icon replaces 🔒 -->
       <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:20px 0;border-radius:0 8px 8px 0;">
         <p class="info-text" style="margin:0;color:#0c4a6e;font-size:13px;background-color:#e0f2fe;">
-          ${ICONS.LOCK_BLUE}
-          <span style="vertical-align:middle;">
-            Keep this code secure and don't share it with anyone.
-          </span>
+           Keep this code secure and don't share it with anyone.
         </p>
       </div>
 
