@@ -129,23 +129,37 @@ export async function selectPlanController(req, res) {
       return success(
         res,
         {
-          is_free: true,
-          is_promo_applied: isPromoActive && !isPriceZero,
-          subscription: {
-            subscription_id: subscription.subscription_id,
-            status: subscription.status,
-            start_date: subscription.start_date,
-            end_date: subscription.end_date,
-            grace_period_until: subscription.grace_period_until,
+          is_free: false,
+          // Whether intro pricing was applied to this charge
+          is_intro_charge: orderData.is_intro_charge || false,
+          subscription_id: orderData.subscription.subscription_id,
+          razorpay: {
+            key: orderData.razorpay_key,
+            order_id: orderData.razorpay_order_id,
+            amount: orderData.amount, // paisa - what Razorpay charges
+            currency: orderData.currency,
+            name: "Cureli ERP",
+            description: orderData.is_intro_charge
+              ? `${plan.name} - Intro Period`
+              : `${plan.name} - Annual Subscription`,
+            prefill: {
+              name: orderData.user_name || "",
+              email: orderData.user_email || "",
+              contact: orderData.user_phone || "",
+            },
           },
           plan: {
             plan_id: plan.plan_id,
             name: plan.name,
-            promo_free_until: plan.promo_free_until,
+            price: Number(plan.price), // regular price (for display)
+            intro_price: plan.intro_price ? Number(plan.intro_price) : null,
+            intro_trigger_type: plan.intro_trigger_type || null,
+            intro_duration_years: plan.intro_duration_years || null,
+            intro_end_date: plan.intro_end_date || null,
+            is_intro_active: orderData.is_intro_charge || false,
           },
-          redirect: "dashboard",
         },
-        message,
+        "Payment order created",
       );
     }
 
@@ -333,6 +347,10 @@ export async function getMySubscription(req, res) {
                 billing_cycle_months: true,
                 bonus_months: true,
                 promo_free_until: true,
+                intro_price: true,
+                intro_trigger_type: true,
+                intro_duration_years: true,
+                intro_end_date: true,
               },
             },
           },
@@ -462,6 +480,7 @@ export async function changePlanController(req, res) {
         res,
         {
           requires_payment: true,
+          is_intro_charge: result.is_intro_charge || false,
           subscription_id: result.subscription_id,
           razorpay: result.razorpay,
           plan: result.plan,

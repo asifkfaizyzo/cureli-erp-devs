@@ -1,12 +1,12 @@
 // Subscription Plan Configuration
 // Defines statuses, themes, actions, and display settings
 
-import { 
-  FileEdit, 
-  CheckCircle2, 
-  Clock, 
+import {
+  FileEdit,
+  CheckCircle2,
+  Clock,
   XCircle,
-  LayoutGrid 
+  LayoutGrid,
 } from "lucide-react";
 
 // ============================================
@@ -88,39 +88,45 @@ export const CARD_THEMES = {
     accentColor: "text-amber-600",
     borderAccent: "border-amber-300",
   },
+  intro: {
+    gradient: "from-sky-50 to-indigo-100",
+    hoverGradient: "hover:from-sky-500 hover:to-indigo-500",
+    accentColor: "text-sky-600",
+    borderAccent: "border-sky-300",
+  },
 };
 
 // ============================================
 // FILTER OPTIONS
 // ============================================
 export const FILTER_OPTIONS = [
-  { 
-    key: "all", 
-    label: "All Plans", 
+  {
+    key: "all",
+    label: "All Plans",
     icon: LayoutGrid,
     activeColor: "bg-[#05015A]",
   },
-  { 
-    key: PLAN_STATUS.DRAFT, 
-    label: "Draft", 
+  {
+    key: PLAN_STATUS.DRAFT,
+    label: "Draft",
     icon: FileEdit,
     activeColor: "bg-amber-600",
   },
-  { 
-    key: PLAN_STATUS.ACTIVE, 
-    label: "Active", 
+  {
+    key: PLAN_STATUS.ACTIVE,
+    label: "Active",
     icon: CheckCircle2,
     activeColor: "bg-emerald-600",
   },
-  { 
-    key: PLAN_STATUS.DEPRECATED, 
-    label: "Deprecated", 
+  {
+    key: PLAN_STATUS.DEPRECATED,
+    label: "Deprecated",
     icon: Clock,
     activeColor: "bg-orange-600",
   },
-  { 
-    key: PLAN_STATUS.SUSPENDED, 
-    label: "Suspended", 
+  {
+    key: PLAN_STATUS.SUSPENDED,
+    label: "Suspended",
     icon: XCircle,
     activeColor: "bg-red-600",
   },
@@ -137,13 +143,59 @@ export const BILLING = {
 };
 
 // ============================================
+// INTRO PRICING CONSTANTS
+// ============================================
+export const INTRO_TRIGGER_TYPE = {
+  DURATION: "duration",
+  DATE: "date",
+};
+
+export const INTRO_TRIGGER_CONFIG = {
+  [INTRO_TRIGGER_TYPE.DURATION]: {
+    label: "After N Years",
+    description: "Intro price applies for the first N yearly renewals(5 Max)",
+    inputLabel: "Intro Duration (years)",
+    inputPlaceholder: "e.g., 2",
+  },
+  [INTRO_TRIGGER_TYPE.DATE]: {
+    label: "Until a Date",
+    description: "Intro price applies until a specific calendar date",
+    inputLabel: "Intro End Date",
+    inputPlaceholder: "Select date",
+  },
+};
+
+// ============================================
+// DURATION FORMATTING
+// ============================================
+
+/**
+ * Formats months into a human-readable duration (months/years).
+ *
+ * Examples:
+ *   3  → "3 months"
+ *   12 → "1 year"
+ *   24 → "2 years"
+ *   14 → "1 year 2 months"
+ */
+export const formatDuration = (months) => {
+  if (!months) return "";
+  if (months === 12) return "1 year";
+  if (months % 12 === 0) return `${months / 12} years`;
+  if (months > 12) {
+    const yrs = Math.floor(months / 12);
+    const mnts = months % 12;
+    return `${yrs} year${yrs > 1 ? "s" : ""} ${mnts} month${mnts > 1 ? "s" : ""}`;
+  }
+  return `${months} month${months > 1 ? "s" : ""}`;
+};
+
+// ============================================
 // PROMO HELPERS
 // ============================================
 
 /**
  * Check if promo_free_until is currently active
- * @param {Object} plan - Plan object
- * @returns {boolean}
  */
 export const isPromoActive = (plan) => {
   if (!plan?.promo_free_until) return false;
@@ -152,23 +204,18 @@ export const isPromoActive = (plan) => {
 
 /**
  * Check if plan has any active promotional features
- * @param {Object} plan - Plan object
- * @returns {boolean}
  */
 export const hasActivePromo = (plan) => {
   if (!plan) return false;
-  
-  const hasComparePrice = plan.compare_at_price && plan.compare_at_price > plan.price;
+  const hasComparePrice =
+    plan.compare_at_price && plan.compare_at_price > plan.price;
   const hasBonusMonths = plan.bonus_months && plan.bonus_months > 0;
   const hasFreeUntil = isPromoActive(plan);
-  
   return hasComparePrice || hasBonusMonths || hasFreeUntil;
 };
 
 /**
  * Get total subscription duration in months
- * @param {Object} plan - Plan object
- * @returns {number}
  */
 export const getTotalDurationMonths = (plan) => {
   if (!plan) return 12;
@@ -177,27 +224,21 @@ export const getTotalDurationMonths = (plan) => {
 
 /**
  * Calculate discount percentage
- * @param {Object} plan - Plan object
- * @returns {number|null}
  */
 export const getDiscountPercentage = (plan) => {
   if (!plan?.compare_at_price || !plan?.price) return null;
   if (plan.compare_at_price <= plan.price) return null;
-  
-  const discount = ((plan.compare_at_price - plan.price) / plan.compare_at_price) * 100;
+  const discount =
+    ((plan.compare_at_price - plan.price) / plan.compare_at_price) * 100;
   return Math.round(discount);
 };
 
 /**
  * Format promo free until date for display
- * @param {Object} plan - Plan object
- * @returns {string|null}
  */
 export const formatPromoDate = (plan) => {
   if (!plan?.promo_free_until) return null;
-  
-  const date = new Date(plan.promo_free_until);
-  return date.toLocaleDateString("en-IN", {
+  return new Date(plan.promo_free_until).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -206,8 +247,6 @@ export const formatPromoDate = (plan) => {
 
 /**
  * Get promo badge text for bonus months
- * @param {Object} plan - Plan object
- * @returns {string|null}
  */
 export const getBonusMonthsBadge = (plan) => {
   if (!plan?.bonus_months || plan.bonus_months <= 0) return null;
@@ -216,8 +255,6 @@ export const getBonusMonthsBadge = (plan) => {
 
 /**
  * Get promo badge text for free until
- * @param {Object} plan - Plan object
- * @returns {string|null}
  */
 export const getFreeUntilBadge = (plan) => {
   if (!isPromoActive(plan)) return null;
@@ -225,25 +262,151 @@ export const getFreeUntilBadge = (plan) => {
 };
 
 // ============================================
+// INTRO PRICING HELPERS
+// ============================================
+
+/**
+ * Check if intro pricing is currently active/applicable.
+ *
+ * - duration trigger: always true if intro_price is set
+ *   (per-subscription tracking determines actual end)
+ * - date trigger: true if intro_end_date is in the future
+ */
+export const isIntroPriceActive = (plan) => {
+  if (!plan?.intro_price || !plan?.intro_trigger_type) return false;
+
+  if (plan.intro_trigger_type === INTRO_TRIGGER_TYPE.DATE) {
+    return plan.intro_end_date
+      ? new Date(plan.intro_end_date) > new Date()
+      : false;
+  }
+
+  if (plan.intro_trigger_type === INTRO_TRIGGER_TYPE.DURATION) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Check if a date-based intro has expired (needs review).
+ */
+export const isIntroExpired = (plan) => {
+  if (!plan?.intro_price) return false;
+  if (plan.intro_trigger_type !== INTRO_TRIGGER_TYPE.DATE) return false;
+  if (!plan.intro_end_date) return false;
+  return new Date(plan.intro_end_date) <= new Date();
+};
+
+/**
+ * Get a short badge label describing the intro phase.
+ *
+ * Examples:
+ *   "₹999 for 3 months"
+ *   "₹999 for 1 year"
+ *   "₹999 for 2 years"
+ *   "₹999 until 15 Mar 2025"
+ */
+export const getIntroPhaseBadge = (plan) => {
+  if (!plan?.intro_price || !plan?.intro_trigger_type) return null;
+
+  const formattedPrice = formatPrice(plan.intro_price);
+
+  if (plan.intro_trigger_type === INTRO_TRIGGER_TYPE.DURATION) {
+    if (!plan.intro_duration_years) return null; // ← renamed
+    const years = plan.intro_duration_years;
+    const durationText = `${years} year${years > 1 ? "s" : ""}`;
+    return `${formattedPrice} for ${durationText}`;
+  }
+
+  if (plan.intro_trigger_type === INTRO_TRIGGER_TYPE.DATE) {
+    if (!plan.intro_end_date) return null;
+    const dateStr = new Date(plan.intro_end_date).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    return `${formattedPrice} until ${dateStr}`;
+  }
+
+  return null;
+};
+
+/**
+ * Get full intro phase description for tooltips / modal display.
+ *
+ * Examples:
+ *   "₹999/year for first 3 months, then ₹2999/year"
+ *   "₹999/year for first 1 year, then ₹2999/year"
+ *   "₹999/year for first 2 years, then ₹2999/year"
+ *   "₹999/year until 15 Mar 2025, then ₹2999/year"
+ */
+export const getIntroPhaseDescription = (plan) => {
+  if (!plan?.intro_price || !plan?.intro_trigger_type) return null;
+
+  const introFormatted = formatPrice(plan.intro_price);
+  const regularFormatted = formatPrice(plan.price);
+
+  if (plan.intro_trigger_type === INTRO_TRIGGER_TYPE.DURATION) {
+    if (!plan.intro_duration_years) return null; // ← renamed
+    const years = plan.intro_duration_years;
+    const durationText = `${years} year${years > 1 ? "s" : ""}`;
+    return `${introFormatted}/year for first ${durationText}, then ${regularFormatted}/year`;
+  }
+
+  if (plan.intro_trigger_type === INTRO_TRIGGER_TYPE.DATE) {
+    if (!plan.intro_end_date) return null;
+    const dateStr = new Date(plan.intro_end_date).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    return `${introFormatted}${BILLING.displayText} until ${dateStr}, then ${regularFormatted}${BILLING.displayText}`;
+  }
+
+  return null;
+};
+
+/**
+ * Warning banner text shown in the UI when admin sets intro price.
+ * No blocking — just informational.
+ *
+ * Returns null if no warning needed.
+ */
+export const getIntroPriceWarning = (introPrice, regularPrice) => {
+  const intro = Number(introPrice);
+  const regular = Number(regularPrice);
+
+  if (isNaN(intro) || isNaN(regular)) return null;
+
+  if (intro === 0) {
+    return "Intro price is zero — subscribers will pay nothing during the intro period.";
+  }
+
+  if (intro > regular) {
+    return "Intro price is higher than the regular price. Subscribers will pay more initially.";
+  }
+
+  if (intro === regular) {
+    return "Intro price equals the regular price — there is no effective discount.";
+  }
+
+  return null;
+};
+
+// ============================================
 // CARD THEME HELPERS
 // ============================================
 
 /**
- * Determines card theme based on plan properties
- * Priority: promo active > free > featured > default
- * @param {Object} plan - Plan object
- * @returns {Object} Theme configuration
+ * Determines card theme based on plan properties.
+ * Priority: promo active > intro active > free > featured > default
  */
 export const getCardTheme = (plan) => {
-  // Active promo gets special treatment
   if (isPromoActive(plan)) return CARD_THEMES.promo;
-  
-  // Free plans
+  if (isIntroPriceActive(plan)) return CARD_THEMES.intro;
   if (plan.price === 0) return CARD_THEMES.free;
-  
-  // Featured plans
   if (plan.is_featured) return CARD_THEMES.featured;
-  
   return CARD_THEMES.default;
 };
 
@@ -253,15 +416,13 @@ export const getCardTheme = (plan) => {
 
 /**
  * Generates feature list from plan limits
- * @param {Object} plan - Plan object
- * @returns {string[]}
  */
 export const generateFeatures = (plan) => {
   const features = [];
-  
+
   const users = plan.max_users;
   const branches = plan.max_branches;
-  
+
   if (users !== undefined) {
     if (users === -1) {
       features.push("Unlimited users");
@@ -269,7 +430,7 @@ export const generateFeatures = (plan) => {
       features.push(`Up to ${users} users`);
     }
   }
-  
+
   if (branches !== undefined) {
     if (branches === -1) {
       features.push("Unlimited branches");
@@ -279,13 +440,12 @@ export const generateFeatures = (plan) => {
       features.push(`Up to ${branches} branches`);
     }
   }
-  
-  // Add duration feature if bonus months exist
+
   const totalMonths = getTotalDurationMonths(plan);
   if (plan.bonus_months && plan.bonus_months > 0) {
     features.push(`${totalMonths} months access`);
   }
-  
+
   return features;
 };
 
@@ -295,8 +455,6 @@ export const generateFeatures = (plan) => {
 
 /**
  * Formats price for display
- * @param {number} price - Price in Rupees
- * @returns {string}
  */
 export const formatPrice = (price) => {
   if (price === 0) return "FREE";
@@ -305,19 +463,17 @@ export const formatPrice = (price) => {
 
 /**
  * Format compare-at price with strike-through styling info
- * @param {Object} plan - Plan object
- * @returns {Object|null} { original, current, savings, percentage }
  */
 export const formatPriceComparison = (plan) => {
   if (!plan?.compare_at_price || plan.compare_at_price <= plan.price) {
     return null;
   }
-  
+
   const original = plan.compare_at_price;
   const current = plan.price;
   const savings = original - current;
   const percentage = getDiscountPercentage(plan);
-  
+
   return {
     original: formatPrice(original),
     current: formatPrice(current),
@@ -332,37 +488,30 @@ export const formatPriceComparison = (plan) => {
 
 /**
  * Checks if plan name is available for activation
- * @param {string} name - Plan name to check
- * @param {Array} plans - Array of existing plans
- * @param {string|null} excludeId - Plan ID to exclude from check
- * @returns {boolean}
  */
 export const isNameAvailable = (name, plans, excludeId = null) => {
   return !plans.some(
-    (p) => 
-      p.name.toLowerCase() === name.toLowerCase() && 
+    (p) =>
+      p.name.toLowerCase() === name.toLowerCase() &&
       p.status === PLAN_STATUS.ACTIVE &&
-      p.plan_id !== excludeId
+      p.plan_id !== excludeId,
   );
 };
 
 /**
  * Generates cloned plan name (frontend helper)
- * @param {string} originalName - Original plan name
- * @param {Array} existingPlans - Array of existing plans
- * @returns {string}
  */
 export const generateCloneName = (originalName, existingPlans) => {
   let baseName = originalName.replace(/\s*\(Copy(?:\s*\d+)?\)\s*$/, "");
   let copyName = `${baseName} (Copy)`;
   let counter = 1;
-  
-  const existingNames = existingPlans.map(p => p.name.toLowerCase());
-  
+
+  const existingNames = existingPlans.map((p) => p.name.toLowerCase());
+
   while (existingNames.includes(copyName.toLowerCase())) {
     counter++;
     copyName = `${baseName} (Copy ${counter})`;
   }
-  
+
   return copyName;
 };

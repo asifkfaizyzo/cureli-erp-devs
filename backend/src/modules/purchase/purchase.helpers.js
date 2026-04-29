@@ -14,31 +14,26 @@ export const PAYMENT_BALANCE_THRESHOLD = 10;
 
 export function buildBranchFilter(shopId, branchId, role, branchMode) {
   const filter = { shop_id: shopId };
-  console.log("🔍 buildBranchFilter called with:", {
-    shopId,
-    branchId,
-    role,
-    branchMode,
-  });
+
 
   if (role === "super_admin" && branchMode === "GLOBAL") {
-    console.log(" Super Admin GLOBAL mode - no branch filter");
+    
     return filter;
   }
 
   if (role === "super_admin" && branchMode === "BRANCH") {
     if (branchId) {
       filter.branch_id = branchId;
-      console.log(" Super Admin BRANCH mode - filtering by branch:", branchId);
+      
     } else {
-      console.log("⚠️ Super Admin BRANCH mode but no branchId provided!");
+      
     }
     return filter;
   }
 
   if (branchId) {
     filter.branch_id = branchId;
-    console.log(" Non-admin user - filtering by assigned branch:", branchId);
+    
   } else {
     console.log("⚠️ Non-admin user has no branch assigned!");
   }

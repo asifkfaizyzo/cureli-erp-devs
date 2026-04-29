@@ -88,14 +88,7 @@ export const listEnquiries = async (req, res) => {
     const { page, limit, status, search, sortBy, sortOrder } =
       req.validatedQuery || req.query;
 
-    log.info("📥 List Enquiries Request:", {
-      page,
-      limit,
-      status,
-      search,
-      sortBy,
-      sortOrder,
-    });
+
 
     const result = await enquiryService.listEnquiries({
       page: parseInt(page) || 1,
@@ -106,10 +99,7 @@ export const listEnquiries = async (req, res) => {
       sortOrder: sortOrder || "desc",
     });
 
-    log.info("📤 List Enquiries Response:", {
-      count: result.enquiries?.length,
-      pagination: result.pagination,
-    });
+    
 
     return success(res, result, "Enquiries fetched successfully");
   } catch (error) {

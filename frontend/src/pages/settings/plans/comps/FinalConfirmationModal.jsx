@@ -143,8 +143,12 @@ const FinalConfirmationModal = ({
               <AlertTriangle size={22} className="text-red-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Confirm Downgrade</h2>
-              <p className="text-gray-500 text-sm">This action takes effect immediately</p>
+              <h2 className="text-lg font-bold text-gray-900">
+                Confirm Downgrade
+              </h2>
+              <p className="text-gray-500 text-sm">
+                This action takes effect immediately
+              </p>
             </div>
           </div>
 
@@ -157,30 +161,41 @@ const FinalConfirmationModal = ({
                 <div className="flex items-center gap-1 mt-1">
                   <span className="text-gray-600">{currentPlan?.name}</span>
                   <TrendingDown size={10} className="text-orange-500" />
-                  <span className="font-semibold text-orange-600">{targetPlan.name}</span>
+                  <span className="font-semibold text-orange-600">
+                    {targetPlan.name}
+                  </span>
                 </div>
               </div>
 
               {/* Price Change */}
               <div>
-                <span className="text-gray-500">Price</span>
+                <span className="text-gray-500">Price (next renewal)</span>
                 <div className="flex items-center gap-1 mt-1">
-                  <span className="text-gray-600">{formatPrice(currentPlan?.price || 0)}</span>
+                  <span className="text-gray-600">
+                    {formatPrice(currentPlan?.price || 0)}
+                  </span>
                   <TrendingDown size={10} className="text-emerald-500" />
-                  <span className="font-semibold text-emerald-600">{formatPrice(targetPlan.price)}</span>
+                  <span className="font-semibold text-emerald-600">
+                    {formatPrice(targetPlan.price)}
+                  </span>
                 </div>
+                {/* Note: downgrade is free, applied immediately */}
               </div>
 
               {/* Start Date */}
               <div>
                 <span className="text-gray-500">Start Date</span>
-                <p className="font-medium text-gray-900 mt-1">{formatDate(startDate)}</p>
+                <p className="font-medium text-gray-900 mt-1">
+                  {formatDate(startDate)}
+                </p>
               </div>
 
               {/* End Date */}
               <div>
                 <span className="text-gray-500">Valid Until</span>
-                <p className="font-medium text-gray-900 mt-1">{formatDate(endDate)}</p>
+                <p className="font-medium text-gray-900 mt-1">
+                  {formatDate(endDate)}
+                </p>
               </div>
             </div>
 
@@ -191,7 +206,8 @@ const FinalConfirmationModal = ({
                   <div className="flex items-center gap-2 bg-red-50 rounded-lg px-3 py-1.5">
                     <Users size={12} className="text-red-500" />
                     <span className="text-xs text-red-700">
-                      <strong>{usersToDisable.length}</strong> user{usersToDisable.length > 1 ? "s" : ""} to disable
+                      <strong>{usersToDisable.length}</strong> user
+                      {usersToDisable.length > 1 ? "s" : ""} to disable
                     </span>
                   </div>
                 )}
@@ -199,7 +215,9 @@ const FinalConfirmationModal = ({
                   <div className="flex items-center gap-2 bg-orange-50 rounded-lg px-3 py-1.5">
                     <Building2 size={12} className="text-orange-500" />
                     <span className="text-xs text-orange-700">
-                      <strong>{branchesToDeactivate.length}</strong> branch{branchesToDeactivate.length > 1 ? "es" : ""} to deactivate
+                      <strong>{branchesToDeactivate.length}</strong> branch
+                      {branchesToDeactivate.length > 1 ? "es" : ""} to
+                      deactivate
                     </span>
                   </div>
                 )}
@@ -210,7 +228,10 @@ const FinalConfirmationModal = ({
           {/* Warning */}
           <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 px-3 py-2 rounded-lg mb-3 border border-amber-200">
             <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
-            <span>This action is immediate and cannot be undone. Contact support if you need assistance after downgrading.</span>
+            <span>
+              This action is immediate and cannot be undone. Contact support if
+              you need assistance after downgrading.
+            </span>
           </div>
 
           {/* Acknowledgements - Inline Row */}
@@ -245,7 +266,10 @@ const FinalConfirmationModal = ({
           {/* Error Display */}
           {error && (
             <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-              <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <AlertCircle
+                size={14}
+                className="text-red-500 flex-shrink-0 mt-0.5"
+              />
               <p className="text-red-700 text-xs">{error}</p>
             </div>
           )}
