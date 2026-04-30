@@ -396,6 +396,14 @@ model Plan {
   compare_at_price     BigInt?
   is_featured          Boolean            @default(false)
   promo_free_until     DateTime?          @db.Timestamptz(6)
+
+  // ── TWO-PHASE PRICING ─────────────────────────────
+  intro_price          BigInt?
+  intro_trigger_type   String?   @db.VarChar(10)   // "duration" | "date"
+  intro_duration_years Int?                          // how many yearly renewals at intro price
+  intro_end_date       DateTime? @db.Timestamptz(6) // used when trigger = "date"
+  // ──────────────────────────────────────────────────
+
   activityLogs         PlanActivityLog[]
   creator              CAdmin?            @relation("PlanCreator", fields: [created_by], references: [cadmin_id])
   createdForShop       Shop?              @relation("CustomPlanShop", fields: [created_for_shop_id], references: [shop_id])

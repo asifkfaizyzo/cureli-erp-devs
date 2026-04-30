@@ -18,7 +18,7 @@ const Pricing = () => {
       <AppInsight />
       <HowItWorks />
       <ServiceShowcase />
-      {/* <PricingSection /> */}
+      <PricingSection />
       <FAQSection />
       <CTASection />
       <Footer />

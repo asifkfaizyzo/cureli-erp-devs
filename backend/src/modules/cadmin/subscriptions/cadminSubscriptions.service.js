@@ -238,6 +238,10 @@ export async function getSubscriptionById(subscriptionId) {
           max_branches: true,
           billing_cycle_months: true,
           bonus_months: true,
+          intro_price: true,
+          intro_trigger_type: true,
+          intro_duration_years: true,
+          intro_end_date: true,
         },
       },
       paymentTransactions: {
@@ -295,6 +299,9 @@ export async function getSubscriptionById(subscriptionId) {
       price: Number(subscription.plan.price),
       compare_at_price: subscription.plan.compare_at_price
         ? Number(subscription.plan.compare_at_price)
+        : null,
+      intro_price: subscription.plan.intro_price
+        ? Number(subscription.plan.intro_price)
         : null,
     },
     payment_history: subscription.paymentTransactions.map((tx) => ({

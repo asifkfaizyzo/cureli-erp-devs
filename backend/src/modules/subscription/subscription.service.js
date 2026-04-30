@@ -16,7 +16,31 @@ function createError(message, code) {
   err.code = code;
   return err;
 }
+function isIntroPriceActive(plan) {
+  if (!plan.intro_price || !plan.intro_trigger_type) return false;
 
+  if (plan.intro_trigger_type === "date") {
+    return plan.intro_end_date
+      ? new Date(plan.intro_end_date) > new Date()
+      : false;
+  }
+
+  // duration - always active at plan level
+  if (plan.intro_trigger_type === "duration") {
+    return true;
+  }
+
+  return false;
+}
+function getChargeablePrice(plan) {
+  const introActive = isIntroPriceActive(plan);
+
+  if (introActive && plan.intro_price !== null) {
+    return Number(plan.intro_price);
+  }
+
+  return Number(plan.price);
+}
 function calculateSubscriptionDates(plan) {
   const now = new Date();
   const start_date = new Date(now);
@@ -111,30 +135,47 @@ export async function getVisiblePlans() {
       promo_free_until: true,
       is_featured: true,
       is_customizable: true,
+      // ── Intro pricing ──────────────────────
+      intro_price: true,
+      intro_trigger_type: true,
+      intro_duration_years: true,
+      intro_end_date: true,
+      // ───────────────────────────────────────
     },
   });
 
   const now = new Date();
 
-  return plans.map((plan) => ({
-    plan_id: plan.plan_id,
-    name: plan.name,
-    description: plan.description,
-    price: Number(plan.price),
-    compare_at_price: plan.compare_at_price
-      ? Number(plan.compare_at_price)
-      : null,
-    max_users: plan.max_users,
-    max_branches: plan.max_branches,
-    billing_cycle_months: plan.billing_cycle_months || 12,
-    bonus_months: plan.bonus_months || 0,
-    promo_free_until: plan.promo_free_until,
-    is_promo_active: plan.promo_free_until
-      ? new Date(plan.promo_free_until) > now
-      : false,
-    is_featured: plan.is_featured,
-    is_customizable: plan.is_customizable,
-  }));
+  return plans.map((plan) => {
+    const introActive = isIntroPriceActive(plan);
+
+    return {
+      plan_id: plan.plan_id,
+      name: plan.name,
+      description: plan.description,
+      price: Number(plan.price),
+      compare_at_price: plan.compare_at_price
+        ? Number(plan.compare_at_price)
+        : null,
+      max_users: plan.max_users,
+      max_branches: plan.max_branches,
+      billing_cycle_months: plan.billing_cycle_months || 12,
+      bonus_months: plan.bonus_months || 0,
+      promo_free_until: plan.promo_free_until,
+      is_promo_active: plan.promo_free_until
+        ? new Date(plan.promo_free_until) > now
+        : false,
+      is_featured: plan.is_featured,
+      is_customizable: plan.is_customizable,
+      // ── Intro pricing ──────────────────────
+      intro_price: plan.intro_price ? Number(plan.intro_price) : null,
+      intro_trigger_type: plan.intro_trigger_type || null,
+      intro_duration_years: plan.intro_duration_years || null,
+      intro_end_date: plan.intro_end_date || null,
+      is_intro_active: introActive,
+      // ───────────────────────────────────────
+    };
+  });
 }
 
 export async function getUserDetails(user_id) {
@@ -277,8 +318,12 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
     },
   });
 
-  const priceInRupees = Number(plan.price);
-  const amountInPaisa = Math.round(priceInRupees * 100);
+  // ── Determine charge amount ─────────────────────────────────────────────
+  // If intro pricing is active, charge intro_price. Otherwise charge price.
+  const chargeablePrice = getChargeablePrice(plan);
+  const introActive = isIntroPriceActive(plan);
+  const amountInPaisa = Math.round(chargeablePrice * 100);
+  // ────────────────────────────────────────────────────────────────────────
 
   const razorpayOrder = await razorpay.orders.create({
     amount: amountInPaisa,
@@ -289,6 +334,9 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
       plan_id: plan.plan_id,
       plan_name: plan.name,
       subscription_id: subscription.subscription_id,
+      // Record what was charged and why
+      charge_type: introActive ? "intro" : "regular",
+      intro_trigger_type: plan.intro_trigger_type || null,
     },
   });
 
@@ -298,13 +346,21 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
       subscription_id: subscription.subscription_id,
       provider: "razorpay",
       provider_order_id: razorpayOrder.id,
-      amount: BigInt(priceInRupees),
+      // Store the actual charged amount (not plan.price)
+      amount: BigInt(chargeablePrice),
       currency: RAZORPAY_CURRENCY,
       status: "created",
       meta: {
         plan_name: plan.name,
         billing_cycle_months: plan.billing_cycle_months || 12,
         bonus_months: plan.bonus_months || 0,
+        // Intro pricing metadata for audit trail
+        is_intro_charge: introActive,
+        intro_trigger_type: plan.intro_trigger_type || null,
+        intro_duration_years: plan.intro_duration_years || null,
+        intro_end_date: plan.intro_end_date || null,
+        regular_price: Number(plan.price),
+        charged_price: chargeablePrice,
         created_at: new Date().toISOString(),
       },
     },
@@ -315,11 +371,14 @@ export async function createPaidSubscription({ shop_id, plan, user }) {
     razorpay_order_id: razorpayOrder.id,
     razorpay_key: process.env.RAZORPAY_KEY_ID,
     amount: amountInPaisa,
-    amount_in_rupees: priceInRupees,
+    amount_in_rupees: chargeablePrice,
     currency: RAZORPAY_CURRENCY,
     user_name: user.full_name,
     user_email: user.email,
     user_phone: user.phone_number,
+    // Pass intro metadata to controller for response
+    is_intro_charge: introActive,
+    intro_trigger_type: plan.intro_trigger_type || null,
   };
 }
 
@@ -833,8 +892,11 @@ async function executeUpgrade(
     },
   });
 
-  const priceInRupees = Number(targetPlan.price);
-  const amountInPaisa = Math.round(priceInRupees * 100);
+  // ── Use intro price if active, otherwise regular price ─────────────────
+  const chargeablePrice = getChargeablePrice(targetPlan);
+  const introActive = isIntroPriceActive(targetPlan);
+  const amountInPaisa = Math.round(chargeablePrice * 100);
+  // ────────────────────────────────────────────────────────────────────────
 
   const razorpayOrder = await razorpay.orders.create({
     amount: amountInPaisa,
@@ -846,6 +908,7 @@ async function executeUpgrade(
       plan_name: targetPlan.name,
       subscription_id: subscription.subscription_id,
       type: "upgrade",
+      charge_type: introActive ? "intro" : "regular",
     },
   });
 
@@ -855,23 +918,26 @@ async function executeUpgrade(
       subscription_id: subscription.subscription_id,
       provider: "razorpay",
       provider_order_id: razorpayOrder.id,
-      amount: BigInt(priceInRupees),
+      amount: BigInt(chargeablePrice),
       currency: RAZORPAY_CURRENCY,
       status: "created",
       meta: {
         plan_name: targetPlan.name,
         type: "upgrade",
+        is_intro_charge: introActive,
+        intro_trigger_type: targetPlan.intro_trigger_type || null,
+        regular_price: Number(targetPlan.price),
+        charged_price: chargeablePrice,
         created_at: new Date().toISOString(),
       },
     },
   });
 
-  // Audit: Plan upgrade initiated (pending payment)
   await audit.log({
     action: audit.AuditAction.PLAN_UPGRADED,
     entity_type: audit.EntityType.SUBSCRIPTION,
     entity_id: subscription.subscription_id,
-    shop_id: shop_id,
+    shop_id,
     ...auditContext,
     reason_code: audit.AuditReasonCode.USER_REQUEST,
     metadata: {
@@ -879,13 +945,13 @@ async function executeUpgrade(
       previous_plan_name: currentPlan?.name,
       target_plan_id: targetPlan.plan_id,
       target_plan_name: targetPlan.name,
-      price: priceInRupees,
+      price: chargeablePrice,
+      is_intro_charge: introActive,
       payment_pending: true,
       razorpay_order_id: razorpayOrder.id,
     },
   });
 
-  //  Now currentPlan is available
   notify({
     type: NOTIFICATION_EVENTS.PLAN_UPGRADED,
     context: {
@@ -904,7 +970,9 @@ async function executeUpgrade(
       amount: amountInPaisa,
       currency: RAZORPAY_CURRENCY,
       name: "Cureli ERP",
-      description: `${targetPlan.name} - Annual Subscription (Upgrade)`,
+      description: introActive
+        ? `${targetPlan.name} - Intro Period (Upgrade)`
+        : `${targetPlan.name} - Annual Subscription (Upgrade)`,
       prefill: {
         name: user.full_name || "",
         email: user.email || "",
@@ -912,6 +980,8 @@ async function executeUpgrade(
       },
     },
     plan: formatPlanForResponse(targetPlan),
+    // Pass to controller for response
+    is_intro_charge: introActive,
   };
 }
 
@@ -923,7 +993,6 @@ async function executeRenewal(
   auditContext,
 ) {
   const now = new Date();
-
   const currentEndDate = new Date(currentSubscription.end_date);
   const referenceDate = currentEndDate > now ? currentEndDate : now;
 
@@ -953,8 +1022,11 @@ async function executeRenewal(
     },
   });
 
+  // ── Always charge regular price on renewal ──────────────────────────────
+  // Intro pricing is a first-time incentive only.
   const priceInRupees = Number(targetPlan.price);
   const amountInPaisa = Math.round(priceInRupees * 100);
+  // ────────────────────────────────────────────────────────────────────────
 
   const razorpayOrder = await razorpay.orders.create({
     amount: amountInPaisa,
@@ -966,6 +1038,7 @@ async function executeRenewal(
       plan_name: targetPlan.name,
       subscription_id: subscription.subscription_id,
       type: "renewal",
+      charge_type: "regular", // always regular on renewal
     },
   });
 
@@ -981,18 +1054,20 @@ async function executeRenewal(
       meta: {
         plan_name: targetPlan.name,
         type: "renewal",
+        is_intro_charge: false, // explicitly false for renewal
+        regular_price: priceInRupees,
+        charged_price: priceInRupees,
         extended_from: currentSubscription.end_date,
         created_at: new Date().toISOString(),
       },
     },
   });
 
-  // Audit: Subscription renewed (pending payment)
   await audit.log({
     action: audit.AuditAction.SUBSCRIPTION_RENEWED,
     entity_type: audit.EntityType.SUBSCRIPTION,
     entity_id: subscription.subscription_id,
-    shop_id: shop_id,
+    shop_id,
     ...auditContext,
     reason_code: audit.AuditReasonCode.USER_REQUEST,
     metadata: {
@@ -1001,6 +1076,7 @@ async function executeRenewal(
       previous_end_date: currentSubscription.end_date,
       new_end_date: end_date,
       payment_pending: true,
+      is_intro_charge: false,
       razorpay_order_id: razorpayOrder.id,
     },
   });
@@ -1022,6 +1098,7 @@ async function executeRenewal(
       },
     },
     plan: formatPlanForResponse(targetPlan),
+    is_intro_charge: false,
   };
 }
 
@@ -1321,6 +1398,7 @@ function formatPlanForResponse(plan) {
   const isPromoActive = plan.promo_free_until
     ? new Date(plan.promo_free_until) > now
     : false;
+  const introActive = isIntroPriceActive(plan);
 
   return {
     plan_id: plan.plan_id,
@@ -1337,6 +1415,13 @@ function formatPlanForResponse(plan) {
     promo_free_until: plan.promo_free_until,
     is_promo_active: isPromoActive,
     is_featured: plan.is_featured,
+    // ── Intro pricing ──────────────────────────
+    intro_price: plan.intro_price ? Number(plan.intro_price) : null,
+    intro_trigger_type: plan.intro_trigger_type || null,
+    intro_duration_years: plan.intro_duration_years || null,
+    intro_end_date: plan.intro_end_date || null,
+    is_intro_active: introActive,
+    // ───────────────────────────────────────────
   };
 }
 
