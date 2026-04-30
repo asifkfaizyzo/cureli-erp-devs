@@ -169,7 +169,7 @@ export async function resubmitFile({
           first_login_after_verification: false,
         },
       });
-      console.log(" Reset user status to pending_verification");
+     
     }
 
     // Legacy log (for backward compatibility with UI that reads this table)

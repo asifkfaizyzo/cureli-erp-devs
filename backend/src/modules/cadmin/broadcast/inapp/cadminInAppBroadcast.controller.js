@@ -15,15 +15,12 @@ export async function previewRecipientCountController(req, res) {
   try {
     const { target_filters, include_details } = req.validated;
 
-    // ── Debug (remove after confirming counts work) ──────────────────────
-    console.log('[Preview] target_filters (post-Zod):', JSON.stringify(target_filters, null, 2));
-    console.log('[Preview] includeUsers  :', typeof target_filters?.includeUsers,   '=', target_filters?.includeUsers);
-    console.log('[Preview] includeCAdmins:', typeof target_filters?.includeCAdmins, '=', target_filters?.includeCAdmins);
+
     // ─────────────────────────────────────────────────────────────────────
 
     const result = await service.previewRecipientCount(target_filters, include_details);
 
-    console.log('[Preview] total:', result.total);
+
 
     return success(res, result);
   } catch (err) {
@@ -355,8 +352,7 @@ export async function uploadBroadcastAttachmentController(req, res) {
     const url      = fileStorage.getPublicUrl({ folder: FOLDER, filename: uploadResult.storage_key });
     const category = getFileCategory(mimetype);
 
-    console.log(`[Broadcast Upload] File uploaded: ${uploadResult.storage_key} (${category}, ${fileStorage.formatFileSize(size)})`);
-
+   
     return success(res, {
       filename:      uploadResult.storage_key,
       original_name: originalname,
@@ -391,7 +387,7 @@ export async function deleteBroadcastAttachmentController(req, res) {
     }
 
     await fileStorage.deleteFile({ folder: FOLDER, filename });
-    console.log(`[Broadcast Upload] File deleted: ${filename}`);
+
 
     return success(res, { deleted: true, filename }, 'File deleted successfully');
   } catch (err) {

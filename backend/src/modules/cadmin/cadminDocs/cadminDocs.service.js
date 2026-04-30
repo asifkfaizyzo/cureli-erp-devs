@@ -802,7 +802,7 @@ async function updateOwnerStatusToVerified(shop_id) {
       data: updateData,
     });
 
-    console.log(" User status updated to verified:", shop.owner_user_id);
+   
   } catch (err) {
     console.error(" Failed to update owner status:", err);
   }
@@ -825,10 +825,7 @@ async function updateOwnerStatusAfterRejection(shop_id) {
       },
     });
 
-    console.log(
-      " Updated user status to pending_verification:",
-      shop.owner_user_id,
-    );
+   
   } catch (err) {
     console.error(" Failed to update owner status after rejection:", err);
   }

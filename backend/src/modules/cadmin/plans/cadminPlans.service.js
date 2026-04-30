@@ -1290,9 +1290,7 @@ export async function transitionDeprecatedPlans() {
       });
 
       transitioned.push({ plan_id: plan.plan_id, name: plan.name });
-      console.log(
-        `[CRON] Plan "${plan.name}" transitioned from DEPRECATED to SUSPENDED`
-      );
+      
     }
   }
 

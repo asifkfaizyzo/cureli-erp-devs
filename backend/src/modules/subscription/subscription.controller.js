@@ -391,9 +391,7 @@ export async function getMySubscription(req, res) {
       });
 
       sub.grace_period_until = gracePeriodUntil;
-      console.log(
-        `[GRACE GUARD] Healed subscription ${sub.subscription_id} via getMySubscription`,
-      );
+      
     }
 
     const isValid =

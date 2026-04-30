@@ -23,7 +23,7 @@ export async function cleanupOldPendingUsers() {
       },
     });
 
-    console.log(`Cleaned up ${deleted.count} old pending users`);
+    
     return deleted;
   } catch (err) {
     console.error("Cleanup error:", err);
@@ -67,11 +67,11 @@ export async function cleanupIncompleteUsers() {
     });
 
     if (usersToDelete.length === 0) {
-      console.log(" No users to clean up");
+
       return { deleted: 0, errors: [] };
     }
 
-    console.log(`🗑️  Found ${usersToDelete.length} users to delete`);
+
 
     let deleted = 0;
     const errors = [];
@@ -90,9 +90,9 @@ export async function cleanupIncompleteUsers() {
       }
     }
 
-    console.log(` Cleanup complete: ${deleted} users deleted`);
+  
     if (errors.length > 0) {
-      console.log(`⚠️  ${errors.length} errors occurred`);
+  
     }
 
     return { deleted, errors };
@@ -166,9 +166,7 @@ async function deleteUserAndRelatedData(user) {
     where: { user_id: user.user_id },
   });
 
-  console.log(
-    ` Deleted user ${user.email} (${filesDeleted.length} files removed)`,
-  );
+
 }
 
 /**
@@ -187,7 +185,7 @@ export async function cleanupOldDeletionLogs() {
     });
 
     if (result.count > 0) {
-      console.log(`🗑️  Deleted ${result.count} old deletion logs`);
+   
     }
 
     return result.count;

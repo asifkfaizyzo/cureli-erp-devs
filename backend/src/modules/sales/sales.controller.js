@@ -387,10 +387,7 @@ export async function createSalesReturnController(req, res) {
     }
 
     //  Log the validated data to see what's coming through
-    console.log(
-      "📥 Validated return data:",
-      JSON.stringify(req.validated, null, 2),
-    );
+    
 
     const result = await salesReturnService.createSalesReturn(
       userId,

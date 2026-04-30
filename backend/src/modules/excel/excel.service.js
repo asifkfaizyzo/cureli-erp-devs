@@ -85,15 +85,11 @@ export const validateExcelFile = (buffer, filename) => {
   const fileStart = buffer.slice(0, 8); // Check first 8 bytes
 
   // Check for .xlsx
-  if (xlsxSignature.equals(fileStart.slice(0, 4))) {
-    console.log("   ✓ Validated as .xlsx (ZIP signature)");
-    return "xlsx";
-  }
+  
 
   // Check for various .xls signatures
   for (const signature of xlsSignatures) {
     if (signature.equals(fileStart.slice(0, signature.length))) {
-      console.log("   ✓ Validated as .xls (OLE2 signature)");
       return "xls";
     }
   }
@@ -103,7 +99,7 @@ export const validateExcelFile = (buffer, filename) => {
     "   ⚠ Could not validate file signature, trusting extension:",
     fileExt,
   );
-  console.log("   File header (hex):", fileStart.toString("hex"));
+  
 
   return fileExt.slice(1); // Return 'xls' or 'xlsx'
 };
@@ -121,15 +117,10 @@ export const convertToXlsx = async (inputBuffer, originalFilename) => {
     const detectedFormat = validateExcelFile(inputBuffer, originalFilename);
     const fileExt = path.extname(originalFilename).toLowerCase();
 
-    console.log(`   📄 File: ${originalFilename}`);
-    console.log(`   📊 Detected format: ${detectedFormat}`);
-    console.log(
-      `   📏 Input size: ${(inputBuffer.length / 1024).toFixed(2)} KB`,
-    );
+    
 
     // If already .xlsx, return as-is
     if (detectedFormat === "xlsx") {
-      console.log("    Already .xlsx format, no conversion needed\n");
       return inputBuffer;
     }
 
@@ -140,8 +131,7 @@ export const convertToXlsx = async (inputBuffer, originalFilename) => {
       );
     }
 
-    console.log("   🔄 Converting .xls to .xlsx...");
-    console.log(`   🔧 Using LibreOffice: ${LIBREOFFICE_PATH}`);
+    
 
     const startTime = Date.now();
 
@@ -163,10 +153,7 @@ export const convertToXlsx = async (inputBuffer, originalFilename) => {
       ]);
 
       const duration = Date.now() - startTime;
-      console.log(`    Conversion successful in ${duration}ms`);
-      console.log(
-        `   📏 Output size: ${(outputBuffer.length / 1024).toFixed(2)} KB\n`,
-      );
+     
 
       return outputBuffer;
     } catch (convError) {

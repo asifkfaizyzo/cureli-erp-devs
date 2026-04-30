@@ -107,7 +107,7 @@ export async function incrementSentCount(count) {
     update: { sent_count: { increment: count } },
   });
 
-  console.log(`[Quota] +${count} sent. Today: ${quota.sent_count}/${DAILY_LIMIT}`);
+  
 
   return quota;
 }
@@ -143,8 +143,6 @@ export async function resetTodayQuota() {
     create: { date: today, sent_count: 0 },
     update: { sent_count: 0 },
   });
-
-  console.log(`[Quota] Reset quota for ${today}`);
 }
 
 export function getDailyLimit() {

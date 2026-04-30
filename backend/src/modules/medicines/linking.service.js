@@ -746,15 +746,8 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
   // Build search terms
   const searchTerms = normalizedName.split(" ").filter((t) => t.length > 2);
 
-  console.log("🔍 Searching for:", name);
-  console.log("🧠 Search terms:", searchTerms);
-  console.log("🏷️ Brand token:", brandToken);
-  console.log("🏭 Manufacturer:", manufacturer || "(none)");
-  console.log("💊 Generic:", generic_name || "(none)");
-  console.log("📐 Extracted form:", shopForm, "| strength:", shopStrength);
 
   if (searchTerms.length === 0 && !brandToken) {
-    console.log("⚠️ No search terms — returning empty");
     return [];
   }
 
@@ -784,7 +777,6 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
       take: 5,
     });
     exactMatches.forEach((v) => variantMap.set(v.variant_id, v));
-    console.log(`📦 Query 1 (exact name): ${exactMatches.length} results`);
   } catch (e) {
     console.error("Query 1 failed:", e.message);
   }
@@ -803,9 +795,7 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
         take: 30,
       });
       brandMatches.forEach((v) => variantMap.set(v.variant_id, v));
-      console.log(
-        `📦 Query 2 (brand "${brandToken}"): ${brandMatches.length} results`,
-      );
+      
     } catch (e) {
       console.error("Query 2 failed:", e.message);
     }
@@ -824,7 +814,6 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
         take: 20,
       });
       nameContains.forEach((v) => variantMap.set(v.variant_id, v));
-      console.log(`📦 Query 3 (name contains): ${nameContains.length} results`);
     } catch (e) {
       console.error("Query 3 failed:", e.message);
     }
@@ -860,9 +849,7 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
           take: 10,
         });
         mfrMatches.forEach((v) => variantMap.set(v.variant_id, v));
-        console.log(
-          `📦 Query 4 (manufacturer "${mfrFirstWord}"): ${mfrMatches.length} results`,
-        );
+        
       } catch (e) {
         console.error("Query 4 failed:", e.message);
       }
@@ -871,18 +858,9 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
 
   const variants = Array.from(variantMap.values());
 
-  console.log(`📦 Total unique variants: ${variants.length}`);
+  
   if (variants.length > 0) {
-    console.log(
-      "📦 Candidates:",
-      variants.slice(0, 10).map((v) => ({
-        name: v.name,
-        brand: v.brand,
-        manufacturer: v.manufacturer,
-        marketer: v.marketer,
-        master_key: v.master?.master_key,
-      })),
-    );
+    
   }
 
   // Score each variant
@@ -904,17 +882,7 @@ async function findPotentialMatches(shopMedicine, limit = 20) {
     .sort((a, b) => b.totalScore - a.totalScore)
     .slice(0, limit);
 
-  console.log(
-    ` Final matches after filter (threshold=${THRESHOLDS.MIN_MATCH}):`,
-    scoredMatches.length > 0
-      ? scoredMatches.map((m) => ({
-          variant: m.variant.name,
-          totalScore: m.totalScore,
-          reasons: m.reasons,
-        }))
-      : " NONE passed threshold",
-  );
-
+  
   return scoredMatches;
 }
 
@@ -925,12 +893,7 @@ export async function checkSingleMedicine(shopMedicine) {
   const matches = await findPotentialMatches(shopMedicine, 5);
 
   if (matches.length === 0) {
-    console.log("🏁 Final decision:", {
-      name: shopMedicine.name,
-      topMatch: null,
-      confidence: 0,
-      status: "NO_MATCH",
-    });
+   
 
     return {
       status: "NO_MATCH",
@@ -1013,12 +976,7 @@ export async function checkSingleMedicine(shopMedicine) {
     };
   }
 
-  console.log("🏁 Final decision:", {
-    name: shopMedicine.name,
-    topMatch: topMatch?.variant?.name,
-    confidence,
-    status: result.status,
-  });
+  
 
   return result;
 }
@@ -1034,9 +992,7 @@ export async function bulkCheckImportRows(rows) {
     };
   }
 
-  console.log(
-    `🔍 Bulk checking ${rows.length} import rows against master catalog...`,
-  );
+ 
 
   const results = [];
   const stats = {
@@ -1064,12 +1020,7 @@ export async function bulkCheckImportRows(rows) {
           };
         }
 
-        console.log(
-          "🧪 Checking row:",
-          rowIndex,
-          row.name,
-          row.manufacturer || "(no mfr)",
-        );
+        
 
         try {
           const matchResult = await checkSingleMedicine({
@@ -1103,7 +1054,7 @@ export async function bulkCheckImportRows(rows) {
     results.push(...batchResults);
   }
 
-  console.log(` Bulk check complete:`, stats);
+
 
   return { results, stats };
 }

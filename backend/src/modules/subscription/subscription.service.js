@@ -97,9 +97,7 @@ async function applyGracePeriodGuard(subscription) {
       data: { grace_period_until: gracePeriodUntil },
     });
 
-    console.log(
-      `[GRACE GUARD] Healed subscription ${subscription.subscription_id}: grace_period_until set to ${gracePeriodUntil.toISOString()}`,
-    );
+    
 
     return { ...subscription, grace_period_until: gracePeriodUntil };
   }

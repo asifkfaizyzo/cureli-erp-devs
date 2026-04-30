@@ -63,10 +63,7 @@ const maintenanceMiddleware = (req, res, next) => {
     process.env.MAINTENANCE_MESSAGE?.replace(/^["']|["']$/g, "") ||
     "We are currently performing scheduled maintenance. Please check back soon.";
 
-  console.log(
-    `[Maintenance] BLOCKING request from ${clientIp} to ${req.path}`
-  );
-
+ 
   // Set header for frontend to detect
   res.setHeader("X-Maintenance-Mode", "true");
 

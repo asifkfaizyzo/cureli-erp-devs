@@ -659,17 +659,11 @@ export async function getCurrentBranchController(req, res) {
       effectiveBranchId = headerBranchId;
     }
 
-    console.log("getCurrentBranchController:", {
-      user_id,
-      shop_id,
-      branch_id,
-      effectiveBranchId,
-      role,
-    });
+   
 
     // If still no branch, try to get the main branch for the shop
     if (!effectiveBranchId && shop_id) {
-      console.log("No branch_id, fetching main branch for shop:", shop_id);
+     
 
       const mainBranch = await prisma.branch.findFirst({
         where: {
@@ -684,13 +678,12 @@ export async function getCurrentBranchController(req, res) {
 
       if (mainBranch) {
         effectiveBranchId = mainBranch.branch_id;
-        console.log("Found main branch:", effectiveBranchId);
       }
     }
 
     // If still no branch, try to get ANY active branch for the shop
     if (!effectiveBranchId && shop_id) {
-      console.log("No main branch, fetching any branch for shop:", shop_id);
+     
 
       const anyBranch = await prisma.branch.findFirst({
         where: {
@@ -704,7 +697,7 @@ export async function getCurrentBranchController(req, res) {
 
       if (anyBranch) {
         effectiveBranchId = anyBranch.branch_id;
-        console.log("Found branch:", effectiveBranchId);
+       
       }
     }
 

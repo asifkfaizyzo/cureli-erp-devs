@@ -48,13 +48,7 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
   const { includeExpiring = true } = options;
   // ✅ Removed includeLowStock - no longer needed
 
-  console.log(`🔍 Getting batches for:`, {
-    shopId,
-    branchId,
-    medicineId,
-    options,
-  });
-
+ 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -70,7 +64,7 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
     expiry_date: { gte: today },
   };
 
-  console.log("📋 Query where clause:", where);
+
 
   const batches = await prisma.inventory.findMany({
     where,
@@ -99,7 +93,7 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
     orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
   });
 
-  console.log(`✅ Found ${batches.length} batches`);
+
 
   const enrichedBatches = batches.map((batch) => {
     const expiryDate = new Date(batch.expiry_date);
@@ -1717,10 +1711,7 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
       // ═══════════════════════════════════════════════════════════════════
 
       if (isConfirmed && existingInvoice.lineItems.length > 0) {
-        console.log(
-          `🔄 [Super Admin Edit] Restoring stock for confirmed invoice ${existingInvoice.invoice_number}`,
-        );
-
+        
         for (const item of existingInvoice.lineItems) {
           const inventory = await tx.inventory.findUnique({
             where: { inventory_id: item.inventory_id },
@@ -1765,9 +1756,7 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
               },
             });
 
-            console.log(
-              `   Restored ${qty} units of batch ${item.batch_number}`,
-            );
+           
           }
         }
       }
@@ -1853,9 +1842,7 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
 
         if (isConfirmed) {
           // For CONFIRMED: Deduct stock immediately (like confirmStockDeduction)
-          console.log(
-            `🔄 [Super Admin Edit] Deducting new stock for confirmed invoice`,
-          );
+         
 
           for (const item of newLineItems) {
             const inventory = await tx.inventory.findUnique({
@@ -1901,9 +1888,7 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
                 },
               });
 
-              console.log(
-                `   Deducted ${qty} units of batch ${item.batch_number}`,
-              );
+              
             }
           }
         } else {

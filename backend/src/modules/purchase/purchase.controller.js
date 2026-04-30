@@ -42,12 +42,7 @@ export async function createPurchaseInvoiceController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    console.log("=== Purchase Invoice Create ===");
-    console.log("User ID:", userId);
-    console.log("Shop ID:", shopId);
-    console.log("Branch ID:", branchId);
-    console.log("Branch Mode:", branchMode);
-    console.log("User Role:", role);
+   
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -145,12 +140,7 @@ export async function getPurchaseInvoicesController(req, res) {
     const role = req.user.role;
     const { branchId, branchMode } = extractBranchContext(req);
 
-    console.log("=== GET PURCHASE INVOICES ===");
-    console.log("User Role:", role);
-    console.log("X-Branch-Mode header:", req.headers["x-branch-mode"]);
-    console.log("X-Branch-Id header:", req.headers["x-branch-id"]);
-    console.log("Extracted branchId:", branchId);
-    console.log("Extracted branchMode:", branchMode);
+   
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -226,11 +216,7 @@ export async function updatePurchaseInvoiceController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    console.log("=== UPDATE INVOICE REQUEST ===");
-    console.log("Invoice ID:", invoiceId);
-    console.log("User Role:", role);
-    console.log("Branch ID:", branchId);
-    console.log("Branch Mode:", branchMode);
+   
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -458,10 +444,7 @@ export async function createPurchaseReturnController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    console.log("=== Purchase Return Create ===");
-    console.log("User ID:", userId);
-    console.log("Shop ID:", shopId);
-    console.log("Branch ID:", branchId);
+    
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -722,10 +705,7 @@ export async function cancelApprovedReturnController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    console.log("=== Cancel Approved Return ===");
-    console.log("Return ID:", returnId);
-    console.log("User Role:", role);
-    console.log("Cancellation Data:", data);
+    
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -780,10 +760,7 @@ export async function revertReturnToPendingController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    console.log("=== Revert Return to Pending ===");
-    console.log("Return ID:", returnId);
-    console.log("User Role:", role);
-    console.log("Revert Data:", data);
+    
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);

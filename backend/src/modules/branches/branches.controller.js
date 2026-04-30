@@ -40,12 +40,7 @@ export async function getCurrentBranchController(req, res) {
       effectiveBranchId = headerBranchId;
     }
 
-    console.log("getCurrentBranchController:", {
-      shop_id,
-      branch_id,
-      effectiveBranchId,
-      role,
-    });
+   
 
     //  Call the SERVICE function
     const data = await getCurrentBranchWithShop(shop_id, effectiveBranchId);

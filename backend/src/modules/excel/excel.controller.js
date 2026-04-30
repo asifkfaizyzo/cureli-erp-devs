@@ -19,12 +19,7 @@ export const convertExcel = async (req, res, next) => {
     const userId = req.user?.user_id;
     const shopId = req.user?.shop_id;
 
-    console.log("\n📊 Excel Conversion Request:");
-    console.log(`   User ID: ${userId}`);
-    console.log(`   Shop ID: ${shopId}`);
-    console.log(`   File: ${originalname}`);
-    console.log(`   Size: ${(size / 1024).toFixed(2)} KB`);
-    console.log(`   MIME: ${mimetype}`);
+   
 
     // Convert the file
     const convertedBuffer = await excelService.convertToXlsx(
@@ -34,10 +29,7 @@ export const convertExcel = async (req, res, next) => {
 
     const conversionTime = Date.now() - startTime;
 
-    console.log(` Conversion completed in ${conversionTime}ms`);
-    console.log(
-      `   Output size: ${(convertedBuffer.length / 1024).toFixed(2)} KB\n`,
-    );
+   
 
     // Set response headers
     const outputFilename = originalname.replace(/\.xls$/i, ".xlsx");
