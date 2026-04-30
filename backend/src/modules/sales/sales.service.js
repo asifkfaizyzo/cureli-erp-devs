@@ -41,101 +41,103 @@ class SalesService {
   // Returns batches with stock for dropdown selection
   // ============================================
 
-  async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
-    const { includeLowStock = false, includeExpiring = true } = options;
+  // backend/src/modules/sales/sales.service.js
+// ONLY change getAvailableBatches method - everything else stays identical
 
-    console.log(`🔍 Getting batches for:`, {
-      shopId,
-      branchId,
-      medicineId,
-      options,
-    });
+async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
+  const { includeExpiring = true } = options;
+  // ✅ Removed includeLowStock - no longer needed
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  console.log(`🔍 Getting batches for:`, {
+    shopId,
+    branchId,
+    medicineId,
+    options,
+  });
 
-    const where = {
-      shop_id: shopId,
-      branch_id: branchId,
-      medicine_id: medicineId,
-      is_active: true,
-      is_expired: false,
-      //  Include low stock if requested
-      ...(includeLowStock
-        ? { available_stock: { gt: 0 } } // Any stock > 0
-        : { available_stock: { gt: 5 } }), // Only stock > 5
-      expiry_date: { gte: today },
-    };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    console.log("📋 Query where clause:", where);
+  const where = {
+    shop_id: shopId,
+    branch_id: branchId,
+    medicine_id: medicineId,
+    is_active: true,
+    is_expired: false,
+    // ✅ FIX: Always gt: 0 — show any batch with at least 1 unit
+    // Old code used gt: 5 when includeLowStock=false, hiding valid stock
+    available_stock: { gt: 0 },
+    expiry_date: { gte: today },
+  };
 
-    const batches = await prisma.inventory.findMany({
-      where,
-      select: {
-        inventory_id: true,
-        batch_number: true,
-        expiry_date: true,
-        current_stock: true,
-        reserved_stock: true,
-        available_stock: true,
-        mrp: true,
-        selling_rate: true,
-        rack_no: true,
-        medicine: {
-          select: {
-            medicine_id: true,
-            name: true,
-            manufacturer: true,
-            pack_size: true,
-            gst_percentage: true,
-            cgst_percentage: true,
-            sgst_percentage: true,
-          },
+  console.log("📋 Query where clause:", where);
+
+  const batches = await prisma.inventory.findMany({
+    where,
+    select: {
+      inventory_id: true,
+      batch_number: true,
+      expiry_date: true,
+      current_stock: true,
+      reserved_stock: true,
+      available_stock: true,
+      mrp: true,
+      selling_rate: true,
+      rack_no: true,
+      medicine: {
+        select: {
+          medicine_id: true,
+          name: true,
+          manufacturer: true,
+          pack_size: true,
+          gst_percentage: true,
+          cgst_percentage: true,
+          sgst_percentage: true,
         },
       },
-      orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
-    });
+    },
+    orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
+  });
 
-    console.log(` Found ${batches.length} batches`);
+  console.log(`✅ Found ${batches.length} batches`);
 
-    const enrichedBatches = batches.map((batch) => {
-      const expiryDate = new Date(batch.expiry_date);
-      const daysUntilExpiry = Math.ceil(
-        (expiryDate - today) / (1000 * 60 * 60 * 24),
-      );
+  const enrichedBatches = batches.map((batch) => {
+    const expiryDate = new Date(batch.expiry_date);
+    const daysUntilExpiry = Math.ceil(
+      (expiryDate - today) / (1000 * 60 * 60 * 24),
+    );
 
-      let status = "available";
-      if (daysUntilExpiry <= 30) status = "expiring_soon";
-      if (parseFloat(batch.available_stock) <= 10) status = "low_stock";
+    // ✅ Status for UI display - low_stock warning but doesn't block
+    let status = "available";
+    if (daysUntilExpiry <= 30) status = "expiring_soon";
+    if (parseFloat(batch.available_stock) <= 5) status = "low_stock";
 
-      return {
-        ...batch,
-        days_until_expiry: daysUntilExpiry,
-        status,
-        display_label: `${batch.batch_number} | Exp: ${expiryDate.toLocaleDateString(
-          "en-IN",
-          {
-            month: "short",
-            year: "numeric",
-          },
-        )} | Stock: ${batch.available_stock} | MRP: ₹${batch.mrp}`,
-      };
-    });
+    return {
+      ...batch,
+      days_until_expiry: daysUntilExpiry,
+      status,
+      display_label: `${batch.batch_number} | Exp: ${expiryDate.toLocaleDateString(
+        "en-IN",
+        {
+          month: "short",
+          year: "numeric",
+        },
+      )} | Stock: ${batch.available_stock} | MRP: ₹${batch.mrp}`,
+    };
+  });
 
-    let filteredBatches = enrichedBatches;
+  // ✅ REMOVED: The old post-query filter that was hiding low-stock batches
+  // if (!includeLowStock) {
+  //   filteredBatches = filteredBatches.filter((b) => b.days_until_expiry > 30);
+  // }
 
-    if (!includeLowStock) {
-      filteredBatches = filteredBatches.filter(
-        (b) => parseFloat(b.available_stock) > 5,
-      );
-    }
-
-    if (!includeExpiring) {
-      filteredBatches = filteredBatches.filter((b) => b.days_until_expiry > 30);
-    }
-
-    return filteredBatches;
+  // Only filter by expiry preference
+  if (!includeExpiring) {
+    return enrichedBatches.filter((b) => b.days_until_expiry > 30);
   }
+
+  return enrichedBatches;
+}
 
   // ============================================
   // CREATE DRAFT SALE
