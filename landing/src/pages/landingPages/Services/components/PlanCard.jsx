@@ -1,29 +1,29 @@
-// frontend/src/pages/plan-selection/comps/PlanCard.jsx
+// src/pages/landingPages/Services/components/PlanCard.jsx
 
-import { motion } from "framer-motion";
 import {
+  Check,
   Users,
   Building2,
-  Check,
   Gift,
-  Loader2,
+  TrendingDown,
+  ArrowRight,
   Clock,
   Tag,
-  ArrowRight,
-  TrendingDown,
   Sparkles,
 } from "lucide-react";
+
 import {
+  BILLING,
   formatPrice,
   getCardTheme,
-  generateFeatures,
   getPlanBadge,
-  calculateDiscountPercent,
-  isIntroPriceActive,
+  generateFeatures,
   getChargeablePrice,
-  BILLING,
-  CARD_THEMES,
-} from "../../../config/planConfig";
+  isIntroPriceActive,
+  calculateDiscountPercent,
+} from "../../../../config/planConfig";
+
+const LOGIN_URL = import.meta.env.VITE_SIGN_IN_URL;
 
 const BadgeIcon = ({ type }) => {
   const size = 10;
@@ -37,11 +37,12 @@ const BadgeIcon = ({ type }) => {
 };
 
 // ── Button classes per theme ─────────────────────────────────────────────────
-// Light cards:    colour bg + white text  →  card hover: white bg + colour text
-// Featured dark:  white bg + navy text   →  card hover: navy bg + white text
-// Custom:         amber bg + white text  →  card hover: white bg + amber text
+// Light cards:    solid colour bg + white text  →  card hover: white bg + colour text
+// Featured dark:  white bg + navy text          →  card hover: navy bg + white text
+// Custom:         amber bg + white text         →  card hover: white bg + amber text
 const getButtonClasses = (theme) => {
   if (theme.isDark) {
+    // Featured — inverted flip (starts light, goes dark)
     return [
       "bg-white text-[#05015A]",
       "group-hover:bg-[#05015A] group-hover:text-white",
@@ -58,10 +59,10 @@ const getButtonClasses = (theme) => {
   return "bg-[#05015A] text-white group-hover:bg-white group-hover:text-[#05015A]";
 };
 
-export default function PlanCard({ plan, onSelect, isSelecting }) {
+const PlanCard = ({ plan, index }) => {
   const theme = getCardTheme(plan);
-  const features = generateFeatures(plan);
   const badge = getPlanBadge(plan);
+  const features = generateFeatures(plan);
   const isDark = theme.isDark || false;
 
   const introActive = isIntroPriceActive(plan);
@@ -77,71 +78,55 @@ export default function PlanCard({ plan, onSelect, isSelecting }) {
     discountPercent && !plan.is_promo_active && !introActive && plan.price > 0;
 
   const txt = {
-    heading:    isDark ? "text-white"    : "text-gray-800",
-    sub:        isDark ? "text-white/60" : "text-gray-600",
-    subHover:   isDark ? ""              : "group-hover:text-white/80",
-    body:       isDark ? "text-white/70" : "text-gray-700",
-    bodyHover:  isDark ? ""              : "group-hover:text-white/90",
+    heading:    isDark ? "text-white"    : "text-gray-900",
+    sub:        isDark ? "text-white/60" : "text-gray-500",
+    subHover:   isDark ? ""              : "group-hover:text-white/70",
+    body:       isDark ? "text-white/70" : "text-gray-600",
+    bodyHover:  isDark ? ""              : "group-hover:text-white/80",
     muted:      isDark ? "text-white/40" : "text-gray-400",
     mutedHover: isDark ? ""              : "group-hover:text-white/50",
     accent:     isDark ? "text-white"    : theme.accentColor,
   };
 
-  const handleClick = () => {
-    if (isSelecting) return;
-    onSelect(plan);
-  };
-
-  const buttonLabel   = isEffectivelyFree ? "Start Free" : "Get Started";
+  const buttonLabel   = isEffectivelyFree ? "Start Free Trial" : "Get Started";
   const buttonClasses = getButtonClasses(theme);
 
   return (
-    <motion.div
-      whileHover={{ y: -4 }}
+    <div
+      data-aos="fade-up"
+      data-aos-delay={index * 75}
       className={`
-        group relative flex flex-col rounded-2xl
-        w-[260px] min-h-[380px] flex-shrink-0
-        ${isSelecting ? "opacity-60 pointer-events-none" : ""}
+        group relative rounded-2xl text-left
+        transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]
+        hover:-translate-y-2
+        ${theme.bg} border-2 ${theme.border}
+        hover:shadow-2xl hover:shadow-black/10
       `}
     >
-      {/* ── Base layer ── */}
-      <div
-        className={`
-          absolute inset-0 rounded-2xl border-2 shadow-md
-          transition-shadow duration-300 group-hover:shadow-xl
-          ${isDark
-            ? `bg-gradient-to-b ${theme.gradient} ${theme.borderAccent}`
-            : `bg-white ${theme.borderAccent}`
-          }
-        `}
-      />
-
-      {/* ── Light cards: hover gradient overlay ── */}
+      {/* ── Light card hover gradient overlay ── */}
       {!isDark && (
         <div
           className={`
-            absolute inset-0 rounded-2xl overflow-hidden
+            absolute inset-0 rounded-[14px] overflow-hidden
             bg-gradient-to-b ${theme.hoverGradient}
             opacity-0 group-hover:opacity-100
-            transition-opacity duration-300 ease-out pointer-events-none
+            transition-opacity duration-400 ease-out pointer-events-none
           `}
         />
       )}
 
-      {/* ── Featured dark card: base gradient + hover brightness lift ── */}
+      {/* ── Featured dark card: base gradient + hover brightness layer ── */}
       {isDark && (
         <>
           {/* permanent base */}
           <div
-            className={`
-              absolute inset-0 rounded-2xl overflow-hidden
-              bg-gradient-to-b ${theme.hoverGradient}
-              pointer-events-none
-            `}
+            className="absolute inset-0 rounded-[14px] overflow-hidden
+                       bg-gradient-to-b from-[#0a0a6a] to-[#1a1a8a]
+                       pointer-events-none"
           />
           {/* hover brightness lift */}
           <div
-            className="absolute inset-0 rounded-2xl overflow-hidden
+            className="absolute inset-0 rounded-[14px] overflow-hidden
                        bg-gradient-to-b from-[#0d0570] to-[#2525aa]
                        opacity-0 group-hover:opacity-100
                        transition-opacity duration-400 ease-out pointer-events-none"
@@ -166,32 +151,26 @@ export default function PlanCard({ plan, onSelect, isSelecting }) {
         </div>
       )}
 
-      {/* ── Content ── */}
-      <div className="relative z-10 flex-1 flex flex-col p-5 pt-7">
+      {/* ── Card Content ── */}
+      <div className="relative z-10 flex flex-col h-full p-5 sm:p-6 pt-7">
 
-        <h2
-          className={`
-            text-lg font-bold text-center leading-tight mb-1
-            transition-colors duration-300
-            ${txt.heading} group-hover:text-white
-          `}
+        <h3
+          className={`text-lg font-bold mb-1 transition-colors duration-300
+                      ${txt.heading} group-hover:text-white`}
         >
           {plan.name}
-        </h2>
+        </h3>
 
         <p
-          className={`
-            text-xs text-center line-clamp-2 min-h-[32px] mb-3
-            transition-colors duration-300
-            ${txt.sub} ${txt.subHover}
-          `}
+          className={`text-xs leading-relaxed line-clamp-2 mb-4
+                     transition-colors duration-300
+                     ${txt.sub} ${txt.subHover}`}
         >
           {plan.description || "Perfect for getting started"}
         </p>
 
-        {/* ── Price ── */}
-        <div className="flex flex-col items-center mb-3">
-
+        {/* ── Price Block ── */}
+        <div className="mb-4">
           {showComparePrice && (
             <div className="flex items-center gap-2 mb-1">
               <span
@@ -211,13 +190,11 @@ export default function PlanCard({ plan, onSelect, isSelecting }) {
             </div>
           )}
 
-          <div className="flex items-baseline gap-1">
+          <div className="flex items-baseline gap-1.5">
             <span
-              className={`
-                text-3xl font-extrabold tracking-tight
-                transition-colors duration-300
-                ${txt.accent} group-hover:text-white
-              `}
+              className={`text-3xl sm:text-4xl font-extrabold tracking-tight
+                          transition-colors duration-300
+                          ${txt.accent} group-hover:text-white`}
             >
               {isEffectivelyFree
                 ? "FREE"
@@ -227,15 +204,15 @@ export default function PlanCard({ plan, onSelect, isSelecting }) {
             </span>
             {!isEffectivelyFree && (
               <span
-                className={`text-xs transition-colors duration-300
-                            ${txt.muted} ${txt.mutedHover}`}
+                className={`text-sm font-medium transition-colors duration-300
+                            ${txt.sub} ${txt.subHover}`}
               >
                 {BILLING.displayText}
               </span>
             )}
           </div>
 
-          <div className="mt-1 min-h-[16px] text-center">
+          <div className="mt-1 min-h-[16px]">
             {introActive && !isEffectivelyFree && (
               <p className={`text-[11px] transition-colors duration-300
                             ${txt.muted} ${txt.mutedHover}`}>
@@ -273,26 +250,24 @@ export default function PlanCard({ plan, onSelect, isSelecting }) {
           </div>
         </div>
 
-        {/* ── Limits ── */}
+        {/* ── Limits Row ── */}
         <div
-          className={`
-            flex justify-center gap-6 mb-3 text-xs
-            transition-colors duration-300
-            ${txt.body} group-hover:text-white/80
-          `}
+          className={`flex gap-4 text-xs font-medium mb-4
+                     transition-colors duration-300
+                     ${txt.body} group-hover:text-white/80`}
         >
           <div className="flex items-center gap-1.5">
             <Users size={14}
                    className={`transition-colors duration-300
                                ${txt.muted} group-hover:text-white/50`} />
-            <span>{plan.max_users === -1 ? "∞" : plan.max_users} Users</span>
+            <span>{plan.max_users === -1 ? "Unlimited" : plan.max_users} Users</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Building2 size={14}
                        className={`transition-colors duration-300
                                    ${txt.muted} group-hover:text-white/50`} />
             <span>
-              {plan.max_branches === -1 ? "∞" : plan.max_branches}{" "}
+              {plan.max_branches === -1 ? "Unlimited" : plan.max_branches}{" "}
               {plan.max_branches === 1 ? "Branch" : "Branches"}
             </span>
           </div>
@@ -300,31 +275,29 @@ export default function PlanCard({ plan, onSelect, isSelecting }) {
 
         {/* ── Divider ── */}
         <div
-          className={`h-px w-full mb-3 transition-colors duration-300
+          className={`h-px w-full mb-4 transition-colors duration-300
                      ${isDark
                        ? "bg-white/10 group-hover:bg-white/20"
-                       : "bg-gray-200 group-hover:bg-white/20"
+                       : "bg-gray-100 group-hover:bg-white/20"
                      }`}
         />
 
         {/* ── Features ── */}
-        <ul className="space-y-2 flex-1 mb-4">
+        <ul className="space-y-2.5 mb-5 flex-1">
           {features.map((feature, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs">
+            <li key={i} className="flex items-start gap-2.5 text-xs">
               <span
                 className={`
                   flex-shrink-0 mt-0.5 transition-colors duration-300
                   ${feature.type === "intro" || feature.type === "bonus"
                     ? "text-amber-500 group-hover:text-amber-300"
-                    : isDark
-                      ? "text-white/60 group-hover:text-white/70"
-                      : "text-emerald-500 group-hover:text-emerald-300"
+                    : `${theme.checkColor} ${theme.checkHover}`
                   }
                 `}
               >
-                {feature.type === "intro"  ? <TrendingDown size={13} /> :
-                 feature.type === "bonus"  ? <Gift size={13} /> :
-                                             <Check size={13} strokeWidth={2.5} />}
+                {feature.type === "intro"  ? <TrendingDown size={14} /> :
+                 feature.type === "bonus"  ? <Gift size={14} /> :
+                                             <Check size={14} strokeWidth={2.5} />}
               </span>
               <span
                 className={`
@@ -349,33 +322,26 @@ export default function PlanCard({ plan, onSelect, isSelecting }) {
         {/*
           Light cards:   colour bg + white text  →  card hover: white bg + colour text
           Featured dark: white bg + navy text    →  card hover: navy bg + white text
-          Self-hover: scale only
+          Self-hover = scale only, no colour change
         */}
-        <button
-          onClick={handleClick}
-          disabled={isSelecting}
+        <a
+          href={LOGIN_URL}
+          target="_blank"
+          rel="noopener noreferrer"
           className={`
-            w-full py-2.5 rounded-xl text-sm font-semibold
+            w-full py-2.5 rounded-xl text-sm font-semibold text-center
             transition-colors duration-300
             hover:scale-[1.03] active:scale-[0.98]
-            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
             shadow-sm flex items-center justify-center gap-2
             ${buttonClasses}
           `}
         >
-          {isSelecting ? (
-            <>
-              <Loader2 size={15} className="animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              {buttonLabel}
-              <ArrowRight size={14} />
-            </>
-          )}
-        </button>
+          {buttonLabel}
+          <ArrowRight size={14} />
+        </a>
       </div>
-    </motion.div>
+    </div>
   );
-}
+};
+
+export default PlanCard;

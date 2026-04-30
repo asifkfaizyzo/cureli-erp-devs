@@ -757,11 +757,18 @@ const Sidebar = () => {
     <motion.aside
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="h-screen mt-16 bg-white border-r border-gray-200 overflow-hidden"
+      className="
+      h-screen mt-16 
+      bg-white border-r border-gray-200 
+      overflow-hidden
+      flex flex-col        
+      flex-shrink-0        
+      will-change-[width]  
+    "
       animate={{ width: isExpanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH }}
       transition={SIDEBAR_TRANSITION}
     >
-      <nav className="pt-6 px-2 flex flex-col gap-2">
+      <nav className="flex flex-col gap-2 pt-6 px-2 pb-4 overflow-y-auto sidebar-nav">
         {visibleMenuItems.map((item) => {
           const showRenewalBadge =
             isSuperAdmin && needsRenewal && item.id === "settings";

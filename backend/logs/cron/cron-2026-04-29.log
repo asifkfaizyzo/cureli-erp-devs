@@ -499,3 +499,78 @@
 [2026-04-29T09:25:04.704Z] [INFO]   - Deletion logs cleanup: Daily at 3:30 AM
 [2026-04-29T09:25:04.704Z] [INFO]   - Incomplete users cleanup: Daily at 3:15 AM
 [2026-04-29T09:25:04.704Z] [INFO]   - OTP daily limits cleanup: Daily at 3:45 AM
+[2026-04-29T09:25:39.475Z] [INFO] Initializing cron jobs...
+[2026-04-29T09:25:39.476Z] [INFO] Distributed locking: ENABLED
+[2026-04-29T09:25:39.476Z] [INFO] Instance ID: CHKTHN-LOQ-18264-3ab2cc32
+[2026-04-29T09:25:39.489Z] [INFO] [File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)
+[2026-04-29T09:25:39.482Z] [INFO] [Email Cron] Email broadcast worker initialized (every 1 minute)
+[2026-04-29T09:25:39.489Z] [INFO] Email broadcast worker: Every 1 minute
+[2026-04-29T09:25:39.489Z] [INFO] Email file cleanup: Daily at 4:00 AM
+[2026-04-29T09:25:39.494Z] [INFO] Plan transition job scheduled (daily at 2:00 AM)
+[2026-04-29T09:25:39.499Z] [INFO] Subscription lifecycle job scheduled (every hour)
+[2026-04-29T09:25:39.503Z] [INFO] Payment status sync job scheduled (daily at 1:00 AM)
+[2026-04-29T09:25:39.507Z] [INFO] Reminder job scheduled (daily at 9:00 AM)
+[2026-04-29T09:25:39.511Z] [INFO] Inventory expiry job scheduled (daily at 6:00 AM)
+[2026-04-29T09:25:39.513Z] [INFO] Scheduled broadcasts job initialized (every 5 minutes)
+[2026-04-29T09:25:39.524Z] [INFO]   - Subscription lifecycle + emails: Every hour
+[2026-04-29T09:25:39.524Z] [INFO]   - Session cleanup: Every hour
+[2026-04-29T09:25:39.524Z] [INFO]   - Plan transition: Daily at 2:00 AM
+[2026-04-29T09:25:39.523Z] [INFO] All cron jobs initialized:
+[2026-04-29T09:25:39.524Z] [INFO]   - Inventory expiry checks + alerts: Daily at 6:00 AM
+[2026-04-29T09:25:39.524Z] [INFO]   - Payment status sync: Daily at 1:00 AM
+[2026-04-29T09:25:39.524Z] [INFO]   - Reminder emails (7d/3d/final): Daily at 9:00 AM
+[2026-04-29T09:25:39.524Z] [INFO]   - Pending users cleanup: Daily at 3:00 AM
+[2026-04-29T09:25:39.524Z] [INFO]   - Incomplete users cleanup: Daily at 3:15 AM
+[2026-04-29T09:25:39.524Z] [INFO]   - Deletion logs cleanup: Daily at 3:30 AM
+[2026-04-29T09:25:39.524Z] [INFO]   - Scheduled broadcasts: Every 5 minutes
+[2026-04-29T09:25:39.524Z] [INFO]   - OTP daily limits cleanup: Daily at 3:45 AM
+[2026-04-29T09:27:16.533Z] [INFO] Initializing cron jobs...
+[2026-04-29T09:27:16.534Z] [INFO] Distributed locking: ENABLED
+[2026-04-29T09:27:16.540Z] [INFO] [Email Cron] Email broadcast worker initialized (every 1 minute)
+[2026-04-29T09:27:16.543Z] [INFO] [File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)
+[2026-04-29T09:27:16.543Z] [INFO] Email broadcast worker: Every 1 minute
+[2026-04-29T09:27:16.545Z] [INFO] Plan transition job scheduled (daily at 2:00 AM)
+[2026-04-29T09:27:16.534Z] [INFO] Instance ID: CHKTHN-LOQ-28820-3dad50a5
+[2026-04-29T09:27:16.547Z] [INFO] Subscription lifecycle job scheduled (every hour)
+[2026-04-29T09:27:16.543Z] [INFO] Email file cleanup: Daily at 4:00 AM
+[2026-04-29T09:27:16.550Z] [INFO] Payment status sync job scheduled (daily at 1:00 AM)
+[2026-04-29T09:27:16.553Z] [INFO] Inventory expiry job scheduled (daily at 6:00 AM)
+[2026-04-29T09:27:16.551Z] [INFO] Reminder job scheduled (daily at 9:00 AM)
+[2026-04-29T09:27:16.555Z] [INFO] Scheduled broadcasts job initialized (every 5 minutes)
+[2026-04-29T09:27:16.562Z] [INFO] All cron jobs initialized:
+[2026-04-29T09:27:16.562Z] [INFO]   - Session cleanup: Every hour
+[2026-04-29T09:27:16.563Z] [INFO]   - Subscription lifecycle + emails: Every hour
+[2026-04-29T09:27:16.563Z] [INFO]   - Plan transition: Daily at 2:00 AM
+[2026-04-29T09:27:16.563Z] [INFO]   - Payment status sync: Daily at 1:00 AM
+[2026-04-29T09:27:16.563Z] [INFO]   - Inventory expiry checks + alerts: Daily at 6:00 AM
+[2026-04-29T09:27:16.563Z] [INFO]   - Reminder emails (7d/3d/final): Daily at 9:00 AM
+[2026-04-29T09:27:16.563Z] [INFO]   - Incomplete users cleanup: Daily at 3:15 AM
+[2026-04-29T09:27:16.563Z] [INFO]   - Deletion logs cleanup: Daily at 3:30 AM
+[2026-04-29T09:27:16.563Z] [INFO]   - Pending users cleanup: Daily at 3:00 AM
+[2026-04-29T09:27:16.563Z] [INFO]   - Scheduled broadcasts: Every 5 minutes
+[2026-04-29T09:27:16.563Z] [INFO]   - OTP daily limits cleanup: Daily at 3:45 AM
+[2026-04-29T09:28:23.918Z] [INFO] Initializing cron jobs...
+[2026-04-29T09:28:23.919Z] [INFO] Instance ID: CHKTHN-LOQ-19240-74b4409d
+[2026-04-29T09:28:23.919Z] [INFO] Distributed locking: ENABLED
+[2026-04-29T09:28:23.925Z] [INFO] [Email Cron] Email broadcast worker initialized (every 1 minute)
+[2026-04-29T09:28:23.927Z] [INFO] Email broadcast worker: Every 1 minute
+[2026-04-29T09:28:23.927Z] [INFO] [File Cleanup] Email attachment cleanup worker initialized (daily at 4:00 AM)
+[2026-04-29T09:28:23.927Z] [INFO] Email file cleanup: Daily at 4:00 AM
+[2026-04-29T09:28:23.931Z] [INFO] Plan transition job scheduled (daily at 2:00 AM)
+[2026-04-29T09:28:23.933Z] [INFO] Subscription lifecycle job scheduled (every hour)
+[2026-04-29T09:28:23.936Z] [INFO] Payment status sync job scheduled (daily at 1:00 AM)
+[2026-04-29T09:28:23.938Z] [INFO] Reminder job scheduled (daily at 9:00 AM)
+[2026-04-29T09:28:23.940Z] [INFO] Inventory expiry job scheduled (daily at 6:00 AM)
+[2026-04-29T09:28:23.943Z] [INFO] Scheduled broadcasts job initialized (every 5 minutes)
+[2026-04-29T09:28:23.959Z] [INFO]   - Session cleanup: Every hour
+[2026-04-29T09:28:23.959Z] [INFO]   - Subscription lifecycle + emails: Every hour
+[2026-04-29T09:28:23.959Z] [INFO] All cron jobs initialized:
+[2026-04-29T09:28:23.959Z] [INFO]   - Plan transition: Daily at 2:00 AM
+[2026-04-29T09:28:23.959Z] [INFO]   - Reminder emails (7d/3d/final): Daily at 9:00 AM
+[2026-04-29T09:28:23.959Z] [INFO]   - Inventory expiry checks + alerts: Daily at 6:00 AM
+[2026-04-29T09:28:23.959Z] [INFO]   - Payment status sync: Daily at 1:00 AM
+[2026-04-29T09:28:23.959Z] [INFO]   - Incomplete users cleanup: Daily at 3:15 AM
+[2026-04-29T09:28:23.959Z] [INFO]   - Pending users cleanup: Daily at 3:00 AM
+[2026-04-29T09:28:23.959Z] [INFO]   - Deletion logs cleanup: Daily at 3:30 AM
+[2026-04-29T09:28:23.959Z] [INFO]   - OTP daily limits cleanup: Daily at 3:45 AM
+[2026-04-29T09:28:23.959Z] [INFO]   - Scheduled broadcasts: Every 5 minutes
