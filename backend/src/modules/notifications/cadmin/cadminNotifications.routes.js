@@ -1,14 +1,11 @@
-// ============================================
 // backend/src/modules/notifications/cadmin/cadminNotifications.routes.js
-// ============================================
 
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import * as controller from './cadminNotifications.controller.js';
 import { requireCAdmin } from '../../../middleware/requireCAdmin.js';
 import { validate } from '../../../middleware/validate.js';
-import { ADMIN_ACCESS_SECRET } from '../../../config/cadmin_jwt.js';
-import { sseService } from '../../../services/sse.service.js';
+import { ADMIN_ACCESS_SECRET, ADMIN_REFRESH_SECRET } from '../../../config/cadmin_jwt.js';
 import prisma from '../../../config/prisma.js';
 import * as schema from './cadminNotifications.schema.js';
 
@@ -16,20 +13,36 @@ const router = Router();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SSE Stream Route
-// NOTE: Registered BEFORE router.use(requireCAdmin) — does inline JWT auth
+// Uses the REFRESH token (7d) instead of access token (15m)
+// so the stream stays alive for the whole session
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * @route   GET /cadmin/notifications/stream
- * @desc    SSE stream for real-time CAdmin notifications
- * @access  Public (inline JWT verification)
- */
 router.get('/notifications/stream', async (req, res) => {
   const token = req.query.token;
   if (!token) return res.status(401).end();
 
   try {
-    const payload = jwt.verify(token, ADMIN_ACCESS_SECRET);
+    // ── Try refresh token first (long-lived, preferred for SSE) ──
+    let payload;
+    let tokenValid = false;
+
+    try {
+      payload = jwt.verify(token, ADMIN_REFRESH_SECRET); // 7d
+      tokenValid = true;
+    } catch (refreshErr) {
+      // Fallback: try access token (handles existing connections mid-migration)
+      try {
+        payload = jwt.verify(token, ADMIN_ACCESS_SECRET); // 15m
+        tokenValid = true;
+      } catch (accessErr) {
+        // Both failed
+        tokenValid = false;
+      }
+    }
+
+    if (!tokenValid || !payload?.cadmin_id) {
+      return res.status(401).end();
+    }
 
     // Verify the CAdmin account is active
     const admin = await prisma.cAdmin.findUnique({
@@ -49,106 +62,79 @@ router.get('/notifications/stream', async (req, res) => {
       'Access-Control-Allow-Origin': req.headers.origin || '*',
     });
 
-    // Register client with SSE service
-    sseService.addCAdminClient(cadminId, res);
+    // Track this connection
+    const clients = sseClients;
+    if (!clients.has(cadminId)) clients.set(cadminId, new Set());
+    clients.get(cadminId).add(res);
 
     // Send initial connected event with unread count
     const unreadCount = await prisma.notification.count({
       where: { cadmin_id: cadminId, is_read: false },
     });
-    res.write(sseService.formatSSEMessage('connected', { unread_count: unreadCount }));
+    res.write(`event: connected\ndata: ${JSON.stringify({ unread_count: unreadCount })}\n\n`);
 
-    // Heartbeat every 30 seconds to keep connection alive
-    const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 30000);
+    // Heartbeat every 30 seconds
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(': heartbeat\n\n');
+      } catch {
+        clearInterval(heartbeat);
+      }
+    }, 30000);
 
-    // Cleanup on client disconnect
+    // Cleanup on disconnect
     req.on('close', () => {
       clearInterval(heartbeat);
-      sseService.removeCAdminClient(cadminId, res);
+      const set = clients.get(cadminId);
+      if (set) {
+        set.delete(res);
+        if (set.size === 0) clients.delete(cadminId);
+      }
     });
 
   } catch (err) {
+    console.error('[SSE] Stream error:', err);
     return res.status(401).end();
   }
 });
 
+// Simple in-memory client map (replaces the incomplete sse.service.js)
+const sseClients = new Map(); // Map<cadminId, Set<Response>>
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Protected Routes
-// NOTE: requireCAdmin middleware applied to ALL routes below this point
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.use(requireCAdmin);
 
-/**
- * @route   GET /cadmin/notifications
- * @desc    Get paginated list of notifications
- * @access  CAdmin
- */
 router.get(
   '/notifications/',
   validate(schema.listNotificationsQuerySchema, 'query'),
   controller.listNotifications
 );
 
-/**
- * @route   GET /cadmin/notifications/unread-count
- * @desc    Get unread notification count (for badge)
- * @access  CAdmin
- */
-router.get(
-  '/notifications/unread-count',
-  controller.getUnreadCount
-);
+router.get('/notifications/unread-count', controller.getUnreadCount);
 
-/**
- * @route   GET /cadmin/notifications/recent
- * @desc    Get recent notifications (for dropdown)
- * @access  CAdmin
- */
-router.get(
-  '/notifications/recent',
-  controller.getRecentNotifications
-);
+router.get('/notifications/recent', controller.getRecentNotifications);
 
-/**
- * @route   PATCH /cadmin/notifications/read-all
- * @desc    Mark all notifications as read
- * @access  CAdmin
- * @note    Must come BEFORE /:id routes to avoid param conflict
- */
 router.patch(
   '/notifications/read-all',
   validate(schema.markAllAsReadBodySchema, 'body'),
   controller.markAllAsRead
 );
 
-/**
- * @route   GET /cadmin/notifications/:id
- * @desc    Get single notification
- * @access  CAdmin
- */
 router.get(
   '/notifications/:id',
   validate(schema.notificationIdParamSchema, 'params'),
   controller.getNotification
 );
 
-/**
- * @route   PATCH /cadmin/notifications/:id/read
- * @desc    Mark single notification as read
- * @access  CAdmin
- */
 router.patch(
   '/notifications/:id/read',
   validate(schema.notificationIdParamSchema, 'params'),
   controller.markAsRead
 );
 
-/**
- * @route   DELETE /cadmin/notifications/:id
- * @desc    Delete a notification
- * @access  CAdmin
- */
 router.delete(
   '/notifications/:id',
   validate(schema.notificationIdParamSchema, 'params'),
