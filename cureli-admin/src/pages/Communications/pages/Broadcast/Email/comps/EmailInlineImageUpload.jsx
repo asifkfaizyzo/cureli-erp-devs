@@ -59,7 +59,7 @@ function EmailInlineImageUpload({ image, onChange, disabled }) {
           (progress) => setUploadProgress(progress),
         );
 
-        console.log("[EmailInlineImageUpload] Upload response:", response);
+      
 
         //  FIXED: Check response.success, not response.data.success
         // API returns response.data, so response is already the data object

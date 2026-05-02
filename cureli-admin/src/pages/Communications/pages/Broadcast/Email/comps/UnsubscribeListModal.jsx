@@ -50,7 +50,7 @@ function UnsubscribeListModal({ onClose }) {
         search,
       );
 
-      console.log("[UnsubscribeListModal] API Response:", response);
+     
 
       //  FIXED: Handle both response formats
       let recordsData = [];
@@ -91,7 +91,7 @@ function UnsubscribeListModal({ onClose }) {
         newReason.trim(),
       );
 
-      console.log("[UnsubscribeListModal] Add response:", response);
+      
 
       //  FIXED: Handle response
       if (response && (response.success || response.message)) {

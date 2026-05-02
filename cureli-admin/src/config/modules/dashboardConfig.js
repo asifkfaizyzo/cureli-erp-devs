@@ -59,9 +59,6 @@ export const normalizeRole = (role) => {
 
   //  Additional check: if role contains "SUPER" or "ADMIN", treat as SUPER_ADMIN
   if (normalized.includes("SUPER") || normalized.includes("CADMIN")) {
-    console.log(
-      `🔧 Role "${role}" mapped to SUPER_ADMIN (contains SUPER/CADMIN)`,
-    );
     return CADMIN_ROLES.SUPER_ADMIN;
   }
 

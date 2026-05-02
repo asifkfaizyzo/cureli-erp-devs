@@ -38,7 +38,7 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
     try {
       const response = await emailBroadcastAPI.getScheduled(page, rowsPerPage);
 
-      console.log("[EmailScheduledList] API Response:", response);
+      
 
       //  FIXED: Handle both response formats
       let scheduledData = [];

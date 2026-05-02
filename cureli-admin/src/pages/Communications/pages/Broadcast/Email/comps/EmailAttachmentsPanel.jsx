@@ -82,7 +82,7 @@ function EmailAttachmentsPanel({ attachments = [], onChange, disabled }) {
         (progress) => setUploadProgress(progress),
       );
 
-      console.log("[EmailAttachmentsPanel] Upload response:", response);
+    
 
       //  FIXED: Check response.success, not response.data.success
       // API returns response.data, so response is already the data object

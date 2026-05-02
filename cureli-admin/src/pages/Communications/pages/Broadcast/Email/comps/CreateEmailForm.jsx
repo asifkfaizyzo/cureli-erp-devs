@@ -96,7 +96,7 @@ function CreateEmailForm({
         formData.target_cadmins,
       );
 
-      console.log("[CreateEmailForm] Preview Recipients Response:", response);
+
 
       // API returns response.data, so response is already the data object
       if (response && response.success) {
@@ -192,7 +192,7 @@ function CreateEmailForm({
 
       const res = await emailBroadcastAPI.sendTestEmail(testData);
 
-      console.log("[CreateEmailForm] Send Test Email Response:", res);
+    
 
       // API returns response.data, so res is already the data object
       if (res && res.success) {
@@ -228,13 +228,13 @@ function CreateEmailForm({
           editDraft.campaign_id,
           submissionData,
         );
-        console.log("[CreateEmailForm] Update Draft Response:", res);
+      
         if (res && (res.success || res.campaign_id)) {
           setSuccess("Draft updated");
         }
       } else {
         res = await emailBroadcastAPI.createDraft(submissionData);
-        console.log("[CreateEmailForm] Create Draft Response:", res);
+       
         if (res && (res.success || res.campaign_id)) {
           setSuccess("Draft saved");
         }
@@ -262,7 +262,7 @@ function CreateEmailForm({
       const submissionData = prepareSubmissionData();
       const res = await emailBroadcastAPI.sendEmailNow(submissionData);
 
-      console.log("[CreateEmailForm] Send Now Response:", res);
+    
 
       // API returns response.data, so res is already the data object
       if (res && (res.success || res.campaign_id)) {
@@ -296,10 +296,7 @@ function CreateEmailForm({
 
       if (!campaignId) {
         const draftRes = await emailBroadcastAPI.createDraft(submissionData);
-        console.log(
-          "[CreateEmailForm] Create Draft for Schedule Response:",
-          draftRes,
-        );
+        
         campaignId = draftRes.data?.campaign_id || draftRes.campaign_id;
       } else {
         await emailBroadcastAPI.updateDraft(campaignId, submissionData);
@@ -309,7 +306,7 @@ function CreateEmailForm({
         campaignId,
         scheduledFor,
       );
-      console.log("[CreateEmailForm] Schedule Campaign Response:", scheduleRes);
+      
 
       setSuccess(`Scheduled for ${new Date(scheduledFor).toLocaleString()}`);
       setTimeout(() => onScheduled?.(), 1500);
