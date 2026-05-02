@@ -148,14 +148,7 @@ export const usePurchaseAPI = () => {
           params.branch_id = currentBranchId;
         }
 
-        console.log("📦 Loading suppliers:", {
-          params,
-          previousBranch: lastBranchIdRef.current,
-          currentBranch: currentBranchId,
-          branchChanged,
-          forceRefresh,
-          mode: branchContext.mode,
-        });
+        
 
         //  Update tracking ref BEFORE the API call
         lastBranchIdRef.current = currentBranchId;
@@ -193,15 +186,7 @@ export const usePurchaseAPI = () => {
           },
         );
 
-        console.log(
-          ` Loaded ${activeSuppliers.length}/${response.data.suppliers?.length || 0} active suppliers`,
-          {
-            mode: branchContext.mode,
-            branchId: currentBranchId,
-            total: response.data.suppliers?.length || 0,
-            active: activeSuppliers.length,
-          },
-        );
+        
 
         const formattedSuppliers = activeSuppliers.map((sup) => ({
           id: sup.supplier_id,
@@ -625,9 +610,7 @@ const savePurchaseInvoice = useCallback(
       const billableRows = filledRows.filter((row) => !row.isFreeItem);
       const freeRows = filledRows.filter((row) => row.isFreeItem === true);
 
-      console.log(
-        `📦 Saving invoice: ${billableRows.length} billable, ${freeRows.length} free items`,
-      );
+      
 
       // ═══════════════════════════════════════════════════════════════
       // FIX: Build a name→medicine_id map from rows that DO have medicine_id
@@ -652,9 +635,7 @@ const savePurchaseInvoice = useCallback(
           const nameKey = (row.name || "").toLowerCase().trim();
           const resolvedId = nameMedicineIdMap.get(nameKey);
           if (resolvedId) {
-            console.log(
-              `🔧 Auto-resolved medicine_id for "${row.name}" (batch: ${row.batch}) from same-name row`,
-            );
+            
             return { ...row, medicine_id: resolvedId };
           }
         }
@@ -771,15 +752,6 @@ const savePurchaseInvoice = useCallback(
         lineItems,
       };
 
-      console.log(
-        "📤 Payload lineItems:",
-        lineItems.map((item) => ({
-          name: item.medicine_id?.slice(0, 8),
-          batch: item.batch_number,
-          qty: item.quantity,
-          is_free_item: item.is_free_item,
-        })),
-      );
 
       let response;
       if (currentInvoice?.invoice_id) {

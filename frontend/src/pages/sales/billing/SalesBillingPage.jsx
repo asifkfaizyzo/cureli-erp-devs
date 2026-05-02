@@ -82,19 +82,7 @@ const SalesBillingPage = () => {
 
   // 🔍 DEBUG: Log the entire user object to see its structure
   useEffect(() => {
-    console.log("🔍 DEBUG - Full user object from auth store:", user);
-    console.log("🔍 DEBUG - User properties:", {
-      name: user?.name,
-      full_name: user?.full_name,
-      first_name: user?.first_name,
-      username: user?.username,
-      user_id: user?.user_id,
-      role: user?.role,
-    });
-    console.log(
-      "🔍 DEBUG - localStorage user_name:",
-      localStorage.getItem("user_name"),
-    );
+    
   }, [user]);
 
   //  FIXED: Correct property order - `name` is the correct property

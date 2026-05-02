@@ -32,10 +32,10 @@ export const useInventory = (initialFilters = {}) => {
 
       if (response.success) {
         const rawData = response.data.inventories || response.data || [];
-        console.log("📦 Raw inventory data from API:", rawData.slice(0, 2));
+       
 
         const mappedItems = mapInventoryData(rawData);
-        console.log("📦 Mapped inventory data:", mappedItems.slice(0, 2));
+       ;
 
         setItems(mappedItems);
         setPagination({
@@ -131,12 +131,12 @@ export const useInventory = (initialFilters = {}) => {
   const updateInventory = useCallback(
     async (inventoryId, updateData) => {
       try {
-        console.log("📤 updateInventory called:", { inventoryId, updateData });
+       
 
         const response = await inventoryAPI.update(inventoryId, updateData);
 
         if (response.success) {
-          console.log(" Inventory updated:", response.data);
+          
 
           // Refresh inventory list and summary
           await fetchInventory();
@@ -166,12 +166,12 @@ export const useInventory = (initialFilters = {}) => {
   const deleteInventory = useCallback(
     async (inventoryId) => {
       try {
-        console.log("🗑️ deleteInventory called:", { inventoryId });
+       
 
         const response = await inventoryAPI.delete(inventoryId);
 
         if (response.success) {
-          console.log(" Inventory deleted:", response.data);
+         
 
           // Refresh inventory list and summary
           await fetchInventory();
@@ -210,11 +210,7 @@ export const useInventory = (initialFilters = {}) => {
   // AUTO-FETCH ON BRANCH CHANGE
   // =====================
   useEffect(() => {
-    console.log("🔄 Branch context changed, refetching inventory...", {
-      branchMode,
-      branchId,
-      branchName,
-    });
+    
 
     fetchInventory(initialFilters);
     fetchSummary();
@@ -264,14 +260,7 @@ export const mapInventoryData = (inventories) => {
   return inventories.map((inv, index) => {
     // Debug first item
     if (index === 0) {
-      console.log("🔍 First inventory item raw data:", {
-        inventory_id: inv.inventory_id,
-        medicine: inv.medicine,
-        batch_number: inv.batch_number,
-        current_stock: inv.current_stock,
-        expiry_date: inv.expiry_date,
-        status: inv.status,
-      });
+    
     }
 
     // Get medicine data - handle both nested and flat structures

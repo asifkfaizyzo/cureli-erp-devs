@@ -90,7 +90,6 @@ export const usePurchaseRows = (initialRowCount = 10) => {
   const createFreeRow = useCallback((sourceRowIndex) => {
     // Prevent recursive/concurrent calls
     if (processingFreeRowRef.current) {
-      console.log("⏳ Skipping createFreeRow - already processing");
       return;
     }
 
@@ -99,23 +98,23 @@ export const usePurchaseRows = (initialRowCount = 10) => {
 
       // Validation checks
       if (!sourceRow) {
-        console.log(" Source row not found at index:", sourceRowIndex);
+      
         return prev;
       }
 
       if (sourceRow.isFreeItem) {
-        console.log(" Cannot create free row from a free row");
+      
         return prev;
       }
 
       if (!sourceRow.name || !sourceRow.name.trim()) {
-        console.log(" Cannot create free row without product name");
+     
         return prev;
       }
 
       const schValue = sourceRow.sch;
       if (!schValue || schValue.toString().trim() === "") {
-        console.log(" Sch value is empty");
+     
         return prev;
       }
 
@@ -129,7 +128,7 @@ export const usePurchaseRows = (initialRowCount = 10) => {
       if (existingFreeRowIndex !== -1) {
         //  Update existing free row's quantity
         const freeQty = parseFreeQuantity(schValue);
-        console.log(`📝 Updating existing free row quantity to ${freeQty}`);
+       
 
         const newRows = [...prev];
         newRows[existingFreeRowIndex] = {
@@ -142,7 +141,7 @@ export const usePurchaseRows = (initialRowCount = 10) => {
       // Parse free quantity
       const freeQty = parseFreeQuantity(schValue);
       if (freeQty <= 0) {
-        console.log(" Free quantity is 0 or negative");
+    
         return prev;
       }
 
@@ -179,9 +178,7 @@ export const usePurchaseRows = (initialRowCount = 10) => {
       const newRows = [...prev];
       newRows.splice(sourceRowIndex + 1, 0, freeRow);
 
-      console.log(
-        ` Created free row for "${sourceRow.name}" with qty ${freeQty}`,
-      );
+      
 
       // Reset processing flag after state update
       setTimeout(() => {
@@ -210,7 +207,7 @@ export const usePurchaseRows = (initialRowCount = 10) => {
       if (freeRowIndex !== -1) {
         const newRows = [...prev];
         newRows.splice(freeRowIndex, 1);
-        console.log(`🗑️ Removed free row for "${sourceRow.name}"`);
+      
         return newRows;
       }
 

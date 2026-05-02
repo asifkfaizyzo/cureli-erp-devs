@@ -655,12 +655,7 @@ const SalesReturnsPage = () => {
           }
         });
 
-        console.log("📦 Loading sales returns with branch context:", {
-          mode: branchContext.mode,
-          branch_id: branchContext.branch_id,
-          branch_name: branchContext.branch_name,
-          filters: params,
-        });
+        
 
         const response = await salesAPI.getAllReturns(params);
         setReturns(response.data?.returns || []);
@@ -687,13 +682,7 @@ const SalesReturnsPage = () => {
       prevBranch.branch_id !== branchContext.branch_id;
 
     if (branchChanged) {
-      console.log("🔄 Branch changed detected in Sales Returns page:", {
-        from: prevBranch,
-        to: {
-          mode: branchContext.mode,
-          branch_id: branchContext.branch_id,
-        },
-      });
+     
 
       prevBranchRef.current = {
         mode: branchContext.mode,
@@ -936,7 +925,7 @@ const SalesReturnsPage = () => {
       setActionLoading(true);
       const returnId = returnData.invoice_id;
 
-      console.log("📤 Cancelling return:", { returnId, data });
+    
 
       await salesAPI.cancelApprovedReturn(returnId, data);
 
@@ -966,7 +955,7 @@ const SalesReturnsPage = () => {
       setActionLoading(true);
       const returnId = returnData.invoice_id;
 
-      console.log("📤 Reverting return:", { returnId, reason });
+    
 
       await salesAPI.revertReturnToPending(returnId, { revert_reason: reason });
 

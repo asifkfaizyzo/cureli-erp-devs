@@ -288,14 +288,7 @@ const parseRowData = (headers, values, debugMode = false) => {
   }
 
   if (debugMode) {
-    console.log("Mapped fields:", mappedFields);
-    console.log("Parsed row:", {
-      name: row.name,
-      mfac: row.mfac,
-      hsn: row.hsn,
-      qty: row.qty,
-      isFreeItem: row.isFreeItem,
-    });
+   
   }
 
   if (row.isFreeItem) return row;
@@ -329,7 +322,7 @@ const extractCellValue = (cell) => {
 // ═══════════════════════════════════════════
 
 const readXlsWithSheetJS = (arrayBuffer, filename) => {
-  console.log(`   📖 Reading with SheetJS: ${filename}`);
+
 
   const workbook = XLSX.read(arrayBuffer, {
     type: "array",
@@ -343,7 +336,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
     raw: false,
   });
 
-  console.log(`   📋 Sheets: ${workbook.SheetNames.join(", ")}`);
+
 
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
@@ -353,10 +346,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
   }
 
   const range = XLSX.utils.decode_range(sheet["!ref"]);
-  console.log(
-    `   📐 Range: ${XLSX.utils.encode_range(range)} ` +
-      `(${range.e.r - range.s.r + 1} rows × ${range.e.c - range.s.c + 1} cols)`,
-  );
+  
 
   const data = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
@@ -415,9 +405,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
     dataRows.push(values);
   }
 
-  console.log(
-    `    SheetJS extracted: ${headers.length} columns, ${dataRows.length} data rows`,
-  );
+  
 
   return { headers, dataRows };
 };
@@ -427,7 +415,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
 // ═══════════════════════════════════════════
 
 const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
-  console.log(`   📖 Reading with ExcelJS: ${filename}`);
+  
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(arrayBuffer);
@@ -483,10 +471,7 @@ const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
     dataRows.push(values);
   }
 
-  console.log(
-    `    ExcelJS extracted: ${headers.length} columns, ${dataRows.length} data rows`,
-  );
-
+  
   return { headers, dataRows };
 };
 
@@ -510,9 +495,8 @@ export const usePurchaseImportExport = (
     const processedRows = [];
     const matchedProductCache = new Map(); // key: "name|mfac" → matchData
 
-    console.group("🔍 Product Detection & Master Catalog Matching");
-    console.log("Product Master Count:", productMaster.length);
-    console.log("Parsed Rows Count:", parsedRows.length);
+  
+
 
     let skippedNoName = 0;
     let matchedCount = 0;
@@ -548,9 +532,7 @@ export const usePurchaseImportExport = (
           // Don't add to newProducts again (already tracked),
           // but push the row with medicine_id: null
           processedRows.push({ ...row, medicine_id: null });
-          console.log(
-            `📋 Cache (new product, different batch): "${rowName}" batch:${row.batch}`
-          );
+          
         } else {
           // Previously matched to an existing medicine
           processedRows.push({
@@ -564,9 +546,7 @@ export const usePurchaseImportExport = (
           });
           matchedCount++;
           cacheHits++;
-          console.log(
-            `✅ Cache hit (existing medicine, different batch): "${rowName}" batch:${row.batch} → medicine_id:${cachedMatch.medicine_id?.slice(0, 8)}`
-          );
+        
         }
         return;
       }
@@ -628,9 +608,7 @@ export const usePurchaseImportExport = (
         });
         matchedCount++;
 
-        console.log(
-          `✅ Matched locally: "${rowName}" batch:${row.batch} → medicine_id:${matchData.medicine_id?.slice(0, 8)}`
-        );
+        
       } else {
         // ✅ FIX: Not found → mark as new product
         // Cache as null (new product) so subsequent batches of same medicine
@@ -659,20 +637,11 @@ export const usePurchaseImportExport = (
 
         processedRows.push({ ...row, medicine_id: null });
 
-        console.log(
-          `🆕 New product: "${rowName}" batch:${row.batch} (first occurrence)`
-        );
+       
       }
     });
 
-    console.log(`\n📊 Local Match Summary:`);
-    console.log(`  Total Rows: ${parsedRows.length}`);
-    console.log(`  Skipped (no name): ${skippedNoName}`);
-    console.log(
-      `  Matched locally: ${matchedCount} (cache hits: ${cacheHits})`
-    );
-    console.log(`  New Products: ${newCount}`);
-    console.log(`  Free Items: ${freeItemCount}`);
+    
 
     // ═══════════════════════════════════════════════════════════════════
     // STEP 2: Check NEW products against Master Catalog
@@ -681,18 +650,7 @@ export const usePurchaseImportExport = (
     let catalogResults = null;
 
     if (newProducts.length > 0) {
-      console.log(
-        `\n🔗 Checking ${newProducts.length} new products against master catalog...`
-      );
-
-      console.log(
-        "📤 Sending to master catalog:",
-        newProducts.map((p) => ({
-          name: p.name,
-          manufacturer: p.manufacturer,
-          generic_name: p.genericName || "",
-        }))
-      );
+     
 
       try {
         const catalogResponse = await medicinesAPI.checkMasterCatalog(
@@ -705,7 +663,7 @@ export const usePurchaseImportExport = (
 
         catalogResults = catalogResponse.data;
 
-        console.log(`✅ Master Catalog Results:`, catalogResults.stats);
+      
 
         if (catalogResults.results) {
           catalogResults.results.forEach((result) => {
@@ -761,9 +719,7 @@ export const usePurchaseImportExport = (
             .split(delimiter)
             .map((h) => h.trim().replace(/^\"|\"$/g, ""));
 
-          console.group("📋 CSV Header Analysis");
-          console.log("Headers:", headers);
-          console.groupEnd();
+          
 
           const parsed = [];
           for (let i = 1; i < lines.length; i++) {
@@ -814,9 +770,7 @@ export const usePurchaseImportExport = (
         const extension = file.name.split(".").pop()?.toLowerCase();
         const arrayBuffer = await file.arrayBuffer();
 
-        console.log(`\n📊 Excel Import: ${file.name}`);
-        console.log(`   Extension: .${extension}`);
-        console.log(`   Size: ${(file.size / 1024).toFixed(2)} KB`);
+        
 
         let headers;
         let dataRows;
@@ -835,15 +789,7 @@ export const usePurchaseImportExport = (
           );
         }
 
-        console.group("📋 Import Analysis");
-        console.log("Format:", extension.toUpperCase());
-        console.log(
-          "Engine:",
-          extension === "xls" ? "SheetJS (client)" : "ExcelJS (client)",
-        );
-        console.log("Headers:", headers);
-        console.log("Data Rows:", dataRows.length);
-        console.groupEnd();
+        
 
         const parsed = [];
 

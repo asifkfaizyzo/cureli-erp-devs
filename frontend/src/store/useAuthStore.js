@@ -128,11 +128,7 @@ export const useAuthStore = create(
               branchContext,
             });
 
-            console.log("🔐 Auth initialized:", {
-              role,
-              branchMode: branchContext.mode,
-              branchId: branchContext.branch_id,
-            });
+            
             return;
           }
         }
@@ -144,7 +140,7 @@ export const useAuthStore = create(
           isLoading: false,
         });
 
-        console.log("🔓 Auth initialized: No valid token");
+       
       },
 
       // ============================================
@@ -213,10 +209,7 @@ export const useAuthStore = create(
           branchContext,
         });
 
-        console.log("🔐 Auth set:", {
-          role,
-          branchMode: branchContext.mode,
-        });
+        
       },
 
       /**
@@ -246,7 +239,7 @@ export const useAuthStore = create(
           isLoading: false,
         });
 
-        console.log("🔓 Logged out");
+
       },
 
       /**
@@ -280,7 +273,7 @@ export const useAuthStore = create(
           },
         });
 
-        console.log("🌐 Switched to GLOBAL mode");
+
         return true;
       },
 
@@ -321,7 +314,6 @@ export const useAuthStore = create(
           localStorage.setItem("branch_name", branch_name);
         }
 
-        console.log("🏢 Switched to BRANCH mode:", { branch_id, branch_name });
         return true;
       },
 

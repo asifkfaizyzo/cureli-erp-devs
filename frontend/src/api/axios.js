@@ -21,8 +21,6 @@ const clearAuthAndRedirect = (reason) => {
 // HELPER: Handle maintenance mode
 // ============================================
 const handleMaintenanceMode = (data) => {
-  console.log("[Axios] Maintenance mode detected!");
-
   // Store maintenance info in sessionStorage
   sessionStorage.setItem("maintenance_mode", "true");
   sessionStorage.setItem(

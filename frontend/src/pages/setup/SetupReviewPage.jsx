@@ -131,12 +131,12 @@ const SetupReviewPage = () => {
     try {
       const data = getSubmissionData();
 
-      console.log("📤 Submitting setup data:", data);
+     
 
       // Submit to backend
       const response = await submitSetup(data);
 
-      console.log(" Setup response:", response.data);
+      
 
       // Success!
       setShowSuccess(true);

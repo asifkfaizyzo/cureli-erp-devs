@@ -50,11 +50,8 @@ export const useSubscriptionStore = create((set, get) => ({
       const apiData = response.data; // { success, data, message }
       const subscription = apiData?.data?.subscription || apiData?.subscription;
 
-      console.log("📋 [SubscriptionStore] Raw API response:", apiData);
-      console.log("📋 [SubscriptionStore] Parsed subscription:", subscription);
-
       if (!subscription) {
-        console.log("📋 [SubscriptionStore] No active subscription found");
+      
         set({
           ...initialState,
           isLoaded: true,
@@ -98,13 +95,7 @@ export const useSubscriptionStore = create((set, get) => ({
         is_urgent: isUrgent,
       });
 
-      console.log("📋 [SubscriptionStore] Status loaded:", {
-        days_remaining: daysRemaining,
-        is_in_grace_period: isInGracePeriod,
-        needs_renewal: needsRenewal,
-        is_urgent: isUrgent,
-        plan_name: subscription.plan?.name,
-      });
+      
     } catch (error) {
       console.error(" [SubscriptionStore] Failed to load:", error);
 

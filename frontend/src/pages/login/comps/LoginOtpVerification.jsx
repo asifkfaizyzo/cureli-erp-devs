@@ -42,7 +42,7 @@ const clearAllStaleData = () => {
   });
 
   sessionStorage.clear();
-  console.log('🧹 Cleared all stale data before new login');
+
 };
 
 const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) => {
@@ -94,7 +94,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
 
   const determineDestination = useCallback(async (role) => {
     if (role === "staff" || role === "branch_admin") {
-      console.log(`📍 ${role} → /dashboard`);
+    
       return "/dashboard";
     }
 
@@ -103,7 +103,6 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
       const hasActive = subRes.data?.data?.has_active_subscription === true;
 
       if (!hasActive) {
-        console.log("📍 No active subscription → /plan-selection");
         return "/plan-selection";
       }
 
@@ -112,10 +111,9 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
         const setupData = setupRes.data?.data;
 
         if (setupData?.is_complete) {
-          console.log("📍 Setup complete → /dashboard");
           return "/dashboard";
         } else {
-          console.log("📍 Setup incomplete → /setup");
+  
           return "/setup";
         }
       } catch (setupErr) {

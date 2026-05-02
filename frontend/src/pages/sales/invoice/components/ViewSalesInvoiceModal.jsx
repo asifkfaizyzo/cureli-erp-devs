@@ -1341,10 +1341,7 @@ const ViewSalesInvoiceModal = ({
           })),
         };
 
-        console.log(
-          "📤 Sending update payload:",
-          JSON.stringify(payload, null, 2),
-        );
+        
 
         await salesAPI.update(invoice.invoice_id, payload);
 

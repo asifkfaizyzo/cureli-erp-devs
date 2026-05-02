@@ -33,7 +33,7 @@ const loadFromStorage = () => {
 
     // Check version compatibility
     if (parsed.version !== STORAGE_VERSION) {
-      console.log("📦 Storage version mismatch, clearing old data");
+    
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
@@ -44,7 +44,7 @@ const loadFromStorage = () => {
     const hoursDiff = (now - savedAt) / (1000 * 60 * 60);
 
     if (hoursDiff > 24) {
-      console.log("📦 Storage expired, clearing old data");
+    
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
@@ -103,14 +103,11 @@ export const usePurchaseSupplier = (total = 0) => {
     const previousBranchId = previousBranchRef.current;
 
     if (previousBranchId !== currentBranchId) {
-      console.log("🔄 Branch changed in usePurchaseSupplier:", {
-        from: previousBranchId,
-        to: currentBranchId,
-      });
+      
 
       // Only reset if supplier was actually selected
       if (supplier.supplier_id) {
-        console.log("📦 Clearing supplier due to branch change");
+       
         setSupplier(getDefaultSupplier());
         localStorage.removeItem(STORAGE_KEY);
       }
@@ -129,10 +126,6 @@ export const usePurchaseSupplier = (total = 0) => {
     const storedSupplier = loadFromStorage();
 
     if (storedSupplier) {
-      console.log(
-        "📦 Loaded supplier from storage:",
-        storedSupplier.supplierName,
-      );
       setSupplier(storedSupplier);
     }
 
