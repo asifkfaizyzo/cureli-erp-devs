@@ -126,15 +126,20 @@ const TermsPage = () => {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-[#000060] mb-2">
-              8. Payment and Fees
-            </h2>
-            <p>
-              Certain features of Cureli may require payment of fees. All fees
-              are non-refundable unless otherwise stated. We reserve the right
-              to change our pricing at any time with reasonable notice.
-            </p>
-          </section>
+  <h2 className="text-lg font-semibold text-[#000060] mb-2">
+    8. Payment, Cancellation & Refunds
+  </h2>
+  <p>
+    Cureli offers subscription-based ERP services. Payments are billed in advance
+    based on the selected plan.
+  </p>
+  <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
+    <li>Users may cancel subscriptions at any time</li>
+    <li>Cancellation prevents future billing</li>
+    <li>Refunds are handled as per our Refund Policy</li>
+    <li>Eligible refunds will be processed within 7 business days</li>
+  </ul>
+</section>
 
           <section>
             <h2 className="text-lg font-semibold text-[#000060] mb-2">
