@@ -88,7 +88,7 @@ const RefundPolicy = () => {
               4. Refund Processing
             </h2>
             <p>
-              Approved refunds will be processed within <strong>7–10 business days</strong> to
+              Approved refunds will be processed within <strong>7 business days</strong> to
               the original payment method used during purchase. Refunds are initiated
               through Razorpay and may take additional time depending on your bank or
               card issuer.
