@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 
-import HeroBG from "../../../../assets/images/About-hero.png";
+import HeroBG from "../../../../assets/images/About-hero_result.webp";
 
 // Import PNG icons
 import expIcon from "../../../../assets/icons/exp.png";
