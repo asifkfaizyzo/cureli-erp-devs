@@ -7,3 +7,5 @@ uploads/
 /static
 package-lock.json
 
+# Logs
+logs/
