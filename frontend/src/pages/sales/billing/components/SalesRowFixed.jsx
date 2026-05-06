@@ -42,6 +42,8 @@ const SalesRowFixed = memo(
       },
       ref,
     ) => {
+      const outOfStockCache = useRef(new Set()); // medicine_ids with no stock
+      const inStockCache = useRef(new Set());    // medicine_ids with confirmed stock
       const [showProductDropdown, setShowProductDropdown] = useState(false);
       const [showBatchDropdown, setShowBatchDropdown] = useState(false);
       const [productSearch, setProductSearch] = useState("");
@@ -523,25 +525,38 @@ const SalesRowFixed = memo(
                     {filteredProducts.length} products found
                   </div>
                   {filteredProducts.map((product, idx) => (
-                    <div
-                      key={product.medicine_id}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        handleProductSelection(product);
-                      }}
-                      className={`px-3 py-2.5 cursor-pointer text-[9px] border-b border-slate-100 last:border-b-0 transition-all
-                        ${idx === highlightedIndex ? "bg-indigo-50 border-l-2 border-l-indigo-500" : "hover:bg-slate-50 border-l-2 border-l-transparent"}`}
-                    >
-                      <div className="font-semibold text-slate-800">
-                        {product.name}
-                      </div>
-                      <div className="text-[8px] text-slate-400 flex gap-2 mt-0.5">
-                        <span>{product.manufacturer || "-"}</span>
-                        <span>•</span>
-                        <span>HSN: {product.hsn_code || "-"}</span>
-                      </div>
-                    </div>
-                  ))}
+  <div
+    key={product.medicine_id}
+    onMouseDown={(e) => {
+      e.preventDefault();
+      handleProductSelection(product);
+    }}
+    className={`px-3 py-2.5 cursor-pointer text-[9px] border-b border-slate-100 last:border-b-0 transition-all
+      ${idx === highlightedIndex ? "bg-indigo-50 border-l-2 border-l-indigo-500" : "hover:bg-slate-50 border-l-2 border-l-transparent"}`}
+  >
+    <div className="font-semibold text-slate-800">{product.name}</div>
+    <div className="text-[8px] text-slate-400 flex gap-2 mt-0.5 items-center">
+      <span>{product.manufacturer || "-"}</span>
+      <span>•</span>
+      <span>HSN: {product.hsn_code || "-"}</span>
+      {/* ADD STOCK INDICATOR */}
+      {product.total_available_stock !== undefined && (
+        <>
+          <span>•</span>
+          <span className={`font-medium ${
+            product.total_available_stock > 10 
+              ? "text-green-600" 
+              : product.total_available_stock > 0 
+                ? "text-amber-600" 
+                : "text-red-600"
+          }`}>
+            Stock: {product.total_available_stock}
+          </span>
+        </>
+      )}
+    </div>
+  </div>
+))}
                 </div>,
                 document.body,
               )}

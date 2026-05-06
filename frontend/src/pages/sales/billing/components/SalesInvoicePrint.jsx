@@ -8,15 +8,15 @@ const SalesInvoicePrint = ({
   summary,
   companyDetails = {
     name: "YOUR PHARMACY NAME",
-    address: "123, Main Street, City - 560001",
-    phone: "+91 98765 43210",
-    email: "info@pharmacy.com",
-    gstin: "29ABCDE1234F1Z5",
-    drugLicense: "KA-BNG-123456",
+    address: "",
+    phone: "",
+    email: "",
+    gstin: "",
+    drugLicense: "",
   },
   invoiceNumber,
   invoiceDate,
-  billedBy = "Staff", //  NEW: Billed By prop
+  billedBy = "Staff",
 }) => {
   const dataRows = rows.filter(
     (row) => row.name && row.name.trim() !== "" && row.qty,
@@ -185,20 +185,44 @@ const SalesInvoicePrint = ({
               >
                 {companyDetails.name}
               </h1>
-              <p style={{ margin: "2px 0", fontSize: "9pt", color: "#333" }}>
-                {companyDetails.address}
-              </p>
-              <p style={{ margin: "2px 0", fontSize: "9pt", color: "#333" }}>
-                Phone: {companyDetails.phone} | Email: {companyDetails.email}
-              </p>
-              <div style={{ marginTop: "4px", fontSize: "8pt", color: "#666" }}>
-                <span style={{ marginRight: "16px" }}>
-                  GSTIN: <strong>{companyDetails.gstin}</strong>
-                </span>
-                <span>
-                  D.L. No: <strong>{companyDetails.drugLicense}</strong>
-                </span>
-              </div>
+
+              {/* Address — only rendered when present */}
+              {companyDetails.address && (
+                <p
+                  style={{ margin: "2px 0", fontSize: "9pt", color: "#333" }}
+                >
+                  {companyDetails.address}
+                </p>
+              )}
+
+              {/* Phone / Email — only rendered when at least one is present */}
+              {(companyDetails.phone || companyDetails.email) && (
+                <p
+                  style={{ margin: "2px 0", fontSize: "9pt", color: "#333" }}
+                >
+                  {companyDetails.phone && `Phone: ${companyDetails.phone}`}
+                  {companyDetails.phone && companyDetails.email && " | "}
+                  {companyDetails.email && `Email: ${companyDetails.email}`}
+                </p>
+              )}
+
+              {/* GSTIN / Drug License — only rendered when at least one is present */}
+              {(companyDetails.gstin || companyDetails.drugLicense) && (
+                <div
+                  style={{ marginTop: "4px", fontSize: "8pt", color: "#666" }}
+                >
+                  {companyDetails.gstin && (
+                    <span style={{ marginRight: "16px" }}>
+                      GSTIN: <strong>{companyDetails.gstin}</strong>
+                    </span>
+                  )}
+                  {companyDetails.drugLicense && (
+                    <span>
+                      D.L. No: <strong>{companyDetails.drugLicense}</strong>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Invoice Title */}
@@ -216,7 +240,9 @@ const SalesInvoicePrint = ({
               >
                 TAX INVOICE
               </h2>
-              <p style={{ fontSize: "8pt", color: "#666", marginTop: "4px" }}>
+              <p
+                style={{ fontSize: "8pt", color: "#666", marginTop: "4px" }}
+              >
                 (Original for Recipient)
               </p>
             </div>
@@ -260,7 +286,11 @@ const SalesInvoicePrint = ({
               <tbody>
                 <tr>
                   <td
-                    style={{ padding: "2px 0", color: "#666", width: "90px" }}
+                    style={{
+                      padding: "2px 0",
+                      color: "#666",
+                      width: "90px",
+                    }}
                   >
                     Name:
                   </td>
@@ -272,7 +302,9 @@ const SalesInvoicePrint = ({
                 </tr>
                 {customer?.phone && (
                   <tr>
-                    <td style={{ padding: "2px 0", color: "#666" }}>Mobile:</td>
+                    <td style={{ padding: "2px 0", color: "#666" }}>
+                      Mobile:
+                    </td>
                     <td style={{ padding: "2px 0" }}>{customer.phone}</td>
                   </tr>
                 )}
@@ -286,15 +318,24 @@ const SalesInvoicePrint = ({
                 )}
                 {customer?.gstNumber && (
                   <tr>
-                    <td style={{ padding: "2px 0", color: "#666" }}>GSTIN:</td>
-                    <td style={{ padding: "2px 0", fontFamily: "monospace" }}>
+                    <td style={{ padding: "2px 0", color: "#666" }}>
+                      GSTIN:
+                    </td>
+                    <td
+                      style={{
+                        padding: "2px 0",
+                        fontFamily: "monospace",
+                      }}
+                    >
                       {customer.gstNumber}
                     </td>
                   </tr>
                 )}
                 {customer?.doctorName && (
                   <tr>
-                    <td style={{ padding: "2px 0", color: "#666" }}>Doctor:</td>
+                    <td style={{ padding: "2px 0", color: "#666" }}>
+                      Doctor:
+                    </td>
                     <td style={{ padding: "2px 0" }}>
                       Dr. {customer.doctorName}
                     </td>
@@ -329,7 +370,11 @@ const SalesInvoicePrint = ({
               <tbody>
                 <tr>
                   <td
-                    style={{ padding: "2px 0", color: "#666", width: "100px" }}
+                    style={{
+                      padding: "2px 0",
+                      color: "#666",
+                      width: "100px",
+                    }}
                   >
                     Invoice No:
                   </td>
@@ -354,7 +399,6 @@ const SalesInvoicePrint = ({
                   <td style={{ padding: "2px 0", color: "#666" }}>Time:</td>
                   <td style={{ padding: "2px 0" }}>{formatTime()}</td>
                 </tr>
-                {/*  NEW: Billed By */}
                 <tr>
                   <td style={{ padding: "2px 0", color: "#666" }}>
                     Billed By:
@@ -370,7 +414,9 @@ const SalesInvoicePrint = ({
                   </td>
                 </tr>
                 <tr>
-                  <td style={{ padding: "2px 0", color: "#666" }}>Payment:</td>
+                  <td style={{ padding: "2px 0", color: "#666" }}>
+                    Payment:
+                  </td>
                   <td style={{ padding: "2px 0" }}>
                     <span
                       style={{
@@ -534,7 +580,10 @@ const SalesInvoicePrint = ({
             <tbody>
               {dataRows.length > 0 ? (
                 dataRows.map((row, index) => (
-                  <tr key={index} style={{ borderBottom: "1px solid #ddd" }}>
+                  <tr
+                    key={index}
+                    style={{ borderBottom: "1px solid #ddd" }}
+                  >
                     <td
                       style={{
                         padding: "5px 4px",
@@ -678,26 +727,27 @@ const SalesInvoicePrint = ({
                 </tr>
               )}
 
-              {/* Empty rows */}
+              {/* Padding rows */}
               {dataRows.length > 0 &&
                 dataRows.length < 5 &&
                 [...Array(5 - dataRows.length)].map((_, i) => (
                   <tr
                     key={`empty-${i}`}
-                    style={{ height: "24px", borderBottom: "1px solid #eee" }}
+                    style={{
+                      height: "24px",
+                      borderBottom: "1px solid #eee",
+                    }}
                   >
-                    <td style={{ borderRight: "1px solid #eee" }}>&nbsp;</td>
-                    <td style={{ borderRight: "1px solid #eee" }}></td>
-                    <td style={{ borderRight: "1px solid #eee" }}></td>
-                    <td style={{ borderRight: "1px solid #eee" }}></td>
-                    <td style={{ borderRight: "1px solid #eee" }}></td>
-                    <td style={{ borderRight: "1px solid #eee" }}></td>
-                    <td style={{ borderRight: "1px solid #eee" }}></td>
-                    <td style={{ borderRight: "1px solid #eee" }}></td>
-                    <td style={{ borderRight: "1px solid #eee" }}></td>
-                    <td style={{ borderRight: "1px solid #eee" }}></td>
-                    <td style={{ borderRight: "1px solid #eee" }}></td>
-                    <td></td>
+                    {[...Array(12)].map((__, j) => (
+                      <td
+                        key={j}
+                        style={{
+                          borderRight: j < 11 ? "1px solid #eee" : "none",
+                        }}
+                      >
+                        &nbsp;
+                      </td>
+                    ))}
                   </tr>
                 ))}
             </tbody>
@@ -724,7 +774,13 @@ const SalesInvoicePrint = ({
               background: "#f8fafc",
             }}
           >
-            <h4 style={{ fontSize: "8pt", color: "#666", margin: "0 0 4px 0" }}>
+            <h4
+              style={{
+                fontSize: "8pt",
+                color: "#666",
+                margin: "0 0 4px 0",
+              }}
+            >
               Amount in Words:
             </h4>
             <p
@@ -771,7 +827,9 @@ const SalesInvoicePrint = ({
                 </tr>
                 {(summary?.totalDiscount || 0) > 0 && (
                   <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "6px 10px", color: "#dc2626" }}>
+                    <td
+                      style={{ padding: "6px 10px", color: "#dc2626" }}
+                    >
                       Discount:
                     </td>
                     <td
@@ -943,7 +1001,10 @@ const SalesInvoicePrint = ({
             <tbody>
               {Object.entries(gstSummary).length > 0 ? (
                 Object.entries(gstSummary).map(([rate, values]) => (
-                  <tr key={rate} style={{ borderBottom: "1px solid #eee" }}>
+                  <tr
+                    key={rate}
+                    style={{ borderBottom: "1px solid #eee" }}
+                  >
                     <td
                       style={{
                         padding: "5px 8px",
@@ -1088,7 +1149,9 @@ const SalesInvoicePrint = ({
                 </strong>
               </div>
               <div>
-                <span style={{ color: balance > 0 ? "#92400e" : "#166534" }}>
+                <span
+                  style={{ color: balance > 0 ? "#92400e" : "#166534" }}
+                >
                   {balance > 0
                     ? "Balance Due: "
                     : balance < 0
@@ -1097,7 +1160,9 @@ const SalesInvoicePrint = ({
                 </span>
                 {balance !== 0 && (
                   <strong
-                    style={{ color: balance > 0 ? "#92400e" : "#166534" }}
+                    style={{
+                      color: balance > 0 ? "#92400e" : "#166534",
+                    }}
                   >
                     ₹ {Math.abs(balance).toFixed(2)}
                   </strong>
@@ -1142,8 +1207,8 @@ const SalesInvoicePrint = ({
               }}
             >
               <li>
-                Goods once sold will not be taken back except for manufacturing
-                defects.
+                Goods once sold will not be taken back except for
+                manufacturing defects.
               </li>
               <li>Please check the expiry date before use.</li>
               <li>Keep medicines out of reach of children.</li>
@@ -1160,7 +1225,6 @@ const SalesInvoicePrint = ({
                 minWidth: "150px",
               }}
             >
-              {/*  NEW: Billed By in footer */}
               <p
                 style={{
                   fontSize: "8pt",
@@ -1179,7 +1243,9 @@ const SalesInvoicePrint = ({
                   marginBottom: "4px",
                 }}
               ></div>
-              <p style={{ margin: "0", fontWeight: "600", color: "#374151" }}>
+              <p
+                style={{ margin: "0", fontWeight: "600", color: "#374151" }}
+              >
                 Authorized Signatory
               </p>
               <p

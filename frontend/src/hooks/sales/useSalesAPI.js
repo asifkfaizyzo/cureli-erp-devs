@@ -5,6 +5,7 @@ import salesAPI from "../../api/sales";
 import customersAPI from "../../api/customers";
 import medicinesAPI from "../../api/medicines";
 import { useToast } from "../../components/common/Toast";
+import inventoryAPI from "../../api/inventory"; // ADD THIS
 
 export function useSalesAPI() {
   const toast = useToast();
@@ -15,18 +16,52 @@ export function useSalesAPI() {
   const [currentInvoice, setCurrentInvoice] = useState(null);
 
   // Load medicines
-  const loadMedicines = useCallback(async () => {
-    try {
-      const response = await medicinesAPI.getAll({
-        isActive: true,
-        limit: 1000,
-      });
-      setMedicines(response.data?.medicines || []);
-    } catch (error) {
-      console.error("Load medicines error:", error);
-      toast.error("Failed to load medicines");
-    }
-  }, [toast]);
+  // With this:
+const loadMedicines = useCallback(async () => {
+  try {
+    // Load from inventory to only get medicines that have stock
+    const response = await inventoryAPI.getInventory({
+      includeExpired: false,
+      limit: 5000,
+    });
+
+    const inventoryItems = response?.data?.inventories || [];
+
+    // Deduplicate by medicine_id, keep only medicines with available stock > 0
+    const medicineMap = new Map();
+
+    inventoryItems.forEach((inv) => {
+      const availableStock = parseFloat(inv.available_stock) || 0;
+      if (availableStock > 0 && inv.medicine_id) {
+        if (!medicineMap.has(inv.medicine_id)) {
+          medicineMap.set(inv.medicine_id, {
+            medicine_id: inv.medicine_id,
+            name: inv.medicine_name || inv.medicine?.name || "",
+            generic_name: inv.medicine?.generic_name || "",
+            manufacturer: inv.medicine_manufacturer || inv.medicine?.manufacturer || "",
+            hsn_code: inv.medicine_hsn_code || inv.medicine?.hsn_code || "",
+            pack_size: inv.medicine_pack_size || inv.medicine?.pack_size || "",
+            cgst_percentage: inv.medicine?.cgst_percentage || 6,
+            sgst_percentage: inv.medicine?.sgst_percentage || 6,
+            rack_no: inv.rack_no || inv.medicine?.rack_no || "",
+            total_available_stock: availableStock,
+          });
+        } else {
+          // Accumulate stock across batches
+          const existing = medicineMap.get(inv.medicine_id);
+          existing.total_available_stock += availableStock;
+          medicineMap.set(inv.medicine_id, existing);
+        }
+      }
+    });
+
+    const medicinesWithStock = Array.from(medicineMap.values());
+    setMedicines(medicinesWithStock);
+  } catch (error) {
+    console.error("Load medicines error:", error);
+    toast.error("Failed to load medicines");
+  }
+}, [toast]);
 
   // Load customers
   const loadCustomers = useCallback(async () => {

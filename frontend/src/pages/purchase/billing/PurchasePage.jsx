@@ -37,17 +37,13 @@ import { useToast } from "../../../components/common/Toast";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import { useAuthStore, selectBranchContext } from "../../../store/useAuthStore";
 
+// ── NEW: Real shop details hook ──
+import { useShopDetails } from "../../../hooks/useShopDetails";
+
 // Styles
 import "../../../styles/print.css";
 
-const COMPANY_DETAILS = {
-  name: "PHARMA DISTRIBUTORS PVT. LTD.",
-  address: "45, Industrial Area, Phase-II, New Delhi - 110020",
-  phone: "+91 11-4567 8900",
-  email: "accounts@pharmadist.com",
-  gstin: "07AABCP1234M1Z5",
-  drugLicense: "DL-DEL-20B-123456",
-};
+// ── REMOVED: Hardcoded COMPANY_DETAILS constant ──
 
 const PurchasePage = () => {
   const toast = useToast();
@@ -60,6 +56,7 @@ const PurchasePage = () => {
   const isEditMode = !!invoiceId;
 
   const printRef = useRef(null);
+  const shouldResetAfterPrint = useRef(false);
 
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -87,6 +84,13 @@ const PurchasePage = () => {
     user?.first_name ||
     user?.username ||
     "Staff";
+
+  // ============================================
+  // SHOP DETAILS (replaces COMPANY_DETAILS)
+  // ============================================
+  const { companyDetails, isLoading: shopDetailsLoading, error: shopError } = useShopDetails(
+  user?.shop_id,
+);
 
   // ============================================
   // API INTEGRATION
@@ -184,7 +188,6 @@ const PurchasePage = () => {
   // ============================================
   const handleCatalogCheckComplete = useCallback(
     (newProducts, catalogResults) => {
-      // Store results for the ImportResultModal
       setImportNewProducts(newProducts);
       setImportCatalogResults(catalogResults);
       setImportResultModalOpen(true);
@@ -194,19 +197,12 @@ const PurchasePage = () => {
 
   const { handleImportFile, handleExportExcel } = usePurchaseImportExport(
     (importedRows, newProducts = []) => {
-      //  FIX: When catalog check ran, ImportResultModal handles everything.
-      // It will call handleImportResultProceed which opens BatchProductModal.
-      // Only open BatchProductModal directly if catalog check did NOT run.
       const hasAnyCatalogData = newProducts.some((p) => p.catalogMatch);
 
       if (!hasAnyCatalogData && newProducts.length > 0) {
-        // Catalog check didn't run (API failed or not configured)
-        // Fall back to BatchProductModal directly for all new products
         setNewProductsFromImport(newProducts);
         setBatchProductModalOpen(true);
       }
-      // If catalog check DID run, ImportResultModal is already open.
-      // handleImportResultProceed will route to BatchProductModal.
 
       importRows(importedRows);
     },
@@ -215,6 +211,13 @@ const PurchasePage = () => {
     medicines,
     handleCatalogCheckComplete,
   );
+
+
+  useEffect(() => {
+  console.log("[PurchasePage] user object:", user);
+  console.log("[PurchasePage] shop_id from user:", user?.shop_id);
+  console.log("[PurchasePage] companyDetails:", companyDetails);
+}, [user, companyDetails]);
 
   // ============================================
   // SECURITY CHECK
@@ -448,9 +451,36 @@ const PurchasePage = () => {
   // ============================================
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `Purchase_Invoice_${currentInvoice?.invoice_number || supplier.invoiceNo || supplier.purchaseId}`,
-    onAfterPrint: () =>
-      toast.success("Print Complete", "Invoice printed successfully."),
+    documentTitle: `Purchase_Invoice_${
+      currentInvoice?.invoice_number ||
+      supplier.invoiceNo ||
+      supplier.purchaseId
+    }`,
+    onAfterPrint: () => {
+      toast.success("Print Complete", "Invoice printed successfully.");
+
+      if (shouldResetAfterPrint.current) {
+        shouldResetAfterPrint.current = false;
+        clearAllRows();
+        resetSupplier();
+        clearSupplierStorage();
+        resetInvoice();
+        setOriginalInvoiceData(null);
+        setInvoiceData({
+          invoice_date: new Date().toISOString().split("T")[0],
+          branch_id: branchContext.branch_id || null,
+          due_date: null,
+          received_date: null,
+          transport_charges: null,
+          other_charges: null,
+          remarks: null,
+        });
+        if (invoiceId) {
+          navigate("/purchase/billing");
+        }
+        toast.success("New Invoice", "Ready to create a new purchase invoice.");
+      }
+    },
     onPrintError: () => toast.error("Print Failed", "Failed to print invoice."),
     pageStyle: `
       @page { size: A4; margin: 10mm; }
@@ -831,12 +861,15 @@ const PurchasePage = () => {
           purchaseId: confirmedInvoice.invoice_number,
         }));
 
+        shouldResetAfterPrint.current = true;
+
         setTimeout(() => {
           handlePrint();
         }, 100);
       }
     } catch (error) {
       console.error("Save & Print error:", error);
+      shouldResetAfterPrint.current = false;
     } finally {
       setIsSaving(false);
     }
@@ -853,6 +886,13 @@ const PurchasePage = () => {
     toast,
     handlePrint,
     setSupplier,
+    clearAllRows,
+    resetSupplier,
+    clearSupplierStorage,
+    resetInvoice,
+    branchContext.branch_id,
+    invoiceId,
+    navigate,
   ]);
 
   // ============================================
@@ -948,7 +988,6 @@ const PurchasePage = () => {
   // PRODUCT MODAL HANDLERS
   // ============================================
   const handleAddNewProduct = useCallback((productData) => {
-  
     setPendingProductData(productData);
     setProductModalOpen(true);
   }, []);
@@ -1036,10 +1075,7 @@ const PurchasePage = () => {
     async (productsToSave) => {
       try {
         if (productsToSave.length > 0) {
-          //  FIX: Attach linking data DIRECTLY to each product
-          // Match by name+manufacturer (composite key) from the source array
           const productsWithLinking = productsToSave.map((product) => {
-            // Find the original import product that matches this saved product
             const originalProduct = newProductsFromImport.find((imp) => {
               const nameMatch =
                 (imp.name || "").toLowerCase().trim() ===
@@ -1052,7 +1088,6 @@ const PurchasePage = () => {
               return nameMatch && mfrMatch;
             });
 
-            // Attach linking data directly to the product object
             if (
               originalProduct?.catalogMatch &&
               originalProduct.catalogMatch.status !== "NO_MATCH" &&
@@ -1072,10 +1107,9 @@ const PurchasePage = () => {
               };
             }
 
-            return product; // no linking data
+            return product;
           });
 
-          // Pass as single array — no separate linkingResults parameter needed
           const result = await bulkCreateMedicines(productsWithLinking);
 
           if (result?.created?.length > 0) {
@@ -1135,11 +1169,9 @@ const PurchasePage = () => {
   // IMPORT RESULT MODAL HANDLERS
   // ============================================
   const handleImportResultProceed = useCallback((productsToCreate) => {
-    // Close the import result modal
     setImportResultModalOpen(false);
     setImportCatalogResults(null);
 
-    // Open BatchProductModal for ALL products that need shop creation
     if (productsToCreate.length > 0) {
       setNewProductsFromImport(productsToCreate);
       setBatchProductModalOpen(true);
@@ -1250,6 +1282,31 @@ const PurchasePage = () => {
 
   const showNoSuppliersWarning =
     !isEditingConfirmed && suppliers.length === 0 && !loadingStates.supplier;
+
+  // ── Build print-ready company details from real shop data ──
+  // Falls back to placeholder text while loading so the print
+  // component always receives a valid object.
+  const printCompanyDetails = {
+  name:
+    companyDetails.business_name ||
+    companyDetails.legal_name ||
+    "YOUR PHARMACY NAME",
+  address: companyDetails.full_address || 
+    [
+      companyDetails.address_line_1,
+      companyDetails.address_line_2,
+      companyDetails.city,
+      companyDetails.state,
+      companyDetails.pincode,
+    ]
+      .filter(Boolean)
+      .join(", ") ||
+    "",
+  phone: companyDetails.phone || "",
+  email: companyDetails.email || "",
+  gstin: companyDetails.gst_number || "",
+  drugLicense: companyDetails.drug_license_no || "",
+};
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
@@ -1420,14 +1477,15 @@ const PurchasePage = () => {
         </div>
       </div>
 
-      {/* PRINT COMPONENT */}
+      {/* PRINT COMPONENT — hidden from screen, rendered only when printing */}
       <div className="hidden">
         <div ref={printRef}>
           <PurchaseInvoicePrint
             rows={rows}
             supplier={supplier}
             summary={summary}
-            companyDetails={COMPANY_DETAILS}
+            // ── Pass real shop details instead of the old hardcoded constant ──
+            companyDetails={printCompanyDetails}
             invoiceNumber={currentInvoice?.invoice_number}
             invoiceDate={currentInvoice?.invoice_date}
             billedBy={billedByName}

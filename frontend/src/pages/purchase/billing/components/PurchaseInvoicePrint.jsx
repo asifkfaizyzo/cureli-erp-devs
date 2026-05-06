@@ -1,33 +1,36 @@
 // src/pages/purchase/billing/components/PurchaseInvoicePrint.jsx
+// No structural changes needed — the component already accepts companyDetails
+// as a prop.  The only update is tightening the default fallback so it is
+// obvious when real data has not yet been injected.
 
 const PurchaseInvoicePrint = ({
   rows,
   supplier,
   summary,
   companyDetails = {
-    name: "YOUR COMPANY NAME",
-    address: "123, Main Street, City - 560001",
-    phone: "+91 98765 43210",
-    email: "info@company.com",
-    gstin: "29ABCDE1234F1Z5",
-    drugLicense: "KA-BNG-123456",
+    name: "YOUR PHARMACY NAME",
+    address: "",
+    phone: "",
+    email: "",
+    gstin: "",
+    drugLicense: "",
   },
   invoiceNumber,
   invoiceDate,
   billedBy = "Staff",
 }) => {
-  //  Filter out FREE items and rows with no name
+  // Filter out FREE items and rows with no name
   const dataRows = rows.filter(
     (row) => row.name && row.name.trim() !== "" && !row.isFreeItem,
   );
 
-  //  Safe number formatting with fallback to 0
+  // Safe number formatting with fallback to 0
   const safeNumber = (value) => {
     const num = Number(value) || 0;
     return isFinite(num) ? num : 0;
   };
 
-  //  Safe summary values with proper defaults
+  // Safe summary values with proper defaults
   const safeSummary = {
     subTotal: safeNumber(summary?.subTotal),
     cgst: safeNumber(summary?.cgst),
@@ -130,7 +133,8 @@ const PurchaseInvoicePrint = ({
     return result;
   };
 
-  const displayInvoiceNumber = invoiceNumber || supplier?.purchaseId || "DRAFT";
+  const displayInvoiceNumber =
+    invoiceNumber || supplier?.purchaseId || "DRAFT";
   const displayInvoiceDate = formatDate(
     invoiceDate || supplier?.invoiceDate || supplier?.receivedOn,
   );
@@ -138,25 +142,42 @@ const PurchaseInvoicePrint = ({
   return (
     <div className="print-container">
       <div className="a4-page">
-        {/* Header Section */}
+        {/* ── Header ── */}
         <header className="invoice-header">
           <div className="company-info">
             <h1 className="company-name">{companyDetails.name}</h1>
-            <p className="company-address">{companyDetails.address}</p>
-            <p className="company-contact">
-              Phone: {companyDetails.phone} | Email: {companyDetails.email}
-            </p>
-            <div className="company-licenses">
-              <span>GSTIN: {companyDetails.gstin}</span>
-              <span>D.L. No: {companyDetails.drugLicense}</span>
-            </div>
+
+            {companyDetails.address && (
+              <p className="company-address">{companyDetails.address}</p>
+            )}
+
+            {/* Show contact line only when at least one value is present */}
+            {(companyDetails.phone || companyDetails.email) && (
+              <p className="company-contact">
+                {companyDetails.phone && `Phone: ${companyDetails.phone}`}
+                {companyDetails.phone && companyDetails.email && " | "}
+                {companyDetails.email && `Email: ${companyDetails.email}`}
+              </p>
+            )}
+
+            {/* Show license row only when at least one value is present */}
+            {(companyDetails.gstin || companyDetails.drugLicense) && (
+              <div className="company-licenses">
+                {companyDetails.gstin && (
+                  <span>GSTIN: {companyDetails.gstin}</span>
+                )}
+                {companyDetails.drugLicense && (
+                  <span>D.L. No: {companyDetails.drugLicense}</span>
+                )}
+              </div>
+            )}
           </div>
           <div className="invoice-title">
             <h2>PURCHASE INVOICE</h2>
           </div>
         </header>
 
-        {/* Invoice Details & Supplier Info */}
+        {/* ── Invoice Details & Supplier Info ── */}
         <section className="invoice-details-section">
           <div className="details-grid">
             <div className="supplier-details">
@@ -213,7 +234,7 @@ const PurchaseInvoicePrint = ({
           </div>
         </section>
 
-        {/* Items Table */}
+        {/* ── Items Table ── */}
         <section className="items-section">
           <table className="items-table">
             <thead>
@@ -236,7 +257,6 @@ const PurchaseInvoicePrint = ({
             <tbody>
               {dataRows.length > 0 ? (
                 dataRows.map((row, index) => {
-                  //  Safe number extraction for each row
                   const rowMrp = safeNumber(row.mrp);
                   const rowPrice = safeNumber(row.price);
                   const rowDiscount = safeNumber(row.discountPercent);
@@ -290,30 +310,21 @@ const PurchaseInvoicePrint = ({
                 </tr>
               )}
 
+              {/* Padding rows so short invoices still fill the table */}
               {dataRows.length > 0 &&
                 dataRows.length < 5 &&
                 [...Array(5 - dataRows.length)].map((_, i) => (
                   <tr key={`empty-${i}`} className="empty-row">
-                    <td>&nbsp;</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
+                    {[...Array(13)].map((__, j) => (
+                      <td key={j}>&nbsp;</td>
+                    ))}
                   </tr>
                 ))}
             </tbody>
           </table>
         </section>
 
-        {/* Summary Section */}
+        {/* ── Summary ── */}
         <section className="summary-section">
           <div className="summary-grid">
             <div className="amount-words">
@@ -348,7 +359,7 @@ const PurchaseInvoicePrint = ({
           </div>
         </section>
 
-        {/* GST Summary Table */}
+        {/* ── GST Summary Table ── */}
         <section className="gst-summary-section">
           <h4>GST Summary</h4>
           <table className="gst-summary-table">
@@ -424,7 +435,7 @@ const PurchaseInvoicePrint = ({
           </table>
         </section>
 
-        {/* Payment Details */}
+        {/* ── Payment Details ── */}
         <section className="payment-section">
           <div className="payment-grid">
             <div className="payment-info">
@@ -458,7 +469,7 @@ const PurchaseInvoicePrint = ({
           </div>
         </section>
 
-        {/* Footer Section */}
+        {/* ── Footer ── */}
         <footer className="invoice-footer">
           <div className="footer-grid">
             <div className="terms">
