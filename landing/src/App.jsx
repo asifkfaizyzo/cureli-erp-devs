@@ -1,5 +1,3 @@
-// landing/src/App.jsx
-
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 // ============================================
@@ -24,46 +22,38 @@ import Contact from "./pages/landingPages/contact/Contact.jsx";
 import Services from "./pages/landingPages/Services/Services.jsx";
 import ScrollToTop from "./pages/landingPages/component/ScrollToTop.jsx";
 
+// ADDED
+import SitemapPage from "./components/common/SitemapPage.jsx";
+
 import "./index.css";
 
-// ============================================
-// MAIN APP COMPONENT
-// ============================================
 const App = () => {
   return (
     <Router>
       <ScrollToTop />
       <Routes>
-        {/* ============================================ */}
-        {/* LANDING PAGES (Public) */}
-        {/* ============================================ */}
+        {/* LANDING PAGES */}
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/Services" element={<Services />} />
 
-        {/* ============================================ */}
         {/* LEGAL PAGES */}
-        {/* ============================================ */}
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
-
-        {/* NEW RAZORPAY REQUIRED POLICIES */}
         <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="/delivery-policy" element={<DeliveryPolicy />} />
         <Route path="/cancellation-policy" element={<CancellationPolicy />} />
 
-        {/* ============================================ */}
+        {/* ADDED: Sitemap */}
+        <Route path="/sitemap" element={<SitemapPage />} />
+
         {/* SYSTEM PAGES */}
-        {/* ============================================ */}
         <Route path="/maintenance" element={<MaintenancePage />} />
         <Route path="/error" element={<ErrorPage />} />
         <Route path="/yzo-dev" element={<DeveloperStamp />} />
 
-
-        {/* ============================================ */}
-        {/* 404 NOT FOUND */}
-        {/* ============================================ */}
+        {/* 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>

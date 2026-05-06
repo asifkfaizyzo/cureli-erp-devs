@@ -1,12 +1,72 @@
 import rateLimit from "express-rate-limit";
+import jwt from "jsonwebtoken";
+
+// ============================================
+// KEY GENERATOR — per-user or per-IP fallback
+// ============================================
+// Uses jwt.decode() (no verification) to extract user_id from
+// Bearer token. Fast and synchronous — no DB calls.
+// Falls back to IP for unauthenticated requests.
+//
+// This does NOT replace session validation — requireAuth still
+// does full jwt.verify() + validateUserSession() downstream.
+// ============================================
+
+const userOrIpKey = (req) => {
+  try {
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith("Bearer ")) {
+      const token = auth.split(" ")[1];
+      const payload = jwt.decode(token);
+      if (payload?.user_id) {
+        return `user:${payload.user_id}`;
+      }
+    }
+  } catch {
+    // decode failed — fall through to IP
+  }
+  return `ip:${req.ip}`;
+};
 
 // ============================================
 // GLOBAL API LIMITER — for /api/* (ERP users)
 // ============================================
+// 200 req/min per user (or per IP if unauthenticated).
+// Raised from 100 because:
+//   - Now keyed per-user not per-IP (pharmacy staff share IP)
+//   - Normal ERP usage peaks at ~80 req/min
+//   - 200 gives safe headroom without being reckless
+// ============================================
 
 export const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 100,
+  max: 200,
+  keyGenerator: userOrIpKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many requests. Please try again later.",
+  },
+});
+
+// ============================================
+// RELAXED LIMITER — for system-driven polling endpoints
+// ============================================
+// Applied to routes that fire automatically (not user-driven):
+//   - /api/notifications/unread-count  (NotificationDropdown)
+//   - /api/notifications/recent        (NotificationDropdown)
+//   - /api/purchase/returns            (Sidebar — every 30s)
+//
+// 600 req/min per user gives polling room for:
+//   - Sidebar: 2 polls/min × 10 staff = 20 req/min worst case
+//   - Still blocks genuine abuse
+// ============================================
+
+export const relaxedLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 600,
+  keyGenerator: userOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -18,10 +78,14 @@ export const globalLimiter = rateLimit({
 // ============================================
 // CADMIN API LIMITER — for /cadmin/* (internal admins)
 // ============================================
+// Also keyed per-user now. CAdmin users are internal
+// staff — per-user limiting is appropriate here too.
+// ============================================
 
 export const cadminLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 300,
+  keyGenerator: userOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -32,10 +96,12 @@ export const cadminLimiter = rateLimit({
 
 // ============================================
 // AUTH LIMITER — login, OTP verify, password reset
-// Protects all sensitive auth endpoints by IP.
-// This is the only IP-level limiter needed on /login.
-// The application layer (sendLoginOtp) handles
-// per-user OTP cooldowns and daily limits.
+// ============================================
+// INTENTIONALLY IP-ONLY — no userOrIpKey here.
+// These endpoints are hit before a valid user_id exists.
+// IP-based limiting is correct for brute force protection.
+// The application layer (sendLoginOtp) handles per-user
+// OTP cooldowns and daily limits independently.
 // ============================================
 
 export const authLimiter = rateLimit({
@@ -50,13 +116,10 @@ export const authLimiter = rateLimit({
 });
 
 // ============================================
-// OTP SEND LIMITER — ONLY for explicit resend endpoints
-// DO NOT apply this to /login — the login route already
-// triggers an OTP send, but it is gated by authLimiter
-// and the application-level per-user cooldown in
-// sendLoginOtp(). Stacking otpLimiter on /login causes
-// new users to hit "OTP limit reached" without ever
-// having explicitly requested an OTP.
+// OTP SEND LIMITER — explicit resend endpoints only
+// ============================================
+// INTENTIONALLY IP-ONLY — same reason as authLimiter.
+// DO NOT apply to /login — see authLimiter comment above.
 // ============================================
 
 export const otpLimiter = rateLimit({
@@ -72,6 +135,9 @@ export const otpLimiter = rateLimit({
 
 // ============================================
 // SIGNUP LIMITER — registration flow
+// ============================================
+// INTENTIONALLY IP-ONLY — no user_id exists yet
+// during signup. IP limiting is the only option here.
 // ============================================
 
 export const signupLimiter = rateLimit({
