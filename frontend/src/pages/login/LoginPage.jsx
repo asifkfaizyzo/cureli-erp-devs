@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import bgImage from "../../assets/images/login-background.jpg";
+import bgImage from "../../assets/images/login-background_result.webp";
 import logo from "../../assets/icons/Artboard 24.svg";
 
 import LoginForm from "./comps/LoginForm";
