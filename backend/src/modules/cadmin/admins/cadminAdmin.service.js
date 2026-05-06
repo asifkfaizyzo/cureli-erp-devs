@@ -97,21 +97,32 @@ export async function getAdminsService(query) {
   if (status === "active") where.is_active = true;
   if (status === "inactive") where.is_active = false;
 
-  if (role) {
-    const normalized = role.toLowerCase().replace(/\s+/g, "_");
-    if (normalized === "super_cadmin" || normalized === "super_admin") {
-      where.is_super_cadmin = true;
-    } else {
-      where.roleAssignments = {
-        some: {
-          role: {
-            name: { contains: role, mode: "insensitive" },
-            is_deleted: false,
-          },
+if (role) {
+  const normalized = role.toLowerCase().replace(/\s+/g, "_");
+
+  if (normalized === "super_cadmin" || normalized === "super_admin") {
+    where.is_super_cadmin = true;
+  } else if (normalized === "no_role") {
+    // Admins with zero active role assignments
+    where.is_super_cadmin = false;
+    where.roleAssignments = {
+      none: {
+        role: {
+          is_deleted: false,
         },
-      };
-    }
+      },
+    };
+  } else {
+    where.roleAssignments = {
+      some: {
+        role: {
+          name: { contains: role, mode: "insensitive" },
+          is_deleted: false,
+        },
+      },
+    };
   }
+}
 
   if (search) {
     where.OR = [
