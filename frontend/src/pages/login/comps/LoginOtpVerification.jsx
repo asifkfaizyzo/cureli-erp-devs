@@ -1,5 +1,3 @@
-// src/pages/login/comps/LoginOtpVerification.jsx
-
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { IoArrowBackOutline } from "react-icons/io5";
@@ -17,23 +15,32 @@ import { useToast } from "../../../components/common/Toast";
 const RESEND_TIMER_SECONDS = 60;
 
 /**
- * Clear all stale data from previous sessions/users
- * Called BEFORE setting new auth to prevent state conflicts
+ * Clear all stale localStorage/sessionStorage data from previous sessions.
+ *
+ * FIX: This must be called AFTER resetSetup() and AFTER setAuth() writes
+ * its initial Zustand state, because Zustand persist middleware re-writes
+ * to localStorage synchronously on every set() call. The correct sequence is:
+ *
+ *   1. resetSetup()        — clears Zustand setup state in memory
+ *   2. clearAllStaleData() — wipes localStorage including what persist just wrote
+ *   3. setAuth()           — writes fresh auth data to Zustand + localStorage
+ *
+ * This ensures no stale keys from a previous user session survive.
  */
 const clearAllStaleData = () => {
   const keysToRemove = [
-    'cureli-auth-storage',
-    'cureli-setup-storage',
-    'menu-storage',
-    'access_token',
-    'user_id',
-    'shop_id',
-    'user_name',
-    'branch_name',
-    'shop_name',
+    "cureli-auth-storage",
+    "cureli-setup-storage",
+    "menu-storage",
+    "access_token",
+    "user_id",
+    "shop_id",
+    "user_name",
+    "branch_name",
+    "shop_name",
   ];
 
-  keysToRemove.forEach(key => {
+  keysToRemove.forEach((key) => {
     try {
       localStorage.removeItem(key);
     } catch (e) {
@@ -42,10 +49,15 @@ const clearAllStaleData = () => {
   });
 
   sessionStorage.clear();
-  console.log('🧹 Cleared all stale data before new login');
+  console.log("🧹 Cleared all stale data before new login");
 };
 
-const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) => {
+const LoginOtpVerification = ({
+  tempToken,
+  phoneHint,
+  onBack,
+  onTokenUpdate,
+}) => {
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
   const resetSetup = useSetupStore((state) => state.resetSetup);
@@ -78,7 +90,7 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
     }
   }, [timer]);
 
-  // Sync props with state
+  // Sync props → state when parent updates token after resend
   useEffect(() => {
     setCurrentTempToken(tempToken);
   }, [tempToken]);
@@ -92,125 +104,171 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
     setTimeout(() => setShake(false), 500);
   }, []);
 
-  const determineDestination = useCallback(async (role) => {
-    if (role === "staff" || role === "branch_admin") {
-      console.log(`📍 ${role} → /dashboard`);
-      return "/dashboard";
-    }
-
-    try {
-      const subRes = await getMySubscription();
-      const hasActive = subRes.data?.data?.has_active_subscription === true;
-
-      if (!hasActive) {
-        console.log("📍 No active subscription → /plan-selection");
-        return "/plan-selection";
+  const determineDestination = useCallback(
+    async (role) => {
+      if (role === "staff" || role === "branch_admin") {
+        console.log(`📍 ${role} → /dashboard`);
+        return "/dashboard";
       }
 
       try {
-        const setupRes = await getSetupStatus();
-        const setupData = setupRes.data?.data;
+        const subRes = await getMySubscription();
+        const hasActive =
+          subRes.data?.data?.has_active_subscription === true;
 
-        if (setupData?.is_complete) {
-          console.log("📍 Setup complete → /dashboard");
-          return "/dashboard";
-        } else {
-          console.log("📍 Setup incomplete → /setup");
+        if (!hasActive) {
+          console.log("📍 No active subscription → /plan-selection");
+          return "/plan-selection";
+        }
+
+        try {
+          const setupRes = await getSetupStatus();
+          const setupData = setupRes.data?.data;
+
+          if (setupData?.is_complete) {
+            console.log("📍 Setup complete → /dashboard");
+            return "/dashboard";
+          } else {
+            console.log("📍 Setup incomplete → /setup");
+            return "/setup";
+          }
+        } catch (setupErr) {
+          console.warn(
+            "Setup status check failed, defaulting to /setup",
+            setupErr
+          );
           return "/setup";
         }
-      } catch (setupErr) {
-        console.warn("Setup status check failed, defaulting to /setup", setupErr);
-        return "/setup";
+      } catch (err) {
+        console.warn(
+          "Subscription check failed, defaulting to /plan-selection",
+          err
+        );
+        return "/plan-selection";
       }
-    } catch (err) {
-      console.warn("Subscription check failed, defaulting to /plan-selection", err);
-      return "/plan-selection";
-    }
-  }, []);
+    },
+    []
+  );
 
-  const handleVerify = useCallback(async (otpCode = null) => {
-    const code = otpCode || otp.join("");
-    if (code.length !== 4 || loading || success) return;
+  /**
+   * FIX: handleVerify no longer takes otp from its closure.
+   * It only accepts otpCode as an explicit argument.
+   * This removes otp from the useCallback dependency array,
+   * preventing handleVerify from being recreated on every
+   * keystroke, which was causing the auto-verify useEffect
+   * to also re-run on every keystroke unnecessarily.
+   */
+  const handleVerify = useCallback(
+    async (otpCode) => {
+      if (!otpCode || otpCode.length !== 4 || loading || success) return;
 
-    setLoading(true);
-    setError("");
-    setResendSuccess(false);
+      setLoading(true);
+      setError("");
+      setResendSuccess(false);
 
-    try {
-      const res = await verifyLoginOtp({
-        temp_token: currentTempToken,
-        otp: code,
-      });
+      try {
+        const res = await verifyLoginOtp({
+          temp_token: currentTempToken,
+          otp: otpCode,
+        });
 
-      const {
-        access_token,
-        next_step,
-        shop_id,
-        user_id,
-        branch_id,
-        branch_name,
-        shop_name,
-        role,
-        user_name,
-      } = res.data.data;
+        const {
+          access_token,
+          next_step,
+          shop_id,
+          user_id,
+          branch_id,
+          branch_name,
+          shop_name,
+          role,
+          user_name,
+        } = res.data.data;
 
-      setSuccess(true);
-      toast.success("Verified!", "Logging you in...");
+        setSuccess(true);
+        toast.success("Verified!", "Logging you in...");
 
-      // Clear ALL stale data before setting new auth
-      clearAllStaleData();
-      resetSetup();
+        /**
+         * FIX: Correct order for clearing stale data.
+         *
+         * BEFORE (wrong):
+         *   clearAllStaleData() → resetSetup() → setAuth()
+         *   Problem: resetSetup() calls Zustand set(), which persist
+         *   middleware immediately re-writes cureli-setup-storage to
+         *   localStorage, undoing the clear for that key.
+         *
+         * AFTER (correct):
+         *   resetSetup() → clearAllStaleData() → setAuth()
+         *   resetSetup() resets in-memory Zustand state.
+         *   clearAllStaleData() then wipes localStorage including
+         *   whatever persist just wrote.
+         *   setAuth() writes fresh auth data.
+         */
+        resetSetup();
+        clearAllStaleData();
 
-      // Set fresh auth data
-      setAuth({
-        access_token,
-        user_id,
-        shop_id,
-        branch_id,
-        branch_name,
-        shop_name,
-        role,
-        user_name,
-      });
+        setAuth({
+          access_token,
+          user_id,
+          shop_id,
+          branch_id,
+          branch_name,
+          shop_name,
+          role,
+          user_name,
+        });
 
-      setTimeout(async () => {
-        if (next_step === -1) {
-          const destination = await determineDestination(role);
-          navigate(destination, { replace: true });
-          return;
-        }
+        setTimeout(async () => {
+          if (next_step === -1) {
+            const destination = await determineDestination(role);
+            navigate(destination, { replace: true });
+            return;
+          }
 
-        if ([12, 14, 15].includes(next_step)) {
-          navigate("/verification", {
+          if ([12, 14, 15].includes(next_step)) {
+            navigate("/verification", {
+              state: { resume_step: next_step },
+              replace: true,
+            });
+            return;
+          }
+
+          navigate("/onboarding", {
             state: { resume_step: next_step },
             replace: true,
           });
-          return;
-        }
+        }, 600);
+      } catch (err) {
+        console.error("OTP verification error:", err);
+        const msg =
+          err?.response?.data?.message || "Invalid OTP. Please try again.";
 
-        navigate("/onboarding", {
-          state: { resume_step: next_step },
-          replace: true,
-        });
-      }, 600);
-    } catch (err) {
-      console.error("OTP verification error:", err);
-      const msg = err?.response?.data?.message || "Invalid OTP. Please try again.";
+        setError(msg);
+        toast.error("Verification Failed", msg);
+        triggerShake();
 
-      setError(msg);
-      toast.error("Verification Failed", msg);
-      triggerShake();
+        setTimeout(() => {
+          setOtp(["", "", "", ""]);
+          inputsRef.current[0]?.focus();
+        }, 300);
 
-      setTimeout(() => {
-        setOtp(["", "", "", ""]);
-        inputsRef.current[0]?.focus();
-      }, 300);
+        setLoading(false);
+      }
+    },
+    // FIX: otp removed from deps — otpCode is always passed explicitly
+    [
+      loading,
+      success,
+      currentTempToken,
+      toast,
+      resetSetup,
+      setAuth,
+      determineDestination,
+      navigate,
+      triggerShake,
+    ]
+  );
 
-      setLoading(false);
-    }
-  }, [otp, loading, success, currentTempToken, toast, resetSetup, setAuth, determineDestination, navigate, triggerShake]);
-
-  // Auto-verify when 4 digits entered
+  // Auto-verify when all 4 digits are entered
   useEffect(() => {
     const code = otp.join("");
     if (
@@ -279,7 +337,8 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
         temp_token: currentTempToken,
       });
 
-      const { temp_token: newToken, phone_hint: newPhoneHint } = res.data.data;
+      const { temp_token: newToken, phone_hint: newPhoneHint } =
+        res.data.data;
 
       setCurrentTempToken(newToken);
       if (newPhoneHint) {
@@ -291,20 +350,23 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
       }
 
       setResendSuccess(true);
-      toast.success("OTP Resent", `New code sent to ${newPhoneHint || 'your phone'}`);
-      
+      toast.success(
+        "OTP Resent",
+        `New code sent to ${newPhoneHint || "your phone"}`
+      );
+
       setTimeout(() => setResendSuccess(false), 3000);
       setTimer(RESEND_TIMER_SECONDS);
 
       setTimeout(() => {
         inputsRef.current[0]?.focus();
       }, 100);
-
     } catch (err) {
       console.error("Resend OTP error:", err);
 
       const status = err?.response?.status;
-      const msg = err?.response?.data?.message || "Failed to resend OTP";
+      const msg =
+        err?.response?.data?.message || "Failed to resend OTP";
       const waitTime = err?.response?.data?.data?.waitTime;
 
       if (status === 401) {
@@ -316,6 +378,9 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
       } else if (status === 429) {
         setError(msg);
         toast.warning("Too Many Requests", msg);
+
+        // Use waitTime from backend if provided, otherwise
+        // try to parse from message, then fall back to default
         if (waitTime && waitTime > 0) {
           setTimer(waitTime);
         } else {
@@ -390,7 +455,9 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
 
           <p className="mt-4 text-gray-600 text-center">
             Enter 4-digit code sent to <br />
-            <span className="font-medium">{currentPhoneHint || "+91 ******0000"}</span>
+            <span className="font-medium">
+              {currentPhoneHint || "+91 ******0000"}
+            </span>
           </p>
 
           <div
@@ -443,9 +510,15 @@ const LoginOtpVerification = ({ tempToken, phoneHint, onBack, onTokenUpdate }) =
             )}
           </div>
 
+          {/* Manual verify button — always passes otp as explicit arg */}
           <button
-            onClick={() => handleVerify()}
-            disabled={loading || otp.join("").length !== 4 || success || resending}
+            onClick={() => handleVerify(otp.join(""))}
+            disabled={
+              loading ||
+              otp.join("").length !== 4 ||
+              success ||
+              resending
+            }
             className={`w-[300px] py-3 rounded-xl font-semibold mt-4 transition-all duration-300
               ${
                 success

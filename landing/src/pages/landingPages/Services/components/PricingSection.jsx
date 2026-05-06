@@ -223,7 +223,7 @@ const PricingSection = () => {
           All plans include a 14-day free trial.{" "}
           <a
             href="/contact"
-            className="text-[#05015A] font-medium hover:text-white hover:underline"
+            className="text-[#05015A] font-medium  hover:underline"
           >
             Need help choosing?
           </a>
