@@ -3,7 +3,7 @@ import AOS from "aos";
 import "aos/dist/aos.css";
 import { Award, HeartPulse, ClipboardList, UsersRound } from "lucide-react";
 
-import HeroBG from "../../../../assets/images/Artboard2.png";
+import HeroBG from "../../../../assets/images/Artboard2_result.webp";
 
 const AboutHero = () => {
   useEffect(() => {
