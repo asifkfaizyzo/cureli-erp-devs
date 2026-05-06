@@ -20,7 +20,11 @@ import {
   AtSign,
   Activity,
 } from "lucide-react";
-import { createAdmin, createSuperAdmin, getRoles } from "../../../api/cadminAdmins";
+import {
+  createAdmin,
+  createSuperAdmin,
+  getRoles,
+} from "../../../api/cadminAdmins";
 import { getRoleBadgeStyle } from "../../../config/tableConfig";
 import { useCAdminPermission } from "../../../hooks/useCAdminPermission";
 import StyledSelect from "../../../components/common/StyledSelect";
@@ -218,11 +222,12 @@ function RolePicker({
       {roles.map((role) => {
         const isSelected = selectedIds.includes(role.id);
         const isPrimary = primaryId === role.id;
+
         return (
           <div
             key={role.id}
             onClick={() => onToggle(role.id)}
-            className={`flex items-center gap-2.5 p-3 rounded-xl border-2 cursor-pointer
+            className={`flex flex-col gap-2 p-3 rounded-xl border-2 cursor-pointer
                         transition-all duration-200
                         ${
                           isSelected
@@ -230,66 +235,70 @@ function RolePicker({
                             : "border-gray-100 hover:border-gray-200 hover:bg-gray-50/50"
                         }`}
           >
-            <div
-              className={`w-4.5 h-4.5 rounded-md border-2 flex items-center justify-center flex-shrink-0
-                          transition-all duration-200
-                          ${
-                            isSelected
-                              ? "border-indigo-600 bg-indigo-600"
-                              : "border-gray-300 bg-white hover:border-gray-400"
-                          }`}
-              style={{ width: 18, height: 18 }}
-            >
-              {isSelected && (
-                <svg
-                  className="w-2.5 h-2.5 text-white"
-                  fill="none"
-                  viewBox="0 0 12 12"
-                >
-                  <path
-                    d="M2.5 6L5 8.5L9.5 3.5"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
+            {/* Top row: checkbox + role name */}
+            <div className="flex items-center gap-2.5">
+              <div
+                className={`rounded-md border-2 flex items-center justify-center flex-shrink-0
+                            transition-all duration-200
+                            ${
+                              isSelected
+                                ? "border-indigo-600 bg-indigo-600"
+                                : "border-gray-300 bg-white hover:border-gray-400"
+                            }`}
+                style={{ width: 18, height: 18 }}
+              >
+                {isSelected && (
+                  <svg
+                    className="w-2.5 h-2.5 text-white"
+                    fill="none"
+                    viewBox="0 0 12 12"
+                  >
+                    <path
+                      d="M2.5 6L5 8.5L9.5 3.5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </div>
+              <span className={getRoleBadgeStyle(role.name)}>{role.name}</span>
             </div>
 
-            <span className={getRoleBadgeStyle(role.name)}>{role.name}</span>
-
-            <div className="flex-1" />
-
-            {isSelected && (
+            {/* Bottom row: primary button — only renders when selected, pushes layout naturally */}
+            <div
+              className={`overflow-hidden transition-all duration-200
+                          ${isSelected ? "max-h-8 opacity-100" : "max-h-0 opacity-0"}`}
+            >
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onSetPrimary(role.id);
                 }}
-                className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md
-                            border transition-all duration-200 flex-shrink-0
+                className={`flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1
+                            rounded-lg border transition-all duration-200 w-full justify-center
                             ${
                               isPrimary
-                                ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : "text-gray-400 border-gray-200 hover:border-amber-300 hover:text-amber-600"
+                                ? "bg-amber-50 text-amber-700 border-amber-200 shadow-sm"
+                                : "bg-white text-gray-400 border-gray-200 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50/50"
                             }`}
               >
                 <Star
                   size={9}
                   fill={isPrimary ? "currentColor" : "none"}
+                  className="flex-shrink-0"
                 />
-                {isPrimary ? "Primary" : "Set"}
+                {isPrimary ? "Primary Role" : "Set as Primary"}
               </button>
-            )}
+            </div>
           </div>
         );
       })}
     </div>
   );
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // SUPER ADMIN WARNING BANNER — purple theme
 // ─────────────────────────────────────────────────────────────────────────────
@@ -304,10 +313,12 @@ function SuperAdminWarning() {
         <Crown size={16} className="text-purple-600" />
       </div>
       <div className="space-y-0.5">
-        <p className="text-sm font-bold text-purple-900">Full unrestricted access</p>
+        <p className="text-sm font-bold text-purple-900">
+          Full unrestricted access
+        </p>
         <p className="text-xs text-purple-700/80 leading-relaxed">
-          Super Admins bypass all permission checks. This cannot be changed from the UI once
-          set - only through a database operation.
+          Super Admins bypass all permission checks. This cannot be changed from
+          the UI once set - only through a database operation.
         </p>
       </div>
     </div>
@@ -369,7 +380,7 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
 
     setTimeout(
       () => firstInputRef.current?.querySelector("input")?.focus(),
-      100
+      100,
     );
 
     if (!grantSuperAdmin) {
@@ -378,7 +389,7 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
       getRoles()
         .then((res) => setAvailableRoles(res.data.data.roles ?? []))
         .catch((err) =>
-          setRolesError(err.response?.data?.message || "Failed to load roles")
+          setRolesError(err.response?.data?.message || "Failed to load roles"),
         )
         .finally(() => setRolesLoading(false));
     }
@@ -608,7 +619,9 @@ const AddAdminModal = ({ isOpen, onClose, onCreate }) => {
                 <AlertCircle size={16} />
               </div>
               <div>
-                <p className="font-semibold text-red-800">Something went wrong</p>
+                <p className="font-semibold text-red-800">
+                  Something went wrong
+                </p>
                 <p className="text-red-600 text-xs mt-0.5">{apiError}</p>
               </div>
             </div>

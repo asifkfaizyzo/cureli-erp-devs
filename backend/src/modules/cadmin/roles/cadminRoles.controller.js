@@ -109,10 +109,10 @@ export async function assignRolesController(req, res) {
   try {
     const data = await assignRolesService(
       req.params.cadmin_id,
-      req.body,
+      req.validated,   // ← was req.body, must be req.validated
       getAuditContext(req)
     );
-    return success(res, data, "Roles assigned");               // ← data, then message
+    return success(res, data, "Roles assigned");
   } catch (err) {
     return fail(res, err.message, err.status || 500);
   }
