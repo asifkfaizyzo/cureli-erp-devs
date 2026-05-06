@@ -86,10 +86,7 @@ const handleSave = async () => {
     primaryId: selectedIds.length === 0 ? null : primaryId,
   };
 
-  console.log("🟦 [AssignRolesModal] handleSave fired");
-  console.log("🟦 [AssignRolesModal] selectedIds:", selectedIds);
-  console.log("🟦 [AssignRolesModal] primaryId:", primaryId);
-  console.log("🟦 [AssignRolesModal] payload to onSave:", JSON.stringify(payload, null, 2));
+ 
 
   setSaving(true);
   setError(null);

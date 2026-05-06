@@ -216,15 +216,12 @@ function AdminRolesTab({ admin, onRolesChanged, canEdit }) {
   // ✅ Single source of truth for all role mutations
 const applyRoleChange = useCallback(
   async (roleIds, primaryRoleId) => {
-    console.log("🟨 [AdminRolesTab] applyRoleChange fired");
-    console.log("🟨 [AdminRolesTab] roleIds:", roleIds);
-    console.log("🟨 [AdminRolesTab] primaryRoleId:", primaryRoleId);
 
     const apiPayload = {
       role_ids: roleIds,
       primary_role_id: primaryRoleId ?? null,
     };
-    console.log("🟨 [AdminRolesTab] API payload being sent:", JSON.stringify(apiPayload, null, 2));
+    
 
     setActionError(null);
     setActionLoading(true);

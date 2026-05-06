@@ -284,8 +284,7 @@ export function validateAssignAdminRoles(req, res, next) {
   const result = assignAdminRolesSchema.safeParse(req.body);
 
   if (!result.success) {
-    console.error("🔴 [SCHEMA] Zod validation FAILED");
-    console.error("🔴 [SCHEMA] errors:", JSON.stringify(result.error.errors, null, 2));
+    
     const errors = result.error.errors.map((e) => ({
       field:   e.path.join("."),
       message: e.message,

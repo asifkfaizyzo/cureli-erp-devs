@@ -33,10 +33,7 @@ const router = express.Router();
 // IMPORTANT: Static paths MUST come before parameterized paths (:id)
 // to prevent Express matching "super" or "roles" as an :id value
 // ─────────────────────────────────────────────────────────────────────────────
-router.use("/admins", (req, res, next) => {
-  console.log(`🔥 CADMIN ADMINS ROUTER: ${req.method} ${req.url}`);
-  next();
-});
+
 
 // POST /cadmin/admins/super  ← MUST be before GET/PATCH /admins/:id
 router.post(
