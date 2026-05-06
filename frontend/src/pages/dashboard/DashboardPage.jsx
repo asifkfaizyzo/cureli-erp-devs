@@ -784,17 +784,17 @@ const DashboardPage = () => {
         // Sales Stats - Backend returns: { totalInvoices, totalSalesAmount, totalReceivedAmount, totalOutstandingAmount, todaySalesAmount, todayInvoiceCount }
         const salesData = extractData(results[0], {});
         setSalesStats(salesData);
-        console.log("📊 Sales Stats:", salesData);
+      
 
         // Purchase Stats - Backend returns: { totalInvoices, totalAmount, unpaidAmount }
         const purchaseData = extractData(results[1], {});
         setPurchaseStats(purchaseData);
-        console.log("📊 Purchase Stats:", purchaseData);
+       
 
         // Inventory Summary - Backend returns: { totalItems, totalStockQuantity, lowStockCount, outOfStockCount, expiringSoonCount, expiredCount }
         const inventoryData = extractData(results[2], {});
         setInventorySummary(inventoryData);
-        console.log("📊 Inventory Summary:", inventoryData);
+       
 
         //  FIXED: Low Stock Items - Backend returns array directly, not { items: [...] }
         const lowStockData = extractData(results[3], []);
@@ -803,7 +803,7 @@ const DashboardPage = () => {
             ? lowStockData
             : lowStockData?.items || [],
         );
-        console.log("📊 Low Stock Items:", lowStockData);
+       
 
         //  FIXED: Expiring Items - Backend returns array directly
         const expiringData = extractData(results[4], []);
@@ -812,7 +812,7 @@ const DashboardPage = () => {
             ? expiringData
             : expiringData?.items || [],
         );
-        console.log("📊 Expiring Items:", expiringData);
+       
 
         // Notifications - Backend returns: { total, by_priority: { critical, high, normal, low }, has_critical, has_high }
         const notifData = extractData(results[5], {});

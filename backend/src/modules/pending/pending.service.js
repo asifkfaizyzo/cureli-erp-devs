@@ -322,7 +322,7 @@ export async function verifyEmailOtp(pending_id, otp) {
 // ============================================
 
 export async function sendSmsOtp(pending_id, phone, isResend = false) {
-  console.log("📱 sendSmsOtp called with:", { pending_id, phone });
+  
 
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
@@ -401,7 +401,7 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     throw err;
   }
 
-  console.log("🔑 Generating OTP...");
+  
 
   // Generate OTP
   const otpLength = Number(process.env.SMS_OTP_LENGTH || 4);
@@ -418,7 +418,7 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     },
   });
 
-  console.log(" SMS sent successfully");
+
 
   // Store OTP hash
   await prisma.pendingUser.update({
@@ -431,7 +431,7 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     },
   });
 
-  console.log(" Database updated successfully");
+ 
 
   return { success: true, timeout: OTP_VALIDITY_SECONDS };
 }

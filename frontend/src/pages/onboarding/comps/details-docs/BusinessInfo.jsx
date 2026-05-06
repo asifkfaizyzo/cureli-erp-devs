@@ -266,7 +266,7 @@ const BusinessInfo = ({ onContinue }) => {
       });
       onContinue();
     } catch (err) {
-      console.log("SHOP ERROR:", err.response?.data);
+    
       alert(err?.response?.data?.message || "Failed to save business info");
     }
     setLoading(false);

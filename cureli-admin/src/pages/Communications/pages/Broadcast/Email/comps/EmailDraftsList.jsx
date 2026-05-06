@@ -28,7 +28,7 @@ function EmailDraftsList({ refreshTrigger, onCountChange, onEdit }) {
     try {
       const response = await emailBroadcastAPI.getDrafts(page, rowsPerPage);
 
-      console.log("[EmailDraftsList] API Response:", response);
+   
 
       //  FIXED: Handle both response formats
       let draftsData = [];

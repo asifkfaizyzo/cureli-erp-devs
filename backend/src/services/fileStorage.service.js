@@ -312,7 +312,7 @@ export async function uploadFile({
 
     await s3Client.send(command);
 
-    console.log(`[FileStorage] Uploaded to S3: ${key} (${formatFileSize(size)})`);
+  
 
     // 5. Return metadata (storage_key = filename only, NOT the full S3 key)
     return {
@@ -354,7 +354,7 @@ export async function deleteFile({ folder, filename }) {
     });
 
     await s3Client.send(command);
-    console.log(`[FileStorage] Deleted: ${key}`);
+  
 
     return true;
   } catch (error) {

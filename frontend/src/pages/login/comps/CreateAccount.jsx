@@ -134,7 +134,7 @@ const CreateAccount = ({ onLoginClick }) => {
       clearPreviousSession();
 
       const recaptchaToken = await executeRecaptcha("signup");
-      console.log(" reCAPTCHA Token generated:", recaptchaToken);
+   
 
       const payload = {
         first_name: form.first_name,
@@ -144,7 +144,7 @@ const CreateAccount = ({ onLoginClick }) => {
         recaptchaToken,
       };
 
-      console.log("📤 Sending payload:", payload);
+    
 
       const res = await signupUser(payload);
       const pending_id = res.data.data.pending_id;

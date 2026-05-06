@@ -70,9 +70,7 @@ export async function createPurchaseInvoice(
   const billableItems = lineItems.filter((item) => item.is_free_item !== true);
   const freeItems = lineItems.filter((item) => item.is_free_item === true);
 
-  console.log(
-    `📦 Processing ${billableItems.length} billable items and ${freeItems.length} free items`,
-  );
+  
 
   // Get unique medicine IDs from billable items only (free items will share medicine_id)
   const medicineIds = billableItems.map((item) => item.medicine_id);
@@ -372,12 +370,7 @@ export async function confirmPurchaseInvoice(
       parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0,
   );
 
-  console.log(`📦 Confirming invoice ${invoice.invoice_number}:`);
-  console.log(`   - Billable items: ${billableItems.length}`);
-  console.log(
-    `   - Free item rows: ${freeItemRows.length} (will be skipped for stock)`,
-  );
-
+  
   const result = await prisma.$transaction(async (tx) => {
     const updatedInvoice = await tx.purchaseInvoice.update({
       where: { invoice_id: invoiceId },
@@ -400,9 +393,7 @@ export async function confirmPurchaseInvoice(
         parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0;
 
       if (isFreeItemRow) {
-        console.log(
-          `⏭️ Skipping stock for free item row: Batch ${item.batch_number} (qty: ${item.quantity}) - already in parent's free_quantity`,
-        );
+       
 
         // Still link to inventory for record keeping
         const existingInventory = await tx.inventory.findFirst({
@@ -442,9 +433,7 @@ export async function confirmPurchaseInvoice(
       const freeQty = Number(item.free_quantity) || 0;
       const totalQuantity = purchasedQty + freeQty;
 
-      console.log(
-        ` Adding stock: Batch ${item.batch_number} → ${purchasedQty} purchased + ${freeQty} free = ${totalQuantity} total`,
-      );
+      
 
       // Update stock
       await inventoryService.updateStock(

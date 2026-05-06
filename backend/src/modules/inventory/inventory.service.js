@@ -312,14 +312,8 @@ class InventoryService {
     };
 
     if (tx) {
-      console.log(
-        `📦 Using existing transaction for stock update (${movementType})`,
-      );
       return executeUpdate(tx);
     } else {
-      console.log(
-        `📦 Creating new transaction for stock update (${movementType})`,
-      );
       return prisma.$transaction(executeUpdate);
     }
   }
@@ -1022,8 +1016,7 @@ class InventoryService {
   }
 
   async updateInventory(inventoryId, shopId, branchId, data, userId) {
-    console.log("=== INVENTORY UPDATE START ===");
-    console.log("📝 Input:", { inventoryId, shopId, branchId, data, userId });
+   
 
     return prisma.$transaction(async (tx) => {
       const inventory = await tx.inventory.findUnique({
@@ -1096,10 +1089,7 @@ class InventoryService {
 
       let updatedMedicine = inventory.medicine;
       if (Object.keys(medicineUpdateData).length > 0) {
-        console.log("📦 Updating medicine master:", {
-          medicine_id: inventory.medicine_id,
-          updates: medicineUpdateData,
-        });
+       
 
         if (medicineUpdateData.name || medicineUpdateData.manufacturer) {
           const newName = medicineUpdateData.name || inventory.medicine.name;
@@ -1192,10 +1182,7 @@ class InventoryService {
       }
 
       if (Object.keys(inventoryUpdateData).length > 0) {
-        console.log("📦 Updating inventory record:", {
-          inventory_id: inventoryId,
-          updates: inventoryUpdateData,
-        });
+       
 
         await tx.inventory.update({
           where: { inventory_id: inventoryId },
@@ -1242,11 +1229,7 @@ class InventoryService {
         finalInventory.expiry_date,
       );
 
-      console.log(" Inventory updated successfully:", {
-        inventory_id: inventoryId,
-        medicine_name: finalInventory.medicine?.name,
-        new_status: status,
-      });
+     
 
       return {
         inventory_id: finalInventory.inventory_id,
@@ -1282,8 +1265,7 @@ class InventoryService {
   }
 
   async deleteInventory(inventoryId, shopId, branchId, userId) {
-    console.log("=== INVENTORY DELETE START ===");
-    console.log("🗑️ Input:", { inventoryId, shopId, branchId, userId });
+   
 
     return prisma.$transaction(async (tx) => {
       const inventory = await tx.inventory.findUnique({
@@ -1329,10 +1311,7 @@ class InventoryService {
         data: { is_active: false },
       });
 
-      console.log(" Inventory soft-deleted:", {
-        inventory_id: inventoryId,
-        medicine_name: inventory.medicine?.name,
-      });
+      
 
       return {
         inventory_id: inventoryId,

@@ -7,9 +7,9 @@ import * as audit from "../audit/index.js";
 // Logger utility - only logs in development
 const log = {
   info: (...args) => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log(...args);
-    }
+    // if (process.env.NODE_ENV !== "production") {
+    //   console.log(...args);
+    // }
   },
   error: (...args) => console.error(...args),
 };

@@ -27,19 +27,11 @@ const salesAPI = {
 
       //  Get current headers
       const headers = getBranchHeaders();
-      console.log("📤 Request headers:", headers);
-      console.log(
-        "📤 Fetching batches for medicine:",
-        medicineId,
-        "Options:",
-        options,
-      );
-
+      
       const response = await API.get(`/sales/batches/${medicineId}?${params}`, {
         headers: headers,
       });
 
-      console.log("📥 Batches response:", response.data);
       return response.data;
     } catch (error) {
       console.error(" Get available batches failed:", {
@@ -371,7 +363,6 @@ const salesAPI = {
 
   // Cancel an APPROVED return (Super Admin only)
   cancelApprovedReturn: async (returnId, data) => {
-    console.log("📤 Sending cancel data:", data);
     try {
       const response = await API.patch(
         `/sales/returns/${returnId}/cancel`,

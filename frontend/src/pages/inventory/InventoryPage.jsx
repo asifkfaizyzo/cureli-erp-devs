@@ -649,10 +649,7 @@ const InventoryPage = () => {
 
   const handleAdjustmentSubmit = async (adjustmentData) => {
     try {
-      console.log("📤 Submitting stock adjustment:", {
-        item: adjustmentItem,
-        adjustment: adjustmentData,
-      });
+      
 
       await inventoryAPI.createAdjustment({
         inventoryId: adjustmentItem.inventory_id,

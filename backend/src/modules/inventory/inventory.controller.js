@@ -32,7 +32,7 @@ class InventoryController {
       const role = req.user.role;
       const { branchId, branchMode } = extractBranchContext(req);
 
-      console.log("📦 getInventory request:", { shopId, role, branchId, branchMode });
+      
 
       const filters = {
         medicineId: req.query.medicineId,
@@ -213,12 +213,7 @@ class InventoryController {
       const { inventoryId } = req.params;
       const { branchId } = extractBranchContext(req);
 
-      console.log("📝 updateInventory request:", { 
-        inventoryId, 
-        shopId, 
-        branchId,
-        data: req.validated 
-      });
+     
 
       if (!branchId) {
         return fail(res, "Please select a specific branch to update inventory", 400, {
@@ -249,7 +244,7 @@ class InventoryController {
       const { inventoryId } = req.params;
       const { branchId } = extractBranchContext(req);
 
-      console.log("🗑️ deleteInventory request:", { inventoryId, shopId, branchId });
+      
 
       if (!branchId) {
         return fail(res, "Please select a specific branch to delete inventory", 400, {

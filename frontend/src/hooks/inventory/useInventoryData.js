@@ -31,12 +31,12 @@ export const useInventoryData = () => {
 
       if (thisRequestId !== requestIdRef.current) return;
 
-      console.log("📦 Raw inventory response:", response);
+    
 
       let items = [];
       if (response?.success && response?.data) {
         items = response.data.inventories || response.data || [];
-        console.log("📦 Extracted inventories:", items);
+      
       } else if (Array.isArray(response?.data)) {
         items = response.data;
       } else if (Array.isArray(response)) {

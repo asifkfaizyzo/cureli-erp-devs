@@ -29,9 +29,7 @@ export async function getVerificationStatusController(req, res) {
     const user_id = req.user.user_id;
     const shop_id = await resolveShopId(req.user);
 
-    console.log("=== VERIFICATION STATUS DEBUG ===");
-    console.log("user_id:", user_id);
-    console.log("resolved shop_id:", shop_id);
+
 
     if (!shop_id) {
       return fail(res, "No shop associated with your account", 400);
@@ -64,15 +62,7 @@ export async function getVerificationStatusController(req, res) {
 
     const isFirstVerification = !user?.first_verified_at;
 
-    console.log("=== IS_FIRST_VERIFICATION DEBUG ===");
-    console.log("user_id:", user_id);
-    console.log("first_verified_at:", user?.first_verified_at);
-    console.log(
-      "first_login_after_verification:",
-      user?.first_login_after_verification,
-    );
-    console.log("is_first_verification:", isFirstVerification);
-    console.log("=== END DEBUG ===");
+    
 
     return success(res, {
       verification_status: shop.verification_status,
@@ -153,20 +143,16 @@ export async function listRejectedController(req, res) {
   try {
     const shop_id = await resolveShopId(req.user);
 
-    console.log("=== LIST REJECTED DEBUG ===");
-    console.log("req.user:", JSON.stringify(req.user, null, 2));
-    console.log("resolved shop_id:", shop_id);
+   
 
     if (!shop_id) {
-      console.log(" No shop_id found!");
+   
       return fail(res, "Your account is not associated with a shop", 400);
     }
 
     const files = await svc.listRejectedFilesForShop(shop_id);
 
-    console.log("📄 Found rejected files:", files.length);
-    console.log("📄 Files:", JSON.stringify(files, null, 2));
-    console.log("=== END DEBUG ===");
+   
 
     return success(res, { files });
   } catch (err) {

@@ -133,7 +133,7 @@ const LoginForm = ({ onRegisterClick }) => {
   };
 
   const handleTokenUpdate = (newToken, newPhoneHint) => {
-    console.log("Token updated after resend");
+  
     setTempToken(newToken);
     if (newPhoneHint) {
       setPhoneHint(newPhoneHint);

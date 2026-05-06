@@ -131,15 +131,6 @@ export function useSalesAPI() {
           remarks: invoiceData.remarks || null,
         };
 
-        //  ADD DEBUG LOG
-        console.log("📤 Sending sales invoice payload:", {
-          lineItems: payload.lineItems.map((li) => ({
-            selling_rate: li.selling_rate,
-            mrp: li.mrp,
-            quantity: li.quantity,
-          })),
-        });
-
         let response;
         if (currentInvoice) {
           response = { success: true, data: currentInvoice };

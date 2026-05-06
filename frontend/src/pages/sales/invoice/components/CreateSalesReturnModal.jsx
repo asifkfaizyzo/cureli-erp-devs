@@ -228,11 +228,7 @@ const CreateSalesReturnModal = ({
         })),
       };
 
-      console.log(
-        "📤 Sending return payload:",
-        JSON.stringify(payload, null, 2),
-      );
-
+      
       const response = await salesAPI.createReturn(payload);
 
       if (response.success) {

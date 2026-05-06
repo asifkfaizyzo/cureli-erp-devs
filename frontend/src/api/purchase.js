@@ -254,7 +254,6 @@ const purchaseAPI = {
 
   // Make sure these match the schema exactly:
   cancelApprovedReturn: async (returnId, data) => {
-    console.log("📤 Sending cancel data:", data); //  Debug log
     try {
       const response = await API.patch(
         `/purchase/returns/${returnId}/cancel`,
@@ -271,7 +270,6 @@ const purchaseAPI = {
   },
 
   revertReturnToPending: async (returnId, data) => {
-    console.log("📤 Sending revert data:", data); //  Debug log
     try {
       const response = await API.patch(
         `/purchase/returns/${returnId}/revert`,

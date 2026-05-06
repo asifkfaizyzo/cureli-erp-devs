@@ -76,22 +76,14 @@ const OnboardingGuard = ({ children }) => {
   const validateAccess = () => {
     const hasToken = !!localStorage.getItem("access_token");
 
-    console.log("🔍 OnboardingGuard validation:", {
-      path: location.pathname,
-      pendingId,
-      hasLocationState,
-      hasToken,
-      isAuthenticated,
-      userStatus: user?.status,
-      userRole: user?.role,
-    });
+   
 
     // ============================================
     // CASE 1: PendingUser (steps 0-3)
     // Has pending_id but no token = fresh signup
     // ============================================
     if (pendingId && !hasToken) {
-      console.log(" OnboardingGuard: PendingUser flow (steps 0-3)");
+     
       setAccessDecision("allow");
       setIsValidating(false);
       return;
@@ -107,9 +99,7 @@ const OnboardingGuard = ({ children }) => {
       // If user is fully active/verified AND has completed first login
       // They shouldn't be in onboarding anymore
       if (status === "active" && location.pathname === "/onboarding") {
-        console.log(
-          " OnboardingGuard: User is active, redirecting to dashboard",
-        );
+       
         setAccessDecision("redirect-dashboard");
         setIsValidating(false);
         return;
@@ -121,7 +111,7 @@ const OnboardingGuard = ({ children }) => {
         status === "pending_verification" ||
         status === "verified"
       ) {
-        console.log(" OnboardingGuard: Real user in onboarding flow");
+     
         setAccessDecision("allow");
         setIsValidating(false);
         return;
@@ -129,7 +119,7 @@ const OnboardingGuard = ({ children }) => {
 
       // Has token but status unclear - allow access
       // The OnboardingPage itself will handle redirect logic
-      console.log(" OnboardingGuard: Has token, allowing access");
+    
       setAccessDecision("allow");
       setIsValidating(false);
       return;
@@ -144,7 +134,7 @@ const OnboardingGuard = ({ children }) => {
       // But token should be set by now... check again
       const freshToken = localStorage.getItem("access_token");
       if (freshToken) {
-        console.log(" OnboardingGuard: Found token on recheck, allowing");
+      
         setAccessDecision("allow");
         setIsValidating(false);
         return;
@@ -154,9 +144,7 @@ const OnboardingGuard = ({ children }) => {
     // ============================================
     // CASE 4: No valid credentials at all
     // ============================================
-    console.log(
-      "🚫 OnboardingGuard: No valid credentials, redirecting to login",
-    );
+    
     setAccessDecision("redirect-login");
     setIsValidating(false);
   };

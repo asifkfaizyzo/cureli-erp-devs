@@ -948,7 +948,7 @@ const PurchasePage = () => {
   // PRODUCT MODAL HANDLERS
   // ============================================
   const handleAddNewProduct = useCallback((productData) => {
-    console.log("📝 handleAddNewProduct called:", productData);
+  
     setPendingProductData(productData);
     setProductModalOpen(true);
   }, []);

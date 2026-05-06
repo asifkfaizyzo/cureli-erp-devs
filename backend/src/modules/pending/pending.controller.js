@@ -37,15 +37,15 @@ export async function startPendingSignup(req, res) {
       req.validated;
 
     //  Log the token for debugging
-    console.log("📝 Received reCAPTCHA token:", recaptchaToken ? "✓" : "✗");
+    
 
     //  Verify reCAPTCHA (returns {success, score, error})
     const recaptchaResult = await verifyRecaptcha(recaptchaToken);
 
-    console.log("🔍 reCAPTCHA result:", recaptchaResult);
+   
 
     if (!recaptchaResult.success) {
-      console.log(" reCAPTCHA verification failed:", recaptchaResult.error);
+    
       return fail(res, "reCAPTCHA verification failed", 400);
     }
 
@@ -53,13 +53,11 @@ export async function startPendingSignup(req, res) {
     const threshold = Number(process.env.RECAPTCHA_THRESHOLD) || 0.3;
 
     if (!isRecaptchaScoreValid(recaptchaResult.score, threshold)) {
-      console.log(
-        ` Low reCAPTCHA score: ${recaptchaResult.score} (threshold: ${threshold})`,
-      );
+      
       return fail(res, "Suspicious activity detected. Please try again.", 400);
     }
 
-    console.log(` reCAPTCHA passed. Score: ${recaptchaResult.score}`);
+    
 
     // Continue with signup
     const pending = await createPendingUser({
@@ -192,14 +190,14 @@ export async function requestSmsOtp(req, res) {
   try {
     const { pending_id, phone, isResend } = req.body;
 
-    console.log("📞 requestSmsOtp called:", { pending_id, phone });
+  
 
     if (!phone || typeof phone !== "string") {
       return fail(res, "Invalid phone number", 400);
     }
 
     const result = await sendSmsOtp(pending_id, phone, isResend === true);
-    console.log(" sendSmsOtp completed:", result);
+   
 
     return success(res, {}, "OTP sent to phone");
   } catch (err) {
@@ -268,15 +266,11 @@ export async function checkUsernameController(req, res) {
 }
 
 export async function completePendingSignupController(req, res) {
-  console.log("=== Complete Signup Request ===");
-  console.log("Body:", req.body);
-  console.log("Validated:", req.validated);
+ 
 
   try {
     const { pending_id } = req.body;
-    console.log("=== Complete Signup Request ===");
-    console.log("Body:", req.body);
-    console.log("pending_id:", pending_id);
+    
 
     const auditContext = audit.extractRequestContext(req);
 

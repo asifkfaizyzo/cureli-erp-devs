@@ -47,10 +47,7 @@ export async function msg91SendSms({ templateId, mobile, variables = {} }) {
     ],
   };
 
-  console.log("📡 MSG91 request:", {
-    templateId,
-    mobile: mobile.slice(0, 5) + "****" + mobile.slice(-2),
-  });
+
 
   try {
     const resp = await axios.post(BASE, payload, {
@@ -62,7 +59,6 @@ export async function msg91SendSms({ templateId, mobile, variables = {} }) {
       timeout: 15000,
     });
 
-    console.log(" MSG91 response:", resp.data);
 
     if (resp.data?.type !== "success") {
       const error = new Error(

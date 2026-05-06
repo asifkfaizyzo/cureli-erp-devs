@@ -45,9 +45,6 @@ class MedicineService {
   ============================================ */
 
   async createMedicine(data, shopId, branchId, userId, linkingData = null) {
-    console.log("=== MEDICINE SERVICE: CREATE ===");
-    console.log("📥 Raw data received:", JSON.stringify(data, null, 2));
-    console.log("📎 Linking data:", linkingData);
 
     if (!branchId) {
       throw new ApiError(
@@ -110,18 +107,16 @@ class MedicineService {
         linkedAt = new Date();
         linkedByType = "SYSTEM";
         suggestionReason = linkingData.reason;
-        console.log(
-          ` Pre-linked to master: ${linkingData.master_medicine_id} (${linkingData.confidence}%)`,
-        );
+        
       } else if (linkingData.status === "PENDING") {
         linkStatus = "SUGGESTED";
         linkConfidenceScore = linkingData.confidence;
         suggestedMasterId = linkingData.suggested_master_id;
         suggestionReason = linkingData.reason;
-        console.log(`📋 Pending review: ${linkingData.reason}`);
+       
       } else {
         linkStatus = "PENDING";
-        console.log(`❓ No match found, status: PENDING`);
+      
       }
     }
 
@@ -174,12 +169,7 @@ class MedicineService {
       },
     });
 
-    console.log(" Medicine created:", {
-      id: medicine.medicine_id,
-      name: medicine.name,
-      link_status: medicine.link_status,
-      master_medicine_id: medicine.master_medicine_id,
-    });
+   
 
     // If no linking data provided, try auto-link (fallback for non-import creation)
     if (!linkingData && !masterMedicineId) {
@@ -203,9 +193,7 @@ class MedicineService {
             },
           });
 
-          console.log(
-            ` Auto-linked after creation: ${linkResult.master_key} (${linkResult.confidence}%)`,
-          );
+         
         } else if (linkResult.status === "PENDING") {
           await prisma.medicine.update({
             where: { medicine_id: medicine.medicine_id },
@@ -217,9 +205,7 @@ class MedicineService {
             },
           });
 
-          console.log(
-            `📋 Suggestions available (${linkResult.suggestions?.length || 0})`,
-          );
+          
         }
       } catch (linkError) {
         console.warn("⚠️ Auto-link failed:", linkError.message);
@@ -446,17 +432,7 @@ class MedicineService {
       }
     }
 
-    console.log(`📊 Bulk create complete:`, {
-      created: results.created.length,
-      skipped: results.skipped.length,
-      errors: results.errors.length,
-      autoLinked: results.created.filter((m) => m.link_status === "AUTO_LINKED")
-        .length,
-      pending: results.created.filter(
-        (m) => m.link_status === "SUGGESTED" || m.link_status === "PENDING",
-      ).length,
-    });
-
+ 
     return results;
   }
 

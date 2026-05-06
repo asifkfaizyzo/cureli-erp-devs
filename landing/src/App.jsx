@@ -9,6 +9,9 @@ import NotFoundPage from "./components/common/NotFoundPage.jsx";
 import ErrorPage from "./pages/error/ErrorPage.jsx";
 import TermsPage from "./pages/common/TermsPage.jsx";
 import PrivacyPage from "./pages/common/PrivacyPage.jsx";
+import RefundPolicy from "./pages/common/RefundPolicy.jsx";
+import DeliveryPolicy from "./pages/common/DeliveryPolicy.jsx";
+import CancellationPolicy from "./pages/common/CancellationPolicy.jsx";
 import MaintenancePage from "./pages/maintenance/MaintenancePage.jsx";
 import DeveloperStamp from './components/common/DeveloperStamp';
 
@@ -44,6 +47,11 @@ const App = () => {
         {/* ============================================ */}
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+
+        {/* NEW RAZORPAY REQUIRED POLICIES */}
+        <Route path="/refund-policy" element={<RefundPolicy />} />
+        <Route path="/delivery-policy" element={<DeliveryPolicy />} />
+        <Route path="/cancellation-policy" element={<CancellationPolicy />} />
 
         {/* ============================================ */}
         {/* SYSTEM PAGES */}

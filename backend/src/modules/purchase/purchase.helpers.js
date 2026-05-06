@@ -31,11 +31,8 @@ export function buildBranchFilter(shopId, branchId, role, branchMode) {
     return filter;
   }
 
-  if (branchId) {
+   if (branchId) {
     filter.branch_id = branchId;
-    
-  } else {
-    console.log("⚠️ Non-admin user has no branch assigned!");
   }
 
   return filter;

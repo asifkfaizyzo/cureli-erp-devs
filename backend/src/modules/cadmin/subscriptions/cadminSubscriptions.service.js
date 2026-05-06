@@ -443,11 +443,7 @@ export async function sendPaymentReminder(
       console.error("[AUDIT] Failed to log payment reminder:", err);
     });
 
-  console.log(`[REMINDER] Sent via ${method}:`, {
-    subscription_id: subscriptionId,
-    shop_name: subscription.shop.business_name,
-    result: notificationResult,
-  });
+  
 
   return {
     success: notificationResult.success,

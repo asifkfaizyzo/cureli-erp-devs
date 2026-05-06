@@ -68,24 +68,14 @@ export async function getSuppliersController(req, res) {
       offset: parseInt(req.query.offset) || 0,
     };
 
-    console.log("📍 Fetching suppliers:", {
-      shopId,
-      branchContext,
-      filters,
-      userRole: req.user.role,
-      userId: req.user.user_id,
-    });
-
+   
     const result = await supplierService.getSuppliers(
       shopId,
       branchContext,
       filters,
     );
 
-    console.log(" Suppliers fetched:", {
-      count: result.suppliers?.length || 0,
-      mode: result.mode,
-    });
+    
 
     return success(res, result, "Suppliers retrieved successfully");
   } catch (error) {
@@ -135,12 +125,7 @@ export async function createSupplierController(req, res) {
       );
     }
 
-    console.log("📍 Creating supplier:", {
-      shopId,
-      branchId,
-      userId,
-      supplierName: req.validated?.name,
-    });
+    
 
     const supplier = await supplierService.createSupplier(
       req.validated,

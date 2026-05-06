@@ -77,7 +77,7 @@ const SetupGuard = ({ children }) => {
       redirectHistory.current = redirectHistory.current.slice(-10);
     }
 
-    console.log(`↪️ SetupGuard redirect: ${from} → ${to}`);
+  
   }, []);
 
   // Main setup check function
@@ -92,7 +92,7 @@ const SetupGuard = ({ children }) => {
 
     // Reset everything if user changed
     if (lastCheckedUserId.current !== user.user_id) {
-      console.log("👤 User changed, resetting all caches");
+  
       setupCache.current = { status: null, timestamp: 0, userId: null };
       redirectHistory.current = [];
       lastCheckedUserId.current = user.user_id;
@@ -104,7 +104,7 @@ const SetupGuard = ({ children }) => {
       setupCache.current.status !== null &&
       now - setupCache.current.timestamp < CACHE_TTL
     ) {
-      console.log("📦 Using cached setup status:", setupCache.current.status);
+    
       setSetupStatus(setupCache.current.status);
       setIsChecking(false);
       return;
@@ -128,7 +128,7 @@ const SetupGuard = ({ children }) => {
         const response = await getSetupStatus();
         const { is_complete } = response.data?.data || {};
 
-        console.log("📋 SetupGuard: Backend says is_complete =", is_complete);
+      
 
         // Update cache
         setupCache.current = {
@@ -155,7 +155,7 @@ const SetupGuard = ({ children }) => {
 
         // On other errors, trust store if it says complete
         if (storeIsComplete) {
-          console.log("⚠️ API failed, using store value: complete");
+        
           setupCache.current = {
             status: true,
             timestamp: now,
@@ -287,7 +287,7 @@ const SetupGuard = ({ children }) => {
     // Record this redirect
     recordRedirect(location.pathname, "/setup");
 
-    console.log("🚫 SetupGuard: Redirecting to /setup");
+  
     return <Navigate to="/setup" state={{ from: location.pathname }} replace />;
   }
 

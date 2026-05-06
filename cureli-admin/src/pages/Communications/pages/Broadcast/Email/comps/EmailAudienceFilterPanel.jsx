@@ -102,22 +102,16 @@ function EmailAudienceFilterPanel({
     try {
       const res = await emailBroadcastAPI.getShopsForFilter(search);
 
-      console.log("[EmailAudienceFilterPanel] Shops API Response:", res);
+    
 
       if (res && res.success) {
         // Standard { success: true, data: { shops: [...] } }
         setShops(res.data?.shops || []);
-        console.log(
-          "[EmailAudienceFilterPanel] Loaded shops:",
-          res.data?.shops?.length || 0,
-        );
+        
       } else if (res && res.shops) {
         // Direct { shops: [...] } shape
         setShops(res.shops || []);
-        console.log(
-          "[EmailAudienceFilterPanel] Loaded shops (direct):",
-          res.shops?.length || 0,
-        );
+        
       } else {
         console.warn(
           "[EmailAudienceFilterPanel] Unexpected shops response format:",
@@ -144,25 +138,16 @@ function EmailAudienceFilterPanel({
     try {
       const res = await emailBroadcastAPI.getActivePlans();
 
-      console.log("[EmailAudienceFilterPanel] Plans API Response:", res);
+    
 
       if (res && res.success) {
         setPlans(res.data?.plans || []);
-        console.log(
-          "[EmailAudienceFilterPanel] Loaded plans:",
-          res.data?.plans?.length || 0,
-        );
+        
       } else if (res && res.plans) {
         setPlans(res.plans || []);
-        console.log(
-          "[EmailAudienceFilterPanel] Loaded plans (direct):",
-          res.plans?.length || 0,
-        );
+       
       } else {
-        console.warn(
-          "[EmailAudienceFilterPanel] Unexpected plans response format:",
-          res,
-        );
+       
         setPlans([]);
       }
     } catch (err) {

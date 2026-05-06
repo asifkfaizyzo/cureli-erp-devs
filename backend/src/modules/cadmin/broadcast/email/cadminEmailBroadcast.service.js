@@ -750,7 +750,7 @@ export { getShopsForFilter, getActivePlans, getCAdminRoles };
  * paused campaigns the next day.
  */
 export async function processCampaignSending(campaignId) {
-  console.log(`[Email Broadcast] Processing campaign ${campaignId}`);
+ 
 
   try {
     const campaign = await prisma.emailBroadcastCampaign.findUnique({
@@ -789,9 +789,6 @@ export async function processCampaignSending(campaignId) {
       // ── Quota gate ───────────────────────────────────────────────────────
       const pauseNeeded = await shouldPauseSending();
       if (pauseNeeded) {
-        console.log(
-          `[Email Broadcast] Quota exhausted — pausing campaign ${campaignId}`,
-        );
 
         await prisma.emailBroadcastCampaign.update({
           where: { campaign_id: campaignId },

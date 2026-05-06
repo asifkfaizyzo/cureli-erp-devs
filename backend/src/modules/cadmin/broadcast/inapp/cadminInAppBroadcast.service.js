@@ -190,10 +190,7 @@ export async function previewRecipientCount(filters, includeDetails = false) {
 
     const audienceFilters = { ...rest, includeUsers, includeCAdmins };
 
-    console.log(
-      "[Broadcast Preview] audienceFilters:",
-      JSON.stringify(audienceFilters),
-    );
+   
 
     const recipients = await resolveAudience(
       NOTIFICATION_EVENTS.BROADCAST_INAPP,
@@ -201,7 +198,7 @@ export async function previewRecipientCount(filters, includeDetails = false) {
       audienceFilters,
     );
 
-    console.log("[Broadcast Preview] resolved recipients:", recipients.length);
+   
 
     const shopIds = [
       ...new Set(recipients.filter((r) => r.shop_id).map((r) => r.shop_id)),
@@ -303,9 +300,7 @@ export async function sendImmediate(data, auditContext = {}) {
       throw createError("No recipients match the selected filters", 400);
     }
 
-    console.log(
-      `[Broadcast Service] Sending to ${recipients.length} recipients`,
-    );
+   
 
     // Create campaign FIRST so we have campaign_id to pass into notification context
     const campaign = await prisma.$transaction(async (tx) => {
@@ -844,9 +839,7 @@ export async function cancelOrDeleteCampaign(campaignId, auditContext = {}) {
         filename: att.storage_key,
       }));
       const deleteResult = await fileStorage.deleteFiles(filesToDelete);
-      console.log(
-        `[Broadcast] Deleted ${deleteResult.deleted} attachment files for campaign ${campaignId}`,
-      );
+      
     }
 
     await prisma.broadcastCampaign.delete({

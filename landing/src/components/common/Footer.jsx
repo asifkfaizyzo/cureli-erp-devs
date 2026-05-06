@@ -26,9 +26,12 @@ const Footer = () => {
 
   // Information links data
   const informationLinks = [
-    { name: "Privacy Policy", path: "/privacy" },
-    { name: "Terms & Conditions", path: "/terms" },
-  ];
+  { name: "Privacy Policy", path: "/privacy" },
+  { name: "Terms & Conditions", path: "/terms" },
+  { name: "Refund Policy", path: "/refund-policy" },
+  { name: "Delivery Policy", path: "/delivery-policy" },
+  { name: "Cancellation Policy", path: "/cancellation-policy" },
+];
 
   // Quick links data
   const quickLinks = [

@@ -51,7 +51,7 @@ export const useSetupStore = create(
 
         // Force refresh means clear everything and start fresh
         if (forceRefresh) {
-          console.log("📦 Force refreshing setup store");
+  
           set({
             isSetupComplete: false,
             isInitialized: false,
@@ -64,11 +64,11 @@ export const useSetupStore = create(
 
         // Skip if already complete and not forcing
         if (state.isSetupComplete && !forceRefresh) {
-          console.log("📦 Setup already complete, skipping init");
+      
           return;
         }
 
-        console.log("📦 Initializing setup store:", { planLimits, superAdmin });
+      
 
         set({
           isInitialized: true,
@@ -139,7 +139,7 @@ export const useSetupStore = create(
           error: null,
         });
 
-        console.log(" Branch added:", newBranch.branch_name);
+       
         return { success: true, branch: newBranch };
       },
 
@@ -286,7 +286,6 @@ export const useSetupStore = create(
           error: null,
         });
 
-        console.log(" User added:", newUser.full_name);
         return { success: true, user: newUser };
       },
 
@@ -443,7 +442,7 @@ export const useSetupStore = create(
       },
 
       resetSetup: () => {
-        console.log("🔄 Resetting setup store completely");
+
         set({
           isSetupComplete: false,
           isInitialized: false,

@@ -213,10 +213,7 @@ const SupplierPage = () => {
       paymentMode: supplier.payment_mode || supplier.paymentMode || "",
     };
 
-    console.log("📝 Opening modal with mapped supplier:", {
-      original: supplier,
-      mapped: mappedSupplier,
-    });
+    
 
     setSelectedSupplier(mappedSupplier);
     setModalMode(action);

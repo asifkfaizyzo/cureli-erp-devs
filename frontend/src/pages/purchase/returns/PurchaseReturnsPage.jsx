@@ -632,12 +632,7 @@ const PurchaseReturnsPage = () => {
           }
         });
 
-        console.log("📦 Loading returns with branch context:", {
-          mode: branchContext.mode,
-          branch_id: branchContext.branch_id,
-          branch_name: branchContext.branch_name,
-          filters: params,
-        });
+        
 
         const response = await purchaseAPI.getAllReturns(params);
         setReturns(response.data?.returns || []);
@@ -664,13 +659,7 @@ const PurchaseReturnsPage = () => {
       prevBranch.branch_id !== branchContext.branch_id;
 
     if (branchChanged) {
-      console.log("🔄 Branch changed detected in Returns page:", {
-        from: prevBranch,
-        to: {
-          mode: branchContext.mode,
-          branch_id: branchContext.branch_id,
-        },
-      });
+      
 
       prevBranchRef.current = {
         mode: branchContext.mode,

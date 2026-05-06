@@ -49,7 +49,6 @@ const clearAllStaleData = () => {
   });
 
   sessionStorage.clear();
-  console.log("🧹 Cleared all stale data before new login");
 };
 
 const LoginOtpVerification = ({

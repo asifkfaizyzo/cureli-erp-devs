@@ -288,14 +288,7 @@ const parseRowData = (headers, values, debugMode = false) => {
   }
 
   if (debugMode) {
-    console.log("Mapped fields:", mappedFields);
-    console.log("Parsed row:", {
-      name: row.name,
-      mfac: row.mfac,
-      hsn: row.hsn,
-      qty: row.qty,
-      isFreeItem: row.isFreeItem,
-    });
+   
   }
 
   if (row.isFreeItem) return row;
@@ -329,7 +322,7 @@ const extractCellValue = (cell) => {
 // ═══════════════════════════════════════════
 
 const readXlsWithSheetJS = (arrayBuffer, filename) => {
-  console.log(`   📖 Reading with SheetJS: ${filename}`);
+
 
   const workbook = XLSX.read(arrayBuffer, {
     type: "array",
@@ -343,7 +336,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
     raw: false,
   });
 
-  console.log(`   📋 Sheets: ${workbook.SheetNames.join(", ")}`);
+
 
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
@@ -353,10 +346,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
   }
 
   const range = XLSX.utils.decode_range(sheet["!ref"]);
-  console.log(
-    `   📐 Range: ${XLSX.utils.encode_range(range)} ` +
-      `(${range.e.r - range.s.r + 1} rows × ${range.e.c - range.s.c + 1} cols)`,
-  );
+  
 
   const data = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
@@ -415,9 +405,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
     dataRows.push(values);
   }
 
-  console.log(
-    `    SheetJS extracted: ${headers.length} columns, ${dataRows.length} data rows`,
-  );
+  
 
   return { headers, dataRows };
 };
@@ -427,7 +415,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
 // ═══════════════════════════════════════════
 
 const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
-  console.log(`   📖 Reading with ExcelJS: ${filename}`);
+  
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(arrayBuffer);
@@ -483,10 +471,7 @@ const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
     dataRows.push(values);
   }
 
-  console.log(
-    `    ExcelJS extracted: ${headers.length} columns, ${dataRows.length} data rows`,
-  );
-
+  
   return { headers, dataRows };
 };
 
@@ -504,40 +489,52 @@ export const usePurchaseImportExport = (
   const [isLoading, setIsLoading] = useState(false);
 
   // ─── Product detection + Master Catalog Check ───
-  const detectNewProducts = useCallback(
-    async (parsedRows) => {
-      const newProducts = [];
-      const processedRows = [];
-      const matchedProductCache = new Map();
+ const detectNewProducts = useCallback(
+  async (parsedRows) => {
+    const newProducts = [];
+    const processedRows = [];
+    const matchedProductCache = new Map(); // key: "name|mfac" → matchData
 
-      console.group("🔍 Product Detection & Master Catalog Matching");
-      console.log("Product Master Count:", productMaster.length);
-      console.log("Parsed Rows Count:", parsedRows.length);
+  
 
-      let skippedNoName = 0;
-      let matchedCount = 0;
-      let cacheHits = 0;
-      let newCount = 0;
-      let freeItemCount = 0;
 
-      // ═══════════════════════════════════════════════════════
-      // STEP 1: Match against LOCAL shop medicines (existing logic)
-      // ═══════════════════════════════════════════════════════
+    let skippedNoName = 0;
+    let matchedCount = 0;
+    let cacheHits = 0;
+    let newCount = 0;
+    let freeItemCount = 0;
 
-      parsedRows.forEach((row) => {
-        if (!row.name || !row.name.trim()) {
-          skippedNoName++;
-          return;
-        }
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 1: Match against LOCAL shop medicines
+    // ═══════════════════════════════════════════════════════════════════
 
-        if (row.isFreeItem) freeItemCount++;
+    parsedRows.forEach((row) => {
+      if (!row.name || !row.name.trim()) {
+        skippedNoName++;
+        return;
+      }
 
-        const rowName = row.name.trim();
-        const rowMfac = (row.mfac || "").trim();
-        const cacheKey = `${rowName.toLowerCase()}|${rowMfac.toLowerCase()}`;
+      if (row.isFreeItem) freeItemCount++;
 
-        if (matchedProductCache.has(cacheKey)) {
-          const cachedMatch = matchedProductCache.get(cacheKey);
+      const rowName = row.name.trim();
+      const rowMfac = (row.mfac || "").trim();
+
+      // ✅ FIX: Cache key uses name|mfac (not batch)
+      // Same medicine different batch = same cache key = same medicine_id
+      const cacheKey = `${rowName.toLowerCase()}|${rowMfac.toLowerCase()}`;
+
+      // ─── Cache hit: same name+mfac already resolved ───
+      if (matchedProductCache.has(cacheKey)) {
+        const cachedMatch = matchedProductCache.get(cacheKey);
+
+        if (cachedMatch === null) {
+          // ✅ FIX: Previously determined this name+mfac is a NEW product
+          // Don't add to newProducts again (already tracked),
+          // but push the row with medicine_id: null
+          processedRows.push({ ...row, medicine_id: null });
+          
+        } else {
+          // Previously matched to an existing medicine
           processedRows.push({
             ...row,
             medicine_id: cachedMatch.medicine_id,
@@ -549,163 +546,153 @@ export const usePurchaseImportExport = (
           });
           matchedCount++;
           cacheHits++;
-          return;
+        
         }
+        return;
+      }
 
-        const matchingProduct = productMaster.find((product) => {
-          const productName = (product.name || "").toLowerCase();
-          const searchName = rowName.toLowerCase();
-          if (productName === searchName) return true;
-          if (rowMfac) {
-            const productMfac = (
-              product.manufacturer ||
-              product.mfac ||
-              ""
-            ).toLowerCase();
-            const searchMfac = rowMfac.toLowerCase();
-            if (productName === searchName && productMfac === searchMfac)
-              return true;
-            if (
-              productName.includes(searchName) &&
-              productMfac.includes(searchMfac)
-            )
-              return true;
-          }
+      // ─── No cache: search product master ───
+      const matchingProduct = productMaster.find((product) => {
+        const productName = (product.name || "").toLowerCase();
+        const searchName = rowName.toLowerCase();
+
+        if (productName === searchName) return true;
+
+        if (rowMfac) {
+          const productMfac = (
+            product.manufacturer ||
+            product.mfac ||
+            ""
+          ).toLowerCase();
+          const searchMfac = rowMfac.toLowerCase();
+          if (productName === searchName && productMfac === searchMfac)
+            return true;
           if (
-            productName.includes(searchName) ||
-            searchName.includes(productName)
+            productName.includes(searchName) &&
+            productMfac.includes(searchMfac)
           )
             return true;
-          return false;
-        });
-
-        if (matchingProduct) {
-          const matchData = {
-            medicine_id: matchingProduct.medicine_id || matchingProduct.id,
-            hsn: matchingProduct.hsnCode || matchingProduct.hsn || "",
-            rack: matchingProduct.rackNo || matchingProduct.rack || "",
-            pack: matchingProduct.packSize || matchingProduct.pack || "",
-            cgstPercent: matchingProduct.cgstPercent || "6",
-            sgstPercent: matchingProduct.sgstPercent || "6",
-          };
-          matchedProductCache.set(cacheKey, matchData);
-          processedRows.push({
-            ...row,
-            medicine_id: matchData.medicine_id,
-            hsn: row.hsn || matchData.hsn,
-            rack: row.rack || matchData.rack,
-            pack: row.pack || matchData.pack,
-            cgstPercent: row.cgstPercent || matchData.cgstPercent,
-            sgstPercent: row.sgstPercent || matchData.sgstPercent,
-          });
-          matchedCount++;
-        } else {
-          const alreadyDetected = newProducts.some((newProd) => {
-            const newProdName = (newProd.name || "").toLowerCase();
-            const newProdMfac = (newProd.manufacturer || "").toLowerCase();
-            return (
-              newProdName === rowName.toLowerCase() &&
-              (!rowMfac || newProdMfac === rowMfac.toLowerCase())
-            );
-          });
-
-          if (!alreadyDetected) {
-            newProducts.push({
-              name: rowName,
-              manufacturer: rowMfac,
-              hsnCode: row.hsn || "",
-              packSize: row.pack || "",
-              rackNo: row.rack || "",
-              category: "",
-              gst:
-                row.cgstPercent && row.sgstPercent
-                  ? String(
-                      parseFloat(row.cgstPercent) + parseFloat(row.sgstPercent),
-                    )
-                  : "12",
-              cgstPercent: row.cgstPercent || "6",
-              sgstPercent: row.sgstPercent || "6",
-              genericName: "",
-            });
-            newCount++;
-          }
-
-          processedRows.push({ ...row, medicine_id: null });
         }
+
+        if (
+          productName.includes(searchName) ||
+          searchName.includes(productName)
+        )
+          return true;
+
+        return false;
       });
 
-      console.log(`\n📊 Local Match Summary:`);
-      console.log(`  Total Rows: ${parsedRows.length}`);
-      console.log(`  Skipped (no name): ${skippedNoName}`);
-      console.log(
-        `  Matched locally: ${matchedCount} (cache hits: ${cacheHits})`,
-      );
-      console.log(`  New Products: ${newCount}`);
-      console.log(`  Free Items: ${freeItemCount}`);
+      if (matchingProduct) {
+        // ✅ Found in local product master
+        const matchData = {
+          medicine_id: matchingProduct.medicine_id || matchingProduct.id,
+          hsn: matchingProduct.hsnCode || matchingProduct.hsn || "",
+          rack: matchingProduct.rackNo || matchingProduct.rack || "",
+          pack: matchingProduct.packSize || matchingProduct.pack || "",
+          cgstPercent: matchingProduct.cgstPercent || "6",
+          sgstPercent: matchingProduct.sgstPercent || "6",
+        };
 
-      // ═══════════════════════════════════════════════════════
-      // STEP 2: Check NEW products against Master Catalog
-      // ═══════════════════════════════════════════════════════
+        // Cache as matched (non-null)
+        matchedProductCache.set(cacheKey, matchData);
 
-      let catalogResults = null;
+        processedRows.push({
+          ...row,
+          medicine_id: matchData.medicine_id,
+          hsn: row.hsn || matchData.hsn,
+          rack: row.rack || matchData.rack,
+          pack: row.pack || matchData.pack,
+          cgstPercent: row.cgstPercent || matchData.cgstPercent,
+          sgstPercent: row.sgstPercent || matchData.sgstPercent,
+        });
+        matchedCount++;
 
-      if (newProducts.length > 0) {
-        console.log(
-          `\n🔗 Checking ${newProducts.length} new products against master catalog...`,
-        );
+        
+      } else {
+        // ✅ FIX: Not found → mark as new product
+        // Cache as null (new product) so subsequent batches of same medicine
+        // don't get re-added to newProducts list
+        matchedProductCache.set(cacheKey, null);
 
-        // 🔥 DEBUG LOG: Confirm exactly what we're sending to backend
-        console.log(
-          "📤 Sending to master catalog:",
+        // Only add to newProducts ONCE per unique name+mfac
+        newProducts.push({
+          name: rowName,
+          manufacturer: rowMfac,
+          hsnCode: row.hsn || "",
+          packSize: row.pack || "",
+          rackNo: row.rack || "",
+          category: "",
+          gst:
+            row.cgstPercent && row.sgstPercent
+              ? String(
+                  parseFloat(row.cgstPercent) + parseFloat(row.sgstPercent)
+                )
+              : "12",
+          cgstPercent: row.cgstPercent || "6",
+          sgstPercent: row.sgstPercent || "6",
+          genericName: "",
+        });
+        newCount++;
+
+        processedRows.push({ ...row, medicine_id: null });
+
+       
+      }
+    });
+
+    
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 2: Check NEW products against Master Catalog
+    // ═══════════════════════════════════════════════════════════════════
+
+    let catalogResults = null;
+
+    if (newProducts.length > 0) {
+     
+
+      try {
+        const catalogResponse = await medicinesAPI.checkMasterCatalog(
           newProducts.map((p) => ({
             name: p.name,
             manufacturer: p.manufacturer,
             generic_name: p.genericName || "",
-          })),
+          }))
         );
 
-        try {
-          const catalogResponse = await medicinesAPI.checkMasterCatalog(
-            newProducts.map((p) => ({
-              name: p.name,
-              manufacturer: p.manufacturer,
-              generic_name: p.genericName || "",
-            })),
-          );
+        catalogResults = catalogResponse.data;
 
-          catalogResults = catalogResponse.data;
+      
 
-          console.log(` Master Catalog Results:`, catalogResults.stats);
-
-          // Attach catalog results to new products
-          if (catalogResults.results) {
-            catalogResults.results.forEach((result) => {
-              if (
-                result.rowIndex !== undefined &&
-                newProducts[result.rowIndex]
-              ) {
-                newProducts[result.rowIndex].catalogMatch = result;
-              }
-            });
-          }
-        } catch (error) {
-          console.warn(
-            "⚠️ Master catalog check failed (non-blocking):",
-            error.message,
-          );
+        if (catalogResults.results) {
+          catalogResults.results.forEach((result) => {
+            if (
+              result.rowIndex !== undefined &&
+              newProducts[result.rowIndex]
+            ) {
+              newProducts[result.rowIndex].catalogMatch = result;
+            }
+          });
         }
+      } catch (error) {
+        console.warn(
+          "⚠️ Master catalog check failed (non-blocking):",
+          error.message
+        );
       }
+    }
 
-      console.groupEnd();
+    console.groupEnd();
 
-      return {
-        existingRows: processedRows,
-        newProducts,
-        catalogResults,
-      };
-    },
-    [productMaster],
-  );
+    return {
+      existingRows: processedRows,
+      newProducts,
+      catalogResults,
+    };
+  },
+  [productMaster]
+);
 
   // ─── CSV Import ───
   const handleImportCSV = useCallback(
@@ -732,9 +719,7 @@ export const usePurchaseImportExport = (
             .split(delimiter)
             .map((h) => h.trim().replace(/^\"|\"$/g, ""));
 
-          console.group("📋 CSV Header Analysis");
-          console.log("Headers:", headers);
-          console.groupEnd();
+          
 
           const parsed = [];
           for (let i = 1; i < lines.length; i++) {
@@ -785,9 +770,7 @@ export const usePurchaseImportExport = (
         const extension = file.name.split(".").pop()?.toLowerCase();
         const arrayBuffer = await file.arrayBuffer();
 
-        console.log(`\n📊 Excel Import: ${file.name}`);
-        console.log(`   Extension: .${extension}`);
-        console.log(`   Size: ${(file.size / 1024).toFixed(2)} KB`);
+        
 
         let headers;
         let dataRows;
@@ -806,15 +789,7 @@ export const usePurchaseImportExport = (
           );
         }
 
-        console.group("📋 Import Analysis");
-        console.log("Format:", extension.toUpperCase());
-        console.log(
-          "Engine:",
-          extension === "xls" ? "SheetJS (client)" : "ExcelJS (client)",
-        );
-        console.log("Headers:", headers);
-        console.log("Data Rows:", dataRows.length);
-        console.groupEnd();
+        
 
         const parsed = [];
 

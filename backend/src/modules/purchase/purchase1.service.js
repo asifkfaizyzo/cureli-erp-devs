@@ -453,7 +453,7 @@ async function processApprovedReturn(tx, returnInvoice, lineItems, userId) {
         }
       });
     } else {
-      console.log(`ℹ️ Supplier has no email, skipping notification`);
+    
     }
   } catch (error) {
     console.error("⚠️ Error preparing return approval email:", error.message);
@@ -608,12 +608,7 @@ export async function updatePurchaseInvoice(
 
     if (lineItems && lineItems.length > 0) {
       if (isConfirmed) {
-        console.log(
-          "🔄 Super Admin editing CONFIRMED invoice - reversing stock...",
-        );
-        console.log(
-          `📋 Original invoice had ${invoice.lineItems.length} items`,
-        );
+        
 
         //  FIXED: Reverse stock using SAME transaction, skip free item rows
         for (const oldItem of invoice.lineItems) {
@@ -623,9 +618,6 @@ export async function updatePurchaseInvoice(
             parseFloat(oldItem.quantity) > 0;
 
           if (isFreeItemRow) {
-            console.log(
-              `⏭️ Skipping reversal for free item row: ${oldItem.batch_number}`,
-            );
             continue;
           }
 
@@ -635,9 +627,7 @@ export async function updatePurchaseInvoice(
             const freeQty = Number(oldItem.free_quantity) || 0;
             const oldTotalQty = purchasedQty + freeQty;
 
-            console.log(
-              `  ↩️ Reversing ${oldTotalQty} units of ${oldItem.batch_number} (${purchasedQty} purchased + ${freeQty} free)`,
-            );
+           
 
             //  PASS TRANSACTION TO updateStock
             await inventoryService.updateStock(
@@ -729,9 +719,7 @@ export async function updatePurchaseInvoice(
       });
 
       if (isConfirmed) {
-        console.log("🔄 Adding new stock for edited CONFIRMED invoice...");
-        console.log(`📋 New invoice has ${newItems.length} items`);
-
+  
         //  FIXED: Add stock using SAME transaction, skip free item rows
         for (const item of newItems) {
           //  Skip free item rows
@@ -739,9 +727,6 @@ export async function updatePurchaseInvoice(
             parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0;
 
           if (isFreeItemRow) {
-            console.log(
-              `⏭️ Skipping stock add for free item row: ${item.batch_number}`,
-            );
 
             // Still link to inventory for record
             const existingInventory = await tx.inventory.findFirst({
@@ -776,9 +761,6 @@ export async function updatePurchaseInvoice(
           const freeQty = Number(item.free_quantity) || 0;
           const totalQuantity = purchasedQty + freeQty;
 
-          console.log(
-            `   Adding ${totalQuantity} units of ${item.batch_number} (${purchasedQty} + ${freeQty} free)`,
-          );
 
           //  PASS TRANSACTION TO updateStock
           await inventoryService.updateStock(
@@ -818,7 +800,6 @@ export async function updatePurchaseInvoice(
           });
         }
 
-        console.log(" Stock reversal and re-addition completed successfully");
       }
 
       return { ...updatedInvoice, lineItems: newItems };
@@ -1883,7 +1864,6 @@ export async function expireOldCreditNotes() {
     },
   });
 
-  console.log(`Expired ${result.count} credit notes`);
   return result.count;
 }
 
@@ -2066,7 +2046,7 @@ export async function cancelApprovedReturn(
 
   const result = await prisma.$transaction(async (tx) => {
     // 1. REVERSE STOCK DEDUCTION (Add stock back)
-    console.log("🔄 Reversing stock deduction for cancelled return...");
+
 
     for (const item of returnInvoice.lineItems) {
       const inventory = await tx.inventory.findFirst({
@@ -2116,7 +2096,6 @@ export async function cancelApprovedReturn(
           },
         });
 
-        console.log(` Added back ${returnQty} units of ${item.batch_number}`);
       } else {
         console.warn(
           `⚠️ Inventory not found for ${item.batch_number}, skipping stock reversal`,
@@ -2126,20 +2105,20 @@ export async function cancelApprovedReturn(
 
     // 2. MARK CREDIT NOTE AS CANCELLED
     if (returnInvoice.supplierCredits.length > 0) {
-      console.log("📝 Cancelling credit notes...");
+   
 
       for (const credit of returnInvoice.supplierCredits) {
         await tx.supplierCredit.update({
           where: { credit_id: credit.credit_id },
           data: { status: "CANCELLED" },
         });
-        console.log(` Cancelled credit note: ${credit.credit_note_number}`);
+    
       }
     }
 
     // 3. HANDLE REFUND REVERSAL (if applicable)
     if (returnInvoice.adjustment_type === "CASH_REFUND" && data.refund_action) {
-      console.log(`💰 Handling refund reversal: ${data.refund_action}`);
+   
 
       // Record in remarks what action was taken
       const refundNote =
@@ -2179,8 +2158,6 @@ export async function cancelApprovedReturn(
             payment_status: paymentCalc.status,
           },
         });
-
-        console.log(` Reversed parent invoice adjustment`);
       }
     }
 
@@ -2221,7 +2198,7 @@ export async function cancelApprovedReturn(
     },
   });
 
-  console.log(" Return cancelled successfully");
+
   return result;
 }
 
@@ -2289,7 +2266,7 @@ export async function revertReturnToPending(
 
   const result = await prisma.$transaction(async (tx) => {
     // 1. ADD STOCK BACK (temporary until re-approval)
-    console.log("🔄 Adding stock back temporarily...");
+
 
     for (const item of returnInvoice.lineItems) {
       const inventory = await tx.inventory.findFirst({
@@ -2338,20 +2315,19 @@ export async function revertReturnToPending(
           },
         });
 
-        console.log(` Added back ${returnQty} units of ${item.batch_number}`);
+       
       }
     }
 
     // 2. CANCEL CREDIT NOTES
     if (returnInvoice.supplierCredits.length > 0) {
-      console.log("📝 Cancelling credit notes...");
+     
 
       for (const credit of returnInvoice.supplierCredits) {
         await tx.supplierCredit.update({
           where: { credit_id: credit.credit_id },
           data: { status: "CANCELLED" },
         });
-        console.log(` Cancelled credit note: ${credit.credit_note_number}`);
       }
     }
 
@@ -2384,7 +2360,6 @@ export async function revertReturnToPending(
           },
         });
 
-        console.log(` Reversed parent invoice adjustment`);
       }
     }
 
@@ -2431,6 +2406,6 @@ export async function revertReturnToPending(
     },
   });
 
-  console.log(" Return reverted to pending successfully");
+
   return result;
 }

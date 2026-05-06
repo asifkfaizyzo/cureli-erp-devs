@@ -70,7 +70,7 @@ class SupplierService {
         },
       };
 
-      console.log("📦 Fetching suppliers for branch:", { branchId, where });
+
 
       const [supplierBranches, total] = await Promise.all([
         prisma.supplierBranch.findMany({
@@ -92,9 +92,7 @@ class SupplierService {
         prisma.supplierBranch.count({ where }),
       ]);
 
-      console.log(
-        ` Found ${supplierBranches.length} active suppliers for branch`,
-      );
+    
 
       //  Double-check filter in mapping
       const suppliers = supplierBranches
@@ -457,7 +455,7 @@ class SupplierService {
    GET SUPPLIER BRANCHES - For "Manage Branches" Modal
 ============================================ */
   async getSupplierBranches(supplierId, shopId) {
-    console.log("📍 getSupplierBranches called:", { supplierId, shopId });
+    
 
     const supplier = await prisma.supplier.findFirst({
       where: {
@@ -694,12 +692,7 @@ class SupplierService {
      BULK ADD SUPPLIER TO BRANCHES - Super Admin Only
   ============================================ */
   async bulkUpdateSupplierBranches(supplierId, branchIds, shopId, userId) {
-    console.log("📍 bulkUpdateSupplierBranches called:", {
-      supplierId,
-      branchIds,
-      shopId,
-      userId,
-    });
+    
 
     const supplier = await prisma.supplier.findFirst({
       where: {
@@ -726,10 +719,7 @@ class SupplierService {
       },
     });
 
-    console.log(
-      " Valid branches:",
-      validBranches.map((b) => b.branch_name),
-    );
+   
 
     if (validBranches.length !== branchIds.length) {
       throw new ApiError(
@@ -743,8 +733,7 @@ class SupplierService {
     const currentLinks = supplier.branches.filter((sb) => sb.is_active);
     const currentBranchIds = currentLinks.map((sb) => sb.branch_id);
 
-    console.log("📦 Current linked branches:", currentBranchIds);
-    console.log("📦 New branch IDs:", branchIds);
+   
 
     // Calculate changes using array comparison
     const currentSet = new Set(currentBranchIds);
@@ -753,8 +742,7 @@ class SupplierService {
     const toAdd = branchIds.filter((id) => !currentSet.has(id));
     const toRemove = currentBranchIds.filter((id) => !newSet.has(id));
 
-    console.log("➕ To add:", toAdd);
-    console.log("➖ To remove:", toRemove);
+    
 
     // Must have at least one branch
     if (branchIds.length === 0) {
@@ -791,7 +779,7 @@ class SupplierService {
 
       // Add new links
       for (const branchId of toAdd) {
-        console.log(`  ➕ Adding branch: ${branchId}`);
+       
 
         await tx.supplierBranch.upsert({
           where: {
@@ -815,7 +803,7 @@ class SupplierService {
 
       // Remove old links (soft delete)
       for (const branchId of toRemove) {
-        console.log(`  ➖ Removing branch: ${branchId}`);
+        
 
         await tx.supplierBranch.updateMany({
           where: {
@@ -830,11 +818,7 @@ class SupplierService {
       return { addedCount, removedCount };
     });
 
-    console.log(" Update complete:", {
-      added: result.addedCount,
-      removed: result.removedCount,
-      total_branches: branchIds.length,
-    });
+    
 
     return {
       added: result.addedCount,
@@ -897,7 +881,7 @@ class SupplierService {
    DEACTIVATE SUPPLIER - Sets is_active = false (shop-wide)
 ============================================ */
   async deactivateSupplier(supplierId, shopId, userId) {
-    console.log("📍 deactivateSupplier called:", { supplierId, shopId });
+
 
     const supplier = await prisma.supplier.findFirst({
       where: {
@@ -970,7 +954,7 @@ class SupplierService {
       return updatedSupplier;
     });
 
-    console.log(" Supplier deactivated:", result.name);
+   
 
     return {
       supplier: result,
@@ -984,11 +968,7 @@ class SupplierService {
    REACTIVATE SUPPLIER - Sets is_active = true
 ============================================ */
   async reactivateSupplier(supplierId, shopId, branchId, userId) {
-    console.log("📍 reactivateSupplier called:", {
-      supplierId,
-      shopId,
-      branchId,
-    });
+   
 
     const supplier = await prisma.supplier.findFirst({
       where: {
@@ -1051,7 +1031,7 @@ class SupplierService {
       return updatedSupplier;
     });
 
-    console.log(" Supplier reactivated:", result.name);
+
 
     return {
       supplier: result,
@@ -1063,7 +1043,7 @@ class SupplierService {
    REMOVE FROM ALL BRANCHES (but keep supplier active)
 ============================================ */
   async removeFromAllBranches(supplierId, shopId) {
-    console.log("📍 removeFromAllBranches called:", { supplierId, shopId });
+  
 
     const supplier = await prisma.supplier.findFirst({
       where: {
@@ -1120,7 +1100,7 @@ class SupplierService {
       data: { is_active: false },
     });
 
-    console.log(" Removed from all branches:", activeLinks);
+  
 
     return {
       removed_from: activeLinks,

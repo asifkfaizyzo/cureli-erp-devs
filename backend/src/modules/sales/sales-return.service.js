@@ -124,7 +124,7 @@ async function processApprovedSalesReturn(
   let generatedCreditNoteNumber = null;
 
   // 1. ADD STOCK BACK to exact batches
-  console.log("🔄 Adding stock back for approved sales return...");
+
 
   for (const item of lineItems) {
     const inventory = await tx.inventory.findFirst({
@@ -183,9 +183,8 @@ async function processApprovedSalesReturn(
         data: { inventory_id: inventory.inventory_id },
       });
 
-      console.log(`   Added back ${returnQty} units of ${item.batch_number}`);
     } else {
-      console.warn(`  ⚠️ Inventory not found for batch ${item.batch_number}`);
+    
     }
   }
 
@@ -213,7 +212,7 @@ async function processApprovedSalesReturn(
   }
 
   // 3. PROCESS REFUND based on refund_mode
-  console.log(`💰 Processing refund mode: ${returnInvoice.refund_mode}`);
+
 
   if (returnInvoice.refund_mode === SALES_REFUND_MODE.CASH) {
     // CASH refund - record payment as REFUNDED
@@ -242,7 +241,7 @@ async function processApprovedSalesReturn(
       },
     });
 
-    console.log(`   Cash refund of ₹${netAmount} recorded`);
+
   } else if (
     returnInvoice.refund_mode === SALES_REFUND_MODE.CREDIT &&
     customerId
@@ -291,9 +290,7 @@ async function processApprovedSalesReturn(
       },
     });
 
-    console.log(
-      `   Reduced customer outstanding by ₹${netAmount}. New balance: ₹${newOutstanding}`,
-    );
+    
   } else if (
     returnInvoice.refund_mode === SALES_REFUND_MODE.ADJUST_NEXT &&
     customerId
@@ -331,9 +328,7 @@ async function processApprovedSalesReturn(
       },
     });
 
-    console.log(
-      `   Created customer credit note: ${generatedCreditNoteNumber} for ₹${netAmount}`,
-    );
+   
   }
 
   return { creditNoteNumber: generatedCreditNoteNumber };
@@ -359,7 +354,7 @@ async function reverseApprovedSalesReturn(
   const netAmount = Math.abs(parseFloat(returnInvoice.net_amount));
 
   // 1. DEDUCT STOCK (reverse the addition)
-  console.log("🔄 Reversing stock addition for cancelled/reverted return...");
+
 
   for (const item of lineItems) {
     const inventory = await tx.inventory.findFirst({
@@ -409,7 +404,7 @@ async function reverseApprovedSalesReturn(
         },
       });
 
-      console.log(`  ↩️ Deducted ${returnQty} units of ${item.batch_number}`);
+     
     }
   }
 
@@ -474,7 +469,7 @@ async function reverseApprovedSalesReturn(
       },
     });
 
-    console.log(`  ↩️ Restored customer outstanding by ₹${netAmount}`);
+ 
   } else if (returnInvoice.refund_mode === SALES_REFUND_MODE.ADJUST_NEXT) {
     // Cancel any customer credits from this return
     await tx.customerCredit.updateMany({
@@ -487,7 +482,7 @@ async function reverseApprovedSalesReturn(
       },
     });
 
-    console.log(`   Cancelled customer credit notes`);
+
   }
 }
 
@@ -1855,7 +1850,7 @@ class SalesReturnService {
       },
     });
 
-    console.log(`Expired ${result.count} customer credit notes`);
+    
     return result.count;
   }
 }
