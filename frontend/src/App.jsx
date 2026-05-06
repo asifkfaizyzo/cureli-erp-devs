@@ -410,7 +410,7 @@ const App = () => {
                         {/* ============================================ */}
                         {/* REPORTS - All read-only, work in GLOBAL mode */}
                         {/* ============================================ */}
-                        <Route
+                        {/* <Route
                           path="/reports-sales"
                           element={
                             <PermissionGuard
@@ -419,7 +419,7 @@ const App = () => {
                               <ReportPage />
                             </PermissionGuard>
                           }
-                        />
+                        /> */}
 
                         {/* ============================================ */}
                         {/* ORDER ROUTES */}

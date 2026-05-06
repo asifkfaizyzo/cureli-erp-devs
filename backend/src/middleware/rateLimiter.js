@@ -1,12 +1,48 @@
-import rateLimit from "express-rate-limit";
+//backend\src\middleware\rateLimiter.js
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import jwt from "jsonwebtoken";
+
+// ============================================
+// KEY GENERATOR — per-user or per-IP fallback
+// ============================================
+const userOrIpKey = (req) => {
+  try {
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith("Bearer ")) {
+      const token = auth.split(" ")[1];
+      const payload = jwt.decode(token);
+      if (payload?.user_id) {
+        return `user:${payload.user_id}`;
+      }
+    }
+  } catch {
+    // decode failed — fall through to IP
+  }
+  return `ip:${ipKeyGenerator(req)}`; // ← only change, wraps req.ip with IPv6 normalization
+};
 
 // ============================================
 // GLOBAL API LIMITER — for /api/* (ERP users)
 // ============================================
-
 export const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 100,
+  max: 200,
+  keyGenerator: userOrIpKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many requests. Please try again later.",
+  },
+});
+
+// ============================================
+// RELAXED LIMITER — for system-driven polling endpoints
+// ============================================
+export const relaxedLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 600,
+  keyGenerator: userOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -18,10 +54,10 @@ export const globalLimiter = rateLimit({
 // ============================================
 // CADMIN API LIMITER — for /cadmin/* (internal admins)
 // ============================================
-
 export const cadminLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 300,
+  keyGenerator: userOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -32,12 +68,7 @@ export const cadminLimiter = rateLimit({
 
 // ============================================
 // AUTH LIMITER — login, OTP verify, password reset
-// Protects all sensitive auth endpoints by IP.
-// This is the only IP-level limiter needed on /login.
-// The application layer (sendLoginOtp) handles
-// per-user OTP cooldowns and daily limits.
 // ============================================
-
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 15,
@@ -50,15 +81,8 @@ export const authLimiter = rateLimit({
 });
 
 // ============================================
-// OTP SEND LIMITER — ONLY for explicit resend endpoints
-// DO NOT apply this to /login — the login route already
-// triggers an OTP send, but it is gated by authLimiter
-// and the application-level per-user cooldown in
-// sendLoginOtp(). Stacking otpLimiter on /login causes
-// new users to hit "OTP limit reached" without ever
-// having explicitly requested an OTP.
+// OTP SEND LIMITER — explicit resend endpoints only
 // ============================================
-
 export const otpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 15,
@@ -73,7 +97,6 @@ export const otpLimiter = rateLimit({
 // ============================================
 // SIGNUP LIMITER — registration flow
 // ============================================
-
 export const signupLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,

@@ -463,20 +463,20 @@ const Sidebar = () => {
         breadcrumbs: ["Suppliers"],
         permissionKey: "suppliers",
       },
-      {
-        id: "reports",
-        label: "Report",
-        icon: BarChart2,
-        permissionKey: "salesReport",
-        submenu: [
-          {
-            id: "sales-report",
-            label: "Sales Report",
-            icon: Layers,
-            path: "/reports-sales",
-            breadcrumbs: ["Reports", "Sales Report"],
-            permissionKey: "salesReport",
-          },
+      // {
+      //   id: "reports",
+      //   label: "Report",
+      //   icon: BarChart2,
+      //   permissionKey: "salesReport",
+      //   submenu: [
+      //     {
+      //       id: "sales-report",
+      //       label: "Sales Report",
+      //       icon: Layers,
+      //       path: "/reports-sales",
+      //       breadcrumbs: ["Reports", "Sales Report"],
+      //       permissionKey: "salesReport",
+      //     },
           // {
           //   id: "purchase-report",
           //   label: "Purchase Report",
@@ -510,8 +510,8 @@ const Sidebar = () => {
           //   breadcrumbs: ["Reports", "Orders Report"],
           //   permissionKey: "ordersReport",
           // },
-        ],
-      },
+      //   ],
+      // },
 
       //  NEW: Orders Section
       {

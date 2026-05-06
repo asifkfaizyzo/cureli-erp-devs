@@ -80,20 +80,40 @@ export const listRolesQuerySchema = z.object({
 
 export const assignRolesSchema = z
   .object({
-    // Full replacement of all role assignments for a CAdmin
-    // role_ids: array of role UUIDs to assign
-    // primary_role_id: which of the assigned roles is primary (must be in role_ids)
     role_ids: z
-      .array(uuidSchema, {
-        required_error: "role_ids is required",
-      })
-      .min(1, "At least one role must be assigned"),
+      .array(uuidSchema)
+      .default([]),
 
-    primary_role_id: uuidSchema,
+    primary_role_id: z
+      .string()
+      .uuid("Invalid UUID format")
+      .nullish()
+      .transform((v) => v ?? null)
+      .default(null),
   })
-  .refine((data) => data.role_ids.includes(data.primary_role_id), {
-    message: "primary_role_id must be one of the assigned role_ids",
-    path: ["primary_role_id"],
+  .superRefine((data, ctx) => {
+    const { role_ids, primary_role_id } = data;
+
+    if (role_ids.length > 0) {
+      // When assigning roles, primary_role_id is required
+      if (!primary_role_id) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "primary_role_id is required when role_ids are provided",
+          path: ["primary_role_id"],
+        });
+        return;
+      }
+      // primary_role_id must be one of the provided role_ids
+      if (!role_ids.includes(primary_role_id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "primary_role_id must be one of the provided role_ids",
+          path: ["primary_role_id"],
+        });
+      }
+    }
+    // role_ids empty + primary_role_id null = remove all roles, always valid
   });
 
 export const deleteRoleSchema = z.object({

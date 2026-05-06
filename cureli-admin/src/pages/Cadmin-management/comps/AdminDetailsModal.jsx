@@ -1,6 +1,6 @@
 // frontend/src/pages/Cadmin-management/comps/AdminDetailsModal.jsx
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   X,
   Pencil,
@@ -44,7 +44,6 @@ import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions";
 // ─────────────────────────────────────────────────────────────────────────────
 // EDITABLE FIELD
 // ─────────────────────────────────────────────────────────────────────────────
-
 function EditableField({
   label,
   value,
@@ -80,7 +79,6 @@ function EditableField({
 // ─────────────────────────────────────────────────────────────────────────────
 // STATUS BADGE
 // ─────────────────────────────────────────────────────────────────────────────
-
 function StatusBadge({ status }) {
   const isActive = status === "Active";
   return (
@@ -103,20 +101,21 @@ function StatusBadge({ status }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // ROLE ASSIGNMENT ROW
 // ─────────────────────────────────────────────────────────────────────────────
-
 function RoleAssignmentRow({
   assignment,
   isSuperAdmin,
   onSetPrimary,
   onRemove,
   canEdit,
+  disabled,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border-2 border-gray-100
-                    hover:border-indigo-200 hover:shadow-sm transition-all group"
+      className={`flex items-center gap-3 px-4 py-3 bg-white rounded-xl border-2 border-gray-100
+                    hover:border-indigo-200 hover:shadow-sm transition-all group
+                    ${disabled ? "opacity-60 pointer-events-none" : ""}`}
     >
       <span className={getRoleBadgeStyle(assignment.name)}>
         {assignment.name}
@@ -186,13 +185,14 @@ function RoleAssignmentRow({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADMIN ROLES TAB
+// ADMIN ROLES TAB — fixed
 // ─────────────────────────────────────────────────────────────────────────────
-
 function AdminRolesTab({ admin, onRolesChanged, canEdit }) {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionError, setActionError] = useState(null); // ✅ separate error for mutations
+  const [actionLoading, setActionLoading] = useState(false); // ✅ track mutation loading
   const [assignOpen, setAssignOpen] = useState(false);
 
   const fetchRoles = useCallback(async () => {
@@ -213,38 +213,84 @@ function AdminRolesTab({ admin, onRolesChanged, canEdit }) {
     fetchRoles();
   }, [fetchRoles]);
 
-  const saveAssignments = async (newRoles, primaryId) => {
+  // ✅ Single source of truth for all role mutations
+const applyRoleChange = useCallback(
+  async (roleIds, primaryRoleId) => {
+
+    const apiPayload = {
+      role_ids: roleIds,
+      primary_role_id: primaryRoleId ?? null,
+    };
+    
+
+    setActionError(null);
+    setActionLoading(true);
     try {
-      await assignAdminRoles(admin.id, {
-        role_ids: newRoles.map((r) => r.role_id),
-        primary_role_id: primaryId,
-      });
+      await assignAdminRoles(admin.id, apiPayload);
       await fetchRoles();
       onRolesChanged?.();
     } catch (err) {
+      console.error("🔴 [AdminRolesTab] assignAdminRoles threw:", err);
+      console.error("🔴 [AdminRolesTab] err.response?.status:", err.response?.status);
+      console.error("🔴 [AdminRolesTab] err.response?.data:", JSON.stringify(err.response?.data, null, 2));
+      setActionError(
+        err.response?.data?.message ||
+          "Failed to update roles. Please try again.",
+      );
       throw err;
+    } finally {
+      setActionLoading(false);
     }
-  };
+  },
+  [admin?.id, fetchRoles, onRolesChanged],
+);
 
-  const handleSetPrimary = async (roleId) => {
-    await saveAssignments(roles, roleId);
-  };
+  // ✅ Used by AssignRolesModal — receives [{role_id}] array + primaryId
+  const saveAssignments = useCallback(
+    async (newRoles, primaryId) => {
+      await applyRoleChange(
+        newRoles.map((r) => r.role_id),
+        primaryId,
+      );
+    },
+    [applyRoleChange],
+  );
 
-  const handleRemove = async (roleId) => {
-    const newRoles = roles.filter((r) => r.role_id !== roleId);
-    if (newRoles.length === 0) {
-      await assignAdminRoles(admin.id, {
-        role_ids: [],
-        primary_role_id: null,
-      }).catch(() => {});
-      await fetchRoles();
-      onRolesChanged?.();
-      return;
-    }
-    const primaryId =
-      newRoles.find((r) => r.is_primary)?.role_id ?? newRoles[0].role_id;
-    await saveAssignments(newRoles, primaryId);
-  };
+  // ✅ Set a different role as primary
+  const handleSetPrimary = useCallback(
+    async (roleId) => {
+      const roleIds = roles.map((r) => r.role_id);
+      await applyRoleChange(roleIds, roleId);
+    },
+    [roles, applyRoleChange],
+  );
+
+  // ✅ Remove a role — including removing the LAST role (empty array is valid)
+  const handleRemove = useCallback(
+    async (roleId) => {
+      const newRoles = roles.filter((r) => r.role_id !== roleId);
+
+      if (newRoles.length === 0) {
+        // Removing the last role — send empty array, no primary
+        await applyRoleChange([], null);
+        return;
+      }
+
+      // If we removed the current primary, promote the first remaining role
+      const removedWasPrimary = roles.find(
+        (r) => r.role_id === roleId,
+      )?.is_primary;
+      const newPrimaryId = removedWasPrimary
+        ? newRoles[0].role_id
+        : (roles.find((r) => r.is_primary)?.role_id ?? newRoles[0].role_id);
+
+      await applyRoleChange(
+        newRoles.map((r) => r.role_id),
+        newPrimaryId,
+      );
+    },
+    [roles, applyRoleChange],
+  );
 
   if (admin?.is_super_cadmin) {
     return (
@@ -277,9 +323,10 @@ function AdminRolesTab({ admin, onRolesChanged, canEdit }) {
         {canEdit ? (
           <button
             onClick={() => setAssignOpen(true)}
+            disabled={actionLoading}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-indigo-600
                        bg-indigo-50 border-2 border-indigo-200 rounded-xl hover:bg-indigo-100
-                       hover:border-indigo-300 transition-all"
+                       hover:border-indigo-300 transition-all disabled:opacity-50"
           >
             <Plus size={13} /> Manage Roles
           </button>
@@ -287,6 +334,34 @@ function AdminRolesTab({ admin, onRolesChanged, canEdit }) {
           <NoPermission variant="pill" title="View only" icon="eye" />
         )}
       </div>
+
+      {/* ✅ Mutation error banner */}
+      {actionError && (
+        <div
+          className="flex items-center gap-2.5 text-sm text-red-600 bg-red-50 px-4 py-3
+                        rounded-xl border border-red-200"
+        >
+          <AlertCircle size={16} className="flex-shrink-0" />
+          <span className="flex-1">{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* ✅ Mutation loading overlay hint */}
+      {actionLoading && (
+        <div
+          className="flex items-center gap-2 text-sm text-indigo-600 bg-indigo-50
+                        px-4 py-2.5 rounded-xl border border-indigo-100"
+        >
+          <Loader2 size={14} className="animate-spin flex-shrink-0" />
+          Updating roles…
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -340,6 +415,8 @@ function AdminRolesTab({ admin, onRolesChanged, canEdit }) {
               onSetPrimary={handleSetPrimary}
               onRemove={handleRemove}
               canEdit={canEdit}
+              // ✅ Disable interactions while a mutation is in flight
+              disabled={actionLoading}
             />
           ))}
         </div>
@@ -361,7 +438,6 @@ function AdminRolesTab({ admin, onRolesChanged, canEdit }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN MODAL
 // ─────────────────────────────────────────────────────────────────────────────
-
 const AdminDetailsModal = ({
   adminId,
   isOpen,
@@ -394,6 +470,30 @@ const AdminDetailsModal = ({
   const [showSecretDialog, setShowSecretDialog] = useState(false);
   const [secretDialogError, setSecretDialogError] = useState(null);
   const [secretLoading, setSecretLoading] = useState(false);
+
+  // ✅ Track whether ANY mutation happened so onClose(true) triggers a refetch
+  const wasUpdatedRef = useRef(false);
+
+  // Reset tracking ref each time modal opens
+  useEffect(() => {
+    if (isOpen) wasUpdatedRef.current = false;
+  }, [isOpen]);
+
+  // Helper — marks updated AND notifies parent's local state immediately
+  const markUpdated = useCallback(
+    (updates = {}) => {
+      wasUpdatedRef.current = true;
+      if (Object.keys(updates).length > 0) {
+        onAdminUpdate?.(adminId, updates);
+      }
+    },
+    [adminId, onAdminUpdate],
+  );
+
+  // Safe close — always passes the correct wasUpdated flag
+  const handleClose = useCallback(() => {
+    onClose(wasUpdatedRef.current);
+  }, [onClose]);
 
   useEffect(() => {
     if (activeTab === "activity" && !canViewActivity) setActiveTab("profile");
@@ -439,7 +539,7 @@ const AdminDetailsModal = ({
         !statusLoading &&
         !secretLoading
       )
-        onClose(false);
+        handleClose();
     };
     document.addEventListener("keydown", handler);
     document.body.style.overflow = "hidden";
@@ -447,10 +547,11 @@ const AdminDetailsModal = ({
       document.removeEventListener("keydown", handler);
       document.body.style.overflow = "unset";
     };
-  }, [isOpen, onClose, saveLoading, statusLoading, secretLoading]);
+  }, [isOpen, handleClose, saveLoading, statusLoading, secretLoading]);
 
   if (!isOpen) return null;
 
+  // ── Save profile edits ─────────────────────────────────────────────────────
   const handleSave = async () => {
     setSaveLoading(true);
     setSaveError(null);
@@ -461,15 +562,21 @@ const AdminDetailsModal = ({
         payload.username = formData.username;
       if (formData.phone !== admin.phone) payload.phone = formData.phone;
       if (formData.email !== admin.email) payload.email = formData.email;
+
       if (Object.keys(payload).length === 0) {
         setIsEditing(false);
         return;
       }
+
       const res = await updateAdmin(adminId, payload);
       const updated = res.data.data;
+
+      // Update local modal state
       setAdmin((p) => ({ ...p, ...updated }));
-      onAdminUpdate?.(adminId, updated);
       setIsEditing(false);
+
+      // ✅ Mark updated — table will refetch on close
+      markUpdated(updated);
     } catch (err) {
       setSaveError(err.response?.data?.message || "Failed to save");
     } finally {
@@ -488,6 +595,7 @@ const AdminDetailsModal = ({
     setIsEditing(false);
   };
 
+  // ── Toggle status (normal admin) ───────────────────────────────────────────
   const handleToggleStatus = async () => {
     setStatusLoading(true);
     setStatusError(null);
@@ -495,9 +603,12 @@ const AdminDetailsModal = ({
       const newActive = admin.status !== "Active";
       await toggleAdminAccess(adminId, newActive);
       const newStatus = newActive ? "Active" : "Inactive";
+
       setAdmin((p) => ({ ...p, status: newStatus, isActive: newActive }));
-      onAdminUpdate?.(adminId, { status: newStatus });
       setShowStatusConfirm(false);
+
+      // ✅ Mark updated
+      markUpdated({ status: newStatus });
     } catch (err) {
       setStatusError(err.response?.data?.message || "Failed to update status");
     } finally {
@@ -505,6 +616,7 @@ const AdminDetailsModal = ({
     }
   };
 
+  // ── Toggle status (super admin — requires secret) ──────────────────────────
   const handleSuperAdminToggle = async (secret) => {
     setSecretLoading(true);
     setSecretDialogError(null);
@@ -512,9 +624,12 @@ const AdminDetailsModal = ({
       const newActive = admin.status !== "Active";
       await toggleSuperAdminAccess(adminId, newActive, secret);
       const newStatus = newActive ? "Active" : "Inactive";
+
       setAdmin((p) => ({ ...p, status: newStatus, isActive: newActive }));
-      onAdminUpdate?.(adminId, { status: newStatus });
       setShowSecretDialog(false);
+
+      // ✅ Mark updated
+      markUpdated({ status: newStatus });
     } catch (err) {
       setSecretDialogError(
         err.response?.data?.message || "Failed to update Super Admin status",
@@ -524,7 +639,13 @@ const AdminDetailsModal = ({
     }
   };
 
-  // ── Profile tab ────────────────────────────────────────────────────────────
+  // ── Roles changed callback ─────────────────────────────────────────────────
+  const handleRolesChanged = useCallback(() => {
+    // ✅ Mark updated so table refetches (role badge in table row needs refresh)
+    markUpdated({});
+  }, [markUpdated]);
+
+  // ── Profile tab render ─────────────────────────────────────────────────────
   const renderProfile = () => (
     <div className="space-y-4">
       {saveError && (
@@ -539,7 +660,6 @@ const AdminDetailsModal = ({
         </div>
       )}
 
-      {/* Super admin indicator */}
       {admin?.is_super_cadmin && (
         <div
           className="flex items-center gap-3 bg-gradient-to-r from-purple-50 to-violet-50
@@ -550,7 +670,6 @@ const AdminDetailsModal = ({
           </div>
           <div>
             <p className="text-sm font-bold text-purple-800">Super Admin</p>
-            
           </div>
           <div className="ml-auto">
             <p className="text-xs text-purple-600/80 mt-0.5">
@@ -560,9 +679,7 @@ const AdminDetailsModal = ({
         </div>
       )}
 
-      {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Left: editable fields */}
         <div className="lg:col-span-3 bg-white rounded-xl border-2 border-gray-100 p-5 space-y-5">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
@@ -620,8 +737,8 @@ const AdminDetailsModal = ({
               onChange={(v) => setFormData((p) => ({ ...p, email: v }))}
             />
           </div>
-          {/* Status card */}
-          <div className="bg-white   space-y-1.5">
+
+          <div className="bg-white space-y-1.5">
             <p
               className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider
                           flex items-center gap-1.5"
@@ -632,9 +749,7 @@ const AdminDetailsModal = ({
           </div>
         </div>
 
-        {/* Right: static meta */}
         <div className="lg:col-span-2 space-y-3">
-          {/* Primary Role */}
           <div className="bg-white rounded-xl border-2 border-gray-100 p-4 space-y-1.5">
             <p
               className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider
@@ -653,7 +768,6 @@ const AdminDetailsModal = ({
             )}
           </div>
 
-          {/* Timestamps */}
           <div className="bg-white rounded-xl border-2 border-gray-100 p-4 space-y-3">
             <div className="space-y-1">
               <p
@@ -695,7 +809,7 @@ const AdminDetailsModal = ({
         <AdminRolesTab
           admin={admin}
           canEdit={canEdit}
-          onRolesChanged={() => onAdminUpdate?.(adminId, {})}
+          onRolesChanged={handleRolesChanged}
         />
       );
     }
@@ -746,7 +860,7 @@ const AdminDetailsModal = ({
           {fetchError.message}
         </p>
         <button
-          onClick={() => onClose(false)}
+          onClick={handleClose}
           className="mt-2 px-5 py-2 text-sm font-medium text-gray-600 border-2 border-gray-200
                      rounded-xl hover:bg-gray-50 transition-colors"
         >
@@ -761,23 +875,22 @@ const AdminDetailsModal = ({
   const tabIcon = { profile: User, roles: Shield, activity: History };
   const hasAdmin = !loading && !fetchError && admin;
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={() =>
-          !saveLoading && !statusLoading && !secretLoading && onClose(false)
+          !saveLoading && !statusLoading && !secretLoading && handleClose()
         }
       >
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
         <div
           className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl flex flex-col
-             overflow-hidden animate-in zoom-in-95 duration-200 h-[80vh]"
+                     overflow-hidden animate-in zoom-in-95 duration-200 h-[80vh]"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* ── Header ──────────────────────────────────────────────────────── */}
+          {/* ── Header ────────────────────────────────────────────────────── */}
           <div
             className={`px-6 pt-5 flex-shrink-0 transition-all duration-300
             ${
@@ -788,7 +901,6 @@ const AdminDetailsModal = ({
           >
             <div className="flex justify-between items-start gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                {/* Avatar */}
                 <div
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0
                   ${admin?.is_super_cadmin ? "bg-purple-900/40" : "bg-white/10"}`}
@@ -869,7 +981,7 @@ const AdminDetailsModal = ({
                     !saveLoading &&
                     !statusLoading &&
                     !secretLoading &&
-                    onClose(false)
+                    handleClose()
                   }
                   disabled={saveLoading || statusLoading || secretLoading}
                   className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-white/20
@@ -909,7 +1021,7 @@ const AdminDetailsModal = ({
             )}
           </div>
 
-          {/* ── Content ─────────────────────────────────────────────────────── */}
+          {/* ── Content ───────────────────────────────────────────────────── */}
           <div className="flex-1 overflow-y-auto p-5 bg-gray-50/50">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -922,7 +1034,8 @@ const AdminDetailsModal = ({
               renderTabContent()
             )}
           </div>
-          {/* ── Footer ──────────────────────────────────────────────────────── */}
+
+          {/* ── Footer ────────────────────────────────────────────────────── */}
           {hasAdmin && (
             <div
               className="px-6 py-3.5 bg-white border-t border-gray-100

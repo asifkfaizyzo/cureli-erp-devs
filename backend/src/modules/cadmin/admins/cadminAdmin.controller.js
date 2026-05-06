@@ -11,6 +11,8 @@ import {
   getAdminActivityService,
   createSuperAdminService,
   toggleSuperAdminAccessService,
+  assignAdminRolesService,
+  getAdminRolesService,
 } from "./cadminAdmin.service.js";
 
 export async function getAdminsController(req, res) {
@@ -117,5 +119,28 @@ export async function toggleSuperAdminAccessController(req, res) {
   } catch (err) {
     console.error("cadmin.admins.toggleSuperAdminAccess", err);
     return fail(res, err.message || "Failed to update Super Admin access", err.status || 500);
+  }
+}
+
+export async function getAdminRolesController(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await getAdminRolesService(id);
+    return success(res, result);
+  } catch (err) {
+    console.error("cadmin.admins.getRoles", err);
+    return fail(res, err.message || "Failed to fetch roles", err.status || 500);
+  }
+}
+
+export async function assignAdminRolesController(req, res) {
+  try {
+    const { id } = req.params;
+    const auditContext = audit.extractRequestContext(req);
+    const result = await assignAdminRolesService(id, req.validated, auditContext);
+    return success(res, result, "Roles updated successfully");
+  } catch (err) {
+    console.error("cadmin.admins.assignRoles", err);
+    return fail(res, err.message || "Failed to update roles", err.status || 500);
   }
 }

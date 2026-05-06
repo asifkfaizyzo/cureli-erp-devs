@@ -1,5 +1,3 @@
-// backend/index.js
-
 import "./env.js";
 import express from "express";
 import cookieParser from "cookie-parser";
@@ -13,7 +11,8 @@ import { initializeCronJobs } from "./src/cron/jobs.js";
 // MIDDLEWARE IMPORTS
 // ============================================
 import maintenanceMiddleware from "./src/middleware/maintenance.js";
-import { globalLimiter, cadminLimiter  } from "./src/middleware/rateLimiter.js";
+// CHANGED: added relaxedLimiter to import
+import { globalLimiter, cadminLimiter, relaxedLimiter } from "./src/middleware/rateLimiter.js";
 import publicUnsubscribeRoutes from "./src/modules/public/unsubscribe/unsubscribe.routes.js";
 
 // ROUTES
@@ -92,10 +91,44 @@ app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
 // ============================================
-// MAINTENANCE + RATE LIMIT
+// MAINTENANCE + RATE LIMITING
 // ============================================
+// ORDER MATTERS. Express applies middleware top-to-bottom.
+// Routes mounted before globalLimiter are excluded from it.
+//
+// Exclusion order:
+//   1. maintenanceMiddleware   — always first, checks MAINTENANCE_MODE env
+//   2. /api/maintenance        — app startup check, must never be rate limited
+//   3. /api/notifications/stream — SSE persistent connection, not a repeated
+//                                  request. Limiting it would disconnect users.
+//   4. Relaxed limits          — system-driven polling routes declared before
+//                                globalLimiter so they get their own bucket
+//   5. globalLimiter           — catches everything else under /api/*
+//   6. cadminLimiter           — catches everything under /cadmin/*
+// ============================================
+
 app.use(maintenanceMiddleware);
+
+// CHANGED: maintenance route mounted — was missing before, caused 404
+app.use("/api/maintenance", maintenanceRoutes);
+
+// CHANGED: SSE stream excluded from rate limiting entirely.
+// The route does its own inline JWT verification — unauthenticated
+// connections are rejected with 401 before any stream is opened.
+// Persistent connections must never count against a per-minute bucket.
+app.use("/api/notifications/stream", (req, res, next) => next());
+
+// CHANGED: relaxedLimiter applied to polling-heavy routes BEFORE globalLimiter.
+// These fire automatically (not user-driven) so they need a separate bucket.
+// Must be declared before app.use("/api", globalLimiter) or globalLimiter wins.
+app.use("/api/notifications/unread-count", relaxedLimiter);
+app.use("/api/notifications/recent", relaxedLimiter);
+app.use("/api/purchase/returns", relaxedLimiter);
+
+// Global limiter — catches all remaining /api/* routes
 app.use("/api", globalLimiter);
+
+// CAdmin limiter — now also per-user keyed
 app.use("/cadmin", cadminLimiter);
 
 // ============================================
@@ -123,6 +156,8 @@ app.use(
 
 // ============================================
 // ROUTES
+// ============================================
+// No changes below this line — all route mounts unchanged
 // ============================================
 app.use("/api/files", filesRoutes);
 app.use("/api/auth", authRoutes);

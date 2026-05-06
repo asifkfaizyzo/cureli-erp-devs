@@ -410,14 +410,6 @@ export async function getAdminRolesService(cadmin_id) {
 export async function assignRolesService(cadmin_id, data, auditContext = {}) {
   const { role_ids, primary_role_id } = data;
 
-  // Validate primary is in the list
-  if (!role_ids.includes(primary_role_id)) {
-    throw createError(
-      "primary_role_id must be one of the role_ids provided",
-      400,
-    );
-  }
-
   // Load target admin
   const admin = await prisma.cAdmin.findUnique({
     where: { cadmin_id },
@@ -431,7 +423,6 @@ export async function assignRolesService(cadmin_id, data, auditContext = {}) {
 
   if (!admin) throw createError("Admin not found", 404);
 
-  // Block assignment to SUPER_CADMIN
   if (admin.is_super_cadmin) {
     throw createError(
       "Cannot assign roles to a Super Admin — they have full access by default",
@@ -439,42 +430,51 @@ export async function assignRolesService(cadmin_id, data, auditContext = {}) {
     );
   }
 
-  // Validate all role_ids exist and are not deleted
-  const roles = await prisma.cAdminCustomRole.findMany({
-    where: {
-      role_id: { in: role_ids },
-      is_deleted: false,
-    },
-    select: { role_id: true, name: true },
-  });
+  // Only validate roles if we're actually assigning some
+  if (role_ids.length > 0) {
+    if (!primary_role_id) {
+      throw createError("primary_role_id is required when role_ids are provided", 400);
+    }
+    if (!role_ids.includes(primary_role_id)) {
+      throw createError("primary_role_id must be one of the role_ids provided", 400);
+    }
 
-  if (roles.length !== role_ids.length) {
-    const foundIds = roles.map((r) => r.role_id);
-    const missingIds = role_ids.filter((id) => !foundIds.includes(id));
-    throw createError(
-      `Some roles not found or have been deleted: ${missingIds.join(", ")}`,
-      404,
-    );
+    const roles = await prisma.cAdminCustomRole.findMany({
+      where: { role_id: { in: role_ids }, is_deleted: false },
+      select: { role_id: true, name: true },
+    });
+
+    if (roles.length !== role_ids.length) {
+      const foundIds = roles.map((r) => r.role_id);
+      const missingIds = role_ids.filter((id) => !foundIds.includes(id));
+      throw createError(
+        `Some roles not found or have been deleted: ${missingIds.join(", ")}`,
+        404,
+      );
+    }
   }
 
-  // Fetch current assignments for audit diff
+  // Snapshot previous state for audit
   const previousAssignments = await prisma.cAdminRoleAssignment.findMany({
     where: { cadmin_id },
     select: { role_id: true, is_primary: true },
   });
 
   await prisma.$transaction(async (tx) => {
-    // Full replacement — delete all existing, re-create with new set
+    // Delete all existing assignments
     await tx.cAdminRoleAssignment.deleteMany({ where: { cadmin_id } });
 
-    await tx.cAdminRoleAssignment.createMany({
-      data: role_ids.map((role_id) => ({
-        cadmin_id,
-        role_id,
-        is_primary: role_id === primary_role_id,
-        assigned_by: auditContext.actor_id || null,
-      })),
-    });
+    // Only create new ones if role_ids is non-empty
+    if (role_ids.length > 0) {
+      await tx.cAdminRoleAssignment.createMany({
+        data: role_ids.map((role_id) => ({
+          cadmin_id,
+          role_id,
+          is_primary: role_id === primary_role_id,
+          assigned_by: auditContext.actor_id || null,
+        })),
+      });
+    }
 
     await audit.log(
       {
@@ -484,19 +484,17 @@ export async function assignRolesService(cadmin_id, data, auditContext = {}) {
         ...auditContext,
         reason_code: audit.AuditReasonCode.ADMIN_ACTION,
         metadata: {
-          event: "roles_assigned",
+          event: role_ids.length === 0 ? "all_roles_removed" : "roles_assigned",
           admin_name: admin.name,
           previous_role_ids: previousAssignments.map((a) => a.role_id),
           new_role_ids: role_ids,
-          primary_role_id,
-          role_names: roles.map((r) => r.name),
+          primary_role_id: primary_role_id ?? null,
         },
       },
       { tx },
     );
   });
 
-  // Return updated assignments
   return getAdminRolesService(cadmin_id);
 }
 
