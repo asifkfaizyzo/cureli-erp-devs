@@ -54,6 +54,22 @@ function createError(message, code) {
 }
 
 // ============================================
+// VALIDATION HELPERS
+// ============================================
+
+function validateEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function validatePhoneNumber(phone) {
+  // Accepts 10-digit Indian mobile numbers starting with 6-9
+  // Adjust regex to match your requirements
+  const phoneRegex = /^[6-9]\d{9}$/;
+  return phoneRegex.test(phone);
+}
+
+// ============================================
 // GET USERS
 // ============================================
 
@@ -342,29 +358,86 @@ export async function updateUserService(
   cadmin_id,
   auditContext = {},
 ) {
+  // ── 1. Build allowed fields ──────────────────────────────
   const allowed = {};
-  if (payload.first_name != null) allowed.first_name = payload.first_name;
-  if (payload.last_name != null) allowed.last_name = payload.last_name;
-  if (payload.full_name != null) allowed.full_name = payload.full_name;
-  if (payload.username != null) allowed.username = payload.username;
-  if (payload.role != null) allowed.role = mapRoleToDb(payload.role);
+
+  if (payload.first_name   != null) allowed.first_name   = String(payload.first_name).trim();
+  if (payload.last_name    != null) allowed.last_name    = String(payload.last_name).trim();
+  if (payload.full_name    != null) allowed.full_name    = String(payload.full_name).trim();
+  if (payload.username     != null) allowed.username     = String(payload.username).trim();
+  if (payload.role         != null) allowed.role         = mapRoleToDb(payload.role);
+  if (payload.email        != null) allowed.email        = String(payload.email).trim().toLowerCase();
+  if (payload.phone_number != null) allowed.phone_number = String(payload.phone_number).trim();
 
   if (Object.keys(allowed).length === 0) {
+    throw createError("No valid fields provided for update", "VALIDATION_ERROR");
+  }
+
+  // ── 2. Format validations ────────────────────────────────
+  if (allowed.email && !validateEmail(allowed.email)) {
+    throw createError("Invalid email format", "VALIDATION_ERROR");
+  }
+
+  if (allowed.phone_number && !validatePhoneNumber(allowed.phone_number)) {
     throw createError(
-      "No valid fields provided for update",
+      "Invalid phone number. Must be a 10-digit Indian mobile number starting with 6-9.",
       "VALIDATION_ERROR",
     );
   }
 
+  // ── 3. Uniqueness checks ─────────────────────────────────
+  if (allowed.email) {
+    const emailTaken = await prisma.user.findFirst({
+      where: {
+        email: allowed.email,
+        NOT: { user_id: id },
+      },
+      select: { user_id: true },
+    });
+    if (emailTaken) {
+      throw createError("This email is already in use by another account.", "CONFLICT");
+    }
+  }
+
+  if (allowed.username) {
+    const usernameTaken = await prisma.user.findFirst({
+      where: {
+        username: allowed.username,
+        NOT: { user_id: id },
+      },
+      select: { user_id: true },
+    });
+    if (usernameTaken) {
+      throw createError("This username is already taken.", "CONFLICT");
+    }
+  }
+
+  if (allowed.phone_number) {
+    const phoneTaken = await prisma.user.findFirst({
+      where: {
+        phone_number: allowed.phone_number,
+        NOT: { user_id: id },
+      },
+      select: { user_id: true },
+    });
+    if (phoneTaken) {
+      throw createError("This phone number is already in use by another account.", "CONFLICT");
+    }
+  }
+
+  // ── 4. Fetch existing user ───────────────────────────────
   const existing = await prisma.user.findUnique({
     where: { user_id: id },
     select: {
-      user_id: true,
-      first_name: true,
-      last_name: true,
-      username: true,
-      role: true,
-      shop_id: true,
+      user_id:      true,
+      first_name:   true,
+      last_name:    true,
+      full_name:    true,
+      username:     true,
+      email:        true,
+      phone_number: true,
+      role:         true,
+      shop_id:      true,
     },
   });
 
@@ -372,7 +445,7 @@ export async function updateUserService(
     throw createError("User not found", "NOT_FOUND");
   }
 
-  // Track changes
+  // ── 5. Detect actual changes ─────────────────────────────
   const changes = {};
   for (const [key, newValue] of Object.entries(allowed)) {
     const oldValue = existing[key];
@@ -381,76 +454,76 @@ export async function updateUserService(
     }
   }
 
+  // Nothing really changed — return current state
   if (Object.keys(changes).length === 0) {
-    // No actual changes
     const formatted = await prisma.user.findUnique({
       where: { user_id: id },
       select: {
-        user_id: true,
-        first_name: true,
-        last_name: true,
-        full_name: true,
-        username: true,
-        email: true,
-        role: true,
-        is_active: true,
+        user_id:      true,
+        first_name:   true,
+        last_name:    true,
+        full_name:    true,
+        username:     true,
+        email:        true,
+        phone_number: true,
+        role:         true,
+        is_active:    true,
         last_login_at: true,
-        created_at: true,
-        updated_at: true,
+        created_at:   true,
+        updated_at:   true,
       },
     });
     return formatUserResponse(formatted);
   }
 
+  // ── 6. Persist inside a transaction ─────────────────────
   const result = await prisma.$transaction(async (tx) => {
     const updated = await tx.user.update({
       where: { user_id: id },
       data: allowed,
       select: {
-        user_id: true,
-        first_name: true,
-        last_name: true,
-        full_name: true,
-        username: true,
-        email: true,
-        role: true,
-        is_active: true,
+        user_id:      true,
+        first_name:   true,
+        last_name:    true,
+        full_name:    true,
+        username:     true,
+        email:        true,
+        phone_number: true,
+        role:         true,
+        is_active:    true,
         last_login_at: true,
-        created_at: true,
-        updated_at: true,
-        shop_id: true,
+        created_at:   true,
+        updated_at:   true,
+        shop_id:      true,
       },
     });
 
-    // Legacy activity log
     const changedFields = Object.keys(changes);
-    const isRoleChange = changedFields.includes("role");
+    const isRoleChange  = changedFields.includes("role");
 
+    // Legacy activity log
     await tx.activityLog.create({
       data: {
         activity_id: cryptoRandomUUID(),
-        user_id: id,
-        action: isRoleChange ? "role_change" : "profile_update",
+        user_id:     id,
+        action:      isRoleChange ? "role_change" : "profile_update",
         description: `Fields changed by admin: ${changedFields.join(", ")}`,
-        ip_address: null,
-        user_agent: null,
+        ip_address:  null,
+        user_agent:  null,
       },
     });
 
-    //  AUDIT: Determine action based on changes
-    let auditAction;
-    if (isRoleChange) {
-      auditAction = audit.AuditAction.USER_ROLE_CHANGED_BY_ADMIN;
-    } else {
-      auditAction = audit.AuditAction.USER_PROFILE_UPDATED_BY_ADMIN;
-    }
+    // Audit log
+    const auditAction = isRoleChange
+      ? audit.AuditAction.USER_ROLE_CHANGED_BY_ADMIN
+      : audit.AuditAction.USER_PROFILE_UPDATED_BY_ADMIN;
 
     await audit.log(
       {
-        action: auditAction,
+        action:      auditAction,
         entity_type: audit.EntityType.USER,
-        entity_id: id,
-        shop_id: updated.shop_id || null,
+        entity_id:   id,
+        shop_id:     updated.shop_id || null,
         ...auditContext,
         reason_code: audit.AuditReasonCode.ADMIN_ACTION,
         metadata: {
@@ -464,7 +537,7 @@ export async function updateUserService(
           updated_by_cadmin_id: cadmin_id,
           ...(isRoleChange && {
             previous_role: changes.role.old,
-            new_role: changes.role.new,
+            new_role:      changes.role.new,
           }),
         },
       },
@@ -490,9 +563,9 @@ export async function toggleUserAccessService(
   const existing = await prisma.user.findUnique({
     where: { user_id: id },
     select: {
-      user_id: true,
+      user_id:   true,
       is_active: true,
-      shop_id: true,
+      shop_id:   true,
       full_name: true,
     },
   });
@@ -502,12 +575,10 @@ export async function toggleUserAccessService(
   }
 
   if (existing.is_active === is_active) {
-    // No change needed
     return {
-      id: existing.user_id,
+      id:        existing.user_id,
       is_active: existing.is_active,
-      name: existing.full_name,
-      username: existing.username,
+      name:      existing.full_name,
     };
   }
 
@@ -516,11 +587,11 @@ export async function toggleUserAccessService(
       where: { user_id: id },
       data: { is_active },
       select: {
-        user_id: true,
+        user_id:   true,
         is_active: true,
         full_name: true,
-        username: true,
-        shop_id: true,
+        username:  true,
+        shop_id:   true,
       },
     });
 
@@ -528,31 +599,31 @@ export async function toggleUserAccessService(
     await tx.activityLog.create({
       data: {
         activity_id: cryptoRandomUUID(),
-        user_id: id,
-        action: "status_change",
+        user_id:     id,
+        action:      "status_change",
         description: is_active ? "Activated by cadmin" : "Suspended by cadmin",
-        ip_address: null,
-        user_agent: null,
+        ip_address:  null,
+        user_agent:  null,
       },
     });
 
-    //  AUDIT: User activated or suspended by admin
+    // Audit log
     const auditAction = is_active
       ? audit.AuditAction.USER_ACTIVATED_BY_ADMIN
       : audit.AuditAction.USER_SUSPENDED_BY_ADMIN;
 
     await audit.log(
       {
-        action: auditAction,
+        action:      auditAction,
         entity_type: audit.EntityType.USER,
-        entity_id: id,
-        shop_id: updated.shop_id || null,
+        entity_id:   id,
+        shop_id:     updated.shop_id || null,
         ...auditContext,
         reason_code: audit.AuditReasonCode.ADMIN_ACTION,
         metadata: {
-          activated_by_cadmin_id: is_active ? cadmin_id : undefined,
+          activated_by_cadmin_id:  is_active  ? cadmin_id : undefined,
+          suspended_by_cadmin_id:  !is_active ? cadmin_id : undefined,
           reason: is_active ? "Activated by admin" : "Suspended by admin",
-          suspended_by_cadmin_id: !is_active ? cadmin_id : undefined,
         },
       },
       { tx },
@@ -562,10 +633,10 @@ export async function toggleUserAccessService(
   });
 
   return {
-    id: result.user_id,
+    id:        result.user_id,
     is_active: result.is_active,
-    name: result.full_name,
-    username: result.username,
+    name:      result.full_name,
+    username:  result.username,
   };
 }
 
@@ -581,10 +652,10 @@ export async function resetUserPasswordService(
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: {
-      user_id: true,
-      email: true,
+      user_id:   true,
+      email:     true,
       full_name: true,
-      shop_id: true,
+      shop_id:   true,
     },
   });
 
@@ -593,18 +664,18 @@ export async function resetUserPasswordService(
   }
 
   if (!user.email) {
-    throw createError("User has no email", "NO_EMAIL");
+    throw createError("User has no email address on file.", "NO_EMAIL");
   }
 
   const resetToken = generateResetToken();
-  const hashed = hashToken(resetToken);
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  const hashed     = hashToken(resetToken);
+  const expiresAt  = new Date(Date.now() + 15 * 60 * 1000); // 15 min
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { user_id: userId },
       data: {
-        reset_token: hashed,
+        reset_token:         hashed,
         reset_token_expires: expiresAt,
       },
     });
@@ -613,26 +684,26 @@ export async function resetUserPasswordService(
     await tx.activityLog.create({
       data: {
         activity_id: cryptoRandomUUID(),
-        user_id: userId,
-        action: "password_change",
+        user_id:     userId,
+        action:      "password_change",
         description: "Password reset link generated by cadmin",
-        ip_address: null,
-        user_agent: null,
+        ip_address:  null,
+        user_agent:  null,
       },
     });
 
-    //  AUDIT: Password reset by admin
+    // Audit log
     await audit.log(
       {
-        action: audit.AuditAction.USER_PASSWORD_RESET_BY_ADMIN,
+        action:      audit.AuditAction.USER_PASSWORD_RESET_BY_ADMIN,
         entity_type: audit.EntityType.USER,
-        entity_id: userId,
-        shop_id: user.shop_id || null,
+        entity_id:   userId,
+        shop_id:     user.shop_id || null,
         ...auditContext,
         reason_code: audit.AuditReasonCode.SECURITY_ACTION,
         metadata: {
           reset_by_cadmin_id: cadmin_id,
-          method: "email_link",
+          method:             "email_link",
           expires_in_minutes: 15,
         },
       },
@@ -644,12 +715,11 @@ export async function resetUserPasswordService(
     process.env.ERP_FRONTEND_ORIGIN || process.env.ADMIN_FRONTEND_ORIGIN
   }/reset-password?token=${resetToken}&uid=${userId}`;
 
-  // Send notification
   await notify({
     type: NOTIFICATION_EVENTS.PASSWORD_RESET_REQUESTED,
     context: {
-      email: user.email,
-      name: user.full_name || user.email,
+      email:             user.email,
+      name:              user.full_name || user.email,
       resetUrl,
       expires_in_minutes: 15,
     },
@@ -664,16 +734,17 @@ export async function resetUserPasswordService(
 
 function formatUserResponse(u) {
   return {
-    id: u.user_id,
-    first_name: u.first_name,
-    last_name: u.last_name,
-    name: u.full_name,
-    username: u.username,
-    email: u.email,
-    role: formatRole(u.role),
-    is_active: u.is_active,
-    lastLogin: u.last_login_at ? formatDateDDMMYYYY(u.last_login_at) : "Never",
-    created_at: u.created_at,
-    updated_at: u.updated_at,
+    id:           u.user_id,
+    first_name:   u.first_name,
+    last_name:    u.last_name,
+    name:         u.full_name,
+    username:     u.username,
+    email:        u.email,
+    phone_number: u.phone_number,
+    role:         formatRole(u.role),
+    is_active:    u.is_active,
+    lastLogin:    u.last_login_at ? formatDateDDMMYYYY(u.last_login_at) : "Never",
+    created_at:   u.created_at,
+    updated_at:   u.updated_at,
   };
 }
