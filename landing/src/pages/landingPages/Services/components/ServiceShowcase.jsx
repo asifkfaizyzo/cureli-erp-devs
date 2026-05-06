@@ -13,10 +13,10 @@ import {
 } from "lucide-react";
 import Carousel from "../../../../components/ui/Carousel";
 
-import erpDashboard from "../../../../assets/images/dashoard.png";
-import erpBilling from "../../../../assets/images/purchase.png";
-import erpInventory from "../../../../assets/images/sales.png";
-import erpReports from "../../../../assets/images/inventory.png";
+import erpDashboard from "../../../../assets/images/dashoard_result.webp";
+import erpBilling from "../../../../assets/images/purchase_result.webp";
+import erpInventory from "../../../../assets/images/sales_result.webp";
+import erpReports from "../../../../assets/images/inventory_result.webp";
 
 // ============================================
 // CAROUSEL ITEMS
