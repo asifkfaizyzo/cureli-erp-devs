@@ -95,6 +95,7 @@ app.use(cookieParser());
 // MAINTENANCE + RATE LIMIT
 // ============================================
 app.use(maintenanceMiddleware);
+app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api", globalLimiter);
 app.use("/cadmin", cadminLimiter);
 
